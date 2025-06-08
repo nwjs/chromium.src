@@ -101,7 +101,7 @@ struct ShapeResultCharacterData {
 };
 
 // A space should be appended after `offset` with the width of `spacing`.
-struct OffsetWithSpacing {
+struct PLATFORM_EXPORT OffsetWithSpacing {
   wtf_size_t offset;
   float spacing;
 };
@@ -180,7 +180,9 @@ class PLATFORM_EXPORT ShapeResult : public GarbageCollected<ShapeResult> {
   float Width() const { return width_; }
   LayoutUnit SnappedWidth() const { return LayoutUnit::FromFloatCeil(width_); }
   unsigned NumCharacters() const { return num_characters_; }
-  unsigned NumGlyphs() const { return num_glyphs_; }
+
+  bool HasLigatures() const;
+  unsigned NumGlyphs() const;
   bool HasFallbackFonts(const SimpleFontData* primary_font) const;
 
   // TODO(eae): Remove start_x and return value once ShapeResultBuffer has been
@@ -514,8 +516,7 @@ class PLATFORM_EXPORT ShapeResult : public GarbageCollected<ShapeResult> {
   mutable float width_ = 0;
 
   unsigned start_index_ = 0;
-  unsigned num_characters_ = 0;
-  unsigned num_glyphs_ : 29 = 0;
+  unsigned num_characters_ : 29 = 0;
 
   // Overall direction for the TextRun, dictates which order each individual
   // sub run (represented by ShapeResultRun structs in the m_runs vector) can
@@ -529,7 +530,7 @@ class PLATFORM_EXPORT ShapeResult : public GarbageCollected<ShapeResult> {
   unsigned is_applied_spacing_ : 1 = false;
 
   // Note: When you add more bit flags, please consider to reduce size of
-  // |num_glyphs_| or |num_characters_|.
+  // |num_characters_|.
 
  private:
   friend class HarfBuzzShaper;

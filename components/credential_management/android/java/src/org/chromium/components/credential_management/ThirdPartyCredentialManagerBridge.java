@@ -27,6 +27,8 @@ import org.chromium.base.ResettersForTesting;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 
+import java.util.Collections;
+
 /** A bridge for interacting with Credential Manager. */
 @JNINamespace("credential_management")
 @NullMarked
@@ -42,18 +44,25 @@ class ThirdPartyCredentialManagerBridge {
     }
 
     @CalledByNative
-    void get(String origin, Callback<PasswordCredentialResponse> callback) {
+    void get(
+            boolean isAutoSelectAllowed,
+            boolean includePasswords,
+            String origin,
+            Callback<PasswordCredentialResponse> callback) {
         Context context = ContextUtils.getApplicationContext();
         CredentialManager credentialManager =
                 sCredentialManagerForTesting == null
                         ? CredentialManager.create(context)
                         : sCredentialManagerForTesting;
-        GetPasswordOption passwordOption = new GetPasswordOption();
-        GetCredentialRequest getPasswordRequest =
-                new GetCredentialRequest.Builder()
-                        .addCredentialOption(passwordOption)
-                        .setOrigin(origin)
-                        .build();
+        GetPasswordOption passwordOption =
+                new GetPasswordOption(
+                        Collections.emptySet(), isAutoSelectAllowed, Collections.emptySet());
+        GetCredentialRequest.Builder getCredentialRequestBuilder =
+                new GetCredentialRequest.Builder();
+        if (includePasswords) {
+            getCredentialRequestBuilder.addCredentialOption(passwordOption);
+        }
+        getCredentialRequestBuilder.setOrigin(origin);
 
         CredentialManagerCallback<GetCredentialResponse, GetCredentialException>
                 credentialCallback =
@@ -69,7 +78,7 @@ class ThirdPartyCredentialManagerBridge {
                             }
                         };
         credentialManager.getCredentialAsync(
-                context, getPasswordRequest, null, Runnable::run, credentialCallback);
+                context, getCredentialRequestBuilder.build(), null, Runnable::run, credentialCallback);
     }
 
     @CalledByNative

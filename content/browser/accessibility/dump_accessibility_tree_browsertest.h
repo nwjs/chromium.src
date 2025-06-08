@@ -6,6 +6,7 @@
 #define CONTENT_BROWSER_ACCESSIBILITY_DUMP_ACCESSIBILITY_TREE_BROWSERTEST_H_
 
 #include "base/command_line.h"
+#include "components/ukm/test_ukm_recorder.h"
 #include "content/browser/accessibility/dump_accessibility_browsertest_base.h"
 #include "content/public/common/content_switches.h"
 #include "ui/accessibility/accessibility_features.h"
@@ -26,6 +27,9 @@ constexpr const char kTestHarness[]{"test-harness"};
 
 // See content/test/data/accessibility/readme.md for an overview.
 //
+// Use tools/accessibility/rebase_dump_accessibility_tree_tests.py to
+// update test expectations.
+//
 // This test takes a snapshot of the platform BrowserAccessibility tree and
 // tests it against an expected baseline.
 //
@@ -39,9 +43,16 @@ constexpr const char kTestHarness[]{"test-harness"};
 //    exactly match.
 class DumpAccessibilityTreeTest : public DumpAccessibilityTestBase {
  public:
+  DumpAccessibilityTreeTest();
+  ~DumpAccessibilityTreeTest() override;
+
   std::vector<ui::AXPropertyFilter> DefaultFilters() const override;
 
   void SetUpCommandLine(base::CommandLine* command_line) override;
+
+  void SetUpOnMainThread() override;
+
+  ukm::TestUkmRecorder& recorder() { return *ukm_recorder_; }
 
   std::vector<std::string> Dump() override;
 
@@ -62,6 +73,12 @@ class DumpAccessibilityTreeTest : public DumpAccessibilityTestBase {
 
   void RunFormControlsTest(const base::FilePath::CharType* file_path) {
     RunTypedTest<kFormControls>(file_path, ui::kAXModeFormControls);
+  }
+
+  void RunNoScreenReaderDisplayLockingTest(
+      const base::FilePath::CharType* file_path) {
+    RunTypedTest<kDisplayLocking>(file_path, ui::kAXModeComplete,
+                                  FILE_PATH_LITERAL("no-screen-reader"));
   }
 
   void RunOnScreenTest(const base::FilePath::CharType* file_path) {
@@ -85,6 +102,8 @@ class DumpAccessibilityTreeTest : public DumpAccessibilityTestBase {
   void ChooseFeatures(
       std::vector<base::test::FeatureRef>* enabled_features,
       std::vector<base::test::FeatureRef>* disabled_features) override;
+
+  std::unique_ptr<ukm::TestAutoSetUkmRecorder> ukm_recorder_;
 };
 
 }  // namespace content

@@ -29,7 +29,7 @@
 #import "ios/chrome/browser/location_bar/ui_bundled/location_bar_metrics.h"
 #import "ios/chrome/browser/location_bar/ui_bundled/location_bar_steady_view.h"
 #import "ios/chrome/browser/omnibox/public/omnibox_constants.h"
-#import "ios/chrome/browser/omnibox/ui_bundled/text_field_view_containing.h"
+#import "ios/chrome/browser/omnibox/ui/text_field_view_containing.h"
 #import "ios/chrome/browser/orchestrator/ui_bundled/location_bar_offset_provider.h"
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
 #import "ios/chrome/browser/shared/model/prefs/pref_names.h"
@@ -428,6 +428,11 @@ const CGFloat kShareIconBalancingHeightPadding = 1;
   if (_placeholderType == LocationBarPlaceholderType::kLensOverlay) {
     RecordLensEntrypointAvailable();
   }
+}
+
+- (void)focusSteadyViewForVoiceOver {
+  UIAccessibilityPostNotification(UIAccessibilityScreenChangedNotification,
+                                  self.locationBarSteadyView);
 }
 
 #pragma mark - LocationBarAnimatee
@@ -1007,7 +1012,11 @@ const CGFloat kShareIconBalancingHeightPadding = 1;
 
 - (void)handleLensEntrypointPressed {
   RecordAction(UserMetricsAction("MobileToolbarLensOverlayTap"));
-  [self openLensOverlay];
+  if (self.lensOverlayVisible) {
+    [self destroyLensOverlay];
+  } else {
+    [self openLensOverlay];
+  }
 }
 
 - (void)handlePageActionMenuEntrypointTapped {
@@ -1038,6 +1047,13 @@ const CGFloat kShareIconBalancingHeightPadding = 1;
                             completion:nil];
 }
 
+// Creates and shows the lens overlay UI.
+- (void)destroyLensOverlay {
+  TriggerHapticFeedbackForSelectionChange();
+  [self.dispatcher destroyLensUI:YES
+                          reason:lens::LensOverlayDismissalSource::kToolbar];
+}
+
 - (void)updatePlaceholderView {
   switch (_placeholderType) {
     case LocationBarPlaceholderType::kNone:
@@ -1052,6 +1068,15 @@ const CGFloat kShareIconBalancingHeightPadding = 1;
           _pageActionMenuEntrypointView;
       break;
   }
+}
+
+- (void)setLensOverlayVisible:(BOOL)lensOverlayVisible {
+  if (lensOverlayVisible == _lensOverlayVisible) {
+    return;
+  }
+
+  _lensOverlayVisible = lensOverlayVisible;
+  [_lensOverlayPlaceholderView setLensOverlayActive:lensOverlayVisible];
 }
 
 @end

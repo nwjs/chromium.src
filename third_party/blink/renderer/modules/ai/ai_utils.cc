@@ -8,6 +8,7 @@
 #include <iterator>
 
 #include "third_party/blink/renderer/bindings/modules/v8/v8_language_model_create_core_options.h"
+#include "third_party/blink/renderer/bindings/modules/v8/v8_language_model_message_type.h"
 
 namespace blink {
 
@@ -15,7 +16,7 @@ namespace {
 
 mojom::blink::AISummarizerType ToMojoSummarizerType(V8SummarizerType type) {
   switch (type.AsEnum()) {
-    case V8SummarizerType::Enum::kTlDr:
+    case V8SummarizerType::Enum::kTldr:
       return mojom::blink::AISummarizerType::kTLDR;
     case V8SummarizerType::Enum::kKeyPoints:
       return mojom::blink::AISummarizerType::kKeyPoints;
@@ -151,6 +152,28 @@ mojom::blink::AIRewriterCreateOptionsPtr ToMojoRewriterCreateOptionsImpl(
           options->getOutputLanguageOr(g_empty_string)));
 }
 
+mojom::blink::AIProofreaderCreateOptionsPtr ToMojoProofreaderCreateOptionsImpl(
+    const ProofreaderCreateCoreOptions* options) {
+  return mojom::blink::AIProofreaderCreateOptions::New(
+      options->includeCorrectionTypes(),
+      options->includeCorrectionExplanations(),
+      mojom::blink::AILanguageCode::New(
+          options->getCorrectionExplanationLanguageOr(g_empty_string)),
+      ToMojoLanguageCodes(options->getExpectedInputLanguagesOr({})));
+}
+
+mojom::blink::AILanguageModelPromptType ToMojoInputType(
+    V8LanguageModelMessageType type) {
+  switch (type.AsEnum()) {
+    case V8LanguageModelMessageType::Enum::kText:
+      return mojom::blink::AILanguageModelPromptType::kText;
+    case V8LanguageModelMessageType::Enum::kAudio:
+      return mojom::blink::AILanguageModelPromptType::kAudio;
+    case V8LanguageModelMessageType::Enum::kImage:
+      return mojom::blink::AILanguageModelPromptType::kImage;
+  }
+}
+
 }  // namespace
 
 Vector<mojom::blink::AILanguageCodePtr> ToMojoLanguageCodes(
@@ -161,6 +184,23 @@ Vector<mojom::blink::AILanguageCodePtr> ToMojoLanguageCodes(
       language_codes, std::back_inserter(result),
       [](const String& language_code) {
         return mojom::blink::AILanguageCode::New(language_code);
+      });
+  return result;
+}
+
+Vector<mojom::blink::AILanguageModelExpectedPtr> ToMojoExpectations(
+    const HeapVector<Member<LanguageModelExpected>>& expected_inputs) {
+  Vector<mojom::blink::AILanguageModelExpectedPtr> result;
+  result.reserve(expected_inputs.size());
+  std::ranges::transform(
+      expected_inputs, std::back_inserter(result),
+      [](const Member<LanguageModelExpected>& expected_input) {
+        auto value = mojom::blink::AILanguageModelExpected::New();
+        value->type = ToMojoInputType(expected_input->type());
+        if (expected_input->hasLanguages()) {
+          value->languages = ToMojoLanguageCodes(expected_input->languages());
+        }
+        return value;
       });
   return result;
 }
@@ -226,6 +266,16 @@ mojom::blink::AIRewriterCreateOptionsPtr ToMojoRewriterCreateOptions(
   return ToMojoRewriterCreateOptionsImpl(core_options, g_empty_string);
 }
 
+mojom::blink::AIProofreaderCreateOptionsPtr ToMojoProofreaderCreateOptions(
+    const ProofreaderCreateOptions* options) {
+  return ToMojoProofreaderCreateOptionsImpl(options);
+}
+
+mojom::blink::AIProofreaderCreateOptionsPtr ToMojoProofreaderCreateOptions(
+    const ProofreaderCreateCoreOptions* core_options) {
+  return ToMojoProofreaderCreateOptionsImpl(core_options);
+}
+
 std::optional<Vector<String>> ValidateAndCanonicalizeBCP47Languages(
     v8::Isolate* isolate,
     const Vector<String>& languages) {
@@ -245,6 +295,24 @@ std::optional<Vector<String>> ValidateAndCanonicalizeBCP47Languages(
     }
   }
   return canonicalized_languages;
+}
+
+bool RequiresUserActivation(Availability availability) {
+  return availability == Availability::kDownloadable ||
+         availability == Availability::kDownloading;
+}
+
+RunOnDestruction::RunOnDestruction(base::OnceClosure callback)
+    : callback_(std::move(callback)) {}
+
+RunOnDestruction::~RunOnDestruction() {
+  if (!callback_.is_null()) {
+    std::move(callback_).Run();
+  }
+}
+
+void RunOnDestruction::Reset() {
+  callback_.Reset();
 }
 
 }  // namespace blink

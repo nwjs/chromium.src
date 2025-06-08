@@ -27,6 +27,7 @@
 #include "third_party/blink/renderer/core/css/css_font_feature_value.h"
 #include "third_party/blink/renderer/core/css/css_font_style_range_value.h"
 #include "third_party/blink/renderer/core/css/css_function_value.h"
+#include "third_party/blink/renderer/core/css/css_gap_decoration_property_utils.h"
 #include "third_party/blink/renderer/core/css/css_gradient_value.h"
 #include "third_party/blink/renderer/core/css/css_grid_auto_repeat_value.h"
 #include "third_party/blink/renderer/core/css/css_grid_integer_repeat_value.h"
@@ -802,7 +803,7 @@ CSSFunctionValue* ConsumeFilterFunction(CSSParserTokenStream& stream,
             filter_type != CSSValueID::kContrast) {
           bool is_percentage = literal_value->IsPercentage();
           double max_allowed = is_percentage ? 100.0 : 1.0;
-          if (literal_value->GetDoubleValue() > max_allowed) {
+          if (literal_value->ClampedDoubleValue() > max_allowed) {
             parsed_value = CSSNumericLiteralValue::Create(
                 max_allowed, is_percentage
                                  ? CSSPrimitiveValue::UnitType::kPercentage
@@ -823,9 +824,11 @@ CSSFunctionValue* ConsumeFilterFunction(CSSParserTokenStream& stream,
 }
 
 template <typename Func>
-CSSLightDarkValuePair* ConsumeLightDark(Func consume_value,
-                                        CSSParserTokenStream& stream,
-                                        const CSSParserContext& context) {
+CSSLightDarkValuePair* ConsumeLightDark(
+    Func consume_value,
+    CSSParserTokenStream& stream,
+    const CSSParserContext& context,
+    const ColorParserContext& color_parser_context) {
   if (stream.Peek().FunctionId() != CSSValueID::kLightDark) {
     return nullptr;
   }
@@ -838,11 +841,11 @@ CSSLightDarkValuePair* ConsumeLightDark(Func consume_value,
   {
     CSSParserTokenStream::RestoringBlockGuard guard(stream);
     stream.ConsumeWhitespace();
-    light_value = consume_value(stream, context);
+    light_value = consume_value(stream, context, color_parser_context);
     if (!light_value || !ConsumeCommaIncludingWhitespace(stream)) {
       return nullptr;
     }
-    dark_value = consume_value(stream, context);
+    dark_value = consume_value(stream, context, color_parser_context);
     if (!dark_value || !stream.AtEnd()) {
       return nullptr;
     }
@@ -1376,7 +1379,10 @@ bool IsNonZeroUserUnitsValue(const CSSPrimitiveValue* value) {
            numeric_literal->ClampedDoubleValue() != 0;
   }
   const auto& math_value = To<CSSMathFunctionValue>(*value);
-  return math_value.Category() == kCalcNumber && math_value.DoubleValue() != 0;
+  // If the calc() expression contains unresolvable values like sibling-index(),
+  // assume it's zero. This is only used for use counting below.
+  return math_value.Category() == kCalcNumber &&
+         math_value.GetValueIfKnown().value_or(0) != 0;
 }
 
 }  // namespace
@@ -1599,8 +1605,59 @@ CSSIdentifierValue* ConsumeIdentRange(CSSParserTokenStream& stream,
   return ConsumeIdent(stream);
 }
 
+namespace {
+
+// https://drafts.csswg.org/css-values-5/#ident
+CSSFunctionValue* ConsumeIdentFunction(CSSParserTokenStream& stream,
+                                       const CSSParserContext& context) {
+  if (stream.Peek().FunctionId() != CSSValueID::kIdent) {
+    return nullptr;
+  }
+
+  CSSParserTokenStream::RestoringBlockGuard guard(stream);
+  stream.ConsumeWhitespace();
+
+  HeapVector<Member<const CSSValue>, 4> values;
+
+  while (!stream.AtEnd()) {
+    if (CSSValue* custom_ident = ConsumeCustomIdent(stream, context)) {
+      values.push_back(custom_ident);
+      continue;
+    }
+    if (CSSValue* string_value = ConsumeString(stream)) {
+      values.push_back(string_value);
+      continue;
+    }
+    if (CSSValue* integer_value = ConsumeInteger(
+            stream, context,
+            /*minimum_value=*/-std::numeric_limits<double>::max(),
+            /*is_percentage_allowed=*/false)) {
+      values.push_back(integer_value);
+      continue;
+    }
+    return nullptr;
+  }
+
+  if (values.empty()) {
+    return nullptr;
+  }
+
+  CHECK(guard.Release());
+  stream.ConsumeWhitespace();
+
+  return MakeGarbageCollected<CSSFunctionValue>(
+      CSSValueID::kIdent, CSSValueList::kSpaceSeparator, std::move(values));
+}
+
+}  // namespace
+
 CSSCustomIdentValue* ConsumeCustomIdent(CSSParserTokenStream& stream,
                                         const CSSParserContext& context) {
+  if (RuntimeEnabledFeatures::CSSIdentFunctionEnabled()) {
+    if (auto* ident_function = ConsumeIdentFunction(stream, context)) {
+      return MakeGarbageCollected<CSSCustomIdentValue>(*ident_function);
+    }
+  }
   if (stream.Peek().GetType() != kIdentToken ||
       IsCSSWideKeyword(stream.Peek().Id()) ||
       stream.Peek().Id() == CSSValueID::kDefault) {
@@ -1612,13 +1669,13 @@ CSSCustomIdentValue* ConsumeCustomIdent(CSSParserTokenStream& stream,
 
 CSSCustomIdentValue* ConsumeDashedIdent(CSSParserTokenStream& stream,
                                         const CSSParserContext& context) {
-  if (stream.Peek().GetType() != kIdentToken) {
+  // Note that the ident() function can currently bypass the double-dash
+  // requirement of <dashed-ident>.
+  // https://github.com/w3c/csswg-drafts/issues/12206
+  if (stream.Peek().GetType() == kIdentToken &&
+      !stream.Peek().Value().ToString().StartsWith(kTwoDashes)) {
     return nullptr;
   }
-  if (!stream.Peek().Value().ToString().StartsWith(kTwoDashes)) {
-    return nullptr;
-  }
-
   return ConsumeCustomIdent(stream, context);
 }
 
@@ -1662,14 +1719,12 @@ bool IsFetchRestricted(StringView url, const CSSParserContext& context) {
          !ProtocolIs(url.ToString(), "data");
 }
 
-CSSUrlData CollectUrlData(const StringView& url,
-                          const CSSParserContext& context) {
+const CSSUrlData* CollectUrlData(const StringView& url,
+                                 const CSSParserContext& context) {
   AtomicString url_string = url.ToAtomicString();
-  return CSSUrlData(
+  return MakeGarbageCollected<CSSUrlData>(
       url_string, context.CompleteNonEmptyURL(url_string),
-      context.GetReferrer(),
-      context.IsOriginClean() ? OriginClean::kTrue : OriginClean::kFalse,
-      context.IsAdRelated());
+      context.GetReferrer(), context.IsOriginClean(), context.IsAdRelated());
 }
 
 }  // namespace
@@ -1726,7 +1781,7 @@ cssvalue::CSSURIValue* ConsumeUrl(CSSParserTokenStream& stream,
     return nullptr;
   }
   return MakeGarbageCollected<cssvalue::CSSURIValue>(
-      CollectUrlData(url.Value(), context));
+      *CollectUrlData(url.Value(), context));
 }
 
 struct ColorInterpolationSpace {
@@ -1858,14 +1913,25 @@ namespace {
 CSSValue* ConsumeColorInternal(CSSParserTokenStream&,
                                const CSSParserContext&,
                                bool accept_quirky_colors,
-                               AllowedColors);
+                               const ColorParserContext&);
+
+bool IsAllowedValueInParserContext(
+    const CSSValue* value,
+    const ColorParserContext& color_parser_context) {
+  if (auto* primitive_value = DynamicTo<CSSPrimitiveValue>(value)) {
+    return color_parser_context.InElementContext() ||
+           !primitive_value->IsElementDependent();
+  }
+  return true;
+}
 
 }  // namespace
 
 // https://www.w3.org/TR/css-color-5/#color-mix
-static CSSValue* ConsumeColorMixFunction(CSSParserTokenStream& stream,
-                                         const CSSParserContext& context,
-                                         AllowedColors allowed_colors) {
+static CSSValue* ConsumeColorMixFunction(
+    CSSParserTokenStream& stream,
+    const CSSParserContext& context,
+    const ColorParserContext& color_parser_context) {
   DCHECK(stream.Peek().FunctionId() == CSSValueID::kColorMix);
   context.Count(WebFeature::kCSSColorMixFunction);
 
@@ -1891,14 +1957,17 @@ static CSSValue* ConsumeColorMixFunction(CSSParserTokenStream& stream,
 
     const bool no_quirky_colors = false;
 
-    CSSValue* color1 =
-        ConsumeColorInternal(stream, context, no_quirky_colors, allowed_colors);
+    CSSValue* color1 = ConsumeColorInternal(stream, context, no_quirky_colors,
+                                            color_parser_context);
     CSSPrimitiveValue* p1 =
         ConsumePercent(stream, context, CSSPrimitiveValue::ValueRange::kAll);
+    if (!IsAllowedValueInParserContext(p1, color_parser_context)) {
+      return nullptr;
+    }
     // Color can come after the percentage
     if (!color1) {
       color1 = ConsumeColorInternal(stream, context, no_quirky_colors,
-                                    allowed_colors);
+                                    color_parser_context);
       if (!color1) {
         return nullptr;
       }
@@ -1914,14 +1983,17 @@ static CSSValue* ConsumeColorMixFunction(CSSParserTokenStream& stream,
       return nullptr;
     }
 
-    CSSValue* color2 =
-        ConsumeColorInternal(stream, context, no_quirky_colors, allowed_colors);
+    CSSValue* color2 = ConsumeColorInternal(stream, context, no_quirky_colors,
+                                            color_parser_context);
     CSSPrimitiveValue* p2 =
         ConsumePercent(stream, context, CSSPrimitiveValue::ValueRange::kAll);
+    if (!IsAllowedValueInParserContext(p2, color_parser_context)) {
+      return nullptr;
+    }
     // Color can come after the percentage
     if (!color2) {
       color2 = ConsumeColorInternal(stream, context, no_quirky_colors,
-                                    allowed_colors);
+                                    color_parser_context);
       if (!color2) {
         return nullptr;
       }
@@ -2022,7 +2094,7 @@ Color ResolveColor(CSSValue* value,
 
 CSSValue* ConsumeColorContrast(CSSParserTokenStream& stream,
                                const CSSParserContext& context,
-                               AllowedColors allowed_colors) {
+                               const ColorParserContext& color_parser_context) {
   DCHECK_EQ(stream.Peek().FunctionId(), CSSValueID::kColorContrast);
 
   VectorOf<CSSValue> colors_to_compare_against;
@@ -2037,8 +2109,8 @@ CSSValue* ConsumeColorContrast(CSSParserTokenStream& stream,
 
     const bool no_quirky_colors = false;
 
-    CSSValue* background_color =
-        ConsumeColorInternal(stream, context, no_quirky_colors, allowed_colors);
+    CSSValue* background_color = ConsumeColorInternal(
+        stream, context, no_quirky_colors, color_parser_context);
     if (!background_color) {
       return nullptr;
     }
@@ -2049,7 +2121,7 @@ CSSValue* ConsumeColorContrast(CSSParserTokenStream& stream,
 
     do {
       CSSValue* color = ConsumeColorInternal(stream, context, no_quirky_colors,
-                                             allowed_colors);
+                                             color_parser_context);
       if (!color) {
         return nullptr;
       }
@@ -2162,14 +2234,15 @@ bool SystemAccentColorAllowed(const CSSParserContext& context) {
 CSSValue* ConsumeColorInternal(CSSParserTokenStream& stream,
                                const CSSParserContext& context,
                                bool accept_quirky_colors,
-                               AllowedColors allowed_colors) {
+                               const ColorParserContext& color_parser_context) {
   if (RuntimeEnabledFeatures::CSSColorContrastEnabled() &&
       stream.Peek().FunctionId() == CSSValueID::kColorContrast) {
-    return ConsumeColorContrast(stream, context, allowed_colors);
+    return ConsumeColorContrast(stream, context, color_parser_context);
   }
 
   if (stream.Peek().FunctionId() == CSSValueID::kColorMix) {
-    CSSValue* color = ConsumeColorMixFunction(stream, context, allowed_colors);
+    CSSValue* color =
+        ConsumeColorMixFunction(stream, context, color_parser_context);
     return color;
   }
 
@@ -2182,7 +2255,7 @@ CSSValue* ConsumeColorInternal(CSSParserTokenStream& stream,
     if (!IsValueAllowedInMode(id, context.Mode())) {
       return nullptr;
     }
-    if (allowed_colors == AllowedColors::kAbsolute &&
+    if (color_parser_context.OnlyAbsoluteColorsAllowed() &&
         (id == CSSValueID::kCurrentcolor ||
          StyleColor::IsSystemColorIncludingDeprecated(id) ||
          StyleColor::IsSystemColor(id))) {
@@ -2200,13 +2273,14 @@ CSSValue* ConsumeColorInternal(CSSParserTokenStream& stream,
   // Parses the color inputs rgb(), rgba(), hsl(), hsla(), hwb(), lab(),
   // oklab(), lch(), oklch() and color(). https://www.w3.org/TR/css-color-4/
   ColorFunctionParser parser;
-  if (CSSValue* functional_syntax_color =
-          parser.ConsumeFunctionalSyntaxColor(stream, context)) {
+  if (CSSValue* functional_syntax_color = parser.ConsumeFunctionalSyntaxColor(
+          stream, context, color_parser_context)) {
     return functional_syntax_color;
   }
 
-  if (allowed_colors == AllowedColors::kAll) {
-    return ConsumeLightDark(ConsumeColor, stream, context);
+  if (!color_parser_context.OnlyAbsoluteColorsAllowed()) {
+    return ConsumeLightDark(ConsumeColor, stream, context,
+                            color_parser_context);
   }
   return nullptr;
 }
@@ -2217,19 +2291,26 @@ CSSValue* ConsumeColorMaybeQuirky(CSSParserTokenStream& stream,
                                   const CSSParserContext& context) {
   return ConsumeColorInternal(stream, context,
                               IsQuirksModeBehavior(context.Mode()),
-                              AllowedColors::kAll);
+                              ColorParserContext());
 }
 
 CSSValue* ConsumeColor(CSSParserTokenStream& stream,
-                       const CSSParserContext& context) {
+                       const CSSParserContext& context,
+                       const ColorParserContext& color_parser_context) {
   return ConsumeColorInternal(stream, context, false /* accept_quirky_colors */,
-                              AllowedColors::kAll);
+                              color_parser_context);
 }
 
 CSSValue* ConsumeAbsoluteColor(CSSParserTokenStream& stream,
                                const CSSParserContext& context) {
   return ConsumeColorInternal(stream, context, false /* accept_quirky_colors */,
-                              AllowedColors::kAbsolute);
+                              ColorParserContext::AbsoluteColorContext());
+}
+
+CSSValue* ConsumeColorWithoutElementContext(CSSParserTokenStream& stream,
+                                            const CSSParserContext& context) {
+  return ConsumeColorInternal(stream, context, false /* accept_quirky_colors */,
+                              ColorParserContext::NoElementContext());
 }
 
 CSSValue* ConsumeLineWidth(CSSParserTokenStream& stream,
@@ -3099,6 +3180,12 @@ CSSValue* ConsumeImageOrNone(CSSParserTokenStream& stream,
   return ConsumeImage(stream, context);
 }
 
+CSSValue* ConsumeImageOrNone(CSSParserTokenStream& stream,
+                             const CSSParserContext& context,
+                             const ColorParserContext& color_parser_context) {
+  return ConsumeImageOrNone(stream, context);
+}
+
 CSSValue* ConsumeAxis(CSSParserTokenStream& stream,
                       const CSSParserContext& context) {
   CSSValueID axis_id = stream.Peek().Id();
@@ -3165,7 +3252,7 @@ static CSSValue* ConsumeDeprecatedWebkitCrossFade(
   if (const auto* percentage_literal =
           DynamicTo<CSSNumericLiteralValue>(percentage)) {
     percentage = CSSNumericLiteralValue::Create(
-        ClampTo<double>(percentage_literal->GetDoubleValue(), 0, 1),
+        ClampTo<double>(percentage_literal->ClampedDoubleValue(), 0, 1),
         CSSPrimitiveValue::UnitType::kNumber);
   }
 
@@ -3192,7 +3279,7 @@ static CSSValue* ConsumeCrossFade(CSSParserTokenStream& stream,
       }
       if (const auto* literal =
               DynamicTo<CSSNumericLiteralValue>(percent_value)) {
-        double val = literal->GetDoubleValue();
+        double val = literal->ClampedDoubleValue();
         if (!(val >= 0.0 &&
               val <= 100.0)) {  // Includes checks for NaN and infinities.
           return nullptr;
@@ -3378,7 +3465,7 @@ static CSSImageValue* CreateCSSImageValueWithReferrer(
     const StringView& uri,
     const CSSParserContext& context) {
   auto* image_value =
-      MakeGarbageCollected<CSSImageValue>(CollectUrlData(uri, context));
+      MakeGarbageCollected<CSSImageValue>(*CollectUrlData(uri, context));
   if (context.Mode() == kUASheetMode) {
     image_value->SetInitiator(fetch_initiator_type_names::kUacss);
   }
@@ -3522,9 +3609,10 @@ CSSValue* ConsumeImage(
     if (IsUASheetBehavior(context.Mode())) {
       return ConsumeLightDark(
           static_cast<CSSValue* (*)(CSSParserTokenStream&,
-                                    const CSSParserContext&)>(
+                                    const CSSParserContext&,
+                                    const ColorParserContext&)>(
               ConsumeImageOrNone),
-          stream, context);
+          stream, context, ColorParserContext());
     }
   }
   return nullptr;
@@ -3712,6 +3800,8 @@ void CountKeywordOnlyPropertyUsage(CSSPropertyID property,
     case CSSPropertyID::kOverflowY:
       if (value_id == CSSValueID::kOverlay) {
         context.Count(WebFeature::kCSSValueOverflowOverlay);
+      } else if (value_id == CSSValueID::kClip) {
+        context.Count(WebDXFeature::kOverflowClip);
       }
       break;
     case CSSPropertyID::kWritingMode:
@@ -6776,6 +6866,235 @@ CSSValue* ConsumeItemTolerance(CSSParserTokenStream& stream,
                                 CSSPrimitiveValue::ValueRange::kNonNegative);
 }
 
+// A <gap-rule> is defined as: [ <line-width> || <line-style> || <color> ]
+// This function processes a single <gap-rule> and ensures that exactly one
+// value is assigned for each of the three properties: `width_value`,
+// `style_value`, and `color_value`. If any property is not explicitly
+// specified, a default value is applied.
+bool ConsumeGapDecorationsLonghandsGreedily(CSSParserTokenStream& stream,
+                                            const CSSParserContext& context,
+                                            CSSValue*& width_value,
+                                            CSSValue*& style_value,
+                                            CSSValue*& color_value) {
+  enum class ParseResult { kSuccess, kFailure, kDuplicate };
+  auto attemptToConsumeValue = [&](CSSGapDecorationPropertyType type,
+                                   CSSValue*& value) {
+    if (CSSValue* v =
+            ConsumeGapDecorationPropertyValue(stream, context, type)) {
+      // Multiple values for the same property `type` are not allowed.
+      if (value) {
+        return ParseResult::kDuplicate;
+      }
+      value = v;
+      return ParseResult::kSuccess;
+    }
+    return ParseResult::kFailure;
+  };
+
+  typedef std::pair<CSSGapDecorationPropertyType, CSSValue*&> PropertyPair;
+  PropertyPair property_pairs[] = {
+      {CSSGapDecorationPropertyType::kWidth, width_value},
+      {CSSGapDecorationPropertyType::kStyle, style_value},
+      {CSSGapDecorationPropertyType::kColor, color_value},
+  };
+
+  while (!stream.AtEnd() && stream.Peek().GetType() != kCommaToken) {
+    bool is_successful = false;
+    for (const auto& property_pair : property_pairs) {
+      CSSGapDecorationPropertyType type = property_pair.first;
+      CSSValue*& value = property_pair.second;
+
+      // Attempt to consume the value for the current property type.
+      ParseResult result = attemptToConsumeValue(type, value);
+      if (result == ParseResult::kDuplicate) {
+        return false;
+      }
+      is_successful |= result == ParseResult::kSuccess;
+    }
+
+    // We break here because it may be the case that the only remaining thing in
+    // the stream is `!important`. For example, when parsing `column-rule: 5px
+    // solid red !important` the last iteration of the loop will
+    // `attemptToConsumeValue` the `!important` token, which will fail and thus
+    // `is_successful` will be false. In such case, we just break and defer
+    // `!important` consumption to the top-level parsing function
+    // `CSSPropertyParser::ParseValueStart`.
+    if (!is_successful) {
+      break;
+    }
+  }
+
+  if (!width_value && !style_value && !color_value) {
+    return false;
+  }
+
+  // Fill in any missing properties with the property's default.
+  if (!width_value) {
+    width_value = CSSIdentifierValue::Create(CSSValueID::kMedium);
+  }
+  if (!style_value) {
+    style_value = CSSIdentifierValue::Create(CSSValueID::kNone);
+  }
+  if (!color_value) {
+    color_value = CSSIdentifierValue::Create(CSSValueID::kCurrentcolor);
+  }
+
+  return true;
+}
+
+// Handles consuming the <gap-rule> repeat values which is defined as:
+// repeat(<integer> | auto, <gap-rule>+). Returns true if the
+// <gap-rule> repeat function was successfully consumed.
+// `has_seen_auto_repeater` is a input and output param that is only set to true
+// if the value is false and we encounter an auto-repeater.
+bool ConsumeGapDecorationsShorthandRepeatFunction(
+    CSSParserTokenStream& stream,
+    const CSSParserContext& context,
+    CSSValue*& repeater_width,
+    CSSValue*& repeater_style,
+    CSSValue*& repeater_color,
+    bool& has_seen_auto_repeater) {
+  DCHECK_EQ(stream.Peek().GetType(), kFunctionToken);
+
+  CSSParserTokenStream::RestoringBlockGuard guard(stream);
+  stream.ConsumeWhitespace();
+
+  CSSPrimitiveValue* repetition_value = nullptr;
+
+  if (IdentMatches<CSSValueID::kAuto>(stream.Peek().Id())) {
+    CHECK_EQ(stream.ConsumeIncludingWhitespace().Id(), CSSValueID::kAuto);
+
+    // Only one auto-repeater is allowed.
+    if (has_seen_auto_repeater) {
+      return false;
+    }
+    has_seen_auto_repeater = true;
+  } else {
+    // If it isn't an auto repeater, that means it is an integer repeater.
+    repetition_value = ConsumeIntegerOrNumberCalc(
+        stream, context, CSSPrimitiveValue::ValueRange::kPositiveInteger);
+    if (!repetition_value) {
+      return false;
+    }
+  }
+
+  // After "auto" or <integer>, we expect a comma.
+  if (!ConsumeCommaIncludingWhitespace(stream)) {
+    return false;
+  }
+
+  // Lists to hold repeated values for each property.
+  CSSValueList* width_repeated_values = CSSValueList::CreateSpaceSeparated();
+  CSSValueList* style_repeated_values = CSSValueList::CreateSpaceSeparated();
+  CSSValueList* color_repeated_values = CSSValueList::CreateSpaceSeparated();
+
+  // Consume one or more <gap-rule> values, each separated by a comma.
+  while (!stream.AtEnd()) {
+    CSSValue* width_value = nullptr;
+    CSSValue* style_value = nullptr;
+    CSSValue* color_value = nullptr;
+
+    if (!ConsumeGapDecorationsLonghandsGreedily(stream, context, width_value,
+                                                style_value, color_value)) {
+      return false;
+    }
+
+    // Ensure all three values have been hydrated.
+    CHECK(width_value);
+    CHECK(style_value);
+    CHECK(color_value);
+
+    width_repeated_values->Append(*width_value);
+    style_repeated_values->Append(*style_value);
+    color_repeated_values->Append(*color_value);
+
+    // If there's a comma, continue to the next <gap-rule>.
+    if (ConsumeCommaIncludingWhitespace(stream)) {
+      continue;
+    } else {
+      break;
+    }
+  }
+
+  if (!width_repeated_values->length() || !style_repeated_values->length() ||
+      !color_repeated_values->length()) {
+    return false;
+  }
+
+  guard.Release();
+  stream.ConsumeWhitespace();
+
+  repeater_width = MakeGarbageCollected<cssvalue::CSSRepeatValue>(
+      repetition_value, *width_repeated_values);
+  repeater_style = MakeGarbageCollected<cssvalue::CSSRepeatValue>(
+      repetition_value, *style_repeated_values);
+  repeater_color = MakeGarbageCollected<cssvalue::CSSRepeatValue>(
+      repetition_value, *color_repeated_values);
+
+  return true;
+}
+
+// Top level parsing function for the gap-decorations shorthand, which handles
+// the parsing of simple <gap-rule> or repeat <gap-rule> values.
+bool ConsumeGapDecorationsRuleShorthand(bool important,
+                                        const CSSParserContext& context,
+                                        CSSParserTokenStream& stream,
+                                        CSSValueList*& rule_widths,
+                                        CSSValueList*& rule_styles,
+                                        CSSValueList*& rule_colors) {
+  CHECK(RuntimeEnabledFeatures::CSSGapDecorationEnabled());
+
+  rule_widths = CSSValueList::CreateSpaceSeparated();
+  rule_styles = CSSValueList::CreateSpaceSeparated();
+  rule_colors = CSSValueList::CreateSpaceSeparated();
+
+  bool has_seen_auto_repeat = false;
+
+  while (!stream.AtEnd()) {
+    // Values for the current segment, which can either be a <gap-rule> or a
+    // <gap-rule> repeater.
+    CSSValue* width_value = nullptr;
+    CSSValue* style_value = nullptr;
+    CSSValue* color_value = nullptr;
+
+    if (stream.Peek().GetType() == kFunctionToken &&
+        stream.Peek().FunctionId() == CSSValueID::kRepeat) {
+      if (!ConsumeGapDecorationsShorthandRepeatFunction(
+              stream, context, width_value, style_value, color_value,
+              has_seen_auto_repeat)) {
+        return false;
+      }
+    } else {
+      if (!ConsumeGapDecorationsLonghandsGreedily(stream, context, width_value,
+                                                  style_value, color_value)) {
+        return false;
+      }
+    }
+
+    CHECK(width_value);
+    CHECK(style_value);
+    CHECK(color_value);
+
+    rule_widths->Append(*width_value);
+    rule_styles->Append(*style_value);
+    rule_colors->Append(*color_value);
+
+    // Continue to the next segment if we have a comma.
+    if (ConsumeCommaIncludingWhitespace(stream)) {
+      continue;
+    } else {
+      break;
+    }
+  }
+
+  if (!rule_widths->length() || !rule_styles->length() ||
+      !rule_colors->length()) {
+    return false;
+  }
+
+  return true;
+}
+
 CSSValue* ConsumeHyphenateLimitChars(CSSParserTokenStream& stream,
                                      const CSSParserContext& context) {
   CSSValueList* const list = CSSValueList::CreateSpaceSeparated();
@@ -7249,6 +7568,7 @@ cssvalue::CSSShapeValue* ConsumeBasicShapeShape(
 
         const CSSValuePair* radius = nullptr;
         const CSSPrimitiveValue* angle = nullptr;
+        bool has_direction_agnostic_radius = false;
         while (!args.AtEnd() && args.Peek().GetType() != kCommaToken) {
           CSSValueID next_id = args.Peek().Id();
           switch (next_id) {
@@ -7266,12 +7586,21 @@ cssvalue::CSSShapeValue* ConsumeBasicShapeShape(
               const CSSValue* radius_y = ConsumeLengthOrPercent(
                   args, context, CSSPrimitiveValue::ValueRange::kAll);
 
+              has_direction_agnostic_radius =
+                  RuntimeEnabledFeatures::
+                      CSSShapeFunctionDirectionAgnosticArcEnabled() &&
+                  !radius_y;
               if (!radius_y) {
                 radius_y = radius_x;
               }
 
               radius = MakeGarbageCollected<CSSValuePair>(
-                  radius_x, radius_y, CSSValuePair::kDropIdenticalValues);
+                  radius_x, radius_y,
+                  RuntimeEnabledFeatures::
+                              CSSShapeFunctionDirectionAgnosticArcEnabled() &&
+                          !has_direction_agnostic_radius
+                      ? CSSValuePair::kKeepIdenticalValues
+                      : CSSValuePair::kDropIdenticalValues);
               break;
             }
             // https://drafts.csswg.org/css-shapes-2/#typedef-shape-arc-sweep
@@ -7330,7 +7659,8 @@ cssvalue::CSSShapeValue* ConsumeBasicShapeShape(
             end_point_origin == CSSValueID::kTo
                 ? CSSShapeCommand::Type::kPathSegArcAbs
                 : CSSShapeCommand::Type::kPathSegArcRel,
-            *end_point, *angle, *radius, size, sweep));
+            *end_point, *angle, *radius, size, sweep,
+            has_direction_agnostic_radius));
         break;
       }
 
@@ -8064,7 +8394,7 @@ CSSValue* ConsumeBorderColorSide(CSSParserTokenStream& stream,
                              (shorthand == CSSPropertyID::kInvalid ||
                               shorthand == CSSPropertyID::kBorderColor);
   return ConsumeColorInternal(stream, context, allow_quirky_colors,
-                              AllowedColors::kAll);
+                              ColorParserContext());
 }
 
 CSSValue* ConsumeBorderWidth(CSSParserTokenStream& stream,
@@ -8085,20 +8415,19 @@ CSSValue* ParseSpacing(CSSParserTokenStream& stream,
 
 CSSValue* ConsumeSingleContainerName(CSSParserTokenStream& stream,
                                      const CSSParserContext& context) {
-  if (stream.Peek().GetType() != kIdentToken) {
-    return nullptr;
-  }
-  if (stream.Peek().Id() == CSSValueID::kNone) {
-    return nullptr;
-  }
-  if (EqualIgnoringASCIICase(stream.Peek().Value(), "not")) {
-    return nullptr;
-  }
-  if (EqualIgnoringASCIICase(stream.Peek().Value(), "and")) {
-    return nullptr;
-  }
-  if (EqualIgnoringASCIICase(stream.Peek().Value(), "or")) {
-    return nullptr;
+  if (stream.Peek().GetType() == kIdentToken) {
+    if (stream.Peek().Id() == CSSValueID::kNone) {
+      return nullptr;
+    }
+    if (EqualIgnoringASCIICase(stream.Peek().Value(), "not")) {
+      return nullptr;
+    }
+    if (EqualIgnoringASCIICase(stream.Peek().Value(), "and")) {
+      return nullptr;
+    }
+    if (EqualIgnoringASCIICase(stream.Peek().Value(), "or")) {
+      return nullptr;
+    }
   }
   return ConsumeCustomIdent(stream, context);
 }
@@ -8120,13 +8449,15 @@ CSSValue* ConsumeContainerName(CSSParserTokenStream& stream,
 
 CSSValue* ConsumeContainerType(CSSParserTokenStream& stream,
                                const CSSParserContext& context) {
-  // container-type: normal | [ [ size | inline-size ] || scroll-state ]
+  // container-type: normal | [ [ size | inline-size ] || scroll-state ||
+  // anchored ]
   if (CSSValue* value = ConsumeIdent<CSSValueID::kNormal>(stream)) {
     return value;
   }
 
   CSSValue* size_value = nullptr;
   CSSValue* scroll_state_value = nullptr;
+  CSSValue* anchored_value = nullptr;
 
   do {
     if (!size_value) {
@@ -8136,11 +8467,18 @@ CSSValue* ConsumeContainerType(CSSParserTokenStream& stream,
         continue;
       }
     }
-    if (!scroll_state_value &&
-        RuntimeEnabledFeatures::CSSScrollStateContainerQueriesEnabled()) {
+    if (!scroll_state_value) {
       scroll_state_value = ConsumeIdent<CSSValueID::kScrollState>(stream);
       if (scroll_state_value) {
         context.Count(WebDXFeature::kContainerScrollStateQueries);
+        continue;
+      }
+    }
+    if (!anchored_value &&
+        RuntimeEnabledFeatures::CSSFallbackContainerQueriesEnabled()) {
+      anchored_value = ConsumeIdent<CSSValueID::kAnchored>(stream);
+      if (anchored_value) {
+        // TODO(https://crbug.com/417621241): Add use counter.
         continue;
       }
     }
@@ -8153,6 +8491,9 @@ CSSValue* ConsumeContainerType(CSSParserTokenStream& stream,
   }
   if (scroll_state_value) {
     list->Append(*scroll_state_value);
+  }
+  if (anchored_value) {
+    list->Append(*anchored_value);
   }
   if (list->length() == 0) {
     return nullptr;
@@ -8379,6 +8720,38 @@ CSSValue* ConsumePositionTryFallbacks(CSSParserTokenStream& stream,
   }
   return ConsumeCommaSeparatedList(ConsumeSinglePositionTryFallback, stream,
                                    context);
+}
+
+CSSValue* ConsumeFitText(CSSParserTokenStream& stream,
+                         const CSSParserContext& context) {
+  CSSValue* target = ConsumeIdent<CSSValueID::kNone, CSSValueID::kPerLine,
+                                  CSSValueID::kConsistent>(stream);
+  if (!target) {
+    return nullptr;
+  }
+  CSSValueList* list = CSSValueList::CreateSpaceSeparated();
+  list->Append(*target);
+
+  if (CSSValue* method =
+          ConsumeIdent<CSSValueID::kScale, CSSValueID::kFontSize,
+                       CSSValueID::kScaleInline, CSSValueID::kLetterSpacing>(
+              stream)) {
+    if (To<CSSIdentifierValue>(method)->GetValueID() != CSSValueID::kScale) {
+      list->Append(*method);
+    }
+  }
+
+  if (CSSValue* size = ConsumeLength(
+          stream, context, CSSPrimitiveValue::ValueRange::kNonNegative)) {
+    list->Append(*size);
+  }
+
+  // The list is either:
+  // - [target]
+  // - [target, method]
+  // - [target, size], or
+  // - [target, method, size]
+  return list;
 }
 
 namespace {

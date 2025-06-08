@@ -649,7 +649,13 @@ void WebFrameWidgetImpl::DragSourceEndedAt(const gfx::PointF& point_in_viewport,
       WebInputEvent::Type::kMouseMove,
       GetPage()->GetVisualViewport().ViewportToRootFrame(point_in_viewport),
       screen_point, WebPointerProperties::Button::kLeft, 0,
-      WebInputEvent::kNoModifiers, base::TimeTicks::Now());
+      WebInputEvent::kNoModifiers, base::TimeTicks::Now(), kMenuSourceNone,
+      local_root_->GetFrame()
+          ->GetPage()
+          ->GetDragController()
+          .drag_pointer_id()
+          .value_or(WebMouseEvent::kMousePointerId));
+
   fake_mouse_move.SetFrameScale(1);
   local_root_->GetFrame()->GetEventHandler().DragSourceEndedAt(fake_mouse_move,
                                                                operation);
@@ -1598,14 +1604,21 @@ WebFrameWidgetImpl::GetAssociatedFrameWidgetHost() const {
   return frame_widget_host_.get();
 }
 
-void WebFrameWidgetImpl::RequestDecode(
-    const cc::DrawImage& image,
-    base::OnceCallback<void(bool)> callback) {
+void WebFrameWidgetImpl::RequestDecode(const cc::DrawImage& image,
+                                       base::OnceCallback<void(bool)> callback,
+                                       bool speculative) {
   if (auto* layer_tree_host = widget_base_->LayerTreeHost()) {
-    layer_tree_host->QueueImageDecode(image, std::move(callback));
+    layer_tree_host->QueueImageDecode(image, std::move(callback), speculative);
   } else {
     std::move(callback).Run(false);
   }
+}
+
+bool WebFrameWidgetImpl::SpeculativeDecodeRequestInFlight() const {
+  if (auto* layer_tree_host = widget_base_->LayerTreeHost()) {
+    return layer_tree_host->SpeculativeDecodeRequestInFlight();
+  }
+  return false;
 }
 
 void WebFrameWidgetImpl::Trace(Visitor* visitor) const {
@@ -2601,8 +2614,6 @@ void WebFrameWidgetImpl::InitializeCompositingInternal(
 
   probe::DidInitializeFrameWidget(local_root_->GetFrame());
   local_root_->GetFrame()->NotifyFrameWidgetCreated();
-  SetShouldThrottleFrameRate(
-      features::kThrottleFrameRateOnInitialization.Get());
 
   // TODO(bokan): This seems wrong. Page may host multiple FrameWidgets so this
   // will call DidInitializeCompositing once per FrameWidget. It probably makes
@@ -5206,12 +5217,10 @@ void WebFrameWidgetImpl::PrepareForFinalLifecyclUpdateForTesting() {
         // In a web test, a rendering update may not have occurred before the
         // test finishes so ensure the transition moves out of rendering
         // blocked state.
-        if (RuntimeEnabledFeatures::ViewTransitionOnNavigationEnabled()) {
-          if (ViewTransition* transition =
-                  ViewTransitionUtils::GetTransition(*document);
-              transition && transition->IsForNavigationOnNewDocument()) {
-            transition->ActivateFromSnapshot();
-          }
+        if (ViewTransition* transition =
+                ViewTransitionUtils::GetTransition(*document);
+            transition && transition->IsForNavigationOnNewDocument()) {
+          transition->ActivateFromSnapshot();
         }
       });
 }

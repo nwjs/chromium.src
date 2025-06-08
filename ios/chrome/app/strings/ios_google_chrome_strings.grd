@@ -203,6 +203,9 @@
       <message name="IDS_IOS_ACCOUNT_TABLE_ERROR_NEEDS_TRUSTED_VAULT_KEY_FOR_EVERYTHING_MESSAGE" desc="The error message to show in the account table when there is an error related to trusted vault key for everything. [iOS only]">
         To use and save Chrome data in your Google Account, verify it's you.
       </message>
+      <message name="IDS_IOS_ACCOUNT_TABLE_ERROR_VERIFY_ITS_YOU_MESSAGE" desc="The error message to show in the account table when there is an authentication error. [iOS only]">
+        To use and save Chrome data in your Google Account, verify it's you.
+      </message>
       <message name="IDS_IOS_APPLICATION_SHORTCUT_SET_DEFAULT_BROWSER" desc="The title of the spotlight item to set Chrome as a default browser. [Length: unlimited] [iOS only]." meaning="Spotlight item title for setting default browser.">
         Set Chrome as default browser
       </message>
@@ -377,6 +380,9 @@ Try waiting a few minutes before switching accounts. If you switch accounts now,
       </message>
       <message name="IDS_IOS_ENTERPRISE_FORCED_SIGNIN_MESSAGE_WITH_LEARN_MORE" desc="Text to inform the user about the forced sign-in policy with a Learn More link that redirects to a page that gives more details. (Force Sign In) [iOS only]">
         Your organization requires you to sign in to use Chrome. <ph name="BEGIN_LINK">BEGIN_LINK</ph>Learn more<ph name="END_LINK">END_LINK</ph>
+      </message>
+      <message name="IDS_IOS_ENTERPRISE_SWITCH_TO_MANAGED_BROWSER_WIDE_SCREEN" desc="The snackbar message subtitle to confirm the signed-in account after a successful account switch. For enterprise users, we remind them that their browser is managed by their company, school, or organization. This string does not have line break, so terminal punctuation is required for sentence fragments. [iOS only]">
+        <ph name="EMAIL">$1<ex>johndoe@acme.com</ex></ph>. Chrome is managed.
       </message>
       <message name="IDS_IOS_ENTERPRISE_SYNC_DISABLED_MESSAGE_WITH_UNO" desc="Message displayed in a prompt when saving data (like bookmarks/reading list/passwords...) is disabled due to an enterprise policy. Related with IDS_IOS_ENTERPRISE_SYNC_DISABLED_TITLE_UNO.">
         Your organization turned off the ability to use and save Chrome data in your Google Account. New bookmarks, passwords, and more will be saved only to this device.
@@ -727,6 +733,12 @@ Only someone with your passphrase can read your encrypted data. The passphrase i
       <message name="IDS_IOS_NOTIFICATIONS_OPT_IN_TIPS_SETTINGS_TOGGLE_MESSSAGE" desc="The label for the notification opt-in toggle message for tips notifications.">
         Tips on getting the most out of Chrome.
       </message>
+      <message name="IDS_IOS_NOTIFICATIONS_TIPS_CPE_BODY" desc="Text for the body of a Tips notification that encourages the user to enable the CPE.">
+        To easily get your saved passwords in other apps, chose Chrome for Autofill.
+      </message>
+      <message name="IDS_IOS_NOTIFICATIONS_TIPS_CPE_TITLE" desc="Text for the title of a Tips notification that encourages the user to enable the CPE.">
+        Chrome Tip: Get your passwords in any app
+      </message>
       <message name="IDS_IOS_NOTIFICATIONS_TIPS_DEFAULT_BROWSER_BODY" desc="Text for the body of a Tips notification that encourages the user to set the app as their default browser">
         Use Chrome anytime you tap links in messages or other apps.
       </message>
@@ -1051,12 +1063,6 @@ For more settings that use data to improve your Chrome experience, go to <ph nam
       <message name="IDS_IOS_SET_UP_LIST_DESCRIPTION" desc="Description for the Set Up List - a list of tasks the user might want to complete when first using Chrome.">
           Complete these suggested actions below to get the most out of Chrome.
       </message>
-      <message name="IDS_IOS_SET_UP_LIST_DOCK_CHROME_SHORT_DESCRIPTION" desc="Description for the Set Up List item that encourages the user to add Chrome to their iOS dock (used when the Set Up List is in compact mode).">
-        Access Chrome faster from your Home Screen Dock.
-      </message>
-      <message name="IDS_IOS_SET_UP_LIST_DOCK_CHROME_TITLE" desc="Title for the Set Up List item that encourages the user to add Chrome to their iOS dock.">
-        Move Chrome to the Dock
-      </message>
       <message name="IDS_IOS_SET_UP_LIST_HIDE_MODULE_CONTEXT_MENU_TITLE" desc="Title for the long-press context menu for the Set Up List module.">
           This card shows you suggestions on how to get the most out of Chrome.
       </message>
@@ -1068,9 +1074,6 @@ For more settings that use data to improve your Chrome experience, go to <ph nam
       </message>
       <message name="IDS_IOS_SET_UP_LIST_TIPS_TITLE" desc="Title for the Set Up List (a variation that mentions Tips) - a list of tasks the user might want to complete when first using Chromium.">
         Chrome Tips
-      </message>
-      <message name="IDS_IOS_SET_UP_LIST_TITLE" desc="Title for the Set Up List - a list of tasks the user might want to complete when first using Chrome.">
-        Get the most out of Chrome
       </message>
       <message name="IDS_IOS_SHORT_PRODUCT_NAME" desc="The Chrome application short name">
         Chrome

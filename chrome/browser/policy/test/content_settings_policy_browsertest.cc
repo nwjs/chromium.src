@@ -20,7 +20,6 @@
 #include "chrome/common/webui_url_constants.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "components/content_settings/core/browser/host_content_settings_map.h"
-#include "components/content_settings/core/browser/private_network_settings.h"
 #include "components/content_settings/core/common/content_settings.h"
 #include "components/policy/core/common/policy_map.h"
 #include "components/policy/policy_constants.h"
@@ -282,57 +281,6 @@ IN_PROC_BROWSER_TEST_F(PolicyTest, WebUsbAllowDevicesForUrls) {
   UpdateProviderPolicy(policies);
 
   EXPECT_FALSE(context->HasDevicePermission(kTestOrigin, device_info));
-}
-
-IN_PROC_BROWSER_TEST_F(PolicyTest, ShouldAllowInsecurePrivateNetworkRequests) {
-  const auto* settings_map =
-      HostContentSettingsMapFactory::GetForProfile(browser()->profile());
-
-  // By default, we should block requests.
-  EXPECT_FALSE(content_settings::ShouldAllowInsecurePrivateNetworkRequests(
-      settings_map, url::Origin::Create(GURL("http://bleep.com"))));
-
-  PolicyMap policies;
-  SetPolicy(&policies, key::kInsecurePrivateNetworkRequestsAllowed,
-            base::Value(false));
-  UpdateProviderPolicy(policies);
-
-  // Explicitly-disallowing is the same as not setting the policy.
-  EXPECT_FALSE(content_settings::ShouldAllowInsecurePrivateNetworkRequests(
-      settings_map, url::Origin::Create(GURL("http://bleep.com"))));
-
-  base::Value::List allowlist;
-  allowlist.Append(base::Value("http://bleep.com"));
-  allowlist.Append(base::Value("http://woohoo.com:1234"));
-  SetPolicy(&policies, key::kInsecurePrivateNetworkRequestsAllowedForUrls,
-            base::Value(std::move(allowlist)));
-  UpdateProviderPolicy(policies);
-
-  // Domain is not the in allowlist.
-  EXPECT_FALSE(content_settings::ShouldAllowInsecurePrivateNetworkRequests(
-      settings_map, url::Origin::Create(GURL("http://default.com"))));
-
-  // Path does not matter, only the origin.
-  EXPECT_TRUE(content_settings::ShouldAllowInsecurePrivateNetworkRequests(
-      settings_map, url::Origin::Create(GURL("http://bleep.com/heyo"))));
-
-  // Scheme matters: https is not http.
-  EXPECT_FALSE(content_settings::ShouldAllowInsecurePrivateNetworkRequests(
-      settings_map, url::Origin::Create(GURL("https://bleep.com"))));
-
-  // Port is checked too.
-  EXPECT_TRUE(content_settings::ShouldAllowInsecurePrivateNetworkRequests(
-      settings_map,
-      url::Origin::Create(GURL("http://woohoo.com:1234/index.html"))));
-
-  // The wrong port does not match (default is 80).
-  EXPECT_FALSE(content_settings::ShouldAllowInsecurePrivateNetworkRequests(
-      settings_map, url::Origin::Create(GURL("http://woohoo.com/index.html"))));
-
-  // Opaque origins never match the allowlist.
-  EXPECT_FALSE(content_settings::ShouldAllowInsecurePrivateNetworkRequests(
-      settings_map,
-      url::Origin::Create(GURL("http://bleep.com")).DeriveNewOpaqueOrigin()));
 }
 
 class ScrollToTextFragmentPolicyTest

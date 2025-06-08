@@ -5,6 +5,7 @@
 package org.chromium.components.permissions;
 
 import org.chromium.build.annotations.NullMarked;
+import org.chromium.components.cached_flags.BooleanCachedFeatureParam;
 
 /**
  * Lists base::Features that can be accessed through {@link PermissionsAndroidFeatureMap}.
@@ -24,4 +25,11 @@ public abstract class PermissionsAndroidFeatureList {
 
     public static final String OS_ADDITIONAL_SECURITY_PERMISSION_KILL_SWITCH =
             "OsAdditionalSecurityPermissionKillSwitch";
+
+    public static final String APPROXIMATE_GEOLOCATION_PERMISSION =
+            "ApproximateGeolocationPermission";
+
+    public static final BooleanCachedFeatureParam APPROXIMATE_GEOLOCATION_SAMPLE_DATA =
+            PermissionsAndroidFeatureMap.newBooleanCachedFeatureParam(
+                    APPROXIMATE_GEOLOCATION_PERMISSION, "sample_data", false);
 }

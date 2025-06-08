@@ -26,6 +26,7 @@ import org.chromium.chrome.browser.share.ShareUtils;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab_group_sync.TabGroupSyncServiceFactory;
 import org.chromium.chrome.browser.tabmodel.TabClosureParams;
+import org.chromium.chrome.browser.tabmodel.TabClosureParamsUtils;
 import org.chromium.chrome.browser.tabmodel.TabGroupModelFilter;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tasks.tab_management.TabGroupListBottomSheetCoordinator;
@@ -47,7 +48,6 @@ import java.util.List;
  * for creating a list of menu items, setting up the menu, and displaying the menu.
  */
 public class TabContextMenuCoordinator extends TabOverflowMenuCoordinator<Integer> {
-    private static final String MENU_USER_ACTION_PREFIX = "MobileToolbarTabMenu.";
     private final Supplier<TabModel> mTabModelSupplier;
     private final WindowAndroid mWindowAndroid;
 
@@ -122,7 +122,7 @@ public class TabContextMenuCoordinator extends TabOverflowMenuCoordinator<Intege
             TabGroupListBottomSheetCoordinator tabGroupListBottomSheetCoordinator,
             MultiInstanceManager multiInstanceManager,
             Supplier<ShareDelegate> shareDelegateSupplier) {
-        return (menuId, tabId, collaborationId) -> {
+        return (menuId, tabId, collaborationId, listViewTouchTracker) -> {
             if (tabId == Tab.INVALID_TAB_ID) return;
             TabModel tabModel = tabModelSupplier.get();
             Tab tab = tabModel.getTabById(tabId);
@@ -130,27 +130,31 @@ public class TabContextMenuCoordinator extends TabOverflowMenuCoordinator<Intege
 
             if (menuId == R.id.add_to_tab_group) {
                 tabGroupListBottomSheetCoordinator.showBottomSheet(List.of(tab));
-                recordUserAction("AddToTabGroup");
+                RecordUserAction.record("MobileToolbarTabMenu.AddToTabGroup");
             } else if (menuId == R.id.remove_from_tab_group) {
                 tabGroupModelFilter
                         .getTabUngrouper()
                         .ungroupTabs(List.of(tab), /* trailing= */ true, /* allowDialog= */ true);
-                recordUserAction("RemoveFromTabGroup");
+                RecordUserAction.record("MobileToolbarTabMenu.RemoveFromTabGroup");
             } else if (menuId == R.id.move_to_other_window_menu_id) {
-                recordUserAction(
-                        MultiWindowUtils.getInstanceCount() == 1
-                                ? "MoveTabToNewWindow"
-                                : "MoveTabToOtherWindow");
+                if (MultiWindowUtils.getInstanceCount() == 1) {
+                    RecordUserAction.record("MobileToolbarTabMenu.MoveTabToNewWindow");
+                } else {
+                    RecordUserAction.record("MobileToolbarTabMenu.MoveTabToOtherWindow");
+                }
                 multiInstanceManager.moveTabToOtherWindow(tab);
             } else if (menuId == R.id.share_tab) {
                 shareDelegateSupplier
                         .get()
                         .share(tab, /* shareDirectly= */ false, TAB_STRIP_CONTEXT_MENU);
-                recordUserAction("ShareTab");
+                RecordUserAction.record("MobileToolbarTabMenu.ShareTab");
             } else if (menuId == R.id.close_tab) {
+                boolean allowUndo = TabClosureParamsUtils.shouldAllowUndo(listViewTouchTracker);
                 tabModel.getTabRemover()
-                        .closeTabs(TabClosureParams.closeTab(tab).build(), /* allowDialog= */ true);
-                recordUserAction("CloseTab");
+                        .closeTabs(
+                                TabClosureParams.closeTab(tab).allowUndo(allowUndo).build(),
+                                /* allowDialog= */ true);
+                RecordUserAction.record("MobileToolbarTabMenu.CloseTab");
             }
         };
     }
@@ -171,7 +175,7 @@ public class TabContextMenuCoordinator extends TabOverflowMenuCoordinator<Intege
                 /* animStyle= */ ResourcesCompat.ID_NULL,
                 HorizontalOrientation.LAYOUT_DIRECTION,
                 mWindowAndroid.getActivity().get());
-        recordUserAction("Shown");
+        RecordUserAction.record("MobileToolbarTabMenu.Shown");
     }
 
     @Override
@@ -182,7 +186,7 @@ public class TabContextMenuCoordinator extends TabOverflowMenuCoordinator<Intege
 
         itemList.add(
                 BrowserUiListMenuUtils.buildMenuListItemWithIncognitoBranding(
-                        R.string.add_tab_to_group,
+                        R.string.menu_add_tab_to_group,
                         R.id.add_to_tab_group,
                         isIncognito,
                         /* enabled= */ true));
@@ -221,7 +225,7 @@ public class TabContextMenuCoordinator extends TabOverflowMenuCoordinator<Intege
 
         itemList.add(
                 BrowserUiListMenuUtils.buildMenuListItemWithIncognitoBranding(
-                        R.string.close_tab, R.id.close_tab, isIncognito, /* enabled= */ true));
+                        R.string.close, R.id.close_tab, isIncognito, /* enabled= */ true));
     }
 
     @Override
@@ -238,9 +242,5 @@ public class TabContextMenuCoordinator extends TabOverflowMenuCoordinator<Intege
         var tab = mTabModelSupplier.get().getTabById(id);
         if (tab == null) return null;
         return TabShareUtils.getCollaborationIdOrNull(tab.getTabGroupId(), mTabGroupSyncService);
-    }
-
-    private static void recordUserAction(String action) {
-        RecordUserAction.record(MENU_USER_ACTION_PREFIX + action);
     }
 }

@@ -11,6 +11,7 @@
 #import "components/feature_engagement/public/tracker.h"
 #import "components/omnibox/browser/location_bar_model_impl.h"
 #import "components/omnibox/browser/omnibox_edit_model.h"
+#import "components/omnibox/browser/omnibox_text_util.h"
 #import "components/omnibox/browser/omnibox_view.h"
 #import "components/open_from_clipboard/clipboard_recent_content.h"
 #import "components/prefs/pref_service.h"
@@ -52,8 +53,8 @@
 #import "ios/chrome/browser/omnibox/model/chrome_omnibox_client_ios.h"
 #import "ios/chrome/browser/omnibox/model/omnibox_position/omnibox_position_browser_agent.h"
 #import "ios/chrome/browser/omnibox/model/omnibox_position/omnibox_state_provider.h"
-#import "ios/chrome/browser/omnibox/ui_bundled/omnibox_focus_delegate.h"
-#import "ios/chrome/browser/omnibox/ui_bundled/omnibox_text_field_ios.h"
+#import "ios/chrome/browser/omnibox/ui/omnibox_focus_delegate.h"
+#import "ios/chrome/browser/omnibox/ui/omnibox_text_field_ios.h"
 #import "ios/chrome/browser/overlays/model/public/overlay_presenter.h"
 #import "ios/chrome/browser/search_engines/model/template_url_service_factory.h"
 #import "ios/chrome/browser/shared/coordinator/layout_guide/layout_guide_util.h"
@@ -372,13 +373,17 @@ const size_t kMaxURLDisplayChars = 32 * 1024;
   self.viewController.fakeboxButtonsSnapshotProvider = provider;
 }
 
+- (void)setLensOverlayVisible:(BOOL)lensOverlayVisible {
+  [self.viewController setLensOverlayVisible:lensOverlayVisible];
+}
+
 #pragma mark - LoadQueryCommands
 
 - (void)loadQuery:(NSString*)query immediately:(BOOL)immediately {
   DCHECK(query);
   // Since the query is not user typed, sanitize it to make sure it's safe.
   std::u16string sanitizedQuery =
-      OmniboxView::SanitizeTextForPaste(base::SysNSStringToUTF16(query));
+      omnibox::SanitizeTextForPaste(base::SysNSStringToUTF16(query));
   if (immediately) {
     [self loadURLForQuery:sanitizedQuery];
   } else {
@@ -440,6 +445,10 @@ const size_t kMaxURLDisplayChars = 32 * 1024;
     [self setFakeboxButtonsSnapshotProvider:nil];
     [self.omniboxCoordinator focusOmnibox];
   }
+}
+
+- (void)focusOmniboxForVoiceOver {
+  [self.viewController focusSteadyViewForVoiceOver];
 }
 
 - (void)cancelOmniboxEdit {

@@ -29,6 +29,7 @@
 #include "components/autofill/core/browser/filling/filling_product.h"
 #include "components/autofill/core/browser/foundations/autofill_client.h"
 #include "components/autofill/core/browser/foundations/autofill_driver.h"
+#include "components/autofill/core/browser/foundations/browser_autofill_manager.h"
 #include "components/autofill/core/browser/suggestions/suggestion.h"
 #include "components/autofill/core/browser/suggestions/suggestion_hiding_reason.h"
 #include "components/autofill/core/browser/suggestions/suggestion_type.h"
@@ -150,6 +151,18 @@ PasswordAutofillManager::~PasswordAutofillManager() {
   manual_fallback_metrics_recorder_.reset();
 }
 
+void PasswordAutofillManager::ShowSuggestions(
+    const autofill::TriggeringField& triggering_field) {
+  // TODO: crbug.com/410743802 - Implement.
+}
+
+#if BUILDFLAG(IS_ANDROID)
+void PasswordAutofillManager::ShowKeyboardReplacingSurface(
+    const autofill::PasswordSuggestionRequest& request) {
+  // TODO: crbug.com/410743802 - Implement.
+}
+#endif  // BUILDFLAG(IS_ANDROID)
+
 std::variant<autofill::AutofillDriver*, PasswordManagerDriver*>
 PasswordAutofillManager::GetDriver() {
   return password_manager_driver_.get();
@@ -234,8 +247,19 @@ void PasswordAutofillManager::DidAcceptSuggestion(
               identity_credential_delegate =
                   autofill_client_->GetIdentityCredentialDelegate()) {
         identity_credential_delegate->NotifySuggestionAccepted(
-            suggestion, base::BindOnce(&PasswordAutofillManager::HidePopup,
-                                       weak_ptr_factory_.GetWeakPtr()));
+            suggestion, /*show_modal=*/false,
+            base::BindOnce(
+                [](base::WeakPtr<PasswordAutofillManager> manager,
+                   bool accepted) {
+                  if (!manager) {
+                    return;
+                  }
+                  // When notifying the delegate, no extra permission prompts
+                  // are requested. The pop-up in its loading state is hidden
+                  // regardless of the accepted result.
+                  manager->HidePopup();
+                },
+                weak_ptr_factory_.GetWeakPtr()));
       }
       UpdatePopup(PrepareLoadingStateSuggestions(
           std::move(last_popup_open_args_).suggestions, suggestion));

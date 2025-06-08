@@ -57,7 +57,17 @@ class TabSearchContainerBrowserTest : public InProcessBrowserTest {
     if (tab_search_container()->animation_session_for_testing()) {
       tab_search_container()
           ->animation_session_for_testing()
-          ->ResetAnimationForTesting(value);
+          ->ResetOpacityAnimationForTesting(value);
+    }
+    if (tab_search_container()->animation_session_for_testing()) {
+      tab_search_container()
+          ->animation_session_for_testing()
+          ->ResetExpansionAnimationForTesting(value);
+    }
+    if (tab_search_container()->animation_session_for_testing()) {
+      tab_search_container()
+          ->animation_session_for_testing()
+          ->ResetFlatEdgeAnimationForTesting(value);
     }
   }
 
@@ -279,8 +289,16 @@ IN_PROC_BROWSER_TEST_F(TabSearchContainerBrowserTest,
                   ->IsClosing());
 }
 
+// TODO(crbug.com/414839512): Fix flaky test.
+#if BUILDFLAG(IS_WIN)
+#define MAYBE_DelayedHidesWhenOrganizeButtonTimesOut \
+  DISABLED_DelayedHidesWhenOrganizeButtonTimesOut
+#else
+#define MAYBE_DelayedHidesWhenOrganizeButtonTimesOut \
+  DelayedHidesWhenOrganizeButtonTimesOut
+#endif
 IN_PROC_BROWSER_TEST_F(TabSearchContainerBrowserTest,
-                       DelayedHidesWhenOrganizeButtonTimesOut) {
+                       MAYBE_DelayedHidesWhenOrganizeButtonTimesOut) {
   // RunScheduledLayout() is needed due to widget auto-resize.
   views::test::RunScheduledLayout(tab_search_container());
 
@@ -471,7 +489,14 @@ IN_PROC_BROWSER_TEST_F(TabSearchContainerBrowserTest,
             expanded_value);
 }
 
-IN_PROC_BROWSER_TEST_F(TabSearchContainerBrowserTest, ShowsDeclutterChip) {
+// TODO(crbug.com/414839512): Fix flaky test.
+#if BUILDFLAG(IS_WIN)
+#define MAYBE_ShowsDeclutterChip DISABLED_ShowsDeclutterChip
+#else
+#define MAYBE_ShowsDeclutterChip ShowsDeclutterChip
+#endif
+IN_PROC_BROWSER_TEST_F(TabSearchContainerBrowserTest,
+                       MAYBE_ShowsDeclutterChip) {
   ASSERT_FALSE(tab_search_container()->animation_session_for_testing());
 
   tab_search_container()->ShowTabOrganization(

@@ -7,14 +7,16 @@ package com.android.webview.chromium;
 import android.Manifest;
 import android.app.compat.CompatChanges;
 import android.content.Context;
-import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.content.res.Resources;
 import android.os.Build;
 import android.os.Looper;
 import android.os.Process;
 import android.os.SystemClock;
+import android.os.flagging.AconfigPackage;
 import android.os.storage.StorageManager;
+import android.provider.DeviceConfig;
+import android.provider.DeviceConfig.Properties;
 import android.util.Log;
 import android.webkit.CookieManager;
 import android.webkit.GeolocationPermissions;
@@ -74,6 +76,8 @@ import org.chromium.ui.base.DeviceFormFactor;
 import org.chromium.ui.base.ResourceBundle;
 
 import java.io.IOException;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
 import java.util.ArrayDeque;
 import java.util.Locale;
 import java.util.UUID;
@@ -95,7 +99,7 @@ public class WebViewChromiumAwInit {
             "Android.WebView.AssetPathWorkaroundUsed.StartChromiumLocked";
 
     private static final String REGISTER_RESOURCE_PATHS_HISTOGRAM_NAME =
-            "Android.WebView.RegisterResourcePathsAvailable";
+            "Android.WebView.RegisterResourcePathsAvailable2";
 
     public static class WebViewStartUpDiagnostics {
         private final Object mLock = new Object();
@@ -182,7 +186,7 @@ public class WebViewChromiumAwInit {
     @GuardedBy("mLazyInitLock")
     private WebViewDatabaseAdapter mDefaultWebViewDatabase;
 
-    // Volatile to guard for incorrectly trying to use this without calling `startChromiumLocked`.
+    // Volatile to guard for incorrectly trying to use this without calling `startChromium`.
     // TODO(crbug.com/389871700): Consider hiding the variable where it can't be incorrectly
     // accessed. See crrev.com/c/6081452/comment/9dff4e5e_c049d778/ for context.
     private volatile ChromiumStartedGlobals mChromiumStartedGlobals;
@@ -193,11 +197,11 @@ public class WebViewChromiumAwInit {
     private VariationsSeedLoader mSeedLoader;
 
     // This is only accessed during WebViewChromiumFactoryProvider.initialize() which is guarded by
-    // the WebViewFactory lock in the framework, and on the UI thread during startChromiumLocked
+    // the WebViewFactory lock in the framework, and on the UI thread during startChromium
     // which cannot be called before initialize() has completed.
     private Thread mSetUpResourcesThread;
 
-    // Guards access to fields that are initialized on first use rather than by startChromiumLocked.
+    // Guards access to fields that are initialized on first use rather than by startChromium.
     // This lock is used across WebViewChromium startup classes ie WebViewChromiumAwInit,
     // SupportLibWebViewChromiumFactory and WebViewChromiumFactoryProvider so as to avoid deadlock.
     // TODO(crbug.com/397385172): Get rid of this lock.
@@ -270,12 +274,12 @@ public class WebViewChromiumAwInit {
     }
 
     public AwTracingController getAwTracingController() {
-        ensureChromiumStartedLocked(true, CallSite.GET_AW_TRACING_CONTROLLER);
+        triggerAndWaitForChromiumStarted(true, CallSite.GET_AW_TRACING_CONTROLLER);
         return mChromiumStartedGlobals.mAwTracingController;
     }
 
     public AwProxyController getAwProxyController() {
-        ensureChromiumStartedLocked(true, CallSite.GET_AW_PROXY_CONTROLLER);
+        triggerAndWaitForChromiumStarted(true, CallSite.GET_AW_PROXY_CONTROLLER);
         return mChromiumStartedGlobals.mAwProxyController;
     }
 
@@ -289,8 +293,7 @@ public class WebViewChromiumAwInit {
     // lives in the ui/ layer. See ui/base/ui_base_paths.h
     private static final int DIR_RESOURCE_PAKS_ANDROID = 3003;
 
-    // TODO(crbug.com/389871700): Rename to startChromium because it doesn't need the lock.
-    private void startChromiumLocked(@CallSite int callSite, boolean triggeredFromUIThread) {
+    private void startChromium(@CallSite int callSite, boolean triggeredFromUIThread) {
         assert ThreadUtils.runningOnUiThread();
 
         if (mInitState.get() == INIT_FINISHED) {
@@ -379,7 +382,7 @@ public class WebViewChromiumAwInit {
                     // on the UI thread which may have taken any amount of time to actually
                     // run), or because the app used CookieManager first, which triggers the
                     // code being loaded and WebViewFactory doing the initial resources add,
-                    // but does not call startChromiumLocked until the app uses some other
+                    // but does not call startChromium until the app uses some other
                     // API, an arbitrary amount of time later. So, we can try to add them
                     // again using the "better" method in WebViewDelegate.
                     //
@@ -434,11 +437,12 @@ public class WebViewChromiumAwInit {
                 () -> {
                     AwBrowserProcess.initializeMetricsLogUploader();
 
-                    RecordHistogram.recordSparseHistogram(
-                            "Android.WebView.TargetSdkVersion",
+                    int targetSdkVersion =
                             ContextUtils.getApplicationContext()
                                     .getApplicationInfo()
-                                    .targetSdkVersion);
+                                    .targetSdkVersion;
+                    RecordHistogram.recordSparseHistogram(
+                            "Android.WebView.TargetSdkVersion", targetSdkVersion);
 
                     try (ScopedSysTraceEvent e =
                             ScopedSysTraceEvent.scoped(
@@ -453,7 +457,7 @@ public class WebViewChromiumAwInit {
 
                     if ((Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU)
                             ? CompatChanges.isChangeEnabled(WebSettings.ENABLE_SIMPLIFIED_DARK_MODE)
-                            : BuildInfo.targetsAtLeastT()) {
+                            : targetSdkVersion >= Build.VERSION_CODES.TIRAMISU) {
                         AwDarkMode.enableSimplifiedDarkMode();
                     }
 
@@ -464,14 +468,8 @@ public class WebViewChromiumAwInit {
                     PostTask.postTask(
                             TaskTraits.BEST_EFFORT,
                             () -> {
-                                mFactory.setWebViewContextExperimentValue(
-                                        AwFeatureMap.isEnabled(
-                                                AwFeatures.WEBVIEW_SEPARATE_RESOURCE_CONTEXT));
-                                mFactory.setWebViewDisableCHIPSExperimentValue(
-                                        AwFeatureMap.isEnabled(AwFeatures.WEBVIEW_DISABLE_CHIPS));
-                                mFactory.setWebViewUseStartupTasksExperimentValue(
-                                        AwFeatureMap.isEnabled(
-                                                AwFeatures.WEBVIEW_USE_STARTUP_TASKS_LOGIC));
+                                WebViewCachedFlags.get()
+                                        .onStartupCompleted(mFactory.getWebViewPrefs());
                             });
 
                     if (AwFeatureMap.isEnabled(AwFeatures.WEBVIEW_PREFETCH_NATIVE_LIBRARY)
@@ -486,23 +484,9 @@ public class WebViewChromiumAwInit {
                                     LibraryPrefetcher.prefetchNativeLibraryForWebView();
                                 });
                     }
-
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM) {
                         PostTask.postTask(
-                                TaskTraits.BEST_EFFORT,
-                                () -> {
-                                    try {
-                                        Resources.class.getDeclaredMethod(
-                                                "registerResourcePaths",
-                                                String.class,
-                                                ApplicationInfo.class);
-                                        RecordHistogram.recordBooleanHistogram(
-                                                REGISTER_RESOURCE_PATHS_HISTOGRAM_NAME, true);
-                                    } catch (NoSuchMethodException e) {
-                                        RecordHistogram.recordBooleanHistogram(
-                                                REGISTER_RESOURCE_PATHS_HISTOGRAM_NAME, false);
-                                    }
-                                });
+                                TaskTraits.BEST_EFFORT, this::logRegisterResourcePathsAvailability);
                     }
 
                     if (AwFeatureMap.isEnabled(AwFeatures.WEBVIEW_RECORD_APP_CACHE_HISTOGRAMS)) {
@@ -519,8 +503,9 @@ public class WebViewChromiumAwInit {
                                                     .getApplicationInfo()
                                                     .storageUuid;
                                     long startTimeGetCacheQuotaMs = SystemClock.uptimeMillis();
+                                    long cacheQuotaKiloBytes = -1;
                                     try {
-                                        long cacheQuotaKiloBytes =
+                                        cacheQuotaKiloBytes =
                                                 storageManager.getCacheQuotaBytes(storageUuid)
                                                         / 1024;
                                         RecordHistogram.recordCount1MHistogram(
@@ -535,8 +520,9 @@ public class WebViewChromiumAwInit {
                                     }
 
                                     long startTimeGetCacheSizeMs = SystemClock.uptimeMillis();
+                                    long cacheSizeKiloBytes = -1;
                                     try {
-                                        long cacheSizeKiloBytes =
+                                        cacheSizeKiloBytes =
                                                 storageManager.getCacheSizeBytes(storageUuid)
                                                         / 1024;
                                         RecordHistogram.recordCount1MHistogram(
@@ -549,10 +535,22 @@ public class WebViewChromiumAwInit {
                                                 SystemClock.uptimeMillis()
                                                         - startTimeGetCacheSizeMs);
                                     }
+                                    if (cacheQuotaKiloBytes != -1 && cacheSizeKiloBytes != -1) {
+                                        long quotaRemainingKiloBytes =
+                                                cacheQuotaKiloBytes - cacheSizeKiloBytes;
+                                        if (quotaRemainingKiloBytes >= 0) {
+                                            RecordHistogram.recordCount1MHistogram(
+                                                    "Android.WebView.CacheSizeWithinQuota",
+                                                    (int) quotaRemainingKiloBytes);
+                                        } else {
+                                            RecordHistogram.recordCount1MHistogram(
+                                                    "Android.WebView.CacheSizeExceedsQuota",
+                                                    -1 * (int) quotaRemainingKiloBytes);
+                                        }
+                                    }
                                 },
                                 5000);
                     }
-
                     AwCrashyClassUtils.maybeCrashIfEnabled();
                     // Must happen right after Chromium initialization is complete.
                     mInitState.set(INIT_FINISHED);
@@ -577,6 +575,7 @@ public class WebViewChromiumAwInit {
             long totalTimeTakenMs,
             long longestUiBlockingTaskTimeMs,
             @StartupTasksRunner.StartupMode int startupMode) {
+        long wallClockTimeMs = SystemClock.uptimeMillis() - startTimeMs;
         // Record asyncStartup API metrics
         mWebViewStartUpDiagnostics.setTotalTimeUiThreadChromiumInitMillis(totalTimeTakenMs);
         mWebViewStartUpDiagnostics.setMaxTimePerTaskUiThreadChromiumInitMillis(
@@ -619,6 +618,11 @@ public class WebViewChromiumAwInit {
                     finishCallSite,
                     CallSite.COUNT);
         }
+        RecordHistogram.recordTimesHistogram(
+                "Android.WebView.Startup.ChromiumInitTime.WallClockTime", wallClockTimeMs);
+        RecordHistogram.recordTimesHistogram(
+                "Android.WebView.Startup.ChromiumInitTime.WallClockTime" + startupModeString,
+                wallClockTimeMs);
 
         // Record traces
         TraceEvent.webViewStartupStartChromiumLocked(
@@ -689,14 +693,13 @@ public class WebViewChromiumAwInit {
     void startYourEngines(boolean fromThreadSafeFunction) {
         // TODO(crbug.com/389871700): Consider inlining this method call. See
         // crrev.com/c/6081452/comment/96be8119_fedb4983 for reasoning.
-        ensureChromiumStartedLocked(fromThreadSafeFunction, CallSite.WEBVIEW_INSTANCE);
+        triggerAndWaitForChromiumStarted(fromThreadSafeFunction, CallSite.WEBVIEW_INSTANCE);
     }
 
     // This method is not private only because the downstream subclass needs to access it,
     // it shouldn't be accessed from anywhere else.
     // Postcondition: Chromium startup is finished when this method returns.
-    // TODO(crbug.com/389871700): Rename to ensureChromiumStarted because it doesn't need the lock.
-    void ensureChromiumStartedLocked(boolean fromThreadSafeFunction, @CallSite int callSite) {
+    void triggerAndWaitForChromiumStarted(boolean fromThreadSafeFunction, @CallSite int callSite) {
         if (triggerChromiumStartupAndReturnTrueIfStartupIsFinished(
                 fromThreadSafeFunction, callSite)) {
             return;
@@ -760,7 +763,7 @@ public class WebViewChromiumAwInit {
             // If we are currently running on the UI thread then we must do init now. If there was
             // already a task posted to the UI thread from another thread to do it, it will just
             // no-op when it runs.
-            startChromiumLocked(callSite, /* triggeredFromUIThread= */ true);
+            startChromium(callSite, /* triggeredFromUIThread= */ true);
             return true;
         }
 
@@ -769,7 +772,7 @@ public class WebViewChromiumAwInit {
         // TODO(crbug.com/397372092): Consider checking if async startup is in progress so as not to
         // bother posting.
         AwThreadUtils.postToUiThreadLooper(
-                () -> startChromiumLocked(callSite, /* triggeredFromUIThread= */ false));
+                () -> startChromium(callSite, /* triggeredFromUIThread= */ false));
         return false;
     }
 
@@ -840,12 +843,12 @@ public class WebViewChromiumAwInit {
     public SharedStatics getStatics() {
         // TODO: Optimization potential: most of the static methods only need the native
         // library loaded and initialized, not the entire browser process started.
-        ensureChromiumStartedLocked(true, CallSite.GET_STATICS);
+        triggerAndWaitForChromiumStarted(true, CallSite.GET_STATICS);
         return mChromiumStartedGlobals.mSharedStatics;
     }
 
     public GeolocationPermissions getDefaultGeolocationPermissions() {
-        ensureChromiumStartedLocked(true, CallSite.GET_DEFAULT_GEOLOCATION_PERMISSIONS);
+        triggerAndWaitForChromiumStarted(true, CallSite.GET_DEFAULT_GEOLOCATION_PERMISSIONS);
         return mChromiumStartedGlobals.mDefaultGeolocationPermissions;
     }
 
@@ -860,12 +863,12 @@ public class WebViewChromiumAwInit {
     }
 
     public AwServiceWorkerController getDefaultServiceWorkerController() {
-        ensureChromiumStartedLocked(true, CallSite.GET_DEFAULT_SERVICE_WORKER_CONTROLLER);
+        triggerAndWaitForChromiumStarted(true, CallSite.GET_DEFAULT_SERVICE_WORKER_CONTROLLER);
         return mChromiumStartedGlobals.mDefaultServiceWorkerController;
     }
 
     public android.webkit.WebIconDatabase getWebIconDatabase() {
-        ensureChromiumStartedLocked(true, CallSite.GET_WEB_ICON_DATABASE);
+        triggerAndWaitForChromiumStarted(true, CallSite.GET_WEB_ICON_DATABASE);
         WebViewChromium.recordWebViewApiCall(ApiCall.WEB_ICON_DATABASE_GET_INSTANCE);
         synchronized (mLazyInitLock) {
             if (mWebIconDatabase == null) {
@@ -876,12 +879,12 @@ public class WebViewChromiumAwInit {
     }
 
     public WebStorage getDefaultWebStorage() {
-        ensureChromiumStartedLocked(true, CallSite.GET_DEFAULT_WEB_STORAGE);
+        triggerAndWaitForChromiumStarted(true, CallSite.GET_DEFAULT_WEB_STORAGE);
         return mChromiumStartedGlobals.mDefaultWebStorage;
     }
 
     public WebViewDatabase getDefaultWebViewDatabase(final Context context) {
-        ensureChromiumStartedLocked(true, CallSite.GET_DEFAULT_WEBVIEW_DATABASE);
+        triggerAndWaitForChromiumStarted(true, CallSite.GET_DEFAULT_WEBVIEW_DATABASE);
         synchronized (mLazyInitLock) {
             if (mDefaultWebViewDatabase == null) {
                 mDefaultWebViewDatabase =
@@ -967,8 +970,52 @@ public class WebViewChromiumAwInit {
                 true, CallSite.ASYNC_WEBVIEW_STARTUP);
     }
 
+    @Retention(RetentionPolicy.SOURCE)
+    @IntDef({ResourcePathsApi.DISABLED, ResourcePathsApi.ENABLED, ResourcePathsApi.ERROR})
+    private @interface ResourcePathsApi {
+        int DISABLED = 0;
+        int ENABLED = 1;
+        int ERROR = 2;
+        int NUM_ENTRIES = 3;
+    }
+
+    /** Logs whether the registerResourcePaths API is available to use. */
+    private void logRegisterResourcePathsAvailability() {
+        if (Build.VERSION.SDK_INT == Build.VERSION_CODES.VANILLA_ICE_CREAM) {
+            try {
+                Properties properties = DeviceConfig.getProperties("resource_manager");
+                RecordHistogram.recordEnumeratedHistogram(
+                        REGISTER_RESOURCE_PATHS_HISTOGRAM_NAME,
+                        properties.getBoolean("android.content.res.register_resource_paths", false)
+                                ? ResourcePathsApi.ENABLED
+                                : ResourcePathsApi.DISABLED,
+                        ResourcePathsApi.NUM_ENTRIES);
+            } catch (Exception e) {
+                RecordHistogram.recordEnumeratedHistogram(
+                        REGISTER_RESOURCE_PATHS_HISTOGRAM_NAME,
+                        ResourcePathsApi.ERROR,
+                        ResourcePathsApi.NUM_ENTRIES);
+            }
+        } else if (Build.VERSION.SDK_INT == Build.VERSION_CODES.BAKLAVA) {
+            try {
+                RecordHistogram.recordEnumeratedHistogram(
+                        REGISTER_RESOURCE_PATHS_HISTOGRAM_NAME,
+                        AconfigPackage.load("android.content.res")
+                                        .getBooleanFlagValue("register_resource_paths", false)
+                                ? ResourcePathsApi.ENABLED
+                                : ResourcePathsApi.DISABLED,
+                        ResourcePathsApi.NUM_ENTRIES);
+            } catch (Exception e) {
+                RecordHistogram.recordEnumeratedHistogram(
+                        REGISTER_RESOURCE_PATHS_HISTOGRAM_NAME,
+                        ResourcePathsApi.ERROR,
+                        ResourcePathsApi.NUM_ENTRIES);
+            }
+        }
+    }
+
     // These are objects that need to be created on the UI thread and after chromium has started.
-    // Thus created during startChromiumLocked for ease.
+    // Thus created during startChromium for ease.
     private static final class ChromiumStartedGlobals {
         final AwBrowserContext mDefaultBrowserContext;
         final GeolocationPermissionsAdapter mDefaultGeolocationPermissions;
@@ -1000,6 +1047,7 @@ public class WebViewChromiumAwInit {
         private boolean mAsyncHasBeenTriggered;
         private long mLongestUiBlockingTaskTimeMs;
         private long mTotalTimeTakenMs;
+        private long mStartupTimeMs;
         private boolean mStartupStarted;
         private @CallSite int mStartCallSite = CallSite.COUNT;
         private @CallSite int mFinishCallSite = CallSite.COUNT;
@@ -1052,6 +1100,7 @@ public class WebViewChromiumAwInit {
                     SharedStatics.setStartupTriggered();
                 }
                 mFinishCallSite = callSite;
+                mStartupTimeMs = SystemClock.uptimeMillis();
             }
 
             // Early return to avoid repeating the return call within sync and async blocks
@@ -1125,7 +1174,7 @@ public class WebViewChromiumAwInit {
                     recordStartupMetrics(
                             mStartCallSite,
                             mFinishCallSite,
-                            /* startTimeMs= */ startTimeMs,
+                            /* startTimeMs= */ mStartupTimeMs,
                             /* totalTimeTakenMs= */ mTotalTimeTakenMs,
                             /* longestUiBlockingTaskTimeMs= */ mLongestUiBlockingTaskTimeMs,
                             calculateStartupMode(runMode));

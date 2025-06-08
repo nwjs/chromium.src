@@ -9,7 +9,6 @@
 #include <vector>
 
 #include "base/memory/raw_ptr.h"
-#include "base/not_fatal_until.h"
 #include "base/process/memory.h"
 #include "base/trace_event/trace_event.h"
 #include "build/build_config.h"
@@ -242,7 +241,7 @@ void SoftwareRenderer::BeginDrawingRenderPass(
     current_framebuffer_canvas_.reset();
   } else {
     auto it = render_pass_bitmaps_.find(render_pass->id);
-    CHECK(it != render_pass_bitmaps_.end(), base::NotFatalUntil::M130);
+    CHECK(it != render_pass_bitmaps_.end());
     SkBitmap& bitmap = it->second.bitmap;
 
     current_framebuffer_canvas_ = std::make_unique<SkCanvas>(
@@ -441,8 +440,7 @@ void SoftwareRenderer::DrawTextureQuad(const TextureDrawQuad* quad) {
   }
 
   DisplayResourceProviderSoftware::ScopedReadLockSkImage lock(
-      resource_provider(), quad->resource_id,
-      quad->premultiplied_alpha ? kPremul_SkAlphaType : kUnpremul_SkAlphaType);
+      resource_provider(), quad->resource_id);
 
   if (!lock.valid())
     return;
@@ -497,8 +495,7 @@ void SoftwareRenderer::DrawTileQuad(const TileDrawQuad* quad) {
   DCHECK(IsSoftwareResource(quad->resource_id));
 
   DisplayResourceProviderSoftware::ScopedReadLockSkImage lock(
-      resource_provider(), quad->resource_id,
-      quad->is_premultiplied ? kPremul_SkAlphaType : kUnpremul_SkAlphaType);
+      resource_provider(), quad->resource_id);
   if (!lock.valid())
     return;
 
@@ -595,7 +592,7 @@ void SoftwareRenderer::DrawRenderPassQuad(
 
   if (quad->mask_resource_id()) {
     DisplayResourceProviderSoftware::ScopedReadLockSkImage mask_lock(
-        resource_provider(), quad->mask_resource_id(), kPremul_SkAlphaType);
+        resource_provider(), quad->mask_resource_id());
     if (!mask_lock.valid())
       return;
 

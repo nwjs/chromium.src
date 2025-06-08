@@ -174,19 +174,6 @@ NET_EXPORT BASE_DECLARE_FEATURE(kSplitCodeCacheByNetworkIsolationKey);
 // See https://github.com/MattMenke2/Explainer---Partition-Network-State.
 NET_EXPORT BASE_DECLARE_FEATURE(kPartitionConnectionsByNetworkIsolationKey);
 
-// Enables post-quantum key-agreements in TLS 1.3 connections. kUseMLKEM
-// controls whether ML-KEM or Kyber (its predecessor) is used. The flag is named
-// after Kyber because it was originally introduced for Kyber.
-NET_EXPORT BASE_DECLARE_FEATURE(kPostQuantumKyber);
-
-// Causes TLS 1.3 connections to use the ML-KEM standard instead of the Kyber
-// draft standard for post-quantum key-agreement. Post-quantum key-agreement
-// must be enabled (e.g. via kPostQuantumKyber) for this to have an effect.
-//
-// TODO(crbug.com/40910498): Remove this flag sometime after M131 has reached
-// stable without issues.
-NET_EXPORT BASE_DECLARE_FEATURE(kUseMLKEM);
-
 // Changes the interval between two search engine preconnect attempts.
 NET_EXPORT BASE_DECLARE_FEATURE(kSearchEnginePreconnectInterval);
 
@@ -222,10 +209,6 @@ NET_EXPORT BASE_DECLARE_FEATURE(kShortLaxAllowUnsafeThreshold);
 // methods will not be allowed at all for top-level cross-site navigations.
 // This only has an effect if the cookie defaults to SameSite=Lax.
 NET_EXPORT BASE_DECLARE_FEATURE(kSameSiteDefaultChecksMethodRigorously);
-
-// When enabled this feature will cause same-site calculations to take into
-// account the scheme of the site-for-cookies and the request/response url.
-NET_EXPORT BASE_DECLARE_FEATURE(kSchemefulSameSite);
 
 // Enables a process-wide limit on "open" UDP sockets. See
 // udp_socket_global_limits.h for details on what constitutes an "open" socket.
@@ -336,8 +319,11 @@ NET_EXPORT BASE_DECLARE_FEATURE(kEnableWebsocketsOverHttp3);
 NET_EXPORT BASE_DECLARE_FEATURE(kEnableGetNetworkConnectivityHintAPI);
 
 // Whether or not to enable TCP port randomization via SO_RANDOMIZE_PORT on
-// Windows 20H1+.
-NET_EXPORT BASE_DECLARE_FEATURE(kEnableTcpPortRandomization);
+// Windows for versions >= kTcpPortRandomizationWinVersionMinimum.
+// See crbug.com/40744069 for more details.
+NET_EXPORT BASE_DECLARE_FEATURE(kTcpPortRandomizationWin);
+NET_EXPORT BASE_DECLARE_FEATURE_PARAM(int,
+                                      kTcpPortRandomizationWinVersionMinimum);
 
 // Whether to use a TCP socket implementation which uses an IO completion
 // handler to be notified of completed reads and writes, instead of an event.
@@ -348,10 +334,6 @@ NET_EXPORT BASE_DECLARE_FEATURE(kTcpSocketIoCompletionPortWin);
 NET_EXPORT BASE_DECLARE_FEATURE(kAvoidEntryCreationForNoStore);
 NET_EXPORT extern const base::FeatureParam<int>
     kAvoidEntryCreationForNoStoreCacheSize;
-
-// Prefetch to follow normal semantics instead of 5-minute rule
-// https://crbug.com/1345207
-NET_EXPORT BASE_DECLARE_FEATURE(kPrefetchFollowsNormalCacheSemantics);
 
 // A flag for new Kerberos feature, that suggests new UI
 // when Kerberos authentication in browser fails on ChromeOS.
@@ -564,6 +546,17 @@ NET_EXPORT extern const base::FeatureParam<bool> kIpPrivacyOnlyInIncognito;
 // proxied by IP Protection and thus allowing the user to made aware and offer
 // the ability to bypass IP Protection via the User Bypass UX.
 NET_EXPORT extern const base::FeatureParam<bool> kIpPrivacyEnableUserBypass;
+
+// If true, IP Protection will be disabled by default for enterprise users.
+// Otherwise, IP Protection will be enabled by default for enterprise users (but
+// can still be opted out of via enterprise policy). This is intended to be used
+// as a kill-switch in case significant enterprise breakage is encountered
+// during the IP Protection rollout. Note that this has no effect unless the
+// `kEnableIpProtectionProxy` feature is enabled.
+// TODO(https://crbug.com/41496985): Remove this feature a few milestones after
+// launch assuming no major enterprise breakage is encountered.
+NET_EXPORT extern const base::FeatureParam<bool>
+    kIpPrivacyDisableForEnterpriseByDefault;
 
 // Maximum report body size (KB) to include in serialized reports. Bodies
 // exceeding this are omitted when kExcludeLargeBodyReports is enabled.  Use

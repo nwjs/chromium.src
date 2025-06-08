@@ -9,8 +9,9 @@
 
 #include "base/notreached.h"
 #include "base/supports_user_data.h"
-#include "components/optimization_guide/content/mojom/ai_page_content_metadata.mojom.h"
 #include "components/optimization_guide/content/browser/page_content_proto_provider.h"
+#include "components/optimization_guide/content/mojom/ai_page_content_metadata.mojom.h"
+#include "components/optimization_guide/core/optimization_guide_proto_util.h"
 #include "components/optimization_guide/proto/features/common_quality_data.pb.h"
 #include "third_party/blink/public/mojom/content_extraction/ai_page_content.mojom.h"
 #include "third_party/blink/public/mojom/forms/form_control_type.mojom-shared.h"
@@ -173,8 +174,6 @@ void ConvertNodeInteractionInfo(
       mojom_node_interaction_info.is_draggable);
   proto_interaction_info->set_is_clickable(
       mojom_node_interaction_info.is_clickable);
-  proto_interaction_info->set_for_dom_node_id(
-      mojom_node_interaction_info.for_dom_node_id);
 
   if (mojom_node_interaction_info.document_scoped_z_order) {
     proto_interaction_info->set_document_scoped_z_order(
@@ -537,6 +536,16 @@ bool ConvertAttributes(
   for (const auto& annotated_role : mojom_attributes.annotated_roles) {
     proto_attributes->add_annotated_roles(ConvertAnnotatedRole(annotated_role));
   }
+
+  if (mojom_attributes.aria_role) {
+    proto_attributes->set_aria_role(AXRoleToProto(*mojom_attributes.aria_role));
+  }
+
+  if (mojom_attributes.label_for_dom_node_id) {
+    proto_attributes->set_label_for_dom_node_id(
+        *mojom_attributes.label_for_dom_node_id);
+  }
+
   return true;
 }
 

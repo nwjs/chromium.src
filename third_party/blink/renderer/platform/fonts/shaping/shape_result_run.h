@@ -42,7 +42,7 @@
 #include "third_party/blink/renderer/platform/fonts/shaping/glyph_data.h"
 #include "third_party/blink/renderer/platform/fonts/shaping/glyph_data_range.h"
 #include "third_party/blink/renderer/platform/fonts/shaping/glyph_index_result.h"
-#include "third_party/blink/renderer/platform/fonts/shaping/glyph_offset_array.h"
+#include "third_party/blink/renderer/platform/fonts/shaping/glyph_offset_iterator.h"
 #include "third_party/blink/renderer/platform/fonts/shaping/shape_result.h"
 #include "third_party/blink/renderer/platform/wtf/allocator/allocator.h"
 #include "third_party/blink/renderer/platform/wtf/vector.h"
@@ -68,7 +68,7 @@ struct PLATFORM_EXPORT ShapeResultRun final
         num_characters_(num_characters),
         width_(0.0f),
         script_(script),
-        direction_(dir),
+        hb_direction_(dir),
         canvas_rotation_(canvas_rotation) {}
 
   ShapeResultRun(const ShapeResultRun& other)
@@ -79,7 +79,7 @@ struct PLATFORM_EXPORT ShapeResultRun final
         num_characters_(other.num_characters_),
         width_(other.width_),
         script_(other.script_),
-        direction_(other.direction_),
+        hb_direction_(other.hb_direction_),
         canvas_rotation_(other.canvas_rotation_) {}
 
   void Trace(Visitor* visitor) const {
@@ -89,9 +89,15 @@ struct PLATFORM_EXPORT ShapeResultRun final
   }
 
   unsigned NumGlyphs() const { return glyph_data_.size(); }
-  bool IsLtr() const { return HB_DIRECTION_IS_FORWARD(direction_); }
-  bool IsRtl() const { return HB_DIRECTION_IS_BACKWARD(direction_); }
-  bool IsHorizontal() const { return HB_DIRECTION_IS_HORIZONTAL(direction_); }
+  bool HasLigatures() const { return NumGlyphs() < num_characters_; }
+  hb_direction_t HbDirection() const {
+    return static_cast<hb_direction_t>(hb_direction_);
+  }
+  bool IsLtr() const { return HB_DIRECTION_IS_FORWARD(HbDirection()); }
+  bool IsRtl() const { return HB_DIRECTION_IS_BACKWARD(HbDirection()); }
+  bool IsHorizontal() const {
+    return HB_DIRECTION_IS_HORIZONTAL(HbDirection());
+  }
   CanvasRotationInVertical CanvasRotation() const { return canvas_rotation_; }
   unsigned NextSafeToBreakOffset(unsigned) const;
   unsigned PreviousSafeToBreakOffset(unsigned) const;
@@ -137,7 +143,7 @@ struct PLATFORM_EXPORT ShapeResultRun final
     }
 
     auto* run = MakeGarbageCollected<ShapeResultRun>(
-        font_data_.Get(), direction_, canvas_rotation_, script_,
+        font_data_.Get(), HbDirection(), canvas_rotation_, script_,
         start_index_ + start, number_of_glyphs, number_of_characters);
 
     run->glyph_data_.CopyFromRange(glyphs);
@@ -162,8 +168,8 @@ struct PLATFORM_EXPORT ShapeResultRun final
     }
     DCHECK_LT(start_index_, other.start_index_);
     auto* run = MakeGarbageCollected<ShapeResultRun>(
-        font_data_.Get(), direction_, canvas_rotation_, script_, start_index_,
-        glyph_data_.size() + other.glyph_data_.size(),
+        font_data_.Get(), HbDirection(), canvas_rotation_, script_,
+        start_index_, glyph_data_.size() + other.glyph_data_.size(),
         num_characters_ + other.num_characters_);
     // Note: We populate |graphemes_| on demand, e.g. hit testing.
     const int index_adjust = other.start_index_ - start_index_;
@@ -191,8 +197,8 @@ struct PLATFORM_EXPORT ShapeResultRun final
   bool CanMerge(const ShapeResultRun& other) const {
     return start_index_ + num_characters_ == other.start_index_ &&
            canvas_rotation_ == other.canvas_rotation_ &&
-           font_data_ == other.font_data_ && direction_ == other.direction_ &&
-           script_ == other.script_ &&
+           font_data_ == other.font_data_ &&
+           hb_direction_ == other.hb_direction_ && script_ == other.script_ &&
            glyph_data_.size() + other.glyph_data_.size() <
                HarfBuzzRunGlyphData::kMaxCharacterIndex + 1;
   }
@@ -268,11 +274,11 @@ struct PLATFORM_EXPORT ShapeResultRun final
     HarfBuzzRunGlyphData& back() { return data_.back(); }
     const HarfBuzzRunGlyphData& back() const { return data_.back(); }
 
-    bool HasNonZeroOffsets() const { return offsets_.HasStorage(); }
+    bool HasNonZeroOffsets() const { return !offsets_.empty(); }
 
     size_t ByteSize() const {
       return sizeof(*this) + size() * sizeof(HarfBuzzRunGlyphData) +
-             offsets_.ByteSize();
+             sizeof(GlyphOffset) * offsets_.size();
     }
 
     // The `span` of `GlyphOffset` if `HasNonZeroOffsets()`, or an empty span.
@@ -281,8 +287,8 @@ struct PLATFORM_EXPORT ShapeResultRun final
     }
 
     template <bool has_non_zero_glyph_offsets>
-    GlyphOffsetArray::iterator<has_non_zero_glyph_offsets> GetOffsets() const {
-      return offsets_.GetIterator<has_non_zero_glyph_offsets>();
+    GlyphOffsetIterator<has_non_zero_glyph_offsets> GetOffsets() const {
+      return GlyphOffsetIterator<has_non_zero_glyph_offsets>(offsets_);
     }
 
     // Note: Caller should be adjust |HarfBuzzRunGlyphData.character_index|.
@@ -295,8 +301,16 @@ struct PLATFORM_EXPORT ShapeResultRun final
       std::ranges::copy(other1.data_, data_.data());
       std::ranges::copy(other2.data_,
                         UNSAFE_TODO(data_.data() + other1.size()));
-      offsets_.CopyFrom(other1.offsets_, other1.size(), other2.offsets_,
-                        other2.size());
+
+      if (other1.HasNonZeroOffsets()) {
+        AllocateOffsetsIfNeeded();
+        std::ranges::copy(other1.offsets_, offsets_.begin());
+      }
+      if (other2.HasNonZeroOffsets()) {
+        AllocateOffsetsIfNeeded();
+        std::ranges::copy(other2.offsets_,
+                          UNSAFE_TODO(offsets_.begin() + other1.size()));
+      }
     }
 
     // Note: Caller should be adjust |HarfBuzzRunGlyphData.character_index|.
@@ -304,19 +318,35 @@ struct PLATFORM_EXPORT ShapeResultRun final
       CHECK_EQ(range.size(), size());
       static_assert(std::is_trivially_copyable_v<HarfBuzzRunGlyphData>);
       std::ranges::copy(range, data_.data());
-      offsets_.CopyFromRange(range);
+
+      if (!range.HasOffsets() || range.IsEmpty()) {
+        offsets_.clear();
+      } else {
+        AllocateOffsets();
+        std::ranges::copy(range.Offsets(), offsets_.begin());
+      }
     }
 
     void AddOffsetHeightAt(unsigned index, float delta) {
-      offsets_.AddHeightAt(index, delta, size());
+      DCHECK_NE(delta, 0.0f);
+      AllocateOffsetsIfNeeded();
+      offsets_[index].set_y(offsets_[index].y() + delta);
     }
 
     void AddOffsetWidthAt(unsigned index, float delta) {
-      offsets_.AddWidthAt(index, delta, size());
+      DCHECK_NE(delta, 0.0f);
+      AllocateOffsetsIfNeeded();
+      offsets_[index].set_x(offsets_[index].x() + delta);
     }
 
     void SetOffsetAt(unsigned index, GlyphOffset offset) {
-      offsets_.SetAt(index, offset, size());
+      if (!HasNonZeroOffsets()) {
+        if (offset.IsZero()) {
+          return;
+        }
+        AllocateOffsets();
+      }
+      offsets_[index] = offset;
     }
 
     // Vector<HarfBuzzRunGlyphData> like functions
@@ -351,7 +381,9 @@ struct PLATFORM_EXPORT ShapeResultRun final
       }
       DCHECK_LT(new_size, size());
       data_.Shrink(new_size);
-      offsets_.Shrink(new_size);
+      if (HasNonZeroOffsets()) {
+        offsets_.Shrink(new_size);
+      }
     }
 
     void Trace(Visitor* visitor) const {
@@ -360,12 +392,24 @@ struct PLATFORM_EXPORT ShapeResultRun final
     }
 
    private:
+    void AllocateOffsets() {
+      DCHECK_GE(size(), 1u);
+      DCHECK(!HasNonZeroOffsets());
+      offsets_.resize(size());
+    }
+
+    void AllocateOffsetsIfNeeded() {
+      if (!HasNonZeroOffsets()) {
+        AllocateOffsets();
+      }
+    }
+
     // Note: |offsets_| holds number of elements instead o here to reduce
     // memory usage.
     HeapVector<HarfBuzzRunGlyphData> data_;
     // |offsets_| holds collection of offset for |data_[i]|.
     // When all offsets are zero, we don't allocate for reducing memory usage.
-    GlyphOffsetArray offsets_;
+    HeapVector<GlyphOffset> offsets_;
   };
 
   void CheckConsistency() const {
@@ -388,7 +432,7 @@ struct PLATFORM_EXPORT ShapeResultRun final
   float width_;
 
   hb_script_t script_;
-  hb_direction_t direction_;
+  uint8_t hb_direction_;  // hb_direction_t
 
   // For upright-in-vertical we need to tell the ShapeResultBloberizer to rotate
   // the canvas back 90deg for this ShapeResultRun.

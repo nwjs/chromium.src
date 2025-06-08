@@ -31,6 +31,7 @@
 #include "components/autofill/core/browser/data_model/payments/autofill_offer_data.h"
 #include "components/autofill/core/browser/data_model/payments/bnpl_issuer.h"
 #include "components/autofill/core/browser/data_model/payments/credit_card.h"
+#include "components/autofill/core/browser/data_model/valuables/loyalty_card.h"
 #include "components/autofill/core/browser/integrators/touch_to_fill/touch_to_fill_delegate.h"
 #include "components/autofill/core/browser/metrics/payments/risk_data_metrics.h"
 #include "components/autofill/core/browser/payments/autofill_error_dialog_context.h"
@@ -41,11 +42,13 @@
 #include "components/autofill/core/browser/payments/credit_card_risk_based_authenticator.h"
 #include "components/autofill/core/browser/payments/iban_access_manager.h"
 #include "components/autofill/core/browser/payments/mandatory_reauth_manager.h"
+#include "components/autofill/core/browser/payments/multiple_request_payments_network_interface.h"
 #include "components/autofill/core/browser/payments/offer_notification_options.h"
 #include "components/autofill/core/browser/payments/otp_unmask_delegate.h"
 #include "components/autofill/core/browser/payments/otp_unmask_result.h"
 #include "components/autofill/core/browser/payments/payments_autofill_client.h"
 #include "components/autofill/core/browser/payments/payments_network_interface.h"
+#include "components/autofill/core/browser/payments/save_and_fill_manager.h"
 #include "components/autofill/core/browser/payments/virtual_card_enrollment_manager.h"
 #include "components/autofill/core/browser/single_field_fillers/payments/merchant_promo_code_manager.h"
 #include "components/autofill/core/browser/suggestions/suggestion.h"
@@ -592,6 +595,20 @@ ChromePaymentsAutofillClient::GetPaymentsNetworkInterface() {
   return payments_network_interface_.get();
 }
 
+MultipleRequestPaymentsNetworkInterface*
+ChromePaymentsAutofillClient::GetMultipleRequestPaymentsNetworkInterface() {
+  if (!multiple_request_payments_network_interface_) {
+    multiple_request_payments_network_interface_ =
+        std::make_unique<MultipleRequestPaymentsNetworkInterface>(
+            Profile::FromBrowserContext(web_contents()->GetBrowserContext())
+                ->GetURLLoaderFactory(),
+            *client_->GetIdentityManager(),
+            Profile::FromBrowserContext(web_contents()->GetBrowserContext())
+                ->IsOffTheRecord());
+  }
+  return multiple_request_payments_network_interface_.get();
+}
+
 void ChromePaymentsAutofillClient::ShowAutofillErrorDialog(
     AutofillErrorDialogContext context) {
   autofill_error_dialog_controller_ =
@@ -869,7 +886,6 @@ AutofillOfferManager* ChromePaymentsAutofillClient::GetAutofillOfferManager() {
 
 bool ChromePaymentsAutofillClient::ShowTouchToFillCreditCard(
     base::WeakPtr<TouchToFillDelegate> delegate,
-    base::span<const autofill::CreditCard> cards_to_suggest,
     base::span<const Suggestion> suggestions) {
 #if BUILDFLAG(IS_ANDROID)
   // Create the manual filling controller which will be used to show the
@@ -877,11 +893,11 @@ bool ChromePaymentsAutofillClient::ShowTouchToFillCreditCard(
   ManualFillingController::GetOrCreate(web_contents())
       ->UpdateSourceAvailability(
           ManualFillingController::FillingSource::CREDIT_CARD_FALLBACKS,
-          !cards_to_suggest.empty());
+          !suggestions.empty());
 
-  return touch_to_fill_payment_method_controller_.Show(
+  return touch_to_fill_payment_method_controller_.ShowCreditCards(
       std::make_unique<TouchToFillPaymentMethodViewImpl>(web_contents()),
-      delegate, std::move(cards_to_suggest), std::move(suggestions));
+      delegate, std::move(suggestions));
 #else
   // Touch To Fill is not supported on Desktop.
   NOTREACHED();
@@ -892,9 +908,22 @@ bool ChromePaymentsAutofillClient::ShowTouchToFillIban(
     base::WeakPtr<TouchToFillDelegate> delegate,
     base::span<const autofill::Iban> ibans_to_suggest) {
 #if BUILDFLAG(IS_ANDROID)
-  return touch_to_fill_payment_method_controller_.Show(
+  return touch_to_fill_payment_method_controller_.ShowIbans(
       std::make_unique<TouchToFillPaymentMethodViewImpl>(web_contents()),
       delegate, std::move(ibans_to_suggest));
+#else
+  // Touch To Fill is not supported on Desktop.
+  NOTREACHED();
+#endif
+}
+
+bool ChromePaymentsAutofillClient::ShowTouchToFillLoyaltyCard(
+    base::WeakPtr<TouchToFillDelegate> delegate,
+    base::span<const autofill::LoyaltyCard> loyalty_cards_to_suggest) {
+#if BUILDFLAG(IS_ANDROID)
+  return touch_to_fill_payment_method_controller_.ShowLoyaltyCards(
+      std::make_unique<TouchToFillPaymentMethodViewImpl>(web_contents()),
+      delegate, std::move(loyalty_cards_to_suggest));
 #else
   // Touch To Fill is not supported on Desktop.
   NOTREACHED();
@@ -950,6 +979,18 @@ void ChromePaymentsAutofillClient::ShowCreditCardSaveAndFillDialog() {
 #endif  // !BUILDFLAG(IS_ANDROID)
 }
 
+SaveAndFillManager* ChromePaymentsAutofillClient::GetSaveAndFillManager() {
+#if BUILDFLAG(IS_ANDROID)
+  return nullptr;
+#else
+  if (!save_and_fill_manager_) {
+    save_and_fill_manager_ =
+        std::make_unique<payments::SaveAndFillManager>(this);
+  }
+  return save_and_fill_manager_.get();
+#endif  // BUILDFLAG(IS_ANDROID)
+}
+
 void ChromePaymentsAutofillClient::ShowSelectBnplIssuerDialog(
     std::vector<BnplIssuerContext> bnpl_issuer_context,
     std::string app_locale,
@@ -974,15 +1015,19 @@ void ChromePaymentsAutofillClient::DismissSelectBnplIssuerDialog() {
   }
 }
 
-bool ChromePaymentsAutofillClient::IsTabModalPopup() const {
+bool ChromePaymentsAutofillClient::IsTabModalPopupDeprecated() const {
 #if !BUILDFLAG(IS_ANDROID)
   tabs::TabInterface* const tab_interface =
       tabs::TabInterface::MaybeGetFromContents(web_contents());
-  return tab_interface &&
-         tab_interface->GetBrowserWindowInterface()->IsTabModalPopup();
+  return tab_interface && tab_interface->GetBrowserWindowInterface()
+                              ->IsTabModalPopupDeprecated();
 #else
   return false;
 #endif  // !BUILDFLAG(IS_ANDROID)
+}
+
+bool ChromePaymentsAutofillClient::IsRiskBasedAuthEffectivelyAvailable() const {
+  return true;
 }
 
 #if BUILDFLAG(IS_ANDROID)

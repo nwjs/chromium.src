@@ -47,6 +47,7 @@ De reținut:
 <translation id="1917964099031477364">Acest cont și toate datele nesalvate vor fi eliminate din Chrome și din alte aplicații Google de pe acest dispozitiv.</translation>
 <translation id="1919130412786645364">Permite conectarea la Chrome</translation>
 <translation id="1965935827552890526">Termină ce făceai în cealaltă fereastră Chrome deschisă.</translation>
+<translation id="1966638102563776885">Sfat pentru Chrome: accesează parolele în orice aplicație</translation>
 <translation id="1973910962341002002">Din setările <ph name="TEXT_OF_THE_SETTINGS_MENU_ITEM" />, activează Chrome</translation>
 <translation id="1984705450038014246">Sincronizează datele din Chrome</translation>
 <translation id="1987779152850321833">Finalizează mai jos aceste acțiuni sugerate, pentru a profita din plin de Chrome.</translation>
@@ -114,7 +115,6 @@ Așteaptă câteva minute înainte să te deconectezi. Dacă te deconectezi acum
 <translation id="3655656110921623717">Aceasta înseamnă că Chrome va solicita de fiecare dată site-ul mobil.</translation>
 <translation id="3740397331642243698">Deschide adresele URL introduse în Google Chrome în modul incognito.</translation>
 <translation id="3741995255368156336">Deschide Lista de lecturi Chrome.</translation>
-<translation id="3808570423967020928">Accesează Chrome mai rapid din bara de andocare de pe ecranul de pornire.</translation>
 <translation id="3827545470516145620">Beneficiezi de protecție de securitate standard pe acest dispozitiv</translation>
 <translation id="384394811301901750">Momentan, Google Chrome nu poate folosi camera foto</translation>
 <translation id="3863841106411295595">Adaugă adresele URL introduse în lista de lecturi din Chrome.</translation>
@@ -138,6 +138,7 @@ Așteaptă câteva minute înainte să te deconectezi. Dacă te deconectezi acum
 <translation id="4724297637870447613">Folosește Chrome oriunde</translation>
 <translation id="4738647308035481133">Pagină Google Chrome</translation>
 <translation id="4742795653798179840">Datele Chrome au fost șterse</translation>
+<translation id="4749294594657945639">Pentru a accesa cu ușurință parolele salvate în alte aplicații, alege Chrome pentru completare automată.</translation>
 <translation id="4761869838909035636">Rulează verificarea de siguranță pentru Chrome</translation>
 <translation id="4798859546468762093">Pentru a beneficia de personalizare și alte funcții, include Chrome în <ph name="FEATURE_NAME_1" /> și <ph name="FEATURE_NAME_2" /></translation>
 <translation id="4819268619367838612">Pentru a contribui la îmbunătățirea aplicației, Chrome trimite date de utilizare și despre erori la Google. <ph name="BEGIN_LINK" />Gestionează<ph name="END_LINK" /></translation>
@@ -233,7 +234,6 @@ Pentru mai multe setări care folosesc date pentru a-ți îmbunătăți experien
 <translation id="6975725306479268850">Alege Chrome pentru completarea automată</translation>
 <translation id="7056826488869329999">Deschide și rulează Verificarea de siguranță în Chrome.</translation>
 <translation id="7061455974939528301">Apasă lung pictograma Chrome și dă clic pe Editează ecranul de pornire</translation>
-<translation id="7065813315247345131">Mută Chrome în bara de andocare</translation>
 <translation id="7124339256045485976">Menține browserul Chrome actualizat</translation>
 <translation id="7145599899567697473">Salvează și completează automat parolele în Chrome</translation>
 <translation id="7161390184744336561">Google Chrome este învechit</translation>
@@ -317,10 +317,10 @@ Datele au fost criptate cu expresia de acces pentru <ph name="TIME" />. Introdu-
 <translation id="8603022514504485810">Managerul de parole Google nu a putut verifica toate parolele. Încearcă din nou mâine sau <ph name="BEGIN_LINK" />verifică parolele din Contul Google<ph name="END_LINK" />.</translation>
 <translation id="8630122478628016441">Activează Blochează filele incognito când închizi Chrome.</translation>
 <translation id="8673726683583791503">Fă cumpărături cu Google Lens</translation>
-<translation id="8727043961453758442">Profită la maximum de Chrome</translation>
 <translation id="8765470054473112089">Când introduci text în bara de adrese sau în caseta de căutare, Chrome trimite ceea ce introduci la motorul de căutare prestabilit, pentru a primi sugestii mai bune. Această opțiune este dezactivată în modul incognito.</translation>
 <translation id="8772179140489533211">Afișează solicitări pentru conectarea la Chrome.</translation>
 <translation id="8788269841521769222">Nu va trebui să reții această parolă. Ea se va salva în Managerul de parole Google pentru <ph name="EMAIL" /></translation>
+<translation id="8796490717897731471"><ph name="EMAIL" />. Chrome este gestionat.</translation>
 <translation id="880967149107462122">Accesează setările Chrome</translation>
 <translation id="8842132678697187091">Poți deschide Google Lens aici.</translation>
 <translation id="8850736900032787670">Pentru a primi conținut personalizat în funcție de interesele tale, conectează-te la Chrome.</translation>

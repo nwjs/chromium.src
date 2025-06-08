@@ -19,6 +19,7 @@
 #include "components/content_settings/core/common/content_settings_types.h"
 #include "components/content_settings/core/common/content_settings_utils.h"
 #include "components/content_settings/core/common/cookie_blocking_3pcd_status.h"
+#include "components/content_settings/core/common/cookie_controls_state.h"
 #include "components/content_settings/core/common/features.h"
 #include "components/content_settings/core/common/pref_names.h"
 #include "components/prefs/pref_service.h"
@@ -189,8 +190,7 @@ class TrackingProtectionBubbleViewBrowserTest
         net::EmbeddedTestServer::TYPE_HTTPS);
     // Enable FPP to display UB UX with ACT features
     feature_list_.InitWithFeatures(
-        {privacy_sandbox::kTrackingProtectionContentSettingUbControl,
-         privacy_sandbox::kActUserBypassUx,
+        {privacy_sandbox::kActUserBypassUx,
          privacy_sandbox::kFingerprintingProtectionUx},
         {});
   }
@@ -212,10 +212,10 @@ IN_PROC_BROWSER_TEST_F(TrackingProtectionBubbleViewBrowserTest,
   ShowIncognitoBubble();
   EXPECT_FALSE(tracking_protection_settings->HasTrackingProtectionException(
       third_party_cookie_page_url()));
-  SimulateTogglePress(true);
+  SimulateTogglePress(false);
   EXPECT_TRUE(tracking_protection_settings->HasTrackingProtectionException(
       third_party_cookie_page_url()));
-  SimulateTogglePress(false);
+  SimulateTogglePress(true);
   EXPECT_FALSE(tracking_protection_settings->HasTrackingProtectionException(
       third_party_cookie_page_url()));
 }
@@ -225,8 +225,7 @@ IN_PROC_BROWSER_TEST_F(CookieControlsBubbleViewBrowserTest,
   ShowBubble();
   views::test::WidgetDestroyedWaiter waiter(bubble_view()->GetWidget());
   view_controller()->OnStatusChanged(
-      /*controls_visible=*/false,
-      /*protections_on=*/false, CookieControlsEnforcement::kNoEnforcement,
+      CookieControlsState::kHidden, CookieControlsEnforcement::kNoEnforcement,
       CookieBlocking3pcdStatus::kNotIn3pcd, base::Time());
   waiter.Wait();
   EXPECT_EQ(bubble_view(), nullptr);

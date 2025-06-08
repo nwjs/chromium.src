@@ -62,6 +62,7 @@
 #include "third_party/blink/renderer/core/frame/local_frame_view.h"
 #include "third_party/blink/renderer/core/frame/settings.h"
 #include "third_party/blink/renderer/core/frame/visual_viewport.h"
+#include "third_party/blink/renderer/core/html/canvas/html_canvas_element.h"
 #include "third_party/blink/renderer/core/html/html_element.h"
 #include "third_party/blink/renderer/core/html_names.h"
 #include "third_party/blink/renderer/core/layout/anchor_position_scroll_data.h"
@@ -196,6 +197,7 @@ PaintLayer::PaintLayer(LayoutBoxModelObject* layout_object)
       has_filter_that_moves_pixels_(false),
       is_under_svg_hidden_container_(false),
       has_self_painting_layer_descendant_(false),
+      has_backdrop_filter_descendant_(false),
       needs_reorder_overlay_overflow_controls_(false),
       static_inline_edge_(InlineEdge::kInlineStart),
       static_block_edge_(BlockEdge::kBlockStart),
@@ -386,6 +388,7 @@ void PaintLayer::UpdateDescendantDependentFlags() {
     has_stacked_descendant_in_current_stacking_context_ = false;
     has_self_painting_layer_descendant_ = false;
     descendant_needs_check_position_visibility_ = false;
+    has_backdrop_filter_descendant_ = false;
 
     bool can_contain_abs =
         GetLayoutObject().CanContainAbsolutePositionObjects();
@@ -438,6 +441,11 @@ void PaintLayer::UpdateDescendantDependentFlags() {
           has_self_painting_layer_descendant_ ||
           child->HasSelfPaintingLayerDescendant() ||
           child->IsSelfPaintingLayer();
+
+      has_backdrop_filter_descendant_ =
+          has_backdrop_filter_descendant_ ||
+          child->HasBackdropFilterDescendant() ||
+          child->GetLayoutObject().StyleRef().HasNonInitialBackdropFilter();
     }
 
     // See SetInvisibleForPositionVisibility() for explanation for
@@ -587,14 +595,15 @@ void PaintLayer::UpdateScrollingAfterLayout() {
 PaintLayer* PaintLayer::ContainingLayer() const {
   LayoutObject& layout_object = GetLayoutObject();
   if (layout_object.IsOutOfFlowPositioned()) {
-    // In NG, the containing block chain goes directly from a column spanner to
-    // the multi-column container. Thus, for an OOF nested inside a spanner, we
-    // need to find its containing layer through its containing block to handle
-    // this case correctly. Therefore, we technically only need to take this
-    // path for OOFs inside an NG spanner. However, doing so for all OOF
-    // descendants of a multicol container is reasonable enough.
-    if (layout_object.IsInsideFlowThread())
+    // The containing block chain goes directly from a column spanner to the
+    // multi-column container. Thus, for an OOF nested inside a spanner, we need
+    // to find its containing layer through its containing block to handle this
+    // case correctly. Therefore, we technically only need to take this path for
+    // OOFs inside a spanner. However, doing so for all OOF descendants of a
+    // multicol container is reasonable enough.
+    if (layout_object.IsInsideMulticol()) {
       return SlowContainingLayer(layout_object);
+    }
     auto can_contain_this_layer =
         layout_object.IsFixedPositioned()
             ? &LayoutObject::CanContainFixedPositionObjects
@@ -2393,31 +2402,6 @@ bool PaintLayer::ComputeHasFilterThatMovesPixels() const {
   return false;
 }
 
-void InvalidateParentCanvasForPlacedElement(PaintLayer* layer) {
-  // The placed element itself is guaranteed to be the direct descendant of a
-  // canvas and both will have their own paint layers.
-  PaintLayer* child_layer;
-  while (layer) {
-    if (layer->GetLayoutObject().IsCanvas()) {
-      layer->SetNeedsRepaint();
-      Element* placed_element =
-          To<Element>(child_layer->GetLayoutObject().GetNode());
-      To<LayoutHTMLCanvas>(layer->GetLayoutObject())
-          .DidInvalidatePaintForPlacedElement(placed_element);
-      return;
-    }
-    child_layer = layer;
-    layer = layer->Parent();
-  }
-}
-
-static bool IsCanvasDescendant(LayoutObject* layout_object) {
-  return layout_object && layout_object->GetNode() &&
-         layout_object->GetNode()->IsHTMLElement() &&
-         !layout_object->IsCanvas() &&
-         To<HTMLElement>(layout_object->GetNode())->IsInCanvasSubtree();
-}
-
 void PaintLayer::SetNeedsRepaint() {
   if (self_needs_repaint_)
     return;
@@ -2425,12 +2409,6 @@ void PaintLayer::SetNeedsRepaint() {
   // Invalidate as a display item client.
   static_cast<DisplayItemClient*>(this)->Invalidate();
   MarkPaintingContainerChainForNeedsRepaint();
-
-  // If this layer is a descendant of a canvas then it may be part of a placed
-  // element subtree and the canvas itself needs to be invalidated.
-  if (IsCanvasDescendant(layout_object_)) {
-    InvalidateParentCanvasForPlacedElement(this);
-  }
 }
 
 void PaintLayer::SetDescendantNeedsRepaint() {

@@ -20,7 +20,6 @@
 #include "chrome/browser/ui/browser_list.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/tabs/saved_tab_groups/saved_tab_group_utils.h"
-#include "chrome/browser/ui/tabs/tab_group.h"
 #include "chrome/browser/ui/tabs/tab_group_model.h"
 #include "chrome/browser/ui/tabs/tab_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
@@ -32,6 +31,7 @@
 #include "components/tab_groups/tab_group_color.h"
 #include "components/tab_groups/tab_group_id.h"
 #include "components/tab_groups/tab_group_visual_data.h"
+#include "components/tabs/public/tab_group.h"
 #include "ui/gfx/range/range.h"
 
 using tabs::TabModel;
@@ -236,7 +236,7 @@ ExtensionFunction::ResponseAction TabGroupsUpdateFunction::Run() {
   TabGroup* tab_group = tab_strip_model->group_model()->GetTabGroup(id);
 
   tab_groups::TabGroupVisualData new_visual_data(title, color, collapsed);
-  tab_group->SetVisualData(std::move(new_visual_data));
+  tab_strip_model->ChangeTabGroupVisuals(id, std::move(new_visual_data));
 
   if (!has_callback())
     return RespondNow(NoArguments());
@@ -397,8 +397,21 @@ bool TabGroupsMoveFunction::MoveTabGroupBetweenBrowsers(
     return false;
   }
 
+  // When moving a group between windows, Saved Tab Groups must pause
+  // listening since the group is in an invalid state. Since Extensions
+  // implements it's own bulk move action, pausing must be performed here.
+  tab_groups::TabGroupSyncService* tab_group_sync_service =
+      tab_groups::SavedTabGroupUtils::GetServiceForProfile(
+          target_browser->profile());
+  std::unique_ptr<tab_groups::ScopedLocalObservationPauser>
+      tab_groups_sync_movement_observation;
+  if (tab_group_sync_service) {
+    tab_groups_sync_movement_observation =
+        tab_group_sync_service->CreateScopedLocalObserverPauser();
+  }
+
   TabStripModel* source_tab_strip = source_browser->tab_strip_model();
-  std::unique_ptr<DetachedTabGroup> detached_group =
+  std::unique_ptr<DetachedTabCollection> detached_group =
       source_tab_strip->DetachTabGroupForInsertion(group);
   target_tab_strip->InsertDetachedTabGroupAt(std::move(detached_group),
                                              new_index);

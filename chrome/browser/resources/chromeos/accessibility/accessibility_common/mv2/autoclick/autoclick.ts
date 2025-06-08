@@ -2,6 +2,28 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+// Required for running accessibility/common tests. Without this,
+// necessary exports are not available in the test enviropment.
+
+// Required for AccessibilityExtensionArrayUtilTest.
+import '/common/array_util.js';
+// Required for AccessibilityExtensionAutomationPredicateTest.
+import '/common/automation_predicate.js';
+// Required for AccessibilityExtensionAutomationTreeWalkerTest.
+import '/common/tree_walker.js';
+// Required for AccessibilityExtensionAutomationUtilE2ETest.
+import '/common/automation_util.js';
+import '/common/rect_util.js';
+// Required for AccessibilityExtensionCursorsTest.
+import '/common/cursors/cursor.js';
+import '/common/cursors/range.js';
+// Required for AccessibilityExtensionEventGeneratorTest.
+import '/common/event_generator.js';
+// Required for AccessibilityExtensionKeepAliveTest.
+import '/common/keep_alive.js';
+// Required for AccessibilityExtensionLocalStorageTest.
+import '/common/local_storage.js';
+
 import {EventHandler} from '/common/event_handler.js';
 
 /**

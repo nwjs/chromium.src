@@ -10,7 +10,6 @@
 #include <vector>
 
 #include "base/location.h"
-#include "base/strings/stringprintf.h"
 #include "media/base/audio_decoder_config.h"
 #include "media/base/buffering_state.h"
 #include "media/base/cdm_config.h"
@@ -487,7 +486,7 @@ struct MediaSerializer<media::PictureInPictureEventsInfo::AutoPipInfo> {
   static base::Value Serialize(
       const media::PictureInPictureEventsInfo::AutoPipInfo& value) {
     base::Value::Dict result;
-    FIELD_SERIALIZE("Reason", value.auto_pip_reason);
+    FIELD_SERIALIZE("reason", value.auto_pip_reason);
     FIELD_SERIALIZE("has_audio_focus", value.has_audio_focus);
     FIELD_SERIALIZE("is_playing", value.is_playing);
     FIELD_SERIALIZE("was_recently_audible", value.was_recently_audible);

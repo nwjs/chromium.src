@@ -188,7 +188,8 @@ void OnDeviceExecution::BeginExecution(OnDeviceContext& context) {
 
   auto options = on_device_model::mojom::GenerateOptions::New();
   options->max_output_tokens = opts_.token_limits.max_output_tokens;
-  options->constraint = std::move(constraint_);
+  options->constraint = constraint_ ? std::move(constraint_)
+                                    : opts_.adapter->GetResponseConstraint();
 
   opts_.safety_checker->RunRequestChecks(
       last_message_,
@@ -299,6 +300,7 @@ void OnDeviceExecution::OnComplete(
 }
 
 void OnDeviceExecution::OnComplete(uint32_t tokens_processed) {
+  execute_input_token_count_ = tokens_processed;
   MutableLoggedRequest()->set_execution_num_tokens_processed(tokens_processed);
 }
 
@@ -384,6 +386,7 @@ void OnDeviceExecution::OnParsedResponse(
         CancelPendingResponse(Result::kContainedPII,
                               ModelExecutionError::kFiltered);
         return;
+      case ResponseParsingError::kInvalidConfiguration:
       case ResponseParsingError::kFailed:
         CancelPendingResponse(Result::kFailedConstructingResponseMessage,
                               ModelExecutionError::kGenericFailure);
@@ -503,9 +506,11 @@ void OnDeviceExecution::SendSuccessCompletionCallback(
   // Return the execution response.
   auto self = weak_ptr_factory_.GetWeakPtr();
   std::move(callback_).Run(OptimizationGuideModelStreamingExecutionResult(
-      base::ok(StreamingResponse{.response = success_response_metadata,
-                                 .is_complete = true,
-                                 .output_token_count = output_token_count_}),
+      base::ok(
+          StreamingResponse{.response = success_response_metadata,
+                            .is_complete = true,
+                            .input_token_count = execute_input_token_count_,
+                            .output_token_count = output_token_count_}),
       /*provided_by_on_device=*/true, std::move(model_execution_info)));
   if (self) {
     self->Cleanup(/*healthy=*/true);

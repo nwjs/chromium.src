@@ -29,6 +29,7 @@
 #include "base/test/scoped_feature_list.h"
 #include "base/test/values_test_util.h"
 #include "base/values.h"
+#include "build/build_config.h"
 #include "components/network_session_configurator/common/network_switches.h"
 #include "content/browser/in_memory_federated_permission_context.h"
 #include "content/browser/webid/fake_identity_request_dialog_controller.h"
@@ -100,8 +101,6 @@ constexpr char kExpectedWellKnownPath[] = "/.well-known/web-identity";
 constexpr char kTestContentType[] = "application/json";
 constexpr char kIdpForbiddenHeader[] = "Sec-FedCM-CSRF";
 
-// TODO(crbug.com/40245246): Replace these with a standardized header once
-// we collected enough metrics.
 static constexpr char kSetLoginHeader[] = "Set-Login";
 static constexpr char kLoggedInHeaderValue[] = "logged-in";
 static constexpr char kLoggedOutHeaderValue[] = "logged-out";
@@ -404,7 +403,7 @@ class WebIdBrowserTest : public ContentBrowserTest {
   void SetTestIdentityRequestDialogController(
       std::optional<std::string> dialog_selected_account) {
     auto controller = std::make_unique<FakeIdentityRequestDialogController>(
-        dialog_selected_account);
+        std::move(dialog_selected_account), /*web_contents=*/nullptr);
     test_browser_client_->SetIdentityRequestDialogController(
         std::move(controller));
   }
@@ -502,9 +501,6 @@ class WebIdIdPRegistryBrowserTest : public WebIdBrowserTest {
 class WebIdAuthzBrowserTest : public WebIdBrowserTest {
  public:
   void SetUpCommandLine(base::CommandLine* command_line) override {
-    scoped_feature_list_.InitWithFeatures(
-        {features::kFedCmButtonMode, features::kFedCmAuthz}, {});
-
     command_line->AppendSwitch(switches::kIgnoreCertificateErrors);
   }
 };
@@ -939,6 +935,38 @@ IN_PROC_BROWSER_TEST_F(WebIdIdPRegistryBrowserTest, MultipleRegisteredIdps) {
   SetTestIdentityRequestDialogController("not_real_account");
 
   EXPECT_EQ(std::string(kToken), EvalJs(shell(), get_script));
+}
+
+IN_PROC_BROWSER_TEST_F(WebIdIdPRegistryBrowserTest,
+                       RegistrationFailsWithInvalidLoginUrl) {
+  GURL configURL = GURL(BaseIdpUrl());
+  auto details = BuildValidConfigDetails();
+  // Set this as empty so that the login URL is invalid.
+  details.login_url = "";
+  idp_server()->SetConfigResponseDetails(details);
+
+  auto mock = std::make_unique<
+      ::testing::NiceMock<MockIdentityRequestDialogController>>();
+  test_browser_client_->SetIdentityRequestDialogController(std::move(mock));
+
+  // We navigate to the IdP's configURL so that we can run
+  // the script below with the IdP's origin as the top level
+  // first party context.
+  EXPECT_TRUE(NavigateToURL(shell(), configURL));
+
+  std::string script = R"(
+        (async () => {
+          await IdentityProvider.register(')" +
+                       configURL.spec() + R"(');
+          // The permission was accepted if the promise resolves.
+          return true;
+        }) ()
+    )";
+
+  EXPECT_EQ("NotAllowedError: Invalid identity provider registration config.",
+            ExtractJsError(EvalJs(shell(), script)));
+
+  EXPECT_TRUE(sharing_context()->GetRegisteredIdPs().empty());
 }
 
 // Verify that IDP sign-in headers work.
@@ -1627,7 +1655,7 @@ IN_PROC_BROWSER_TEST_F(WebIdAuthzBrowserTest, Authz_openPopUpWindow) {
 
   // Expects the account chooser to be opened. Selects the first account.
   EXPECT_CALL(*controller, ShowAccountsDialog)
-      .WillOnce(::testing::WithArg<6>([&config_url](auto on_selected) {
+      .WillOnce(::testing::WithArg<5>([&config_url](auto on_selected) {
         std::move(on_selected)
             .Run(config_url,
                  /* account_id=*/"not_real_account",
@@ -1899,7 +1927,6 @@ IN_PROC_BROWSER_TEST_F(WebIdBrowserTest,
 class WebIdModeBrowserTest : public WebIdBrowserTest {
  public:
   void SetUpCommandLine(base::CommandLine* command_line) override {
-    scoped_feature_list_.InitAndEnableFeature(features::kFedCmButtonMode);
     command_line->AppendSwitch(switches::kIgnoreCertificateErrors);
   }
 };
@@ -1918,13 +1945,6 @@ class WebIdDelegationBrowserTest : public WebIdBrowserTest {
     std::vector<base::test::FeatureRef> features;
     features.push_back(features::kFedCm);
     features.push_back(features::kFedCmDelegation);
-    // Needs the fields API
-    features.push_back(features::kFedCmAuthz);
-    // Intended to be used in Active mode
-    features.push_back(features::kFedCmButtonMode);
-    // Needs to reconcile well with the IdP Registration and Multi-IdP API
-    features.push_back(features::kFedCmIdPRegistration);
-    features.push_back(features::kFedCmMultipleIdentityProviders);
     scoped_feature_list_.InitWithFeatures(features, {});
     command_line->AppendSwitch(switches::kIgnoreCertificateErrors);
   }
@@ -2068,7 +2088,7 @@ IN_PROC_BROWSER_TEST_F(WebIdDelegationBrowserTest, ConditionalMediation) {
   auto configURL = BaseIdpUrl();
   EXPECT_CALL(*controller, ShowAccountsDialog)
       .WillOnce(
-          ::testing::WithArg<6>([&modal_loop, &configURL](auto on_selected) {
+          ::testing::WithArg<5>([&modal_loop, &configURL](auto on_selected) {
             std::move(on_selected)
                 .Run(GURL(configURL),
                      /*account_id=*/"not_real_account",
@@ -2123,9 +2143,12 @@ IN_PROC_BROWSER_TEST_F(WebIdDelegationBrowserTest, ConditionalMediation) {
   EXPECT_EQ(suggestions->size(), 1ul);
 
   auto account = (*suggestions)[0];
+
+  EXPECT_EQ(account->identity_provider->format, blink::mojom::Format::kSdJwt);
+
   source->NotifyAutofillSuggestionAccepted(
       account->identity_provider->idp_metadata.config_url, account->id,
-      base::NullCallback());
+      /*show_modal=*/true, base::NullCallback());
 
   // Wait for the user to accept the prompt.
   modal_loop.Run();
@@ -2147,13 +2170,91 @@ IN_PROC_BROWSER_TEST_F(WebIdDelegationBrowserTest, ConditionalMediation) {
       testing::UnorderedElementsAre("Sam"));
 }
 
+// Flaky on mac, https://crbug.com/415953689
+#if BUILDFLAG(IS_MAC)
+#define MAYBE_ConditionalMediationForMediatedRequest \
+  DISABLED_ConditionalMediationForMediatedRequest
+#else
+#define MAYBE_ConditionalMediationForMediatedRequest \
+  ConditionalMediationForMediatedRequest
+#endif
+IN_PROC_BROWSER_TEST_F(WebIdDelegationBrowserTest,
+                       MAYBE_ConditionalMediationForMediatedRequest) {
+  idp_server()->SetConfigResponseDetails(BuildValidConfigDetails());
+
+  auto mock = std::make_unique<
+      ::testing::NiceMock<MockIdentityRequestDialogController>>();
+  // Keep a copy of the pointer before the std::move.
+  MockIdentityRequestDialogController* controller = mock.get();
+  test_browser_client_->SetIdentityRequestDialogController(std::move(mock));
+
+  auto configURL = BaseIdpUrl();
+
+  base::RunLoop run_loop;
+
+  EXPECT_TRUE(NavigateToURL(shell(), GURL(configURL)));
+
+  std::string script = R"(
+    var token = navigator.credentials.get({
+      mediation: 'conditional',
+      identity: {
+        providers: [{
+          fields: ['name'],
+          configURL: ')" +
+                       configURL + R"(',
+          clientId: 'client_id_1',
+          nonce: '12345',
+        }],
+      },
+    }).then(({token}) => token)
+  )";
+
+  // Await until the accounts are available for autofill.
+  EXPECT_CALL(*controller, NotifyAutofillSourceReadyForTesting)
+      .WillOnce([&run_loop]() { run_loop.Quit(); });
+
+  auto promise = EvalJs(shell(), script, EXECUTE_SCRIPT_NO_RESOLVE_PROMISES);
+
+  run_loop.Run();
+
+  // Gets the pending conditional request.
+  auto* source = FederatedAuthAutofillSource::FromPage(
+      shell()->web_contents()->GetPrimaryPage());
+
+  EXPECT_TRUE(source != nullptr);
+
+  // Gets all the autofill suggestion and selects the first one.
+  auto suggestions = source->GetAutofillSuggestions();
+  EXPECT_TRUE(suggestions);
+  EXPECT_EQ(suggestions->size(), 1ul);
+
+  auto account = (*suggestions)[0];
+
+  // Mediated FedCM has an empty format.
+  EXPECT_EQ(account->identity_provider->format, std::nullopt);
+
+  base::RunLoop callback;
+
+  source->NotifyAutofillSuggestionAccepted(
+      account->identity_provider->idp_metadata.config_url, account->id,
+      /*show_modal=*/false,
+      base::BindLambdaForTesting([&callback](bool accepted) {
+        EXPECT_TRUE(accepted);
+        callback.Quit();
+      }));
+
+  // Wait for the identity provider to return a token.
+  callback.Run();
+
+  // Assert that the conditional mediation request resolved and that
+  // the right token was provided.
+  EXPECT_EQ(std::string(kToken), EvalJs(shell(), "token"));
+}
+
 class WebIdMetricsBrowserTest : public WebIdBrowserTest {
  public:
   void SetUpCommandLine(base::CommandLine* command_line) override {
-    scoped_feature_list_.InitWithFeatures(
-        {features::kFedCmMetricsEndpoint, features::kFedCmButtonMode,
-         features::kFedCmAuthz},
-        {});
+    scoped_feature_list_.InitAndEnableFeature(features::kFedCmMetricsEndpoint);
     command_line->AppendSwitch(switches::kIgnoreCertificateErrors);
   }
 

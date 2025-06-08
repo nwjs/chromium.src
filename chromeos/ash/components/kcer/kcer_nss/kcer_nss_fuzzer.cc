@@ -16,6 +16,7 @@
 #include "base/logging.h"
 #include "base/memory/raw_ref.h"
 #include "base/memory/raw_span.h"
+#include "base/strings/string_util.h"
 #include "base/test/allow_check_is_test_for_testing.h"
 #include "base/test/test_future.h"
 #include "base/test/test_timeouts.h"
@@ -505,9 +506,17 @@ void CertGenerator::GenerateCert() {
   if (GetBool()) {
     std::vector<std::string> policy_oids;
     while (GetBool()) {
-      policy_oids.push_back(GetString());
+      std::vector<std::string> oid_parts;
+      while (GetBool()) {
+        oid_parts.push_back(base::NumberToString(GetUint64()));
+      }
+      if (!oid_parts.empty()) {
+        policy_oids.push_back(base::JoinString(oid_parts, "."));
+      }
     }
-    cert_builder_->SetCertificatePolicies(policy_oids);
+    if (!policy_oids.empty()) {
+      cert_builder_->SetCertificatePolicies(policy_oids);
+    }
   }
   if (GetBool()) {
     std::vector<std::pair<std::string, std::string>> policy_mappings;
@@ -881,6 +890,12 @@ void KcerFuzzer::RunImportCertFromBytesUseValidCert() {
                                key->public_key.GetSpki().value());
   scoped_refptr<net::X509Certificate> cert = cert_generator.GetX509Cert();
   if (!cert) {
+    return;
+  }
+  net::ScopedCERTCertificate nss_cert =
+      net::x509_util::CreateCERTCertificateFromX509Certificate(cert.get());
+  if (!nss_cert) {
+    // NSS doesn't consider the cert valid.
     return;
   }
 

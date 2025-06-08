@@ -75,6 +75,13 @@ const base::FeatureParam<int> kAndroidSpareRendererMemoryThreshold{
 const base::FeatureParam<bool> kAndroidSpareRendererKillWhenBackgrounded{
     &kAndroidWarmUpSpareRendererWithTimeout, "kill_when_backgrounded", false};
 
+// Whether to allow attaching an inner WebContents not owned by the outer
+// WebContents. This is for prototyping purposes and should not be enabled in
+// production.
+BASE_FEATURE(kAttachUnownedInnerWebContents,
+    "AttachUnownedInnerWebContents",
+    base::FEATURE_DISABLED_BY_DEFAULT);
+
 // Launches the audio service on the browser startup.
 BASE_FEATURE(kAudioServiceLaunchOnStartup,
              "AudioServiceLaunchOnStartup",
@@ -398,39 +405,17 @@ BASE_FEATURE(kEnsureExistingRendererAlive,
 // We enable it here by default to support use in origin trials.
 BASE_FEATURE(kFedCm, "FedCm", base::FEATURE_ENABLED_BY_DEFAULT);
 
-// Enables the "Use a different account" button in the FedCM account chooser to
-// log in to another IDP account, if the IDP opts in.
-BASE_FEATURE(kFedCmUseOtherAccount,
-             "FedCmUseOtherAccount",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
 // Support usernames and phone numbers to identify users, instead of
 // (or in addition to) names and emails.
 BASE_FEATURE(kFedCmAlternativeIdentifiers,
              "FedCmAlternativeIdentifiers",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-// Enables usage of the FedCM Authz API.
-// Note that actual exposure of the API to web content is controlled by
-// the flag in RuntimeEnabledFeatures on the blink side. See also the use
-// of kSetOnlyIfOverridden in content/child/runtime_features.cc. We enable
-// it here by default to support use in origin trials and web platform tests.
-BASE_FEATURE(kFedCmAuthz, "FedCmAuthz", base::FEATURE_ENABLED_BY_DEFAULT);
-
 // Enables RPs to enhance autofill with federated accounts fetched by the FedCM
 // API.
 BASE_FEATURE(kFedCmAutofill,
              "FedCmAutofill",
              base::FEATURE_DISABLED_BY_DEFAULT);
-
-// Enables usage of the FedCM ButtonMode feature.
-// Note that actual exposure of the API to web content is controlled by
-// the flag in RuntimeEnabledFeatures on the blink side. See also the use
-// of kSetOnlyIfOverridden in content/child/runtime_features.cc. We enable
-// it here by default to support use in origin trials.
-BASE_FEATURE(kFedCmButtonMode,
-             "FedCmButtonMode",
-             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables cooldown on ignore in FedCM API.
 BASE_FEATURE(kFedCmCooldownOnIgnore,
@@ -447,6 +432,13 @@ BASE_FEATURE(kFedCmIdPRegistration,
              "FedCmIdPregistration",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+// For cross-site iframes, sends the top-level origin to the IDP and parses
+// an optional returned boolean indicating whether it is part of the same
+// client to allow for UI decisions based on the boolean.
+BASE_FEATURE(kFedCmIframeOrigin,
+             "FedCmIframeOrigin",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // Enables usage of the FedCM API with metrics endpoint at the same time.
 BASE_FEATURE(kFedCmMetricsEndpoint,
              "FedCmMetricsEndpoint",
@@ -457,12 +449,6 @@ BASE_FEATURE(kFedCmMetricsEndpoint,
 BASE_FEATURE(kFedCmMultipleIdentityProviders,
              "FedCmMultipleIdentityProviders",
              base::FEATURE_ENABLED_BY_DEFAULT);
-
-// Enables usage of the FedCM API with the Selective Disclosure API at the same
-// time.
-BASE_FEATURE(kFedCmSelectiveDisclosure,
-             "FedCmSelectiveDisclosure",
-             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Enables showing filtered out accounts in FedCM UI after the user attempts to
 // login to an account. These accounts are shown greyed out.
@@ -822,7 +808,7 @@ BASE_FEATURE(kPushSubscriptionChangeEventOnInvalidation,
 // upon manual resubscription to previously unsubscribed notifications.
 BASE_FEATURE(kPushSubscriptionChangeEventOnResubscribe,
              "PushSubscriptionChangeEventOnResubscribe",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // When enabled, queues navigations instead of cancelling the previous
 // navigation if the previous navigation is already waiting for commit.
@@ -1214,7 +1200,7 @@ BASE_FEATURE(kUnrestrictedSharedArrayBuffer,
 // If enabled, blink's context snapshot is used rather than the v8 snapshot.
 BASE_FEATURE(kUseContextSnapshot,
              "UseContextSnapshot",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 #endif
 
 // Enables comparing browser and renderer's DidCommitProvisionalLoadParams in
@@ -1350,6 +1336,11 @@ BASE_FEATURE(kWebPermissionsApi,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 #if BUILDFLAG(IS_ANDROID)
+// When enabled, will no longer cache java side AccessibilityNodeInfo objects.
+BASE_FEATURE(kAccessibilityDeprecateJavaNodeCache,
+             "AccessibilityDeprecateJavaNodeCache",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // When enabled, TYPE_ANNOUNCE events will no longer be sent for live regions in
 // the web contents.
 BASE_FEATURE(kAccessibilityDeprecateTypeAnnounce,
@@ -1400,6 +1391,13 @@ BASE_FEATURE(kGinJavaBridgeMojoSkipClearObjectsOnMainDocumentReady,
              "GinJavaBridgeMojoSkipClearObjectsOnMainDocumentReady",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
+// Rebind service binding when consecutive Context.updateServiceGroup() call is
+// done. If this is disabled, it rebinds the service binding on each
+// Context.updateServiceGroup() call.
+BASE_FEATURE(kGroupRebindingForGroupImportance,
+             "GroupRebindingForGroupImportance",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // Reduce the priority of GPU process when in background so it is more likely
 // to be killed first if the OS needs more memory.
 BASE_FEATURE(kReduceGpuPriorityOnBackground,
@@ -1423,7 +1421,7 @@ BASE_FEATURE(kUserMediaScreenCapturing,
 // Enables backgrounding hidden renderers on Mac.
 BASE_FEATURE(kMacAllowBackgroundingRenderProcesses,
              "MacAllowBackgroundingRenderProcesses",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables a fix for a macOS IME Live Conversion issue. crbug.com/40226470 and
 // crbug.com/40060200
@@ -1454,7 +1452,12 @@ const base::FeatureParam<int> kNavigationCapturingIPHGuardrailStorageDuration{
 
 BASE_FEATURE(kPwaNavigationCapturing,
              "PwaNavigationCapturing",
+#if BUILDFLAG(IS_CHROMEOS)
              base::FEATURE_DISABLED_BY_DEFAULT);
+#else
+             base::FEATURE_ENABLED_BY_DEFAULT);
+#endif
+
 const base::FeatureParam<CapturingState>::Option kNavigationCapturingParams[] =
     {{CapturingState::kDefaultOn, "on_by_default"},
      {CapturingState::kDefaultOff, "off_by_default"},
@@ -1464,7 +1467,12 @@ const base::FeatureParam<CapturingState>::Option kNavigationCapturingParams[] =
 
 const base::FeatureParam<CapturingState> kNavigationCapturingDefaultState{
     &kPwaNavigationCapturing, "link_capturing_state",
-    CapturingState::kReimplDefaultOn, &kNavigationCapturingParams};
+#if BUILDFLAG(IS_CHROMEOS)
+    CapturingState::kReimplDefaultOff,
+#else
+    CapturingState::kReimplOnViaClientMode,
+#endif
+    &kNavigationCapturingParams};
 
 const base::FeatureParam<std::string> kForcedOffCapturingAppsOnFirstNavigation{
     &kPwaNavigationCapturing, "initial_nav_forced_off_apps", ""};

@@ -126,6 +126,12 @@ std::string GetCategorizedSpareProcessMaybeTakeTimeUMAName(
     case SpareProcessMaybeTakeAction::kRefusedForPdfContent:
       action_name = "RefusedForPdfContent";
       break;
+    case SpareProcessMaybeTakeAction::kRefusedForJitMismatch:
+      action_name = "RefusedForJitMismatch";
+      break;
+    case SpareProcessMaybeTakeAction::kRefusedForV8OptimizationMismatch:
+      action_name = "RefusedForV8OptimizationMismatch";
+      break;
   }
   return base::StrCat(
       {"BrowserRenderProcessHost.SpareProcessMaybeTakeTime.", action_name});
@@ -260,18 +266,11 @@ void LogNoSparePresentUmas(
   }
 }
 
-void LogSpareProcessTakeActionUMAs(
-    RenderProcessHost* host,
-    SpareProcessMaybeTakeAction action,
-    NoSpareRendererReason no_spare_renderer_reason,
-    const ProcessAllocationContext& allocation_context,
-    const std::optional<ProcessAllocationContext>& previous_taken_context) {
+void LogSpareProcessTakeActionUMAs(RenderProcessHost* host,
+                                   SpareProcessMaybeTakeAction action) {
   base::UmaHistogramEnumeration(
       "BrowserRenderProcessHost.SpareProcessMaybeTakeAction", action);
-  if (action == SpareProcessMaybeTakeAction::kNoSparePresent) {
-    LogNoSparePresentUmas(no_spare_renderer_reason, allocation_context,
-                          previous_taken_context);
-  } else if (action == SpareProcessMaybeTakeAction::kSpareTaken) {
+  if (action == SpareProcessMaybeTakeAction::kSpareTaken) {
     CHECK(host);
     base::UmaHistogramBoolean(kSpareRendererTakenIsReady, host->IsReady());
     base::UmaHistogramLongTimes(
@@ -387,9 +386,9 @@ void SpareRenderProcessHostManagerImpl::RemoveObserver(Observer* observer) {
   observer_list_.RemoveObserver(observer);
 }
 
-void SpareRenderProcessHostManagerImpl::WarmupSpare(
+RenderProcessHost* SpareRenderProcessHostManagerImpl::WarmupSpare(
     BrowserContext* browser_context) {
-  WarmupSpare(browser_context, std::nullopt);
+  return WarmupSpare(browser_context, std::nullopt);
 }
 
 const std::vector<RenderProcessHost*>&
@@ -410,7 +409,7 @@ void SpareRenderProcessHostManagerImpl::CleanupSparesForTesting() {
   CleanupSpares(std::nullopt);
 }
 
-void SpareRenderProcessHostManagerImpl::WarmupSpare(
+RenderProcessHost* SpareRenderProcessHostManagerImpl::WarmupSpare(
     BrowserContext* browser_context,
     std::optional<base::TimeDelta> timeout) {
   if (delay_timer_) {
@@ -438,7 +437,7 @@ void SpareRenderProcessHostManagerImpl::WarmupSpare(
       deferred_destroy_timer_.Stop();
       StartDestroyTimer(timeout);
     }
-    return;
+    return nullptr;
   }
 
   bool had_spare_renderer = !!spare_rph;
@@ -458,21 +457,21 @@ void SpareRenderProcessHostManagerImpl::WarmupSpare(
     // any problematic callers.
     base::debug::DumpWithoutCrashing();
 
-    return;
+    return nullptr;
   }
 
   if (BrowserMainRunner::ExitedMainMessageLoop()) {
     // Don't create a new process when the browser is shutting down. No
     // DumpWithoutCrashing here since there are known cases in the wild. See
     // https://crbug.com/40274462 for details.
-    return;
+    return nullptr;
   }
 
   // Don't create a spare renderer if we're using --single-process or if we've
   // got too many processes.
   if (RenderProcessHost::IsProcessLimitReached()) {
     no_spare_renderer_reason_ = NoSpareRendererReason::kProcessLimit;
-    return;
+    return nullptr;
   }
 
   // Don't create a spare renderer when the system is under load.  This is
@@ -482,14 +481,14 @@ void SpareRenderProcessHostManagerImpl::WarmupSpare(
   if (memory_monitor && memory_monitor->GetCurrentPressureLevel() >=
                             GetMemoryPressureLevelThreshold()) {
     no_spare_renderer_reason_ = NoSpareRendererReason::kMemoryPressure;
-    return;
+    return nullptr;
   }
 
 #if BUILDFLAG(IS_ANDROID)
   if (features::kAndroidSpareRendererKillWhenBackgrounded.Get() &&
       is_app_backgroud_) {
     no_spare_renderer_reason_ = NoSpareRendererReason::kOnceBackgrounded;
-    return;
+    return nullptr;
   }
 #endif
 
@@ -518,6 +517,7 @@ void SpareRenderProcessHostManagerImpl::WarmupSpare(
 
   // The spare render process isn't ready, so wait and do the "spare render
   // process changed" callback in RenderProcessReady().
+  return new_spare_rph;
 }
 
 void SpareRenderProcessHostManagerImpl::DeferredWarmupSpare(
@@ -544,106 +544,57 @@ RenderProcessHost* SpareRenderProcessHostManagerImpl::MaybeTakeSpare(
     BrowserContext* browser_context,
     SiteInstanceImpl* site_instance,
     const ProcessAllocationContext& allocation_context) {
-  // Give embedder a chance to disable using a spare RenderProcessHost for
-  // certain SiteInstances.  Some navigations, such as to NTP or extensions,
-  // require passing command-line flags to the renderer process at process
-  // launch time, but this cannot be done for spare RenderProcessHosts, which
-  // are started before it is known which navigation might use them.  So, a
-  // spare RenderProcessHost should not be used in such cases.
-  //
-  // Note that exempting NTP and extensions from using the spare process might
-  // also happen via HasProcess check below (which returns true for
-  // process-per-site SiteInstances if the given process-per-site process
-  // already exists).  Despite this potential overlap, it is important to do
-  // both kinds of checks (to account for other non-ntp/extension
-  // process-per-site scenarios + to work correctly even if
-  // ShouldUseSpareRenderProcessHost starts covering non-process-per-site
-  // scenarios).
-  std::optional<ContentBrowserClient::SpareProcessRefusedByEmbedderReason>
-      refuse_reason =
-          GetContentClient()->browser()->ShouldUseSpareRenderProcessHost(
-              browser_context, site_instance->GetSiteInfo().site_url());
-  bool embedder_allows_spare_usage = !refuse_reason.has_value();
-
-  // The spare RenderProcessHost always launches with JIT enabled, so if JIT
-  // is disabled for the site then it's not possible to use this as the JIT
-  // policy will differ.
-  if (GetContentClient()->browser()->IsJitDisabledForSite(
-          browser_context, site_instance->GetSiteInfo().process_lock_url())) {
-    embedder_allows_spare_usage = false;
-    refuse_reason =
-        ContentBrowserClient::SpareProcessRefusedByEmbedderReason::JitDisabled;
-  }
-
-  // V8 optimizations are globally enabled or disabled for a whole process, and
-  // spare renderers always have V8 optimizations enabled, so we can never use
-  // them if they're supposed to be disabled for this site.
-  if (GetContentClient()->browser()->AreV8OptimizationsDisabledForSite(
-          browser_context, site_instance->GetSiteInfo().process_lock_url())) {
-    embedder_allows_spare_usage = false;
-    refuse_reason = ContentBrowserClient::SpareProcessRefusedByEmbedderReason::
-        V8OptimizationsDisabled;
-  }
-
-  // V8 feature flags are globally initialized during renderer process startup,
-  // and spare renderers allow V8 feature flag overrides by default. As such
-  // spare renderers should not be used when v8 flag overrides are disabled.
-  if (GetContentClient()->browser()->DisallowV8FeatureFlagOverridesForSite(
-          site_instance->GetSiteInfo().process_lock_url())) {
-    embedder_allows_spare_usage = false;
-    refuse_reason = ContentBrowserClient::SpareProcessRefusedByEmbedderReason::
-        DisallowV8FeatureFlagOverrides;
-  }
-
-  if (refuse_reason.has_value()) {
-    base::UmaHistogramEnumeration(
-        "BrowserRenderProcessHost.SpareProcessRefusedByEmbedderReason",
-        refuse_reason.value());
-  }
-
-  // We shouldn't use the spare if:
-  // 1. The SiteInstance has already got an associated process.  This is
-  //    important to avoid taking and then immediately discarding the spare
-  //    for process-per-site scenarios (which the HasProcess call below
-  //    accounts for).  Note that HasProcess will return false and allow using
-  //    the spare if the given process-per-site process hasn't been launched.
-  // 2. The SiteInstance has opted out of using the spare process.
-  bool site_instance_allows_spare_usage =
-      !site_instance->HasProcess() &&
-      site_instance->CanAssociateWithSpareProcess();
-
-  bool hosts_pdf_content = site_instance->GetSiteInfo().is_pdf();
-
   // Get the StoragePartition for |site_instance|.  Note that this might be
   // different than the default StoragePartition for |browser_context|.
   StoragePartition* site_storage =
       browser_context->GetStoragePartition(site_instance);
 
-  // GetSpare UMA metrics.
+  // Bail early if there is no spare renderer available.
   SpareProcessMaybeTakeAction action =
       SpareProcessMaybeTakeAction::kNoSparePresent;
-
   RenderProcessHost* next_spare_rph =
       !spare_rphs_.empty() ? spare_rphs_.at(0) : nullptr;
-
   if (!next_spare_rph) {
-    action = SpareProcessMaybeTakeAction::kNoSparePresent;
+    LogNoSparePresentUmas(no_spare_renderer_reason_, allocation_context,
+                          previous_taken_context_);
   } else if (browser_context != next_spare_rph->GetBrowserContext()) {
     action = SpareProcessMaybeTakeAction::kMismatchedBrowserContext;
   } else if (!next_spare_rph->InSameStoragePartition(site_storage)) {
     action = SpareProcessMaybeTakeAction::kMismatchedStoragePartition;
-  } else if (!embedder_allows_spare_usage) {
+  } else if (auto refuse_reason =
+                 DoesEmbedderAllowSpareUsage(browser_context, site_instance);
+             refuse_reason.has_value()) {
+    base::UmaHistogramEnumeration(
+        "BrowserRenderProcessHost.SpareProcessRefusedByEmbedderReason",
+        refuse_reason.value());
     action = SpareProcessMaybeTakeAction::kRefusedByEmbedder;
-  } else if (!site_instance_allows_spare_usage) {
+  } else if (
+      // We shouldn't use the spare if:
+      // 1. The SiteInstance has already got an associated process.  This is
+      //    important to avoid taking and then immediately discarding the spare
+      //    for process-per-site scenarios (which the HasProcess call below
+      //    accounts for).  Note that HasProcess will return false and allow
+      //    using the spare if the given process-per-site process hasn't been
+      //    launched.
+      // 2. The SiteInstance has opted out of using the spare process.
+      // 3. The SiteInstance is a guest SiteInstance.
+      site_instance->HasProcess() ||
+      !site_instance->CanAssociateWithSpareProcess() ||
+      site_instance->IsGuest()) {
     action = SpareProcessMaybeTakeAction::kRefusedBySiteInstance;
-  } else if (hosts_pdf_content) {
+  } else if (site_instance->GetSiteInfo().is_pdf()) {
     action = SpareProcessMaybeTakeAction::kRefusedForPdfContent;
+  } else if (next_spare_rph->IsJitDisabled() !=
+             site_instance->GetSiteInfo().is_jit_disabled()) {
+    action = SpareProcessMaybeTakeAction::kRefusedForJitMismatch;
+  } else if (next_spare_rph->AreV8OptimizationsDisabled() !=
+             site_instance->GetSiteInfo().are_v8_optimizations_disabled()) {
+    action = SpareProcessMaybeTakeAction::kRefusedForV8OptimizationMismatch;
   } else {
     action = SpareProcessMaybeTakeAction::kSpareTaken;
   }
-  LogSpareProcessTakeActionUMAs(next_spare_rph, action,
-                                no_spare_renderer_reason_, allocation_context,
-                                previous_taken_context_);
+  LogSpareProcessTakeActionUMAs(next_spare_rph, action);
+
   if (spare_renderer_maybe_take_timer_) {
     auto maybe_take_time = spare_renderer_maybe_take_timer_->Elapsed();
     base::UmaHistogramLongTimes(
@@ -655,18 +606,13 @@ RenderProcessHost* SpareRenderProcessHostManagerImpl::MaybeTakeSpare(
 
   // Decide whether to take or drop the spare process.
   RenderProcessHost* returned_process = nullptr;
-  if (next_spare_rph &&
-      browser_context == next_spare_rph->GetBrowserContext() &&
-      next_spare_rph->InSameStoragePartition(site_storage) &&
-      !site_instance->IsGuest() && embedder_allows_spare_usage &&
-      site_instance_allows_spare_usage && !hosts_pdf_content) {
+  if (action == SpareProcessMaybeTakeAction::kSpareTaken) {
     CHECK(next_spare_rph->HostHasNotBeenUsed());
 
     // If the spare process ends up getting killed, the spare manager should
     // discard the spare RPH, so if one exists, it should always be live here.
     CHECK(next_spare_rph->IsInitializedAndNotDead());
 
-    DCHECK_EQ(SpareProcessMaybeTakeAction::kSpareTaken, action);
     returned_process = next_spare_rph;
     previous_taken_context_ = allocation_context;
     ReleaseSpare(next_spare_rph, SpareRendererDispatchResult::kUsed);
@@ -692,6 +638,65 @@ RenderProcessHost* SpareRenderProcessHostManagerImpl::MaybeTakeSpare(
   }
 
   return returned_process;
+}
+
+std::optional<ContentBrowserClient::SpareProcessRefusedByEmbedderReason>
+SpareRenderProcessHostManagerImpl::DoesEmbedderAllowSpareUsage(
+    BrowserContext* browser_context,
+    SiteInstanceImpl* site_instance) {
+  // Give embedder a chance to disable using a spare RenderProcessHost for
+  // certain SiteInstances.  Some navigations, such as to NTP or extensions,
+  // require passing command-line flags to the renderer process at process
+  // launch time, but this cannot be done for spare RenderProcessHosts, which
+  // are started before it is known which navigation might use them.  So, a
+  // spare RenderProcessHost should not be used in such cases.
+  //
+  // Note that exempting NTP and extensions from using the spare process might
+  // also happen via HasProcess check below (which returns true for
+  // process-per-site SiteInstances if the given process-per-site process
+  // already exists).  Despite this potential overlap, it is important to do
+  // both kinds of checks (to account for other non-ntp/extension
+  // process-per-site scenarios + to work correctly even if
+  // ShouldUseSpareRenderProcessHost starts covering non-process-per-site
+  // scenarios).
+  std::optional<ContentBrowserClient::SpareProcessRefusedByEmbedderReason>
+      refuse_reason;
+  if (!GetContentClient()->browser()->ShouldUseSpareRenderProcessHost(
+          browser_context, site_instance->GetSiteInfo().site_url(),
+          refuse_reason)) {
+    CHECK(refuse_reason.has_value());
+    return refuse_reason;
+  }
+
+  // The spare RenderProcessHost always launches with JIT enabled, so if JIT
+  // is disabled for the site then it's not possible to use this as the JIT
+  // policy will differ.
+  if (GetContentClient()->browser()->IsJitDisabledForSite(
+          browser_context, site_instance->GetSiteInfo().process_lock_url())) {
+    return ContentBrowserClient::SpareProcessRefusedByEmbedderReason::
+        JitDisabled;
+  }
+
+  // V8 optimizations are globally enabled or disabled for a whole process,
+  // and spare renderers always have V8 optimizations enabled, so we can never
+  // use them if they're supposed to be disabled for this site.
+  if (GetContentClient()->browser()->AreV8OptimizationsDisabledForSite(
+          browser_context, site_instance->GetSiteInfo().process_lock_url())) {
+    return ContentBrowserClient::SpareProcessRefusedByEmbedderReason::
+        V8OptimizationsDisabled;
+  }
+
+  // V8 feature flags are globally initialized during renderer process
+  // startup, and spare renderers allow V8 feature flag overrides by default.
+  // As such spare renderers should not be used when v8 flag overrides are
+  // disabled.
+  if (GetContentClient()->browser()->DisallowV8FeatureFlagOverridesForSite(
+          site_instance->GetSiteInfo().process_lock_url())) {
+    return ContentBrowserClient::SpareProcessRefusedByEmbedderReason::
+        DisallowV8FeatureFlagOverrides;
+  }
+
+  return std::nullopt;
 }
 
 void SpareRenderProcessHostManagerImpl::PrepareForFutureRequests(

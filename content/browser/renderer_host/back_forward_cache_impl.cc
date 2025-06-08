@@ -19,6 +19,7 @@
 #include "base/memory/weak_ptr.h"
 #include "base/metrics/field_trial_params.h"
 #include "base/rand_util.h"
+#include "base/strings/string_number_conversions.h"
 #include "base/strings/string_split.h"
 #include "base/strings/string_util.h"
 #include "base/time/time.h"
@@ -1006,7 +1007,8 @@ void BackForwardCacheImpl::PopulateReasonsForMainDocument(
                    *browser_context, rfh->GetLastCommittedURL(),
                    rfh->ComputeSiteForCookies(),
                    rfh->ComputeTopFrameOrigin(rfh->GetLastCommittedOrigin()),
-                   rfh->GetCookieSettingOverrides())) {
+                   rfh->GetCookieSettingOverrides(),
+                   rfh->GetStorageKey().ToCookiePartitionKey())) {
         result.No(
             BackForwardCacheMetrics::NotRestoredReason::kCacheControlNoStore);
         result.No(BackForwardCacheMetrics::NotRestoredReason::kCookieDisabled);
@@ -1842,17 +1844,13 @@ BackForwardCache::DisabledReason::DisabledReason(
 
 BackForwardCache::DisabledReason::DisabledReason(
     const BackForwardCache::DisabledReason& reason) = default;
-bool BackForwardCache::DisabledReason::operator<(
+std::weak_ordering BackForwardCache::DisabledReason::operator<=>(
     const DisabledReason& other) const {
-  return std::tie(source, id) < std::tie(other.source, other.id);
+  return std::tie(source, id) <=> std::tie(other.source, other.id);
 }
 bool BackForwardCache::DisabledReason::operator==(
     const DisabledReason& other) const {
   return std::tie(source, id) == std::tie(other.source, other.id);
-}
-bool BackForwardCache::DisabledReason::operator!=(
-    const DisabledReason& other) const {
-  return !(*this == other);
 }
 
 BackForwardCacheCanStoreTreeResult::BackForwardCacheCanStoreTreeResult(

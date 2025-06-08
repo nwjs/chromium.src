@@ -455,6 +455,7 @@ void URLRequestHttpJob::Start() {
 #if BUILDFLAG(ENABLE_REPORTING)
   request_info_.reporting_upload_depth = request_->reporting_upload_depth();
 #endif
+  request_info_.is_shared_resource = request_->is_shared_resource();
 
   CookieStore* cookie_store = request()->context()->cookie_store();
   const CookieAccessDelegate* delegate =
@@ -701,7 +702,7 @@ void URLRequestHttpJob::StartTransactionInternal() {
   // If we already have a transaction, then we should restart the transaction
   // with auth provided by auth_credentials_.
 
-  int rv;
+  int rv = OK;
 
   // Notify NetworkQualityEstimator.
   NetworkQualityEstimator* network_quality_estimator =
@@ -716,11 +717,12 @@ void URLRequestHttpJob::StartTransactionInternal() {
     auth_credentials_ = AuthCredentials();
   } else {
     DCHECK(request_->context()->http_transaction_factory());
+    transaction_ =
+        request_->context()->http_transaction_factory()->CreateTransaction(
+            priority_);
+    CHECK(transaction_);
 
-    rv = request_->context()->http_transaction_factory()->CreateTransaction(
-        priority_, &transaction_);
-
-    if (rv == OK && request_info_.url.SchemeIsWSOrWSS()) {
+    if (request_info_.url.SchemeIsWSOrWSS()) {
       base::SupportsUserData::Data* data =
           request_->GetUserData(kWebSocketHandshakeUserDataKey);
       if (data) {

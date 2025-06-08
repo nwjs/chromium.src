@@ -6,6 +6,8 @@
 
 #include "base/containers/fixed_flat_map.h"
 #include "base/containers/flat_map.h"
+#include "base/metrics/user_metrics.h"
+#include "base/metrics/user_metrics_action.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/glic/glic_pref_names.h"
 #include "chrome/browser/glic/widget/glic_view.h"
@@ -21,12 +23,11 @@ namespace glic {
 
 namespace {
 
-static constexpr std::array<glic::LocalHotkeyManager::Hotkey, 3>
-    kSupportedHotkeys = {
-        glic::LocalHotkeyManager::Hotkey::kClose,
-        glic::LocalHotkeyManager::Hotkey::kFocusToggle,
+static constexpr std::array kSupportedHotkeys = {
+    glic::LocalHotkeyManager::Hotkey::kClose,
+    glic::LocalHotkeyManager::Hotkey::kFocusToggle,
 #if BUILDFLAG(IS_WIN)
-        glic::LocalHotkeyManager::Hotkey::kTitleBarContextMenu,
+    glic::LocalHotkeyManager::Hotkey::kTitleBarContextMenu,
 #endif
 };
 
@@ -36,7 +37,7 @@ class GlicWindowScopedHotkeyRegistration
     : public LocalHotkeyManager::ScopedHotkeyRegistration {
  public:
   GlicWindowScopedHotkeyRegistration(ui::Accelerator accelerator,
-                                     base::WeakPtr<GlicView> glic_view)
+                                     base::WeakPtr<views::View> glic_view)
       : accelerator_(accelerator), glic_view_(glic_view) {
     CHECK(!accelerator.IsEmpty());
     CHECK(glic_view_);
@@ -52,7 +53,7 @@ class GlicWindowScopedHotkeyRegistration
 
  private:
   ui::Accelerator accelerator_;
-  base::WeakPtr<GlicView> glic_view_;
+  base::WeakPtr<views::View> glic_view_;
 };
 
 }  // namespace
@@ -85,6 +86,7 @@ bool GlicWindowHotkeyDelegate::AcceleratorPressed(
       }
       if (auto* last_active = BrowserList::GetInstance()->GetLastActive()) {
         last_active->window()->Activate();
+        base::RecordAction(base::UserMetricsAction("Glic.FocusHotKey"));
         return true;
       }
       return false;
@@ -95,9 +97,8 @@ bool GlicWindowHotkeyDelegate::AcceleratorPressed(
 #endif  //  BUILDFLAG(IS_WIN)
 
     default:
-      NOTREACHED()
-          << "no handling implemented for "
-          << LocalHotkeyManager::GetAccelerator(hotkey).GetShortcutText();
+      NOTREACHED() << "no handling implemented for "
+                   << LocalHotkeyManager::HotkeyToString(hotkey);
   }
 }
 
@@ -106,9 +107,8 @@ GlicWindowHotkeyDelegate::CreateScopedHotkeyRegistration(
     ui::Accelerator accelerator,
     base::WeakPtr<ui::AcceleratorTarget> target) {
   CHECK(window_controller_);
-  CHECK(window_controller_->GetGlicView());
   return std::make_unique<GlicWindowScopedHotkeyRegistration>(
-      accelerator, window_controller_->GetGlicView()->GetWeakPtr());
+      accelerator, window_controller_->GetGlicViewAsView());
 }
 
 std::unique_ptr<LocalHotkeyManager> MakeGlicWindowHotkeyManager(

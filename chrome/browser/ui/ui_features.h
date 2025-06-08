@@ -34,8 +34,6 @@ BASE_DECLARE_FEATURE(kFewerUpdateConfirmations);
 
 #if BUILDFLAG(ENABLE_EXTENSIONS)
 
-BASE_DECLARE_FEATURE(kLightweightExtensionOverrideConfirmations);
-
 // Controls how extensions show up in the main menu. When enabled, if the
 // current profile has no extensions, instead of a full extensions submenu, only
 // the "Discover Chrome Extensions" item will be present.
@@ -45,6 +43,7 @@ BASE_DECLARE_FEATURE(kExtensionsCollapseMainMenu);
 
 #if BUILDFLAG(IS_WIN)
 BASE_DECLARE_FEATURE(kOfferPinToTaskbarWhenSettingToDefault);
+BASE_DECLARE_FEATURE(kOfferPinToTaskbarInFirstRunExperience);
 #endif
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
@@ -102,6 +101,10 @@ BASE_DECLARE_FEATURE(kScrimForBrowserWindowModal);
 BASE_DECLARE_FEATURE(KScrimForTabModal);
 
 BASE_DECLARE_FEATURE(kSideBySide);
+
+BASE_DECLARE_FEATURE(kSideBySideLinkMenuNewBadge);
+
+bool IsNtpFooterEnabledWithoutSideBySide();
 
 BASE_DECLARE_FEATURE(kTabDuplicateMetrics);
 
@@ -185,6 +188,12 @@ extern const base::FeatureParam<bool> KTabOrganizationTriggerDemoMode;
 
 BASE_DECLARE_FEATURE(kTearOffWebAppTabOpensWebAppWindow);
 
+#if !BUILDFLAG(IS_ANDROID)
+// Enables a three-button password save dialog variant (essentially adding a
+// "not now" button alongside "never").
+BASE_DECLARE_FEATURE(kThreeButtonPasswordSaveDialog);
+#endif
+
 bool IsToolbarPinningEnabled();
 
 BASE_DECLARE_FEATURE(kPinnedCastButton);
@@ -249,6 +258,11 @@ extern const base::FeatureParam<bool> kPageActionsMigrationOfferNotification;
 extern const base::FeatureParam<bool> kPageActionsMigrationFileSystemAccess;
 extern const base::FeatureParam<bool> kPageActionsMigrationPwaInstall;
 extern const base::FeatureParam<bool> kPageActionsMigrationPriceInsights;
+extern const base::FeatureParam<bool> kPageActionsMigrationManagePasswords;
+
+// Determines whether the "save password" page action displays different UI if
+// the user has said to never save passwords for that site.
+BASE_DECLARE_FEATURE(kSavePasswordsContextualUi);
 
 // Controls whether browser tab loading animations are driven by the compositor
 // vs. a repeating timer.
@@ -259,6 +273,17 @@ BASE_DECLARE_FEATURE(kByDateHistoryInSidePanel);
 
 // Controls whether to use the TabStrip browser api's controller.
 BASE_DECLARE_FEATURE(kTabStripBrowserApi);
+
+// Controls where tab search lives in the browser.
+BASE_DECLARE_FEATURE(kTabstripComboButton);
+BASE_DECLARE_FEATURE(kLaunchedTabSearchToolbarButton);
+extern const base::FeatureParam<bool> kTabstripComboButtonHasBackground;
+extern const base::FeatureParam<bool> kTabstripComboButtonHasReverseButtonOrder;
+extern const base::FeatureParam<bool> kTabSearchToolbarButton;
+bool IsTabSearchMoving();
+bool HasTabstripComboButtonWithBackground();
+bool HasTabstripComboButtonWithReverseButtonOrder();
+bool HasTabSearchToolbarButton();
 
 }  // namespace features
 

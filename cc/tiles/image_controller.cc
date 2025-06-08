@@ -10,7 +10,6 @@
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
-#include "base/not_fatal_until.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/task/task_traits.h"
 #include "base/trace_event/trace_event.h"
@@ -333,7 +332,8 @@ std::vector<scoped_refptr<TileTask>> ImageController::SetPredecodeImages(
 
 ImageController::ImageDecodeRequestId ImageController::QueueImageDecode(
     const DrawImage& draw_image,
-    ImageDecodedCallback callback) {
+    ImageDecodedCallback callback,
+    bool speculative) {
   // We must not receive any image requests if we have no worker.
   CHECK(worker_task_runner_);
 
@@ -356,7 +356,7 @@ ImageController::ImageDecodeRequestId ImageController::QueueImageDecode(
       return id;
     }
     result = cache_->GetOutOfRasterDecodeTaskForImageAndRef(
-        image_cache_client_id_, draw_image);
+        image_cache_client_id_, draw_image, speculative);
   }
   // If we don't need to unref this, we don't actually have a task.
   DCHECK(result.need_unref || !result.task);
@@ -418,8 +418,7 @@ void ImageController::ProcessNextImageDecodeWithLock(
 
   // Take the next request from the queue.
   auto decode_it = worker_state->image_decode_queue.begin();
-  CHECK(decode_it != worker_state->image_decode_queue.end(),
-        base::NotFatalUntil::M130);
+  CHECK(decode_it != worker_state->image_decode_queue.end());
   // Skip tasks that have an unmet external dependency.
   while (decode_it != worker_state->image_decode_queue.end() &&
          decode_it->second.has_external_dependency) {

@@ -5,6 +5,7 @@
 #include <string_view>
 
 #include "base/command_line.h"
+#include "base/strings/strcat.h"
 #include "base/test/bind.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/test_future.h"
@@ -14,8 +15,12 @@
 #include "chrome/browser/actor/actor_test_util.h"
 #include "chrome/browser/actor/tools/wait_tool.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/zoom/chrome_zoom_level_prefs.h"
+#include "chrome/common/actor.mojom-data-view.h"
+#include "chrome/common/actor.mojom.h"
+#include "chrome/common/actor/action_result.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/chrome_render_frame.mojom.h"
 #include "chrome/common/chrome_switches.h"
@@ -30,9 +35,11 @@
 #include "content/public/test/test_navigation_observer.h"
 #include "mojo/public/cpp/bindings/associated_remote.h"
 #include "net/dns/mock_host_resolver.h"
+#include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/common/associated_interfaces/associated_interface_provider.h"
 #include "third_party/blink/public/common/page/page_zoom.h"
 #include "ui/display/display_switches.h"
+#include "ui/gfx/geometry/point.h"
 #include "ui/gfx/geometry/point_conversions.h"
 #include "ui/gfx/geometry/vector2d.h"
 
@@ -41,6 +48,7 @@ using base::test::TestFuture;
 using content::ChildFrameAt;
 using content::EvalJs;
 using content::ExecJs;
+using content::GetDOMNodeId;
 using content::JsReplace;
 using content::RenderFrameHost;
 using content::TestNavigationManager;
@@ -182,13 +190,13 @@ IN_PROC_BROWSER_TEST_F(ActorToolsTest, ClickTool_SentToElement) {
 
   // Send a click to the document body.
   {
-    std::optional<int> body_id = FindContentNodeId(*main_frame(), "body");
+    std::optional<int> body_id = GetDOMNodeId(*main_frame(), "body");
     ASSERT_TRUE(body_id);
 
-    BrowserAction action = MakeClick(body_id.value());
-    TestFuture<bool> result;
+    BrowserAction action = MakeClick(*main_frame(), body_id.value());
+    TestFuture<mojom::ActionResultPtr> result;
     actor_coordinator().Act(action, result.GetCallback());
-    EXPECT_TRUE(result.Get());
+    ExpectOkResult(result);
     EXPECT_EQ("mousedown[BODY#],mouseup[BODY#],click[BODY#]",
               EvalJs(web_contents(), "mouse_event_log.join(',')"));
   }
@@ -198,13 +206,13 @@ IN_PROC_BROWSER_TEST_F(ActorToolsTest, ClickTool_SentToElement) {
   // Send a second click to the button.
   {
     std::optional<int> button_id =
-        FindContentNodeId(*main_frame(), "button#clickable");
+        GetDOMNodeId(*main_frame(), "button#clickable");
     ASSERT_TRUE(button_id);
 
-    BrowserAction action = MakeClick(button_id.value());
-    TestFuture<bool> result;
+    BrowserAction action = MakeClick(*main_frame(), button_id.value());
+    TestFuture<mojom::ActionResultPtr> result;
     actor_coordinator().Act(action, result.GetCallback());
-    EXPECT_TRUE(result.Get());
+    ExpectOkResult(result);
     EXPECT_EQ(
         "mousedown[BUTTON#clickable],mouseup[BUTTON#clickable],click[BUTTON#"
         "clickable]",
@@ -222,11 +230,11 @@ IN_PROC_BROWSER_TEST_F(ActorToolsTest, ClickTool_NonExistentElement) {
   ASSERT_TRUE(content::NavigateToURL(web_contents(), url));
 
   // Use a random node id that doesn't exist.
-  BrowserAction action = MakeClick(kNonExistentContentNodeId);
-  TestFuture<bool> result_fail;
+  BrowserAction action = MakeClick(*main_frame(), kNonExistentContentNodeId);
+  TestFuture<mojom::ActionResultPtr> result_fail;
   actor_coordinator().Act(action, result_fail.GetCallback());
   // The node id doesn't exist so the tool will return false.
-  EXPECT_FALSE(result_fail.Get());
+  ExpectErrorResult(result_fail, mojom::ActionResultCode::kInvalidDomNodeId);
 
   // The page should not have received any events.
   EXPECT_EQ("", EvalJs(web_contents(), "mouse_event_log.join(',')"));
@@ -238,14 +246,13 @@ IN_PROC_BROWSER_TEST_F(ActorToolsTest, ClickTool_DisabledElement) {
       embedded_test_server()->GetURL("/actor/page_with_clickable_element.html");
   ASSERT_TRUE(content::NavigateToURL(web_contents(), url));
 
-  std::optional<int> button_id =
-      FindContentNodeId(*main_frame(), "button#disabled");
+  std::optional<int> button_id = GetDOMNodeId(*main_frame(), "button#disabled");
   ASSERT_TRUE(button_id);
 
-  BrowserAction action = MakeClick(button_id.value());
-  TestFuture<bool> result_fail;
+  BrowserAction action = MakeClick(*main_frame(), button_id.value());
+  TestFuture<mojom::ActionResultPtr> result_fail;
   actor_coordinator().Act(action, result_fail.GetCallback());
-  EXPECT_FALSE(result_fail.Get());
+  ExpectErrorResult(result_fail, mojom::ActionResultCode::kElementDisabled);
 
   // The page should not have received any events.
   EXPECT_EQ("", EvalJs(web_contents(), "mouse_event_log.join(',')"));
@@ -259,16 +266,140 @@ IN_PROC_BROWSER_TEST_F(ActorToolsTest, ClickTool_OffscreenElement) {
   ASSERT_TRUE(content::NavigateToURL(web_contents(), url));
 
   std::optional<int> button_id =
-      FindContentNodeId(*main_frame(), "button#offscreen");
+      GetDOMNodeId(*main_frame(), "button#offscreen");
   ASSERT_TRUE(button_id);
 
-  BrowserAction action = MakeClick(button_id.value());
-  TestFuture<bool> result_fail;
+  BrowserAction action = MakeClick(*main_frame(), button_id.value());
+  TestFuture<mojom::ActionResultPtr> result_fail;
   actor_coordinator().Act(action, result_fail.GetCallback());
-  EXPECT_FALSE(result_fail.Get());
+  ExpectErrorResult(result_fail, mojom::ActionResultCode::kElementOffscreen);
 
   // The page should not have received any events.
   EXPECT_EQ("", EvalJs(web_contents(), "mouse_event_log.join(',')"));
+}
+
+// Ensure clicks can be sent to elements that are only partially onscreen.
+IN_PROC_BROWSER_TEST_F(ActorToolsTest, ClickTool_ClippedElements) {
+  const GURL url =
+      embedded_test_server()->GetURL("/actor/click_with_overflow_clip.html");
+  ASSERT_TRUE(content::NavigateToURL(web_contents(), url));
+
+  std::vector<std::string> test_cases = {
+      "offscreenButton", "overflowHiddenButton", "overflowScrollButton"};
+
+  for (auto button : test_cases) {
+    SCOPED_TRACE(testing::Message() << "WHILE TESTING: " << button);
+    std::optional<int> button_id =
+        GetDOMNodeId(*main_frame(), base::StrCat({"#", button}));
+    ASSERT_TRUE(button_id);
+
+    BrowserAction action = MakeClick(*main_frame(), button_id.value());
+    TestFuture<mojom::ActionResultPtr> result;
+    actor_coordinator().Act(action, result.GetCallback());
+    ExpectOkResult(result);
+    EXPECT_EQ(button, EvalJs(web_contents(), "clicked_button"));
+
+    ASSERT_TRUE(ExecJs(web_contents(), "clicked_button = ''"));
+  }
+}
+
+// Ensure clicks can be sent to a coordinate onscreen.
+IN_PROC_BROWSER_TEST_F(ActorToolsTest, ClickTool_SentToCoordinate) {
+  const GURL url =
+      embedded_test_server()->GetURL("/actor/page_with_clickable_element.html");
+  ASSERT_TRUE(content::NavigateToURL(web_contents(), url));
+
+  // Send a click to a (0,0) coordinate inside the document.
+  {
+    BrowserAction action = MakeClick(*main_frame(), gfx::Point(0, 0));
+    TestFuture<mojom::ActionResultPtr> result;
+    actor_coordinator().Act(action, result.GetCallback());
+    ExpectOkResult(result);
+    EXPECT_EQ("mousedown[HTML#],mouseup[HTML#],click[HTML#]",
+              EvalJs(web_contents(), "mouse_event_log.join(',')"));
+  }
+
+  ASSERT_TRUE(ExecJs(web_contents(), "mouse_event_log = []"));
+
+  // Send a second click to a coordinate on the button.
+  {
+    gfx::Point click_point = gfx::ToFlooredPoint(
+        GetCenterCoordinatesOfElementWithId(web_contents(), "clickable"));
+
+    BrowserAction action = MakeClick(*main_frame(), click_point);
+    TestFuture<mojom::ActionResultPtr> result;
+    actor_coordinator().Act(action, result.GetCallback());
+    ExpectOkResult(result);
+    EXPECT_EQ(
+        "mousedown[BUTTON#clickable],mouseup[BUTTON#clickable],click[BUTTON#"
+        "clickable]",
+        EvalJs(web_contents(), "mouse_event_log.join(',')"));
+
+    // Ensure the button's event handler was invoked.
+    EXPECT_EQ(true, EvalJs(web_contents(), "button_clicked"));
+  }
+}
+
+// Sending a click to a coordinate not in the viewport should fail without
+// dispatching events.
+IN_PROC_BROWSER_TEST_F(ActorToolsTest, ClickTool_SentToCoordinateOffScreen) {
+  const GURL url =
+      embedded_test_server()->GetURL("/actor/page_with_clickable_element.html");
+  ASSERT_TRUE(content::NavigateToURL(web_contents(), url));
+
+  // Send a click to a negative coordinate offscreen.
+  {
+    gfx::Point negative_offscreen = {-1, 0};
+    BrowserAction action = MakeClick(*main_frame(), negative_offscreen);
+    TestFuture<mojom::ActionResultPtr> result_fail;
+    actor_coordinator().Act(action, result_fail.GetCallback());
+    ExpectErrorResult(result_fail,
+                      mojom::ActionResultCode::kCoordinatesOutOfBounds);
+
+    // The page should not have received any events.
+    EXPECT_EQ("", EvalJs(web_contents(), "mouse_event_log.join(',')"));
+  }
+
+  // Send a click to a positive coordinate offscreen.
+  {
+    gfx::Point positive_offscreen = gfx::ToFlooredPoint(
+        GetCenterCoordinatesOfElementWithId(web_contents(), "offscreen"));
+    BrowserAction action = MakeClick(*main_frame(), positive_offscreen);
+    TestFuture<mojom::ActionResultPtr> result_fail;
+    actor_coordinator().Act(action, result_fail.GetCallback());
+    ExpectErrorResult(result_fail,
+                      mojom::ActionResultCode::kCoordinatesOutOfBounds);
+    // The page should not have received any events.
+    EXPECT_EQ("", EvalJs(web_contents(), "mouse_event_log.join(',')"));
+  }
+}
+
+// Ensure click is using viewport coordinate.
+IN_PROC_BROWSER_TEST_F(ActorToolsTest, ClickTool_ViewportCoordinate) {
+  const GURL url =
+      embedded_test_server()->GetURL("/actor/page_with_clickable_element.html");
+  ASSERT_TRUE(content::NavigateToURL(web_contents(), url));
+
+  // Scroll the window by 100vh so #offscreen button is in viewport.
+  ASSERT_TRUE(ExecJs(web_contents(), "window.scrollBy(0, window.innerHeight)"));
+
+  // Send a click to button's viewport coordinate.
+  {
+    gfx::Point click_point = gfx::ToFlooredPoint(
+        GetCenterCoordinatesOfElementWithId(web_contents(), "offscreen"));
+
+    BrowserAction action = MakeClick(*main_frame(), click_point);
+    TestFuture<mojom::ActionResultPtr> result;
+    actor_coordinator().Act(action, result.GetCallback());
+    ExpectOkResult(result);
+    EXPECT_EQ(
+        "mousedown[BUTTON#offscreen],mouseup[BUTTON#offscreen],click[BUTTON#"
+        "offscreen]",
+        EvalJs(web_contents(), "mouse_event_log.join(',')"));
+
+    // Ensure the button's event handler was invoked.
+    EXPECT_EQ(true, EvalJs(web_contents(), "offscreen_button_clicked"));
+  }
 }
 
 // ===============================================
@@ -282,14 +413,14 @@ IN_PROC_BROWSER_TEST_F(ActorToolsTest, TypeTool_TextInput) {
   ASSERT_TRUE(content::NavigateToURL(web_contents(), url));
 
   std::string typed_string = "test";
-  std::optional<int> input_id = FindContentNodeId(*main_frame(), "#input");
+  std::optional<int> input_id = GetDOMNodeId(*main_frame(), "#input");
   ASSERT_TRUE(input_id);
-  BrowserAction action =
-      MakeType(input_id.value(), typed_string, /*follow_by_enter=*/true);
+  BrowserAction action = MakeType(*main_frame(), input_id.value(), typed_string,
+                                  /*follow_by_enter=*/true);
 
-  TestFuture<bool> result;
+  TestFuture<mojom::ActionResultPtr> result;
   actor_coordinator().Act(action, result.GetCallback());
-  EXPECT_TRUE(result.Get());
+  ExpectOkResult(result);
 
   EXPECT_EQ(typed_string,
             EvalJs(web_contents(), "document.getElementById('input').value"));
@@ -301,12 +432,13 @@ IN_PROC_BROWSER_TEST_F(ActorToolsTest, TypeTool_NonExistentNode) {
   ASSERT_TRUE(content::NavigateToURL(web_contents(), url));
 
   std::string typed_string = "test";
-  BrowserAction action = MakeType(kNonExistentContentNodeId, typed_string,
-                                  /*follow_by_enter=*/true);
+  BrowserAction action =
+      MakeType(*main_frame(), kNonExistentContentNodeId, typed_string,
+               /*follow_by_enter=*/true);
 
-  TestFuture<bool> result;
+  TestFuture<mojom::ActionResultPtr> result;
   actor_coordinator().Act(action, result.GetCallback());
-  EXPECT_FALSE(result.Get());
+  ExpectErrorResult(result, mojom::ActionResultCode::kError);
   EXPECT_EQ("",
             EvalJs(web_contents(), "document.getElementById('input').value"));
 }
@@ -321,14 +453,14 @@ IN_PROC_BROWSER_TEST_F(ActorToolsTest, TypeTool_Events) {
 
   std::string typed_string = "ab";
 
-  std::optional<int> input_id = FindContentNodeId(*main_frame(), "#input");
+  std::optional<int> input_id = GetDOMNodeId(*main_frame(), "#input");
   ASSERT_TRUE(input_id);
-  BrowserAction action =
-      MakeType(input_id.value(), typed_string, /*follow_by_enter=*/true);
+  BrowserAction action = MakeType(*main_frame(), input_id.value(), typed_string,
+                                  /*follow_by_enter=*/true);
 
-  TestFuture<bool> result;
+  TestFuture<mojom::ActionResultPtr> result;
   actor_coordinator().Act(action, result.GetCallback());
-  EXPECT_TRUE(result.Get());
+  ExpectOkResult(result);
 
   EXPECT_EQ(
       // a
@@ -351,14 +483,14 @@ IN_PROC_BROWSER_TEST_F(ActorToolsTest, TypeTool_EmptyText) {
 
   std::string typed_string = "";
 
-  std::optional<int> input_id = FindContentNodeId(*main_frame(), "#input");
+  std::optional<int> input_id = GetDOMNodeId(*main_frame(), "#input");
   ASSERT_TRUE(input_id);
-  BrowserAction action =
-      MakeType(input_id.value(), typed_string, /*follow_by_enter=*/true);
+  BrowserAction action = MakeType(*main_frame(), input_id.value(), typed_string,
+                                  /*follow_by_enter=*/true);
 
-  TestFuture<bool> result;
+  TestFuture<mojom::ActionResultPtr> result;
   actor_coordinator().Act(action, result.GetCallback());
-  EXPECT_TRUE(result.Get());
+  ExpectOkResult(result);
 
   EXPECT_EQ(
       // enter (causes submit to "click")
@@ -374,18 +506,18 @@ IN_PROC_BROWSER_TEST_F(ActorToolsTest, TypeTool_FollowByEnter) {
   // The log starts empty.
   ASSERT_EQ("", EvalJs(web_contents(), "input_event_log.join(',')"));
 
-  std::optional<int> input_id = FindContentNodeId(*main_frame(), "#input");
+  std::optional<int> input_id = GetDOMNodeId(*main_frame(), "#input");
   ASSERT_TRUE(input_id);
 
   // Send 'a' followed by enter. Ensure the click event is seen.
   {
     std::string typed_string = "a";
-    BrowserAction action =
-        MakeType(input_id.value(), typed_string, /*follow_by_enter=*/true);
+    BrowserAction action = MakeType(*main_frame(), input_id.value(),
+                                    typed_string, /*follow_by_enter=*/true);
 
-    TestFuture<bool> result;
+    TestFuture<mojom::ActionResultPtr> result;
     actor_coordinator().Act(action, result.GetCallback());
-    EXPECT_TRUE(result.Get());
+    ExpectOkResult(result);
   }
 
   EXPECT_EQ(
@@ -400,18 +532,258 @@ IN_PROC_BROWSER_TEST_F(ActorToolsTest, TypeTool_FollowByEnter) {
   // Send 'b' without an enter. Ensure the click event is _not_ seen.
   {
     std::string typed_string = "b";
-    BrowserAction action =
-        MakeType(input_id.value(), typed_string, /*follow_by_enter=*/false);
+    BrowserAction action = MakeType(*main_frame(), input_id.value(),
+                                    typed_string, /*follow_by_enter=*/false);
 
-    TestFuture<bool> result;
+    TestFuture<mojom::ActionResultPtr> result;
     actor_coordinator().Act(action, result.GetCallback());
-    EXPECT_TRUE(result.Get());
+    ExpectOkResult(result);
   }
 
   EXPECT_EQ(
       // b
       "keydown,input,keyup",
       EvalJs(web_contents(), "input_event_log.join(',')"));
+}
+
+// Ensure the type tool doesn't fail if the keydown event is handled (page
+// called preventDefault).
+IN_PROC_BROWSER_TEST_F(ActorToolsTest, TypeTool_PageHandlesKeyEvents) {
+  const GURL url = embedded_test_server()->GetURL("/actor/input.html");
+  ASSERT_TRUE(content::NavigateToURL(web_contents(), url));
+
+  std::optional<int> input_id =
+      GetDOMNodeId(*main_frame(), "#keyHandlingInput");
+  ASSERT_TRUE(input_id);
+
+  std::string typed_string = "abc";
+  BrowserAction action = MakeType(*main_frame(), input_id.value(), typed_string,
+                                  /*follow_by_enter=*/true);
+
+  TestFuture<mojom::ActionResultPtr> result;
+  actor_coordinator().Act(action, result.GetCallback());
+  ExpectOkResult(result);
+}
+
+// Ensure that the default mode is for the type tool to replace any existing
+// text in the targeted element.
+IN_PROC_BROWSER_TEST_F(ActorToolsTest, TypeTool_ReplacesText) {
+  const GURL url = embedded_test_server()->GetURL("/actor/input.html");
+  ASSERT_TRUE(content::NavigateToURL(web_contents(), url));
+
+  ASSERT_TRUE(ExecJs(web_contents(),
+                     "document.getElementById('input').value = 'foo bar'"));
+  std::optional<int> input_id = GetDOMNodeId(*main_frame(), "#input");
+  ASSERT_TRUE(input_id);
+
+  std::string typed_string = "abc";
+  BrowserAction action = MakeType(*main_frame(), input_id.value(), typed_string,
+                                  /*follow_by_enter=*/false);
+
+  TestFuture<mojom::ActionResultPtr> result;
+  actor_coordinator().Act(action, result.GetCallback());
+  ExpectOkResult(result);
+  EXPECT_EQ(typed_string,
+            EvalJs(web_contents(), "document.getElementById('input').value"));
+}
+
+// Ensure that if the page moves focus immediately to a different input box, the
+// type tool correctly operates on the new input box.
+IN_PROC_BROWSER_TEST_F(ActorToolsTest, TypeTool_FocusMovesFocus) {
+  const GURL url = embedded_test_server()->GetURL("/actor/input.html");
+  ASSERT_TRUE(content::NavigateToURL(web_contents(), url));
+
+  // Setup the first input box to immediately move focus to the second input
+  // box. Ensure the existing text in the second box is replaced.
+  ASSERT_TRUE(ExecJs(web_contents(),
+                     R"JS(
+                        let input = document.getElementById('input');
+                        let input2 = document.getElementById('input2');
+                        input2.value = 'foo bar';
+                        input.addEventListener('focus', () => {
+                          input2.focus();
+                        });
+                      )JS"));
+  std::optional<int> input_id = GetDOMNodeId(*main_frame(), "#input");
+  ASSERT_TRUE(input_id);
+
+  std::string typed_string = "abc";
+  BrowserAction action = MakeType(*main_frame(), input_id.value(), typed_string,
+                                  /*follow_by_enter=*/false);
+
+  TestFuture<mojom::ActionResultPtr> result;
+  actor_coordinator().Act(action, result.GetCallback());
+  ExpectOkResult(result);
+
+  // Since focusing the first input causes the second input to become focused,
+  // the tool should operate on the second input.
+  EXPECT_EQ("",
+            EvalJs(web_contents(), "document.getElementById('input').value"));
+  EXPECT_EQ(typed_string,
+            EvalJs(web_contents(), "document.getElementById('input2').value"));
+}
+
+// Basic test of the TypeTool coordinate target - ensure typed string is entered
+// into a node at the coordinate.
+IN_PROC_BROWSER_TEST_F(ActorToolsTest, TypeTool_TextInputAtCoordinate) {
+  const GURL url =
+      embedded_test_server()->GetURL("/actor/type_input_coordinate.html");
+  ASSERT_TRUE(content::NavigateToURL(web_contents(), url));
+
+  std::string typed_string = "test";
+  // Type into coordinate of input box.
+  {
+    gfx::Point type_point = gfx::ToFlooredPoint(
+        GetCenterCoordinatesOfElementWithId(web_contents(), "input"));
+    BrowserAction action = MakeType(*main_frame(), type_point, typed_string,
+                                    /*follow_by_enter=*/true);
+
+    TestFuture<mojom::ActionResultPtr> result;
+    actor_coordinator().Act(action, result.GetCallback());
+    ExpectOkResult(result);
+
+    EXPECT_EQ(typed_string,
+              EvalJs(web_contents(), "document.getElementById('input').value"));
+  }
+  // Type into coordinate of editable div.
+  {
+    gfx::Point type_point = gfx::ToFlooredPoint(
+        GetCenterCoordinatesOfElementWithId(web_contents(), "editableDiv"));
+    BrowserAction action = MakeType(*main_frame(), type_point, typed_string,
+                                    /*follow_by_enter=*/true);
+
+    TestFuture<mojom::ActionResultPtr> result;
+    actor_coordinator().Act(action, result.GetCallback());
+    ExpectOkResult(result);
+
+    EXPECT_EQ(typed_string,
+              EvalJs(web_contents(),
+                     "document.getElementById('editableDiv').textContent"));
+  }
+}
+
+// Ensure the type tool correctly sends the events to element at the
+// coordinates.
+IN_PROC_BROWSER_TEST_F(ActorToolsTest, TypeTool_EventsSentToCoordinates) {
+  const GURL url =
+      embedded_test_server()->GetURL("/actor/type_input_coordinate.html");
+  ASSERT_TRUE(content::NavigateToURL(web_contents(), url));
+
+  // The log starts empty.
+  ASSERT_EQ("", EvalJs(web_contents(), "input_event_log.join(',')"));
+
+  // Send event to an editable div.
+  {
+    gfx::Point type_point = gfx::ToFlooredPoint(
+        GetCenterCoordinatesOfElementWithId(web_contents(), "editableDiv"));
+
+    // Send 'a'. Ensure a click event is observed first on element at the
+    // coordinate.
+    std::string typed_string = "a";
+    BrowserAction action = MakeType(*main_frame(), type_point, typed_string,
+                                    /*follow_by_enter=*/false);
+
+    TestFuture<mojom::ActionResultPtr> result;
+    actor_coordinator().Act(action, result.GetCallback());
+    ExpectOkResult(result);
+
+    EXPECT_EQ(
+        // click
+        "mousedown(" + type_point.ToString() + "),mouseup(" +
+            type_point.ToString() + "),click(" + type_point.ToString() +
+            "),"
+            // a
+            "keydown,input,keyup",
+        EvalJs(web_contents(), "input_event_log.join(',')"));
+  }
+
+  ASSERT_TRUE(ExecJs(web_contents(), "input_event_log = []"));
+
+  // Send event to a focusable but not editable div.
+  {
+    gfx::Point type_point = gfx::ToFlooredPoint(
+        GetCenterCoordinatesOfElementWithId(web_contents(), "focusableDiv"));
+
+    // Send 'a'. Ensure a click event is observed first on element at the
+    // coordinate.
+    std::string typed_string = "a";
+    BrowserAction action = MakeType(*main_frame(), type_point, typed_string,
+                                    /*follow_by_enter=*/false);
+
+    TestFuture<mojom::ActionResultPtr> result;
+    actor_coordinator().Act(action, result.GetCallback());
+    ExpectOkResult(result);
+
+    EXPECT_EQ(
+        // click
+        "mousedown(" + type_point.ToString() + "),mouseup(" +
+            type_point.ToString() + "),click(" + type_point.ToString() +
+            "),"
+            // a
+            "keydown,keyup",
+        EvalJs(web_contents(), "input_event_log.join(',')"));
+  }
+}
+
+// Ensure the type tool correctly sends the events to an unfocusable element at
+// the coordinates.
+IN_PROC_BROWSER_TEST_F(ActorToolsTest,
+                       TypeTool_EventsSentToUnfocusableCoordinate) {
+  const GURL url =
+      embedded_test_server()->GetURL("/actor/type_input_coordinate.html");
+  ASSERT_TRUE(content::NavigateToURL(web_contents(), url));
+
+  // The log starts empty.
+  ASSERT_EQ("", EvalJs(web_contents(), "input_event_log.join(',')"));
+
+  // Set coordinate to an unfocusable div.
+
+  gfx::Point type_point = gfx::ToFlooredPoint(
+      GetCenterCoordinatesOfElementWithId(web_contents(), "unfocusableDiv"));
+
+  // Send 'a'. Ensure a click event is observed first on element at the
+  // coordinate.
+  std::string typed_string = "a";
+  BrowserAction action = MakeType(*main_frame(), type_point, typed_string,
+                                  /*follow_by_enter=*/false);
+
+  TestFuture<mojom::ActionResultPtr> result;
+  actor_coordinator().Act(action, result.GetCallback());
+  ExpectOkResult(result);
+
+  // Only the click is handled by the node at coordinate.
+  EXPECT_EQ(
+      // click
+      "mousedown(" + type_point.ToString() + "),mouseup(" +
+          type_point.ToString() + "),click(" + type_point.ToString() + ")",
+      EvalJs(web_contents(), "input_event_log.join(',')"));
+  // The keydown and keyup event will go to the body now that div is
+  // unfocusable.
+  EXPECT_EQ(
+      // a
+      "keydown,keyup",
+      EvalJs(web_contents(), "body_input_event_log.join(',')"));
+}
+
+// Ensure the type tool will fail if target coordinate is offscreen.
+IN_PROC_BROWSER_TEST_F(ActorToolsTest, TypeTool_SentToOffScreenCoordinates) {
+  const GURL url =
+      embedded_test_server()->GetURL("/actor/type_input_coordinate.html");
+  ASSERT_TRUE(content::NavigateToURL(web_contents(), url));
+
+  // The log starts empty.
+  ASSERT_EQ("", EvalJs(web_contents(), "input_event_log.join(',')"));
+
+  // Send 'a' to an offscreen coordinate and observe failure.
+  std::string typed_string = "a";
+  BrowserAction action = MakeType(*main_frame(), gfx::Point(-1, 0),
+                                  typed_string, /*follow_by_enter=*/false);
+
+  TestFuture<mojom::ActionResultPtr> result;
+  actor_coordinator().Act(action, result.GetCallback());
+  ExpectErrorResult(result, mojom::ActionResultCode::kCoordinatesOutOfBounds);
+
+  EXPECT_EQ("", EvalJs(web_contents(), "input_event_log.join(',')"));
 }
 
 // ===============================================
@@ -427,11 +799,12 @@ IN_PROC_BROWSER_TEST_F(ActorToolsTest, MouseMoveTool_NonExistentNode) {
   ASSERT_EQ("", EvalJs(web_contents(), "event_log.join(',')"));
 
   // Use a random node id that doesn't exist.
-  BrowserAction action = MakeMouseMove(kNonExistentContentNodeId);
+  BrowserAction action =
+      MakeMouseMove(*main_frame(), kNonExistentContentNodeId);
 
-  TestFuture<bool> result;
+  TestFuture<mojom::ActionResultPtr> result;
   actor_coordinator().Act(action, result.GetCallback());
-  EXPECT_FALSE(result.Get());
+  ExpectErrorResult(result, mojom::ActionResultCode::kInvalidDomNodeId);
 }
 
 // Test basic movements using MouseMove tool generates the expected events.
@@ -444,12 +817,12 @@ IN_PROC_BROWSER_TEST_F(ActorToolsTest, MouseMoveTool_Events) {
 
   // Move mouse over #first DIV
   {
-    std::optional<int> first_id = FindContentNodeId(*main_frame(), "#first");
-    BrowserAction action = MakeMouseMove(first_id.value());
+    std::optional<int> first_id = GetDOMNodeId(*main_frame(), "#first");
+    BrowserAction action = MakeMouseMove(*main_frame(), first_id.value());
 
-    TestFuture<bool> result;
+    TestFuture<mojom::ActionResultPtr> result;
     actor_coordinator().Act(action, result.GetCallback());
-    EXPECT_TRUE(result.Get());
+    ExpectOkResult(result);
   }
 
   EXPECT_EQ("mouseenter[DIV#first],mousemove[DIV#first]",
@@ -458,12 +831,12 @@ IN_PROC_BROWSER_TEST_F(ActorToolsTest, MouseMoveTool_Events) {
 
   // Move mouse over #second DIV
   {
-    std::optional<int> second_id = FindContentNodeId(*main_frame(), "#second");
-    BrowserAction action = MakeMouseMove(second_id.value());
+    std::optional<int> second_id = GetDOMNodeId(*main_frame(), "#second");
+    BrowserAction action = MakeMouseMove(*main_frame(), second_id.value());
 
-    TestFuture<bool> result;
+    TestFuture<mojom::ActionResultPtr> result;
     actor_coordinator().Act(action, result.GetCallback());
-    EXPECT_TRUE(result.Get());
+    ExpectOkResult(result);
   }
 
   EXPECT_EQ(
@@ -482,13 +855,12 @@ IN_PROC_BROWSER_TEST_F(ActorToolsTest, MouseMoveTool_TargetOutsideViewport) {
   // Move mouse over #offscreen DIV. This should fail since #offscreen is
   // outside the viewport.
   {
-    std::optional<int> offscreen_id =
-        FindContentNodeId(*main_frame(), "#offscreen");
-    BrowserAction action = MakeMouseMove(offscreen_id.value());
+    std::optional<int> offscreen_id = GetDOMNodeId(*main_frame(), "#offscreen");
+    BrowserAction action = MakeMouseMove(*main_frame(), offscreen_id.value());
 
-    TestFuture<bool> result;
+    TestFuture<mojom::ActionResultPtr> result;
     actor_coordinator().Act(action, result.GetCallback());
-    EXPECT_FALSE(result.Get());
+    ExpectErrorResult(result, mojom::ActionResultCode::kElementOffscreen);
   }
 
   // The action should fail without generating any events.
@@ -501,17 +873,63 @@ IN_PROC_BROWSER_TEST_F(ActorToolsTest, MouseMoveTool_TargetOutsideViewport) {
   // Try moving the mouse over #offscreen again. This time it should succeed
   // since it was scrolled into the viewport.
   {
-    std::optional<int> offscreen_id =
-        FindContentNodeId(*main_frame(), "#offscreen");
-    BrowserAction action = MakeMouseMove(offscreen_id.value());
+    std::optional<int> offscreen_id = GetDOMNodeId(*main_frame(), "#offscreen");
+    BrowserAction action = MakeMouseMove(*main_frame(), offscreen_id.value());
 
-    TestFuture<bool> result;
+    TestFuture<mojom::ActionResultPtr> result;
     actor_coordinator().Act(action, result.GetCallback());
-    EXPECT_TRUE(result.Get());
+    ExpectOkResult(result);
   }
 
   EXPECT_EQ("mouseenter[DIV#offscreen],mousemove[DIV#offscreen]",
             EvalJs(web_contents(), "event_log.join(',')"));
+}
+
+// Ensure mouse can be moved to a coordinate onscreen.
+IN_PROC_BROWSER_TEST_F(ActorToolsTest, MouseMoveTool_MoveToCoordinate) {
+  const GURL url = embedded_test_server()->GetURL("/actor/mouse_log.html");
+  ASSERT_TRUE(content::NavigateToURL(web_contents(), url));
+
+  // Log starts empty.
+  ASSERT_EQ("", EvalJs(web_contents(), "event_log.join(',')"));
+
+  // Move mouse over #first DIV
+  gfx::Point move_point = gfx::ToFlooredPoint(
+      GetCenterCoordinatesOfElementWithId(web_contents(), "first"));
+  BrowserAction action = MakeMouseMove(*main_frame(), move_point);
+
+  TestFuture<mojom::ActionResultPtr> result;
+  actor_coordinator().Act(action, result.GetCallback());
+  ExpectOkResult(result);
+
+  EXPECT_EQ("mouseenter[DIV#first],mousemove[DIV#first]",
+            EvalJs(web_contents(), "event_log.join(',')"));
+}
+
+// Moving mouse to a coordinate not in the viewport should fail without
+// dispatching events.
+IN_PROC_BROWSER_TEST_F(ActorToolsTest,
+                       MouseMoveTool_MoveToCoordinateOffScreen) {
+  const GURL url = embedded_test_server()->GetURL("/actor/mouse_log.html");
+  ASSERT_TRUE(content::NavigateToURL(web_contents(), url));
+
+  // Log starts empty.
+  ASSERT_EQ("", EvalJs(web_contents(), "event_log.join(',')"));
+
+  // Move mouse over #offscreen DIV. This should fail since #offscreen is
+  // outside the viewport.
+  {
+    gfx::Point move_point = gfx::ToFlooredPoint(
+        GetCenterCoordinatesOfElementWithId(web_contents(), "offscreen"));
+    BrowserAction action = MakeMouseMove(*main_frame(), move_point);
+
+    TestFuture<mojom::ActionResultPtr> result;
+    actor_coordinator().Act(action, result.GetCallback());
+    ExpectErrorResult(result, mojom::ActionResultCode::kCoordinatesOutOfBounds);
+  }
+
+  // The action should fail without generating any events.
+  EXPECT_EQ("", EvalJs(web_contents(), "event_log.join(',')"));
 }
 
 // ===============================================
@@ -525,12 +943,12 @@ IN_PROC_BROWSER_TEST_F(ActorToolsTest, ScrollTool_FailOnInvalidNodeID) {
 
   // Use a random node id that doesn't exist.
   float scroll_offset_y = 50;
-  BrowserAction action = MakeScroll(kNonExistentContentNodeId,
+  BrowserAction action = MakeScroll(*main_frame(), kNonExistentContentNodeId,
                                     /*scroll_offset_x=*/0, scroll_offset_y);
 
-  TestFuture<bool> result_fail;
+  TestFuture<mojom::ActionResultPtr> result_fail;
   actor_coordinator().Act(action, result_fail.GetCallback());
-  EXPECT_FALSE(result_fail.Get());
+  ExpectErrorResult(result_fail, mojom::ActionResultCode::kInvalidDomNodeId);
 
   EXPECT_EQ(0, EvalJs(web_contents(), "window.scrollY"));
 }
@@ -545,20 +963,22 @@ IN_PROC_BROWSER_TEST_F(ActorToolsTest, ScrollTool_ScrollPageVertical) {
 
   {
     // If no node id is passed, it will scroll the page's viewport.
-    BrowserAction action = MakeScroll(/*content_node_id=*/std::nullopt,
-                                      /*scroll_offset_x=*/0, scroll_offset_y);
-    TestFuture<bool> result_success;
+    BrowserAction action =
+        MakeScroll(*main_frame(), /*content_node_id=*/std::nullopt,
+                   /*scroll_offset_x=*/0, scroll_offset_y);
+    TestFuture<mojom::ActionResultPtr> result_success;
     actor_coordinator().Act(action, result_success.GetCallback());
-    EXPECT_TRUE(result_success.Get());
+    ExpectOkResult(result_success);
     EXPECT_EQ(scroll_offset_y, EvalJs(web_contents(), "window.scrollY"));
   }
 
   {
-    BrowserAction action = MakeScroll(/*content_node_id=*/std::nullopt,
-                                      /*scroll_offset_x=*/0, scroll_offset_y);
-    TestFuture<bool> result_success;
+    BrowserAction action =
+        MakeScroll(*main_frame(), /*content_node_id=*/std::nullopt,
+                   /*scroll_offset_x=*/0, scroll_offset_y);
+    TestFuture<mojom::ActionResultPtr> result_success;
     actor_coordinator().Act(action, result_success.GetCallback());
-    EXPECT_TRUE(result_success.Get());
+    ExpectOkResult(result_success);
     EXPECT_EQ(2 * scroll_offset_y, EvalJs(web_contents(), "window.scrollY"));
   }
 }
@@ -573,22 +993,22 @@ IN_PROC_BROWSER_TEST_F(ActorToolsTest, ScrollTool_ScrollPageHorizontal) {
 
   {
     // If no node id is passed, it will scroll the page's viewport.
-    BrowserAction action =
-        MakeScroll(/*content_node_id=*/std::nullopt, scroll_offset_x,
-                   /*scroll_offset_y=*/0);
-    TestFuture<bool> result_success;
+    BrowserAction action = MakeScroll(
+        *main_frame(), /*content_node_id=*/std::nullopt, scroll_offset_x,
+        /*scroll_offset_y=*/0);
+    TestFuture<mojom::ActionResultPtr> result_success;
     actor_coordinator().Act(action, result_success.GetCallback());
-    EXPECT_TRUE(result_success.Get());
+    ExpectOkResult(result_success);
     EXPECT_EQ(scroll_offset_x, EvalJs(web_contents(), "window.scrollX"));
   }
 
   {
-    BrowserAction action =
-        MakeScroll(/*content_node_id=*/std::nullopt, scroll_offset_x,
-                   /*scroll_offset_y=*/0);
-    TestFuture<bool> result_success;
+    BrowserAction action = MakeScroll(
+        *main_frame(), /*content_node_id=*/std::nullopt, scroll_offset_x,
+        /*scroll_offset_y=*/0);
+    TestFuture<mojom::ActionResultPtr> result_success;
     actor_coordinator().Act(action, result_success.GetCallback());
-    EXPECT_TRUE(result_success.Get());
+    ExpectOkResult(result_success);
     EXPECT_EQ(2 * scroll_offset_x, EvalJs(web_contents(), "window.scrollX"));
   }
 }
@@ -602,25 +1022,25 @@ IN_PROC_BROWSER_TEST_F(ActorToolsTest, ScrollTool_ScrollElement) {
   int scroll_offset_x = 50;
   int scroll_offset_y = 80;
 
-  int scroller = FindContentNodeId(*main_frame(), "#scroller").value();
+  int scroller = GetDOMNodeId(*main_frame(), "#scroller").value();
 
   {
-    BrowserAction action = MakeScroll(scroller, scroll_offset_x,
+    BrowserAction action = MakeScroll(*main_frame(), scroller, scroll_offset_x,
                                       /*scroll_offset_y=*/0);
-    TestFuture<bool> result_success;
+    TestFuture<mojom::ActionResultPtr> result_success;
     actor_coordinator().Act(action, result_success.GetCallback());
-    EXPECT_TRUE(result_success.Get());
+    ExpectOkResult(result_success);
     EXPECT_EQ(scroll_offset_x,
               EvalJs(web_contents(),
                      "document.getElementById('scroller').scrollLeft"));
   }
 
   {
-    BrowserAction action = MakeScroll(scroller,
+    BrowserAction action = MakeScroll(*main_frame(), scroller,
                                       /*scroll_offset_x=*/0, scroll_offset_y);
-    TestFuture<bool> result_success;
+    TestFuture<mojom::ActionResultPtr> result_success;
     actor_coordinator().Act(action, result_success.GetCallback());
-    EXPECT_TRUE(result_success.Get());
+    ExpectOkResult(result_success);
     EXPECT_EQ(scroll_offset_y,
               EvalJs(web_contents(),
                      "document.getElementById('scroller').scrollTop"));
@@ -635,14 +1055,15 @@ IN_PROC_BROWSER_TEST_F(ActorToolsTest, ScrollTool_NonScrollable) {
 
   int scroll_offset_y = 80;
 
-  int scroller = FindContentNodeId(*main_frame(), "#nonscroll").value();
+  int scroller = GetDOMNodeId(*main_frame(), "#nonscroll").value();
 
   {
-    BrowserAction action = MakeScroll(scroller,
+    BrowserAction action = MakeScroll(*main_frame(), scroller,
                                       /*scroll_offset_x=*/0, scroll_offset_y);
-    TestFuture<bool> result_success;
-    actor_coordinator().Act(action, result_success.GetCallback());
-    EXPECT_FALSE(result_success.Get());
+    TestFuture<mojom::ActionResultPtr> result;
+    actor_coordinator().Act(action, result.GetCallback());
+    ExpectErrorResult(result,
+                      mojom::ActionResultCode::kScrollTargetNotUserScrollable);
     EXPECT_EQ(0, EvalJs(web_contents(),
                         "document.getElementById('nonscroll').scrollTop"));
     EXPECT_EQ(0, EvalJs(web_contents(), "window.scrollY"));
@@ -658,17 +1079,17 @@ IN_PROC_BROWSER_TEST_F(ActorToolsTest, ScrollTool_OneAxisScroller) {
 
   int scroll_offset = 80;
 
-  int scroller =
-      FindContentNodeId(*main_frame(), "#horizontalscroller").value();
+  int scroller = GetDOMNodeId(*main_frame(), "#horizontalscroller").value();
 
   // Try a vertical scroll - it should fail since the scroller has only
   // horizontal overflow.
   {
-    BrowserAction action = MakeScroll(scroller,
+    BrowserAction action = MakeScroll(*main_frame(), scroller,
                                       /*scroll_offset_x=*/0, scroll_offset);
-    TestFuture<bool> result_success;
-    actor_coordinator().Act(action, result_success.GetCallback());
-    EXPECT_FALSE(result_success.Get());
+    TestFuture<mojom::ActionResultPtr> result;
+    actor_coordinator().Act(action, result.GetCallback());
+    ExpectErrorResult(result,
+                      mojom::ActionResultCode::kScrollTargetNotUserScrollable);
     EXPECT_EQ(
         0, EvalJs(web_contents(),
                   "document.getElementById('horizontalscroller').scrollTop"));
@@ -677,11 +1098,11 @@ IN_PROC_BROWSER_TEST_F(ActorToolsTest, ScrollTool_OneAxisScroller) {
 
   // Horizontal scroll should succeed.
   {
-    BrowserAction action = MakeScroll(scroller, scroll_offset,
+    BrowserAction action = MakeScroll(*main_frame(), scroller, scroll_offset,
                                       /*scroll_offset_y=*/0);
-    TestFuture<bool> result_success;
+    TestFuture<mojom::ActionResultPtr> result_success;
     actor_coordinator().Act(action, result_success.GetCallback());
-    EXPECT_TRUE(result_success.Get());
+    ExpectOkResult(result_success);
     EXPECT_EQ(
         scroll_offset,
         EvalJs(web_contents(),
@@ -703,15 +1124,15 @@ IN_PROC_BROWSER_TEST_F(ActorToolsTest, ScrollTool_BrowserZoom) {
   // (3 physical pixels : 2 CSS Pixels)
   int scroll_offset_physical = 60;
   int expected_offset_css = 40;
-  int scroller = FindContentNodeId(*main_frame(), "#scroller").value();
+  int scroller = GetDOMNodeId(*main_frame(), "#scroller").value();
 
   {
     BrowserAction action =
-        MakeScroll(scroller,
+        MakeScroll(*main_frame(), scroller,
                    /*scroll_offset_x=*/0, scroll_offset_physical);
-    TestFuture<bool> result_success;
+    TestFuture<mojom::ActionResultPtr> result_success;
     actor_coordinator().Act(action, result_success.GetCallback());
-    EXPECT_TRUE(result_success.Get());
+    ExpectOkResult(result_success);
     EXPECT_EQ(expected_offset_css,
               EvalJs(web_contents(),
                      "document.getElementById('scroller').scrollTop"));
@@ -729,15 +1150,15 @@ IN_PROC_BROWSER_TEST_F(ActorToolsTest, ScrollTool_CSSZoom) {
   // inside a `zoom:0.5` subtree (1 physical pixels : 2 CSS Pixels)
   int scroll_offset_physical = 60;
   int expected_offset_css = 120;
-  int scroller = FindContentNodeId(*main_frame(), "#zoomedscroller").value();
+  int scroller = GetDOMNodeId(*main_frame(), "#zoomedscroller").value();
 
   {
     BrowserAction action =
-        MakeScroll(scroller,
+        MakeScroll(*main_frame(), scroller,
                    /*scroll_offset_x=*/0, scroll_offset_physical);
-    TestFuture<bool> result_success;
+    TestFuture<mojom::ActionResultPtr> result_success;
     actor_coordinator().Act(action, result_success.GetCallback());
-    EXPECT_TRUE(result_success.Get());
+    ExpectOkResult(result_success);
     EXPECT_EQ(expected_offset_css,
               EvalJs(web_contents(),
                      "document.getElementById('zoomedscroller').scrollTop"));
@@ -769,19 +1190,41 @@ IN_PROC_BROWSER_TEST_F(ActorToolsTestDSF2, ScrollTool_ScrollDSF) {
   // = 2 (2 physical pixels : 1 CSS pixel);
   int scroll_offset_physical = 80;
   int expected_offset_css = 40;
-  int scroller = FindContentNodeId(*main_frame(), "#scroller").value();
+  int scroller = GetDOMNodeId(*main_frame(), "#scroller").value();
 
   {
     BrowserAction action =
-        MakeScroll(scroller,
+        MakeScroll(*main_frame(), scroller,
                    /*scroll_offset_x=*/0, scroll_offset_physical);
-    TestFuture<bool> result_success;
+    TestFuture<mojom::ActionResultPtr> result_success;
     actor_coordinator().Act(action, result_success.GetCallback());
-    EXPECT_TRUE(result_success.Get());
+    ExpectOkResult(result_success);
     EXPECT_EQ(expected_offset_css,
               EvalJs(web_contents(),
                      "document.getElementById('scroller').scrollTop"));
   }
+}
+
+IN_PROC_BROWSER_TEST_F(ActorToolsTest, ScrollTool_ZeroIdTargetsViewport) {
+  const GURL url =
+      embedded_test_server()->GetURL("/actor/scrollable_page.html");
+  ASSERT_TRUE(content::NavigateToURL(web_contents(), url));
+
+  // DOMNodeIDs start at 1 so 0 should be interpreted as viewport.
+  constexpr int kViewportId = 0;
+  float scroll_offset_y = 50;
+  BrowserAction action = MakeScroll(*main_frame(), kViewportId,
+                                    /*scroll_offset_x=*/0, scroll_offset_y);
+
+  TestFuture<mojom::ActionResultPtr> result;
+  actor_coordinator().Act(action, result.GetCallback());
+  ExpectOkResult(result);
+
+  // Not sure why, since all zooms should be exactly 1.0, but some numerical
+  // instability seems to creep in. Using ExtractDouble and EXPECT_FLOAT_EQ for
+  // that reason.
+  EXPECT_FLOAT_EQ(scroll_offset_y,
+                  EvalJs(web_contents(), "window.scrollY").ExtractDouble());
 }
 
 // ===============================================
@@ -804,11 +1247,11 @@ IN_PROC_BROWSER_TEST_F(ActorToolsTest, DragAndReleaseTool_Range) {
                    range_rect.y() + thumb_padding);
   gfx::Point end = gfx::ToFlooredPoint(range_rect.CenterPoint());
 
-  BrowserAction action = MakeDragAndRelease(start, end);
+  BrowserAction action = MakeDragAndRelease(*main_frame(), start, end);
 
-  TestFuture<bool> result_success;
+  TestFuture<mojom::ActionResultPtr> result_success;
   actor_coordinator().Act(action, result_success.GetCallback());
-  EXPECT_TRUE(result_success.Get());
+  ExpectOkResult(result_success);
 
   EXPECT_EQ(50, GetRangeValue(*main_frame(), "#range"));
 }
@@ -835,11 +1278,11 @@ IN_PROC_BROWSER_TEST_F(ActorToolsTest, DragAndReleaseTool_Events) {
   gfx::Point start(target_rect.x() + kPadding, target_rect.y() + kPadding);
   gfx::Point end = start + delta;
 
-  BrowserAction action = MakeDragAndRelease(start, end);
+  BrowserAction action = MakeDragAndRelease(*main_frame(), start, end);
 
-  TestFuture<bool> result_success;
+  TestFuture<mojom::ActionResultPtr> result_success;
   actor_coordinator().Act(action, result_success.GetCallback());
-  EXPECT_TRUE(result_success.Get());
+  ExpectOkResult(result_success);
 
   EXPECT_EQ(base::StrCat({"mousemove[", start.ToString(), "],", "mousedown[",
                           start.ToString(), "],", "mousemove[", end.ToString(),
@@ -867,10 +1310,11 @@ IN_PROC_BROWSER_TEST_F(ActorToolsTest, DragAndReleaseTool_Offscreen) {
                      range_rect.y() + thumb_padding);
     gfx::Point end = gfx::ToFlooredPoint(range_rect.CenterPoint());
 
-    BrowserAction action = MakeDragAndRelease(start, end);
-    TestFuture<bool> result_success;
-    actor_coordinator().Act(action, result_success.GetCallback());
-    EXPECT_FALSE(result_success.Get());
+    BrowserAction action = MakeDragAndRelease(*main_frame(), start, end);
+    TestFuture<mojom::ActionResultPtr> result;
+    actor_coordinator().Act(action, result.GetCallback());
+    ExpectErrorResult(result,
+                      mojom::ActionResultCode::kDragAndReleaseFromOffscreen);
   }
 
   // Scroll the range into the viewport.
@@ -889,10 +1333,10 @@ IN_PROC_BROWSER_TEST_F(ActorToolsTest, DragAndReleaseTool_Offscreen) {
                      range_rect.y() + thumb_padding);
     gfx::Point end = gfx::ToFlooredPoint(range_rect.CenterPoint());
 
-    BrowserAction action = MakeDragAndRelease(start, end);
-    TestFuture<bool> result_success;
+    BrowserAction action = MakeDragAndRelease(*main_frame(), start, end);
+    TestFuture<mojom::ActionResultPtr> result_success;
     actor_coordinator().Act(action, result_success.GetCallback());
-    EXPECT_TRUE(result_success.Get());
+    ExpectOkResult(result_success);
   }
 
   EXPECT_EQ(50, GetRangeValue(*main_frame(), "#offscreenRange"));
@@ -915,9 +1359,9 @@ IN_PROC_BROWSER_TEST_F(ActorToolsTest, NavigateTool) {
       action.add_action_information()->mutable_navigate();
   navigate->mutable_url()->assign(url_target.spec());
 
-  TestFuture<bool> result_success;
+  TestFuture<mojom::ActionResultPtr> result_success;
   actor_coordinator().Act(action, result_success.GetCallback());
-  EXPECT_TRUE(result_success.Get());
+  ExpectOkResult(result_success);
 
   EXPECT_EQ(web_contents()->GetURL(), url_target);
 }
@@ -925,6 +1369,9 @@ IN_PROC_BROWSER_TEST_F(ActorToolsTest, NavigateTool) {
 // ===============================================
 // History Tool
 // ===============================================
+
+// TODO(crbug.com/415385900): Add a test for navigation API canceling a
+// same-document navigation.
 
 // Basic test of the HistoryTool going back.
 IN_PROC_BROWSER_TEST_F(ActorToolsTest, HistoryTool_Back) {
@@ -935,9 +1382,9 @@ IN_PROC_BROWSER_TEST_F(ActorToolsTest, HistoryTool_Back) {
   ASSERT_TRUE(content::NavigateToURL(web_contents(), url_first));
   ASSERT_TRUE(content::NavigateToURL(web_contents(), url_second));
 
-  TestFuture<bool> result_success;
+  TestFuture<mojom::ActionResultPtr> result_success;
   actor_coordinator().Act(MakeHistoryBack(), result_success.GetCallback());
-  EXPECT_TRUE(result_success.Get());
+  ExpectOkResult(result_success);
 
   EXPECT_EQ(web_contents()->GetURL(), url_first);
 }
@@ -954,9 +1401,9 @@ IN_PROC_BROWSER_TEST_F(ActorToolsTest, HistoryTool_Forward) {
   GoBack();
   ASSERT_EQ(web_contents()->GetURL(), url_first);
 
-  TestFuture<bool> result_success;
+  TestFuture<mojom::ActionResultPtr> result_success;
   actor_coordinator().Act(MakeHistoryForward(), result_success.GetCallback());
-  EXPECT_TRUE(result_success.Get());
+  ExpectOkResult(result_success);
 
   EXPECT_EQ(web_contents()->GetURL(), url_second);
 }
@@ -975,9 +1422,9 @@ IN_PROC_BROWSER_TEST_F(ActorToolsTest, HistoryTool_BackNoBFCache) {
   ASSERT_TRUE(content::NavigateToURL(web_contents(), url_first));
   ASSERT_TRUE(content::NavigateToURL(web_contents(), url_second));
 
-  TestFuture<bool> result_success;
+  TestFuture<mojom::ActionResultPtr> result_success;
   actor_coordinator().Act(MakeHistoryBack(), result_success.GetCallback());
-  EXPECT_TRUE(result_success.Get());
+  ExpectOkResult(result_success);
 
   EXPECT_EQ(web_contents()->GetURL(), url_first);
 }
@@ -995,9 +1442,10 @@ IN_PROC_BROWSER_TEST_F(ActorToolsTest, HistoryTool_FailNoSessionHistory) {
   // Attempting a forward history navigation should fail since we're at the
   // latest entry.
   {
-    TestFuture<bool> result;
+    TestFuture<mojom::ActionResultPtr> result;
     actor_coordinator().Act(MakeHistoryForward(), result.GetCallback());
-    EXPECT_FALSE(result.Get());
+    ExpectErrorResult(result,
+                      mojom::ActionResultCode::kHistoryNoForwardEntries);
     EXPECT_EQ(web_contents()->GetURL(), url_second);
   }
 
@@ -1008,9 +1456,9 @@ IN_PROC_BROWSER_TEST_F(ActorToolsTest, HistoryTool_FailNoSessionHistory) {
   // Attempting a back history navigation should fail since we're at the first
   // entry.
   {
-    TestFuture<bool> result;
+    TestFuture<mojom::ActionResultPtr> result;
     actor_coordinator().Act(MakeHistoryBack(), result.GetCallback());
-    EXPECT_FALSE(result.Get());
+    ExpectErrorResult(result, mojom::ActionResultCode::kHistoryNoBackEntries);
     EXPECT_EQ(web_contents()->GetURL(), url_second);
   }
 }
@@ -1024,16 +1472,16 @@ IN_PROC_BROWSER_TEST_F(ActorToolsTest, HistoryTool_BackSameDocument) {
   ASSERT_TRUE(content::NavigateToURL(web_contents(), url_second));
 
   {
-    TestFuture<bool> result;
+    TestFuture<mojom::ActionResultPtr> result;
     actor_coordinator().Act(MakeHistoryBack(), result.GetCallback());
-    EXPECT_TRUE(result.Get());
+    ExpectOkResult(result);
     EXPECT_EQ(web_contents()->GetURL(), url_first);
   }
 
   {
-    TestFuture<bool> result;
+    TestFuture<mojom::ActionResultPtr> result;
     actor_coordinator().Act(MakeHistoryForward(), result.GetCallback());
-    EXPECT_TRUE(result.Get());
+    ExpectOkResult(result);
     EXPECT_EQ(web_contents()->GetURL(), url_second);
   }
 }
@@ -1060,9 +1508,9 @@ IN_PROC_BROWSER_TEST_F(ActorToolsTest, HistoryTool_BasicIframeBack) {
   ASSERT_EQ(child_frame->GetLastCommittedURL(), child_frame_url_2);
 
   // Invoke the history back tool. The iframe should be navigated back.
-  TestFuture<bool> result;
+  TestFuture<mojom::ActionResultPtr> result;
   actor_coordinator().Act(MakeHistoryBack(), result.GetCallback());
-  EXPECT_TRUE(result.Get());
+  ExpectOkResult(result);
   child_frame = content::ChildFrameAt(web_contents()->GetPrimaryMainFrame(), 0);
   EXPECT_EQ(child_frame->GetLastCommittedURL(), child_frame_url_1);
   EXPECT_EQ(web_contents()->GetURL(), main_frame_url);
@@ -1082,7 +1530,7 @@ IN_PROC_BROWSER_TEST_F(ActorToolsTest, HistoryTool_SlowBack) {
   ASSERT_TRUE(content::NavigateToURL(web_contents(), url_second));
 
   TestNavigationManager back_navigation(web_contents(), url_first);
-  TestFuture<bool> result_success;
+  TestFuture<mojom::ActionResultPtr> result_success;
   actor_coordinator().Act(MakeHistoryBack(), result_success.GetCallback());
   ASSERT_TRUE(back_navigation.WaitForResponse());
   EXPECT_FALSE(result_success.IsReady());
@@ -1093,7 +1541,7 @@ IN_PROC_BROWSER_TEST_F(ActorToolsTest, HistoryTool_SlowBack) {
   }
 
   ASSERT_TRUE(back_navigation.WaitForNavigationFinished());
-  EXPECT_TRUE(result_success.Get());
+  ExpectOkResult(result_success);
 }
 
 // Test a case where history back causes navigation in two frames.
@@ -1142,9 +1590,9 @@ IN_PROC_BROWSER_TEST_F(ActorToolsTest, HistoryTool_ConcurrentNavigations) {
 
   // Invoke the history back tool. Both should be navigated back to their
   // starting URL.
-  TestFuture<bool> result;
+  TestFuture<mojom::ActionResultPtr> result;
   actor_coordinator().Act(MakeHistoryBack(), result.GetCallback());
-  EXPECT_TRUE(result.Get());
+  ExpectOkResult(result);
 
   child_frame_1 = ChildFrameAt(web_contents()->GetPrimaryMainFrame(), 0);
   child_frame_2 = ChildFrameAt(web_contents()->GetPrimaryMainFrame(), 1);
@@ -1153,8 +1601,32 @@ IN_PROC_BROWSER_TEST_F(ActorToolsTest, HistoryTool_ConcurrentNavigations) {
   EXPECT_EQ(web_contents()->GetURL(), main_frame_url);
 }
 
+// Ensure the history tool works correctly when a before unload handler is
+// present (but doesn't cause a prompt to show).
+IN_PROC_BROWSER_TEST_F(ActorToolsTest, HistoryTool_HasBeforeUnload) {
+  const GURL url_first =
+      embedded_test_server()->GetURL("/actor/blank.html?start");
+  const GURL url_second =
+      embedded_test_server()->GetURL("/actor/blank.html?target");
+  ASSERT_TRUE(content::NavigateToURL(web_contents(), url_first));
+  ASSERT_TRUE(content::NavigateToURL(web_contents(), url_second));
+
+  // Add a no-op beforeunload handler. This won't show the prompt but may force
+  // the browser to send an event to the renderer to confirm which can change
+  // the async path taken by the navigation.
+  ASSERT_TRUE(ExecJs(web_contents(),
+                     R"JS(
+                      addEventListener('beforeunload', () => {});
+                      )JS"));
+
+  TestFuture<mojom::ActionResultPtr> result_success;
+  actor_coordinator().Act(MakeHistoryBack(), result_success.GetCallback());
+  ExpectOkResult(result_success);
+  EXPECT_EQ(web_contents()->GetURL(), url_first);
+}
+
 // ===============================================
-// History Tool
+// Select Tool
 // ===============================================
 
 // Test that the SelectTool can select an ordinary <option> in a <select>
@@ -1165,36 +1637,39 @@ IN_PROC_BROWSER_TEST_F(ActorToolsTest, SelectTool_OptionSelected) {
 
   const std::string plain_select_id = "#plainSelect";
   const int32_t plain_select_dom_node_id =
-      FindContentNodeId(*main_frame(), plain_select_id).value();
+      GetDOMNodeId(*main_frame(), plain_select_id).value();
 
   ASSERT_EQ(GetSelectElementCurrentValue(plain_select_id), "alpha");
 
   {
-    BrowserAction select = MakeSelect(plain_select_dom_node_id, "beta");
-    TestFuture<bool> result;
+    BrowserAction select =
+        MakeSelect(*main_frame(), plain_select_dom_node_id, "beta");
+    TestFuture<mojom::ActionResultPtr> result;
     actor_coordinator().Act(select, result.GetCallback());
-    EXPECT_TRUE(result.Get());
+    ExpectOkResult(result);
   }
 
   EXPECT_EQ(GetSelectElementCurrentValue(plain_select_id), "beta");
 
   {
-    BrowserAction select = MakeSelect(plain_select_dom_node_id, "gamma");
-    TestFuture<bool> result;
+    BrowserAction select =
+        MakeSelect(*main_frame(), plain_select_dom_node_id, "gamma");
+    TestFuture<mojom::ActionResultPtr> result;
     actor_coordinator().Act(select, result.GetCallback());
 
-    EXPECT_TRUE(result.Get());
+    ExpectOkResult(result);
   }
 
   EXPECT_EQ(GetSelectElementCurrentValue(plain_select_id), "gamma");
 
   // Test selecting by value. The option with value last has text "omega".
   {
-    BrowserAction select = MakeSelect(plain_select_dom_node_id, "last");
-    TestFuture<bool> result;
+    BrowserAction select =
+        MakeSelect(*main_frame(), plain_select_dom_node_id, "last");
+    TestFuture<mojom::ActionResultPtr> result;
     actor_coordinator().Act(select, result.GetCallback());
 
-    EXPECT_TRUE(result.Get());
+    ExpectOkResult(result);
   }
 
   EXPECT_EQ(GetSelectElementCurrentValue(plain_select_id), "last");
@@ -1208,16 +1683,17 @@ IN_PROC_BROWSER_TEST_F(ActorToolsTest, SelectTool_Events) {
 
   const std::string plain_select_id = "#plainSelect";
   const int32_t plain_select_dom_node_id =
-      FindContentNodeId(*main_frame(), plain_select_id).value();
+      GetDOMNodeId(*main_frame(), plain_select_id).value();
 
   ASSERT_EQ(GetSelectElementCurrentValue(plain_select_id), "alpha");
   ASSERT_EQ("", EvalJs(web_contents(), "select_event_log.join(',')"));
 
   {
-    BrowserAction select = MakeSelect(plain_select_dom_node_id, "beta");
-    TestFuture<bool> result;
+    BrowserAction select =
+        MakeSelect(*main_frame(), plain_select_dom_node_id, "beta");
+    TestFuture<mojom::ActionResultPtr> result;
     actor_coordinator().Act(select, result.GetCallback());
-    EXPECT_TRUE(result.Get());
+    ExpectOkResult(result);
     EXPECT_EQ("input,change",
               EvalJs(web_contents(), "select_event_log.join(',')"));
   }
@@ -1231,17 +1707,17 @@ IN_PROC_BROWSER_TEST_F(ActorToolsTest, SelectTool_NonExistentValueFails) {
 
   const std::string plain_select_id = "#plainSelect";
   int32_t plain_select_dom_node_id =
-      FindContentNodeId(*main_frame(), plain_select_id).value();
+      GetDOMNodeId(*main_frame(), plain_select_id).value();
 
   const std::string initial_value =
       GetSelectElementCurrentValue(plain_select_id);
   ASSERT_EQ(initial_value, "alpha");
 
   BrowserAction select =
-      MakeSelect(plain_select_dom_node_id, "nonexistentValue");
-  TestFuture<bool> result;
+      MakeSelect(*main_frame(), plain_select_dom_node_id, "nonexistentValue");
+  TestFuture<mojom::ActionResultPtr> result;
   actor_coordinator().Act(select, result.GetCallback());
-  EXPECT_FALSE(result.Get());
+  ExpectErrorResult(result, mojom::ActionResultCode::kSelectNoSuchOption);
 
   EXPECT_EQ(GetSelectElementCurrentValue(plain_select_id), initial_value);
 }
@@ -1254,7 +1730,7 @@ IN_PROC_BROWSER_TEST_F(ActorToolsTest, SelectTool_NonOptionNodeValueFails) {
 
   const std::string non_options_select_id = "#nonOptionsSelect";
   int32_t non_options_select_dom_node_id =
-      FindContentNodeId(*main_frame(), non_options_select_id).value();
+      GetDOMNodeId(*main_frame(), non_options_select_id).value();
 
   const std::string initial_value =
       GetSelectElementCurrentValue(non_options_select_id);
@@ -1263,10 +1739,11 @@ IN_PROC_BROWSER_TEST_F(ActorToolsTest, SelectTool_NonOptionNodeValueFails) {
   // Attempt to select "beta", which is the text of a <span>, not an <option>
   // value.  Expect the action to fail.
   {
-    BrowserAction select = MakeSelect(non_options_select_dom_node_id, "beta");
-    TestFuture<bool> result;
+    BrowserAction select =
+        MakeSelect(*main_frame(), non_options_select_dom_node_id, "beta");
+    TestFuture<mojom::ActionResultPtr> result;
     actor_coordinator().Act(select, result.GetCallback());
-    EXPECT_FALSE(result.Get());
+    ExpectErrorResult(result, mojom::ActionResultCode::kSelectNoSuchOption);
   }
 
   // Expect the value to remain unchanged
@@ -1275,10 +1752,11 @@ IN_PROC_BROWSER_TEST_F(ActorToolsTest, SelectTool_NonOptionNodeValueFails) {
   // Attempt to select "gamma", which is the value property of a <button>
   // element, not an <option> value.  Expect the action to fail.
   {
-    BrowserAction select = MakeSelect(non_options_select_dom_node_id, "gamma");
-    TestFuture<bool> result;
+    BrowserAction select =
+        MakeSelect(*main_frame(), non_options_select_dom_node_id, "gamma");
+    TestFuture<mojom::ActionResultPtr> result;
     actor_coordinator().Act(select, result.GetCallback());
-    EXPECT_FALSE(result.Get());
+    ExpectErrorResult(result, mojom::ActionResultCode::kSelectNoSuchOption);
   }
 
   // Expect the value to remain unchanged
@@ -1289,10 +1767,10 @@ IN_PROC_BROWSER_TEST_F(ActorToolsTest, SelectTool_NonOptionNodeValueFails) {
   // "epsilon".
   {
     BrowserAction select =
-        MakeSelect(non_options_select_dom_node_id, "epsilon");
-    TestFuture<bool> result;
+        MakeSelect(*main_frame(), non_options_select_dom_node_id, "epsilon");
+    TestFuture<mojom::ActionResultPtr> result;
     actor_coordinator().Act(select, result.GetCallback());
-    EXPECT_TRUE(result.Get());
+    ExpectOkResult(result);
     EXPECT_EQ(GetSelectElementCurrentValue(non_options_select_id), "epsilon");
   }
 }
@@ -1304,7 +1782,7 @@ IN_PROC_BROWSER_TEST_F(ActorToolsTest, SelectTool_ValueIsCaseSensitive) {
 
   const std::string plain_select_id = "#plainSelect";
   int32_t plain_select_dom_node_id =
-      FindContentNodeId(*main_frame(), plain_select_id).value();
+      GetDOMNodeId(*main_frame(), plain_select_id).value();
   const std::string initial_value =
       GetSelectElementCurrentValue(plain_select_id);
 
@@ -1312,10 +1790,11 @@ IN_PROC_BROWSER_TEST_F(ActorToolsTest, SelectTool_ValueIsCaseSensitive) {
 
   // Attempt to select "BETA" which has different casing than the option "beta"
   // Expect the action to fail due to case mismatch.
-  BrowserAction select = MakeSelect(plain_select_dom_node_id, "BETA");
-  TestFuture<bool> result;
+  BrowserAction select =
+      MakeSelect(*main_frame(), plain_select_dom_node_id, "BETA");
+  TestFuture<mojom::ActionResultPtr> result;
   actor_coordinator().Act(select, result.GetCallback());
-  EXPECT_FALSE(result.Get());
+  ExpectErrorResult(result, mojom::ActionResultCode::kSelectNoSuchOption);
 
   // The select value should be unchanged.
   EXPECT_EQ(GetSelectElementCurrentValue(plain_select_id), initial_value);
@@ -1328,7 +1807,7 @@ IN_PROC_BROWSER_TEST_F(ActorToolsTest, SelectTool_DisabledOptionFails) {
 
   const std::string plain_select_id = "#plainSelect";
   int32_t plain_select_dom_node_id =
-      FindContentNodeId(*main_frame(), plain_select_id).value();
+      GetDOMNodeId(*main_frame(), plain_select_id).value();
   const std::string initial_value =
       GetSelectElementCurrentValue(plain_select_id);
 
@@ -1336,10 +1815,11 @@ IN_PROC_BROWSER_TEST_F(ActorToolsTest, SelectTool_DisabledOptionFails) {
 
   // Attempt to select the value of the disabled option. Expect the action to
   // fail and the select's value to be unchanged.
-  BrowserAction select = MakeSelect(plain_select_dom_node_id, "disabledOption");
-  TestFuture<bool> result;
+  BrowserAction select =
+      MakeSelect(*main_frame(), plain_select_dom_node_id, "disabledOption");
+  TestFuture<mojom::ActionResultPtr> result;
   actor_coordinator().Act(select, result.GetCallback());
-  EXPECT_FALSE(result.Get());
+  ExpectErrorResult(result, mojom::ActionResultCode::kSelectOptionDisabled);
   EXPECT_EQ(GetSelectElementCurrentValue(plain_select_id), initial_value);
 }
 
@@ -1350,7 +1830,7 @@ IN_PROC_BROWSER_TEST_F(ActorToolsTest, SelectTool_DisabledOptGroupFails) {
 
   const std::string group_select_id = "#groupedSelect";
   int32_t plain_select_dom_node_id =
-      FindContentNodeId(*main_frame(), group_select_id).value();
+      GetDOMNodeId(*main_frame(), group_select_id).value();
   const std::string initial_value =
       GetSelectElementCurrentValue(group_select_id);
 
@@ -1359,10 +1839,11 @@ IN_PROC_BROWSER_TEST_F(ActorToolsTest, SelectTool_DisabledOptGroupFails) {
   // Attempt to select the option with value "foobar". The option itself is
   // enabled but is in a disabled optgroup. Expect the action to fail and the
   // select's value to be unchanged.
-  BrowserAction select = MakeSelect(plain_select_dom_node_id, "foobar");
-  TestFuture<bool> result;
+  BrowserAction select =
+      MakeSelect(*main_frame(), plain_select_dom_node_id, "foobar");
+  TestFuture<mojom::ActionResultPtr> result;
   actor_coordinator().Act(select, result.GetCallback());
-  EXPECT_FALSE(result.Get());
+  ExpectErrorResult(result, mojom::ActionResultCode::kSelectOptionDisabled);
   EXPECT_EQ(GetSelectElementCurrentValue(group_select_id), initial_value);
 }
 
@@ -1374,7 +1855,7 @@ IN_PROC_BROWSER_TEST_F(ActorToolsTest, SelectTool_DisabledSelectFails) {
 
   const std::string disabled_select_id = "#disabledSelect";
   int32_t disabled_select_dom_node_id =
-      FindContentNodeId(*main_frame(), disabled_select_id).value();
+      GetDOMNodeId(*main_frame(), disabled_select_id).value();
   const std::string initial_value =
       GetSelectElementCurrentValue(disabled_select_id);
 
@@ -1382,10 +1863,11 @@ IN_PROC_BROWSER_TEST_F(ActorToolsTest, SelectTool_DisabledSelectFails) {
 
   // Attempt to select an otherwise valid option value ("beta"). Expect the
   // action to fail without affecting the <select>.
-  BrowserAction select = MakeSelect(disabled_select_dom_node_id, "beta");
-  TestFuture<bool> result;
+  BrowserAction select =
+      MakeSelect(*main_frame(), disabled_select_dom_node_id, "beta");
+  TestFuture<mojom::ActionResultPtr> result;
   actor_coordinator().Act(select, result.GetCallback());
-  EXPECT_FALSE(result.Get());
+  ExpectErrorResult(result, mojom::ActionResultCode::kElementDisabled);
   EXPECT_EQ(GetSelectElementCurrentValue(disabled_select_id), initial_value);
 }
 
@@ -1396,26 +1878,28 @@ IN_PROC_BROWSER_TEST_F(ActorToolsTest, SelectTool_GroupedOptionSelected) {
 
   const std::string grouped_select_id = "#groupedSelect";
   int32_t grouped_select_dom_node_id =
-      FindContentNodeId(*main_frame(), grouped_select_id).value();
+      GetDOMNodeId(*main_frame(), grouped_select_id).value();
 
   ASSERT_EQ(GetSelectElementCurrentValue(grouped_select_id), "alpha");
 
   // Select an option from the first group
   {
-    BrowserAction select = MakeSelect(grouped_select_dom_node_id, "gamma");
-    TestFuture<bool> result;
+    BrowserAction select =
+        MakeSelect(*main_frame(), grouped_select_dom_node_id, "gamma");
+    TestFuture<mojom::ActionResultPtr> result;
     actor_coordinator().Act(select, result.GetCallback());
-    EXPECT_TRUE(result.Get());
+    ExpectOkResult(result);
   }
 
   EXPECT_EQ(GetSelectElementCurrentValue(grouped_select_id), "gamma");
 
   // Select an option from the second group
   {
-    BrowserAction select = MakeSelect(grouped_select_dom_node_id, "b");
-    TestFuture<bool> result;
+    BrowserAction select =
+        MakeSelect(*main_frame(), grouped_select_dom_node_id, "b");
+    TestFuture<mojom::ActionResultPtr> result;
     actor_coordinator().Act(select, result.GetCallback());
-    EXPECT_TRUE(result.Get());
+    ExpectOkResult(result);
   }
 
   EXPECT_EQ(GetSelectElementCurrentValue(grouped_select_id), "b");
@@ -1429,25 +1913,27 @@ IN_PROC_BROWSER_TEST_F(ActorToolsTest, SelectTool_ListboxOptionSelected) {
 
   const std::string listbox_select_id = "#listboxSelect";
   int32_t listbox_select_dom_node_id =
-      FindContentNodeId(*main_frame(), listbox_select_id).value();
+      GetDOMNodeId(*main_frame(), listbox_select_id).value();
 
   // List box starts with no element selected.
   ASSERT_EQ(GetSelectElementCurrentValue(listbox_select_id), "");
 
   {
-    BrowserAction select = MakeSelect(listbox_select_dom_node_id, "beta");
-    TestFuture<bool> result;
+    BrowserAction select =
+        MakeSelect(*main_frame(), listbox_select_dom_node_id, "beta");
+    TestFuture<mojom::ActionResultPtr> result;
     actor_coordinator().Act(select, result.GetCallback());
-    EXPECT_TRUE(result.Get());
+    ExpectOkResult(result);
   }
 
   EXPECT_EQ(GetSelectElementCurrentValue(listbox_select_id), "beta");
 
   {
-    BrowserAction select = MakeSelect(listbox_select_dom_node_id, "delta");
-    TestFuture<bool> result;
+    BrowserAction select =
+        MakeSelect(*main_frame(), listbox_select_dom_node_id, "delta");
+    TestFuture<mojom::ActionResultPtr> result;
     actor_coordinator().Act(select, result.GetCallback());
-    EXPECT_TRUE(result.Get());
+    ExpectOkResult(result);
   }
 
   EXPECT_EQ(GetSelectElementCurrentValue(listbox_select_id), "delta");
@@ -1464,9 +1950,9 @@ IN_PROC_BROWSER_TEST_F(ActorToolsTest, WaitTool) {
   ASSERT_TRUE(content::NavigateToURL(web_contents(), url));
 
   BrowserAction wait = MakeWait();
-  TestFuture<bool> result;
+  TestFuture<mojom::ActionResultPtr> result;
   actor_coordinator().Act(wait, result.GetCallback());
-  EXPECT_TRUE(result.Get());
+  ExpectOkResult(result);
 }
 
 }  // namespace

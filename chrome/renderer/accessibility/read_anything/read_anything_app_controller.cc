@@ -537,7 +537,7 @@ void ReadAnythingAppController::AccessibilityEventReceived(
 
 void ReadAnythingAppController::SendEventUpdates() {
   if (model_.requires_distillation()) {
-    Distill(/*for_training_data=*/false);
+    Distill();
   }
 
   if (model_.redraw_required()) {
@@ -615,8 +615,8 @@ void ReadAnythingAppController::OnActiveAXTreeIDChanged(
   // Cancel any running draw timers.
   post_user_entry_draw_timer_->Stop();
 
-  model_.SetActiveTreeId(tree_id);
-  model_.SetUkmSourceId(ukm_source_id);
+  model_.SetRootTreeId(tree_id);
+  model_.SetUkmSourceIdForTree(tree_id, ukm_source_id);
   model_.set_is_pdf(is_pdf);
 
   if (IsReadAloudEnabled() && read_aloud_model_.speech_playing()) {
@@ -638,8 +638,8 @@ void ReadAnythingAppController::OnActiveAXTreeIDChanged(
   // has been added to the tree list in AccessibilityEventReceived. In that
   // case, do not distill.
   if (model_.active_tree_id() != ui::AXTreeIDUnknown() &&
-      model_.ContainsTree(model_.active_tree_id())) {
-    Distill(/*for_training_data=*/false);
+      model_.ContainsActiveTree()) {
+    Distill();
   }
 }
 
@@ -687,7 +687,7 @@ void ReadAnythingAppController::Distill(bool for_training_data) {
 
   model_.set_requires_distillation(false);
 
-  ui::AXSerializableTree* tree = model_.GetTreeFromId(model_.active_tree_id());
+  ui::AXSerializableTree* tree = model_.GetActiveTree();
   std::unique_ptr<
       ui::AXTreeSource<const ui::AXNode*, ui::AXTreeData*, ui::AXNodeData>>
       tree_source(tree->CreateTreeSource());
@@ -759,6 +759,12 @@ void ReadAnythingAppController::OnAXTreeDistilled(
     model_.ComputeDisplayNodeIdsForDistilledTree();
   }
 
+  // If there's no distillable content on the active tree, allow child tree
+  // content to be distilled. This is needed to distill content on pages with
+  // a single root node containing an iframe that contains a tree with all
+  // the page's content.
+  model_.AllowChildTreeForActiveTree(model_.content_node_ids().empty());
+
   // Draw the selection in the side panel (if one exists in the main panel).
   if (!PostProcessSelection()) {
     // If a draw did not occur, make sure to draw. This will happen if there is
@@ -782,8 +788,7 @@ void ReadAnythingAppController::OnAXTreeDistilled(
 
   // AXNode's language code is BCP 47. Only the base language is needed to
   // record the metric.
-  std::string language =
-      model_.GetTreeFromId(model_.active_tree_id())->root()->GetLanguage();
+  std::string language = model_.GetActiveTree()->root()->GetLanguage();
   if (!language.empty()) {
     base::UmaHistogramSparse(
         "Accessibility.ReadAnything.Language",
@@ -795,11 +800,22 @@ void ReadAnythingAppController::OnAXTreeDistilled(
   // `requires_distillation()` state below).
   model_.UnserializePendingUpdates(tree_id);
   if (model_.requires_distillation()) {
-    Distill(/*for_training_data=*/false);
+    Distill();
   }
 }
 
 bool ReadAnythingAppController::PostProcessSelection() {
+  // It's possible for the active tree to be destroyed in-between when
+  // OnAXTreeDistilled returns early if the model doesn't contain the active
+  // tree and when PostProcessSelection is called after
+  // ComputeDisplayNodeIdsForDistilledTree is called. This seems to happen
+  // when it takes a long time to compute the display nodes. If this happens,
+  // return false rather than trying to continue to process information on a
+  // destroyed tree.
+  DUMP_WILL_BE_CHECK(model_.ContainsActiveTree());
+  if (!model_.ContainsActiveTree()) {
+    return false;
+  }
   bool did_draw = false;
   // Note post `model_.PostProcessSelection` returns true if a draw is required.
   if (model_.PostProcessSelection()) {
@@ -831,6 +847,13 @@ void ReadAnythingAppController::Draw(bool recompute_display_nodes) {
   }
   if (recompute_display_nodes && !model_.content_node_ids().empty()) {
     model_.ComputeDisplayNodeIdsForDistilledTree();
+
+    // If we need to recompute which nodes are displayed, reset read aloud as
+    // we previously preprocessed the previous nodes and should re-process the
+    // new ones.
+    if (IsReadAloudEnabled()) {
+      read_aloud_model_.ResetReadAloudState();
+    }
   }
   // This call should check that the active tree isn't in an undistilled state
   // -- that is, it is awaiting distillation or never requested distillation.
@@ -938,6 +961,8 @@ gin::ObjectTemplateBuilder ReadAnythingAppController::GetObjectTemplateBuilder(
                    &ReadAnythingAppController::EngineErrorStopSource)
       .SetProperty("contentFinishedStopSource",
                    &ReadAnythingAppController::ContentFinishedStopSource)
+      .SetProperty("isSpeechTreeInitialized",
+                   &ReadAnythingAppController::IsSpeechTreeInitialized)
       .SetProperty(
           "unexpectedUpdateContentStopSource",
           &ReadAnythingAppController::UnexpectedUpdateContentStopSource)
@@ -1018,8 +1043,6 @@ gin::ObjectTemplateBuilder ReadAnythingAppController::GetObjectTemplateBuilder(
       .SetMethod("getCurrentTextEndIndex",
                  &ReadAnythingAppController::GetCurrentTextEndIndex)
       .SetMethod("getCurrentText", &ReadAnythingAppController::GetCurrentText)
-      .SetMethod("preprocessTextForSpeech",
-                 &ReadAnythingAppController::PreprocessTextForSpeech)
       .SetMethod("shouldShowUi", &ReadAnythingAppController::ShouldShowUI)
       .SetMethod("onSpeechPlayingStateChanged",
                  &ReadAnythingAppController::OnSpeechPlayingStateChanged)
@@ -1054,7 +1077,7 @@ gin::ObjectTemplateBuilder ReadAnythingAppController::GetObjectTemplateBuilder(
 }
 
 ui::AXNodeID ReadAnythingAppController::RootId() const {
-  ui::AXSerializableTree* tree = model_.GetTreeFromId(model_.active_tree_id());
+  ui::AXSerializableTree* tree = model_.GetActiveTree();
   DCHECK(tree);
   DCHECK(tree->root());
   return tree->root()->id();
@@ -1576,8 +1599,15 @@ void ReadAnythingAppController::OnCopy() const {
   page_handler_->OnCopy();
 }
 
-void ReadAnythingAppController::OnNoTextContent() {
-  Distill(/*for_training_data=*/false);
+void ReadAnythingAppController::OnNoTextContent(bool previouslyHadContent) {
+  if (previouslyHadContent) {
+    Distill();
+  } else {
+    // If updateContent was called on a page with no valid content and
+    // reading mode previously didn't have content, ensure the empty state
+    // is now showing. Otherwise, the loading screen may never terminate.
+    DrawEmptyState();
+  }
 }
 
 void ReadAnythingAppController::OnFontSizeChanged(bool increase) {
@@ -1779,6 +1809,13 @@ void ReadAnythingAppController::InitAXPositionWithNode(
     const ui::AXNodeID& starting_node_id) {
   ui::AXNode* ax_node = model_.GetAXNode(starting_node_id);
   read_aloud_model_.InitAXPositionWithNode(ax_node, model_.active_tree_id());
+  // TODO: crbug.com/411198154: This should only be called if the ax position
+  // is not already initialized.
+  PreprocessTextForSpeech();
+}
+
+bool ReadAnythingAppController::IsSpeechTreeInitialized() {
+  return read_aloud_model_.speech_tree_initialized();
 }
 
 std::vector<ui::AXNodeID> ReadAnythingAppController::GetCurrentText() {
@@ -1891,6 +1928,11 @@ void ReadAnythingAppController::ShouldShowUI() {
 
 void ReadAnythingAppController::OnSpeechPlayingStateChanged(
     bool is_speech_active) {
+  // Don't send event updates if the speech playing state hasn't actually
+  // changed. This can get triggered incorrectly when changing pages.
+  if (read_aloud_model_.speech_playing() == is_speech_active) {
+    return;
+  }
   read_aloud_model_.set_speech_playing(is_speech_active);
   if (!is_speech_active) {
     SendEventUpdates();

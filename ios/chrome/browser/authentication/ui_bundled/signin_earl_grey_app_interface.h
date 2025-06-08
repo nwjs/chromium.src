@@ -49,6 +49,9 @@ enum class UserSelectableType;
 // Returns YES if the identity was added to the fake identity service.
 + (BOOL)isIdentityAdded:(FakeSystemIdentity*)fakeIdentity;
 
+// Simulates a persistent authentication error for an account.
++ (void)setPersistentAuthErrorForAccount:(NSString*)accountGaiaId;
+
 // Returns the gaia ID of the primary account.
 // If there is no primary account returns an empty string.
 + (NSString*)primaryAccountGaiaID;
@@ -100,6 +103,14 @@ enum class UserSelectableType;
 
 // Returns if the data type is enabled for the sync service.
 + (BOOL)isSelectedTypeEnabled:(syncer::UserSelectableType)type;
+
+// Set/clear a global flag to return fake default responses for all profile
+// separation policy fetch requests (unless a specific response is set for the
+// next request, see `setPolicyResponseForNextProfileSeparationPolicyRequest:`).
+// If a test sets this (typically in `setUpForTestCase`), it must also unset it
+// again (in `tearDown`).
++ (void)setUseFakeResponsesForProfileSeparationPolicyRequests;
++ (void)clearUseFakeResponsesForProfileSeparationPolicyRequests;
 
 // Stores a policy that will be returned for the next fetch profile separation
 // policy request.

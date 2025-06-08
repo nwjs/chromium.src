@@ -14,12 +14,14 @@ import androidx.core.content.ContextCompat;
 
 import com.google.android.material.color.MaterialColors;
 
+import org.chromium.build.annotations.NullMarked;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.tasks.tab_management.TabListEditorCoordinator.CreationMode;
 import org.chromium.chrome.browser.theme.SurfaceColorUpdateUtils;
 import org.chromium.components.browser_ui.styles.SemanticColorUtils;
 
 /** Utility class that provides theme related attributes for Tab UI. */
+@NullMarked
 public class TabUiThemeProvider {
     private static final String TAG = "TabUiThemeProvider";
 
@@ -564,5 +566,20 @@ public class TabUiThemeProvider {
         return showFavicon
                 ? SemanticColorUtils.getColorSurfaceBright(context)
                 : SemanticColorUtils.getColorSurfaceContainerLow(context);
+    }
+
+    /**
+     * Returns the color used by dialogs as background.
+     *
+     * @param context {@link Context} used to retrieve color.
+     * @param isIncognito Whether the color is used for incognito mode.
+     * @return The color for the dialog background.
+     */
+    public static @ColorInt int getColorPickerDialogBackgroundColor(
+            Context context, boolean isIncognito) {
+        return isIncognito
+                ? ContextCompat.getColor(
+                        context, R.color.tab_group_color_picker_selection_bg_incognito)
+                : SemanticColorUtils.getDialogBgColor(context);
     }
 }

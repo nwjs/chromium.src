@@ -18,6 +18,9 @@ public class ContentFeatureList {
     // Features files, then remove the constants below.
 
     // Alphabetical:
+    public static final String ACCESSIBILITY_DEPRECATE_JAVA_NODE_CACHE =
+            "AccessibilityDeprecateJavaNodeCache";
+
     public static final String ACCESSIBILITY_DEPRECATE_TYPE_ANNOUNCE =
             "AccessibilityDeprecateTypeAnnounce";
 
@@ -54,6 +57,12 @@ public class ContentFeatureList {
             "PrefetchBrowserInitiatedTriggers";
 
     public static final String DIPS_TTL = "DIPSTtl";
+
+    public static final MutableFlagWithSafeDefault sGroupRebindingForGroupImportance =
+            new MutableFlagWithSafeDefault(
+                    ContentFeatureMap.getInstance(),
+                    ContentFeatures.GROUP_REBINDING_FOR_GROUP_IMPORTANCE,
+                    false);
 
     public static final MutableFlagWithSafeDefault sSpareRendererProcessPriority =
             new MutableFlagWithSafeDefault(

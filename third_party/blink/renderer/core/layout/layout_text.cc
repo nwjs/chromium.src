@@ -64,6 +64,7 @@
 #include "third_party/blink/renderer/core/paint/object_paint_invalidator.h"
 #include "third_party/blink/renderer/platform/fonts/character_range.h"
 #include "third_party/blink/renderer/platform/heap/disallow_new_wrapper.h"
+#include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "third_party/blink/renderer/platform/scheduler/public/thread.h"
 #include "third_party/blink/renderer/platform/scheduler/public/thread_scheduler.h"
 #include "third_party/blink/renderer/platform/text/character.h"
@@ -654,7 +655,11 @@ void LayoutText::AbsoluteQuadsForRange(Vector<gfx::QuadF>& quads,
         quad.Scale(1 / scaling_factor, 1 / scaling_factor);
         quad = LocalToAbsoluteQuad(quad);
       } else {
-        rect.Move(cursor.CurrentOffsetInBlockFlow());
+        if (RuntimeEnabledFeatures::LayoutBoxVisualLocationEnabled()) {
+          rect.Move(cursor.CurrentOffsetInFirstContainerFragment());
+        } else {
+          rect.Move(cursor.CurrentOffsetInBlockFlow());
+        }
         quad = LocalRectToAbsoluteQuad(rect);
       }
       if (!is_collapsed) {
@@ -877,8 +882,14 @@ UChar LayoutText::PreviousCharacter() const {
   // find previous text layoutObject if one exists
   const LayoutObject* previous_text = PreviousInPreOrder();
   for (; previous_text; previous_text = previous_text->PreviousInPreOrder()) {
-    if (!IsInlineFlowOrEmptyText(previous_text))
+    if (RuntimeEnabledFeatures::
+            IgnoreOutOfFlowPositionForPreviousTextEnabled() &&
+        previous_text->IsOutOfFlowPositioned()) {
+      continue;
+    }
+    if (!IsInlineFlowOrEmptyText(previous_text)) {
       break;
+    }
   }
   UChar prev = kSpaceCharacter;
   if (previous_text && previous_text->IsText()) {

@@ -11,7 +11,6 @@ import android.view.View.OnLongClickListener;
 import android.view.inputmethod.InputMethodManager;
 
 import androidx.annotation.IntDef;
-import androidx.annotation.StringRes;
 
 import org.chromium.base.Callback;
 import org.chromium.build.annotations.NullMarked;
@@ -89,7 +88,6 @@ public class UrlBarCoordinator
                         .with(UrlBarProperties.DELEGATE, delegate)
                         .with(UrlBarProperties.INCOGNITO_COLORS_ENABLED, isIncognitoBranded)
                         .with(UrlBarProperties.LONG_CLICK_LISTENER, onLongClickListener)
-                        .with(UrlBarProperties.USE_SMALL_TEXT, false)
                         .build();
         PropertyModelChangeProcessor.create(model, urlBar, UrlBarViewBinder::bind);
 
@@ -371,9 +369,9 @@ public class UrlBarCoordinator
     }
 
     /**
-     * @see UrlBarMediator#setUrlBarHintText(int)
+     * @see UrlBarMediator#setUrlBarHintText(String)
      */
-    public void setUrlBarHintText(@StringRes int hintTextRes) {
+    public void setUrlBarHintText(String hintTextRes) {
         mMediator.setUrlBarHintText(hintTextRes);
     }
 }

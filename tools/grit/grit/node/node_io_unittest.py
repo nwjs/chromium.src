@@ -188,6 +188,8 @@ class FileNodeUnittest(unittest.TestCase):
                   lang="en" />
           <output filename="translation_en.pak" type="data_package"
                   lang="en" />
+          <output filename="resources/es.pak" type="data_package"
+                  lang="en" />
           <output filename="java/res/values-en/translation.xml" type="android"
                   lang="en" />
         </outputs>
@@ -213,7 +215,7 @@ class FileNodeUnittest(unittest.TestCase):
             'gender': None
         },
         {
-            'filename': 'translation_en_OTHER.pak',
+            'filename': 'translation_en.pak',
             'gender': 'OTHER'
         },
         {
@@ -229,7 +231,23 @@ class FileNodeUnittest(unittest.TestCase):
             'gender': 'NEUTER'
         },
         {
-            'filename': 'java/res/values-en-OTHER/translation.xml',
+            'filename': 'resources/es.pak',
+            'gender': 'OTHER'
+        },
+        {
+            'filename': 'resources/es_MASCULINE.pak',
+            'gender': 'MASCULINE'
+        },
+        {
+            'filename': 'resources/es_FEMININE.pak',
+            'gender': 'FEMININE'
+        },
+        {
+            'filename': 'resources/es_NEUTER.pak',
+            'gender': 'NEUTER'
+        },
+        {
+            'filename': 'java/res/values-en/translation.xml',
             'gender': 'OTHER'
         },
         {

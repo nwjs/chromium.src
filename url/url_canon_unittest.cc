@@ -16,6 +16,7 @@
 #include <string_view>
 
 #include "base/strings/string_number_conversions.h"
+#include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/test/gtest_util.h"
 #include "base/test/scoped_feature_list.h"
@@ -334,8 +335,8 @@ TEST_F(URLCanonTest, Scheme) {
 
     out_str.clear();
     StdStringCanonOutput output1(&out_str);
-    bool success =
-        CanonicalizeScheme(scheme_case.input, in_comp, &output1, &out_comp);
+    bool success = CanonicalizeScheme(
+        in_comp.as_string_view_on(scheme_case.input), &output1, &out_comp);
     output1.Complete();
 
     EXPECT_EQ(scheme_case.expected_success, success);
@@ -349,8 +350,8 @@ TEST_F(URLCanonTest, Scheme) {
 
     std::u16string wide_input(base::UTF8ToUTF16(scheme_case.input));
     in_comp.len = static_cast<int>(wide_input.length());
-    success = CanonicalizeScheme(wide_input.c_str(), in_comp, &output2,
-                                 &out_comp);
+    success = CanonicalizeScheme(in_comp.as_string_view_on(wide_input.c_str()),
+                                 &output2, &out_comp);
     output2.Complete();
 
     EXPECT_EQ(scheme_case.expected_success, success);
@@ -365,7 +366,8 @@ TEST_F(URLCanonTest, Scheme) {
   out_str.clear();
   StdStringCanonOutput output(&out_str);
 
-  EXPECT_FALSE(CanonicalizeScheme("", Component(0, -1), &output, &out_comp));
+  EXPECT_FALSE(CanonicalizeScheme(std::optional<std::string_view>(std::nullopt),
+                                  &output, &out_comp));
   output.Complete();
 
   EXPECT_EQ(":", out_str);
@@ -373,38 +375,18 @@ TEST_F(URLCanonTest, Scheme) {
   EXPECT_EQ(0, out_comp.len);
 }
 
-// IDNA mode to use in CanonHost tests.
-enum class IDNAMode { kTransitional, kNonTransitional };
-
-class URLCanonHostTest
-    : public ::testing::Test,
-      public ::testing::WithParamInterface<IDNAMode> {
+class URLCanonHostTest : public ::testing::Test {
  public:
   URLCanonHostTest() {
-    std::vector<base::test::FeatureRef> enabled_features;
-    std::vector<base::test::FeatureRef> disabled_features;
-    if (GetParam() == IDNAMode::kNonTransitional) {
-      enabled_features.push_back(kUseIDNA2008NonTransitional);
-    } else {
-      disabled_features.push_back(kUseIDNA2008NonTransitional);
-    }
-
-    enabled_features.push_back(url::kDisallowSpaceCharacterInURLHostParsing);
-    scoped_feature_list_.InitWithFeatures(enabled_features, disabled_features);
+    scoped_feature_list_.InitAndEnableFeature(
+        kDisallowSpaceCharacterInURLHostParsing);
   }
 
  private:
   base::test::ScopedFeatureList scoped_feature_list_;
 };
 
-INSTANTIATE_TEST_SUITE_P(All,
-                         URLCanonHostTest,
-                         ::testing::Values(IDNAMode::kTransitional,
-                                           IDNAMode::kNonTransitional));
-
-TEST_P(URLCanonHostTest, Host) {
-  bool use_idna_non_transitional = IsUsingIDNA2008NonTransitional();
-
+TEST_F(URLCanonHostTest, Host) {
   // clang-format off
   IPAddressCase host_cases[] = {
       // Basic canonicalization, uppercase should be converted to lowercase.
@@ -497,14 +479,14 @@ TEST_P(URLCanonHostTest, Host) {
        "ball.de",
        L"fu\x00df"
        L"ball.de",
-       use_idna_non_transitional ? "xn--fuball-cta.de" : "fussball.de",
-       use_idna_non_transitional ? Component(0, 17) : Component(0, 11),
+       "xn--fuball-cta.de",
+       Component(0, 17),
        CanonHostInfo::NEUTRAL, -1, ""},
 
       // Final-sigma (U+03C3) was mapped to regular sigma (U+03C2).
       // Previously, it'd be "xn--wxaikc9b".
       {"\xcf\x83\xcf\x8c\xce\xbb\xce\xbf\xcf\x82", L"\x3c3\x3cc\x3bb\x3bf\x3c2",
-       use_idna_non_transitional ? "xn--wxaijb9b" : "xn--wxaikc6b",
+       "xn--wxaijb9b",
        Component(0, 12), CanonHostInfo::NEUTRAL, -1, ""},
 
       // ZWNJ (U+200C) and ZWJ (U+200D) are mapped away in UTS 46 transitional
@@ -515,8 +497,8 @@ TEST_P(URLCanonHostTest, Host) {
        L"a\x200c"
        L"b\x200d"
        L"c",
-       use_idna_non_transitional ? "xn--abc-9m0ag" : "abc",
-       use_idna_non_transitional ? Component(0, 13) : Component(0, 3),
+       "xn--abc-9m0ag",
+       Component(0, 13),
        CanonHostInfo::NEUTRAL, -1, ""},
 
       // ZWJ between Devanagari characters was still mapped away in UTS 46
@@ -524,8 +506,8 @@ TEST_P(URLCanonHostTest, Host) {
       // Previously "xn--11bo0m".
       {"\xe0\xa4\x95\xe0\xa5\x8d\xe2\x80\x8d\xe0\xa4\x9c",
        L"\x915\x94d\x200d\x91c",
-       use_idna_non_transitional ? "xn--11bo0mv54g" : "xn--11bo0m",
-       use_idna_non_transitional ? Component(0, 14) : Component(0, 10),
+       "xn--11bo0mv54g",
+       Component(0, 14),
        CanonHostInfo::NEUTRAL, -1, ""},
 
       // Fullwidth exclamation mark is disallowed. UTS 46, table 4, row (b)
@@ -1328,9 +1310,10 @@ TEST_F(URLCanonTest, UserInfo) {
     std::string out_str;
     StdStringCanonOutput output1(&out_str);
 
-    bool success = CanonicalizeUserInfo(user_info_case.input, parsed.username,
-                                        user_info_case.input, parsed.password,
-                                        &output1, &out_user, &out_pass);
+    bool success = CanonicalizeUserInfo(
+        parsed.username.maybe_as_string_view_on(user_info_case.input),
+        parsed.password.maybe_as_string_view_on(user_info_case.input), &output1,
+        &out_user, &out_pass);
     output1.Complete();
 
     EXPECT_EQ(user_info_case.expected_success, success);
@@ -1344,13 +1327,10 @@ TEST_F(URLCanonTest, UserInfo) {
     out_str.clear();
     StdStringCanonOutput output2(&out_str);
     std::u16string wide_input(base::UTF8ToUTF16(user_info_case.input));
-    success = CanonicalizeUserInfo(wide_input.c_str(),
-                                   parsed.username,
-                                   wide_input.c_str(),
-                                   parsed.password,
-                                   &output2,
-                                   &out_user,
-                                   &out_pass);
+    success = CanonicalizeUserInfo(
+        parsed.username.maybe_as_string_view_on(wide_input.c_str()),
+        parsed.password.maybe_as_string_view_on(wide_input.c_str()), &output2,
+        &out_user, &out_pass);
     output2.Complete();
 
     EXPECT_EQ(user_info_case.expected_success, success);
@@ -1657,8 +1637,8 @@ TEST_F(URLCanonTest, Query) {
       std::string out_str;
 
       StdStringCanonOutput output(&out_str);
-      CanonicalizeQuery(query_case.input8, in_comp, nullptr, &output,
-                        &out_comp);
+      CanonicalizeQuery(in_comp.as_string_view_on(query_case.input8), nullptr,
+                        &output, &out_comp);
       output.Complete();
 
       EXPECT_EQ(query_case.expected, out_str);
@@ -1672,7 +1652,8 @@ TEST_F(URLCanonTest, Query) {
       std::string out_str;
 
       StdStringCanonOutput output(&out_str);
-      CanonicalizeQuery(input16.c_str(), in_comp, nullptr, &output, &out_comp);
+      CanonicalizeQuery(in_comp.as_string_view_on(input16.c_str()), nullptr,
+                        &output, &out_comp);
       output.Complete();
 
       EXPECT_EQ(query_case.expected, out_str);
@@ -1683,8 +1664,8 @@ TEST_F(URLCanonTest, Query) {
   std::string out_str;
   StdStringCanonOutput output(&out_str);
   Component out_comp;
-  CanonicalizeQuery("a \x00z\x01", Component(0, 5), nullptr, &output,
-                    &out_comp);
+  CanonicalizeQuery(base::MakeStringViewWithNulChars("a \x00z\x01"), nullptr,
+                    &output, &out_comp);
   output.Complete();
   EXPECT_EQ("?a%20%00z%01", out_str);
 }
@@ -1730,7 +1711,8 @@ TEST_F(URLCanonTest, Ref) {
 
       std::string out_str;
       StdStringCanonOutput output(&out_str);
-      CanonicalizeRef(ref_case.input8, in_comp, &output, &out_comp);
+      CanonicalizeRef(in_comp.maybe_as_string_view_on(ref_case.input8), &output,
+                      &out_comp);
       output.Complete();
 
       EXPECT_EQ(ref_case.expected_component.begin, out_comp.begin);
@@ -1748,7 +1730,8 @@ TEST_F(URLCanonTest, Ref) {
 
       std::string out_str;
       StdStringCanonOutput output(&out_str);
-      CanonicalizeRef(input16.c_str(), in_comp, &output, &out_comp);
+      CanonicalizeRef(in_comp.maybe_as_string_view_on(input16.c_str()), &output,
+                      &out_comp);
       output.Complete();
 
       EXPECT_EQ(ref_case.expected_component.begin, out_comp.begin);
@@ -1764,7 +1747,8 @@ TEST_F(URLCanonTest, Ref) {
 
   std::string out_str;
   StdStringCanonOutput output(&out_str);
-  CanonicalizeRef(null_input, null_input_component, &output, &out_comp);
+  CanonicalizeRef(null_input_component.as_string_view_on(null_input), &output,
+                  &out_comp);
   output.Complete();
 
   EXPECT_EQ(1, out_comp.begin);

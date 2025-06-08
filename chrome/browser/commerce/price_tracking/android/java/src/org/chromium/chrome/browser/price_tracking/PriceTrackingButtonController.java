@@ -71,8 +71,7 @@ public class PriceTrackingButtonController extends BaseButtonDataProvider {
                 /* supportsTinting= */ true,
                 /* iphCommandBuilder= */ null,
                 AdaptiveToolbarButtonVariant.PRICE_TRACKING,
-                /* tooltipTextResId= */ Resources.ID_NULL,
-                /* showBackgroundHighlight= */ false);
+                /* tooltipTextResId= */ Resources.ID_NULL);
         mSnackbarManager = snackbarManager;
         mTabBookmarkerSupplier = tabBookmarkerSupplier;
         mBottomSheetController = bottomSheetController;
@@ -96,8 +95,8 @@ public class PriceTrackingButtonController extends BaseButtonDataProvider {
                         /* buttonVariant= */ AdaptiveToolbarButtonVariant.PRICE_TRACKING,
                         /* actionChipLabelResId= */ Resources.ID_NULL,
                         /* tooltipTextResId= */ Resources.ID_NULL,
-                        /* showBackgroundHighlight= */ false,
-                        /* hasErrorBadge= */ false);
+                        /* hasErrorBadge= */ false,
+                        /* isChecked= */ true);
 
         mBottomSheetObserver =
                 new EmptyBottomSheetObserver() {

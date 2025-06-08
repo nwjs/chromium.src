@@ -61,8 +61,10 @@ class PermissionUtil {
 
   // Returns the request type uma value for the given permissions.
   static RequestTypeForUma GetUmaValueForRequests(
-      const std::vector<raw_ptr<PermissionRequest, VectorExperimental>>&
-          requests);
+      const std::vector<std::unique_ptr<PermissionRequest>>& requests);
+
+  static RequestTypeForUma GetUmaValueForRequests(
+      const std::vector<base::WeakPtr<PermissionRequest>>& requests);
 
   // Returns the request type uma value for the given request type.
   static RequestTypeForUma GetUmaValueForRequestType(RequestType request_type);
@@ -181,7 +183,7 @@ class PermissionUtil {
   static bool HasUserGesture(PermissionPrompt::Delegate* delegate);
 
   static bool CanPermissionRequestIgnoreStatus(
-      const PermissionRequestData& request,
+      const std::unique_ptr<PermissionRequestData>& request,
       content::PermissionStatusSource source);
 
   // Returns `true` if the current platform support permission chips.

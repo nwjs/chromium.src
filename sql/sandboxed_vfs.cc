@@ -17,7 +17,6 @@
 #include "base/check.h"
 #include "base/check_op.h"
 #include "base/compiler_specific.h"
-#include "base/dcheck_is_on.h"
 #include "base/files/file.h"
 #include "base/files/file_path.h"
 #include "base/no_destructor.h"
@@ -125,7 +124,6 @@ base::Time SqliteEpoch() {
       -kUnixEpochAsJulianDay * base::Time::kMillisecondsPerDay);
 }
 
-#if DCHECK_IS_ON()
 // `full_path_cstr` must be a filename argument passed to the VFS from SQLite.
 SandboxedVfsFileType VfsFileTypeFromPath(const char* full_path_cstr) {
   std::string_view full_path(full_path_cstr);
@@ -146,7 +144,6 @@ SandboxedVfsFileType VfsFileTypeFromPath(const char* full_path_cstr) {
       << "Argument is not a file name buffer passed from SQLite to a VFS: "
       << full_path;
 }
-#endif  // DCHECK_IS_ON()
 
 }  // namespace
 
@@ -181,11 +178,20 @@ int SandboxedVfs::Open(const char* full_path,
     return Open(full_path, result_file, new_flags, granted_flags);
   }
 
-  SandboxedVfsFile::Create(std::move(file), std::move(file_path),
-#if DCHECK_IS_ON()
-                           VfsFileTypeFromPath(full_path),
-#endif  // DCHECK_IS_ON()
-                           this, result_file);
+  SandboxedVfsFile* vfs_file =
+      delegate_->RetrieveSandboxedVfsFile(std::move(file), std::move(file_path),
+                                          VfsFileTypeFromPath(full_path), this);
+  if (!vfs_file) {
+    return SQLITE_CANTOPEN;
+  }
+
+  // Bind the sandboxed file pointer with the sqlite_file structure. This
+  // pointer can later be unboxed (retrieved from the vfs_file structure after
+  // an upcast from sqlite_file* to a SandboxedVfsFileSqliteBridge*) and use
+  // this pointer to redirect the calls (from the sqlite io_methods calls) to
+  // their corresponding sandboxed implementation.
+  SandboxedVfsFile::BindSandboxedFile(vfs_file, result_file);
+
   if (granted_flags)
     *granted_flags = requested_flags;
   return SQLITE_OK;

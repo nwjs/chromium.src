@@ -6,13 +6,13 @@
 #define THIRD_PARTY_BLINK_RENDERER_MODULES_WEBGL_WEBGL_VERTEX_ARRAY_OBJECT_BASE_H_
 
 #include "third_party/blink/renderer/modules/webgl/webgl_buffer.h"
-#include "third_party/blink/renderer/modules/webgl/webgl_context_object.h"
+#include "third_party/blink/renderer/modules/webgl/webgl_object.h"
 #include "third_party/blink/renderer/platform/heap/collection_support/heap_vector.h"
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
 
 namespace blink {
 
-class WebGLVertexArrayObjectBase : public WebGLContextObject {
+class WebGLVertexArrayObjectBase : public WebGLObject {
  public:
   enum VaoType {
     kVaoTypeDefault,
@@ -20,8 +20,6 @@ class WebGLVertexArrayObjectBase : public WebGLContextObject {
   };
 
   ~WebGLVertexArrayObjectBase() override;
-
-  GLuint Object() const { return object_; }
 
   bool IsDefaultObject() const { return type_ == kVaoTypeDefault; }
 
@@ -47,18 +45,15 @@ class WebGLVertexArrayObjectBase : public WebGLContextObject {
   void Trace(Visitor*) const override;
 
  protected:
-  WebGLVertexArrayObjectBase(WebGLRenderingContextBase*,
+  WebGLVertexArrayObjectBase(WebGLContextObjectSupport*,
                              VaoType,
                              GLint max_vertex_attribs);
 
  private:
   void DispatchDetached(gpu::gles2::GLES2Interface*);
-  bool HasObject() const override { return object_ != 0; }
   void DeleteObjectImpl(gpu::gles2::GLES2Interface*) override;
 
   void UpdateAttribBufferBoundStatus();
-
-  GLuint object_;
 
   VaoType type_;
   bool has_ever_been_bound_;

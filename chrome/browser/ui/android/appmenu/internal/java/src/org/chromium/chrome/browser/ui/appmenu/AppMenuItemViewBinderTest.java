@@ -4,12 +4,15 @@
 
 package org.chromium.chrome.browser.ui.appmenu;
 
+import static org.junit.Assert.assertThrows;
+
 import android.app.Activity;
-import android.content.Context;
 import android.graphics.drawable.Drawable;
+import android.os.SystemClock;
+import android.view.InputDevice;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.TextView;
 
@@ -17,6 +20,8 @@ import androidx.annotation.Nullable;
 import androidx.appcompat.content.res.AppCompatResources;
 import androidx.test.annotation.UiThreadTest;
 import androidx.test.filters.MediumTest;
+
+import com.google.android.material.button.MaterialButton;
 
 import org.junit.Assert;
 import org.junit.Before;
@@ -35,14 +40,13 @@ import org.chromium.base.test.util.CallbackHelper;
 import org.chromium.chrome.browser.ui.appmenu.AppMenuHandler.AppMenuItemType;
 import org.chromium.chrome.browser.ui.appmenu.test.R;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
-import org.chromium.ui.modelutil.LayoutViewBuilder;
+import org.chromium.components.browser_ui.util.motion.MotionEventInfo;
+import org.chromium.components.browser_ui.util.motion.MotionEventTestUtils;
 import org.chromium.ui.modelutil.ModelListAdapter;
-import org.chromium.ui.modelutil.PropertyKey;
 import org.chromium.ui.modelutil.PropertyModel;
 import org.chromium.ui.test.util.BlankUiTestActivity;
 import org.chromium.ui.widget.ChromeImageView;
 
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
 
 /** Tests for {@link AppMenuItemViewBinder}. */
@@ -57,7 +61,7 @@ public class AppMenuItemViewBinderTest {
         public PropertyModel lastLongClickedModel;
 
         @Override
-        public void onItemClick(PropertyModel model) {
+        public void onItemClick(PropertyModel model, @Nullable MotionEventInfo triggeringMotion) {
             onClickCallback.notifyCalled();
             lastClickedModel = model;
         }
@@ -67,113 +71,6 @@ public class AppMenuItemViewBinderTest {
             onLongClickCallback.notifyCalled();
             lastLongClickedModel = model;
             return true;
-        }
-    }
-
-    private static class CustomViewBinderOne implements CustomViewBinder {
-        public static final int VIEW_TYPE_1 = 0;
-        public static final int VIEW_TYPE_2 = 1;
-        public static final int VIEW_TYPE_COUNT = 2;
-
-        public int supportedId1;
-        public int supportedId2;
-        public int supportedId3;
-
-        public int lastBindId;
-
-        public CallbackHelper getViewItemCallbackHelper = new CallbackHelper();
-
-        public CustomViewBinderOne() {
-            supportedId1 = View.generateViewId();
-            supportedId2 = View.generateViewId();
-            supportedId3 = View.generateViewId();
-        }
-
-        @Override
-        public int getViewTypeCount() {
-            return VIEW_TYPE_COUNT;
-        }
-
-        @Override
-        public int getItemViewType(int id) {
-            if (id == supportedId1 || id == supportedId2) {
-                return VIEW_TYPE_1;
-            } else if (id == supportedId3) {
-                return VIEW_TYPE_2;
-            } else {
-                return NOT_HANDLED;
-            }
-        }
-
-        @Override
-        public int getLayoutId(int viewType) {
-            return CustomViewBinder.NOT_HANDLED;
-        }
-
-        @Override
-        public void bind(PropertyModel model, View view, PropertyKey key) {
-            if (key == AppMenuItemProperties.MENU_ITEM_ID) {
-                lastBindId = model.get(AppMenuItemProperties.MENU_ITEM_ID);
-                getViewItemCallbackHelper.notifyCalled();
-            }
-        }
-
-        @Override
-        public boolean supportsEnterAnimation(int id) {
-            return true;
-        }
-
-        @Override
-        public int getPixelHeight(Context context) {
-            return 0;
-        }
-    }
-
-    private static class CustomViewBinderTwo implements CustomViewBinder {
-        public static final int VIEW_TYPE_1 = 0;
-        public static final int VIEW_TYPE_COUNT = 1;
-
-        public int supportedId1;
-
-        public int lastBindId;
-
-        public CallbackHelper getViewItemCallbackHelper = new CallbackHelper();
-
-        public CustomViewBinderTwo() {
-            supportedId1 = View.generateViewId();
-        }
-
-        @Override
-        public int getViewTypeCount() {
-            return VIEW_TYPE_COUNT;
-        }
-
-        @Override
-        public int getItemViewType(int id) {
-            return id == supportedId1 ? VIEW_TYPE_1 : NOT_HANDLED;
-        }
-
-        @Override
-        public int getLayoutId(int viewType) {
-            return CustomViewBinder.NOT_HANDLED;
-        }
-
-        @Override
-        public void bind(PropertyModel model, View view, PropertyKey key) {
-            if (key == AppMenuItemProperties.MENU_ITEM_ID) {
-                lastBindId = model.get(AppMenuItemProperties.MENU_ITEM_ID);
-                getViewItemCallbackHelper.notifyCalled();
-            }
-        }
-
-        @Override
-        public boolean supportsEnterAnimation(int id) {
-            return false;
-        }
-
-        @Override
-        public int getPixelHeight(Context context) {
-            return 0;
         }
     }
 
@@ -318,24 +215,11 @@ public class AppMenuItemViewBinderTest {
         list.add(new ModelListAdapter.ListItem(0, model));
     }
 
-    private PropertyModel createCustomMenuItem(
-            int menuId, int offset, CustomViewBinder customBinder) {
-        PropertyModel model =
-                new PropertyModel.Builder(AppMenuItemProperties.ALL_KEYS)
-                        .with(AppMenuItemProperties.MENU_ITEM_ID, menuId)
-                        .build();
-        mMenuList.add(
-                new ModelListAdapter.ListItem(
-                        offset + customBinder.getItemViewType(menuId), model));
-
-        return model;
-    }
-
     @Test
     @UiThreadTest
     @MediumTest
-    public void testStandardMenuItem() throws ExecutionException, TimeoutException {
-        PropertyModel standardModel = createStandardMenuItem(MENU_ID1, TITLE_1);
+    public void testStandardMenuItem_WithMenuTitle() {
+        createStandardMenuItem(MENU_ID1, TITLE_1);
 
         ViewGroup parentView = mActivity.findViewById(android.R.id.content);
         View view = mModelListAdapter.getView(0, null, parentView);
@@ -344,20 +228,12 @@ public class AppMenuItemViewBinderTest {
 
         Assert.assertEquals("Incorrect title text for item 1", TITLE_1, titleView.getText());
         Assert.assertNull("Should not have icon for item 1", itemIcon.getDrawable());
-
-        standardModel.set(AppMenuItemProperties.CLICK_HANDLER, mClickHandler);
-        view.performClick();
-        mClickHandler.onClickCallback.waitForCallback(0);
-        Assert.assertEquals(
-                "Incorrect clicked item id",
-                MENU_ID1,
-                mClickHandler.lastClickedModel.get(AppMenuItemProperties.MENU_ITEM_ID));
     }
 
     @Test
     @UiThreadTest
     @MediumTest
-    public void testStandardMenuItem_WithMenuIcon() throws ExecutionException, TimeoutException {
+    public void testStandardMenuItem_WithMenuIcon() {
         PropertyModel standardModel = createStandardMenuItem(MENU_ID1, TITLE_1);
 
         ViewGroup parentView = mActivity.findViewById(android.R.id.content);
@@ -371,6 +247,100 @@ public class AppMenuItemViewBinderTest {
                         org.chromium.chrome.browser.ui.appmenu.test.R.drawable
                                 .test_ic_vintage_filter));
         Assert.assertNotNull("Should have icon for item 1", itemIcon.getDrawable());
+    }
+
+    @Test
+    @UiThreadTest
+    @MediumTest
+    public void testStandardMenuItem_WithClickHandler_OnClickListener() throws TimeoutException {
+        PropertyModel standardModel = createStandardMenuItem(MENU_ID1, TITLE_1);
+        standardModel.set(AppMenuItemProperties.CLICK_HANDLER, mClickHandler);
+
+        ViewGroup parentView = mActivity.findViewById(android.R.id.content);
+        View view =
+                mModelListAdapter.getView(/* position= */ 0, /* convertView= */ null, parentView);
+        view.performClick();
+        mClickHandler.onClickCallback.waitForCallback(/* currentCallCount= */ 0);
+
+        Assert.assertEquals(
+                "Incorrect clicked item id",
+                MENU_ID1,
+                mClickHandler.lastClickedModel.get(AppMenuItemProperties.MENU_ITEM_ID));
+    }
+
+    @Test
+    @UiThreadTest
+    @MediumTest
+    public void testStandardMenuItem_WithClickHandler_OnPeripheralClickListener_TouchScreenClick() {
+        PropertyModel standardModel = createStandardMenuItem(MENU_ID1, TITLE_1);
+        standardModel.set(AppMenuItemProperties.CLICK_HANDLER, mClickHandler);
+
+        ViewGroup parentView = mActivity.findViewById(android.R.id.content);
+        View view =
+                mModelListAdapter.getView(/* position= */ 0, /* convertView= */ null, parentView);
+        simulateClickWithMotionEvents(
+                view, InputDevice.SOURCE_TOUCHSCREEN, MotionEvent.TOOL_TYPE_FINGER);
+
+        // Simulated touch screen motion events should not trigger OnPeripheralClickListener.
+        // As the motion events are simulated using dispatchTouchEvent(), the OnClickListener will
+        // not be triggered either.
+        // Therefore, the onClickCallback should not be called.
+        assertThrows(
+                TimeoutException.class,
+                () -> mClickHandler.onClickCallback.waitForCallback(/* currentCallCount= */ 0));
+    }
+
+    @Test
+    @UiThreadTest
+    @MediumTest
+    public void testStandardMenuItem_WithClickHandler_OnPeripheralClickListener_PeripheralClick()
+            throws TimeoutException {
+        PropertyModel standardModel = createStandardMenuItem(MENU_ID1, TITLE_1);
+        standardModel.set(AppMenuItemProperties.CLICK_HANDLER, mClickHandler);
+
+        ViewGroup parentView = mActivity.findViewById(android.R.id.content);
+        View view =
+                mModelListAdapter.getView(/* position= */ 0, /* convertView= */ null, parentView);
+        simulateClickWithMotionEvents(view, InputDevice.SOURCE_MOUSE, MotionEvent.TOOL_TYPE_MOUSE);
+
+        // Simulated mouse motion events should trigger OnPeripheralClickListener.
+        mClickHandler.onClickCallback.waitForCallback(/* currentCallCount= */ 0);
+        Assert.assertEquals(
+                "Incorrect clicked item id",
+                MENU_ID1,
+                mClickHandler.lastClickedModel.get(AppMenuItemProperties.MENU_ITEM_ID));
+    }
+
+    /**
+     * Simulates a click event using {@link View#dispatchTouchEvent(MotionEvent)}.
+     *
+     * <p>This will not trigger {@link View.OnClickListener}.
+     *
+     * @param view the View to receive the click.
+     * @param motionSource see {@link MotionEvent#getSource()}.
+     * @param motionToolType see {@link MotionEvent#getToolType(int)}.
+     */
+    private static void simulateClickWithMotionEvents(
+            View view, int motionSource, int motionToolType) {
+        long downTime = SystemClock.uptimeMillis();
+        view.dispatchTouchEvent(
+                MotionEventTestUtils.createMotionEvent(
+                        downTime,
+                        /* eventTime= */ downTime,
+                        MotionEvent.ACTION_DOWN,
+                        /* x= */ 0,
+                        /* y= */ 0,
+                        motionSource,
+                        motionToolType));
+        view.dispatchTouchEvent(
+                MotionEventTestUtils.createMotionEvent(
+                        downTime,
+                        /* eventTime= */ downTime + 50,
+                        MotionEvent.ACTION_UP,
+                        /* x= */ 0,
+                        /* y= */ 0,
+                        motionSource,
+                        motionToolType));
     }
 
     @Test
@@ -648,67 +618,6 @@ public class AppMenuItemViewBinderTest {
     @Test
     @UiThreadTest
     @MediumTest
-    public void testCustomViewBinders() {
-        CustomViewBinderOne customBinder1 = new CustomViewBinderOne();
-        CustomViewBinderTwo customBinder2 = new CustomViewBinderTwo();
-        mModelListAdapter.registerType(
-                AppMenuItemType.NUM_ENTRIES,
-                new LayoutViewBuilder(R.layout.menu_item_start_with_icon),
-                customBinder1);
-        mModelListAdapter.registerType(
-                AppMenuItemType.NUM_ENTRIES + 1,
-                new LayoutViewBuilder(R.layout.menu_item_start_with_icon),
-                customBinder1);
-        mModelListAdapter.registerType(
-                AppMenuItemType.NUM_ENTRIES + customBinder1.getViewTypeCount(),
-                new LayoutViewBuilder(R.layout.menu_item_start_with_icon),
-                customBinder2);
-
-        createStandardMenuItem(MENU_ID1, TITLE_1);
-        createCustomMenuItem(
-                customBinder1.supportedId1, AppMenuItemType.NUM_ENTRIES, customBinder1);
-        createCustomMenuItem(
-                customBinder1.supportedId2, AppMenuItemType.NUM_ENTRIES, customBinder1);
-        createCustomMenuItem(
-                customBinder1.supportedId3, AppMenuItemType.NUM_ENTRIES, customBinder1);
-        createCustomMenuItem(
-                customBinder2.supportedId1,
-                AppMenuItemType.NUM_ENTRIES + customBinder1.getViewTypeCount(),
-                customBinder2);
-
-        ViewGroup parentView = mActivity.findViewById(android.R.id.content);
-        View view = mModelListAdapter.getView(0, null, parentView);
-        TextView titleView = view.findViewById(R.id.menu_item_text);
-        Assert.assertEquals("Incorrect title text for item 1", TITLE_1, titleView.getText());
-
-        view = mModelListAdapter.getView(1, null, parentView);
-        Assert.assertEquals(
-                "Binder1 not called", 1, customBinder1.getViewItemCallbackHelper.getCallCount());
-        Assert.assertEquals(
-                "Wrong ID is called", customBinder1.lastBindId, customBinder1.supportedId1);
-
-        view = mModelListAdapter.getView(2, null, parentView);
-        Assert.assertEquals(
-                "Binder1 not called", 2, customBinder1.getViewItemCallbackHelper.getCallCount());
-        Assert.assertEquals(
-                "Wrong ID is called", customBinder1.lastBindId, customBinder1.supportedId2);
-
-        view = mModelListAdapter.getView(3, null, parentView);
-        Assert.assertEquals(
-                "Binder1 not called", 3, customBinder1.getViewItemCallbackHelper.getCallCount());
-        Assert.assertEquals(
-                "Wrong ID is called", customBinder1.lastBindId, customBinder1.supportedId3);
-
-        view = mModelListAdapter.getView(4, null, parentView);
-        Assert.assertEquals(
-                "Binder2 not called", 1, customBinder2.getViewItemCallbackHelper.getCallCount());
-        Assert.assertEquals(
-                "Wrong ID is called", customBinder2.lastBindId, customBinder2.supportedId1);
-    }
-
-    @Test
-    @UiThreadTest
-    @MediumTest
     public void testTitleMenuItem_Checkbox() {
         createTitleMenuItem(MENU_ID2, TITLE_2, null, MENU_ID3, TITLE_3, true, true);
 
@@ -753,39 +662,39 @@ public class AppMenuItemViewBinderTest {
 
         ViewGroup parentView = mActivity.findViewById(android.R.id.content);
         View view = mModelListAdapter.getView(0, null, parentView);
-        ImageButton button = view.findViewById(R.id.button_one);
+        MaterialButton button = view.findViewById(R.id.button_one);
         Assert.assertEquals(
                 "Incorrect content description for icon 1",
                 TITLE_1,
                 button.getContentDescription());
-        Assert.assertNotNull("Should have an icon for icon 1", button.getDrawable());
+        Assert.assertNotNull("Should have an icon for icon 1", button.getIcon());
 
         button = view.findViewById(R.id.button_two);
         Assert.assertEquals(
                 "Incorrect content description for icon 2",
                 TITLE_2,
                 button.getContentDescription());
-        Assert.assertNotNull("Should have an icon for icon 2", button.getDrawable());
+        Assert.assertNotNull("Should have an icon for icon 2", button.getIcon());
 
         button = view.findViewById(R.id.button_three);
         Assert.assertEquals(
                 "Incorrect content description for icon 3",
                 TITLE_3,
                 button.getContentDescription());
-        Assert.assertNotNull("Should have an icon for icon 3", button.getDrawable());
+        Assert.assertNotNull("Should have an icon for icon 3", button.getIcon());
 
         button = view.findViewById(R.id.button_four);
         Assert.assertEquals(
                 "Incorrect content description for icon 4",
                 TITLE_4,
                 button.getContentDescription());
-        Assert.assertNotNull("Should have an icon for icon 4", button.getDrawable());
+        Assert.assertNotNull("Should have an icon for icon 4", button.getIcon());
 
         button = view.findViewById(R.id.button_five);
         Assert.assertEquals(
                 "Incorrect content description for icon 5",
                 TITLE_5,
                 button.getContentDescription());
-        Assert.assertNotNull("Should have an icon for icon 5", button.getDrawable());
+        Assert.assertNotNull("Should have an icon for icon 5", button.getIcon());
     }
 }

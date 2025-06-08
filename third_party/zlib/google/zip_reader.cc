@@ -219,6 +219,7 @@ bool ZipReader::OpenEntry() {
     return false;
   }
 
+  DCHECK(path_in_zip[info.size_filename] == '\0');
   entry_.path_in_original_encoding = path_in_zip.data();
 
   // Convert path from original encoding to Unicode.
@@ -261,8 +262,10 @@ bool ZipReader::OpenEntry() {
 
 #if defined(OS_POSIX)
   entry_.posix_mode = (info.external_fa >> 16L) & (S_IRWXU | S_IRWXG | S_IRWXO);
+  entry_.is_symbolic_link = S_ISLNK(info.external_fa >> 16L);
 #else
   entry_.posix_mode = 0;
+  entry_.is_symbolic_link = false;
 #endif
 
   return true;

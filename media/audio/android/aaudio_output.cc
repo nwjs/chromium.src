@@ -8,6 +8,7 @@
 #include "base/memory/raw_ptr.h"
 #include "base/numerics/checked_math.h"
 #include "base/task/sequenced_task_runner.h"
+#include "media/audio/android/audio_device.h"
 #include "media/audio/android/audio_manager_android.h"
 #include "media/audio/audio_manager.h"
 #include "media/base/amplitude_peak_detector.h"
@@ -17,6 +18,7 @@ namespace media {
 
 AAudioOutputStream::AAudioOutputStream(AudioManagerAndroid* manager,
                                        const AudioParameters& params,
+                                       android::AudioDevice device,
                                        aaudio_usage_t usage)
     : audio_manager_(manager),
       params_(params),
@@ -26,6 +28,7 @@ AAudioOutputStream::AAudioOutputStream(AudioManagerAndroid* manager,
       stream_wrapper_(this,
                       AAudioStreamWrapper::StreamType::kOutput,
                       params,
+                      std::move(device),
                       usage) {
   CHECK(manager);
   CHECK(params_.IsValid());
@@ -53,6 +56,7 @@ bool AAudioOutputStream::Open() {
 void AAudioOutputStream::Close() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 
+  Stop();
   stream_wrapper_.Close();
 
   // Note: This must be last, it will delete |this|.

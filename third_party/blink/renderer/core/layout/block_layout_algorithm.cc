@@ -42,6 +42,7 @@
 #include "third_party/blink/renderer/core/mathml_names.h"
 #include "third_party/blink/renderer/core/style/computed_style.h"
 #include "third_party/blink/renderer/platform/heap/collection_support/clear_collection_scope.h"
+#include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 
 namespace blink {
 namespace {
@@ -66,9 +67,17 @@ bool HasLineEvenIfEmpty(LayoutBox* box) {
     return block_flow->HasLineIfEmpty() &&
            InlineNode(block_flow).IsBlockLevel();
   }
-  if (const auto* const flow_thread = block_flow->MultiColumnFlowThread()) {
-    DCHECK(!flow_thread->ChildrenInline());
-    for (const auto* child = flow_thread->FirstChild(); child;
+  const LayoutBlockFlow* fragmentation_context_root = nullptr;
+  if (RuntimeEnabledFeatures::FlowThreadLessEnabled()) {
+    if (block_flow->IsMulticolContainer()) {
+      fragmentation_context_root = block_flow;
+    }
+  } else {
+    fragmentation_context_root = block_flow->MultiColumnFlowThread();
+  }
+  if (fragmentation_context_root) {
+    DCHECK(!fragmentation_context_root->ChildrenInline());
+    for (const auto* child = fragmentation_context_root->FirstChild(); child;
          child = child->NextSibling()) {
       if (child->IsInline()) {
         // Note: |LayoutOutsideListMarker| is out-of-flow for the tree
@@ -249,8 +258,7 @@ LayoutUnit WebkitTextAlignAndJustifySelfOffset(
       {ItemPosition::kNormal, OverflowAlignment::kDefault}, &style);
   ItemPosition justify_self = alignment_data.GetPosition();
   OverflowAlignment safe = OverflowAlignment::kSafe;
-  if (RuntimeEnabledFeatures::LayoutJustifySelfForBlocksEnabled() &&
-      justify_self != ItemPosition::kNormal) {
+  if (justify_self != ItemPosition::kNormal) {
     safe = alignment_data.Overflow();
   } else {
     justify_self = WebkitTextToItemPosition(style.GetTextAlign());
@@ -290,65 +298,6 @@ LayoutUnit WebkitTextAlignAndJustifySelfOffset(
       return self_start_end_converter().InlineEnd();
     default:
       return LayoutUnit();
-  }
-}
-
-LogicalStaticPosition::InlineEdge InlineAxisEdge(
-    const BlockNode& child,
-    const ComputedStyle* parent_style) {
-  if (!RuntimeEnabledFeatures::CSSAlignBlockAndInlineOutOfFlowsEnabled()) {
-    return LogicalStaticPosition::kInlineStart;
-  }
-
-  StyleSelfAlignmentData normal_value_behavior = {ItemPosition::kStart,
-                                                  OverflowAlignment::kDefault};
-  const ItemPosition align_self =
-      child.Style()
-          .ResolvedJustifySelf(normal_value_behavior, parent_style)
-          .GetPosition();
-
-  DCHECK_NE(align_self, ItemPosition::kAuto);
-  DCHECK_NE(align_self, ItemPosition::kNormal);
-
-  if (align_self == ItemPosition::kEnd ||
-      align_self == ItemPosition::kLastBaseline ||
-      align_self == ItemPosition::kRight) {
-    return LogicalStaticPosition::kInlineEnd;
-  } else if (align_self == ItemPosition::kCenter) {
-    return LogicalStaticPosition::kInlineCenter;
-  } else {
-    return LogicalStaticPosition::kInlineStart;
-  }
-}
-
-LogicalStaticPosition::BlockEdge BlockAxisEdge(
-    const BlockNode& child,
-    const ComputedStyle* parent_style) {
-  if (!RuntimeEnabledFeatures::CSSAlignBlockAndInlineOutOfFlowsEnabled()) {
-    return LogicalStaticPosition::kBlockStart;
-  }
-
-  StyleSelfAlignmentData normal_value_behavior = {ItemPosition::kStart,
-                                                  OverflowAlignment::kDefault};
-  const ItemPosition align_self =
-      child.Style()
-          .ResolvedAlignSelf(normal_value_behavior, parent_style)
-          .GetPosition();
-
-  DCHECK_NE(align_self, ItemPosition::kAuto);
-  DCHECK_NE(align_self, ItemPosition::kNormal);
-  DCHECK_NE(align_self, ItemPosition::kLeft)
-      << "left, right are only for justify";
-  DCHECK_NE(align_self, ItemPosition::kRight)
-      << "left, right are only for justify";
-
-  if (align_self == ItemPosition::kEnd ||
-      align_self == ItemPosition::kLastBaseline) {
-    return LogicalStaticPosition::kBlockEnd;
-  } else if (align_self == ItemPosition::kCenter) {
-    return LogicalStaticPosition::kBlockCenter;
-  } else {
-    return LogicalStaticPosition::kBlockStart;
   }
 }
 
@@ -495,7 +444,7 @@ MinMaxSizesResult BlockLayoutAlgorithm::ComputeMinMaxSizes(
     }
 
     MinMaxSizesFloatInput child_float_input;
-    if (child.IsInline() || child.IsAnonymousBlock()) {
+    if (child.IsInline() || child.IsAnonymousBlockFlow()) {
       child_float_input.float_left_inline_size = float_left_inline_size;
       child_float_input.float_right_inline_size = float_right_inline_size;
     }
@@ -506,7 +455,7 @@ MinMaxSizesResult BlockLayoutAlgorithm::ComputeMinMaxSizes(
     builder.SetPercentageResolutionBlockSize(
         PercentageSizeForChild(child).block_size);
     // Pass the replaced %-size down to inline layout.
-    if ((child.IsAnonymous() || child.IsInline()) &&
+    if ((child.IsAnonymousBlockFlow() || child.IsInline()) &&
         replaced_child_percentage_size_.block_size !=
             child_percentage_size_.block_size) {
       builder.SetReplacedChildPercentageResolutionBlockSize(
@@ -1565,13 +1514,16 @@ void BlockLayoutAlgorithm::HandleOutOfFlowPositioned(
         Style(), origin_bfc_offset, GetExclusionSpace(),
         ChildAvailableSize().inline_size);
 
-    container_builder_.AddOutOfFlowChildCandidate(
-        child, static_offset, LogicalStaticPosition::kInlineStart,
-        LogicalStaticPosition::kBlockStart, LogicalStaticPosition::kBlock,
-        line_clamp_data_.ShouldHideForPaint());
+    container_builder_.AddOutOfFlowChildCandidate(child, static_offset);
   } else {
-    auto inline_axis_edge = InlineAxisEdge(child, &Style());
-    auto block_axis_edge = BlockAxisEdge(child, &Style());
+    WritingDirectionMode parent_writing_direction =
+        GetConstraintSpace().GetWritingDirection();
+    auto inline_axis_edge = InlineStaticPositionEdge(
+        child, /*justify_items_style=*/&Style(), parent_writing_direction);
+    // 'align-items' doesn't apply in block layout, so don't apply it to OOF
+    // items.
+    auto block_axis_edge = BlockStaticPositionEdge(
+        child, /*align_items_style=*/nullptr, parent_writing_direction);
 
     // The alignment container for block OOF elements is a zero-thickness line
     // in the inline direction. As such, we need to adjust the inline static
@@ -1594,8 +1546,7 @@ void BlockLayoutAlgorithm::HandleOutOfFlowPositioned(
     }
 
     container_builder_.AddOutOfFlowChildCandidate(
-        child, static_offset, inline_axis_edge, block_axis_edge,
-        LogicalStaticPosition::kBlock, line_clamp_data_.ShouldHideForPaint());
+        child, static_offset, inline_axis_edge, block_axis_edge);
   }
 }
 
@@ -3194,14 +3145,6 @@ BoxStrut BlockLayoutAlgorithm::CalculateMargins(
       builder.SetAvailableSize(ChildAvailableSize());
       builder.SetPercentageResolutionSize(child_percentage_size_);
 
-      const bool has_auto_margins =
-          child_style.MarginInlineStartUsing(Style()).IsAuto() ||
-          child_style.MarginInlineEndUsing(Style()).IsAuto();
-
-      const bool justify_self_affects_sizing =
-          RuntimeEnabledFeatures::LayoutJustifySelfForBlocksEnabled() &&
-          !has_auto_margins;
-
       const ItemPosition justify_self =
           child_style
               .ResolvedJustifySelf(
@@ -3209,11 +3152,11 @@ BoxStrut BlockLayoutAlgorithm::CalculateMargins(
                   &Style())
               .GetPosition();
 
-      if (justify_self_affects_sizing &&
-          justify_self == ItemPosition::kStretch) {
+      if (child.IsAnonymousBlockFlow()) {
+        builder.SetInlineAutoBehavior(AutoSizeBehavior::kStretchImplicit);
+      } else if (justify_self == ItemPosition::kStretch) {
         builder.SetInlineAutoBehavior(AutoSizeBehavior::kStretchExplicit);
-      } else if (justify_self_affects_sizing &&
-                 justify_self != ItemPosition::kNormal) {
+      } else if (justify_self != ItemPosition::kNormal) {
         builder.SetInlineAutoBehavior(AutoSizeBehavior::kFitContent);
       } else {
         builder.SetInlineAutoBehavior(AutoSizeBehavior::kStretchImplicit);
@@ -3283,24 +3226,17 @@ ConstraintSpace BlockLayoutAlgorithm::CreateConstraintSpaceForChild(
       builder.SetInlineAutoBehavior(AutoSizeBehavior::kStretchImplicit);
     }
   } else {
-    const bool has_auto_margins =
-        child_style.MarginInlineStartUsing(Style()).IsAuto() ||
-        child_style.MarginInlineEndUsing(Style()).IsAuto();
-
-    const bool justify_self_affects_sizing =
-        RuntimeEnabledFeatures::LayoutJustifySelfForBlocksEnabled() &&
-        !has_auto_margins;
-
     const ItemPosition justify_self =
         child_style
             .ResolvedJustifySelf(
                 {ItemPosition::kNormal, OverflowAlignment::kDefault}, &Style())
             .GetPosition();
 
-    if (justify_self_affects_sizing && justify_self == ItemPosition::kStretch) {
+    if (child.IsAnonymousBlockFlow()) {
+      builder.SetInlineAutoBehavior(AutoSizeBehavior::kStretchImplicit);
+    } else if (justify_self == ItemPosition::kStretch) {
       builder.SetInlineAutoBehavior(AutoSizeBehavior::kStretchExplicit);
-    } else if (justify_self_affects_sizing &&
-               justify_self != ItemPosition::kNormal) {
+    } else if (justify_self != ItemPosition::kNormal) {
       builder.SetInlineAutoBehavior(AutoSizeBehavior::kFitContent);
     } else if (is_in_parallel_flow &&
                ShouldBlockContainerChildStretchAutoInlineSize(
@@ -3317,7 +3253,7 @@ ConstraintSpace BlockLayoutAlgorithm::CreateConstraintSpaceForChild(
   builder.SetPercentageResolutionSize(PercentageSizeForChild(child));
 
   // Pass the replaced %-size down to inline layout.
-  if ((child.IsAnonymous() || child.IsInline()) &&
+  if ((child.IsAnonymousBlockFlow() || child.IsInline()) &&
       replaced_child_percentage_size_ != child_percentage_size_) {
     builder.SetReplacedChildPercentageResolutionSize(
         replaced_child_percentage_size_);

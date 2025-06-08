@@ -43,13 +43,14 @@ void EchoAILanguageModel::DoMockExecution(
     return;
   }
 
-  if (input.size() > EchoAIManagerImpl::kMaxContextSizeInTokens) {
+  uint32_t quota = EchoAIManagerImpl::kMaxContextSizeInTokens;
+  if (input.size() > quota) {
     responder->OnError(
-        blink::mojom::ModelStreamingResponseStatus::kErrorInputTooLarge);
+        blink::mojom::ModelStreamingResponseStatus::kErrorInputTooLarge,
+        blink::mojom::QuotaErrorInfo::New(input.size(), quota));
     return;
   }
-  if (current_tokens_ >
-      EchoAIManagerImpl::kMaxContextSizeInTokens - input.size()) {
+  if (current_tokens_ > quota - input.size()) {
     current_tokens_ = input.size();
     responder->OnQuotaOverflow();
   }
@@ -69,31 +70,34 @@ void EchoAILanguageModel::Prompt(
     mojo::Remote<blink::mojom::ModelStreamingResponder> responder(
         std::move(pending_responder));
     responder->OnError(
-        blink::mojom::ModelStreamingResponseStatus::kErrorSessionDestroyed);
+        blink::mojom::ModelStreamingResponseStatus::kErrorSessionDestroyed,
+        /*quota_error_info=*/nullptr);
     return;
   }
 
   std::string response = "";
   for (const auto& prompt : prompts) {
-    if (prompt->content->is_text()) {
-      response += prompt->content->get_text();
-    } else if (prompt->content->is_bitmap()) {
-      if (!input_types_.contains(
-              blink::mojom::AILanguageModelPromptType::kImage)) {
-        mojo::ReportBadMessage("Image input is not supported.");
-        return;
-      }
-      response += "<image>";
-    } else if (prompt->content->is_audio()) {
-      if (!input_types_.contains(
-              blink::mojom::AILanguageModelPromptType::kAudio)) {
-        mojo::ReportBadMessage("Audio input is not supported.");
-        return;
-      }
+    for (auto& content : prompt->content) {
+      if (content->is_text()) {
+        response += content->get_text();
+      } else if (content->is_bitmap()) {
+        if (!input_types_.contains(
+                blink::mojom::AILanguageModelPromptType::kImage)) {
+          mojo::ReportBadMessage("Image input is not supported.");
+          return;
+        }
+        response += "<image>";
+      } else if (content->is_audio()) {
+        if (!input_types_.contains(
+                blink::mojom::AILanguageModelPromptType::kAudio)) {
+          mojo::ReportBadMessage("Audio input is not supported.");
+          return;
+        }
 
-      response += "<audio>";
-    } else {
-      NOTIMPLEMENTED_LOG_ONCE();
+        response += "<audio>";
+      } else {
+        NOTIMPLEMENTED_LOG_ONCE();
+      }
     }
   }
   mojo::RemoteSetElementId responder_id =
@@ -104,6 +108,16 @@ void EchoAILanguageModel::Prompt(
       base::BindOnce(&EchoAILanguageModel::DoMockExecution,
                      weak_ptr_factory_.GetWeakPtr(), response, responder_id),
       base::Seconds(1));
+}
+
+void EchoAILanguageModel::Append(
+    std::vector<blink::mojom::AILanguageModelPromptPtr> prompts,
+    mojo::PendingRemote<blink::mojom::ModelStreamingResponder>
+        pending_responder) {
+  mojo::Remote<blink::mojom::ModelStreamingResponder> responder(
+      std::move(pending_responder));
+  responder->OnCompletion(
+      blink::mojom::ModelExecutionContextInfo::New(current_tokens_));
 }
 
 void EchoAILanguageModel::Fork(
@@ -128,18 +142,26 @@ void EchoAILanguageModel::Destroy() {
 
   for (auto& responder : responder_set_) {
     responder->OnError(
-        blink::mojom::ModelStreamingResponseStatus::kErrorSessionDestroyed);
+        blink::mojom::ModelStreamingResponseStatus::kErrorSessionDestroyed,
+        /*quota_error_info=*/nullptr);
   }
   responder_set_.Clear();
 }
 
 void EchoAILanguageModel::MeasureInputUsage(
-    const std::string& input,
-    mojo::PendingRemote<blink::mojom::AILanguageModelMeasureInputUsageClient>
-        client) {
-  mojo::Remote<blink::mojom::AILanguageModelMeasureInputUsageClient>(
-      std::move(client))
-      ->OnResult(input.size());
+    std::vector<blink::mojom::AILanguageModelPromptPtr> input,
+    MeasureInputUsageCallback callback) {
+  size_t total = 0;
+  for (const auto& prompt : input) {
+    for (const auto& content : prompt->content) {
+      if (content->is_text()) {
+        total += content->get_text().size();
+      } else {
+        total += 100;  // TODO(crbug.com/415304330): Improve estimate.
+      }
+    }
+  }
+  std::move(callback).Run(total);
 }
 
 }  // namespace content

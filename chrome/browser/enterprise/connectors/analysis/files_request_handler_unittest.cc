@@ -2,10 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifdef UNSAFE_BUFFERS_BUILD
-// TODO(crbug.com/40285824): Remove this and convert code to safer constructs.
-#pragma allow_unsafe_buffers
-#endif
 
 #include "chrome/browser/enterprise/connectors/analysis/files_request_handler.h"
 
@@ -175,6 +171,8 @@ class TestContentAnalysisInfo : public ContentAnalysisInfo {
 
   const AnalysisSettings& settings() const override { return settings_.get(); }
 
+  signin::IdentityManager* identity_manager() const override { return nullptr; }
+
   // These methods correspond to fields in `BinaryUploadService::Request`.
   int user_action_requests_count() const override {
     return user_action_requests_count_;
@@ -201,6 +199,11 @@ class TestContentAnalysisInfo : public ContentAnalysisInfo {
   referrer_chain() const override {
     return google::protobuf::RepeatedPtrField<
         ::safe_browsing::ReferrerChainEntry>();
+  }
+
+  google::protobuf::RepeatedPtrField<std::string> frame_url_chain()
+      const override {
+    return {};
   }
 
  private:

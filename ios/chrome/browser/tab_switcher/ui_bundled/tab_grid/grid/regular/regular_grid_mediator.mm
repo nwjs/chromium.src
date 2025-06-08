@@ -17,6 +17,7 @@
 #import "ios/chrome/browser/collaboration/model/messaging/messaging_backend_service_bridge.h"
 #import "ios/chrome/browser/policy/model/policy_util.h"
 #import "ios/chrome/browser/saved_tab_groups/model/ios_tab_group_sync_util.h"
+#import "ios/chrome/browser/saved_tab_groups/ui/tab_group_utils.h"
 #import "ios/chrome/browser/share_kit/model/share_kit_face_pile_configuration.h"
 #import "ios/chrome/browser/share_kit/model/share_kit_service.h"
 #import "ios/chrome/browser/shared/model/browser/browser.h"
@@ -86,11 +87,11 @@ constexpr CGFloat kFacePileAvatarSize = 16;
 }
 
 - (instancetype)
-      initWithModeHolder:(TabGridModeHolder*)modeHolder
-     tabGroupSyncService:(tab_groups::TabGroupSyncService*)tabGroupSyncService
-         shareKitService:(ShareKitService*)shareKitService
-        messagingService:(collaboration::messaging::MessagingBackendService*)
-                             messagingService {
+     initWithModeHolder:(TabGridModeHolder*)modeHolder
+    tabGroupSyncService:(tab_groups::TabGroupSyncService*)tabGroupSyncService
+        shareKitService:(ShareKitService*)shareKitService
+       messagingService:(collaboration::messaging::MessagingBackendService*)
+                            messagingService {
   if ((self = [super initWithModeHolder:modeHolder])) {
     _tabGroupSyncService = tabGroupSyncService;
     _shareKitService = shareKitService;
@@ -345,8 +346,7 @@ constexpr CGFloat kFacePileAvatarSize = 16;
   }
 
   GridItemIdentifier* groupIdentifier =
-      [GridItemIdentifier groupIdentifier:localGroup
-                         withWebStateList:self.webStateList];
+      [GridItemIdentifier groupIdentifier:localGroup];
   [self.consumer replaceItem:groupIdentifier
          withReplacementItem:groupIdentifier];
 }
@@ -445,9 +445,7 @@ constexpr CGFloat kFacePileAvatarSize = 16;
 - (void)reconfigureGroup:(tab_groups::LocalTabGroupID)localTabGroupID {
   for (const TabGroup* group : self.webStateList->GetGroups()) {
     if (group->tab_group_id() == localTabGroupID) {
-      GridItemIdentifier* item =
-          [GridItemIdentifier groupIdentifier:group
-                             withWebStateList:self.webStateList];
+      GridItemIdentifier* item = [GridItemIdentifier groupIdentifier:group];
       [self.consumer replaceItem:item withReplacementItem:item];
       return;
     }
@@ -496,7 +494,8 @@ constexpr CGFloat kFacePileAvatarSize = 16;
   ShareKitFacePileConfiguration* config =
       [[ShareKitFacePileConfiguration alloc] init];
   config.collabID = savedCollabID;
-  config.backgroundColor = tabGroup->GetColor();
+  config.backgroundColor =
+      tab_groups::ColorForTabGroupColorId(tabGroup->GetColor());
   config.showsEmptyState = NO;
   config.avatarSize = kFacePileAvatarSize;
 

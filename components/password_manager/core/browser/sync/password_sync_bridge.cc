@@ -966,7 +966,7 @@ PasswordSyncBridge::GetAllDataForDebugging() {
 }
 
 std::string PasswordSyncBridge::GetClientTag(
-    const syncer::EntityData& entity_data) {
+    const syncer::EntityData& entity_data) const {
   DCHECK(entity_data.specifics.has_password())
       << "EntityData does not have password specifics.";
 
@@ -975,8 +975,16 @@ std::string PasswordSyncBridge::GetClientTag(
 }
 
 std::string PasswordSyncBridge::GetStorageKey(
-    const syncer::EntityData& entity_data) {
+    const syncer::EntityData& entity_data) const {
   NOTREACHED() << "PasswordSyncBridge does not support GetStorageKey.";
+}
+
+bool PasswordSyncBridge::IsEntityDataValid(
+    const syncer::EntityData& entity_data) const {
+  CHECK(entity_data.specifics.has_password());
+  // GetClientTag() always returns a non-empty string.
+  CHECK(!GetClientTag(entity_data).empty());
+  return true;
 }
 
 bool PasswordSyncBridge::SupportsGetStorageKey() const {

@@ -85,7 +85,7 @@ lens::mojom::PolygonPtr CreatePolygonMojomFromProto(
   lens::mojom::PolygonPtr polygon = lens::mojom::Polygon::New();
 
   std::vector<lens::mojom::VertexPtr> vertices;
-  for (auto vertex : proto_polygon.vertex()) {
+  for (const auto& vertex : proto_polygon.vertex()) {
     vertices.push_back(lens::mojom::Vertex::New(vertex.x(), vertex.y()));
   }
   polygon->vertex = std::move(vertices);
@@ -133,7 +133,7 @@ lens::mojom::GeometryPtr CreateGeometryMojomFromProto(
   geometry->bounding_box = std::move(center_rotated_box);
 
   std::vector<lens::mojom::PolygonPtr> polygons;
-  for (auto polygon : response_geometry.segmentation_polygon()) {
+  for (const auto& polygon : response_geometry.segmentation_polygon()) {
     polygons.push_back(CreatePolygonMojomFromProto(polygon));
   }
   geometry->segmentation_polygon = std::move(polygons);
@@ -170,7 +170,7 @@ lens::mojom::LinePtr CreateLineMojomFromProto(
     lens::WritingDirection writing_direction) {
   lens::mojom::LinePtr line = lens::mojom::Line::New();
   std::vector<lens::mojom::WordPtr> words;
-  for (auto word : proto_line.words()) {
+  for (const auto& word : proto_line.words()) {
     words.push_back(
         CreateWordMojomFromProto(word, region_crop_box, writing_direction));
   }
@@ -348,7 +348,7 @@ lens::mojom::ParagraphPtr CreateParagraphMojomFromProto(
   lens::mojom::ParagraphPtr paragraph = lens::mojom::Paragraph::New();
   paragraph->content_language = proto_paragraph.content_language();
   std::vector<lens::mojom::LinePtr> lines;
-  for (auto line : proto_paragraph.lines()) {
+  for (const auto& line : proto_paragraph.lines()) {
     lines.push_back(CreateLineMojomFromProto(
         line, region_crop_box, proto_paragraph.writing_direction()));
   }
@@ -414,7 +414,7 @@ CreateObjectsMojomArrayFromServerResponse(
   }
 
   auto response_objects = response.objects_response().overlay_objects();
-  for (auto response_object : response_objects) {
+  for (const auto& response_object : response_objects) {
     if (!response_object.has_interaction_properties() ||
         !response_object.interaction_properties().select_on_tap()) {
       continue;
@@ -458,24 +458,6 @@ lens::mojom::TextPtr CreateTextMojomFromInteractionResponse(
       response.text(),
       ::google::protobuf::RepeatedPtrField<::lens::DeepGleamData>(),
       region_crop_box, resized_bitmap_size);
-}
-
-std::vector<optimization_guide::FrameMetadata> ConvertFrameMetadataFromProto(
-    const optimization_guide::AIPageContentResult& result) {
-  std::vector<optimization_guide::FrameMetadata> frame_metadata_structs;
-  const auto& page_metadata = result.metadata;
-  for (auto& frame_metadata_mojom : page_metadata->frame_metadata) {
-    std::vector<optimization_guide::MetaTag> meta_tags;
-    for (auto& tag : frame_metadata_mojom->meta_tags) {
-      optimization_guide::MetaTag meta_tag(tag->name, tag->content);
-      meta_tags.push_back(std::move(meta_tag));
-    }
-    optimization_guide::FrameMetadata metadata(frame_metadata_mojom->url.host(),
-                                               frame_metadata_mojom->url.path(),
-                                               std::move(meta_tags));
-    frame_metadata_structs.push_back(std::move(metadata));
-  }
-  return frame_metadata_structs;
 }
 
 }  // namespace lens

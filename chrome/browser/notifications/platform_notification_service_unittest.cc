@@ -31,7 +31,7 @@
 #include "chrome/browser/notifications/platform_notification_service_impl.h"
 #include "chrome/browser/safe_browsing/notification_content_detection/mock_notification_content_detection_service.h"
 #include "chrome/browser/safe_browsing/notification_content_detection/notification_content_detection_service_factory.h"
-#include "chrome/browser/ui/safety_hub/safety_hub_constants.h"
+#include "chrome/browser/ui/safety_hub/disruptive_notification_permissions_manager.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/test/base/testing_profile.h"
 #include "components/content_settings/core/browser/host_content_settings_map.h"
@@ -416,18 +416,14 @@ TEST_F(PlatformNotificationServiceTest,
 
   HostContentSettingsMap* hcsm =
       HostContentSettingsMapFactory::GetForProfile(profile_.get());
-  base::Value::Dict dict;
-  dict.Set(safety_hub::kRevokedStatusDictKeyStr, safety_hub::kProposedStr);
-  dict.Set(safety_hub::kSiteEngagementStr, 0.0);
-  dict.Set(safety_hub::kDailyNotificationCountStr, kDailyNotificationCount);
-  auto constraint =
-      content_settings::ContentSettingConstraints(base::Time::Now());
-  constraint.set_lifetime(base::Days(30));
-  hcsm->SetWebsiteSettingCustomScope(
-      ContentSettingsPattern::FromURLNoWildcard(url),
-      ContentSettingsPattern::Wildcard(),
-      ContentSettingsType::REVOKED_DISRUPTIVE_NOTIFICATION_PERMISSIONS,
-      base::Value(std::move(dict)), constraint);
+  DisruptiveNotificationPermissionsManager::RevocationEntry entry(
+      /*revocation_state=*/DisruptiveNotificationPermissionsManager::
+          RevocationState::kProposed,
+      /*site_engagement=*/0.0,
+      /*daily_notification_count=*/kDailyNotificationCount);
+
+  DisruptiveNotificationPermissionsManager::ContentSettingHelper(*hcsm)
+      .PersistRevocationEntry(url, entry);
 
   PlatformNotificationData data;
   data.title = u"My notification's title";
@@ -453,18 +449,14 @@ TEST_F(PlatformNotificationServiceTest,
 
   HostContentSettingsMap* hcsm =
       HostContentSettingsMapFactory::GetForProfile(profile_.get());
-  base::Value::Dict dict;
-  dict.Set(safety_hub::kRevokedStatusDictKeyStr, safety_hub::kProposedStr);
-  dict.Set(safety_hub::kSiteEngagementStr, 0.0);
-  dict.Set(safety_hub::kDailyNotificationCountStr, kDailyNotificationCount);
-  auto constraint =
-      content_settings::ContentSettingConstraints(base::Time::Now());
-  constraint.set_lifetime(base::Days(30));
-  hcsm->SetWebsiteSettingCustomScope(
-      ContentSettingsPattern::FromURLNoWildcard(url),
-      ContentSettingsPattern::Wildcard(),
-      ContentSettingsType::REVOKED_DISRUPTIVE_NOTIFICATION_PERMISSIONS,
-      base::Value(std::move(dict)), constraint);
+  DisruptiveNotificationPermissionsManager::RevocationEntry entry(
+      /*revocation_state=*/DisruptiveNotificationPermissionsManager::
+          RevocationState::kProposed,
+      /*site_engagement=*/0.0,
+      /*daily_notification_count=*/kDailyNotificationCount);
+
+  DisruptiveNotificationPermissionsManager::ContentSettingHelper(*hcsm)
+      .PersistRevocationEntry(url, entry);
 
   PlatformNotificationData data;
   data.title = u"My notification's title";
@@ -887,9 +879,10 @@ TEST_F(PlatformNotificationServiceTest_ReportNotificationContentDetectionData,
       notification_database_data, base::DoNothing());
   base::RunLoop().RunUntilIdle();
   // Update `NotificationDatabase` entry with metadata.
+  std::string full_notification_id_str =
+      "p#" + origin.spec() + "#0" + base::NumberToString(notification_id);
   Notification notification = message_center::Notification(
-      message_center::NOTIFICATION_TYPE_SIMPLE,
-      "p#" + origin.spec() + "#0" + base::NumberToString(notification_id),
+      message_center::NOTIFICATION_TYPE_SIMPLE, full_notification_id_str,
       /*title=*/std::u16string(),
       /*message=*/std::u16string(), /*icon=*/ui::ImageModel(),
       /*display_source=*/std::u16string(), origin, message_center::NotifierId(),
@@ -913,4 +906,18 @@ TEST_F(PlatformNotificationServiceTest_ReportNotificationContentDetectionData,
       safe_browsing::NotificationContentDetectionModel::GetSerializedMetadata(
           is_on_global_cache_list, is_allowlisted_by_user, suspicious_score),
       data.serialized_metadata.at(safe_browsing::kMetadataDictionaryKey));
+  HostContentSettingsMap* hcsm =
+      HostContentSettingsMapFactory::GetForProfile(profile_.get());
+  base::Value cur_value(hcsm->GetWebsiteSetting(
+      origin, origin, ContentSettingsType::SUSPICIOUS_NOTIFICATION_IDS));
+#if BUILDFLAG(IS_ANDROID)
+  const base::Value::List* suspicious_notification_ids =
+      cur_value.GetDict().FindList(
+          safe_browsing::kSuspiciousNotificationIdsKey);
+  ASSERT_EQ(1u, suspicious_notification_ids->size());
+  ASSERT_EQ(full_notification_id_str,
+            suspicious_notification_ids->front().GetString());
+#else
+  ASSERT_TRUE(cur_value.is_none());
+#endif
 }

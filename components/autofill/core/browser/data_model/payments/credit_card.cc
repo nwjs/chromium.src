@@ -37,7 +37,6 @@
 #include "components/autofill/core/common/autofill_clock.h"
 #include "components/autofill/core/common/autofill_constants.h"
 #include "components/autofill/core/common/autofill_features.h"
-#include "components/autofill/core/common/autofill_payments_features.h"
 #include "components/autofill/core/common/autofill_regexes.h"
 #include "components/autofill/core/common/credit_card_network_identifiers.h"
 #include "components/autofill/core/common/credit_card_number_validation.h"
@@ -223,6 +222,37 @@ std::u16string CreditCard::GetObfuscatedStringForCardDigits(
   return obfuscated_string;
 }
 
+// static
+std::string_view CreditCard::GetBenefitSourceStringFromEnum(
+    BenefitSource benefit_source_enum) {
+  switch (benefit_source_enum) {
+    case BenefitSource::kSourceUnknown:
+      return "";
+    case BenefitSource::kSourceAmex:
+      return kAmexCardBenefitSource;
+    case BenefitSource::kSourceBmo:
+      return kBmoCardBenefitSource;
+    case BenefitSource::kSourceCurinos:
+      return kCurinosCardBenefitSource;
+  }
+  NOTREACHED();
+}
+
+// static
+CreditCard::BenefitSource CreditCard::GetEnumFromBenefitSourceString(
+    std::string_view benefit_source_string) {
+  if (benefit_source_string == kAmexCardBenefitSource) {
+    return BenefitSource::kSourceAmex;
+  }
+  if (benefit_source_string == kBmoCardBenefitSource) {
+    return BenefitSource::kSourceBmo;
+  }
+  if (benefit_source_string == kCurinosCardBenefitSource) {
+    return BenefitSource::kSourceCurinos;
+  }
+  return BenefitSource::kSourceUnknown;
+}
+
 CreditCard::CreditCard(const std::string& guid, const std::string& origin)
     : guid_(guid),
       origin_(origin),
@@ -350,6 +380,8 @@ int CreditCard::IconResourceId(Suggestion::Icon icon) {
     case Suggestion::Icon::kSettingsAndroid:
     case Suggestion::Icon::kUndo:
     case Suggestion::Icon::kBnpl:
+    case Suggestion::Icon::kGoogleWallet:
+    case Suggestion::Icon::kGoogleWalletMonochrome:
       NOTREACHED();
   }
   NOTREACHED();
@@ -787,6 +819,11 @@ int CreditCard::Compare(const CreditCard& credit_card) const {
 
   comparison =
       product_terms_url_.spec().compare(credit_card.product_terms_url_.spec());
+  if (comparison != 0) {
+    return comparison;
+  }
+
+  comparison = benefit_source_.compare(credit_card.benefit_source_);
   if (comparison != 0) {
     return comparison;
   }
@@ -1323,7 +1360,7 @@ std::ostream& operator<<(std::ostream& os, const CreditCard& credit_card) {
             << " " << credit_card.card_art_url().spec() << " "
             << base::UTF16ToUTF8(credit_card.product_description()) << " "
             << credit_card.product_terms_url().spec() << " "
-            << credit_card.cvc() << " "
+            << credit_card.benefit_source() << " " << credit_card.cvc() << " "
             << base::to_underlying(
                    credit_card.card_info_retrieval_enrollment_state());
 }

@@ -7,7 +7,7 @@ package org.chromium.chrome.browser.omnibox;
 import org.jni_zero.JniType;
 import org.jni_zero.NativeMethods;
 
-import org.chromium.base.LifetimeAssert;
+import org.chromium.base.lifetime.LifetimeAssert;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.profiles.Profile;
@@ -32,7 +32,7 @@ public class ChromeAutocompleteSchemeClassifier extends AutocompleteSchemeClassi
 
         // If mLifetimeAssert is GC'ed before this is called, it will throw an exception
         // with a stack trace showing the stack during LifetimeAssert.create().
-        LifetimeAssert.setSafeToGc(mLifetimeAssert, true);
+        LifetimeAssert.destroy(mLifetimeAssert);
     }
 
     @NativeMethods

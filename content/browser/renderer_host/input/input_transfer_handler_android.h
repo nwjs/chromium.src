@@ -6,6 +6,7 @@
 #define CONTENT_BROWSER_RENDERER_HOST_INPUT_INPUT_TRANSFER_HANDLER_ANDROID_H_
 
 #include <memory>
+#include <optional>
 
 #include "base/android/scoped_java_ref.h"
 #include "base/memory/raw_ptr.h"
@@ -46,7 +47,8 @@ class CONTENT_EXPORT InputTransferHandlerAndroid {
   virtual ~InputTransferHandlerAndroid();
 
   // Virtual for testing.
-  virtual bool OnTouchEvent(const ui::MotionEventAndroid& event);
+  virtual bool OnTouchEvent(const ui::MotionEventAndroid& event,
+                            bool is_ignoring_input_events = false);
 
   void set_jni_delegate_for_testing(std::unique_ptr<JniDelegate> delegate) {
     jni_delegate_ = std::move(delegate);
@@ -70,9 +72,17 @@ class CONTENT_EXPORT InputTransferHandlerAndroid {
   }
   bool FilterRedundantDownEvent(const ui::MotionEvent& event);
 
-  void RequestInputBack();
+  enum class RequestInputBackReason {
+    kStartDragAndDropGesture = 0,
+    kStartTouchSelectionDragGesture = 1,
+    kStartOverscrollGestures = 2,
+  };
+  void RequestInputBack(RequestInputBackReason reason);
 
   void OnTouchEnd(base::TimeTicks event_time);
+
+  // Virtual for testing.
+  virtual bool IsTouchSequencePotentiallyActiveOnViz() const;
 
   RenderWidgetHost::InputEventObserver& GetInputObserver() {
     return input_observer_;
@@ -115,6 +125,7 @@ class CONTENT_EXPORT InputTransferHandlerAndroid {
 
   void DropCurrentSequence(const ui::MotionEventAndroid& event);
   void ConsumeEventsUntilCancel(const ui::MotionEventAndroid& event);
+  void ConsumeSequence(const ui::MotionEventAndroid& event);
 
   friend class MockInputTransferHandler;
   InputTransferHandlerAndroid();
@@ -136,9 +147,13 @@ class CONTENT_EXPORT InputTransferHandlerAndroid {
     // The touch sequence was transferred to Viz and the handler is consuming
     // rest of sequence that might hit Browser.
     kConsumeEventsUntilCancel,
+    // Consume current sequence until an action cancel or action up comes in.
+    kConsumeSequence,
   } handler_state_ = HandlerState::kIdle;
 
   bool requested_input_back_ = false;
+  std::optional<RequestInputBackReason> requested_input_back_reason_ =
+      std::nullopt;
   int touch_moves_seen_after_transfer_ = 0;
   std::unique_ptr<JniDelegate> jni_delegate_ = nullptr;
 

@@ -18,6 +18,7 @@ import {HelpBubbleMixin} from 'chrome://resources/cr_components/help_bubble/help
 import {I18nMixin} from 'chrome://resources/cr_elements/i18n_mixin.js';
 import {WebUiListenerMixin} from 'chrome://resources/cr_elements/web_ui_listener_mixin.js';
 import {assert} from 'chrome://resources/js/assert.js';
+import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
 import {OpenWindowProxyImpl} from 'chrome://resources/js/open_window_proxy.js';
 import {PolymerElement} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
 
@@ -33,6 +34,7 @@ import {GlicBrowserProxyImpl} from './glic_browser_proxy.js';
 import {getTemplate} from './glic_page.html.js';
 
 export enum SettingsGlicPageFeaturePrefName {
+  CLOSED_CAPTIONS_ENABLED = 'glic.closed_captioning_enabled',
   GEOLOCATION_ENABLED = 'glic.geolocation_enabled',
   LAUNCHER_ENABLED = 'glic.launcher_enabled',
   MICROPHONE_ENABLED = 'glic.microphone_enabled',
@@ -90,7 +92,21 @@ export class SettingsGlicPageElement extends SettingsGlicPageElementBase {
           value: 0,
         },
       },
+
+      closedCaptionsFeatureEnabled_: {
+        type: Boolean,
+        value: () => {
+          return loadTimeData.getBoolean('glicClosedCaptionsFeatureEnabled');
+        },
+      },
     };
+  }
+
+  static get observers() {
+    return [
+      'onTabContextEnabledChanged_(' +
+          `prefs.${SettingsGlicPageFeaturePrefName.TAB_CONTEXT_ENABLED}.value)`,
+    ];
   }
 
   private shortcutInput_: string;
@@ -104,6 +120,7 @@ export class SettingsGlicPageElement extends SettingsGlicPageElementBase {
   private metricsBrowserProxy_: MetricsBrowserProxy =
       MetricsBrowserProxyImpl.getInstance();
   declare private tabAccessToggleExpanded_: boolean;
+  declare private closedCaptionsFeatureEnabled_: boolean;
 
   override async connectedCallback() {
     super.connectedCallback();
@@ -116,10 +133,6 @@ export class SettingsGlicPageElement extends SettingsGlicPageElementBase {
     this.registeredFocusToggleShortcut_ =
         await this.browserProxy_.getGlicFocusToggleShortcut();
     await CrSettingsPrefs.initialized;
-    this.tabAccessToggleExpanded_ =
-        this.getPref<boolean>(
-                SettingsGlicPageFeaturePrefName.TAB_CONTEXT_ENABLED)
-            .value;
   }
 
   private onGlicPageClick_() {
@@ -221,10 +234,14 @@ export class SettingsGlicPageElement extends SettingsGlicPageElementBase {
     }
   }
 
+  // Update the tab access collapsible any time the tab access pref changes.
+  private onTabContextEnabledChanged_(enabled: boolean) {
+    this.tabAccessToggleExpanded_ = enabled;
+  }
+
   private onTabAccessToggleChange_(event: CustomEvent) {
     const target = event.target as SettingsToggleButtonElement;
     const enabled = target.checked;
-    this.tabAccessToggleExpanded_ = enabled;
     this.metricsBrowserProxy_.recordAction(
         'Glic.Settings.TabContext' + (enabled ? '.Enabled' : '.Disabled'));
   }
@@ -264,6 +281,12 @@ export class SettingsGlicPageElement extends SettingsGlicPageElementBase {
 
   private disallowedByAdminChanged_(disallowed: boolean) {
     this.disallowedByAdmin_ = disallowed;
+  }
+
+  private onClosedCaptionsToggleChange_(event: Event) {
+    const enabled = (event.target as SettingsToggleButtonElement).checked;
+    this.metricsBrowserProxy_.recordAction(
+        'Glic.Settings.ClosedCaptions.' + (enabled ? 'Enabled' : 'Disabled'));
   }
 }
 

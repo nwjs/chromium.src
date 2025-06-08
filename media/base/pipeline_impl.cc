@@ -101,16 +101,10 @@ class PipelineImpl::RendererWrapper final : public DemuxerHost,
   PipelineStatistics GetStatistics() const;
   void SetCdm(CdmContext* cdm_context, CdmAttachedCB cdm_attached_cb);
 
-  // |enabled_track_ids| contains track ids of enabled audio tracks.
-  void OnEnabledAudioTracksChanged(
-      const std::vector<MediaTrack::Id>& enabled_track_ids,
-      base::OnceClosure change_completed_cb);
-
-  // |selected_track_id| is either empty, which means no video track is
-  // selected, or contains the selected video track id.
-  void OnSelectedVideoTrackChanged(
-      std::optional<MediaTrack::Id> selected_track_id,
-      base::OnceClosure change_completed_cb);
+  // Handles asynchronous track changing for the demuxer and renderer.
+  void OnTracksChanged(DemuxerStream::Type track_type,
+                       std::vector<MediaTrack::Id> enabled_track_ids,
+                       base::OnceClosure change_completed_cb);
 
   void OnExternalVideoFrameRequest();
 
@@ -770,13 +764,32 @@ void PipelineImpl::OnEnabledAudioTracksChanged(
   media_task_runner_->PostTask(
       FROM_HERE,
       base::BindOnce(
-          &RendererWrapper::OnEnabledAudioTracksChanged,
-          base::Unretained(renderer_wrapper_.get()), enabled_track_ids,
+          &RendererWrapper::OnTracksChanged,
+          base::Unretained(renderer_wrapper_.get()), DemuxerStream::AUDIO,
+          std::move(enabled_track_ids),
           base::BindPostTaskToCurrentDefault(std::move(change_completed_cb))));
 }
 
-void PipelineImpl::RendererWrapper::OnEnabledAudioTracksChanged(
-    const std::vector<MediaTrack::Id>& enabled_track_ids,
+void PipelineImpl::OnSelectedVideoTrackChanged(
+    std::optional<MediaTrack::Id> selected_track_id,
+    base::OnceClosure change_completed_cb) {
+  DCHECK(thread_checker_.CalledOnValidThread());
+  std::vector<MediaTrack::Id> tracks;
+  if (selected_track_id) {
+    tracks.push_back(*selected_track_id);
+  }
+
+  media_task_runner_->PostTask(
+      FROM_HERE, base::BindOnce(&RendererWrapper::OnTracksChanged,
+                                base::Unretained(renderer_wrapper_.get()),
+                                DemuxerStream::VIDEO, std::move(tracks),
+                                base::BindPostTaskToCurrentDefault(
+                                    std::move(change_completed_cb))));
+}
+
+void PipelineImpl::RendererWrapper::OnTracksChanged(
+    DemuxerStream::Type track_type,
+    std::vector<MediaTrack::Id> enabled_track_ids,
     base::OnceClosure change_completed_cb) {
   DCHECK(media_task_runner_->RunsTasksInCurrentSequence());
 
@@ -797,51 +810,27 @@ void PipelineImpl::RendererWrapper::OnEnabledAudioTracksChanged(
     std::move(change_completed_cb).Run();
     return;
   }
-  demuxer_->OnEnabledAudioTracksChanged(
-      enabled_track_ids, GetCurrentTimestamp(),
+
+  demuxer_->OnTracksChanged(
+      track_type, std::move(enabled_track_ids), GetCurrentTimestamp(),
       base::BindOnce(&RendererWrapper::OnDemuxerCompletedTrackChange,
-                     weak_factory_.GetWeakPtr(), DemuxerStream::AUDIO,
+                     weak_factory_.GetWeakPtr(), track_type,
                      std::move(change_completed_cb)));
 }
 
-void PipelineImpl::OnSelectedVideoTrackChanged(
-    std::optional<MediaTrack::Id> selected_track_id,
-    base::OnceClosure change_completed_cb) {
-  DCHECK(thread_checker_.CalledOnValidThread());
-  media_task_runner_->PostTask(
-      FROM_HERE,
-      base::BindOnce(
-          &RendererWrapper::OnSelectedVideoTrackChanged,
-          base::Unretained(renderer_wrapper_.get()), selected_track_id,
-          base::BindPostTaskToCurrentDefault(std::move(change_completed_cb))));
-}
-
-void PipelineImpl::RendererWrapper::OnSelectedVideoTrackChanged(
-    std::optional<MediaTrack::Id> selected_track_id,
-    base::OnceClosure change_completed_cb) {
+void PipelineImpl::RendererWrapper::OnDemuxerCompletedTrackChange(
+    DemuxerStream::Type stream_type,
+    base::OnceClosure change_completed_cb,
+    const std::vector<DemuxerStream*>& streams) {
   DCHECK(media_task_runner_->RunsTasksInCurrentSequence());
-
-  // See RenderWrapper::OnEnabledAudioTracksChanged.
-  if (state_ == State::kCreated) {
-    DCHECK(!demuxer_);
+  if (!shared_state_.renderer) {
+    // This can happen if the pipeline has been suspended.
     std::move(change_completed_cb).Run();
     return;
   }
 
-  if (state_ == State::kStopping || state_ == State::kStopped) {
-    std::move(change_completed_cb).Run();
-    return;
-  }
-
-  std::vector<MediaTrack::Id> tracks;
-  if (selected_track_id)
-    tracks.push_back(*selected_track_id);
-
-  demuxer_->OnSelectedVideoTrackChanged(
-      tracks, GetCurrentTimestamp(),
-      base::BindOnce(&RendererWrapper::OnDemuxerCompletedTrackChange,
-                     weak_factory_.GetWeakPtr(), DemuxerStream::VIDEO,
-                     std::move(change_completed_cb)));
+  shared_state_.renderer->OnTracksChanged(stream_type, std::move(streams),
+                                          std::move(change_completed_cb));
 }
 
 void PipelineImpl::OnExternalVideoFrameRequest() {
@@ -863,31 +852,6 @@ void PipelineImpl::RendererWrapper::OnExternalVideoFrameRequest() {
   }
 
   shared_state_.renderer->OnExternalVideoFrameRequest();
-}
-
-void PipelineImpl::RendererWrapper::OnDemuxerCompletedTrackChange(
-    DemuxerStream::Type stream_type,
-    base::OnceClosure change_completed_cb,
-    const std::vector<DemuxerStream*>& streams) {
-  DCHECK(media_task_runner_->RunsTasksInCurrentSequence());
-  if (!shared_state_.renderer) {
-    // This can happen if the pipeline has been suspended.
-    std::move(change_completed_cb).Run();
-    return;
-  }
-
-  switch (stream_type) {
-    case DemuxerStream::AUDIO:
-      shared_state_.renderer->OnEnabledAudioTracksChanged(
-          streams, std::move(change_completed_cb));
-      break;
-    case DemuxerStream::VIDEO:
-      shared_state_.renderer->OnSelectedVideoTracksChanged(
-          streams, std::move(change_completed_cb));
-      break;
-    case DemuxerStream::UNKNOWN:  // Fail on unknown type.
-      NOTREACHED();
-  }
 }
 
 void PipelineImpl::RendererWrapper::OnStatisticsUpdate(

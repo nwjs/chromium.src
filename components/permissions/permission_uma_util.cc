@@ -210,7 +210,7 @@ PermissionHeaderPolicyForUMA GetTopLevelPermissionHeaderPolicyForUMA(
 }
 
 void RecordEngagementMetric(
-    const std::vector<raw_ptr<PermissionRequest, VectorExperimental>>& requests,
+    const std::vector<std::unique_ptr<PermissionRequest>>& requests,
     content::WebContents* web_contents,
     const std::string& action) {
   CHECK(!requests.empty());
@@ -277,6 +277,7 @@ void RecordPermissionUsageNotificationShownUkm(
     bool did_user_always_allow_notifications,
     bool is_allowlisted,
     int suspicious_score,
+    uint64_t site_engagement_level,
     std::optional<ukm::SourceId> source_id) {
   if (!source_id.has_value()) {
     return;
@@ -287,6 +288,7 @@ void RecordPermissionUsageNotificationShownUkm(
       did_user_always_allow_notifications);
   builder.SetIsAllowlisted(is_allowlisted);
   builder.SetSuspiciousScore(suspicious_score);
+  builder.SetSiteEngagementLevel(site_engagement_level);
   builder.Record(ukm::UkmRecorder::Get());
 }
 
@@ -900,7 +902,7 @@ void PermissionUmaUtil::RecordPermissionRecoverySuccessRate(
 }
 
 void PermissionUmaUtil::RecordPermissionPromptAttempt(
-    const std::vector<raw_ptr<PermissionRequest, VectorExperimental>>& requests,
+    const std::vector<std::unique_ptr<PermissionRequest>>& requests,
     bool can_display_prompt) {
   DCHECK(!requests.empty());
 
@@ -938,8 +940,7 @@ void PermissionUmaUtil::RecordPermissionPromptAttempt(
 }
 
 void PermissionUmaUtil::PermissionPromptShown(
-    const std::vector<raw_ptr<PermissionRequest, VectorExperimental>>&
-        requests) {
+    const std::vector<std::unique_ptr<PermissionRequest>>& requests) {
   DCHECK(!requests.empty());
 
   RequestTypeForUma request_type =
@@ -955,7 +956,7 @@ void PermissionUmaUtil::PermissionPromptShown(
 }
 
 void PermissionUmaUtil::PermissionPromptResolved(
-    const std::vector<raw_ptr<PermissionRequest, VectorExperimental>>& requests,
+    const std::vector<std::unique_ptr<PermissionRequest>>& requests,
     content::WebContents* web_contents,
     PermissionAction permission_action,
     base::TimeDelta time_to_action,
@@ -995,7 +996,7 @@ void PermissionUmaUtil::PermissionPromptResolved(
       PermissionsClient::Get()->GetPermissionDecisionAutoBlocker(
           web_contents->GetBrowserContext());
 
-  for (PermissionRequest* request : requests) {
+  for (const auto& request : requests) {
     ContentSettingsType permission = request->GetContentSettingsType();
     // TODO(timloh): We only record these metrics for permissions which have a
     // ContentSettingsType, as otherwise they don't support GetGestureType.
@@ -1227,13 +1228,14 @@ void PermissionUmaUtil::RecordPermissionUsageNotificationShown(
     bool is_allowlisted,
     int suspicious_score,
     content::BrowserContext* browser_context,
-    const GURL& requesting_origin) {
+    const GURL& requesting_origin,
+    uint64_t site_engagement_level) {
   PermissionsClient::Get()->GetUkmSourceId(
       ContentSettingsType::NOTIFICATIONS, browser_context, nullptr,
       requesting_origin,
       base::BindOnce(&RecordPermissionUsageNotificationShownUkm,
                      did_user_always_allow_notifications, is_allowlisted,
-                     suspicious_score));
+                     suspicious_score, site_engagement_level));
 }
 
 void PermissionUmaUtil::RecordPermissionAction(
@@ -1331,7 +1333,7 @@ void PermissionUmaUtil::RecordPermissionAction(
 
 // static
 void PermissionUmaUtil::RecordPromptDecided(
-    const std::vector<raw_ptr<PermissionRequest, VectorExperimental>>& requests,
+    const std::vector<std::unique_ptr<PermissionRequest>>& requests,
     bool accepted,
     bool is_one_time) {
   DCHECK(!requests.empty());
@@ -1456,21 +1458,14 @@ void PermissionUmaUtil::RecordPermissionPredictionSource(
 // static
 void PermissionUmaUtil::RecordPermissionPredictionServiceHoldback(
     RequestType request_type,
-    bool is_on_device,
+    PredictionModelType model_type,
     bool is_heldback) {
-  if (is_on_device) {
-    base::UmaHistogramBoolean(
-        "Permissions.OnDevicePredictionService.Response." +
-            GetPermissionRequestString(
-                PermissionUtil::GetUmaValueForRequestType(request_type)),
-        is_heldback);
-  } else {
-    base::UmaHistogramBoolean(
-        "Permissions.PredictionService.Response." +
-            GetPermissionRequestString(
-                PermissionUtil::GetUmaValueForRequestType(request_type)),
-        is_heldback);
-  }
+  base::UmaHistogramBoolean(
+      base::StrCat(
+          {"Permissions.", GetPredictionModelString(model_type), ".Response.",
+           GetPermissionRequestString(
+               PermissionUtil::GetUmaValueForRequestType(request_type))}),
+      is_heldback);
 }
 
 // static
@@ -1500,12 +1495,12 @@ std::string PermissionUmaUtil::GetOneTimePermissionEventHistogram(
 std::string PermissionUmaUtil::GetPredictionModelString(
     PredictionModelType model_type) {
   switch (model_type) {
-    case PredictionModelType::kServerSide:
+    case PredictionModelType::kServerSideCpssV3Model:
       return "PredictionService";
-    case PredictionModelType::kTfLiteOnDevice:
+    case PredictionModelType::kOnDeviceCpssV1Model:
       return "OnDevicePredictionService";
-    case PredictionModelType::kGenAiOnDevice:
-      return "AIv1";
+    case PredictionModelType::kOnDeviceAiV3Model:
+      return "AIv3";
     default:
       NOTREACHED();
   }
@@ -1743,7 +1738,7 @@ bool PermissionUmaUtil::IsPromptDispositionLoud(
 
 // static
 void PermissionUmaUtil::RecordIgnoreReason(
-    const std::vector<raw_ptr<PermissionRequest, VectorExperimental>>& requests,
+    const std::vector<std::unique_ptr<PermissionRequest>>& requests,
     PermissionPromptDisposition prompt_disposition,
     PermissionIgnoredReason reason) {
   RequestTypeForUma request_type =
@@ -1779,7 +1774,7 @@ void PermissionUmaUtil::RecordPermissionsUsageSourceAndPolicyConfiguration(
 
 // static
 void PermissionUmaUtil::RecordElementAnchoredBubbleDismiss(
-    const std::vector<raw_ptr<PermissionRequest, VectorExperimental>>& requests,
+    const std::vector<std::unique_ptr<PermissionRequest>>& requests,
     DismissedReason reason) {
   CHECK(!requests.empty());
 
@@ -1793,7 +1788,7 @@ void PermissionUmaUtil::RecordElementAnchoredBubbleDismiss(
 
 // static
 void PermissionUmaUtil::RecordElementAnchoredBubbleOsMetrics(
-    const std::vector<raw_ptr<PermissionRequest, VectorExperimental>>& requests,
+    const std::vector<std::unique_ptr<PermissionRequest>>& requests,
     OsScreen screen,
     OsScreenAction action,
     base::TimeDelta time_to_action) {
@@ -1849,7 +1844,7 @@ void PermissionUmaUtil::RecordElementAnchoredBubbleOsMetrics(
 }
 
 void PermissionUmaUtil::RecordElementAnchoredBubbleVariantUMA(
-    const std::vector<raw_ptr<PermissionRequest, VectorExperimental>>& requests,
+    const std::vector<std::unique_ptr<PermissionRequest>>& requests,
     ElementAnchoredBubbleVariant variant) {
   CHECK(!requests.empty());
 
@@ -1981,8 +1976,8 @@ PermissionUmaUtil::GetDaysSinceUnusedSitePermissionRevocation(
 
 // static
 void PermissionUmaUtil::RecordElementAnchoredPermissionPromptAction(
-    const std::vector<raw_ptr<PermissionRequest, VectorExperimental>>& requests,
-    const std::vector<raw_ptr<PermissionRequest, VectorExperimental>>&
+    const std::vector<std::unique_ptr<PermissionRequest>>& requests,
+    const std::vector<base::WeakPtr<permissions::PermissionRequest>>&
         screen_requests,
     ElementAnchoredBubbleAction action,
     ElementAnchoredBubbleVariant variant,
@@ -2055,6 +2050,17 @@ void PermissionUmaUtil::RecordActionBrowserAlwaysActive(
       {"Permissions.Prompt.", GetPermissionRequestString(request_type), ".",
        permission_action, ".WithBrowser"});
   base::UmaHistogramBoolean(histogram_name, always_active);
+}
+
+// static
+void PermissionUmaUtil::RecordPredictionModelInquireTime(
+    base::TimeTicks model_inquire_start_time,
+    PredictionModelType model_type) {
+  std::string histogram_name =
+      base::StrCat({"Permissions.", GetPredictionModelString(model_type),
+                    ".InquiryDuration"});
+  base::UmaHistogramMediumTimes(
+      histogram_name, base::TimeTicks::Now() - model_inquire_start_time);
 }
 
 }  // namespace permissions

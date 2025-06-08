@@ -236,6 +236,8 @@ class UI_ANDROID_EXPORT ViewAndroid {
 
   void NotifyContextMenuInsetsObservers(const gfx::Rect&);
 
+  void ShowInterestInElement(int);
+
   void SetLayoutForTesting(int x, int y, int width, int height);
 
   EventForwarder* event_forwarder() { return event_forwarder_.get(); }
@@ -318,11 +320,6 @@ class UI_ANDROID_EXPORT ViewAndroid {
   const base::android::ScopedJavaLocalRef<jobject> GetViewAndroidDelegate()
       const;
 
-  // True if a hit test is currently being performed on this ViewAndroid or its
-  // descendants. This is used to detect and log cases where the view hierarchy
-  // is modified (e.g., a child is removed) during hit testing, which can lead
-  // to unexpected behavior or crashes.
-  bool is_hit_testing_ = false;
   std::list<raw_ptr<ViewAndroid, CtnExperimental>> children_;
   base::ObserverList<ViewAndroidObserver>::Unchecked observer_list_;
   scoped_refptr<cc::slim::Layer> layer_;

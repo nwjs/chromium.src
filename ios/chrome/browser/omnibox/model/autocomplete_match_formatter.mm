@@ -26,6 +26,7 @@
 #import "ios/chrome/browser/omnibox/public/omnibox_util.h"
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
+#import "ios/chrome/common/NSString+Chromium.h"
 #import "ios/chrome/common/ui/colors/semantic_color_names.h"
 
 namespace {
@@ -121,6 +122,10 @@ UIColor* DimColorIncognito() {
       detailText = base::SysUTF16ToNSString(_match.contents);
     } else if (_match.type == AutocompleteMatchType::SEARCH_SUGGEST_ENTITY) {
       detailText = base::SysUTF16ToNSString(_match.description);
+    } else if (_match.suggest_template &&
+               _match.suggest_template->has_secondary_text()) {
+      detailText = [NSString
+          cr_fromString:_match.suggest_template->secondary_text().text()];
     }
 
     if (!detailText.length) {
@@ -132,7 +137,11 @@ UIColor* DimColorIncognito() {
     // suggestions. For non-search suggestions (URLs), a highlight color is used
     // instead.
     UIColor* suggestionDetailTextColor = nil;
-    if (_match.type != AutocompleteMatchType::SEARCH_SUGGEST_ENTITY) {
+
+    if (_match.suggest_template &&
+        _match.suggest_template->has_secondary_text()) {
+      suggestionDetailTextColor = SuggestionDetailTextColor();
+    } else if (_match.type != AutocompleteMatchType::SEARCH_SUGGEST_ENTITY) {
       suggestionDetailTextColor = SuggestionDetailTextColor();
     } else {
       suggestionDetailTextColor = SuggestionTextColor();
@@ -350,6 +359,10 @@ UIColor* DimColorIncognito() {
 /// the omnibox would be a noop. However, this list also omits other types that
 /// are deprecated or not launched on iOS.
 - (BOOL)isAppendable {
+  if (_match.suggest_template) {
+    return YES;
+  }
+
   return _match.type == AutocompleteMatchType::BOOKMARK_TITLE ||
          _match.type == AutocompleteMatchType::CALCULATOR ||
          _match.type == AutocompleteMatchType::HISTORY_BODY ||
@@ -377,6 +390,11 @@ UIColor* DimColorIncognito() {
 }
 
 - (UIImage*)matchTypeIcon {
+  if (_match.suggest_template && _match.suggest_template->has_type_icon()) {
+    return GetOmniboxSuggestionIconForSuggestTemplateInfoIconType(
+        _match.suggest_template->type_icon());
+  }
+
   return GetOmniboxSuggestionIconForAutocompleteMatchType(_match.type);
 }
 
@@ -389,8 +407,12 @@ UIColor* DimColorIncognito() {
 }
 
 - (BOOL)isWrapping {
-  return self.isMatchTypeSearch && !self.hasAnswer &&
-         _match.type != AutocompleteMatchType::SEARCH_SUGGEST_ENTITY;
+  // Don't allow wrapping on entities, unless it uses a template icon.
+  BOOL hasTemplateIcon =
+      _match.suggest_template && _match.suggest_template->has_type_icon();
+  BOOL isEntity = _match.type == AutocompleteMatchType::SEARCH_SUGGEST_ENTITY &&
+                  !hasTemplateIcon;
+  return self.isMatchTypeSearch && !self.hasAnswer && !isEntity;
 }
 
 - (CrURL*)destinationUrl {

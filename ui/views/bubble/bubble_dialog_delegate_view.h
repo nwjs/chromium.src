@@ -448,7 +448,7 @@ class VIEWS_EXPORT BubbleDialogDelegate : public DialogDelegate {
   // be a good fit for the UI you are building.
 
   ui::ColorVariant background_color() const { return color_; }
-  void set_background_color(ui::ColorVariant color) { color_ = color; }
+  void SetBackgroundColor(ui::ColorVariant color);
 
   void set_force_create_contents_background(
       bool force_create_contents_background) {
@@ -463,11 +463,6 @@ class VIEWS_EXPORT BubbleDialogDelegate : public DialogDelegate {
   void set_footnote_margins(const gfx::Insets& footnote_margins) {
     footnote_margins_ = footnote_margins;
   }
-
-  // Sets whether or not CreateClientView() returns a Layer backed ClientView.
-  // TODO(pbos): Remove all calls to this, then remove `paint_client_to_layer_`.
-  // See comment around `paint_client_to_layer_`.
-  void SetPaintClientToLayer(bool paint_client_to_layer);
 
   // Sets the content margins to a default picked for smaller bubbles.
   void UseCompactMargins();
@@ -578,7 +573,6 @@ class VIEWS_EXPORT BubbleDialogDelegate : public DialogDelegate {
   class AnchorViewObserver;
   class AnchorWidgetObserver;
   class BubbleWidgetObserver;
-  class ThemeObserver;
 
   FRIEND_TEST_ALL_PREFIXES(BubbleDialogDelegateViewTest,
                            VisibleWidgetShowsInkDropOnAttaching);
@@ -593,7 +587,6 @@ class VIEWS_EXPORT BubbleDialogDelegate : public DialogDelegate {
   friend class AnchorWidgetObserver;
   friend class BubbleWidgetObserver;
   friend class TestBubbleUmaLogger;
-  friend class ThemeObserver;
 
   friend class BubbleBorderDelegate;
   friend class BubbleWindowTargeter;
@@ -611,9 +604,7 @@ class VIEWS_EXPORT BubbleDialogDelegate : public DialogDelegate {
   void OnBubbleWidgetPaintAsActiveChanged();
 
   void OnDeactivate();
-
-  // Update the bubble color from the NativeTheme unless it was explicitly set.
-  void UpdateColorsFromTheme();
+  void UpdateFrameColor();
 
   // Notify this bubble that it is now the primary anchored bubble. When a new
   // bubble becomes the primary anchor, the previous primary silently loses its
@@ -636,7 +627,6 @@ class VIEWS_EXPORT BubbleDialogDelegate : public DialogDelegate {
   std::unique_ptr<AnchorViewObserver> anchor_view_observer_;
   std::unique_ptr<AnchorWidgetObserver> anchor_widget_observer_;
   std::unique_ptr<BubbleWidgetObserver> bubble_widget_observer_;
-  std::unique_ptr<ThemeObserver> theme_observer_;
   bool adjust_if_offscreen_ = true;
   bool focus_traversable_from_anchor_view_ = true;
   ViewTracker highlighted_button_tracker_;
@@ -667,19 +657,8 @@ class VIEWS_EXPORT BubbleDialogDelegate : public DialogDelegate {
   // Pointer to this bubble's ClientView.
   raw_ptr<ClientView> client_view_ = nullptr;
 
-  // A BubbleFrameView will apply a masking path to its ClientView to ensure
-  // contents are appropriately clipped to the frame's rounded corners. If the
-  // bubble uses layers in its views hierarchy, these will not be clipped to
-  // the client mask unless the ClientView is backed by a textured ui::Layer.
-  // This flag tracks whether or not to to create a layer backed ClientView.
-  //
-  // TODO(tluk): Fix all cases where bubble transparency is used and have bubble
-  // ClientViews always paint to a layer.
-  // TODO(tluk): Flip this to true for all bubbles.
-  bool paint_client_to_layer_ = false;
-
   // If true, contents view will be forced to create a solid color background in
-  // UpdateColorsFromTheme().
+  // `UpdateFrameColor()`.
   bool force_create_contents_background_ = false;
 
 #if BUILDFLAG(IS_MAC)
@@ -897,9 +876,8 @@ class VIEWS_EXPORT BubbleDialogDelegateView : public View,
   friend class TouchSelectionMenuViews;
   FRIEND_TEST_ALL_PREFIXES(BubbleDialogDelegateViewInteractiveTest,
                            BubbleAndParentNotActiveSimultaneously);
-  FRIEND_TEST_ALL_PREFIXES(BubbleDialogDelegateViewTest, WithClientLayerTest);
   FRIEND_TEST_ALL_PREFIXES(BubbleDialogDelegateViewTest,
-                           WithoutClientLayerTest);
+                           ClientViewIsPaintedToLayer);
   FRIEND_TEST_ALL_PREFIXES(WidgetFocusObserverTest, Bubble);
   friend class examples::DialogExampleDelegate<BubbleDialogDelegateView>;
   friend class examples::ExampleBubble;

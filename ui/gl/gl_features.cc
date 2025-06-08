@@ -65,7 +65,7 @@ const base::FeatureParam<std::string>
     kPassthroughCommandDecoderBlockListByGPUVendorId{
         &kDefaultPassthroughCommandDecoder, "BlockListByGPUVendorId", ""};
 
-bool IsDeviceBlocked(const char* field, const std::string& block_list) {
+bool IsDeviceBlocked(const std::string& field, const std::string& block_list) {
   auto disable_patterns = base::SplitString(
       block_list, "|", base::TRIM_WHITESPACE, base::SPLIT_WANT_ALL);
   for (const auto& disable_pattern : disable_patterns) {
@@ -168,11 +168,11 @@ bool UseGpuVsync() {
 
 bool IsAndroidFrameDeadlineEnabled() {
 #if BUILDFLAG(IS_ANDROID)
-  static bool enabled =
-      base::android::BuildInfo::GetInstance()->is_at_least_t() &&
-      gfx::AChoreographerCompat33::Get().supported &&
-      gfx::SurfaceControl::SupportsSetFrameTimeline() &&
-      gfx::SurfaceControl::SupportsSetEnableBackPressure();
+  static bool enabled = base::android::BuildInfo::GetInstance()->sdk_int() >=
+                            base::android::SDK_VERSION_T &&
+                        gfx::AChoreographerCompat33::Get().supported &&
+                        gfx::SurfaceControl::SupportsSetFrameTimeline() &&
+                        gfx::SurfaceControl::SupportsSetEnableBackPressure();
   return enabled;
 #else
   return false;

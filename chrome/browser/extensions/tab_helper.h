@@ -14,9 +14,7 @@
 #include "base/memory/raw_ptr.h"
 #include "third_party/blink/public/mojom/page/draggable_region.mojom-forward.h"
 
-#include "base/memory/weak_ptr.h"
 #include "base/scoped_observation.h"
-#include "chrome/browser/extensions/permissions/active_tab_permission_granter.h"
 #include "chrome/common/extensions/webstore_install_result.h"
 #include "content/public/browser/web_contents_observer.h"
 #include "content/public/browser/web_contents_user_data.h"
@@ -34,15 +32,11 @@ namespace content {
 class RenderFrameHost;
 }
 
-namespace gfx {
-class Image;
-}
-
 namespace extensions {
 class ExtensionActionRunner;
 class Extension;
 
-// Per-tab extension helper. Also handles non-extension apps.
+// Per-tab extension helper.
 class TabHelper : public content::WebContentsObserver,
                   public ExtensionFunctionDispatcher::Delegate,
                   public ExtensionRegistryObserver,
@@ -54,34 +48,6 @@ class TabHelper : public content::WebContentsObserver,
   ~TabHelper() override;
 
   void UpdateDraggableRegions(const std::vector<blink::mojom::DraggableRegionPtr>& regions);
-
-  // Sets the extension denoting this as an app. If |extension| is non-null this
-  // tab becomes an app-tab. WebContents does not listen for unload events for
-  // the extension. It's up to consumers of WebContents to do that.
-  //
-  // NOTE: this should only be manipulated before the tab is added to a browser.
-  // TODO(sky): resolve if this is the right way to identify an app tab. If it
-  // is, then this should be passed in the constructor.
-  void SetExtensionApp(const Extension* extension);
-
-  // Convenience for setting the app extension by id. This does nothing if
-  // |extension_app_id| is empty, or an extension can't be found given the
-  // specified id.
-  void SetExtensionAppById(const ExtensionId& extension_app_id);
-
-  // Returns true if an app extension has been set.
-  bool is_app() const { return extension_app_ != nullptr; }
-
-  // Return ExtensionId for extension app.
-  // If an app extension has not been set, returns empty id.
-  ExtensionId GetExtensionAppId() const;
-
-  // If an app extension has been explicitly set for this WebContents its icon
-  // is returned.
-  //
-  // NOTE: the returned icon is larger than 16x16 (its size is
-  // extension_misc::EXTENSION_ICON_SMALLISH).
-  SkBitmap* GetExtensionAppIcon();
 
   // Sets whether the tab will require a page reload for applying
   // `site_setting`.
@@ -97,10 +63,6 @@ class TabHelper : public content::WebContentsObserver,
 
   ExtensionActionRunner* extension_action_runner() {
     return extension_action_runner_.get();
-  }
-
-  ActiveTabPermissionGranter* active_tab_permission_granter() {
-    return active_tab_permission_granter_.get();
   }
 
   void OnWatchedPageChanged(const std::vector<std::string>& css_selectors);
@@ -136,28 +98,10 @@ class TabHelper : public content::WebContentsObserver,
                            const Extension* extension,
                            UnloadedExtensionReason reason) override;
 
-  // App extensions related methods:
-
-  // Resets app_icon_ and if |extension| is non-null uses ImageLoader to load
-  // the extension's image asynchronously.
-  void UpdateExtensionAppIcon(const Extension* extension);
-
-  const Extension* GetExtension(const ExtensionId& extension_app_id);
-
-  void OnImageLoaded(const gfx::Image& image);
-
-  // Sends our tab ID to |render_frame_host|.
+  // Sends our tab ID to `render_frame_host`.
   void SetTabId(content::RenderFrameHost* render_frame_host);
 
   raw_ptr<Profile> profile_;
-
-  // If non-null this tab is an app tab and this is the extension the tab was
-  // created for.
-  raw_ptr<const Extension> extension_app_;
-
-  // Icon for extension_app_ (if non-null) or a manually-set icon for
-  // non-extension apps.
-  SkBitmap extension_app_icon_;
 
   std::unique_ptr<ScriptExecutor> script_executor_;
 
@@ -165,22 +109,11 @@ class TabHelper : public content::WebContentsObserver,
 
   declarative_net_request::WebContentsHelper declarative_net_request_helper_;
 
-  std::unique_ptr<ActiveTabPermissionGranter> active_tab_permission_granter_;
-
   // Whether the tab needs a page reload to apply the user site settings.
   bool reload_required_ = false;
 
-  // Extensions that have dismissed site access requests for this tab's origin.
-  std::set<ExtensionId> dismissed_extensions_;
-
   base::ScopedObservation<ExtensionRegistry, ExtensionRegistryObserver>
       registry_observation_{this};
-
-  // Vend weak pointers that can be invalidated to stop in-progress loads.
-  base::WeakPtrFactory<TabHelper> image_loader_ptr_factory_{this};
-
-  // Generic weak ptr factory for posting callbacks.
-  base::WeakPtrFactory<TabHelper> weak_ptr_factory_{this};
 
   WEB_CONTENTS_USER_DATA_KEY_DECL();
 };

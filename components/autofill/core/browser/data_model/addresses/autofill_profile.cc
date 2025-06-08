@@ -561,7 +561,7 @@ int AutofillProfile::Compare(const AutofillProfile& profile) const {
 
   // When adding field types, ensure that they don't need to be added here and
   // update the last checked value.
-  static_assert(FieldType::MAX_VALID_FIELD_TYPE == 187,
+  static_assert(FieldType::MAX_VALID_FIELD_TYPE == 190,
                 "New field type needs to be reviewed for inclusion in the "
                 "profile comparison logic.");
 
@@ -1251,14 +1251,6 @@ AutofillProfile AutofillProfile::ConvertToAccountProfile() const {
   // Initial creator and last modifier are unused for kLocalOrSyncable profiles.
   account_profile.initial_creator_id_ = kInitialCreatorOrModifierChrome;
   account_profile.last_modifier_id_ = kInitialCreatorOrModifierChrome;
-  return account_profile;
-}
-
-AutofillProfile AutofillProfile::DowngradeToAccountProfile() const {
-  CHECK(record_type() == RecordType::kAccountHome ||
-        record_type() == RecordType::kAccountWork);
-  AutofillProfile account_profile = *this;
-  account_profile.record_type_ = RecordType::kAccount;
   return account_profile;
 }
 

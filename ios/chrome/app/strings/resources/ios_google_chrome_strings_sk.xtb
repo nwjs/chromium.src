@@ -47,6 +47,7 @@
 <translation id="1917964099031477364">Tento účet bude spolu so všetkými neuloženými údajmi odstránený z Chromu a ďalších aplikácií Google v tomto zariadení.</translation>
 <translation id="1919130412786645364">Povoliť prihlásenie do Chromu</translation>
 <translation id="1965935827552890526">V ďalšom otvorenom okne Chromu dokončite, čo ste robili</translation>
+<translation id="1966638102563776885">Tip pre Chrome: Získajte svoje heslá v ľubovoľnej aplikácii</translation>
 <translation id="1973910962341002002">V nastaveniach v sekcii <ph name="TEXT_OF_THE_SETTINGS_MENU_ITEM" /> zapnite Chrome</translation>
 <translation id="1984705450038014246">Synchronizovať údaje Chromu</translation>
 <translation id="1987779152850321833">Vykonajte tieto navrhované akcie nižšie a budete môcť Chrome využívať naplno.</translation>
@@ -114,7 +115,6 @@ Pred odhlásením skúste počkať niekoľko minút. Ak sa odhlásite teraz, tie
 <translation id="3655656110921623717">Znamená to, že Chrome bude zakaždým žiadať o mobilný web.</translation>
 <translation id="3740397331642243698">Otvorí zadané webové adresy v prehliadači Google Chrome v režime inkognito.</translation>
 <translation id="3741995255368156336">Otvorí čitateľský zoznam v Chrome.</translation>
-<translation id="3808570423967020928">Získavajte prístup k Chromu rýchlejšie z Docku na ploche.</translation>
 <translation id="3827545470516145620">V tomto zariadení máte štandardnú bezpečnostnú ochranu</translation>
 <translation id="384394811301901750">Google Chrome momentálne nemôže použiť váš fotoaparát</translation>
 <translation id="3863841106411295595">Pridá vložené webové adresy do vášho čitateľského zoznamu v Chrome.</translation>
@@ -138,6 +138,7 @@ Pred odhlásením skúste počkať niekoľko minút. Ak sa odhlásite teraz, tie
 <translation id="4724297637870447613">Používajte Chrome kdekoľvek</translation>
 <translation id="4738647308035481133">Stránka prehliadača Google Chrome</translation>
 <translation id="4742795653798179840">Dáta Chromu boli odstránené</translation>
+<translation id="4749294594657945639">Ak chcete ľahko získať svoje uložené heslá v iných aplikáciách, vyberte automatické dopĺňanie v Chrome.</translation>
 <translation id="4761869838909035636">Spustiť kontrolu bezpečnosti Chromu</translation>
 <translation id="4798859546468762093">Ak chcete mať k dispozícii prispôsobenie a ďalšie funkcie, zahrňte Chrome do funkcií <ph name="FEATURE_NAME_1" /> a <ph name="FEATURE_NAME_2" /></translation>
 <translation id="4819268619367838612">Chrome odosiela údaje o používaní a pádoch Googlu, čím pomáha so svojím zlepšovaním. <ph name="BEGIN_LINK" />Spravovať<ph name="END_LINK" /></translation>
@@ -233,7 +234,6 @@ Ak chcete toto nastavenie zmeniť, <ph name="BEGIN_LINK" />odstráňte údaje Ch
 <translation id="6975725306479268850">Ak chcete využívať automatické dopĺňanie, vyberte si Chrome</translation>
 <translation id="7056826488869329999">Otvorí a spustí kontrolu bezpečnosti v Chrome.</translation>
 <translation id="7061455974939528301">Pridržte ikonu Chromu a kliknite na Úprava plochy</translation>
-<translation id="7065813315247345131">Presuňte Chrome do ponuky aplikácií</translation>
 <translation id="7124339256045485976">Udržuje Chrome aktuálny</translation>
 <translation id="7145599899567697473">Ukladajte a automaticky dopĺňajte heslá v Chrome</translation>
 <translation id="7161390184744336561">Prehliadač Google Chrome je zastaraný.</translation>
@@ -317,10 +317,10 @@ Vaše údaje boli zašifrované pomocou prístupovej frázy <ph name="TIME" />. 
 <translation id="8603022514504485810">Správcovi hesiel Google sa nepodarilo skontrolovať všetky heslá. Skúste to znova zajtra alebo <ph name="BEGIN_LINK" />skontrolujte heslá vo svojom účte Google.<ph name="END_LINK" /></translation>
 <translation id="8630122478628016441">Zapnite Uzamknúť karty inkognito pri zavretí Chromu.</translation>
 <translation id="8673726683583791503">Nakupujte pomocou funkcie Google Lens</translation>
-<translation id="8727043961453758442">Využivajte Chrome naplno</translation>
 <translation id="8765470054473112089">Keď zadávate v paneli s adresou alebo vyhľadávacom poli, Chrome odosiela zadaný text do vášho predvoleného vyhľadávača, aby dostal lepšie návrhy. Táto možnosť je v režime inkognito vypnutá.</translation>
 <translation id="8772179140489533211">Zobrazí výzvy na prihlásenie do Chromu.</translation>
 <translation id="8788269841521769222">Toto heslo si nebudete musieť pamätať. Uloží sa do správcu hesiel Google v účte <ph name="EMAIL" />.</translation>
+<translation id="8796490717897731471"><ph name="EMAIL" />. Chrome je spravovaný.</translation>
 <translation id="880967149107462122">Prejdite do nastavení Chromu</translation>
 <translation id="8842132678697187091">Tu môžete otvoriť Google Lens.</translation>
 <translation id="8850736900032787670">Ak chcete dostávať prispôsobený obsah na základe záujmov, prihláste sa do Chromu.</translation>

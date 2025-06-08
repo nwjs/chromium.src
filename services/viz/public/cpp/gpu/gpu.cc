@@ -353,10 +353,6 @@ scoped_refptr<gpu::GpuChannelHost> Gpu::EstablishGpuChannelSync() {
   return gpu_channel_;
 }
 
-gpu::GpuMemoryBufferManager* Gpu::GetGpuMemoryBufferManager() {
-  NOTREACHED();
-}
-
 void Gpu::LoseChannel() {
   DCHECK(main_task_runner_->BelongsToCurrentThread());
   if (gpu_channel_) {
@@ -402,8 +398,9 @@ void Gpu::OnEstablishedGpuChannel() {
 
   std::vector<gpu::GpuChannelEstablishedCallback> callbacks;
   callbacks.swap(establish_callbacks_);
-  for (auto&& callback : std::move(callbacks))
+  for (auto& callback : callbacks) {
     std::move(callback).Run(gpu_channel_);
+  }
 }
 
 }  // namespace viz

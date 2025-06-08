@@ -5,6 +5,7 @@
 #include "third_party/blink/renderer/core/annotation/annotation_agent_impl.h"
 
 #include "base/memory/scoped_refptr.h"
+#include "base/metrics/histogram_functions.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/trace_event/typed_macros.h"
 #include "cc/base/features.h"
@@ -21,15 +22,18 @@
 #include "third_party/blink/renderer/core/editing/ephemeral_range.h"
 #include "third_party/blink/renderer/core/editing/markers/document_marker_controller.h"
 #include "third_party/blink/renderer/core/editing/markers/text_fragment_marker.h"
+#include "third_party/blink/renderer/core/editing/position_with_affinity.h"
 #include "third_party/blink/renderer/core/editing/range_in_flat_tree.h"
 #include "third_party/blink/renderer/core/editing/visible_units.h"
 #include "third_party/blink/renderer/core/execution_context/execution_context.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
+#include "third_party/blink/renderer/core/frame/settings.h"
 #include "third_party/blink/renderer/core/frame/web_feature.h"
 #include "third_party/blink/renderer/core/highlight/highlight_style_utils.h"
 #include "third_party/blink/renderer/core/html/html_details_element.h"
 #include "third_party/blink/renderer/core/layout/geometry/box_strut.h"
 #include "third_party/blink/renderer/core/layout/geometry/physical_rect.h"
+#include "third_party/blink/renderer/core/layout/hit_test_result.h"
 #include "third_party/blink/renderer/core/layout/layout_object.h"
 #include "third_party/blink/renderer/core/layout/layout_text.h"
 #include "third_party/blink/renderer/core/layout/layout_view.h"
@@ -184,9 +188,44 @@ std::optional<DocumentMarker::MarkerTypes> GetMarkerTypesForAnnotationType(
   }
 }
 
-bool AlmostEqual(const ScrollOffset& a, const ScrollOffset& b) {
-  float length = (a - b).Length();
-  return length <= 1.f;
+bool HasMarkerAroundPosition(const HitTestResult& result,
+                             DocumentMarker::MarkerType marker_type) {
+  // Tree should be clean before accessing the position.
+  // |HitTestResult::GetPosition| calls |PositionForPoint()| which requires
+  // |kPrePaintClean|.
+  DCHECK_GE(result.InnerNodeFrame()->GetDocument()->Lifecycle().GetState(),
+            DocumentLifecycle::kPrePaintClean);
+
+  DocumentMarkerController& marker_controller =
+      result.InnerNodeFrame()->GetDocument()->Markers();
+  PositionWithAffinity pos_with_affinity = result.GetPosition();
+  const Position marker_position = pos_with_affinity.GetPosition();
+
+  auto markers = marker_controller.MarkersAroundPosition(
+      ToPositionInFlatTree(marker_position),
+      DocumentMarker::MarkerTypes(marker_type));
+  return !markers.empty();
+}
+
+float CalculateMaxScrollOffsetPx(
+    LocalFrameView* view,
+    const PhysicalRect& bounding_box,
+    const mojom::blink::ScrollIntoViewParams& params) {
+  CHECK(view);
+  CHECK(view->GetScrollableArea());
+  ScrollOffset scroll_offset_px =
+      scroll_into_view_util::GetScrollOffsetToExpose(
+          *view->GetScrollableArea(), bounding_box, PhysicalBoxStrut(),
+          *params.align_x, *params.align_y);
+  // Removes any potential negative offset from the
+  // `ScrollAlignment::CenterAlways()`.
+  scroll_offset_px =
+      view->GetScrollableArea()->ClampScrollOffset(scroll_offset_px);
+  ScrollOffset scroll_distance_px =
+      scroll_offset_px - view->GetScrollableArea()->GetScrollOffset();
+
+  return std::max(std::abs(scroll_distance_px.x()),
+                  std::abs(scroll_distance_px.y()));
 }
 
 }  // namespace
@@ -381,16 +420,9 @@ void AnnotationAgentImpl::ScrollIntoView(bool applies_focus) const {
   document.SetSequentialFocusNavigationStartingPoint(&first_node);
 
   if (type_ == mojom::blink::AnnotationType::kGlic) {
-    auto* scrollable_area =
-        first_node.GetLayoutObject()->GetFrameView()->GetScrollableArea();
-    CHECK(scrollable_area);
-    ScrollOffset scroll_offset = scroll_into_view_util::GetScrollOffsetToExpose(
-        *scrollable_area, bounding_box, PhysicalBoxStrut(), *params->align_x,
-        *params->align_y);
-    // Removes any negative offset from the `ScrollAlignment::CenterAlways()`.
-    scroll_offset = scrollable_area->ClampScrollOffset(scroll_offset);
-    ScrollOffset current_scroll_offset = scrollable_area->GetScrollOffset();
-    if (AlmostEqual(scroll_offset, current_scroll_offset)) {
+    float max_distance_px = CalculateMaxScrollOffsetPx(
+        first_node.GetLayoutObject()->GetFrameView(), bounding_box, *params);
+    if (max_distance_px <= 1.f) {
       document.Markers().StartGlicMarkerAnimationIfNeeded();
     } else {
       // Scroll is guaranteed to happen. `ScrollableArea::OnScrollFinished()`
@@ -406,6 +438,26 @@ void AnnotationAgentImpl::ScrollIntoView(bool applies_focus) const {
 
   scroll_into_view_util::ScrollRectToVisible(*first_node.GetLayoutObject(),
                                              bounding_box, std::move(params));
+}
+
+std::optional<mojom::blink::AnnotationType>
+AnnotationAgentImpl::IsOverAnnotation(const HitTestResult& result) {
+  if (!result.InnerNode() || !result.InnerNodeFrame()) {
+    return std::nullopt;
+  }
+
+  if (HasMarkerAroundPosition(result, DocumentMarker::MarkerType::kGlic)) {
+    // Note: We could also have a marker of type kTextFragment around the
+    // position as well, but we treat kGlic as topmost.
+    return mojom::blink::AnnotationType::kGlic;
+  }
+
+  if (HasMarkerAroundPosition(result,
+                              DocumentMarker::MarkerType::kTextFragment)) {
+    return mojom::blink::AnnotationType::kSharedHighlight;
+  }
+
+  return std::nullopt;
 }
 
 void AnnotationAgentImpl::DidFinishFindRange(const RangeInFlatTree* range) {
@@ -584,6 +636,14 @@ mojom::blink::ScrollBehavior AnnotationAgentImpl::ComputeScrollIntoViewBehavior(
     const mojom::blink::ScrollIntoViewParams& params) const {
   using mojom::blink::AnnotationType;
   using mojom::blink::ScrollBehavior;
+
+  CHECK(owning_container_->GetSupplementable());
+  Document* document = owning_container_->GetSupplementable();
+  if (document->GetSettings() &&
+      document->GetSettings()->GetPrefersReducedMotion()) {
+    return ScrollBehavior::kInstant;
+  }
+
   switch (type_) {
     case AnnotationType::kSharedHighlight:
     case AnnotationType::kTextFinder:
@@ -591,16 +651,9 @@ mojom::blink::ScrollBehavior AnnotationAgentImpl::ComputeScrollIntoViewBehavior(
       return ScrollBehavior::kAuto;
     case AnnotationType::kGlic:
       // Use kInstant for long scroll distances, kSmooth otherwise.
-      if (LocalFrameView* view =
-              owning_container_->GetSupplementable()->GetFrame()->View()) {
-        ScrollOffset scroll_offset =
-            scroll_into_view_util::GetScrollOffsetToExpose(
-                *view->GetScrollableArea(), bounding_box, PhysicalBoxStrut(),
-                *params.align_x, *params.align_y);
-        gfx::Vector2dF scroll_distance =
-            scroll_offset - view->GetScrollableArea()->GetScrollOffset();
-        float max_distance_in_dips = std::max(std::abs(scroll_distance.x()),
-                                              std::abs(scroll_distance.y()));
+      if (LocalFrameView* view = document->GetFrame()->View()) {
+        float max_distance_in_dips =
+            CalculateMaxScrollOffsetPx(view, bounding_box, params);
         if (ChromeClient* client = view->GetChromeClient()) {
           // Note: We explicitly don't use `LocalFrame::DevicePixelRatio` or
           // `LocalFrame::LayoutZoomFactor` as both are affected by browser
@@ -610,6 +663,8 @@ mojom::blink::ScrollBehavior AnnotationAgentImpl::ComputeScrollIntoViewBehavior(
               client->GetScreenInfo(view->GetFrame()).device_scale_factor;
           max_distance_in_dips = max_distance_in_dips / device_scale_factor;
         }
+        base::UmaHistogramCustomCounts("Glic.ScrollTo.ScrollDistance",
+                                       max_distance_in_dips, 1, 500000, 50);
         if (max_distance_in_dips < GetGlicSmoothScrollThresholdInDIPs()) {
           return ScrollBehavior::kSmooth;
         }

@@ -38,6 +38,12 @@ import org.chromium.ui.util.ColorUtils;
 /** Tests for {@link StripLayoutTab}. */
 @RunWith(BaseRobolectricTestRunner.class)
 @Config(manifest = Config.NONE, qualifiers = "sw600dp")
+// TODO(crbug.com/419289558): Re-enable color surface feature flags
+@Features.DisableFeatures({
+    ChromeFeatureList.ANDROID_SURFACE_COLOR_UPDATE,
+    ChromeFeatureList.GRID_TAB_SWITCHER_SURFACE_COLOR_UPDATE,
+    ChromeFeatureList.GRID_TAB_SWITCHER_UPDATE
+})
 public class StripLayoutTabTest {
 
     private static final String TAG = "StripLayoutTabTest";
@@ -250,17 +256,18 @@ public class StripLayoutTabTest {
         int folioFootLengthPx =
                 Math.round(
                         mContext.getResources().getDisplayMetrics().density * FOLIO_FOOT_LENGTH_DP);
-        int width = folioFootLengthPx + 20; // Should be larger than folioFootLengthPx
+        int widthWithoutFolio = 20;
+        int width = folioFootLengthPx + widthWithoutFolio; // Should be > than folioFootLengthPx
         int height = 10; // Arbitrary
         mNormalTab.setWidth(width);
         mNormalTab.setHeight(10);
 
         Rect rect = new Rect();
         mNormalTab.getAnchorRect(rect);
-        assertEquals(new Rect(folioFootLengthPx, 0, width, height), rect);
+        assertEquals(new Rect(folioFootLengthPx, 0, widthWithoutFolio, height), rect);
     }
 
     private StripLayoutTab createStripLayoutTab(boolean incognito) {
-        return new StripLayoutTab(mContext, 0, null, null, null, incognito);
+        return new StripLayoutTab(mContext, 0, null, null, null, null, incognito);
     }
 }

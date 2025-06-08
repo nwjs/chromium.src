@@ -72,6 +72,7 @@ import org.chromium.components.browser_ui.widget.displaystyle.HorizontalDisplayS
 import org.chromium.components.browser_ui.widget.displaystyle.UiConfig;
 import org.chromium.components.browser_ui.widget.displaystyle.UiConfig.DisplayStyle;
 import org.chromium.components.browser_ui.widget.displaystyle.VerticalDisplayStyle;
+import org.chromium.components.omnibox.OmniboxFeatureList;
 import org.chromium.components.prefs.PrefChangeRegistrar;
 import org.chromium.components.prefs.PrefService;
 import org.chromium.components.search_engines.TemplateUrlService;
@@ -378,6 +379,7 @@ public class FeedSurfaceMediatorTest {
     }
 
     @Test
+    @DisableFeatures(OmniboxFeatureList.OMNIBOX_MOBILE_PARITY_UPDATE)
     public void testWithEeaCountryOnlyEnabled() {
         PropertyModel model = SectionHeaderListProperties.create(TOOLBAR_HEIGHT);
         doReturn(false).when(mUrlService).isDefaultSearchEngineGoogle();
@@ -575,6 +577,26 @@ public class FeedSurfaceMediatorTest {
         assertEquals(
                 ViewVisibility.GONE,
                 model.get(SectionHeaderListProperties.INDICATOR_VIEW_VISIBILITY_KEY));
+    }
+
+    @Test
+    public void testshowOrHideFeed_afterDestroy() {
+        PropertyModel model = SectionHeaderListProperties.create(TOOLBAR_HEIGHT);
+        mFeedSurfaceMediator = createMediator(FeedSurfaceCoordinator.StreamTabId.FOR_YOU, model);
+        when(mPrefService.getBoolean(Pref.ENABLE_SNIPPETS)).thenReturn(true);
+        when(mPrefService.getBoolean(Pref.ENABLE_SNIPPETS_BY_DSE)).thenReturn(true);
+
+        mFeedSurfaceMediator.updateContent();
+        when(mFeedServiceBridgeJniMock.isSignedIn()).thenReturn(true);
+        when(mUrlService.isDefaultSearchEngineGoogle()).thenReturn(false);
+        when(mPrefService.getBoolean(Pref.ARTICLES_LIST_VISIBLE)).thenReturn(true);
+        when(mPrefService.getBoolean(Pref.ENABLE_SNIPPETS_BY_DSE)).thenReturn(true);
+
+        mFeedSurfaceMediator.showOrHideFeed();
+
+        // Calling showOrHideFeed after destroy should not cause any crash.
+        mFeedSurfaceMediator.destroy();
+        mFeedSurfaceMediator.showOrHideFeed();
     }
 
     @Test

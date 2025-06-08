@@ -97,7 +97,6 @@ public final class ToolbarTabletUnitTest {
     private ImageButton mReloadingButton;
     private ImageButton mBackButton;
     private ImageButton mForwardButton;
-    private ToggleTabStackButton mTabSwitcherButton;
     private ImageButton mBookmarkButton;
     private ImageButton mSaveOfflineButton;
     private ToolbarProgressBar mProgressBar;
@@ -115,19 +114,15 @@ public final class ToolbarTabletUnitTest {
         LocationBarLayout locationBarLayout = mToolbarTablet.findViewById(R.id.location_bar);
         locationBarLayout.setStatusCoordinatorForTesting(mStatusCoordinator);
         mToolbarTablet.setMenuButtonCoordinatorForTesting(mMenuButtonCoordinator);
-        mToolbarTablet.setTabSwitcherButtonCoordinatorForTesting(mTabSwitcherButtonCoordinator);
         mToolbarTablet.setTabStripTransitionCoordinator(mTabStripTransitionCoordinator);
         mToolbarTablet.setToolbarColorObserver(mToolbarColorObserver);
         mToolbarTablet.setReloadButtonCoordinator(mReloadButtonCoordinator);
         mToolbarTablet.setBackButtonCoordinator(mBackButtonCoordinator);
-        mToolbarTabletLayout =
-                (LinearLayout) mToolbarTablet.findViewById(R.id.toolbar_tablet_layout);
+        mToolbarTabletLayout = mToolbarTablet.findViewById(R.id.toolbar_tablet_layout);
         mHomeButton = mToolbarTablet.findViewById(R.id.home_button);
         mBackButton = mToolbarTablet.findViewById(R.id.back_button);
         mForwardButton = mToolbarTablet.findViewById(R.id.forward_button);
         mReloadingButton = mToolbarTablet.findViewById(R.id.refresh_button);
-        mTabSwitcherButton = mToolbarTablet.findViewById(R.id.tab_switcher_button);
-        when(mTabSwitcherButtonCoordinator.getContainerView()).thenReturn(mTabSwitcherButton);
         mBookmarkButton = mToolbarTablet.findViewById(R.id.bookmark_button);
         mSaveOfflineButton = mToolbarTablet.findViewById(R.id.save_offline_button);
         mProgressBar = new ToolbarProgressBar(mActivity, null);
@@ -410,7 +405,6 @@ public final class ToolbarTabletUnitTest {
                         /* buttonVariant= */ AdaptiveToolbarButtonVariant.READER_MODE,
                         0,
                         0,
-                        false,
                         /* hasErrorBadge= */ false);
         buttonData.setButtonSpec(buttonSpec);
         mToolbarTablet.updateOptionalButton(buttonData);
@@ -429,7 +423,6 @@ public final class ToolbarTabletUnitTest {
                         /* buttonVariant= */ AdaptiveToolbarButtonVariant.SHARE,
                         0,
                         R.string.adaptive_toolbar_button_preference_share,
-                        true,
                         /* hasErrorBadge= */ false);
         buttonData.setButtonSpec(buttonSpec);
         mToolbarTablet.updateOptionalButton(buttonData);
@@ -451,7 +444,6 @@ public final class ToolbarTabletUnitTest {
                         /* buttonVariant= */ AdaptiveToolbarButtonVariant.VOICE,
                         0,
                         R.string.adaptive_toolbar_button_preference_voice_search,
-                        true,
                         /* hasErrorBadge= */ false);
         buttonData.setButtonSpec(buttonSpec);
         mToolbarTablet.updateOptionalButton(buttonData);
@@ -473,7 +465,6 @@ public final class ToolbarTabletUnitTest {
                         /* buttonVariant= */ AdaptiveToolbarButtonVariant.NEW_TAB,
                         0,
                         R.string.new_tab_title,
-                        true,
                         /* hasErrorBadge= */ false);
         buttonData.setButtonSpec(buttonSpec);
         mToolbarTablet.updateOptionalButton(buttonData);
@@ -501,7 +492,6 @@ public final class ToolbarTabletUnitTest {
                         /* buttonVariant= */ AdaptiveToolbarButtonVariant.READER_MODE,
                         0,
                         0,
-                        false,
                         /* hasErrorBadge= */ false);
         buttonData.setButtonSpec(buttonSpec);
         mToolbarTablet.updateOptionalButton(buttonData);
@@ -530,7 +520,6 @@ public final class ToolbarTabletUnitTest {
                         /* buttonVariant= */ AdaptiveToolbarButtonVariant.SHARE,
                         0,
                         0,
-                        false,
                         /* hasErrorBadge= */ true);
         buttonData.setButtonSpec(buttonSpec);
         mToolbarTablet.updateOptionalButton(buttonData);
@@ -674,7 +663,6 @@ public final class ToolbarTabletUnitTest {
                         /* buttonVariant= */ AdaptiveToolbarButtonVariant.NEW_TAB,
                         0,
                         R.string.adaptive_toolbar_button_preference_new_tab,
-                        true,
                         /* hasErrorBadge= */ false);
         buttonData.setButtonSpec(buttonSpec);
         mToolbarTablet.updateOptionalButton(buttonData);
@@ -687,10 +675,6 @@ public final class ToolbarTabletUnitTest {
 
         // Verify the icon tints for the unfocused activity.
         verifyToolbarIconTints(tint, unfocusedTint);
-        Assert.assertEquals(
-                "Tab switcher button tint is incorrect.",
-                unfocusedTint.getDefaultColor(),
-                mTabSwitcherButton.getImageTintList().getDefaultColor());
     }
 
     private void verifyToolbarIconTints(ColorStateList tint, ColorStateList activityFocusTint) {

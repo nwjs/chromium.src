@@ -31,4 +31,25 @@ TEST(StrCatTest, MixedBits) {
   EXPECT_FALSE(result.Is8Bit());
 }
 
+TEST(StrCatTest, MixedBitsResulting8it) {
+  const String src16(u"a");
+  ASSERT_FALSE(src16.Is8Bit());
+  String result = StrCat({"foo \"", src16, "\" bar."});
+  EXPECT_EQ("foo \"a\" bar.", result);
+  EXPECT_TRUE(result.Is8Bit());
+}
+
+TEST(StrCatTest, StringSelfSubstitution) {
+  String foo("abc");
+  StringView view(" after");
+
+  // We had an issue that the following code caused a DCHECK failure in
+  // ~StringView() because a StringView created for `foo` outlives the
+  // initial StringImpl of `foo`.
+  foo = StrCat({"before ", foo, view});
+
+  EXPECT_EQ("before abc after", foo);
+  EXPECT_EQ(" after", view);
+}
+
 }  // namespace WTF

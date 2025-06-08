@@ -31,9 +31,6 @@ void SearchPreloadPipeline::UpdateConfidence(content::WebContents& web_contents,
 
   auto* preloading_data =
       content::PreloadingData::GetOrCreateForWebContents(&web_contents);
-  // TODO(crbug.com/409506954): Avoid calling it multiple times. (Inherited from
-  // SearchPrefetch.)
-  SetIsNavigationInDomainCallback(preloading_data);
 
   // Safety: The ownership of this callback will be passed to
   // `PreloadingDataImpl`, which has lifetime bounded by `web_contents`. So,
@@ -55,20 +52,23 @@ net::HttpNoVarySearchData CreateNoVarySearchHint() {
       /*vary_on_key_order=*/true);
 }
 
-void SearchPreloadPipeline::StartPrefetch(
+bool SearchPreloadPipeline::StartPrefetch(
     content::WebContents& web_contents,
     const GURL& prefetch_url,
     content::PreloadingPredictor predictor) {
-  // Don't trigger prefetch if already triggered.
+  // Don't trigger prefetch if already triggered and is alive.
+  //
+  // TODO(crbug.com/394213503): Reconsider the behavior when prefetch is already
+  // triggered but not alive. Currently, the main reason that a triggered
+  // prefetch fails for DSE (embedder trigger, no TTL) is the failure of the
+  // load of the prefetch. (There should be no other timeouts nor expiration.)
+  // In general, retriggering may be useful.
   if (prefetch_handle_) {
-    return;
+    return false;
   }
 
   auto* preloading_data =
       content::PreloadingData::GetOrCreateForWebContents(&web_contents);
-  // TODO(crbug.com/409506954): Avoid calling it multiple times. (Inherited from
-  // SearchPrefetch.)
-  SetIsNavigationInDomainCallback(preloading_data);
 
   // Safety: The ownership of this callback will be passed to
   // `PreloadingDataImpl`, which has lifetime bounded by `web_contents`. So,
@@ -93,6 +93,8 @@ void SearchPreloadPipeline::StartPrefetch(
       /*referring_origin=*/std::nullopt, std::move(no_vary_search_hint),
       pipeline_info_, attempt->GetWeakPtr(),
       /*holdback_status_override=*/std::nullopt);
+
+  return true;
 }
 
 void SearchPreloadPipeline::StartPrerender(
@@ -111,9 +113,6 @@ void SearchPreloadPipeline::StartPrerender(
 
   auto* preloading_data =
       content::PreloadingData::GetOrCreateForWebContents(&web_contents);
-  // TODO(crbug.com/409506954): Avoid calling it multiple times. (Inherited from
-  // SearchPrefetch.)
-  SetIsNavigationInDomainCallback(preloading_data);
 
   // Safety: The ownership of this callback will be passed to
   // `PreloadingDataImpl`, which has lifetime bounded by `web_contents`. So,

@@ -9,6 +9,7 @@
 #include "base/memory/scoped_refptr.h"
 #include "components/content_settings/core/browser/host_content_settings_map.h"
 #include "components/content_settings/core/common/content_settings_types.h"
+#include "components/content_settings/core/common/cookie_controls_state.h"
 #include "components/keyed_service/core/keyed_service.h"
 #include "components/policy/core/common/management/management_service.h"
 #include "components/privacy_sandbox/tracking_protection_prefs.h"
@@ -19,6 +20,11 @@ class PrefService;
 namespace privacy_sandbox {
 
 class TrackingProtectionSettingsObserver;
+
+inline bool IsTrackingProtectionsUi(CookieControlsState controls_state) {
+  return controls_state == CookieControlsState::kActiveTp ||
+         controls_state == CookieControlsState::kPausedTp;
+}
 
 // A service which provides an interface for observing and reading tracking
 // protection settings.
@@ -71,8 +77,12 @@ class TrackingProtectionSettings : public KeyedService {
       const GURL& first_party_url,
       content_settings::SettingInfo* info = nullptr) const;
 
-  // Returns whether IP protection is managed.
-  bool IsIpProtectionManaged();
+  // Returns whether IP protection is disabled, either because an enterprise
+  // policy has been set that disables the feature or, when the
+  // `kIpPrivacyDisableForEnterpriseByDefault` feature is enabled, because no
+  // policy value has been set via enterprise policy and this is a managed
+  // profile or client.
+  bool IsIpProtectionDisabledForEnterprise();
 
  private:
   void OnEnterpriseControlForPrefsChanged();

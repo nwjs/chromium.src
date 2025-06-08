@@ -18,6 +18,15 @@ BASE_FEATURE(kIPHDemoMode, "IPH_DemoMode", base::FEATURE_DISABLED_BY_DEFAULT);
 // Features used by various clients to show their In-Product Help messages.
 BASE_FEATURE(kIPHDummyFeature, "IPH_Dummy", base::FEATURE_DISABLED_BY_DEFAULT);
 
+// Feature used to add on-device storage for feature engagement.
+BASE_FEATURE(kOnDeviceStorage,
+             "OnDeviceStorage",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+bool IsOnDeviceStorageEnabled() {
+  return base::FeatureList::IsEnabled(kOnDeviceStorage);
+}
+
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_APPLE) || BUILDFLAG(IS_LINUX) || \
     BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_FUCHSIA)
 #if BUILDFLAG(GOOGLE_CHROME_BRANDING)
@@ -74,6 +83,24 @@ BASE_FEATURE(kIPHExtensionsMenuFeature,
 BASE_FEATURE(kIPHExtensionsRequestAccessButtonFeature,
              "IPH_ExtensionsRequestAccessButton",
              base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kIPHExtensionsZeroStatePromoFeature,
+             "IPH_ExtensionsZeroStatePromo",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+const base::FeatureParam<IPHExtensionsZeroStatePromoVariant>::Option
+    kIPHExtensionsZeroStatePromoVariantOptions[] = {
+        {IPHExtensionsZeroStatePromoVariant::kCustomActionIph,
+         "custom-action-iph"},
+        {IPHExtensionsZeroStatePromoVariant::kCustomUiChipIph,
+         "custom-ui-chip-iph"},
+        {IPHExtensionsZeroStatePromoVariant::kCustomUIPlainLinkIph,
+         "custom-ui-plain-link-iph"}};
+BASE_FEATURE_ENUM_PARAM(
+    IPHExtensionsZeroStatePromoVariant,
+    kIPHExtensionsZeroStatePromoVariantParam,
+    &feature_engagement::kIPHExtensionsZeroStatePromoFeature,
+    "x_iph-variant",
+    IPHExtensionsZeroStatePromoVariant::kCustomActionIph,
+    &kIPHExtensionsZeroStatePromoVariantOptions);
 #endif
 BASE_FEATURE(kIPHFocusHelpBubbleScreenReaderPromoFeature,
              "IPH_FocusHelpBubbleScreenReaderPromo",
@@ -221,9 +248,6 @@ BASE_FEATURE(kIPHTabSearchFeature,
 BASE_FEATURE(kIPHTabSearchToolbarButtonFeature,
              "IPH_TabSearchToolbarButton",
              base::FEATURE_DISABLED_BY_DEFAULT);
-BASE_FEATURE(kIPHWebUITabStripFeature,
-             "IPH_WebUITabStrip",
-             base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kIPHDesktopSnoozeFeature,
              "IPH_DesktopSnoozeFeature",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -360,9 +384,12 @@ BASE_FEATURE(kIPHDownloadInfoBarDownloadsAreFasterFeature,
 BASE_FEATURE(kIPHReadAloudAppMenuFeature,
              "IPH_ReadAloudAppMenuFeature",
              base::FEATURE_DISABLED_BY_DEFAULT);
-BASE_FEATURE(kIPHReadAloudExpandedPlayerFeature,
-             "IPH_ReadAloudExpandedPlayerFeature",
-             base::FEATURE_ENABLED_BY_DEFAULT);
+             BASE_FEATURE(kIPHReadAloudExpandedPlayerFeature,
+              "IPH_ReadAloudExpandedPlayerFeature",
+              base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kIPHReadAloudPlaybackModeFeature,
+              "IPH_ReadAloudPlaybackModeFeature",
+              base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kIPHReadLaterContextMenuFeature,
              "IPH_ReadLaterContextMenu",
              base::FEATURE_ENABLED_BY_DEFAULT);
@@ -551,6 +578,9 @@ BASE_FEATURE(kIPHSharingHubWebnotesStylizeFeature,
              base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kIPHRestoreTabsOnFREFeature,
              "IPH_RestoreTabsOnFRE",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kIPHTabSwitcherXR,
+             "IPH_TabSwitcherXR",
              base::FEATURE_ENABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(IS_ANDROID)
 
@@ -742,6 +772,10 @@ BASE_FEATURE(kIPHiOSFeedSwipeAnimatedFeature,
 BASE_FEATURE(kIPHiOSWelcomeBackFeature,
              "IPH_iOSWelcomeBack",
              base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kIPHIOSGLICPromoFeature,
+             "IPH_IOSGLICPromo",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Non-FET feature.
 BASE_FEATURE(kDefaultBrowserEligibilitySlidingWindow,

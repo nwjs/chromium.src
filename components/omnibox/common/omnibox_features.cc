@@ -82,13 +82,6 @@ BASE_FEATURE(kDisambiguateTabMatchingForEntitySuggestions,
              "DisambiguateTabMatchingForEntitySuggestions",
              ENABLED);
 
-// Used to adjust the relevance for the local history zero-prefix suggestions.
-// If enabled, the relevance is determined by this feature's companion
-// parameter, OmniboxFieldTrial::kLocalHistoryZeroSuggestRelevanceScore.
-BASE_FEATURE(kAdjustLocalHistoryZeroSuggestRelevanceScore,
-             "AdjustLocalHistoryZeroSuggestRelevanceScore",
-             DISABLED);
-
 // Enables omnibox focus as a trigger for zero-prefix suggestions on web and
 // SRP, subject to the same requirements and conditions as on-clobber
 // suggestions.
@@ -198,11 +191,11 @@ BASE_FEATURE(kDocumentProviderNoSyncRequirement,
 // domains.
 BASE_FEATURE(kDomainSuggestions, "OmniboxDomainSuggestions", DISABLED);
 
-// If enabled, clipboard suggestion will not show the clipboard content until
-// the user clicks the reveal button.
-BASE_FEATURE(kClipboardSuggestionContentHidden,
-             "ClipboardSuggestionContentHidden",
-             enable_if(IS_ANDROID));
+// If enabled, the omnibox popup is not presented until the mouse button is
+// released.
+BASE_FEATURE(kShowPopupOnMouseReleased,
+             "OmniboxShowPopupOnMouseReleased",
+             DISABLED);
 
 // If enabled, makes Most Visited Tiles a Horizontal render group.
 // Horizontal render group decomposes aggregate suggestions (such as old Most
@@ -350,6 +343,10 @@ BASE_FEATURE(kIpadZeroSuggestMatches,
              "IpadZeroSuggestMatches",
              enable_if(IS_IOS));
 
+// Updates various NTP/Omnibox assets and descriptions for visual alignment on
+// Android and iOS.
+BASE_FEATURE(kOmniboxMobileParityUpdate, "OmniboxMobileParityUpdate", DISABLED);
+
 // The features below allow tuning number of suggestions offered to users in
 // specific contexts. These features are default enabled and are used to control
 // related fieldtrial parameters.
@@ -429,7 +426,8 @@ static jlong JNI_OmniboxFeatureMap_GetNativeMap(JNIEnv* env) {
       &kJumpStartOmnibox,
       &kAndroidHubSearch,
       &kAndroidHubSearchTabGroups,
-      &kPostDelayedTaskFocusTab};
+      &kPostDelayedTaskFocusTab,
+      &kOmniboxMobileParityUpdate};
   static base::NoDestructor<base::android::FeatureMap> kFeatureMap(
       kFeaturesExposedToJava);
   return reinterpret_cast<jlong>(kFeatureMap.get());
@@ -444,5 +442,13 @@ static jlong JNI_OmniboxFeatureMap_GetNativeMap(JNIEnv* env) {
 BASE_FEATURE(kEnableSearchAggregatorPolicy,
              "EnableSearchAggregatorPolicy",
              ENABLED);
+
+// If enabled, site search engines, defined by the `SiteSearchSettings` policy,
+// can be marked as user-overridable by administrators using an
+// `allow_user_override` field. This setting is stored in preferences and
+// determines if the engine can be overridden on the Settings page.
+BASE_FEATURE(kEnableSiteSearchAllowUserOverridePolicy,
+             "EnableSiteSearchAllowUserOverridePolicy",
+             DISABLED);
 
 }  // namespace omnibox

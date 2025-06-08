@@ -41,14 +41,14 @@ class LayerContextImpl : public cc::LayerTreeHostImplClient,
   // Constructs a new LayerContextImpl which submits frames to the local
   // `compositor_sink` with client connection details given by `context`.
   LayerContextImpl(CompositorFrameSinkSupport* compositor_sink,
-                   mojom::PendingLayerContext& context);
+                   mojom::PendingLayerContext& context,
+                   bool draw_mode_is_gpu);
   ~LayerContextImpl() override;
 
   void BeginFrame(const BeginFrameArgs& args);
 
-  void ReturnResources(std::vector<ReturnedResource> resources);
-
-  void DoReturnResources(std::vector<ReturnedResource> resources);
+  // Receive exported resources returned from the frame sink.
+  void ReceiveReturnsFromParent(std::vector<ReturnedResource> resources);
 
  private:
   // cc::LayerTreeHostImplClient:
@@ -77,6 +77,7 @@ class LayerContextImpl : public cc::LayerTreeHostImplClient,
   void SetNeedsImplSideInvalidation(
       bool needs_first_draw_on_activation) override;
   void NotifyImageDecodeRequestFinished(int request_id,
+                                        bool speculative,
                                         bool decode_succeeded) override;
   void NotifyTransitionRequestFinished(
       uint32_t sequence_id,
@@ -117,10 +118,15 @@ class LayerContextImpl : public cc::LayerTreeHostImplClient,
   // mojom::LayerContext:
   void SetVisible(bool visible) override;
   void UpdateDisplayTree(mojom::LayerTreeUpdatePtr update) override;
-  void UpdateDisplayTiling(mojom::TilingPtr tiling) override;
+  void UpdateDisplayTiling(mojom::TilingPtr tiling,
+                           bool update_damage) override;
 
   base::expected<void, std::string> DoUpdateDisplayTree(
       mojom::LayerTreeUpdatePtr update);
+
+  // Return any resources pending in |resources_to_return_| to the LayerContext
+  // client, via the frame sink.
+  void DoReturnResources();
 
   const raw_ptr<CompositorFrameSinkSupport> compositor_sink_;
   const std::unique_ptr<cc::AnimationHost> animation_host_{

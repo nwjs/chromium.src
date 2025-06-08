@@ -151,6 +151,12 @@ export class SearchboxElement extends SearchboxElementBase {
         reflectToAttribute: true,
       },
 
+      enableThumbnailSizingTweaks_: {
+        type: Boolean,
+        value: () => loadTimeData.getBoolean('enableThumbnailSizingTweaks'),
+        reflectToAttribute: true,
+      },
+
       /**
        * Whether user is deleting text in the input. Used to prevent the default
        * match from offering inline autocompletion.
@@ -277,6 +283,7 @@ export class SearchboxElement extends SearchboxElementBase {
   declare showThumbnail: boolean;
   declare private inputAriaLive_: string;
   declare private isLensSearchbox_: boolean;
+  declare private enableThumbnailSizingTweaks_: boolean;
   declare private isDeletingInput_: boolean;
   declare private queryAutocompleteOnEmptyInput_: boolean;
   declare private lastIgnoredEnterEvent_: KeyboardEvent|null;
@@ -424,13 +431,6 @@ export class SearchboxElement extends SearchboxElementBase {
   //============================================================================
   // Event handlers
   //============================================================================
-
-  private onHeaderFocusin_() {
-    // The header got focus. Unselect the selected match and clear the input.
-    assert(this.lastQueriedInput_ === '');
-    this.$.matches.unselect();
-    this.updateInput_({text: '', inline: ''});
-  }
 
   private onInputCutCopy_(e: ClipboardEvent) {
     // Only handle cut/copy when input has content and it's all selected.

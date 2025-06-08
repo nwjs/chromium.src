@@ -92,7 +92,7 @@ public class TabGroupModelFilterImpl implements TabGroupModelFilterInternal, Tab
      * The set of tab group IDs that are currently hiding. This cannot be stored on {@link TabGroup}
      * as for undoable closures that object will already be gone before tab closures are finished.
      */
-    private Set<Token> mHidingTabGroups = new HashSet<>();
+    private final Set<Token> mHidingTabGroups = new HashSet<>();
 
     private int mCurrentGroupIndex = TabList.INVALID_TAB_INDEX;
     private boolean mShouldRecordUma = true;
@@ -746,11 +746,13 @@ public class TabGroupModelFilterImpl implements TabGroupModelFilterInternal, Tab
         return Collections.unmodifiableList(tabs);
     }
 
+    /** Whether {@param tab}'s {@code TabLaunchType} should be part of a group with its parent. */
     private boolean shouldUseParentIds(Tab tab) {
         @TabLaunchType int tabLaunchType = tab.getLaunchType();
         return isTabModelRestored()
                 && !mIsResetting
                 && (tabLaunchType == TabLaunchType.FROM_TAB_GROUP_UI
+                        || tabLaunchType == TabLaunchType.FROM_LONGPRESS_FOREGROUND_IN_GROUP
                         || tabLaunchType == TabLaunchType.FROM_LONGPRESS_BACKGROUND_IN_GROUP
                         || tabLaunchType == TabLaunchType.FROM_COLLABORATION_BACKGROUND_IN_GROUP);
     }

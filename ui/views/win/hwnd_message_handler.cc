@@ -26,6 +26,7 @@
 #include "base/memory/raw_ptr.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/strings/string_util_win.h"
+#include "base/strings/stringprintf.h"
 #include "base/task/current_thread.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/time/time.h"
@@ -1030,17 +1031,6 @@ void HWNDMessageHandler::SetAspectRatio(float aspect_ratio,
 void HWNDMessageHandler::SizeConstraintsChanged() {
   LONG style = GetWindowLong(hwnd(), GWL_STYLE);
 
-  // Ignore if this is not a standard window.
-  if (style & static_cast<LONG>(WS_POPUP | WS_CHILD)) {
-    // Allow Glic to become resizable dynamically.
-    // TODO(404947780): this should be allowed for all widgets. thestig@
-    // suggested to scope the change to glic and and let other widgets to bypass
-    // the restriction on their own schedule.
-    if (debugging_id() != "GlicWidget") {
-      return;
-    }
-  }
-
   // Key style considerations:
   // - WS_THICKFRAME: Enables resizing. Cannot be used with translucent
   //   windows (see CalculateWindowStylesFromInitParams() for details).
@@ -1060,7 +1050,9 @@ void HWNDMessageHandler::SizeConstraintsChanged() {
     }
   };
   set_style_func(WS_THICKFRAME, can_resize);
-  set_style_func(WS_CAPTION, can_resize | had_caption_on_init);
+  set_style_func(WS_CAPTION,
+                 (can_resize | had_caption_on_init) &&
+                     !(style & static_cast<LONG>(WS_POPUP | WS_CHILD)));
   set_style_func(WS_MAXIMIZEBOX, can_maximize);
   set_style_func(WS_MINIMIZEBOX, delegate_->CanMinimize());
 
@@ -1613,7 +1605,8 @@ void HWNDMessageHandler::ClientAreaSizeChanged() {
 
 bool HWNDMessageHandler::GetClientAreaInsets(gfx::Insets* insets,
                                              HMONITOR monitor) const {
-  int frame_thickness = ui::GetFrameThickness(monitor);
+  int frame_thickness = ui::GetFrameThickness(
+      monitor, GetWindowLong(hwnd(), GWL_STYLE) & WS_CAPTION);
   if (delegate_->GetClientAreaInsets(insets, frame_thickness)) {
     return true;
   }

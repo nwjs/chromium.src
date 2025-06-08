@@ -53,8 +53,6 @@ Status CONTENT_EXPORT InternalInconsistencyStatus();
 
 Status InvalidDBKeyStatus();
 
-Status IOErrorStatus();
-
 template <typename Transaction>
 Status PutValue(Transaction* transaction,
                 std::string_view key,
@@ -160,8 +158,7 @@ template <typename DBOrTransaction>
                                    const std::string& encoded_primary_key,
                                    bool* exists);
 
-template <typename Transaction>
-[[nodiscard]] Status GetNewDatabaseId(Transaction* transaction,
+[[nodiscard]] Status GetNewDatabaseId(LevelDBDirectTransaction* transaction,
                                       int64_t* new_id);
 
 [[nodiscard]] bool CheckObjectStoreAndMetaDataType(

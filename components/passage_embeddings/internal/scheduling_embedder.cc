@@ -66,28 +66,13 @@ SchedulingEmbedder::Job::Job(PassagePriority priority,
     : priority(priority),
       task_id(task_id),
       passages(std::move(passages)),
-      callback(std::move(callback)) {
-  // No Job should have an invalid task Id.
-  CHECK_NE(task_id, kInvalidTaskId);
-}
-SchedulingEmbedder::Job::~Job() = default;
-SchedulingEmbedder::Job::Job(Job&&) = default;
-SchedulingEmbedder::Job& SchedulingEmbedder::Job::operator=(Job&&) = default;
+      callback(std::move(callback)) {}
 
-void SchedulingEmbedder::Job::Finish(ComputeEmbeddingsStatus status) {
-  VLOG(2) << "Finished embedding work with status " << static_cast<int>(status)
-          << " for " << passages.size() << " passages starting with `"
-          << passages[0] << "`";
-  if (passages.size() != embeddings.size()) {
-    embeddings.clear();
-  }
-  std::move(callback).Run(std::move(passages), std::move(embeddings), task_id,
-                          status);
-  if (status == ComputeEmbeddingsStatus::kSuccess) {
-    RecordDurationHistograms(priority, timer.Elapsed());
-  }
-  RecordStatusHistograms(priority, status);
-}
+SchedulingEmbedder::Job::~Job() = default;
+
+SchedulingEmbedder::Job::Job(Job&&) = default;
+
+SchedulingEmbedder::Job& SchedulingEmbedder::Job::operator=(Job&&) = default;
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -127,8 +112,7 @@ SchedulingEmbedder::TaskId SchedulingEmbedder::ComputePassagesEmbeddings(
             return sum + job.passages.size() - job.embeddings.size();
           }));
 
-  TaskId task_id = next_task_id_;
-  next_task_id_++;
+  const TaskId task_id = next_task_id_++;
 
   // Zero size jobs are expected, and can be called back immediately
   // instead of waiting in line for nothing.
@@ -142,7 +126,7 @@ SchedulingEmbedder::TaskId SchedulingEmbedder::ComputePassagesEmbeddings(
   // Limit the number of jobs accepted to avoid high memory use when
   // waiting a long time to process the queue.
   while (jobs_.size() >= max_jobs_ && !jobs_.back().in_progress) {
-    jobs_.back().Finish(ComputeEmbeddingsStatus::kCanceled);
+    FinishJob(std::move(jobs_.back()), ComputeEmbeddingsStatus::kCanceled);
     jobs_.pop_back();
   }
 
@@ -247,9 +231,6 @@ void SchedulingEmbedder::ReprioritizeTasks(PassagePriority priority,
 }
 
 bool SchedulingEmbedder::TryCancel(TaskId task_id) {
-  // No Job should have an invalid task Id.
-  CHECK_NE(task_id, kInvalidTaskId);
-
   for (auto itr = jobs_.begin(); itr < jobs_.end(); itr++) {
     Job& job = *itr;
     if (task_id == job.task_id && !job.in_progress) {
@@ -294,20 +275,17 @@ void SchedulingEmbedder::OnInputScenarioChanged(ScenarioScope scope,
 void SchedulingEmbedder::OnEmbeddingsComputed(
     std::vector<mojom::PassageEmbeddingsResultPtr> results,
     ComputeEmbeddingsStatus status) {
-  std::vector<std::string> passages;
   std::vector<Embedding> embeddings;
   for (auto& result : results) {
-    passages.push_back(result->passage);
     embeddings.emplace_back(result->embeddings);
     embeddings.back().Normalize();
   }
 
-  VLOG(3) << embeddings.size() << " embeddings computed for " << passages.size()
-          << " passages with status " << static_cast<int>(status);
-  CHECK_EQ(passages.size(), embeddings.size());
+  VLOG(3) << embeddings.size() << " embeddings computed with status "
+          << static_cast<int>(status);
 
   if (embeddings.empty()) {
-    jobs_.front().Finish(status);
+    FinishJob(std::move(jobs_.front()), status);
     jobs_.pop_front();
     // Continue on to allow possibility of resuming any remaining jobs.
     // This upholds the 1:1 callback requirement and gives jobs another
@@ -321,18 +299,19 @@ void SchedulingEmbedder::OnEmbeddingsComputed(
     // strategy, but the underlying embedder is not expected to fail at all.
   }
 
-  // Take embeddings into jobs and pop them as they're filled.
+  // Take embeddings into jobs and pop them as they're filled. The
+  // !jobs_.empty() check ensures we don't overrun the available jobs if the
+  // service were to maliciously send too many embeddings.
   size_t read_index = 0;
-  while (read_index < embeddings.size()) {
+  while (read_index < embeddings.size() && !jobs_.empty()) {
     Job& job = jobs_.front();
     while (job.embeddings.size() < job.passages.size() &&
            read_index < embeddings.size()) {
-      CHECK_EQ(job.passages[job.embeddings.size()], passages[read_index]);
       job.embeddings.push_back(std::move(embeddings[read_index]));
       read_index++;
     }
     if (job.embeddings.size() == job.passages.size()) {
-      job.Finish(status);
+      FinishJob(std::move(job), status);
       jobs_.pop_front();
     }
   }
@@ -341,6 +320,23 @@ void SchedulingEmbedder::OnEmbeddingsComputed(
   // immediately/synchronously, depending on the embedder.
   work_submitted_ = false;
   SubmitWorkToEmbedder();
+}
+
+// static
+void SchedulingEmbedder::FinishJob(Job job, ComputeEmbeddingsStatus status) {
+  VLOG(2) << "Finished embedding work with status " << static_cast<int>(status)
+          << " for " << job.passages.size() << " passages starting with `"
+          << job.passages[0] << "`";
+  if (job.passages.size() != job.embeddings.size()) {
+    job.embeddings.clear();
+  }
+  std::move(job.callback)
+      .Run(std::move(job.passages), std::move(job.embeddings), job.task_id,
+           status);
+  if (status == ComputeEmbeddingsStatus::kSuccess) {
+    RecordDurationHistograms(job.priority, job.timer.Elapsed());
+  }
+  RecordStatusHistograms(job.priority, status);
 }
 
 }  // namespace passage_embeddings

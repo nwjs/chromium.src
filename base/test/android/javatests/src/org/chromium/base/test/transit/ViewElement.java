@@ -4,8 +4,6 @@
 
 package org.chromium.base.test.transit;
 
-import static org.hamcrest.core.Is.is;
-
 import android.view.View;
 
 import androidx.test.espresso.Espresso;
@@ -28,7 +26,7 @@ import org.chromium.build.annotations.Nullable;
  * Represents a {@link ViewSpec} added to a {@link ConditionalState}.
  *
  * <p>{@link ViewSpec}s should be declared as constants, while {@link ViewElement}s are created by
- * calling {@link Elements.Builder#declareView(ViewSpec)}.
+ * calling {@link ConditionalState#declareView(Matcher)}.
  *
  * <p>Generates ENTER and EXIT Conditions for the ConditionalState to ensure the ViewElement is in
  * the right state.
@@ -50,11 +48,7 @@ public class ViewElement<ViewT extends View> extends Element<ViewT> {
     private final Options mOptions;
 
     ViewElement(ViewSpec<ViewT> viewSpec, Options options) {
-        super(
-                "VE/"
-                        + (options.mElementId != null
-                                ? options.mElementId
-                                : viewSpec.getMatcherDescription()));
+        super("VE/" + viewSpec.getMatcherDescription());
         mViewSpec = viewSpec;
         mOptions = options;
     }
@@ -67,7 +61,7 @@ public class ViewElement<ViewT extends View> extends Element<ViewT> {
     }
 
     @Override
-    public ConditionWithResult<ViewT> createEnterCondition() {
+    public @Nullable ConditionWithResult<ViewT> createEnterCondition() {
         Matcher<View> viewMatcher = mViewSpec.getViewMatcher();
         DisplayedCondition.Options conditionOptions =
                 DisplayedCondition.newOptions()
@@ -109,12 +103,35 @@ public class ViewElement<ViewT extends View> extends Element<ViewT> {
         return mViewSpec;
     }
 
+    /** Returns a {@link ViewSpec} to declare a descandant of this ViewElement. */
+    @SafeVarargs
+    public final ViewSpec<View> descendant(Matcher<View>... viewMatcher) {
+        return mViewSpec.descendant(viewMatcher);
+    }
+
+    /** Returns a {@link ViewSpec} to declare a descandant of this ViewElement. */
+    @SafeVarargs
+    public final <DescendantViewT extends View> ViewSpec<DescendantViewT> descendant(
+            Class<DescendantViewT> viewClass, Matcher<View>... viewMatcher) {
+        return mViewSpec.descendant(viewClass, viewMatcher);
+    }
+
+    /** Returns a {@link ViewSpec} to declare an ancestor of this ViewElement. */
+    @SafeVarargs
+    public final ViewSpec<View> ancestor(Matcher<View>... viewMatcher) {
+        return mViewSpec.ancestor(viewMatcher);
+    }
+
+    /** Returns a {@link ViewSpec} to declare an ancestor of this ViewElement. */
+    @SafeVarargs
+    public final <DescendantViewT extends View> ViewSpec<DescendantViewT> ancestor(
+            Class<DescendantViewT> viewClass, Matcher<View>... viewMatcher) {
+        return mViewSpec.ancestor(viewClass, viewMatcher);
+    }
+
     /** Trigger an Espresso action on this View. */
     public Transition.Trigger getPerformTrigger(ViewAction action) {
-        return () -> {
-            View view = get();
-            Espresso.onView(is(view)).perform(action);
-        };
+        return () -> Espresso.onView(mViewSpec.getViewMatcher()).perform(action);
     }
 
     /**
@@ -158,8 +175,7 @@ public class ViewElement<ViewT extends View> extends Element<ViewT> {
 
     /** Trigger an Espresso ViewAssertion on this View. */
     public void check(ViewAssertion assertion) {
-        View view = get();
-        Espresso.onView(is(view)).check(assertion);
+        Espresso.onView(mViewSpec.getViewMatcher()).check(assertion);
     }
 
     /** Extra options for declaring ViewElements. */
@@ -168,7 +184,6 @@ public class ViewElement<ViewT extends View> extends Element<ViewT> {
         protected boolean mScoped = true;
         protected boolean mExpectEnabled = true;
         protected boolean mExpectDisabled;
-        protected @Nullable String mElementId;
         protected int mDisplayedPercentageRequired = ViewElement.MIN_DISPLAYED_PERCENT;
         protected int mInitialSettleTimeMs;
 
@@ -182,12 +197,6 @@ public class ViewElement<ViewT extends View> extends Element<ViewT> {
             /** Don't except the View to necessarily disappear when exiting the ConditionalState. */
             public Builder unscoped() {
                 mScoped = false;
-                return this;
-            }
-
-            /** Use a custom Element id instead of the Matcher<View> description. */
-            public Builder elementId(String id) {
-                mElementId = id;
                 return this;
             }
 
@@ -234,11 +243,6 @@ public class ViewElement<ViewT extends View> extends Element<ViewT> {
     /** Convenience {@link Options} setting unscoped(). */
     public static Options unscopedOption() {
         return newOptions().unscoped().build();
-    }
-
-    /** Convenience {@link Options} setting elementId(). */
-    public static Options elementIdOption(String id) {
-        return newOptions().elementId(id).build();
     }
 
     /** Convenience {@link Options} setting expectDisabled(). */

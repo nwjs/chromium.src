@@ -16,7 +16,6 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_avatar_icon_util.h"
 #include "chrome/browser/profiles/profile_manager.h"
-#include "chrome/browser/signin/reauth_result.h"
 #include "chrome/browser/signin/signin_promo.h"
 #include "chrome/browser/sync/sync_service_factory.h"
 #include "chrome/browser/ui/browser.h"
@@ -62,6 +61,10 @@
 #include "chrome/browser/ui/signin/chrome_signout_confirmation_prompt.h"
 #include "chrome/browser/ui/webui/signin/signout_confirmation/signout_confirmation_ui.h"
 #endif  // BUILDFLAG(ENABLE_DICE_SUPPORT)
+
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
+#include "chrome/browser/ui/webui/signin/history_sync_optin/history_sync_optin_ui.h"
+#endif  // BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
 
 namespace {
 
@@ -134,6 +137,29 @@ SigninViewControllerDelegateViews::CreateSyncConfirmationWebView(
       GetSyncConfirmationDialogPreferredHeight(browser->profile()),
       kSyncConfirmationDialogWidth, InitializeSigninWebDialogUI(true));
 }
+
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
+std::unique_ptr<views::WebView>
+SigninViewControllerDelegateViews::CreateHistorySyncOptInWebView(
+    Browser* browser) {
+  GURL url = GURL(chrome::kChromeUIHistorySyncOptinURL);
+  // The the actual dialog's height will be set dynamically based on its
+  // contents, so the initial height does not matter.
+  auto web_view =
+      CreateDialogWebView(browser, url, /*dialog_height=*/0, kModalDialogWidth,
+                          InitializeSigninWebDialogUI(false));
+  CHECK(web_view);
+  HistorySyncOptinUI* web_ui = web_view->GetWebContents()
+                                   ->GetWebUI()
+                                   ->GetController()
+                                   ->GetAs<HistorySyncOptinUI>();
+  DCHECK(web_ui);
+  web_view->SetProperty(views::kElementIdentifierKey,
+                        SigninViewController::kHistorySyncOptinViewId);
+  web_ui->Initialize(browser);
+  return web_view;
+}
+#endif  // BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
 
 // static
 std::unique_ptr<views::WebView>
@@ -514,6 +540,19 @@ SigninViewControllerDelegate::CreateSyncConfirmationDelegate(
       browser, ui::mojom::ModalType::kWindow, true, false,
       /*animate_on_resize=*/true);
 }
+
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+// static
+SigninViewControllerDelegate*
+SigninViewControllerDelegate::CreateSyncHistoryOptInDelegate(Browser* browser) {
+  auto content_view =
+      SigninViewControllerDelegateViews::CreateHistorySyncOptInWebView(browser);
+  return new SigninViewControllerDelegateViews(
+      std::move(content_view), browser, ui::mojom::ModalType::kWindow,
+      /*wait_for_size=*/true, /*should_show_close_button=*/false,
+      /*animate_on_resize=*/true);
+}
+#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 
 // static
 SigninViewControllerDelegate*

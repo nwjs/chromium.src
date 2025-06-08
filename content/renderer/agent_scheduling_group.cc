@@ -8,6 +8,7 @@
 
 #include "base/containers/map_util.h"
 #include "base/feature_list.h"
+#include "base/metrics/histogram_functions.h"
 #include "base/task/bind_post_task.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/task/thread_pool.h"
@@ -23,7 +24,6 @@
 #include "ipc/ipc_listener.h"
 #include "ipc/ipc_sync_channel.h"
 #include "third_party/abseil-cpp/absl/container/flat_hash_map.h"
-#include "third_party/blink/public/common/page/browsing_context_group_info.h"
 #include "third_party/blink/public/mojom/frame/frame.mojom.h"
 #include "third_party/blink/public/mojom/page/page.mojom.h"
 #include "third_party/blink/public/mojom/page/prerender_page_param.mojom.h"
@@ -297,7 +297,7 @@ blink::WebView* AgentSchedulingGroup::CreateWebView(
       opener_frame ? opener_frame->View() : nullptr,
       std::move(params->blink_page_broadcast), agent_group_scheduler(),
       params->session_storage_namespace_id, params->base_background_color,
-      params->browsing_context_group_info, &params->color_provider_colors,
+      params->browsing_context_group_token, &params->color_provider_colors,
       std::move(params->partitioned_popin_params));
 
   web_view->SetRendererPreferences(params->renderer_preferences);
@@ -409,7 +409,7 @@ blink::WebView* AgentSchedulingGroup::CreateWebView(
           params->opener_frame_token,
           /*parent_frame_token=*/std::nullopt,
           /*previous_sibling_frame_token=*/std::nullopt,
-          params->devtools_main_frame_token,
+          params->devtools_main_frame_token, params->navigation_metrics_token,
           blink::mojom::TreeScopeType::kDocument,
           std::move(params->replication_state),
           std::move(local_params->widget_params),
@@ -442,8 +442,8 @@ void AgentSchedulingGroup::CreateFrame(mojom::CreateFrameParamsPtr params) {
       /*web_view=*/nullptr, params->previous_frame_token,
       params->opener_frame_token, params->parent_frame_token,
       params->previous_sibling_frame_token, params->devtools_frame_token,
-      params->tree_scope_type, std::move(params->replication_state),
-      std::move(params->widget_params),
+      params->navigation_metrics_token, params->tree_scope_type,
+      std::move(params->replication_state), std::move(params->widget_params),
       std::move(params->frame_owner_properties),
       params->is_on_initial_empty_document, params->document_token,
       std::move(params->policy_container), params->is_for_nested_main_frame, params->block_parser);

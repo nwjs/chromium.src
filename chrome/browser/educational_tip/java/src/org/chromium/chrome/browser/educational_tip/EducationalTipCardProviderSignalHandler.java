@@ -4,10 +4,12 @@
 
 package org.chromium.chrome.browser.educational_tip;
 
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
+import static org.chromium.build.NullUtil.assumeNonNull;
+
 import androidx.annotation.VisibleForTesting;
 
+import org.chromium.build.annotations.NullMarked;
+import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.magic_stack.ModuleDelegate.ModuleType;
 import org.chromium.chrome.browser.profiles.Profile;
@@ -28,15 +30,18 @@ import org.chromium.components.signin.identitymanager.ConsentLevel;
 import org.chromium.components.tab_group_sync.TabGroupSyncService;
 
 /** Provides information about the signals of cards in the educational tip module. */
+@NullMarked
 public class EducationalTipCardProviderSignalHandler {
     /** Creates an instance of InputContext. */
     @VisibleForTesting
     static InputContext createInputContext(
             @ModuleType int moduleType,
             EducationTipModuleActionDelegate actionDelegate,
-            @NonNull Profile profile,
+            Profile profile,
             Tracker tracker) {
         InputContext inputContext = new InputContext();
+        inputContext.addEntry(
+                "is_user_signed_in", ProcessedValue.fromFloat(isUserSignedIn(profile)));
         switch (moduleType) {
             case ModuleType.DEFAULT_BROWSER_PROMO:
                 inputContext.addEntry(
@@ -110,8 +115,12 @@ public class EducationalTipCardProviderSignalHandler {
                 actionDelegate.getTabModelSelector().getTabGroupModelFilterProvider();
         TabGroupModelFilter normalFilter =
                 provider.getTabGroupModelFilter(/* isIncognito= */ false);
+        assumeNonNull(normalFilter);
+
         TabGroupModelFilter incognitoFilter =
                 provider.getTabGroupModelFilter(/* isIncognito= */ true);
+        assumeNonNull(incognitoFilter);
+
         int groupCount = normalFilter.getTabGroupCount() + incognitoFilter.getTabGroupCount();
         return groupCount > 0 ? 1.0f : 0.0f;
     }
@@ -148,11 +157,20 @@ public class EducationalTipCardProviderSignalHandler {
      * Returns a value of 1.0f if the user is eligible to history sync. Otherwise, it returns 0.0f.
      */
     private static float isEligibleToHistoryOptIn(Profile profile) {
-        if (IdentityServicesProvider.get()
-                .getIdentityManager(profile)
+        if (assumeNonNull(IdentityServicesProvider.get().getIdentityManager(profile))
                 .hasPrimaryAccount(ConsentLevel.SIGNIN)) {
             HistorySyncHelper helper = HistorySyncHelper.getForProfile(profile);
             return helper.shouldSuppressHistorySync() || helper.isDeclinedOften() ? 0.0f : 1.0f;
+        }
+
+        return 0.0f;
+    }
+
+    /** Returns a value of 1.0f if the user has signed in. Otherwise, it returns 0.0f. */
+    private static float isUserSignedIn(Profile profile) {
+        if (assumeNonNull(IdentityServicesProvider.get().getIdentityManager(profile))
+                .hasPrimaryAccount(ConsentLevel.SIGNIN)) {
+            return 1.0f;
         }
 
         return 0.0f;

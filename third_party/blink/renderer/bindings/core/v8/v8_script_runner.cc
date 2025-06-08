@@ -495,11 +495,6 @@ v8::MaybeLocal<v8::Value> V8ScriptRunner::RunCompiledScript(
       ThrowScriptForbiddenException(isolate);
       return v8::MaybeLocal<v8::Value>();
     }
-    if (RuntimeEnabledFeatures::BlinkLifecycleScriptForbiddenEnabled()) {
-      CHECK(!ScriptForbiddenScope::WillBeScriptForbidden());
-    } else {
-      DCHECK(!ScriptForbiddenScope::WillBeScriptForbidden());
-    }
 
     v8::MicrotasksScope microtasks_scope(isolate, microtask_queue,
                                          v8::MicrotasksScope::kRunMicrotasks);
@@ -656,12 +651,9 @@ ScriptEvaluationResult V8ScriptRunner::CompileAndRunScript(
       }
       if (produce_cache_options ==
               V8CodeCache::ProduceCacheOptions::kProduceCodeCache &&
-          base::FeatureList::IsEnabled(features::kCacheCodeOnIdle) &&
-          (features::kCacheCodeOnIdleDelayServiceWorkerOnlyParam.Get()
-               ? execution_context->IsServiceWorkerGlobalScope()
-               : true)) {
-        auto delay =
-            base::Milliseconds(features::kCacheCodeOnIdleDelayParam.Get());
+          execution_context->IsServiceWorkerGlobalScope()) {
+        static constexpr base::TimeDelta kCacheCodeOnIdleDelay =
+            base::Milliseconds(1);
         // TODO(crbug.com/40202028): Consider scheduling idle tasks via
         // ThreadScheduler::PostDelayedIdleTask().
         execution_context->GetTaskRunner(TaskType::kInternalDefault)
@@ -676,7 +668,7 @@ ScriptEvaluationResult V8ScriptRunner::CompileAndRunScript(
                               classic_script->SourceText().length(),
                               classic_script->SourceUrl(),
                               classic_script->StartPosition()),
-                delay);
+                kCacheCodeOnIdleDelay);
       } else {
         V8CodeCache::ProduceCache(
             isolate,
@@ -791,11 +783,6 @@ v8::MaybeLocal<v8::Value> V8ScriptRunner::CallAsConstructor(
     ThrowScriptForbiddenException(isolate);
     return v8::MaybeLocal<v8::Value>();
   }
-  if (RuntimeEnabledFeatures::BlinkLifecycleScriptForbiddenEnabled()) {
-    CHECK(!ScriptForbiddenScope::WillBeScriptForbidden());
-  } else {
-    DCHECK(!ScriptForbiddenScope::WillBeScriptForbidden());
-  }
 
   // TODO(dominicc): When inspector supports tracing object
   // invocation, change this to use v8::Object instead of
@@ -849,11 +836,6 @@ v8::MaybeLocal<v8::Value> V8ScriptRunner::CallFunction(
   if (ScriptForbiddenScope::IsScriptForbidden()) {
     ThrowScriptForbiddenException(isolate);
     return v8::MaybeLocal<v8::Value>();
-  }
-  if (RuntimeEnabledFeatures::BlinkLifecycleScriptForbiddenEnabled()) {
-    CHECK(!ScriptForbiddenScope::WillBeScriptForbidden());
-  } else {
-    DCHECK(!ScriptForbiddenScope::WillBeScriptForbidden());
   }
 
   DCHECK(!window || !window->GetFrame() ||
@@ -984,10 +966,15 @@ ScriptEvaluationResult V8ScriptRunner::EvaluateModule(
 
   // [not specced] Store V8 code cache on successful evaluation.
   if (result.GetResultType() == ScriptEvaluationResult::ResultType::kSuccess) {
+    // Script IDs are not available on non-source text modules, so we give them
+    // a default value.
     DEVTOOLS_TIMELINE_TRACE_EVENT_WITH_CATEGORIES(
         TRACE_DISABLED_BY_DEFAULT("devtools.target-rundown"), "ModuleEvaluated",
         inspector_target_rundown_event::Data, execution_context, isolate,
-        script_state, module_script->V8Module()->ScriptId());
+        script_state,
+        module_script->V8Module()->IsSourceTextModule()
+            ? module_script->V8Module()->ScriptId()
+            : v8::UnboundScript::kNoScriptId);
     execution_context->GetTaskRunner(TaskType::kNetworking)
         ->PostTask(
             FROM_HERE,

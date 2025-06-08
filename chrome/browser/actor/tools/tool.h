@@ -8,6 +8,7 @@
 #include <string>
 
 #include "base/functional/callback_forward.h"
+#include "chrome/common/actor.mojom-forward.h"
 
 namespace actor {
 
@@ -16,8 +17,10 @@ namespace actor {
 // when the tool will be destroyed.
 class Tool {
  public:
-  using ValidateCallback = base::OnceCallback<void(bool)>;
-  using InvokeCallback = base::OnceCallback<void(bool)>;
+  // NOTE: Let's rename this to `ToolCallback`, move to a shared header, and
+  // eliminate the other redundant definitions.
+  using ValidateCallback = base::OnceCallback<void(mojom::ActionResultPtr)>;
+  using InvokeCallback = base::OnceCallback<void(mojom::ActionResultPtr)>;
   Tool() = default;
   virtual ~Tool() = default;
 
@@ -34,6 +37,10 @@ class Tool {
   // Provides a human readable description of the tool useful for log and
   // debugging purposes.
   virtual std::string DebugString() const = 0;
+
+  // Returns true if the completion of this tool should be artificially delayed
+  // to allow async work triggered by the tool to finish.
+  virtual bool ShouldAddCompletionDelay() const;
 };
 
 }  // namespace actor

@@ -2,10 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifdef UNSAFE_BUFFERS_BUILD
-// TODO(crbug.com/351564777): Remove this and convert code to safer constructs.
-#pragma allow_unsafe_buffers
-#endif
 
 #include "third_party/blink/renderer/platform/peerconnection/resolution_monitor.h"
 
@@ -62,7 +58,7 @@ class Vp8ResolutionMonitor : public ResolutionMonitor {
 
 class Vp9ResolutionMonitor : public ResolutionMonitor {
  public:
-  Vp9ResolutionMonitor() : parser_(/*parsing_compressed_header=*/false) {}
+  Vp9ResolutionMonitor() = default;
 
   ~Vp9ResolutionMonitor() override = default;
 

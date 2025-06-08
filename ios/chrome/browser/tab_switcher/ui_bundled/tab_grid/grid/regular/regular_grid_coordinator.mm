@@ -8,6 +8,7 @@
 #import "ios/chrome/browser/policy/model/policy_util.h"
 #import "ios/chrome/browser/saved_tab_groups/model/tab_group_sync_service_factory.h"
 #import "ios/chrome/browser/share_kit/model/share_kit_service_factory.h"
+#import "ios/chrome/browser/shared/coordinator/layout_guide/layout_guide_util.h"
 #import "ios/chrome/browser/shared/model/browser/browser.h"
 #import "ios/chrome/browser/shared/model/profile/profile_ios.h"
 #import "ios/chrome/browser/shared/public/commands/command_dispatcher.h"
@@ -128,6 +129,9 @@
   if (regularModeEnabled) {
     gridViewController = [[RegularGridViewController alloc] init];
     container.containedViewController = gridViewController;
+    LayoutGuideCenter* layoutGuideCenter =
+        LayoutGuideCenterForBrowser(self.browser);
+    gridViewController.layoutGuideCenter = layoutGuideCenter;
   } else {
     DisabledGridViewController* disabledViewController =
         [[DisabledGridViewController alloc]
@@ -140,19 +144,20 @@
   self.gridViewController = gridViewController;
 
   _mediator = [[RegularGridMediator alloc]
-        initWithModeHolder:self.modeHolder
-       tabGroupSyncService:tab_groups::TabGroupSyncServiceFactory::
-                               GetForProfile(profile)
-           shareKitService:ShareKitServiceFactory::GetForProfile(profile)
-          messagingService:collaboration::messaging::
-                               MessagingBackendServiceFactory::GetForProfile(
-                                   profile)];
+       initWithModeHolder:self.modeHolder
+      tabGroupSyncService:tab_groups::TabGroupSyncServiceFactory::GetForProfile(
+                              profile)
+          shareKitService:ShareKitServiceFactory::GetForProfile(profile)
+         messagingService:collaboration::messaging::
+                              MessagingBackendServiceFactory::GetForProfile(
+                                  profile)];
   _mediator.consumer = gridViewController;
 
   gridViewController.dragDropHandler = _mediator;
   gridViewController.mutator = _mediator;
   gridViewController.gridProvider = _mediator;
   gridViewController.menuProvider = _contextMenuProvider;
+  gridViewController.snapshotAndfaviconDataSource = _mediator;
 
   // If regular is enabled then the grid exists and it is not disabled.
   // TODO(crbug.com/40273478): Get disabled status from the mediator.
@@ -183,6 +188,7 @@
     _pinnedTabsMediator.browser = self.browser;
     pinnedTabsViewController.menuProvider = _contextMenuProvider;
     pinnedTabsViewController.dragDropHandler = _pinnedTabsMediator;
+    pinnedTabsViewController.snapshotAndfaviconDataSource = _pinnedTabsMediator;
   }
 
   [super start];

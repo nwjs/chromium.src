@@ -41,8 +41,13 @@ public class MostVisitedSitesBridge implements MostVisitedSites {
 
     // CustomLinkOperations -> MostVisitedSites implementation.
     @Override
-    public boolean addCustomLink(String name, @Nullable GURL url) {
+    public boolean addCustomLink(String name, @Nullable GURL url, @Nullable Integer pos) {
         if (mNativeMostVisitedSitesBridge == 0 || GURL.isEmptyOrInvalid(url)) return false;
+        if (pos != null) {
+            return MostVisitedSitesBridgeJni.get()
+                    .addCustomLinkTo(mNativeMostVisitedSitesBridge, name, url, pos.intValue());
+        }
+
         return MostVisitedSitesBridgeJni.get()
                 .addCustomLink(mNativeMostVisitedSitesBridge, name, url);
     }
@@ -65,6 +70,13 @@ public class MostVisitedSitesBridge implements MostVisitedSites {
     public boolean hasCustomLink(GURL keyUrl) {
         if (mNativeMostVisitedSitesBridge == 0) return false;
         return MostVisitedSitesBridgeJni.get().hasCustomLink(mNativeMostVisitedSitesBridge, keyUrl);
+    }
+
+    @Override
+    public boolean reorderCustomLink(GURL keyUrl, int newPos) {
+        if (mNativeMostVisitedSitesBridge == 0) return false;
+        return MostVisitedSitesBridgeJni.get()
+                .reorderCustomLink(mNativeMostVisitedSitesBridge, keyUrl, newPos);
     }
 
     // MostVisitedSites implementation.
@@ -186,6 +198,12 @@ public class MostVisitedSitesBridge implements MostVisitedSites {
                 @JniType("Profile*") Profile profile,
                 boolean enableCustomLinks);
 
+        boolean addCustomLinkTo(
+                long nativeMostVisitedSitesBridge,
+                @JniType("std::u16string") String caller,
+                @JniType("GURL") GURL url,
+                int pos);
+
         boolean addCustomLink(
                 long nativeMostVisitedSitesBridge,
                 @JniType("std::u16string") String caller,
@@ -200,6 +218,9 @@ public class MostVisitedSitesBridge implements MostVisitedSites {
         boolean deleteCustomLink(long nativeMostVisitedSitesBridge, @JniType("GURL") GURL keyUrl);
 
         boolean hasCustomLink(long nativeMostVisitedSitesBridge, @JniType("GURL") GURL keyUrl);
+
+        boolean reorderCustomLink(
+                long nativeMostVisitedSitesBridge, @JniType("GURL") GURL keyUrl, int newPos);
 
         void destroy(long nativeMostVisitedSitesBridge, MostVisitedSitesBridge caller);
 

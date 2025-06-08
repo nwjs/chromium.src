@@ -11,8 +11,12 @@
 #include "base/metrics/histogram_macros.h"
 #include "base/task/sequenced_task_runner.h"
 #include "chrome/browser/actor/actor_coordinator.h"
+#include "chrome/browser/actor/actor_keyed_service.h"
+#include "chrome/browser/actor/actor_task.h"
 #include "chrome/browser/glic/host/context/glic_page_context_fetcher.h"
 #include "chrome/browser/glic/host/glic.mojom.h"
+#include "chrome/common/actor.mojom.h"
+#include "chrome/common/actor/action_result.h"
 #include "chrome/common/chrome_features.h"
 #include "components/optimization_guide/proto/features/actions_data.pb.h"
 #include "components/tabs/public/tab_interface.h"
@@ -39,7 +43,13 @@ void PostTaskForActCallback(
 
   base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
       FROM_HERE, base::BindOnce(std::move(callback), std::move(result)));
-  return;
+}
+
+void PostTaskForActionResultCallback(
+    actor::ActorCoordinator::ActionResultCallback callback,
+    actor::mojom::ActionResultPtr result) {
+  base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+      FROM_HERE, base::BindOnce(std::move(callback), std::move(result)));
 }
 
 void OnGetContextFromFocusedTab(
@@ -60,6 +70,12 @@ void OnGetContextFromFocusedTab(
   std::move(callback).Run(std::move(result));
 }
 
+void MaybeWarnMultiTaskNotImplemented(actor::TaskId task_id) {
+  if (task_id) {
+    NOTIMPLEMENTED() << "Multi-task not implemented.";
+  }
+}
+
 }  // namespace
 
 GlicActorController::GlicActorController(Profile* profile) : profile_(profile) {
@@ -74,31 +90,101 @@ void GlicActorController::Act(
     const optimization_guide::proto::BrowserAction& action,
     const mojom::GetTabContextOptions& options,
     mojom::WebClientHandler::ActInFocusedTabCallback callback) {
-  if (!actor_coordinator_) {
-    actor_coordinator_ = std::make_unique<actor::ActorCoordinator>(profile_);
+  if (!actor_task_ ||
+      actor_task_->GetState() == actor::ActorTask::State::kFinished) {
+    auto task = std::make_unique<actor::ActorTask>(
+        std::make_unique<actor::ActorCoordinator>(profile_));
+    actor_task_ = task.get();
+    actor::ActorKeyedService::Get(profile_.get())->AddTask(std::move(task));
   }
 
-  if (!actor_coordinator_->HasTask()) {
+  if (!GetActorCoordinator() || !GetActorCoordinator()->HasTask()) {
     // Start of a new task, which must begin with a navigate action.
     // The OnTaskStarted callback will perform the action after the task is
     // setup by the coordinator.
     // TODO(https://crbug.com/407860715): Implement a separate host API to start
     // a task, and remove action handling here.
-    actor_coordinator_->StartTask(
+    GetActorCoordinator()->StartTask(
         action,
         base::BindOnce(&GlicActorController::OnTaskStarted, GetWeakPtr(),
-                       action, options, std::move(callback)));
+                       action, options, std::move(callback)),
+        /*tab_id=*/std::nullopt);
     return;
   }
 
   ActImpl(focused_tab_data, action, options, std::move(callback));
 }
 
-void GlicActorController::StopTask() {
-  if (!actor_coordinator_) {
+// TODO(mcnee): Determine if we need additional mechanisms, within the browser,
+// to stop a task.
+void GlicActorController::StopTask(actor::TaskId task_id) {
+  MaybeWarnMultiTaskNotImplemented(task_id);
+  if (!GetActorCoordinator() ||
+      actor_task_->GetState() == actor::ActorTask::State::kFinished) {
     return;
   }
-  actor_coordinator_->StopTask();
+  GetActorCoordinator()->StopTask();
+  actor_task_->SetState(actor::ActorTask::State::kFinished);
+}
+
+void GlicActorController::PauseTask(actor::TaskId task_id) {
+  MaybeWarnMultiTaskNotImplemented(task_id);
+  if (!GetActorCoordinator() ||
+      actor_task_->GetState() == actor::ActorTask::State::kFinished) {
+    return;
+  }
+  GetActorCoordinator()->PauseTask();
+  actor_task_->SetState(actor::ActorTask::State::kPausedByClient);
+}
+
+void GlicActorController::ResumeTask(
+    actor::TaskId task_id,
+    const mojom::GetTabContextOptions& context_options,
+    glic::mojom::WebClientHandler::ResumeActorTaskCallback callback) {
+  MaybeWarnMultiTaskNotImplemented(task_id);
+  if (!GetActorCoordinator() ||
+      actor_task_->GetState() == actor::ActorTask::State::kFinished) {
+    std::move(callback).Run(mojom::GetContextResult::NewErrorReason(
+        std::string("task does not exist")));
+    return;
+  }
+
+  if (!actor_task_->IsPaused()) {
+    std::move(callback).Run(mojom::GetContextResult::NewErrorReason(
+        std::string("task is not paused")));
+    return;
+  }
+
+  tabs::TabInterface* tab_of_resumed_task =
+      GetActorCoordinator()->GetTabOfCurrentTask();
+  if (!tab_of_resumed_task) {
+    std::move(callback).Run(mojom::GetContextResult::NewErrorReason(
+        std::string("tab does not exist")));
+    return;
+  }
+
+  actor_task_->SetState(actor::ActorTask::State::kReflecting);
+  // TODO(mcnee): Refactor to make it clear we're specifying the tab to get the
+  // context for, not glic's concept of a focused tab.
+  GetContextFromFocusedTab(
+      FocusedTabData{tab_of_resumed_task->GetContents()->GetWeakPtr()},
+      context_options, std::move(callback));
+}
+
+bool GlicActorController::IsActorCoordinatorActingOnTab(
+    const content::WebContents* tab) const {
+  return GetActorCoordinator() && GetActorCoordinator()->HasTaskForTab(tab) &&
+         actor_task_->GetState() != actor::ActorTask::State::kFinished;
+}
+
+actor::ActorCoordinator& GlicActorController::GetActorCoordinatorForTesting() {
+  if (!actor_task_) {
+    auto task = std::make_unique<actor::ActorTask>(
+        std::make_unique<actor::ActorCoordinator>(profile_));
+    actor_task_ = task.get();
+    actor::ActorKeyedService::Get(profile_.get())->AddTask(std::move(task));
+  }
+  return *actor_task_->GetActorCoordinator();
 }
 
 void GlicActorController::OnTaskStarted(
@@ -123,18 +209,28 @@ void GlicActorController::ActImpl(
     const optimization_guide::proto::BrowserAction& action,
     const mojom::GetTabContextOptions& options,
     mojom::WebClientHandler::ActInFocusedTabCallback callback) const {
-  actor_coordinator_->Act(
-      action,
+  actor::ActorCoordinator::ActionResultCallback action_callback =
       base::BindOnce(&GlicActorController::OnActionFinished, GetWeakPtr(),
-                     focused_tab_data, options, std::move(callback)));
+                     focused_tab_data, options, std::move(callback));
+
+  if (actor_task_->IsPaused()) {
+    VLOG(1) << "Unable to perform action: task is paused";
+    PostTaskForActionResultCallback(
+        std::move(action_callback),
+        actor::MakeResult(actor::mojom::ActionResultCode::kError,
+                          "Task is paused"));
+    return;
+  }
+
+  GetActorCoordinator()->Act(action, std::move(action_callback));
 }
 
 void GlicActorController::OnActionFinished(
     FocusedTabData focused_tab_data,
     const mojom::GetTabContextOptions& options,
     mojom::WebClientHandler::ActInFocusedTabCallback callback,
-    bool action_succeeded) const {
-  if (!action_succeeded) {
+    actor::mojom::ActionResultPtr result) const {
+  if (!actor::IsOk(*result)) {
     PostTaskForActCallback(std::move(callback),
                            mojom::ActInFocusedTabErrorReason::kTargetNotFound);
     return;
@@ -155,7 +251,7 @@ void GlicActorController::GetContextFromFocusedTab(
   // with GlicKeyedService::GetContextFromFocusedTab(). It's not clear yet if
   // the same permission checks, etc. should apply here.
 
-  GlicPageContextFetcher::Fetch(focused_tab_data, options, std::move(callback));
+  FetchPageContext(focused_tab_data, options, std::move(callback));
 }
 
 base::WeakPtr<const GlicActorController> GlicActorController::GetWeakPtr()
@@ -165,5 +261,12 @@ base::WeakPtr<const GlicActorController> GlicActorController::GetWeakPtr()
 
 base::WeakPtr<GlicActorController> GlicActorController::GetWeakPtr() {
   return weak_ptr_factory_.GetWeakPtr();
+}
+
+actor::ActorCoordinator* GlicActorController::GetActorCoordinator() const {
+  if (!actor_task_) {
+    return nullptr;
+  }
+  return actor_task_->GetActorCoordinator();
 }
 }  // namespace glic

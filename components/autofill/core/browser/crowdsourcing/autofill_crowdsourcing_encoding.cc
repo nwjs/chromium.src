@@ -5,6 +5,8 @@
 #include "components/autofill/core/browser/crowdsourcing/autofill_crowdsourcing_encoding.h"
 
 #include <algorithm>
+#include <array>
+#include <cstdint>
 #include <deque>
 #include <optional>
 #include <string>
@@ -15,7 +17,6 @@
 #include "base/containers/contains.h"
 #include "base/feature_list.h"
 #include "base/metrics/histogram_macros.h"
-#include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/types/optional_ref.h"
 #include "components/autofill/core/browser/crowdsourcing/randomized_encoder.h"
@@ -35,6 +36,7 @@
 #include "components/autofill/core/common/logging/log_buffer.h"
 #include "components/autofill/core/common/signatures.h"
 #include "components/version_info/version_info.h"
+#include "third_party/abseil-cpp/absl/strings/str_format.h"
 
 namespace autofill {
 namespace {
@@ -68,6 +70,7 @@ FieldPrediction::Source ToSafeFieldPredictionSource(
     case FieldPrediction::SOURCE_MANUAL_OVERRIDE:
     case FieldPrediction::SOURCE_AUTOFILL_COMBINED_TYPES:
     case FieldPrediction::SOURCE_AUTOFILL_AI:
+    case FieldPrediction::SOURCE_AUTOFILL_AI_CROWDSOURCING:
       result = source;
       break;
   }
@@ -142,16 +145,15 @@ void InsertParsedOverrides(
 std::string EncodeFieldTypes(const FieldTypeSet& available_field_types) {
   // There are `MAX_VALID_FIELD_TYPE` different field types and 8 bits per byte,
   // so we need ceil(MAX_VALID_FIELD_TYPE / 8) bytes to encode the bit field.
-  const size_t kNumBytes = (MAX_VALID_FIELD_TYPE + 0x7) / 8;
+  constexpr size_t kNumBytes = (MAX_VALID_FIELD_TYPE + 0x7) / 8;
 
   // Pack the types in `available_field_types` into `bit_field`.
-  std::vector<uint8_t> bit_field(kNumBytes, 0);
+  std::array<uint8_t, kNumBytes> bit_field = {};
   for (const auto field_type : available_field_types) {
-    // Set the appropriate bit in the field.  The bit we set is the one
+    // Set the appropriate bit in the field. The bit we set is the one
     // `field_type` % 8 from the left of the byte.
     const size_t byte = field_type / 8;
-    const size_t bit = 0x80 >> (field_type % 8);
-    DCHECK(byte < bit_field.size());
+    const uint8_t bit = 1 << (7 - field_type % 8);
     bit_field[byte] |= bit;
   }
 
@@ -164,9 +166,9 @@ std::string EncodeFieldTypes(const FieldTypeSet& available_field_types) {
 
   // Print all meaningful bytes into a string.
   std::string data_presence;
-  data_presence.reserve(data_end * 2 + 1);
+  data_presence.reserve(data_end * 2);
   for (size_t i = 0; i < data_end; ++i) {
-    base::StringAppendF(&data_presence, "%02x", bit_field[i]);
+    absl::StrAppendFormat(&data_presence, "%02x", bit_field[i]);
   }
 
   return data_presence;
@@ -386,21 +388,28 @@ void EncodeFormFieldsForUpload(
       added_field->add_autofill_type(field_type);
     }
 
-    if (field->vote_type()) {
-      added_field->set_vote_type(field->vote_type());
+    if (field_options && field_options->vote_type) {
+      added_field->set_vote_type(field_options->vote_type);
     }
 
-    if (field->initial_value_hash()) {
-      added_field->set_initial_value_hash(field->initial_value_hash().value());
+    if (field_options && field_options->initial_value_hash) {
+      added_field->set_initial_value_hash(
+          field_options->initial_value_hash.value());
     }
 
-    if (field->initial_value_changed().has_value()) {
-      added_field->set_initial_value_changed(
-          field->initial_value_changed().value());
+    // TODO(crbug.com/40286837): Understand and document why the type is
+    // relevant.
+    if (!field->initial_value().empty() &&
+        ((field->Type().GetStorableType() != NO_SERVER_DATA &&
+          field->Type().GetStorableType() != UNKNOWN_TYPE) ||
+         !field->possible_types().empty())) {
+      added_field->set_initial_value_changed(field->initial_value() !=
+                                             field->value());
     }
 
-    if (auto it = fields.find(field->global_id()); it != fields.end()) {
-      for (const std::u16string& format_string : it->second.format_strings) {
+    if (field_options) {
+      for (const std::u16string& format_string :
+           field_options->format_strings) {
         DCHECK(data_util::IsValidDateFormat(format_string));
         auto* added_format_string = added_field->add_format_string();
         added_format_string->set_type(FormatString_Type_DATE);
@@ -566,6 +575,7 @@ std::optional<FieldSuggestion> GetFieldSuggestion(
         switch (ToSafeFieldPredictionSource(
             suggestion->predictions().begin()->source())) {
           case FieldPrediction::SOURCE_AUTOFILL_AI:
+          case FieldPrediction::SOURCE_AUTOFILL_AI_CROWDSOURCING:
             return base::FeatureList::IsEnabled(
                        features::kAutofillAiWithDataSchema)
                        ? 2
@@ -688,6 +698,33 @@ base::flat_set<FormSignature> GetFormsForWhichToRunAiModel(
     }
   }
   return base::flat_set<FormSignature>(std::move(forms));
+}
+
+// Checks the list of server predictions and potentially merges predictions for
+// joined types e.g. if the server returned separate predictions for email and
+// loyalty card, those are merged into the EMAIL_OR_LOYALTY_MEMBERSHIP_ID type.
+void MaybeMergeServerPredictions(
+    std::vector<FieldPrediction>& server_predictions) {
+  const auto server_types =
+      DenseSet<FieldType>(server_predictions, [](const FieldPrediction& pred) {
+        return ToSafeFieldType(pred.type(), UNKNOWN_TYPE);
+      });
+
+  if (server_types.contains_all({EMAIL_ADDRESS, LOYALTY_MEMBERSHIP_ID}) &&
+      base::FeatureList::IsEnabled(
+          features::kAutofillEnableEmailOrLoyaltyCardsFilling)) {
+    // Remove email and loyalty card predictions.
+    std::erase_if(server_predictions, [](const FieldPrediction& x) {
+      return x.type() == EMAIL_ADDRESS || x.type() == LOYALTY_MEMBERSHIP_ID;
+    });
+    FieldPrediction email_and_loyalty_card_prediction;
+    email_and_loyalty_card_prediction.set_type(EMAIL_OR_LOYALTY_MEMBERSHIP_ID);
+    email_and_loyalty_card_prediction.set_source(
+        FieldPrediction::SOURCE_AUTOFILL_DEFAULT);
+    email_and_loyalty_card_prediction.set_override(false);
+    server_predictions.insert(server_predictions.begin(),
+                              email_and_loyalty_card_prediction);
+  }
 }
 
 }  // namespace
@@ -905,8 +942,11 @@ void ProcessServerPredictionsQueryResponse(
       if (heuristic_type != UNKNOWN_TYPE) {
         heuristics_detected_fillable_field = true;
       }
-      field->set_server_predictions({field_suggestion->predictions().begin(),
-                                     field_suggestion->predictions().end()});
+      std::vector<FieldPrediction> server_predictions = {
+          field_suggestion->predictions().begin(),
+          field_suggestion->predictions().end()};
+      MaybeMergeServerPredictions(server_predictions);
+      field->set_server_predictions(std::move(server_predictions));
       if (heuristic_type != field->Type().GetStorableType()) {
         query_response_overrode_heuristics = true;
       }

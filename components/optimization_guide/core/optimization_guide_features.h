@@ -79,14 +79,11 @@ BASE_DECLARE_FEATURE(kOnDeviceModelValidation);
 COMPONENT_EXPORT(OPTIMIZATION_GUIDE_FEATURES)
 BASE_DECLARE_FEATURE(kOnDeviceModelFetchPerformanceClassEveryStartup);
 COMPONENT_EXPORT(OPTIMIZATION_GUIDE_FEATURES)
-BASE_DECLARE_FEATURE(kAiSettingsPageRefresh);
+BASE_DECLARE_FEATURE(kAiSettingsPageForceAvailable);
 COMPONENT_EXPORT(OPTIMIZATION_GUIDE_FEATURES)
 BASE_DECLARE_FEATURE(kPrivacyGuideAiSettings);
 COMPONENT_EXPORT(OPTIMIZATION_GUIDE_FEATURES)
 BASE_DECLARE_FEATURE(kAnnotatedPageContentWithActionableElements);
-
-COMPONENT_EXPORT(OPTIMIZATION_GUIDE_FEATURES)
-extern const base::FeatureParam<bool> kShowAiSettingsForTesting;
 
 // Allows setting feature params for model download configuration, such as
 // minimum performance class for download.
@@ -106,6 +103,14 @@ extern const base::FeatureParam<std::string>
 COMPONENT_EXPORT(OPTIMIZATION_GUIDE_FEATURES)
 extern const base::FeatureParam<std::string>
     kLowTierPerformanceClassListForOnDeviceModel;
+
+// Comma-separated list of performance classes that have image input enabled.
+COMPONENT_EXPORT(OPTIMIZATION_GUIDE_FEATURES)
+extern const base::FeatureParam<std::string> kPerformanceClassListForImageInput;
+
+// Comma-separated list of performance classes that have audio input enabled.
+COMPONENT_EXPORT(OPTIMIZATION_GUIDE_FEATURES)
+extern const base::FeatureParam<std::string> kPerformanceClassListForAudioInput;
 
 COMPONENT_EXPORT(OPTIMIZATION_GUIDE_FEATURES)
 BASE_DECLARE_FEATURE(kOptimizationGuideIconView);
@@ -544,10 +549,6 @@ int GetOnDeviceModelValidationAttemptCount();
 // Returns whether the icon view should be enabled.
 COMPONENT_EXPORT(OPTIMIZATION_GUIDE_FEATURES)
 bool ShouldEnableOptimizationGuideIconView();
-
-// Whether Ai settings page refresh or any dependent feature is enabled.
-COMPONENT_EXPORT(OPTIMIZATION_GUIDE_FEATURES)
-bool IsAiSettingsPageRefreshEnabled();
 
 // Whether Ai settings page integration with Privacy Guide is enabled.
 COMPONENT_EXPORT(OPTIMIZATION_GUIDE_FEATURES)

@@ -43,12 +43,12 @@ import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabFavicon;
 import org.chromium.chrome.browser.tab.TabUtils;
-import org.chromium.chrome.browser.tab_ui.ActionConfirmationManager;
 import org.chromium.chrome.browser.tab_ui.RecyclerViewPosition;
 import org.chromium.chrome.browser.tab_ui.TabListFaviconProvider;
 import org.chromium.chrome.browser.tab_ui.ThumbnailProvider;
 import org.chromium.chrome.browser.tabmodel.TabGroupModelFilter;
 import org.chromium.chrome.browser.tabmodel.TabModel;
+import org.chromium.chrome.browser.tasks.tab_management.PriceMessageService.PriceWelcomeMessageProvider;
 import org.chromium.chrome.browser.tasks.tab_management.TabListModel.CardProperties.ModelType;
 import org.chromium.chrome.browser.tasks.tab_management.TabProperties.TabActionState;
 import org.chromium.chrome.browser.tasks.tab_management.TabProperties.UiType;
@@ -67,8 +67,7 @@ import java.lang.annotation.RetentionPolicy;
 import java.util.List;
 
 /** Coordinator for showing UI for a list of tabs. Can be used in GRID or STRIP modes. */
-public class TabListCoordinator
-        implements PriceMessageService.PriceWelcomeMessageProvider, DestroyObserver {
+public class TabListCoordinator implements PriceWelcomeMessageProvider, DestroyObserver {
     private static final String TAG = "TabListCoordinator";
 
     /** Observer interface for the size of tab list items. */
@@ -144,7 +143,6 @@ public class TabListCoordinator
      * @param thumbnailProvider Provider to provide screenshot related details.
      * @param actionOnRelatedTabs Whether tab-related actions should be operated on all related
      *     tabs.
-     * @param actionConfirmationManager An action confirmation manager.
      * @param dataSharingTabManager The service used to initiate data sharing.
      * @param gridCardOnClickListenerProvider Provides the onClickListener for opening dialog when
      *     click on a grid card.
@@ -176,14 +174,13 @@ public class TabListCoordinator
             @NonNull ObservableSupplier<TabGroupModelFilter> tabGroupModelFilterSupplier,
             @Nullable ThumbnailProvider thumbnailProvider,
             boolean actionOnRelatedTabs,
-            @Nullable ActionConfirmationManager actionConfirmationManager,
             @Nullable DataSharingTabManager dataSharingTabManager,
             @Nullable
                     TabListMediator.GridCardOnClickListenerProvider gridCardOnClickListenerProvider,
             @Nullable TabListMediator.TabGridDialogHandler dialogHandler,
             @TabActionState int initialTabActionState,
             @Nullable TabListMediator.SelectionDelegateProvider selectionDelegateProvider,
-            @NonNull Supplier<PriceWelcomeMessageController> priceWelcomeMessageControllerSupplier,
+            @Nullable Supplier<PriceWelcomeMessageController> priceWelcomeMessageControllerSupplier,
             @NonNull ViewGroup parentView,
             boolean attachToParent,
             String componentName,
@@ -330,7 +327,6 @@ public class TabListCoordinator
                         priceWelcomeMessageControllerSupplier,
                         componentName,
                         initialTabActionState,
-                        actionConfirmationManager,
                         dataSharingTabManager,
                         onTabGroupCreation);
 
@@ -638,7 +634,8 @@ public class TabListCoordinator
             // Other GTS items might intentionally have different dimensions. For example, the
             // pre-selected tab group divider and the large price tracking message span the width of
             // the recycler view.
-            if (tabPropertyModel.get(CARD_TYPE) == ModelType.TAB) {
+            if (tabPropertyModel.get(CARD_TYPE) == ModelType.TAB
+                    || tabPropertyModel.get(CARD_TYPE) == ModelType.TAB_GROUP) {
                 tabPropertyModel.set(
                         TabProperties.GRID_CARD_SIZE, new Size(cardWidthPx, cardHeightPx));
             }
@@ -809,6 +806,27 @@ public class TabListCoordinator
      */
     void removeSpecialListItem(@UiType int uiType, int itemIdentifier) {
         mMediator.removeSpecialItemFromModelList(uiType, itemIdentifier);
+    }
+
+    /**
+     * Removes a {@link org.chromium.ui.modelutil.MVCListAdapter.ListItem} that has the given {@code
+     * uiType} and the {@link PropertyModel} has the given {@link TabListEditorItemSelectionId}.
+     *
+     * @param uiType The uiType to match.
+     * @param itemId The itemId to match.
+     */
+    void removeListItem(@UiType int uiType, TabListEditorItemSelectionId itemId) {
+        mMediator.removeListItemFromModelList(uiType, itemId);
+    }
+
+    /**
+     * Retrieves the span count in the GridLayoutManager for the item at a given index.
+     *
+     * @param manager The GridLayoutManager the span count is retrieved from.
+     * @param index The index of the item in the model list.
+     */
+    int getSpanCountForItem(GridLayoutManager manager, int index) {
+        return mMediator.getSpanCountForItem(manager, index);
     }
 
     // PriceWelcomeMessageService.PriceWelcomeMessageProvider implementation.

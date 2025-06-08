@@ -70,7 +70,12 @@ class MockTabInterface : public testing::NiceMock<TabInterface> {
               GetBrowserWindowInterface,
               (),
               (override));
+  MOCK_METHOD(const BrowserWindowInterface*,
+              GetBrowserWindowInterface,
+              (),
+              (const override));
   MOCK_METHOD(TabFeatures*, GetTabFeatures, (), (override));
+  MOCK_METHOD(const TabFeatures*, GetTabFeatures, (), (const override));
   MOCK_METHOD(bool, IsPinned, (), (const override));
   MOCK_METHOD(bool, IsSplit, (), (const override));
   MOCK_METHOD(std::optional<tab_groups::TabGroupId>,
@@ -85,6 +90,7 @@ class MockTabInterface : public testing::NiceMock<TabInterface> {
               GetParentCollection,
               (base::PassKey<TabCollection>),
               (const override));
+  MOCK_METHOD(const TabCollection*, GetParentCollection, (), (const override));
   MOCK_METHOD(void,
               OnReparented,
               (TabCollection*, base::PassKey<TabCollection>),

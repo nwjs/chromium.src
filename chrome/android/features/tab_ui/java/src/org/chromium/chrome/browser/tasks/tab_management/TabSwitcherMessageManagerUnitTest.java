@@ -34,10 +34,13 @@ import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 
 import org.chromium.base.supplier.ObservableSupplierImpl;
+import org.chromium.base.supplier.Supplier;
 import org.chromium.base.test.BaseRobolectricTestRunner;
+import org.chromium.chrome.browser.app.tabmodel.ArchivedTabModelOrchestrator;
 import org.chromium.chrome.browser.back_press.BackPressManager;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider;
 import org.chromium.chrome.browser.feature_engagement.TrackerFactory;
+import org.chromium.chrome.browser.hub.PaneManager;
 import org.chromium.chrome.browser.lifecycle.ActivityLifecycleDispatcher;
 import org.chromium.chrome.browser.multiwindow.MultiWindowModeStateDispatcher;
 import org.chromium.chrome.browser.price_tracking.PriceTrackingFeatures;
@@ -58,12 +61,14 @@ import org.chromium.chrome.browser.ui.edge_to_edge.EdgeToEdgeController;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
 import org.chromium.components.feature_engagement.Tracker;
 import org.chromium.components.tab_group_sync.TabGroupSyncService;
+import org.chromium.components.tab_group_sync.TabGroupUiActionHandler;
 import org.chromium.ui.base.TestActivity;
 import org.chromium.ui.modaldialog.ModalDialogManager;
 
 /** Unit tests for the TabSwitcherMessageManager. */
 @RunWith(BaseRobolectricTestRunner.class)
 public class TabSwitcherMessageManagerUnitTest {
+    private static final int INITIAL_TAB_COUNT = 0;
     private static final int TAB1_ID = 456;
     private static final int TAB2_ID = 789;
 
@@ -95,6 +100,9 @@ public class TabSwitcherMessageManagerUnitTest {
     @Mock private OnTabSelectingListener mOnTabSelectingListener;
     @Mock private EdgeToEdgeController mEdgeToEdgeController;
     @Mock private TabGroupSyncService mTabGroupSyncService;
+    @Mock private Supplier<PaneManager> mPaneManagerSupplier;
+    @Mock private Supplier<TabGroupUiActionHandler> mTabGroupUiActionHandlerSupplier;
+    @Mock private ArchivedTabModelOrchestrator mArchivedTabModelOrchestrator;
     @Captor private ArgumentCaptor<TabModelObserver> mTabModelObserverCaptor;
 
     @Captor
@@ -103,8 +111,10 @@ public class TabSwitcherMessageManagerUnitTest {
 
     private final ObservableSupplierImpl<TabGroupModelFilter> mCurrentTabGroupModelFilterSupplier =
             new ObservableSupplierImpl<>();
-    private ObservableSupplierImpl<EdgeToEdgeController> mEdgeToEdgeSupplier =
+    private final ObservableSupplierImpl<EdgeToEdgeController> mEdgeToEdgeSupplier =
             new ObservableSupplierImpl<>();
+    private final ObservableSupplierImpl<Integer> mTabCountSupplier =
+            new ObservableSupplierImpl<>(INITIAL_TAB_COUNT);
     private TabSwitcherMessageManager mMessageManager;
     private MockTab mTab1;
     private MockTab mTab2;
@@ -116,6 +126,7 @@ public class TabSwitcherMessageManagerUnitTest {
 
         TrackerFactory.setTrackerForTests(mTracker);
         TabGroupSyncServiceFactory.setForTesting(mTabGroupSyncService);
+        ArchivedTabModelOrchestrator.setInstanceForTesting(mArchivedTabModelOrchestrator);
 
         mTab1 = MockTab.createAndInitialize(TAB1_ID, mProfile);
         mTab2 = MockTab.createAndInitialize(TAB2_ID, mProfile);
@@ -131,6 +142,8 @@ public class TabSwitcherMessageManagerUnitTest {
 
         when(mPriceMessageService.preparePriceMessage(anyInt(), eq(mPriceTabData)))
                 .thenReturn(true);
+
+        when(mArchivedTabModelOrchestrator.getTabCountSupplier()).thenReturn(mTabCountSupplier);
 
         mActivityScenarioRule.getScenario().onActivity(this::onActivityReady);
     }
@@ -154,7 +167,9 @@ public class TabSwitcherMessageManagerUnitTest {
                         mRegularTabCreator,
                         mBackPressManager,
                         /* desktopWindowStateManager= */ null,
-                        mEdgeToEdgeSupplier);
+                        mEdgeToEdgeSupplier,
+                        mPaneManagerSupplier,
+                        mTabGroupUiActionHandlerSupplier);
         mMessageManager.registerMessages(mTabListCoordinator);
         mMessageManager.bind(
                 mTabListCoordinator,

@@ -4,9 +4,12 @@
 
 #include "components/collaboration/internal/metrics.h"
 
+#include <string_view>
+
 #include "base/metrics/histogram_functions.h"
 #include "base/strings/strcat.h"
 #include "base/strings/stringprintf.h"
+#include "components/collaboration/public/collaboration_flow_entry_point.h"
 #include "components/data_sharing/public/logger.h"
 #include "components/data_sharing/public/logger_common.mojom.h"
 #include "components/data_sharing/public/logger_utils.h"
@@ -87,6 +90,8 @@ std::string_view CollaborationServiceJoinEventToString(
       return "AccountInfoNotReadyOnSignin";
     case CollaborationServiceJoinEvent::kReadNewGroupUserIsAlreadyMember:
       return "ReadNewGroupUserIsAlreadyMember";
+    case CollaborationServiceJoinEvent::kFailedAddingUserToGroup:
+      return "FailedAddingUserToGroup";
   }
 }
 
@@ -105,8 +110,8 @@ std::string_view CollaborationServiceShareOrManageEventToString(
       return "ShareDialogShown";
     case CollaborationServiceShareOrManageEvent::kManageDialogShown:
       return "ManageDialogShown";
-    case CollaborationServiceShareOrManageEvent::kTabGroupShared:
-      return "TabGroupShared";
+    case CollaborationServiceShareOrManageEvent::kCollaborationGroupCreated:
+      return "CollaborationGroupCreated";
     case CollaborationServiceShareOrManageEvent::kUrlReadyToShare:
       return "UrlReadyToShare";
     case CollaborationServiceShareOrManageEvent::kFlowRequirementsMet:
@@ -152,6 +157,8 @@ std::string_view CollaborationServiceShareOrManageEventToString(
       return "CollarborationIdEmptyGroupToken";
     case CollaborationServiceShareOrManageEvent::kCollaborationIdShareCanceled:
       return "CollaborationIdShareCanceled";
+    case CollaborationServiceShareOrManageEvent::kTabGroupShared:
+      return "TabGroupShared";
   }
 }
 
@@ -232,6 +239,34 @@ std::string_view CollaborationServiceShareOrManageEntryPointToString(
   }
 }
 
+std::string_view CollaborationServiceLeaveOrDeleteEntryPointToString(
+    CollaborationServiceLeaveOrDeleteEntryPoint entry) {
+  switch (entry) {
+    case CollaborationServiceLeaveOrDeleteEntryPoint::kUnknown:
+      return "Unknown";
+    case CollaborationServiceLeaveOrDeleteEntryPoint::
+        kAndroidTabGridDialogLeave:
+      return "AndroidTabGridDialogLeave";
+    case CollaborationServiceLeaveOrDeleteEntryPoint::
+        kAndroidTabGridDialogDelete:
+      return "AndroidTabGridDialogDelete";
+    case CollaborationServiceLeaveOrDeleteEntryPoint::
+        kAndroidTabGroupContextMenuLeave:
+      return "AndroidTabGroupContextMenuLeave";
+    case CollaborationServiceLeaveOrDeleteEntryPoint::
+        kAndroidTabGroupContextMenuDelete:
+      return "AndroidTabGroupContextMenuDelete";
+    case CollaborationServiceLeaveOrDeleteEntryPoint::
+        kAndroidTabGroupItemMenuLeave:
+      return "AndroidTabGroupItemMenuLeave";
+    case CollaborationServiceLeaveOrDeleteEntryPoint::
+        kAndroidTabGroupItemMenuDelete:
+      return "AndroidTabGroupItemMenuDelete";
+    case CollaborationServiceLeaveOrDeleteEntryPoint::kAndroidTabGroupRow:
+      return "AndroidTabGroupRow";
+  }
+}
+
 std::string_view CollaborationServiceStepToString(
     CollaborationServiceStep step) {
   switch (step) {
@@ -273,6 +308,12 @@ std::string CreateShareOrManageEntryLogToString(
       CollaborationServiceShareOrManageEntryPointToString(entry));
 }
 
+std::string CreateLeaveOrDeleteEntryLogToString(
+    CollaborationServiceLeaveOrDeleteEntryPoint entry) {
+  return base::StringPrintf(
+      "Leave or Delete Flow Started\n  From: %s\n",
+      CollaborationServiceLeaveOrDeleteEntryPointToString(entry));
+}
 std::string CreateLatencyLogToString(CollaborationServiceStep step,
                                      base::TimeDelta duration) {
   return base::StringPrintf("Step %s took %dms to complete.",
@@ -284,6 +325,7 @@ std::string CreateLatencyLogToString(CollaborationServiceStep step,
 
 void RecordJoinEvent(data_sharing::Logger* logger,
                      CollaborationServiceJoinEvent event) {
+  VLOG(1) << "RecordJoinEvent:" << (CreateJoinEventLogString(event));
   base::UmaHistogramEnumeration("CollaborationService.JoinFlow", event);
   DATA_SHARING_LOG(logger_common::mojom::LogSource::CollaborationService,
                    logger, CreateJoinEventLogString(event));
@@ -291,6 +333,8 @@ void RecordJoinEvent(data_sharing::Logger* logger,
 
 void RecordShareOrManageEvent(data_sharing::Logger* logger,
                               CollaborationServiceShareOrManageEvent event) {
+  VLOG(1) << "RecordShareOrManageEvent:"
+          << (CreateShareOrManageEventLogString(event));
   base::UmaHistogramEnumeration("CollaborationService.ShareOrManageFlow",
                                 event);
   DATA_SHARING_LOG(logger_common::mojom::LogSource::CollaborationService,
@@ -324,6 +368,15 @@ void RecordShareOrManageEntryPoint(
       "CollaborationService.ShareOrManageFlow.EntryPoint", entry);
   DATA_SHARING_LOG(logger_common::mojom::LogSource::CollaborationService,
                    logger, CreateShareOrManageEntryLogToString(entry));
+}
+
+void RecordLeaveOrDeleteEntryPoint(
+    data_sharing::Logger* logger,
+    CollaborationServiceLeaveOrDeleteEntryPoint entry) {
+  base::UmaHistogramEnumeration(
+      "CollaborationService.LeaveOrDeleteFlow.EntryPoint", entry);
+  DATA_SHARING_LOG(logger_common::mojom::LogSource::CollaborationService,
+                   logger, CreateLeaveOrDeleteEntryLogToString(entry));
 }
 
 void RecordLatency(data_sharing::Logger* logger,

@@ -23,7 +23,11 @@ import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.TextView;
+
 import androidx.annotation.ColorInt;
+
+import org.chromium.build.annotations.NullMarked;
+import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.readaloud.player.Colors;
 import org.chromium.chrome.browser.readaloud.player.InteractionHandler;
 import org.chromium.chrome.browser.readaloud.player.R;
@@ -34,6 +38,7 @@ import org.chromium.ui.base.DeviceFormFactor;
 import org.chromium.ui.interpolators.Interpolators;
 
 /** Convenience class for manipulating mini player UI layout. */
+@NullMarked
 public class MiniPlayerLayout extends LinearLayout {
     private static final long FADE_DURATION_MS = 300L;
     private static final Interpolator FADE_INTERPOLATOR =
@@ -47,6 +52,7 @@ public class MiniPlayerLayout extends LinearLayout {
     private ImageView mPlayPauseView;
     private FrameLayout mBackdrop;
     private View mContents;
+    private TextView mLoadingMessage;
 
     // Layouts related to different playback states.
     private LinearLayout mNormalLayout;
@@ -55,11 +61,12 @@ public class MiniPlayerLayout extends LinearLayout {
 
     private @PlaybackListener.State int mLastPlaybackState;
     private boolean mEnableAnimations;
-    private ObjectAnimator mAnimator;
+    private @Nullable ObjectAnimator mAnimator;
     private MiniPlayerMediator mMediator;
     private float mFinalOpacity;
     private @ColorInt int mBackgroundColorArgb;
     private int mYOffset;
+    private PlaybackMode mRequestedPlaybackMode = PlaybackMode.UNSPECIFIED;
 
     /** Constructor for inflating from XML. */
     public MiniPlayerLayout(Context context, AttributeSet attrs) {
@@ -86,6 +93,8 @@ public class MiniPlayerLayout extends LinearLayout {
         mNormalLayout = (LinearLayout) findViewById(R.id.normal_layout);
         mBufferingLayout = (LinearLayout) findViewById(R.id.buffering_layout);
         mErrorLayout = (LinearLayout) findViewById(R.id.error_layout);
+
+        mLoadingMessage = (TextView) findViewById(R.id.loading_message);
 
         // Set dynamic colors.
         Context context = getContext();
@@ -170,11 +179,21 @@ public class MiniPlayerLayout extends LinearLayout {
         mTitle.setText(title);
     }
 
-  void setPlaybackMode(PlaybackMode playbackMode) {
-    mSubtitle.setText(
-        playbackMode == PlaybackMode.OVERVIEW
-            ? mContext.getString(R.string.readaloud_chrome_now_playing_audio_overview)
-            : mContext.getString(R.string.readaloud_chrome_now_playing));
+    void setRequestedPlaybackMode(PlaybackMode playbackMode) {
+        mRequestedPlaybackMode = playbackMode;
+        if (mRequestedPlaybackMode == PlaybackMode.OVERVIEW) {
+            mLoadingMessage.setText(
+                    mContext.getString(R.string.readaloud_mini_player_loading_ai_playback));
+        } else {
+            mLoadingMessage.setText(mContext.getString(R.string.readaloud_playback_loading));
+        }
+    }
+
+    void setPlaybackMode(PlaybackMode playbackMode) {
+        mSubtitle.setText(
+                playbackMode == PlaybackMode.OVERVIEW
+                        ? mContext.getString(R.string.readaloud_chrome_now_playing_audio_overview)
+                        : mContext.getString(R.string.readaloud_chrome_now_playing));
     }
 
     /**
@@ -215,18 +234,18 @@ public class MiniPlayerLayout extends LinearLayout {
                 // UNKNOWN is currently the "reset" state and can be treated same as buffering.
             case BUFFERING:
             case UNKNOWN:
-                showOnly(mBufferingLayout);
+                showBufferingLayout();
                 mProgressBar.setVisibility(View.GONE);
                 break;
 
             case ERROR:
-                showOnly(mErrorLayout);
+                showErrorLayout();
                 mProgressBar.setVisibility(View.GONE);
                 break;
 
             case PLAYING:
                 if (mLastPlaybackState != PLAYING && mLastPlaybackState != PAUSED) {
-                    showOnly(mNormalLayout);
+                    showNormalLayout();
                     mProgressBar.setVisibility(View.VISIBLE);
                 }
 
@@ -242,7 +261,7 @@ public class MiniPlayerLayout extends LinearLayout {
                 if (mLastPlaybackState != PLAYING
                         && mLastPlaybackState != PAUSED
                         && mLastPlaybackState != ERROR) {
-                    showOnly(mNormalLayout);
+                    showNormalLayout();
                     mProgressBar.setVisibility(View.VISIBLE);
                 }
                 mPlayPauseView.setImageResource(R.drawable.mini_play_button);
@@ -256,15 +275,28 @@ public class MiniPlayerLayout extends LinearLayout {
         mLastPlaybackState = state;
     }
 
-    // Show `layout` and hide the other two.
-    private void showOnly(LinearLayout layout) {
-        setVisibleIfMatch(mNormalLayout, layout);
-        setVisibleIfMatch(mBufferingLayout, layout);
-        setVisibleIfMatch(mErrorLayout, layout);
+    private void showBufferingLayout() {
+        mBufferingLayout.setVisibility(View.VISIBLE);
+        mNormalLayout.setVisibility(View.GONE);
+        mErrorLayout.setVisibility(View.GONE);
+        if (mRequestedPlaybackMode == PlaybackMode.OVERVIEW) {
+            mLoadingMessage.setText(
+                    mContext.getString(R.string.readaloud_mini_player_loading_ai_playback));
+        } else {
+            mLoadingMessage.setText(mContext.getString(R.string.readaloud_playback_loading));
+        }
     }
 
-    private static void setVisibleIfMatch(LinearLayout a, LinearLayout b) {
-        a.setVisibility(a == b ? View.VISIBLE : View.GONE);
+    private void showNormalLayout() {
+        mNormalLayout.setVisibility(View.VISIBLE);
+        mBufferingLayout.setVisibility(View.GONE);
+        mErrorLayout.setVisibility(View.GONE);
+    }
+
+    private void showErrorLayout() {
+        mErrorLayout.setVisibility(View.VISIBLE);
+        mNormalLayout.setVisibility(View.GONE);
+        mBufferingLayout.setVisibility(View.GONE);
     }
 
     private void setOnClickListener(int id, Runnable handler) {
@@ -283,7 +315,7 @@ public class MiniPlayerLayout extends LinearLayout {
         }
     }
 
-    ObjectAnimator getAnimatorForTesting() {
+    @Nullable ObjectAnimator getAnimatorForTesting() {
         return mAnimator;
     }
 }

@@ -12,6 +12,7 @@ import android.view.View.AccessibilityDelegate;
 
 import androidx.annotation.IntDef;
 
+import org.chromium.build.annotations.NullMarked;
 import org.chromium.chrome.browser.tab_ui.TabListFaviconProvider;
 import org.chromium.chrome.browser.tasks.tab_management.TabListMediator.ShoppingPersistedTabDataFetcher;
 import org.chromium.chrome.browser.tasks.tab_management.TabListMediator.TabActionButtonData;
@@ -28,6 +29,7 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 
 /** List of properties to designate information about a single tab. */
+@NullMarked
 public class TabProperties {
     /** IDs for possible types of UI in the tab list. */
     @IntDef({
@@ -60,6 +62,8 @@ public class TabProperties {
     /** The {@link TabActionState} for the view, either CLOSABLE or SELECTABLE. */
     public static final WritableIntPropertyKey TAB_ACTION_STATE = new WritableIntPropertyKey();
 
+    // TODO(crbug.com/415829966): Combine TAB_ID and TAB_GROUP_SYNC_ID among other identifiers like
+    // tab group Token into a single value-type object that can be consolidated into one key.
     public static final WritableIntPropertyKey TAB_ID = new WritableIntPropertyKey();
 
     public static final ReadableBooleanPropertyKey IS_INCOGNITO = new ReadableBooleanPropertyKey();
@@ -97,7 +101,7 @@ public class TabProperties {
 
     public static final WritableIntPropertyKey CARD_ANIMATION_STATUS = new WritableIntPropertyKey();
 
-    public static final WritableObjectPropertyKey<SelectionDelegate<Integer>>
+    public static final WritableObjectPropertyKey<SelectionDelegate<TabListEditorItemSelectionId>>
             TAB_SELECTION_DELEGATE = new WritableObjectPropertyKey<>();
 
     public static final WritableObjectPropertyKey<String> URL_DOMAIN =
@@ -144,13 +148,18 @@ public class TabProperties {
 
     // TODO(crbug.com/410841414): Consider updating the property to use a syncId (current
     // implementation) and/or tab group Tokens.
+    // TODO(crbug.com/415829966): Combine TAB_ID and TAB_GROUP_SYNC_ID among other identifiers like
+    // tab group Token into a single value-type object that can be consolidated into one key.
     /** The {@link SavedTabGroup} syncId associated with tab groups shown on the Tab Grid. */
     public static final WritableObjectPropertyKey<String> TAB_GROUP_SYNC_ID =
             new WritableObjectPropertyKey<>();
 
     private static final PropertyKey[] COMMON_KEYS_TAB_AND_GROUP_GRID =
             new PropertyKey[] {
+                IS_INCOGNITO,
+                IS_SELECTED,
                 TAB_CLICK_LISTENER,
+                TAB_LONG_CLICK_LISTENER,
                 TAB_ACTION_BUTTON_DATA,
                 FAVICON_FETCHED,
                 FAVICON_FETCHER,
@@ -178,9 +187,6 @@ public class TabProperties {
                     new PropertyKey[] {
                         TAB_ACTION_STATE,
                         TAB_ID,
-                        IS_INCOGNITO,
-                        TAB_LONG_CLICK_LISTENER,
-                        IS_SELECTED,
                         SHOPPING_PERSISTED_TAB_DATA_FETCHER,
                         SHOULD_SHOW_PRICE_DROP_TOOLTIP,
                         HAS_NOTIFICATION_BUBBLE,

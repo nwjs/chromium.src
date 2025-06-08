@@ -25,7 +25,6 @@
 #include "base/memory/raw_ptr.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/no_destructor.h"
-#include "base/not_fatal_until.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
 #include "base/strings/sys_string_conversions.h"
@@ -2196,7 +2195,7 @@ AtkRelationSet* AtkRefRelationSet(AtkObject* atk_object) {
   // Enables AX mode. Most AT does not call AtkRefRelationSet, but Orca does,
   // which is why it's a good signal to enable accessibility for Orca users
   // without too many false positives.
-  AXPlatformNodeAuraLinux::EnableAXMode();
+  AXPlatform::GetInstance().OnExtendedPropertiesUsedInWebContent();
   return RefRelationSet(atk_object);
 }
 
@@ -2216,7 +2215,7 @@ AtkAttributeSet* AtkGetAttributes(AtkObject* atk_object) {
   // Enables AX mode. Most AT does not call AtkGetAttributes, but Orca does,
   // which is why it's a good signal to enable accessibility for Orca users
   // without too many false positives.
-  AXPlatformNodeAuraLinux::EnableAXMode();
+  AXPlatform::GetInstance().OnExtendedPropertiesUsedInWebContent();
   return GetAttributes(atk_object);
 }
 
@@ -2463,8 +2462,9 @@ void AXPlatformNodeAuraLinux::SetDocumentParentOnFrameIfNecessary() {
   if (!parent)
     return;
 
-  if (parent->GetDelegate()->IsWebContent())
+  if (parent->IsWebContent()) {
     return;
+  }
 
   AXPlatformNodeAuraLinux* frame = AXPlatformNodeAuraLinux::FromAtkObject(
       FindAtkObjectParentFrame(parent_atk_object));
@@ -2485,8 +2485,9 @@ AtkObject* AXPlatformNodeAuraLinux::FindPrimaryWebContentDocument() {
     auto* child_node = AXPlatformNodeAuraLinux::FromAtkObject(child);
     if (!child_node)
       continue;
-    if (!child_node->GetDelegate()->IsWebContent())
+    if (!child_node->IsWebContent()) {
       continue;
+    }
     if (child_node->GetAtkRole() != ATK_ROLE_DOCUMENT_WEB)
       continue;
     web_content_candidates.push_back(child);
@@ -2514,9 +2515,9 @@ bool AXPlatformNodeAuraLinux::IsWebDocumentForRelations() {
   if (!atk_object)
     return false;
   AXPlatformNodeAuraLinux* parent = FromAtkObject(GetParent());
-  if (!parent || !GetDelegate()->IsWebContent() ||
-      GetAtkRole() != ATK_ROLE_DOCUMENT_WEB)
+  if (!parent || !IsWebContent() || GetAtkRole() != ATK_ROLE_DOCUMENT_WEB) {
     return false;
+  }
   return parent->FindPrimaryWebContentDocument() == atk_object;
 }
 
@@ -2549,6 +2550,10 @@ void AXPlatformNodeAuraLinux::DestroyAtkObjects() {
   }
 
   if (atk_object_) {
+    // Remove this object from the active find-in-page results, so that it is
+    // not subsequently referenced by `ActiveFindInPageResult`.
+    GetActiveFindInPageResults().erase(atk_object_.get());
+
     // We explicitly clear g_current_focused just in case there is another
     // reference to atk_object_ somewhere.
     if (atk_object_ == g_current_focused)
@@ -2611,11 +2616,6 @@ AXPlatformNode* AXPlatformNodeAuraLinux::application() {
 // static
 void AXPlatformNodeAuraLinux::StaticInitialize() {
   AtkUtilAuraLinux::GetInstance()->InitializeAsync();
-}
-
-// static
-void AXPlatformNodeAuraLinux::EnableAXMode() {
-  AXPlatformNode::NotifyAddAXModeFlags(kAXModeComplete);
 }
 
 AtkRole AXPlatformNodeAuraLinux::GetAtkRole() const {
@@ -3026,7 +3026,7 @@ AtkRole AXPlatformNodeAuraLinux::GetAtkRole() const {
     case ax::mojom::Role::kUnknown:
       // When we are not in web content, assume that a node with an unknown
       // role is a view (which often have the unknown role).
-      return !GetDelegate()->IsWebContent() ? ATK_ROLE_PANEL : ATK_ROLE_UNKNOWN;
+      return !IsWebContent() ? ATK_ROLE_PANEL : ATK_ROLE_UNKNOWN;
     case ax::mojom::Role::kImeCandidate:
     case ax::mojom::Role::kKeyboard:
     case ax::mojom::Role::kNone:
@@ -3607,7 +3607,7 @@ void AXPlatformNodeAuraLinux::SetActiveViewsDialog() {
   if (!parent)
     return;
 
-  if (!GetDelegate()->IsWebContent()) {
+  if (!IsWebContent()) {
     while (parent) {
       if (atk_object::GetRole(parent) == ATK_ROLE_DIALOG) {
         new_views_dialog = parent;
@@ -3886,8 +3886,9 @@ void AXPlatformNodeAuraLinux::OnValueChanged() {
   // update the nodes' hypertext and trigger text change signals when the value
   // changes. Otherwise, for web and PDF content, this is handled by
   // "BrowserAccessibilityAuraLinux".
-  if (!GetDelegate()->IsWebContent())
+  if (!IsWebContent()) {
     UpdateHypertext();
+  }
 
   if (!GetData().IsRangeValueSupported())
     return;
@@ -4435,8 +4436,9 @@ bool AXPlatformNodeAuraLinux::GrabFocus() {
 }
 
 bool AXPlatformNodeAuraLinux::FocusFirstFocusableAncestorInWebContent() {
-  if (!GetDelegate()->IsWebContent())
+  if (!IsWebContent()) {
     return false;
+  }
 
   // Don't cross document boundaries in order to avoid having this operation
   // cross iframe boundaries or escape to non-document UI elements.
@@ -4990,8 +4992,7 @@ const TextAttributeList& AXPlatformNodeAuraLinux::GetTextAttributes(
       FindStartOfStyle(utf16_offset, ax::mojom::MoveDirection::kForward);
 
   auto iterator = offset_to_text_attributes_.find(style_start);
-  CHECK(iterator != offset_to_text_attributes_.end(),
-        base::NotFatalUntil::M130);
+  CHECK(iterator != offset_to_text_attributes_.end());
 
   SetIntPointerValueIfNotNull(start_offset,
                               UTF16ToUnicodeOffsetInText(style_start));

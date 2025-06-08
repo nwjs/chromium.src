@@ -12,6 +12,7 @@
 #import "components/search_engines/template_url_service.h"
 #import "components/signin/public/base/signin_metrics.h"
 #import "ios/chrome/browser/authentication/ui_bundled/continuation.h"
+#import "ios/chrome/browser/authentication/ui_bundled/signin/signin_coordinator.h"
 #import "ios/chrome/browser/authentication/ui_bundled/signin_presenter.h"
 #import "ios/chrome/browser/authentication/ui_bundled/signin_promo_view_mediator.h"
 #import "ios/chrome/browser/ntp/ui_bundled/feed_top_section/feed_top_section_mediator.h"
@@ -20,6 +21,7 @@
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_delegate.h"
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_utils.h"
 #import "ios/chrome/browser/push_notification/model/constants.h"
+#import "ios/chrome/browser/push_notification/model/provisional_push_notification_service_factory.h"
 #import "ios/chrome/browser/push_notification/model/push_notification_client_id.h"
 #import "ios/chrome/browser/push_notification/model/push_notification_service.h"
 #import "ios/chrome/browser/push_notification/model/push_notification_util.h"
@@ -68,7 +70,9 @@ using base::UserMetricsAction;
 
 @end
 
-@implementation FeedTopSectionCoordinator
+@implementation FeedTopSectionCoordinator {
+  SigninCoordinator* _signinCoordinator;
+}
 
 // Synthesized from ChromeCoordinator.
 @synthesize viewController = _viewController;
@@ -85,13 +89,16 @@ using base::UserMetricsAction;
   AuthenticationService* authenticationService =
       AuthenticationServiceFactory::GetForProfile(profile);
   syncer::SyncService* syncService = SyncServiceFactory::GetForProfile(profile);
+  ProvisionalPushNotificationService* provisionalPushNotificationService =
+      ProvisionalPushNotificationServiceFactory::GetForProfile(profile);
 
   self.feedTopSectionMediator = [[FeedTopSectionMediator alloc]
-      initWithConsumer:self.feedTopSectionViewController
-       identityManager:identityManager
-           authService:authenticationService
-             incognito:profile->IsOffTheRecord()
-           prefService:profile->GetPrefs()];
+                        initWithConsumer:self.feedTopSectionViewController
+                         identityManager:identityManager
+                             authService:authenticationService
+      provisionalPushNotificationService:provisionalPushNotificationService
+                               incognito:profile->IsOffTheRecord()
+                             prefService:profile->GetPrefs()];
   self.isSignInPromoEnabled =
       ShouldShowTopOfFeedSyncPromo() && authenticationService &&
       [self.NTPDelegate isSignInAllowed] &&
@@ -148,6 +155,7 @@ using base::UserMetricsAction;
   self.signinPromoMediator = nil;
   self.feedTopSectionMediator = nil;
   self.feedTopSectionViewController = nil;
+  [self stopSigninCoordinator];
 }
 
 #pragma mark - Public
@@ -175,9 +183,17 @@ using base::UserMetricsAction;
 #pragma mark - SigninPresenter
 
 - (void)showSignin:(ShowSigninCommand*)command {
-  id<ApplicationCommands> handler = HandlerForProtocol(
-      self.browser->GetCommandDispatcher(), ApplicationCommands);
-  [handler showSignin:command baseViewController:self.baseViewController];
+  _signinCoordinator =
+      [SigninCoordinator signinCoordinatorWithCommand:command
+                                              browser:self.browser
+                                   baseViewController:self.baseViewController];
+  __weak __typeof(self) weakSelf = self;
+  _signinCoordinator.signinCompletion =
+      ^(SigninCoordinatorResult result, id<SystemIdentity> identity) {
+        [weakSelf stopSigninCoordinator];
+        command.completion(result, identity);
+      };
+  [_signinCoordinator start];
 }
 
 #pragma mark - Setters
@@ -258,6 +274,14 @@ using base::UserMetricsAction;
 
 - (void)logHistogramForEvent:(ContentNotificationTopOfFeedPromoEvent)event {
   UmaHistogramEnumeration("ContentNotifications.Promo.TopOfFeed.Event", event);
+}
+
+#pragma mark - Private
+
+// Stops the signin coordinator.
+- (void)stopSigninCoordinator {
+  [_signinCoordinator stop];
+  _signinCoordinator = nil;
 }
 
 @end

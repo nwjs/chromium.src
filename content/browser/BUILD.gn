@@ -18,6 +18,7 @@ import("//content/public/common/zygote/features.gni")
 import("//device/bluetooth/emulation/buildflags.gni")
 import("//device/vr/buildflags/buildflags.gni")
 import("//gpu/vulkan/features.gni")
+import("//media/gpu/args.gni")
 import("//media/media_options.gni")
 import("//net/features.gni")
 import("//ppapi/buildflags/buildflags.gni")
@@ -289,7 +290,6 @@ source_set("browser") {
     "//third_party/blink/public/strings",
     "//third_party/boringssl",
     "//third_party/brotli:dec",
-    "//third_party/distributed_point_functions",
     "//third_party/icu",
     "//third_party/inspector_protocol:crdtp",
     "//third_party/libyuv",
@@ -463,6 +463,8 @@ source_set("browser") {
     "ai/echo_ai_language_model.h",
     "ai/echo_ai_manager_impl.cc",
     "ai/echo_ai_manager_impl.h",
+    "ai/echo_ai_proofreader.cc",
+    "ai/echo_ai_proofreader.h",
     "ai/echo_ai_rewriter.cc",
     "ai/echo_ai_rewriter.h",
     "ai/echo_ai_summarizer.cc",
@@ -1168,8 +1170,6 @@ source_set("browser") {
     "gpu/gpu_internals_ui.h",
     "gpu/gpu_main_thread_factory.cc",
     "gpu/gpu_main_thread_factory.h",
-    "gpu/gpu_memory_buffer_manager_singleton.cc",
-    "gpu/gpu_memory_buffer_manager_singleton.h",
     "gpu/gpu_process_host.cc",
     "gpu/gpu_process_host.h",
     "gpu/gpu_process_host_receiver_bindings.cc",
@@ -1291,6 +1291,8 @@ source_set("browser") {
     "interest_group/subresource_url_authorizations.h",
     "interest_group/subresource_url_builder.cc",
     "interest_group/subresource_url_builder.h",
+    "interest_group/trusted_bidding_signals_kvv1_requester.cc",
+    "interest_group/trusted_bidding_signals_kvv1_requester.h",
     "interest_group/trusted_signals_cache_impl.cc",
     "interest_group/trusted_signals_cache_impl.h",
     "interest_group/trusted_signals_fetcher.cc",
@@ -2077,9 +2079,6 @@ source_set("browser") {
     "screenlock_monitor/screenlock_monitor_device_source.h",
     "screenlock_monitor/screenlock_monitor_source.cc",
     "screenlock_monitor/screenlock_monitor_source.h",
-    "security/coop/coop_related_group.cc",
-    "security/coop/coop_related_group.h",
-    "security/coop/coop_swap_result.h",
     "security/coop/cross_origin_isolation_mode.h",
     "security/coop/cross_origin_opener_policy_access_report_manager.cc",
     "security/coop/cross_origin_opener_policy_access_report_manager.h",
@@ -2332,22 +2331,16 @@ source_set("browser") {
     "wake_lock/wake_lock_context_host.h",
     "wake_lock/wake_lock_service_impl.cc",
     "wake_lock/wake_lock_service_impl.h",
-    "web_contents/accessibility_mode_policy.cc",
-    "web_contents/accessibility_mode_policy.h",
     "web_contents/aura/gesture_nav_simple.cc",
     "web_contents/aura/gesture_nav_simple.h",
     "web_contents/aura/types.cc",
     "web_contents/aura/types.h",
     "web_contents/file_chooser_impl.cc",
     "web_contents/file_chooser_impl.h",
-    "web_contents/immediate_accessibility_mode_policy.cc",
-    "web_contents/immediate_accessibility_mode_policy.h",
     "web_contents/java_script_dialog_commit_deferring_condition.cc",
     "web_contents/java_script_dialog_commit_deferring_condition.h",
     "web_contents/partitioned_popins_controller.cc",
     "web_contents/partitioned_popins_controller.h",
-    "web_contents/progressive_accessibility_mode_policy.cc",
-    "web_contents/progressive_accessibility_mode_policy.h",
     "web_contents/slow_web_preference_cache.cc",
     "web_contents/slow_web_preference_cache.h",
     "web_contents/web_contents_impl.cc",
@@ -2413,8 +2406,18 @@ source_set("browser") {
     "webid/digital_credentials/digital_identity_request_impl.h",
     "webid/fake_identity_request_dialog_controller.cc",
     "webid/fake_identity_request_dialog_controller.h",
+    "webid/fedcm_accounts_fetcher.cc",
+    "webid/fedcm_accounts_fetcher.h",
+    "webid/fedcm_config_fetcher.cc",
+    "webid/fedcm_config_fetcher.h",
+    "webid/fedcm_idp_registration_handler.cc",
+    "webid/fedcm_idp_registration_handler.h",
+    "webid/fedcm_mappers.cc",
+    "webid/fedcm_mappers.h",
     "webid/fedcm_metrics.cc",
     "webid/fedcm_metrics.h",
+    "webid/fedcm_url_computations.cc",
+    "webid/fedcm_url_computations.h",
     "webid/federated_auth_autofill_source.cc",
     "webid/federated_auth_disconnect_request.cc",
     "webid/federated_auth_disconnect_request.h",
@@ -2424,10 +2427,12 @@ source_set("browser") {
     "webid/federated_auth_request_page_data.h",
     "webid/federated_auth_user_info_request.cc",
     "webid/federated_auth_user_info_request.h",
-    "webid/federated_provider_fetcher.cc",
-    "webid/federated_provider_fetcher.h",
+    "webid/federated_sd_jwt_handler.cc",
+    "webid/federated_sd_jwt_handler.h",
     "webid/flags.cc",
     "webid/flags.h",
+    "webid/identity_provider_info.cc",
+    "webid/identity_provider_info.h",
     "webid/identity_registry.cc",
     "webid/identity_registry.h",
     "webid/identity_registry_delegate.h",
@@ -2553,6 +2558,8 @@ source_set("browser") {
       "compute_pressure/web_contents_pressure_manager_proxy.cc",
       "compute_pressure/web_contents_pressure_manager_proxy.h",
     ]
+
+    deps += [ "//services/device/public/cpp/compute_pressure" ]
   }
 
   if (use_viz_debugger) {
@@ -2588,8 +2595,6 @@ source_set("browser") {
       "font_access/font_enumeration_data_source_linux.h",
       "font_service.cc",
       "font_service.h",
-      "media/video_encode_accelerator_provider_launcher.cc",
-      "media/video_encode_accelerator_provider_launcher.h",
       "memory/swap_metrics_driver_impl_linux.cc",
       "memory/swap_metrics_driver_impl_linux.h",
       "sandbox_host_linux.cc",
@@ -2599,7 +2604,12 @@ source_set("browser") {
       "zygote_host/zygote_host_impl_linux.cc",
       "zygote_host/zygote_host_impl_linux.h",
     ]
-
+    if (use_linux_video_acceleration) {
+      sources += [
+        "media/video_encode_accelerator_provider_launcher.cc",
+        "media/video_encode_accelerator_provider_launcher.h",
+      ]
+    }
     public_deps += [ "//components/services/font/public/mojom" ]
 
     deps += [
@@ -2631,6 +2641,8 @@ source_set("browser") {
       "lock_screen/lock_screen_service_impl.h",
       "lock_screen/lock_screen_storage_impl.cc",
       "lock_screen/lock_screen_storage_impl.h",
+      "smart_card/smart_card_histograms.cc",
+      "smart_card/smart_card_histograms.h",
       "smart_card/smart_card_service.cc",
       "smart_card/smart_card_service.h",
     ]

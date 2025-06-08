@@ -6,6 +6,7 @@
 
 #include <cstddef>
 
+#include "base/strings/stringprintf.h"
 #include "mojo/public/cpp/test_support/test_utils.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/common/input/web_mouse_event.h"
@@ -307,6 +308,14 @@ class AIPageContentAgentTest : public testing::Test {
 
     EXPECT_EQ(html.children_nodes.size(), 1u);
     return *html.children_nodes[0];
+  }
+
+  void CheckHitTestableButNotInteractive(
+      const mojom::blink::AIPageContentNode& node) {
+    CHECK(node.content_attributes->node_interaction_info);
+    EXPECT_TRUE(node.content_attributes->node_interaction_info
+                    ->document_scoped_z_order);
+    EXPECT_FALSE(node.content_attributes->node_interaction_info->is_clickable);
   }
 
   const mojom::blink::AIPageContentPtr& Content() { return last_content_; }
@@ -3317,7 +3326,7 @@ TEST_F(AIPageContentAgentTest, LabelWithForSibling) {
   CheckContainerNode(label);
   ASSERT_TRUE(label.content_attributes->node_interaction_info);
   EXPECT_TRUE(label.content_attributes->node_interaction_info->is_clickable);
-  EXPECT_EQ(label.content_attributes->node_interaction_info->for_dom_node_id,
+  EXPECT_EQ(label.content_attributes->label_for_dom_node_id,
             input.content_attributes->dom_node_id);
 }
 
@@ -3347,7 +3356,7 @@ TEST_F(AIPageContentAgentTest, LabelWithForDescendant) {
   CheckFormControlNode(input, mojom::blink::FormControlType::kInputCheckbox);
   ASSERT_TRUE(input.content_attributes->node_interaction_info);
   EXPECT_TRUE(input.content_attributes->node_interaction_info->is_clickable);
-  EXPECT_EQ(label.content_attributes->node_interaction_info->for_dom_node_id,
+  EXPECT_EQ(label.content_attributes->label_for_dom_node_id,
             input.content_attributes->dom_node_id);
 
   CheckTextNode(*label.children_nodes[1], "Check me!");
@@ -3461,7 +3470,7 @@ TEST_F(AIPageContentAgentTest, DisabledButton) {
   const auto& root = ContentRootNode();
   ASSERT_EQ(root.children_nodes.size(), 1u);
   const auto& button = *root.children_nodes.at(0);
-  EXPECT_FALSE(button.content_attributes->node_interaction_info);
+  CheckHitTestableButNotInteractive(button);
 }
 
 TEST_F(AIPageContentAgentTest, ActionablePseudoElements) {
@@ -3539,6 +3548,170 @@ TEST_F(AIPageContentAgentTest, PseudoElementNoPointerEvents) {
   EXPECT_EQ(a.children_nodes.size(), 1u);
   const auto& text = *a.children_nodes[0];
   CheckTextNode(text, "hello");
+}
+
+TEST_F(AIPageContentAgentTest, AriaDisabled) {
+  frame_test_helpers::LoadHTMLString(
+      helper_.LocalMainFrame(),
+      R"HTML(
+      <body>
+        <section style='cursor: pointer' aria-disabled=true>
+          <input type=text aria-disabled=false></input>
+        </section>
+      </body>
+      )HTML",
+      url_test_helpers::ToKURL("http://foobar.com"));
+
+  GetAIPageContentWithActionableElements();
+  const auto& root = ContentRootNode();
+  ASSERT_EQ(root.children_nodes.size(), 1u);
+
+  // The first node is not actionable anymore.
+  const auto& section = *root.children_nodes.at(0);
+  CheckContainerNode(section);
+  CheckHitTestableButNotInteractive(section);
+
+  // The child is also not actionable.
+  ASSERT_EQ(section.children_nodes.size(), 1u);
+  const auto& input = *section.children_nodes.at(0);
+  CheckHitTestableButNotInteractive(input);
+}
+
+TEST_F(AIPageContentAgentTest, DisabledInheritance) {
+  frame_test_helpers::LoadHTMLString(
+      helper_.LocalMainFrame(),
+      R"HTML(
+      <body>
+        <form>
+          <fieldset disabled>
+            <button type="submit"></button>
+          </fieldset>
+        </form>
+      </body>
+      )HTML",
+      url_test_helpers::ToKURL("http://foobar.com"));
+
+  GetAIPageContentWithActionableElements();
+  const auto& root = ContentRootNode();
+  ASSERT_EQ(root.children_nodes.size(), 1u);
+
+  const auto& form = *root.children_nodes.at(0);
+  CheckHitTestableButNotInteractive(form);
+  ASSERT_EQ(form.children_nodes.size(), 1u);
+
+  const auto& fieldset = *form.children_nodes.at(0);
+  CheckHitTestableButNotInteractive(fieldset);
+  ASSERT_EQ(fieldset.children_nodes.size(), 1u);
+
+  const auto& button = *fieldset.children_nodes.at(0);
+  CheckHitTestableButNotInteractive(button);
+}
+
+TEST_F(AIPageContentAgentTest, DisabledOption) {
+  frame_test_helpers::LoadHTMLString(
+      helper_.LocalMainFrame(),
+      R"HTML(
+      <body>
+        <select>
+          <option value="banana">Banana</option>
+          <option value="cherry" disabled>Cherry</option>
+        </select>
+      </body>
+      )HTML",
+      url_test_helpers::ToKURL("http://foobar.com"));
+
+  GetAIPageContentWithActionableElements();
+  const auto& root = ContentRootNode();
+  ASSERT_EQ(root.children_nodes.size(), 1u);
+
+  const auto& select = *root.children_nodes.at(0);
+  CheckFormControlNode(select, mojom::blink::FormControlType::kSelectOne);
+
+  const auto& options =
+      select.content_attributes->form_control_data->select_options;
+  ASSERT_EQ(options.size(), 2u);
+
+  const auto& banana = *options.at(0);
+  EXPECT_EQ(banana.value, "banana");
+  EXPECT_FALSE(banana.disabled);
+
+  const auto& cherry = *options.at(1);
+  EXPECT_EQ(cherry.value, "cherry");
+  EXPECT_TRUE(cherry.disabled);
+}
+
+TEST_F(AIPageContentAgentTest, AriaRole) {
+  frame_test_helpers::LoadHTMLString(
+      helper_.LocalMainFrame(),
+      R"HTML(
+      <body>
+        <div role="button"></div>
+      </body>
+      )HTML",
+      url_test_helpers::ToKURL("http://foobar.com"));
+
+  GetAIPageContentWithActionableElements();
+  const auto& root = ContentRootNode();
+  ASSERT_EQ(root.children_nodes.size(), 1u);
+
+  const auto& button = *root.children_nodes.at(0);
+  ASSERT_TRUE(button.content_attributes->node_interaction_info);
+  EXPECT_TRUE(button.content_attributes->node_interaction_info->is_clickable);
+  EXPECT_EQ(button.content_attributes->aria_role,
+            ax::mojom::blink::Role::kButton);
+}
+
+TEST_F(AIPageContentAgentTest, LabelNotActionable) {
+  frame_test_helpers::LoadHTMLString(
+      helper_.LocalMainFrame(),
+      R"HTML(
+        <body>
+          <input type='checkbox' id='myCheckbox' />
+          <label for='myCheckbox' style='pointer-events: none;'>Check me!</label>
+        </body>
+      )HTML",
+      url_test_helpers::ToKURL("http://foobar.com"));
+
+  GetAIPageContentWithActionableElements();
+  const auto& root = ContentRootNode();
+  ASSERT_EQ(root.children_nodes.size(), 2u);
+
+  const auto& button = *root.children_nodes.at(0);
+  ASSERT_TRUE(button.content_attributes->node_interaction_info);
+  EXPECT_TRUE(button.content_attributes->node_interaction_info->is_clickable);
+
+  const auto& label = *root.children_nodes.at(1);
+  EXPECT_FALSE(label.content_attributes->node_interaction_info);
+  EXPECT_EQ(*label.content_attributes->label_for_dom_node_id,
+            button.content_attributes->dom_node_id);
+}
+
+TEST_F(AIPageContentAgentTest, SelectLabelNotActionable) {
+  frame_test_helpers::LoadHTMLString(
+      helper_.LocalMainFrame(),
+      R"HTML(
+        <body>
+          <label for="fruit-select">Choose a fruit:</label>
+          <select id="fruit-select" name="fruits">
+            <option value="">--Please choose an option--</option>
+            <option value="apple">Apple</option>
+            <option value="banana">Banana</option>
+          </select>
+        </body>
+      )HTML",
+      url_test_helpers::ToKURL("http://foobar.com"));
+
+  GetAIPageContentWithActionableElements();
+  const auto& root = ContentRootNode();
+  ASSERT_EQ(root.children_nodes.size(), 2u);
+
+  const auto& label = *root.children_nodes.at(0);
+  ASSERT_TRUE(label.content_attributes->node_interaction_info);
+  EXPECT_FALSE(label.content_attributes->node_interaction_info->is_clickable);
+
+  const auto& select = *root.children_nodes.at(1);
+  ASSERT_TRUE(select.content_attributes->node_interaction_info);
+  EXPECT_TRUE(select.content_attributes->node_interaction_info->is_clickable);
 }
 
 }  // namespace

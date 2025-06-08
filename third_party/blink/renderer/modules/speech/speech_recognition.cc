@@ -60,6 +60,11 @@
 #include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 
 namespace {
+const char kExceptionMessageCrossOriginAccess[] =
+    "Access denied from cross-origin iframes.";
+const char kExceptionMessagePermissionPolicy[] =
+    "Access denied because the Permission Policy is not enabled.";
+
 blink::V8AvailabilityStatus AvailabilityStatusToV8(
     media::mojom::blink::AvailabilityStatus status) {
   switch (status) {
@@ -90,8 +95,7 @@ void SpeechRecognition::setPhrases(SpeechRecognitionPhraseList* phrases) {
   if (phrases->length() > 0 &&
       mode_ == V8SpeechRecognitionMode::Enum::kCloudOnly) {
     ErrorOccurred(media::mojom::blink::SpeechRecognitionError::New(
-        media::mojom::blink::SpeechRecognitionErrorCode::
-            kRecognitionContextNotSupported,
+        media::mojom::blink::SpeechRecognitionErrorCode::kPhrasesNotSupported,
         media::mojom::blink::SpeechAudioErrorDetails::kNone));
     return;
   }
@@ -120,11 +124,10 @@ void SpeechRecognition::setMode(const V8SpeechRecognitionMode& mode) {
   // changing mode after the speech recognition session started does not update
   // the mode in the system, so we limit the check to only apply before the
   // session starts.
-  if (phrases_->length() > 0 &&
+  if (phrases_ && phrases_->length() > 0 &&
       mode == V8SpeechRecognitionMode::Enum::kCloudOnly && !started_) {
     ErrorOccurred(media::mojom::blink::SpeechRecognitionError::New(
-        media::mojom::blink::SpeechRecognitionErrorCode::
-            kRecognitionContextNotSupported,
+        media::mojom::blink::SpeechRecognitionErrorCode::kPhrasesNotSupported,
         media::mojom::blink::SpeechAudioErrorDetails::kNone));
     return;
   }
@@ -136,11 +139,11 @@ void SpeechRecognition::start(ExceptionState& exception_state) {
   // If this is called in prerendering, it should be deferred.
   if (DomWindow() && DomWindow()->document()->IsPrerendering()) {
     DomWindow()->document()->AddPostPrerenderingActivationStep(
-        WTF::BindOnce(&SpeechRecognition::StartInternal,
+        WTF::BindOnce(&SpeechRecognition::CheckAvailabilityAndStart,
                       WrapWeakPersistent(this), /*exception_state=*/nullptr));
     return;
   }
-  StartInternal(&exception_state);
+  CheckAvailabilityAndStart(&exception_state);
 }
 
 // TODO(crbug.com/384797834): Add Web Platform Tests for MediaStreamTrack
@@ -207,7 +210,6 @@ ScriptPromise<V8AvailabilityStatus> SpeechRecognition::availableOnDevice(
     ExceptionState& exception_state) {
   LocalDOMWindow& window = *LocalDOMWindow::From(script_state);
   auto* controller = SpeechRecognitionController::From(window);
-
   if (!controller || !script_state->ContextIsValid()) {
     exception_state.ThrowDOMException(DOMExceptionCode::kInvalidStateError,
                                       "Execution context is detached.");
@@ -218,6 +220,18 @@ ScriptPromise<V8AvailabilityStatus> SpeechRecognition::availableOnDevice(
       MakeGarbageCollected<ScriptPromiseResolver<V8AvailabilityStatus>>(
           script_state, exception_state.GetContext());
   auto result = resolver->Promise();
+  bool is_cross_origin_iframe = window.IsCrossSiteSubframeIncludingScheme();
+
+  // Return unavailable if the Permission Policy is not enabled, or if the API
+  // is accessed from a cross-origin iframe.
+  if (!window.IsFeatureEnabled(network::mojom::PermissionsPolicyFeature::
+                                   kOnDeviceSpeechRecognition) ||
+      is_cross_origin_iframe) {
+    resolver->Resolve(AvailabilityStatusToV8(
+        media::mojom::blink::AvailabilityStatus::kUnavailable));
+    return result;
+  }
+
   controller->OnDeviceWebSpeechAvailable(
       lang, WTF::BindOnce(
                 [](ScriptPromiseResolver<V8AvailabilityStatus>* resolver,
@@ -238,7 +252,6 @@ ScriptPromise<IDLBoolean> SpeechRecognition::installOnDevice(
     ExceptionState& exception_state) {
   LocalDOMWindow& window = *LocalDOMWindow::From(script_state);
   auto* controller = SpeechRecognitionController::From(window);
-
   if (!controller || !script_state->ContextIsValid()) {
     exception_state.ThrowDOMException(DOMExceptionCode::kInvalidStateError,
                                       "Execution context is detached.");
@@ -247,11 +260,49 @@ ScriptPromise<IDLBoolean> SpeechRecognition::installOnDevice(
 
   auto* resolver = MakeGarbageCollected<ScriptPromiseResolver<IDLBoolean>>(
       script_state, exception_state.GetContext());
+  // Block access for cross-origin iframes.
+  if (window.IsCrossSiteSubframeIncludingScheme()) {
+    resolver->Reject(
+        MakeGarbageCollected<DOMException>(DOMExceptionCode::kNotAllowedError,
+                                           kExceptionMessageCrossOriginAccess));
+    return resolver->Promise();
+  }
+
+  // Block access if the Permission Policy is not enabled.
+  if (!window.IsFeatureEnabled(network::mojom::PermissionsPolicyFeature::
+                                   kOnDeviceSpeechRecognition)) {
+    resolver->Reject(MakeGarbageCollected<DOMException>(
+        DOMExceptionCode::kNotAllowedError, kExceptionMessagePermissionPolicy));
+    return resolver->Promise();
+  }
   auto result = resolver->Promise();
-  controller->InstallOnDeviceSpeechRecognition(
-      lang, WTF::BindOnce([](ScriptPromiseResolver<IDLBoolean>* resolver,
-                             bool success) { resolver->Resolve(success); },
-                          WrapPersistent(resolver)));
+
+  controller->OnDeviceWebSpeechAvailable(
+      lang,
+      WTF::BindOnce(
+          [](ScriptPromiseResolver<IDLBoolean>* resolver,
+             ScriptState* script_state, const String& lang,
+             media::mojom::blink::AvailabilityStatus status) {
+            LocalDOMWindow& window = *LocalDOMWindow::From(script_state);
+            auto* controller = SpeechRecognitionController::From(window);
+            if (!window.IsServiceWorkerGlobalScope() &&
+                status ==
+                    media::mojom::blink::AvailabilityStatus::kDownloadable &&
+                !LocalFrame::ConsumeTransientUserActivation(
+                    window.GetFrame())) {
+              resolver->RejectWithDOMException(
+                  DOMExceptionCode::kNotAllowedError,
+                  "Requires handling a user gesture when availability is "
+                  "\"downloadable\".");
+              return;
+            }
+            controller->InstallOnDeviceSpeechRecognition(
+                lang,
+                WTF::BindOnce([](ScriptPromiseResolver<IDLBoolean>* resolver,
+                                 bool success) { resolver->Resolve(success); },
+                              WrapPersistent(resolver)));
+          },
+          WrapPersistent(resolver), WrapPersistent(script_state), lang));
 
   return result;
 }
@@ -371,7 +422,8 @@ void SpeechRecognition::OnConnectionError() {
   Ended();
 }
 
-void SpeechRecognition::StartInternal(ExceptionState* exception_state) {
+void SpeechRecognition::CheckAvailabilityAndStart(
+    ExceptionState* exception_state) {
   if (!controller_ || !GetExecutionContext()) {
     if (exception_state) {
       exception_state->ThrowDOMException(
@@ -395,6 +447,37 @@ void SpeechRecognition::StartInternal(ExceptionState* exception_state) {
     }
     return;
   }
+
+  if (mode_ == V8SpeechRecognitionMode::Enum::kOndeviceOnly && lang_) {
+    controller_->OnDeviceWebSpeechAvailable(
+        lang_,
+        WTF::BindOnce(
+            [](SpeechRecognition* speech_recognition,
+               media::mojom::blink::AvailabilityStatus status) {
+              if (!speech_recognition) {
+                return;
+              }
+
+              if (status !=
+                  media::mojom::blink::AvailabilityStatus::kAvailable) {
+                speech_recognition->ErrorOccurred(
+                    media::mojom::blink::SpeechRecognitionError::New(
+                        media::mojom::blink::SpeechRecognitionErrorCode::
+                            kLanguageNotSupported,
+                        media::mojom::blink::SpeechAudioErrorDetails::kNone));
+                return;
+              }
+
+              speech_recognition->StartInternal();
+            },
+            WrapWeakPersistent(this)));
+    return;
+  }
+
+  StartInternal();
+}
+
+void SpeechRecognition::StartInternal() {
   final_results_.clear();
 
   auto task_runner =
@@ -448,9 +531,8 @@ SpeechRecognition::SpeechRecognition(LocalDOMWindow* window)
       ExecutionContextLifecycleObserver(window),
       PageVisibilityObserver(window->GetFrame() ? window->GetFrame()->GetPage()
                                                 : nullptr),
-      grammars_(SpeechGrammarList::Create()),  // FIXME: The spec is not clear
-                                               // on the default value for the
-                                               // grammars attribute.
+      grammars_(SpeechGrammarList::Create()),
+      phrases_(SpeechRecognitionPhraseList::Create({})),
       controller_(SpeechRecognitionController::From(*window)),
       receiver_(this, window),
       session_(window) {}

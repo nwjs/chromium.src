@@ -90,6 +90,7 @@
 #include "third_party/blink/renderer/platform/geometry/path.h"
 #include "third_party/blink/renderer/platform/geometry/path_builder.h"
 #include "third_party/blink/renderer/platform/graphics/graphics_context.h"
+#include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "third_party/blink/renderer/platform/text/capitalize.h"
 #include "third_party/blink/renderer/platform/text/character.h"
 #include "third_party/blink/renderer/platform/text/quotes_data.h"
@@ -124,7 +125,7 @@ struct SameSizeAsComputedStyleBase
 
  private:
   Member<void*> pointers[10];
-  unsigned bitfields[6];
+  unsigned bitfields[5];
 };
 
 struct SameSizeAsComputedStyle : public SameSizeAsComputedStyleBase {
@@ -983,6 +984,22 @@ bool ComputedStyle::DiffNeedsFullLayout(const Document& document,
   if (DisplayLayoutCustomParentName() &&
       DiffNeedsFullLayoutForLayoutCustomChild(document, other)) {
     return true;
+  }
+
+  if (field_diff & kGapDecorations) {
+    bool column_rule_style_changed_from_none =
+        ColumnRuleStyle() ==
+            ComputedStyleInitialValues::InitialColumnRuleStyle() &&
+        other.ColumnRuleStyle() !=
+            ComputedStyleInitialValues::InitialColumnRuleStyle();
+    bool row_rule_style_changed_from_none =
+        RowRuleStyle() == ComputedStyleInitialValues::InitialRowRuleStyle() &&
+        other.RowRuleStyle() !=
+            ComputedStyleInitialValues::InitialRowRuleStyle();
+    if (column_rule_style_changed_from_none ||
+        row_rule_style_changed_from_none) {
+      return true;
+    }
   }
 
   return false;
@@ -1947,8 +1964,14 @@ String ComputedStyle::ApplyTextTransform(const String& text,
   switch (TextTransform()) {
     case ETextTransform::kNone:
       return text;
-    case ETextTransform::kCapitalize:
+    case ETextTransform::kCapitalize: {
+      if (RuntimeEnabledFeatures::ICUCapitalizationEnabled()) {
+        const LayoutLocale* locale = GetFontDescription().Locale();
+        CaseMap case_map(locale ? locale->CaseMapLocale() : CaseMap::Locale());
+        return case_map.ToTitle(text, offset_map, previous_character);
+      }
       return Capitalize(text, previous_character);
+    }
     case ETextTransform::kUppercase: {
       const LayoutLocale* locale = GetFontDescription().Locale();
       CaseMap case_map(locale ? locale->CaseMapLocale() : CaseMap::Locale());
@@ -2881,6 +2904,30 @@ bool ComputedStyle::CalculateIsStackingContextWithoutContainment() const {
     return true;
   }
   return false;
+}
+
+bool ComputedStyle::GapRuleColorIsTransparent(
+    const GapDataList<StyleColor>& gap_rule_color) const {
+  const blink::Color& current_color = GetCurrentColor();
+  const mojom::blink::ColorScheme& color_scheme = UsedColorScheme();
+  return std::ranges::all_of(
+      gap_rule_color.GetGapDataList(),
+      [&](const GapData<StyleColor>& gap_data) {
+        // If it’s a simple value, just test it directly.
+        if (!gap_data.IsRepeaterData()) {
+          const StyleColor& v = gap_data.GetValue();
+          return v.Resolve(current_color, color_scheme).IsFullyTransparent();
+        }
+
+        // Otherwise it’s a repeater: walk through its RepeatedValues(), and
+        // only return true if all values are transparent.
+        const auto* rep = gap_data.GetValueRepeater();
+        return std::ranges::all_of(
+            rep->RepeatedValues(), [&](const StyleColor& v) {
+              return v.Resolve(current_color, color_scheme)
+                  .IsFullyTransparent();
+            });
+      });
 }
 
 bool ComputedStyle::IsRenderedInTopLayer(const Element& element) const {

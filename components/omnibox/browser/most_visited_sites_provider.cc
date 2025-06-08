@@ -4,6 +4,7 @@
 
 #include "components/omnibox/browser/most_visited_sites_provider.h"
 
+#include <algorithm>
 #include <string>
 #include <unordered_set>
 #include <vector>
@@ -17,10 +18,12 @@
 #include "base/trace_event/trace_event.h"
 #include "components/history/core/browser/history_service.h"
 #include "components/history/core/browser/top_sites.h"
+#include "components/omnibox/browser/autocomplete_enums.h"
 #include "components/omnibox/browser/autocomplete_input.h"
 #include "components/omnibox/browser/autocomplete_match.h"
 #include "components/omnibox/browser/autocomplete_match_classification.h"
 #include "components/omnibox/browser/page_classification_functions.h"
+#include "components/omnibox/browser/suggestion_group_util.h"
 #include "components/omnibox/browser/tab_matcher.h"
 #include "components/omnibox/browser/zero_suggest_provider.h"
 #include "components/omnibox/common/omnibox_feature_configs.h"
@@ -34,24 +37,9 @@
 #include "url/gurl.h"
 
 namespace {
-// The relevance score for suggest tiles represented as a single tiling match.
-// Suggest tiles are placed in a dedicated SECTION_MOBILE_MOST_VISITED
-// making its relative relevance score not important.
-constexpr const int kMostVisitedTilesAggregateRelevance = 1;
-
-// The relevance score for suggest tiles represented as individual matches.
-// Repeatable Queries are recognized as searches, and may get merged to higher
-// ranking search suggestions listed below the carousel.
-constexpr const int kMostVisitedTilesIndividualHighRelevance = 1600;
-// Matches known to be off-screen by default are listed as low-relevance.
-// If we have additional AutocompleteMatches listed below the MV carousel
-// pointing to the same destination, we want the tiles to be deduplicated to
-// these matches.
-constexpr const int kMostVisitedTilesIndividualLowRelevance = 100;
-// Index of the last high-relevance tile.
-constexpr const int kLastHighRelevanceIndividualTile = 4;
 
 constexpr const int kMaxRecordedTileIndex = 15;
+constexpr const size_t kMaxDesktopMostVisitedSuggestions = 10;
 
 constexpr char kHistogramTileTypeCountSearch[] =
     "Omnibox.SuggestTiles.TileTypeCount.Search";
@@ -135,6 +123,7 @@ AutocompleteMatch BuildMatch(AutocompleteProvider* provider,
   return match;
 }
 
+// Creates matches for the desktop implementation.
 bool BuildAutocompleteMatches(AutocompleteProvider* provider,
                               AutocompleteProviderClient* client,
                               const history::MostVisitedURLList& urls,
@@ -155,16 +144,31 @@ bool BuildAutocompleteMatches(AutocompleteProvider* provider,
   replacements.ClearQuery();
 
   TemplateURLService* const url_service = client->GetTemplateURLService();
-  int relevance = kMostVisitedTilesIndividualHighRelevance;
+  int relevance =
+      omnibox::IsSearchResultsPage(input.current_page_classification())
+          ? omnibox::kMostVisitedTilesZeroSuggestLowRelevance
+          : omnibox::kMostVisitedTilesZeroSuggestHighRelevance;
   // Store open tab titles and stripped urls to compare to history results.
   std::unordered_set<std::u16string> tab_titles;
   std::unordered_set<std::string> tab_stripped_urls;
   std::vector<TabMatcher::TabWrapper> open_tabs =
       tab_matcher.GetOpenTabs(&input, /*exclude_active_tab=*/false);
-  for (const auto& tab : open_tabs) {
+  // Deduplication is not guaranteed when the number of open tabs is
+  // >= kMaxRequestedURLsFromHistory. This rare case typically occurs
+  // when all URLs returned from history are already open. Duplicates
+  // may appear, as only the first kMaxRequestedURLsFromHistory tabs
+  // are considered during deduplication.
+  const size_t limit =
+      std::min(open_tabs.size(),
+               omnibox_feature_configs::OmniboxUrlSuggestionsOnFocus::Get()
+                   .max_requested_urls_from_history);
+  for (size_t i = 0; i < limit; ++i) {
+    const TabMatcher::TabWrapper& tab = open_tabs[i];
     tab_titles.insert(tab.title);
     tab_stripped_urls.insert((StripURL(client, tab.url, replacements).spec()));
   }
+
+  size_t num_of_matches = 0;
   for (const auto& url : urls) {
     GURL stripped_url = StripURL(client, url.url, replacements);
     // Skip the match if the following is true:
@@ -188,11 +192,20 @@ bool BuildAutocompleteMatches(AutocompleteProvider* provider,
     matches.emplace_back(std::move(match));
     match_titles.insert(url.title);
     match_urls.insert(stripped_url.spec());
+    num_of_matches++;
     --relevance;
+
+    // If there are kMaxDesktopMostVisitedSuggestions valid suggestions, don't
+    // keep iterating through all history URL's. This should be enough until
+    // the next request.
+    if (num_of_matches == kMaxDesktopMostVisitedSuggestions) {
+      break;
+    }
   }
   return true;
 }
 
+// Creates matches for the mobile implementation.
 template <typename TileContainer>
 bool BuildTileSuggest(AutocompleteProvider* provider,
                       AutocompleteProviderClient* const client,
@@ -214,7 +227,7 @@ bool BuildTileSuggest(AutocompleteProvider* provider,
           omnibox::kMostVisitedTilesHorizontalRenderGroup)) {
     auto* const url_service = client->GetTemplateURLService();
     auto* const dse = url_service->GetDefaultSearchProvider();
-    int relevance = kMostVisitedTilesIndividualHighRelevance;
+    int relevance = omnibox::kMostVisitedTilesZeroSuggestHighRelevance;
     for (const auto& tile : container) {
       // TODO(crbug.com/40279214): pass this information from History layer via
       // history::MostVisitedURL.
@@ -251,19 +264,12 @@ bool BuildTileSuggest(AutocompleteProvider* provider,
       }
       matches.emplace_back(std::move(match));
 
-      // On phones, we fully expose a fixed number of matches. Matches beyond
-      // that number are partially or fully concealed by design. Drop relevance
-      // for these matches.
-      if (matches.size() == kLastHighRelevanceIndividualTile &&
-          device_form_factor == ui::DEVICE_FORM_FACTOR_PHONE) {
-        relevance = kMostVisitedTilesIndividualLowRelevance;
-      }
       --relevance;
     }
   } else {
     AutocompleteMatch match =
         BuildMatch(provider, client, std::u16string(), GURL(),
-                   kMostVisitedTilesAggregateRelevance,
+                   omnibox::kMostVisitedTilesZeroSuggestHighRelevance,
                    AutocompleteMatchType::TILE_NAVSUGGEST);
 
     match.suggest_tiles.reserve(container.size());
@@ -302,8 +308,7 @@ bool BuildTileSuggest(AutocompleteProvider* provider,
 
 void MostVisitedSitesProvider::Start(const AutocompleteInput& input,
                                      bool minimal_changes) {
-  Stop(true, false);
-
+  Stop(AutocompleteStopReason::kClobbered);
   if (!AllowMostVisitedSitesSuggestions(client_, input)) {
     return;
   }
@@ -369,9 +374,8 @@ void MostVisitedSitesProvider::StartPrefetch(const AutocompleteInput& input) {
   }
 }
 
-void MostVisitedSitesProvider::Stop(bool clear_cached_results,
-                                    bool due_to_user_inactivity) {
-  AutocompleteProvider::Stop(clear_cached_results, due_to_user_inactivity);
+void MostVisitedSitesProvider::Stop(AutocompleteStopReason stop_reason) {
+  AutocompleteProvider::Stop(stop_reason);
   request_weak_ptr_factory_.InvalidateWeakPtrs();
   cancelable_task_tracker_.TryCancelAll();
   debouncer_->CancelRequest();
@@ -609,7 +613,9 @@ size_t MostVisitedSitesProvider::GetRequestedResultSize(
   // that can be shown in the omnibox in addition to the number of open tabs
   // and blocklisted sites. Add 1 to `GetOpenTabs` since it doesn't consider
   // the currently active tab.
-  return url_suggestions_on_focus_config.max_suggestions +
-         (tab_matcher.GetOpenTabs(&input).size() + 1) +
-         kMostVisitedBlocklist.size();
+  return std::min(
+      url_suggestions_on_focus_config.max_suggestions +
+          (tab_matcher.GetOpenTabs(&input).size() + 1) +
+          kMostVisitedBlocklist.size(),
+      url_suggestions_on_focus_config.max_requested_urls_from_history);
 }

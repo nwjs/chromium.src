@@ -127,7 +127,7 @@ export declare interface GlicBrowserHost {
   /**
    * Set the state of the panel's user drag-to-resize capability, or if the
    * panel hasn't been created yet, set whether it will be user resizable when
-   * it is created. No effect if the GlicUserResize feature flag is disabled.
+   * it is created.
    */
   enableDragResize?(enabled: boolean): Promise<void>;
 
@@ -161,7 +161,16 @@ export declare interface GlicBrowserHost {
 
   /**
    * Fetches page context for the currently focused tab, optionally including
-   * more expensive-to-generate data.
+   * more expensive-to-generate data. Requesting only the base data is cheap,
+   * but the returned information should be identical to the latest push-update
+   * received by the web client from `getFocusedTabStateV2`.
+   *
+   * All optional data, which are expensive to extract, should only be requested
+   * when necessary.
+   *
+   * Critically, this function may return information from a previously focused
+   * page due its asynchronous nature. To confirm, tabId and URL should match
+   * the respective values of the tab of interest.
    *
    * @throws {Error} on failure.
    */
@@ -174,15 +183,56 @@ export declare interface GlicBrowserHost {
    * Inform Chrome about an action. Chrome Takes an action based on the
    * action proto and returns new context based on the tab context options.
    *
+   * Attempts to act while the associated task is stopped/paused will be
+   * rejected.
+   *
    * @throws {ActInFocusedTabError} on failure.
    */
   actInFocusedTab?
       (params: ActInFocusedTabParams): Promise<ActInFocusedTabResult>;
 
   /**
-   * Stops an actor task in the browser if one exists. No-op otherwise.
+   * Stops the actor task with the given ID in the browser if it exists. No-op
+   * otherwise.
+   *
+   * Stopping a task removes all actor related restrictions from the associated
+   * tab. Any in progress actions are canceled and the associated Promises are
+   * rejected.
+   *
+   * If the task ID is not provided or 0, the most recent task is stopped.
+   *
+   * @todo Require callers to provide a valid ID.
    */
-  stopActorTask?(): void;
+  stopActorTask?(taskId?: number): void;
+
+  /**
+   * Pauses the actor task with the given ID in the browser if it exists. No-op
+   * otherwise.
+   *
+   * Pausing a task removes actor related restrictions that prevent the user
+   * from interacting with the associated tab. Any in progress actions are
+   * canceled and the associated Promises are rejected.
+   *
+   * If the task ID is 0, the most recent task is paused.
+   *
+   * @todo Require callers to provide a valid ID.
+   */
+  pauseActorTask?(taskId: number): void;
+
+  /**
+   * Resumes a previously paused actor task with the given ID.
+   *
+   * Returns the tab context at the time of resumption, based on the provided
+   * context options.
+   *
+   * If the task ID is 0, the most recent task is resumed.
+   *
+   * @throws {Error} on failure.
+   *
+   * @todo Require callers to provide a valid ID.
+   */
+  resumeActorTask?(taskId: number, tabContextOptions: TabContextOptions):
+      Promise<TabContextResult>;
 
   /**
    * Requests the host to capture a screenshot. The choice of the screenshot
@@ -295,6 +345,10 @@ export declare interface GlicBrowserHost {
   isBrowserOpen?(): ObservableValue<boolean>;
 
   /**
+   * @deprecated Use `getFocusedTabStateV2` instead. This function returns a
+   * TabData on success but no information at all on failure. V2 solves this by
+   * returning error codes to signal why no focus was available.
+   *
    * Returns the observable state of the currently focused tab. Updates are sent
    * whenever the focus changes due to the user switching tabs or navigating the
    * current focused tab.
@@ -303,20 +357,24 @@ export declare interface GlicBrowserHost {
    *          a new tab is focused or the current tab is navigated. The value
    *          will be `undefined` if there's no active tab or it cannot be
    *          focused (i.e. the URL is ineligible for tab context sharing).
-   *
-   * @deprecated Use `getFocusedTabStateV2` instead. This function returns a
-   * TabData on success but no information at all on failure. V2 solves this by
-   * returning error codes to signal why no focus was available.
    */
   getFocusedTabState?(): ObservableValue<TabData|undefined>;
 
   /**
    * Returns the observable state of the currently focused tab. Updates are sent
    * whenever:
-   * - the user switches active tabs
-   * - the active tab navigates to a new url
-   * - tab focus changes or is lost
-   * - any field of TabData needs to be updated to match the current tab
+   * - The user switches active tabs, which causes a change in `tabId`.
+   * - The tab navigates to a new page, which causes a change in `url`.
+   * - The user moves the current tab to a new window,  which causes a change in
+   *   `windowId`.
+   * - The user switches active windows, which would definitely change both
+   *   `tabId` and `windowId` and, likely, all other data fields, too.
+   * - The user switches between tabs that can and cannot be focused (or
+   *   vice-versa), which changes which field has a value set between `hasFocus`
+   *   and `hasNoFocus`.
+   * - Any other data represented in `TabData` (title, favicon, mime type)
+   *   changes and needs to be updated to match the respective tab state.
+   *   Updates are possible throughout the lifetime of a page.
    */
   getFocusedTabStateV2?(): ObservableValue<FocusedTabData>;
 
@@ -335,6 +393,9 @@ export declare interface GlicBrowserHost {
   /** Returns the state of the OS hotkey. */
   getOsHotkeyState?(): ObservableValue<{hotkey: string}>;
 
+  /** Returns the state of the glic closed captioning setting. */
+  getClosedCaptioningSetting?(): ObservableValue<boolean>;
+
   /**
    * Set the state of the microphone permission in settings. Returns a promise
    * that resolves when the browser has stored the new pref value.
@@ -352,6 +413,12 @@ export declare interface GlicBrowserHost {
    * that resolves when the browser has stored the new pref value.
    */
   setTabContextPermissionState(enabled: boolean): Promise<void>;
+
+  /**
+   * Set the state of the closed captioning permission in settings. Returns a
+   * promise that resolves when the browser has stored the new pref value.
+   */
+  setClosedCaptioningSetting?(enabled: boolean): Promise<void>;
 
   /** Returns the user profile information. */
   getUserProfileInfo?(): Promise<UserProfileInfo>;
@@ -396,12 +463,19 @@ export declare interface GlicBrowserHost {
    * @todo Not yet implemented for PDFs. https://crbug.com/395859365
    *
    * Scrolls to and (optionally) highlights content specified by an input
-   * selector. Returns a promise that resolves when the selected content is
-   * matched and a scroll is started.
+   * selector. Only one highlight is active at a time. Returns a promise that
+   * resolves when the selected content is matched and a scroll is started. Only
+   * available when `GlicScrollTo` is enabled.
    *
    * @throws {ScrollToError} on failure.
    */
   scrollTo?(params: ScrollToParams): Promise<void>;
+
+  /**
+   * Drops the content highlight from scrollTo(). No effects if no contents are
+   * highlighted. Only available when `GlicScrollTo` is enabled.
+   */
+  dropScrollToHighlight?(): void;
 
   /**
    * Enrolls the Chrome client in the synthetic experiment group specified by
@@ -479,8 +553,6 @@ export declare interface CreateTabOptions {
 }
 
 /**
- * @todo Not yet implemented. https://crbug.com/391417447
- *
  * Provides measurement-related functionality to the Glic web client.
  *
  * The typical sequence of events should be either:
@@ -541,8 +613,7 @@ export declare interface OpenPanelInfo {
 
   /**
    * Whether the panel should start out resizable by the user. The panel is
-   * resizable if this field is not provided. No effect if the GlicUserResize
-   * feature flag is disabled.
+   * resizable if this field is not provided.
    */
   canUserResize?: boolean;
 }
@@ -768,21 +839,32 @@ export declare interface PageMetadata {
  * itself.
  */
 export declare interface TabData {
-  /** Unique ID of the tab that owns the page. */
+  /**
+   * Unique ID of the tab that owns the page. These values are unique across
+   * all tabs from all windows, and will not change even if the user moves the
+   * tab to a different window.
+   */
   tabId: string;
-  /** Unique ID of the browser window holding the tab. */
+  /**
+   * Unique ID of the browser window holding the tab. This value may change if
+   * the tab is moved to a different window.
+   */
   windowId: string;
-  /** URL of the page. */
+  /**
+   * URL of the page. For a given tab, this value will change if the tab is
+   * navigated to a different URL.
+   */
   url: string;
   /**
    * The title of the loaded page. Returned only if the page is loaded enough
-   * for it to be available. It may be empty if the page did not define a title.
+   * for it to be available. It may be empty if the page did not specify a
+   * title.
    */
   title?: string;
   /**
-   * Returns the favicon for the tab, encoded as a PNG image. Returned only if
-   * the page is loaded enough for it to be available and the page specifies
-   * one.
+   * Returns the favicon for the tab, encoded as a PNG image. An image is
+   * returned only if the page is loaded enough for it to be available and the
+   * page specifies a favicon.
    */
   favicon?(): Promise<Blob|undefined>;
   /**
@@ -792,23 +874,24 @@ export declare interface TabData {
   documentMimeType?: string;
 }
 
-/** Data class holding information about the focused tab state. */
+/**
+ * Data class holding information about the focused tab state. It works as a
+ * discriminated union type: exactly one field is ever present.
+ */
 export declare interface FocusedTabData {
-  // This is a union. Exactly one field is present.
-
-  /** Present if a tab has focus. */
+  /** Present only if a tab has focus. */
   hasFocus?: FocusedTabDataHasFocus;
-  /** Present if no tab has focus. */
+  /** Present only if no tab has focus. */
   hasNoFocus?: FocusedTabDataHasNoFocus;
 }
 
-/** FocusedTabData variant with focus. */
+/** FocusedTabData variant for when a tab has focus. */
 export declare interface FocusedTabDataHasFocus {
   /** Information about the focused tab. */
   tabData: TabData;
 }
 
-/** FocusedTabData variant without focus. */
+/** FocusedTabData variant for when no tabs have focus. */
 export declare interface FocusedTabDataHasNoFocus {
   /**
    * Information about the active tab, which cannot be focused. Present only
@@ -942,6 +1025,10 @@ export declare interface ScrollToParams {
    * specified, we verify that the currently focused tab's document matches the
    * ID, and throw an error if doesn't. If not specified, the implementation
    * will use the main frame of the currently focused tab without verification.
+   *
+   * Note: documentId is being migrated to become a required param and the
+   * client will soon throw a NotSupported error (behind a flag currently) when
+   * not specified.
    */
   documentId?: string;
 }
@@ -1049,6 +1136,16 @@ export enum ScrollToErrorReason {
    *  The search range starting from DOMNodeId did not result in a valid range.
    */
   SEARCH_RANGE_INVALID = 6,
+
+  /**
+   * Tab context permission was disabled.
+   */
+  TAB_CONTEXT_PERMISSION_DISABLED = 7,
+
+  /**
+   * The web client requested to drop the highlight via `dropScrollToHighlight`.
+   */
+  DROPPED_BY_WEB_CLIENT = 8,
 }
 
 /**

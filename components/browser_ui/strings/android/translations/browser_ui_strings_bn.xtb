@@ -84,6 +84,7 @@ Chrome-এর এইসব সেটিংস উন্নত সুরক্ষ
 <translation id="2028449514182362831">যেসব ফিচার ব্যবহার করতে মোশন সেন্সর দরকার সেগুলি কাজ করবে না</translation>
 <translation id="2030769033451695672"><ph name="URL_OF_THE_CURRENT_TAB" />-এ ফিরে যেতে ট্যাপ করুন</translation>
 <translation id="2079545284768500474">আগের অবস্থায় ফিরুন</translation>
+<translation id="2080070583977670716">আরও সেটিংস</translation>
 <translation id="2091887806945687916">আওয়াজ</translation>
 <translation id="2096716221239095980">সব ডেটা মুছুন</translation>
 <translation id="2102396546234652240">সাইটগুলিকে আপনার মাইক্রোফোন ব্যবহার করার অনুমতি দেয় না</translation>
@@ -232,7 +233,6 @@ Chrome-এর এইসব সেটিংস উন্নত সুরক্ষ
 <translation id="3779154269823594982">পাসওয়ার্ড পরিবর্তন করুন</translation>
 <translation id="3797520601150691162">কোনও নির্দিষ্ট সাইটের জন্য ডার্ক থিম প্রয়োগ করবেন না</translation>
 <translation id="3803367742635802571">যেমনভাবে ডিজাইন করা হয়েছে আপনার ভিজিট করা সাইট তেমনভাবে কাজ করা বন্ধ করতে পারে</translation>
-<translation id="3804247818991980532"><ph name="TYPE_1" />। <ph name="TYPE_2" />।</translation>
 <translation id="381841723434055211">ফোন নম্বর</translation>
 <translation id="3826050100957962900">থার্ড-পার্টির সাইন-ইন</translation>
 <translation id="3835233591525155343">আপনার ডিভাইসের ব্যবহার</translation>
@@ -445,7 +445,6 @@ Chrome-এর এইসব সেটিংস উন্নত সুরক্ষ
 <translation id="6452138246455930388">আপনার খোলা ট্যাবে দাম কমার তথ্য, <ph name="OLD_PRICE" /> থেকে <ph name="NEW_PRICE" />, <ph name="PRODUCT_NAME" />, <ph name="DOMAIN_NAME" /></translation>
 <translation id="6500423977866688905">উইন্ডো ছোট হলে, মোবাইল ভিউয়ের জন্য অনুরোধ করুন</translation>
 <translation id="6527303717912515753">শেয়ার করুন</translation>
-<translation id="652937045869844725">থার্ড-পার্টি কুকিকে অনুমতি দিয়ে দেখুন। এর মানে হল সাইটের ফিচার কাজ করবে কিন্তু আপনার সুরক্ষা কম হয়ে যাবে</translation>
 <translation id="6530703012083415527">চালু থাকলে, সাইট পপ-আপ ও রিডাইরেক্ট ব্যবহার করতে পারে। বন্ধ থাকলে, সাইট পপ-আপ ও রিডাইরেক্ট ব্যবহার করতে পারে না।</translation>
 <translation id="6540488083026747005">এই সাইটে আপনি থার্ড-পার্টি কুকিকে অনুমতি দিয়েছেন</translation>
 <translation id="6545864417968258051">ব্লুটুথ স্ক্যানিং</translation>
@@ -459,6 +458,7 @@ Chrome-এর এইসব সেটিংস উন্নত সুরক্ষ
 <translation id="6612358246767739896">সুরক্ষিত কন্টেন্ট</translation>
 <translation id="662080504995468778">থাকুন</translation>
 <translation id="6635327442719709864">চালু থাকলে, সাইট সিরিয়াল পোর্ট ব্যবহার করার জন্য বলতে পারে। বন্ধ থাকলে, সাইট সিরিয়াল পোর্ট ব্যবহার করতে পারে না।</translation>
+<translation id="6678072580827808850">নিরাপত্তা সংক্রান্ত পরীক্ষা পর্যালোচনা করুন</translation>
 <translation id="6683865262523156564">এই সাইটটি এমন গ্রুপে রয়েছে যা আপনার অ্যাক্টিভিটি দেখতে পাবে। গ্রুপটি <ph name="RWS_OWNER" /> দ্বারা সংজ্ঞায়িত</translation>
 <translation id="6689172468748959065">প্রোফাইল ফটো</translation>
 <translation id="6697925417670533197">ডাউনলোড করা হচ্ছে</translation>
@@ -493,7 +493,6 @@ Chrome-এর এইসব সেটিংস উন্নত সুরক্ষ
 <translation id="7141896414559753902">সাইটগুলিকে পপ-আপ দেখাতে এবং রিডাইরেক্ট করা থেকে বাধা দিন (প্রস্তাবিত)</translation>
 <translation id="7176368934862295254"><ph name="KILOBYTES" /> কেবি</translation>
 <translation id="7180611975245234373">রিফ্রেশ করুন</translation>
-<translation id="7180865173735832675">কাস্টমাইজ করুন</translation>
 <translation id="7188508872042490670">অন-ডিভাইস সাইট ডেটা</translation>
 <translation id="7201549776650881587">এই অ্যাকশন আপনার হোম স্ক্রিনে <ph name="ORIGIN" />-এর অধীনে থাকা সমস্ত সাইট বা তার অ্যাপের মাধ্যমে সেভ করা সব ডেটা এবং কুকি মুছে দেবে</translation>
 <translation id="7203150201908454328">প্রসারিত</translation>

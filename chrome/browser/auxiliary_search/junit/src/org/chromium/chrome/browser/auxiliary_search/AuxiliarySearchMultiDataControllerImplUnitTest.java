@@ -66,6 +66,7 @@ public class AuxiliarySearchMultiDataControllerImplUnitTest {
     @Mock private FaviconHelper mFaviconHelper;
     @Mock private ActivityLifecycleDispatcher mActivityLifecycleDispatcher;
     @Mock private AuxiliarySearchHooks mHooks;
+    @Mock private AuxiliarySearchTopSiteProviderBridge mAuxiliarySearchTopSiteProviderBridge;
 
     @Captor
     private ArgumentCaptor<Callback<List<AuxiliarySearchDataEntry>>> mEntryReadyCallbackCaptor;
@@ -188,7 +189,8 @@ public class AuxiliarySearchMultiDataControllerImplUnitTest {
 
         // Verifies the case that the history data list is null.
         List<AuxiliarySearchDataEntry> mvtList =
-                AuxiliarySearchTestHelper.createAuxiliarySearchDataEntries_TopSite(now);
+                AuxiliarySearchTestHelper.createAuxiliarySearchDataEntries_TopSite(
+                        JUnitTestGURLs.BLUE_1, JUnitTestGURLs.BLUE_2, now);
         mAuxiliarySearchMultiDataControllerImpl.onSiteSuggestionsAvailable(mvtList);
         mergedList = mAuxiliarySearchMultiDataControllerImpl.getMergedList(null);
         assertEquals(mvtList, mergedList);
@@ -211,17 +213,28 @@ public class AuxiliarySearchMultiDataControllerImplUnitTest {
         mergedList = mAuxiliarySearchMultiDataControllerImpl.getMergedList(historyEntryList);
         assertEquals(historyEntryList, mergedList);
         histogramWatcher.assertExpected();
+
+        // Verifies the case that both history data list and most visited sites list aren't null but
+        // with duplications.
+        now = TimeUtils.uptimeMillis();
+        mvtList = AuxiliarySearchTestHelper.createAuxiliarySearchDataEntries_TopSite(now);
+        mAuxiliarySearchMultiDataControllerImpl.onSiteSuggestionsAvailable(mvtList);
+        mergedList = mAuxiliarySearchMultiDataControllerImpl.getMergedList(historyEntryList);
+        assertEquals(2, mergedList.size());
+        assertEquals(historyEntryList.get(0), mergedList.get(0));
+        assertEquals(historyEntryList.get(1), mergedList.get(1));
     }
 
     @Test
     public void testOnDeferredStartup() {
         mAuxiliarySearchMultiDataControllerImpl.onDeferredStartup();
-        verify(mAuxiliarySearchProvider).setObserver(eq(mAuxiliarySearchMultiDataControllerImpl));
-
-        Mockito.reset(mAuxiliarySearchProvider);
-        mAuxiliarySearchMultiDataControllerImpl.onDeferredStartup();
-        verify(mAuxiliarySearchProvider, never())
+        verify(mAuxiliarySearchTopSiteProviderBridge)
                 .setObserver(eq(mAuxiliarySearchMultiDataControllerImpl));
+
+        Mockito.reset(mAuxiliarySearchTopSiteProviderBridge);
+        mAuxiliarySearchMultiDataControllerImpl.onDeferredStartup();
+        verify(mAuxiliarySearchTopSiteProviderBridge, never())
+                .setObserver(any(AuxiliarySearchTopSiteProviderBridge.Observer.class));
     }
 
     @Test
@@ -236,11 +249,19 @@ public class AuxiliarySearchMultiDataControllerImplUnitTest {
     @Test
     public void testOnDestroy() {
         mAuxiliarySearchMultiDataControllerImpl.onDeferredStartup();
-        verify(mAuxiliarySearchProvider).setObserver(eq(mAuxiliarySearchMultiDataControllerImpl));
+        assertEquals(
+                mAuxiliarySearchTopSiteProviderBridge,
+                mAuxiliarySearchMultiDataControllerImpl
+                        .getAuxiliarySearchTopSiteProviderBridgeForTesting());
+        verify(mAuxiliarySearchTopSiteProviderBridge)
+                .setObserver(eq(mAuxiliarySearchMultiDataControllerImpl));
 
         mAuxiliarySearchMultiDataControllerImpl.destroy(mActivityLifecycleDispatcher);
         verify(mActivityLifecycleDispatcher).unregister(mAuxiliarySearchMultiDataControllerImpl);
-        verify(mAuxiliarySearchProvider).setObserver(eq(null));
+        verify(mAuxiliarySearchTopSiteProviderBridge).destroy();
+        assertNull(
+                mAuxiliarySearchMultiDataControllerImpl
+                        .getAuxiliarySearchTopSiteProviderBridgeForTesting());
     }
 
     @Test
@@ -249,17 +270,18 @@ public class AuxiliarySearchMultiDataControllerImplUnitTest {
         mAuxiliarySearchMultiDataControllerImpl.register(mActivityLifecycleDispatcher);
         mAuxiliarySearchMultiDataControllerImpl.register(dispatcher);
         mAuxiliarySearchMultiDataControllerImpl.onDeferredStartup();
-        verify(mAuxiliarySearchProvider).setObserver(eq(mAuxiliarySearchMultiDataControllerImpl));
+        verify(mAuxiliarySearchTopSiteProviderBridge)
+                .setObserver(eq(mAuxiliarySearchMultiDataControllerImpl));
 
-        // Verifies that the controller doesn't stop observing most visited sites when there is
-        // reference to it.
+        // Verifies that the controller doesn't destroy the native bridge when there is reference
+        // to it.
         mAuxiliarySearchMultiDataControllerImpl.destroy(dispatcher);
-        verify(mAuxiliarySearchProvider, never()).setObserver(eq(null));
+        verify(mAuxiliarySearchTopSiteProviderBridge, never()).destroy();
 
-        // Verifies that the controller will stop observing most visited sites when there isn't any
+        // Verifies that the controller will destroy the native bridge when there isn't any
         // reference to it.
         mAuxiliarySearchMultiDataControllerImpl.destroy(mActivityLifecycleDispatcher);
-        verify(mAuxiliarySearchProvider).setObserver(eq(null));
+        verify(mAuxiliarySearchTopSiteProviderBridge).destroy();
     }
 
     private void createController() {
@@ -270,7 +292,8 @@ public class AuxiliarySearchMultiDataControllerImplUnitTest {
                         mAuxiliarySearchProvider,
                         mAuxiliarySearchDonor,
                         mFaviconHelper,
-                        AuxiliarySearchController.AuxiliarySearchHostType.CTA);
+                        AuxiliarySearchController.AuxiliarySearchHostType.CTA,
+                        mAuxiliarySearchTopSiteProviderBridge);
         assertTrue(mAuxiliarySearchMultiDataControllerImpl.getExpectDonatingForTesting());
         mAuxiliarySearchMultiDataControllerImpl.register(mActivityLifecycleDispatcher);
     }

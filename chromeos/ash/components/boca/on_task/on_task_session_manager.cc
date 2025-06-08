@@ -97,9 +97,12 @@ void OnTaskSessionManager::OnSessionEnded(const std::string& session_id) {
     // Unlock SWA window before closing it to ensure we restore things like
     // global accelerators, etc.
     LockOrUnlockWindow(/*lock_window=*/false);
-    system_web_app_manager_->CloseSystemWebAppWindow(window_id);
+    if (!features::IsBocaKeepSWAOpenOnSessionEndedEnabled()) {
+      system_web_app_manager_->CloseSystemWebAppWindow(window_id);
+    }
   }
   active_session_id_ = std::nullopt;
+  provider_url_set_.clear();
   provider_url_tab_ids_map_.clear();
   provider_url_restriction_level_map_.clear();
   should_lock_window_ = false;
@@ -149,12 +152,12 @@ void OnTaskSessionManager::OnBundleUpdated(const ::boca::Bundle& bundle) {
 
   // Process bundle content.
   bool has_new_content = false;
-  base::flat_set<GURL> current_urls_set;
+  provider_url_set_.clear();
   active_tab_url_ = GURL();
   for (const ::boca::ContentConfig& content_config : bundle.content_configs()) {
     CHECK(content_config.has_url());
     const GURL url(content_config.url());
-    current_urls_set.insert(url);
+    provider_url_set_.insert(url);
 
     ::boca::LockedNavigationOptions::NavigationType restriction_level;
     if (content_config.has_locked_navigation_options()) {
@@ -194,7 +197,7 @@ void OnTaskSessionManager::OnBundleUpdated(const ::boca::Bundle& bundle) {
 
   bool has_removed_content = false;
   for (auto const& [provider_sent_url, tab_ids] : provider_url_tab_ids_map_) {
-    if (!current_urls_set.contains(provider_sent_url)) {
+    if (!provider_url_set_.contains(provider_sent_url)) {
       has_removed_content = true;
       system_web_app_launch_helper_->RemoveTab(
           tab_ids,
@@ -273,6 +276,9 @@ void OnTaskSessionManager::OnAppReloaded() {
   // clear stale tab ids that were tracked with the previous instance.
   for (auto& [provider_sent_url, tab_ids] : provider_url_tab_ids_map_) {
     tab_ids.clear();
+    if (!provider_url_set_.contains(provider_sent_url)) {
+      continue;
+    }
     ::boca::LockedNavigationOptions::NavigationType restriction_level =
         ::boca::LockedNavigationOptions::DOMAIN_NAVIGATION;  // Default
                                                              // restriction.
@@ -294,6 +300,15 @@ void OnTaskSessionManager::OnAppReloaded() {
 void OnTaskSessionManager::LockOrUnlockWindow(bool lock_window) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   if (lock_in_progress_ && lock_window) {
+    // Enter pause mode and remove countdown notification if pause mode is
+    // triggered while in locked mode countdown.
+    if (enter_pause_mode_) {
+      notifications_manager_->StopProcessingNotification(
+          kOnTaskEnterLockedModeNotificationId);
+      notifications_manager_->ClearNotification(
+          kOnTaskEnterLockedModeNotificationId);
+      EnterLockedMode();
+    }
     return;
   }
   lock_in_progress_ = lock_window;
@@ -522,12 +537,27 @@ void OnTaskSessionManager::SystemWebAppLaunchHelper::
     SetPinStateForActiveSWAWindow(bool pinned,
                                   base::RepeatingClosure callback) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+
+  latest_pin_state_ = pinned;
+  SetPinStateForActiveSWAWindowInternal(pinned, std::move(callback));
+}
+
+void OnTaskSessionManager::SystemWebAppLaunchHelper::
+    SetPinStateForActiveSWAWindowInternal(bool pinned,
+                                          base::RepeatingClosure callback) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+
+  // Don't set pin state if the pin state is not the latest.
+  if (pinned != latest_pin_state_) {
+    return;
+  }
+
   if (launch_in_progress_) {
     base::SequencedTaskRunner::GetCurrentDefault()->PostDelayedTask(
         FROM_HERE,
-        base::BindOnce(&SystemWebAppLaunchHelper::SetPinStateForActiveSWAWindow,
-                       weak_ptr_factory_.GetWeakPtr(), pinned,
-                       std::move(callback)),
+        base::BindOnce(
+            &SystemWebAppLaunchHelper::SetPinStateForActiveSWAWindowInternal,
+            weak_ptr_factory_.GetWeakPtr(), pinned, std::move(callback)),
         kSetPinnedStateDelay);
     return;
   }

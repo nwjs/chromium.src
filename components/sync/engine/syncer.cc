@@ -15,7 +15,6 @@
 #include "base/time/time.h"
 #include "base/trace_event/trace_event.h"
 #include "components/sync/base/data_type.h"
-#include "components/sync/base/features.h"
 #include "components/sync/engine/active_devices_invalidation_info.h"
 #include "components/sync/engine/cancelation_signal.h"
 #include "components/sync/engine/commit.h"
@@ -107,9 +106,7 @@ UpdateHandler::NudgedUpdateResult SyncerErrorToNudgedUpdateResult(
 // invalidations has been just received, it may be updated only in the next
 // sync cycle due to delay between threads.
 ActiveDevicesInvalidationInfo GetInvalidationInfo(const SyncCycle* cycle) {
-  if (cycle->status_controller().get_updated_types().Has(DEVICE_INFO) &&
-      base::FeatureList::IsEnabled(
-          kSkipInvalidationOptimizationsWhenDeviceInfoUpdated)) {
+  if (cycle->status_controller().get_updated_types().Has(DEVICE_INFO)) {
     return ActiveDevicesInvalidationInfo::CreateUninitialized();
   }
   return cycle->context()->active_devices_invalidation_info();
@@ -225,6 +222,11 @@ bool Syncer::DownloadAndApplyUpdates(DataTypeSet* request_types,
   do {
     download_result =
         get_updates_processor.DownloadUpdates(&download_types, cycle);
+
+    // Exit without applying if we're shutting down.
+    if (ExitRequested()) {
+      return false;
+    }
   } while (get_updates_processor.HasMoreUpdatesToDownload());
 
   DataTypeSet data_types_with_failure = Difference(
@@ -234,15 +236,10 @@ bool Syncer::DownloadAndApplyUpdates(DataTypeSet* request_types,
   // GetUpdatesProcessor::DownloadUpdates().
   *request_types = Union(download_types, requested_commit_only_types);
 
-  // Exit without applying if we're shutting down or an error was detected.
-  // TODO(crbug.com/410765719): Check for the exit request when downloading
-  // updates above.
-  if (ExitRequested()) {
-    return false;
-  }
-
   base::UmaHistogramEnumeration("Sync.DownloadUpdatesResult",
                                 GetSyncerErrorValueForUma(download_result));
+
+  // Exit without applying if an error was detected.
   if (download_result.type() != SyncerError::Type::kSuccess) {
     get_updates_processor.RecordDownloadFailure(
         Union(download_types, data_types_with_failure),

@@ -7,6 +7,7 @@
 #include "base/run_loop.h"
 #include "base/test/bind.h"
 #include "base/test/mock_callback.h"
+#include "base/test/protobuf_matchers.h"
 #include "base/test/test_future.h"
 #include "chrome/browser/ai/ai_test_utils.h"
 #include "chrome/browser/optimization_guide/mock_optimization_guide_keyed_service.h"
@@ -23,6 +24,7 @@
 
 namespace {
 
+using ::base::test::EqualsProto;
 using ::blink::mojom::AILanguageCode;
 using ::blink::mojom::AILanguageCodePtr;
 using ::testing::_;
@@ -51,7 +53,8 @@ class MockCreateSummarizerClient
               (override));
   MOCK_METHOD(void,
               OnError,
-              (blink::mojom::AIManagerCreateClientError error),
+              (blink::mojom::AIManagerCreateClientError error,
+               blink::mojom::QuotaErrorInfoPtr quota_error_info),
               (override));
 
  private:
@@ -88,9 +91,17 @@ blink::mojom::AISummarizerCreateOptionsPtr GetDefaultOptions() {
       /*output_language=*/AILanguageCode::New(""));
 }
 
-std::unique_ptr<optimization_guide::proto::SummarizeOptions>
-GetDefaultExpectedOptions() {
-  return AISummarizer::ToProtoOptions(GetDefaultOptions());
+// Get a request proto matching that expected for ExecuteModel() calls.
+optimization_guide::proto::SummarizeRequest GetExecuteRequest(
+    std::string_view context_string = kContextString,
+    std::string_view article_string = kInputString) {
+  optimization_guide::proto::SummarizeRequest request;
+  request.set_context(
+      AISummarizer::CombineContexts(kSharedContextString, context_string));
+  request.set_allocated_options(
+      AISummarizer::ToProtoOptions(GetDefaultOptions()).release());
+  request.set_article(article_string);
+  return request;
 }
 
 class AISummarizerTest : public AITestUtils::AITestBase {
@@ -121,21 +132,21 @@ class AISummarizerTest : public AITestUtils::AITestBase {
   void RunSimpleSummarizeTest(blink::mojom::AISummarizerType type,
                               blink::mojom::AISummarizerFormat format,
                               blink::mojom::AISummarizerLength length) {
+    auto expected = GetExecuteRequest();
     const auto options = blink::mojom::AISummarizerCreateOptions::New(
         kSharedContextString, type, format, length,
         /*expected_input_languages=*/std::vector<AILanguageCodePtr>(),
         /*expected_context_languages=*/std::vector<AILanguageCodePtr>(),
         /*output_language=*/AILanguageCode::New(""));
-
+    expected.set_allocated_options(
+        AISummarizer::ToProtoOptions(options).release());
     EXPECT_CALL(session_, ExecuteModel(_, _))
         .WillOnce(testing::Invoke(
-            [&](const google::protobuf::MessageLite& request_metadata,
+            [&](const google::protobuf::MessageLite& request,
                 optimization_guide::
                     OptimizationGuideModelExecutionResultStreamingCallback
                         callback) {
-              AITestUtils::CheckSummarizeRequest(
-                  request_metadata, kSharedContextString, kContextString,
-                  *AISummarizer::ToProtoOptions(options), kInputString);
+              EXPECT_THAT(request, EqualsProto(expected));
               callback.Run(CreateExecutionResult("Result text",
                                                  /*is_complete=*/true));
             }));
@@ -180,12 +191,21 @@ class AISummarizerTest : public AITestUtils::AITestBase {
   }
 };
 
+TEST(AISummarizerStandaloneTest, CombineContexts) {
+  EXPECT_EQ("", AISummarizer::CombineContexts("", ""));
+  EXPECT_EQ("a\n", AISummarizer::CombineContexts("a", ""));
+  EXPECT_EQ("b\n", AISummarizer::CombineContexts("", "b"));
+  EXPECT_EQ("a b\n", AISummarizer::CombineContexts("a", "b"));
+}
+
 TEST_F(AISummarizerTest, CanCreateDefaultOptions) {
   SetupMockOptimizationGuideKeyedService();
   EXPECT_CALL(*mock_optimization_guide_keyed_service_,
-              GetOnDeviceModelEligibility(_))
-      .WillOnce(testing::Return(
-          optimization_guide::OnDeviceModelEligibilityReason::kSuccess));
+              GetOnDeviceModelEligibilityAsync(_, _, _))
+      .WillOnce([](auto feature, auto capabilities, auto callback) {
+        std::move(callback).Run(
+            optimization_guide::OnDeviceModelEligibilityReason::kSuccess);
+      });
   base::MockCallback<AIManager::CanCreateSummarizerCallback> callback;
   EXPECT_CALL(callback,
               Run(blink::mojom::ModelAvailabilityCheckResult::kAvailable));
@@ -196,9 +216,11 @@ TEST_F(AISummarizerTest, CanCreateDefaultOptions) {
 TEST_F(AISummarizerTest, CanCreateIsLanguagesSupported) {
   SetupMockOptimizationGuideKeyedService();
   EXPECT_CALL(*mock_optimization_guide_keyed_service_,
-              GetOnDeviceModelEligibility(_))
-      .WillRepeatedly(testing::Return(
-          optimization_guide::OnDeviceModelEligibilityReason::kSuccess));
+              GetOnDeviceModelEligibilityAsync(_, _, _))
+      .WillOnce([](auto feature, auto capabilities, auto callback) {
+        std::move(callback).Run(
+            optimization_guide::OnDeviceModelEligibilityReason::kSuccess);
+      });
   auto options = GetDefaultOptions();
   options->output_language = AILanguageCode::New("en");
   options->expected_input_languages =
@@ -231,9 +253,11 @@ TEST_F(AISummarizerTest, CreateSummarizerNoService) {
   SetupNullOptimizationGuideKeyedService();
   MockCreateSummarizerClient mock_create_summarizer_client;
   base::RunLoop run_loop;
-  EXPECT_CALL(mock_create_summarizer_client, OnError(_))
+  EXPECT_CALL(mock_create_summarizer_client, OnError(_, _))
       .WillOnce(testing::Invoke([&](blink::mojom::AIManagerCreateClientError
-                                        error) {
+                                        error,
+                                    blink::mojom::QuotaErrorInfoPtr
+                                        quota_error_info) {
         ASSERT_EQ(
             error,
             blink::mojom::AIManagerCreateClientError::kUnableToCreateSession);
@@ -255,18 +279,20 @@ TEST_F(AISummarizerTest, CreateSummarizerModelNotEligible) {
               const std::optional<optimization_guide::SessionConfigParams>&
                   config_params) { return nullptr; }));
   EXPECT_CALL(*mock_optimization_guide_keyed_service_,
-              GetOnDeviceModelEligibility(_))
-      .WillOnce(testing::Invoke(
-          [&](optimization_guide::ModelBasedCapabilityKey feature) {
-            return optimization_guide::OnDeviceModelEligibilityReason::
-                kModelNotEligible;
-          }));
+              GetOnDeviceModelEligibilityAsync(_, _, _))
+      .WillOnce([](auto feature, auto capabilities, auto callback) {
+        std::move(callback).Run(
+            optimization_guide::OnDeviceModelEligibilityReason::
+                kModelNotEligible);
+      });
 
   MockCreateSummarizerClient mock_create_summarizer_client;
   base::RunLoop run_loop;
-  EXPECT_CALL(mock_create_summarizer_client, OnError(_))
+  EXPECT_CALL(mock_create_summarizer_client, OnError(_, _))
       .WillOnce(testing::Invoke([&](blink::mojom::AIManagerCreateClientError
-                                        error) {
+                                        error,
+                                    blink::mojom::QuotaErrorInfoPtr
+                                        quota_error_info) {
         ASSERT_EQ(
             error,
             blink::mojom::AIManagerCreateClientError::kUnableToCreateSession);
@@ -303,13 +329,13 @@ TEST_F(AISummarizerTest,
           }));
 
   EXPECT_CALL(*mock_optimization_guide_keyed_service_,
-              GetOnDeviceModelEligibility(_))
-      .WillOnce(testing::Invoke(
-          [&](optimization_guide::ModelBasedCapabilityKey feature) {
-            // Returning kConfigNotAvailableForFeature should trigger retry.
-            return optimization_guide::OnDeviceModelEligibilityReason::
-                kConfigNotAvailableForFeature;
-          }));
+              GetOnDeviceModelEligibilityAsync(_, _, _))
+      .WillOnce([](auto feature, auto capabilities, auto callback) {
+        // Returning kConfigNotAvailableForFeature should trigger retry.
+        std::move(callback).Run(
+            optimization_guide::OnDeviceModelEligibilityReason::
+                kConfigNotAvailableForFeature);
+      });
 
   optimization_guide::OnDeviceModelAvailabilityObserver* availability_observer =
       nullptr;
@@ -380,12 +406,19 @@ TEST_F(AISummarizerTest, CreateSummarizerContextLimitExceededError) {
 
   MockCreateSummarizerClient mock_create_summarizer_client;
   base::RunLoop run_loop;
-  EXPECT_CALL(mock_create_summarizer_client, OnError(_))
+  EXPECT_CALL(mock_create_summarizer_client, OnError(_, _))
       .WillOnce(testing::Invoke([&](blink::mojom::AIManagerCreateClientError
-                                        error) {
+                                        error,
+                                    blink::mojom::QuotaErrorInfoPtr
+                                        quota_error_info) {
         ASSERT_EQ(
             error,
             blink::mojom::AIManagerCreateClientError::kInitialInputTooLarge);
+        ASSERT_TRUE(quota_error_info);
+        ASSERT_EQ(quota_error_info->requested,
+                  blink::mojom::kWritingAssistanceMaxInputTokenSize + 1);
+        ASSERT_EQ(quota_error_info->quota,
+                  blink::mojom::kWritingAssistanceMaxInputTokenSize);
         run_loop.Quit();
       }));
 
@@ -407,13 +440,13 @@ TEST_F(AISummarizerTest,
                   config_params) { return nullptr; }));
 
   EXPECT_CALL(*mock_optimization_guide_keyed_service_,
-              GetOnDeviceModelEligibility(_))
-      .WillOnce(testing::Invoke(
-          [&](optimization_guide::ModelBasedCapabilityKey feature) {
-            // Returning kConfigNotAvailableForFeature should trigger retry.
-            return optimization_guide::OnDeviceModelEligibilityReason::
-                kConfigNotAvailableForFeature;
-          }));
+              GetOnDeviceModelEligibilityAsync(_, _, _))
+      .WillOnce([](auto feature, auto capabilities, auto callback) {
+        // Returning kConfigNotAvailableForFeature should trigger retry.
+        std::move(callback).Run(
+            optimization_guide::OnDeviceModelEligibilityReason::
+                kConfigNotAvailableForFeature);
+      });
 
   optimization_guide::OnDeviceModelAvailabilityObserver* availability_observer =
       nullptr;
@@ -506,12 +539,19 @@ TEST_F(AISummarizerTest, InputLimitExceededError) {
           }));
   AITestUtils::MockModelStreamingResponder mock_responder;
   base::RunLoop run_loop;
-  EXPECT_CALL(mock_responder, OnError(_))
+  EXPECT_CALL(mock_responder, OnError(_, _))
       .WillOnce(testing::Invoke([&](blink::mojom::ModelStreamingResponseStatus
-                                        status) {
+                                        status,
+                                    blink::mojom::QuotaErrorInfoPtr
+                                        quota_error_info) {
         EXPECT_EQ(
             status,
             blink::mojom::ModelStreamingResponseStatus::kErrorInputTooLarge);
+        ASSERT_TRUE(quota_error_info);
+        ASSERT_EQ(quota_error_info->requested,
+                  blink::mojom::kWritingAssistanceMaxInputTokenSize + 1);
+        ASSERT_EQ(quota_error_info->quota,
+                  blink::mojom::kWritingAssistanceMaxInputTokenSize);
         run_loop.Quit();
       }));
 
@@ -525,13 +565,11 @@ TEST_F(AISummarizerTest, ModelExecutionError) {
   SetupMockSession();
   EXPECT_CALL(session_, ExecuteModel(_, _))
       .WillOnce(testing::Invoke(
-          [](const google::protobuf::MessageLite& request_metadata,
+          [](const google::protobuf::MessageLite& request,
              optimization_guide::
                  OptimizationGuideModelExecutionResultStreamingCallback
                      callback) {
-            AITestUtils::CheckSummarizeRequest(
-                request_metadata, kSharedContextString, kContextString,
-                *GetDefaultExpectedOptions(), kInputString);
+            EXPECT_THAT(request, EqualsProto(GetExecuteRequest()));
             callback.Run(CreateExecutionErrorResult(
                 optimization_guide::OptimizationGuideModelExecutionError::
                     FromModelExecutionError(
@@ -543,9 +581,11 @@ TEST_F(AISummarizerTest, ModelExecutionError) {
   auto summarizer_remote = GetAISummarizerRemote();
   AITestUtils::MockModelStreamingResponder mock_responder;
   base::RunLoop run_loop;
-  EXPECT_CALL(mock_responder, OnError(_))
+  EXPECT_CALL(mock_responder, OnError(_, _))
       .WillOnce(testing::Invoke([&](blink::mojom::ModelStreamingResponseStatus
-                                        status) {
+                                        status,
+                                    blink::mojom::QuotaErrorInfoPtr
+                                        quota_error_info) {
         EXPECT_EQ(
             status,
             blink::mojom::ModelStreamingResponseStatus::kErrorPermissionDenied);
@@ -562,14 +602,11 @@ TEST_F(AISummarizerTest, SummarizeMultipleResponse) {
   SetupMockSession();
   EXPECT_CALL(session_, ExecuteModel(_, _))
       .WillOnce(testing::Invoke(
-          [](const google::protobuf::MessageLite& request_metadata,
+          [](const google::protobuf::MessageLite& request,
              optimization_guide::
                  OptimizationGuideModelExecutionResultStreamingCallback
                      callback) {
-            AITestUtils::CheckSummarizeRequest(
-                request_metadata, kSharedContextString, kContextString,
-                *GetDefaultExpectedOptions(), kInputString);
-
+            EXPECT_THAT(request, EqualsProto(GetExecuteRequest()));
             callback.Run(
                 CreateExecutionResult("Result ", /*is_complete=*/false));
             callback.Run(CreateExecutionResult("text",
@@ -601,24 +638,21 @@ TEST_F(AISummarizerTest, MultipleSummarize) {
   SetupMockSession();
   EXPECT_CALL(session_, ExecuteModel(_, _))
       .WillOnce(testing::Invoke(
-          [](const google::protobuf::MessageLite& request_metadata,
+          [](const google::protobuf::MessageLite& request,
              optimization_guide::
                  OptimizationGuideModelExecutionResultStreamingCallback
                      callback) {
-            AITestUtils::CheckSummarizeRequest(
-                request_metadata, kSharedContextString, kContextString,
-                *GetDefaultExpectedOptions(), kInputString);
+            EXPECT_THAT(request, EqualsProto(GetExecuteRequest()));
             callback.Run(CreateExecutionResult("Result text",
                                                /*is_complete=*/true));
           }))
       .WillOnce(testing::Invoke(
-          [](const google::protobuf::MessageLite& request_metadata,
+          [](const google::protobuf::MessageLite& request,
              optimization_guide::
                  OptimizationGuideModelExecutionResultStreamingCallback
                      callback) {
-            AITestUtils::CheckSummarizeRequest(
-                request_metadata, kSharedContextString, "test context 2",
-                *GetDefaultExpectedOptions(), "input string 2");
+            EXPECT_THAT(request, EqualsProto(GetExecuteRequest(
+                                     "test context 2", "input string 2")));
             callback.Run(CreateExecutionResult("Result text 2",
                                                /*is_complete=*/true));
           }));
@@ -670,13 +704,11 @@ TEST_F(AISummarizerTest, ResponderDisconnected) {
       streaming_callback;
   EXPECT_CALL(session_, ExecuteModel(_, _))
       .WillOnce(testing::Invoke(
-          [&](const google::protobuf::MessageLite& request_metadata,
+          [&](const google::protobuf::MessageLite& request,
               optimization_guide::
                   OptimizationGuideModelExecutionResultStreamingCallback
                       callback) {
-            AITestUtils::CheckSummarizeRequest(
-                request_metadata, kSharedContextString, kContextString,
-                *GetDefaultExpectedOptions(), kInputString);
+            EXPECT_THAT(request, EqualsProto(GetExecuteRequest()));
             streaming_callback = std::move(callback);
             run_loop_for_callback.Quit();
           }));
@@ -706,13 +738,11 @@ TEST_F(AISummarizerTest, SummarizerDisconnected) {
       streaming_callback;
   EXPECT_CALL(session_, ExecuteModel(_, _))
       .WillOnce(testing::Invoke(
-          [&](const google::protobuf::MessageLite& request_metadata,
+          [&](const google::protobuf::MessageLite& request,
               optimization_guide::
                   OptimizationGuideModelExecutionResultStreamingCallback
                       callback) {
-            AITestUtils::CheckSummarizeRequest(
-                request_metadata, kSharedContextString, kContextString,
-                *GetDefaultExpectedOptions(), kInputString);
+            EXPECT_THAT(request, EqualsProto(GetExecuteRequest()));
             streaming_callback = std::move(callback);
             run_loop_for_callback.Quit();
           }));
@@ -720,9 +750,11 @@ TEST_F(AISummarizerTest, SummarizerDisconnected) {
   auto summarizer_remote = GetAISummarizerRemote();
   AITestUtils::MockModelStreamingResponder mock_responder;
   base::RunLoop run_loop_for_response;
-  EXPECT_CALL(mock_responder, OnError(_))
+  EXPECT_CALL(mock_responder, OnError(_, _))
       .WillOnce(testing::Invoke([&](blink::mojom::ModelStreamingResponseStatus
-                                        status) {
+                                        status,
+                                    blink::mojom::QuotaErrorInfoPtr
+                                        quota_error_info) {
         EXPECT_EQ(
             status,
             blink::mojom::ModelStreamingResponseStatus::kErrorSessionDestroyed);
@@ -757,7 +789,7 @@ TEST_F(AISummarizerTest, MeasureUsage) {
           [&](optimization_guide::MultimodalMessageReadView request_metadata,
               optimization_guide::OptimizationGuideModelSizeInTokenCallback
                   callback) { std::move(callback).Run(expected_usage); }));
-  base::test::TestFuture<std::optional<uint64_t>> future;
+  base::test::TestFuture<std::optional<uint32_t>> future;
   summarizer_remote->MeasureUsage(kInputString, kContextString,
                                   future.GetCallback());
   ASSERT_EQ(future.Get<0>(), expected_usage);
@@ -773,7 +805,7 @@ TEST_F(AISummarizerTest, MeasureUsageFails) {
           [&](optimization_guide::MultimodalMessageReadView request_metadata,
               optimization_guide::OptimizationGuideModelSizeInTokenCallback
                   callback) { std::move(callback).Run(std::nullopt); }));
-  base::test::TestFuture<std::optional<uint64_t>> future;
+  base::test::TestFuture<std::optional<uint32_t>> future;
   summarizer_remote->MeasureUsage(kInputString, kContextString,
                                   future.GetCallback());
   ASSERT_EQ(future.Get<0>(), std::nullopt);

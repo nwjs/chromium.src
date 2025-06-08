@@ -217,7 +217,8 @@ void ImageLoader::DispatchDecodeRequestsIfComplete() {
                      frame, draw_image,
                      WTF::BindOnce(&ImageLoader::DecodeRequestFinished,
                                    MakeUnwrappingCrossThreadHandle(this),
-                                   request->request_id()));
+                                   request->request_id()),
+                     /*speculative*/ false);
                  request->NotifyDecodeDispatched();
                  return false;
                }));
@@ -617,6 +618,7 @@ void ImageLoader::DoUpdateFromElement(const DOMWrapperWorld* world,
     // dispatched.
     if (new_image_content) {
       new_image_content->AddObserver(this);
+      document.Fetcher()->MaybeStartSpeculativeImageDecode();
     }
     if (old_image_content) {
       old_image_content->RemoveObserver(this);
@@ -807,6 +809,7 @@ void ImageLoader::ImageNotifyFinished(ImageResourceContent* content) {
   }
 
   content->RecordDecodedImageType(&element_->GetDocument());
+  content->RecordDecodedImageC2PA(&element_->GetDocument());
 
   CHECK(!pending_load_event_.IsActive());
   pending_load_event_ = PostCancellableTask(

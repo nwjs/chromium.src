@@ -67,7 +67,7 @@ public class LocationBarLayout extends FrameLayout {
     protected @Nullable SearchEngineUtils mSearchEngineUtils;
     private float mUrlFocusPercentage;
     private boolean mUrlBarLaidOutAtFocusedWidth;
-    private int mStatusIconAndUrlBarOffset;
+    private final int mStatusIconAndUrlBarOffset;
     private int mUrlActionContainerEndMargin;
     private boolean mIsUrlFocusChangeInProgress;
 
@@ -87,7 +87,7 @@ public class LocationBarLayout extends FrameLayout {
         mUrlBar = findViewById(R.id.url_bar);
         mMicButton = findViewById(R.id.mic_button);
         mLensButton = findViewById(R.id.lens_camera_button);
-        mUrlActionContainer = (LinearLayout) findViewById(R.id.url_action_container);
+        mUrlActionContainer = findViewById(R.id.url_action_container);
         mStatusViewLeftSpace = findViewById(R.id.location_bar_status_view_left_space);
         mStatusViewRightSpace = findViewById(R.id.location_bar_status_view_right_space);
         mMinimumUrlBarWidthPx =

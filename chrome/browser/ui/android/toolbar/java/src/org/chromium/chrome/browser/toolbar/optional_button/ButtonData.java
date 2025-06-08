@@ -7,7 +7,6 @@ package org.chromium.chrome.browser.toolbar.optional_button;
 import android.graphics.drawable.Drawable;
 import android.view.View;
 
-import androidx.annotation.DrawableRes;
 import androidx.annotation.StringRes;
 
 import org.chromium.build.annotations.NullMarked;
@@ -31,13 +30,6 @@ public interface ButtonData {
     /** Returns {@code true} if the button is supposed to be enabled and clickable. */
     boolean isEnabled();
 
-    /** Sets the background resource that will be used to highlight the button. */
-    /* package */ void setBackgroundResource(@DrawableRes int resId);
-
-    /** Gets the background resource that will be used to highlight the button. */
-    @DrawableRes
-    /* package */ int getBackgroundResource();
-
     /**
      * Returns a {@link ButtonSpec} describing button properties which don't change often. When
      * feasible, a {@link ButtonDataProvider} should prefer to reuse a single {@code ButtonSpec}
@@ -58,9 +50,9 @@ public interface ButtonData {
         @AdaptiveToolbarButtonVariant private final int mButtonVariant;
         private final boolean mIsDynamicAction;
         @StringRes private final int mActionChipLabelResId;
-        private final boolean mShowBackgroundHighlight;
         @StringRes private final int mTooltipTextResId;
         private final boolean mHasErrorBadge;
+        private final boolean mIsChecked;
 
         public ButtonSpec(
                 Drawable drawable,
@@ -72,8 +64,33 @@ public interface ButtonData {
                 @AdaptiveToolbarButtonVariant int buttonVariant,
                 int actionChipLabelResId,
                 int tooltipTextResId,
-                boolean showBackgroundHighlight,
                 boolean hasErrorBadge) {
+            this(
+                    drawable,
+                    onClickListener,
+                    onLongClickListener,
+                    contentDescription,
+                    supportsTinting,
+                    iphCommandBuilder,
+                    buttonVariant,
+                    actionChipLabelResId,
+                    tooltipTextResId,
+                    hasErrorBadge,
+                    /* isChecked= */ false);
+        }
+
+        public ButtonSpec(
+                Drawable drawable,
+                View.OnClickListener onClickListener,
+                View.@Nullable OnLongClickListener onLongClickListener,
+                String contentDescription,
+                boolean supportsTinting,
+                @Nullable IphCommandBuilder iphCommandBuilder,
+                @AdaptiveToolbarButtonVariant int buttonVariant,
+                int actionChipLabelResId,
+                int tooltipTextResId,
+                boolean hasErrorBadge,
+                boolean isChecked) {
             mDrawable = drawable;
             mOnClickListener = onClickListener;
             mOnLongClickListener = onLongClickListener;
@@ -84,8 +101,8 @@ public interface ButtonData {
             mIsDynamicAction = AdaptiveToolbarFeatures.isDynamicAction(mButtonVariant);
             mActionChipLabelResId = actionChipLabelResId;
             mTooltipTextResId = tooltipTextResId;
-            mShowBackgroundHighlight = showBackgroundHighlight;
             mHasErrorBadge = hasErrorBadge;
+            mIsChecked = isChecked;
         }
 
         /** Returns the {@link Drawable} for the button icon. */
@@ -146,19 +163,20 @@ public interface ButtonData {
         }
 
         /**
-         * Returns {@code true} if a background highlight on hover, keyboard focus, press etc.
-         * should be shown for the button.
-         */
-        public boolean shouldShowBackgroundHighlight() {
-            return mShowBackgroundHighlight;
-        }
-
-        /**
          * Returns {@code true} if the button has an error badge. False otherwise. The button's
          * height is increased to accommodate the larger icon when an error badge is present.
          */
         public boolean hasErrorBadge() {
             return mHasErrorBadge;
+        }
+
+        /**
+         * Returns true if the button is a "checked" state. Currently, price tracking is the only
+         * action with a "checked" state. For price tracking, returns true if the price is being
+         * tracked and false otherwise.
+         */
+        public boolean isChecked() {
+            return mIsChecked;
         }
 
         @Override
@@ -174,6 +192,7 @@ public interface ButtonData {
                     && mButtonVariant == that.mButtonVariant
                     && mIsDynamicAction == that.mIsDynamicAction
                     && mActionChipLabelResId == that.mActionChipLabelResId
+                    && mIsChecked == that.mIsChecked
                     && Objects.equals(mDrawable, that.mDrawable)
                     && Objects.equals(mOnClickListener, that.mOnClickListener)
                     && Objects.equals(mOnLongClickListener, that.mOnLongClickListener)

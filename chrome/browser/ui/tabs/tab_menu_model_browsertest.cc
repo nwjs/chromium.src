@@ -15,12 +15,12 @@
 #include "chrome/browser/signin/identity_test_environment_profile_adaptor.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_commands.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/tabs/existing_base_sub_menu_model.h"
 #include "chrome/browser/ui/tabs/organization/tab_organization_utils.h"
 #include "chrome/browser/ui/tabs/saved_tab_groups/saved_tab_group_utils.h"
 #include "chrome/browser/ui/tabs/tab_menu_model_delegate.h"
 #include "chrome/browser/ui/tabs/test_tab_strip_model_delegate.h"
-#include "chrome/browser/ui/tabs/test_util.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/menu_model_test.h"
@@ -56,13 +56,13 @@ class TabMenuModelBrowserTest : public MenuModelTest,
   Profile* profile() { return browser()->profile(); }
 
  private:
-  tabs::PreventTabFeatureInitialization prevent_;
   base::test::ScopedFeatureList feature_list_;
 };
 
 IN_PROC_BROWSER_TEST_F(TabMenuModelBrowserTest, Basics) {
   chrome::NewTab(browser());
-  TabMenuModel model(&delegate_, browser()->tab_menu_model_delegate(),
+  TabMenuModel model(&delegate_,
+                     browser()->GetFeatures().tab_menu_model_delegate(),
                      browser()->tab_strip_model(), 0);
 
   // Verify it has items. The number varies by platform, so we don't check
@@ -78,7 +78,8 @@ IN_PROC_BROWSER_TEST_F(TabMenuModelBrowserTest, Basics) {
 
 IN_PROC_BROWSER_TEST_F(TabMenuModelBrowserTest, OrganizeTabs) {
   chrome::NewTab(browser());
-  TabMenuModel model(&delegate_, browser()->tab_menu_model_delegate(),
+  TabMenuModel model(&delegate_,
+                     browser()->GetFeatures().tab_menu_model_delegate(),
                      browser()->tab_strip_model(), 0);
 
   // Verify that CommandOrganizeTabs is in the menu.
@@ -88,7 +89,8 @@ IN_PROC_BROWSER_TEST_F(TabMenuModelBrowserTest, OrganizeTabs) {
 
 IN_PROC_BROWSER_TEST_F(TabMenuModelBrowserTest, MoveToNewWindow) {
   chrome::NewTab(browser());
-  TabMenuModel model(&delegate_, browser()->tab_menu_model_delegate(),
+  TabMenuModel model(&delegate_,
+                     browser()->GetFeatures().tab_menu_model_delegate(),
                      browser()->tab_strip_model(), 0);
 
   // Verify that CommandMoveTabsToNewWindow is in the menu.
@@ -109,7 +111,8 @@ IN_PROC_BROWSER_TEST_F(TabMenuModelBrowserTest, AddToExistingGroupSubmenu) {
   tab_strip_model->AddToNewGroup({1});
   tab_strip_model->AddToNewGroup({2});
 
-  TabMenuModel menu(&delegate_, browser()->tab_menu_model_delegate(),
+  TabMenuModel menu(&delegate_,
+                    browser()->GetFeatures().tab_menu_model_delegate(),
                     tab_strip_model, 3);
 
   size_t submenu_index =
@@ -143,7 +146,8 @@ IN_PROC_BROWSER_TEST_F(TabMenuModelBrowserTest,
   tab_strip_model->AddToNewGroup({1});
   tab_strip_model->AddToNewGroup({2});
 
-  TabMenuModel menu(&delegate_, browser()->tab_menu_model_delegate(),
+  TabMenuModel menu(&delegate_,
+                    browser()->GetFeatures().tab_menu_model_delegate(),
                     tab_strip_model, 1);
 
   size_t submenu_index =
@@ -175,7 +179,8 @@ IN_PROC_BROWSER_TEST_F(TabMenuModelBrowserTest,
   TabStripModel* tab_strip_model = browser()->tab_strip_model();
   tab_strip_model->AddToNewGroup({0});
 
-  TabMenuModel menu(&delegate_, browser()->tab_menu_model_delegate(),
+  TabMenuModel menu(&delegate_,
+                    browser()->GetFeatures().tab_menu_model_delegate(),
                     tab_strip_model, 1);
 
   size_t submenu_index =
@@ -195,129 +200,12 @@ IN_PROC_BROWSER_TEST_F(TabMenuModelBrowserTest,
   EXPECT_FALSE(tab_strip_model->GetTabGroupForTab(1).has_value());
 }
 
-class TabMenuModelTestTabStripModelDelegate : public TestTabStripModelDelegate {
- public:
-  bool IsForWebApp() override { return true; }
-
-  bool SupportsReadLater() override { return false; }
-};
-
-IN_PROC_BROWSER_TEST_F(TabMenuModelBrowserTest, TabbedWebApp) {
-  // Create a tabbed web app window without home tab
-  TabMenuModelTestTabStripModelDelegate delegate;
-  TabStripModel tab_strip_model(&delegate, profile());
-
-  tab_strip_model.AppendWebContents(
-      content::WebContents::Create(
-          content::WebContents::CreateParams(browser()->profile())),
-      true);
-
-  TabMenuModel model(&delegate_, browser()->tab_menu_model_delegate(),
-                     &tab_strip_model, 0);
-
-  // When adding/removing a menu item, either update this count and add it to
-  // the list below or disable it for tabbed web apps.
-  EXPECT_EQ(model.GetItemCount(), 7u);
-
-  EXPECT_TRUE(
-      model.GetIndexOfCommandId(TabStripModel::CommandCopyURL).has_value());
-  EXPECT_TRUE(
-      model.GetIndexOfCommandId(TabStripModel::CommandReload).has_value());
-  EXPECT_TRUE(
-      model.GetIndexOfCommandId(TabStripModel::CommandGoBack).has_value());
-  EXPECT_TRUE(
-      model.GetIndexOfCommandId(TabStripModel::CommandMoveTabsToNewWindow)
-          .has_value());
-
-  EXPECT_EQ(model.GetTypeAt(4), ui::MenuModel::TYPE_SEPARATOR);
-
-  EXPECT_TRUE(
-      model.GetIndexOfCommandId(TabStripModel::CommandCloseTab).has_value());
-  EXPECT_TRUE(model.GetIndexOfCommandId(TabStripModel::CommandCloseOtherTabs)
-                  .has_value());
-}
-
-IN_PROC_BROWSER_TEST_F(TabMenuModelBrowserTest, TabbedWebAppHomeTab) {
-  TabMenuModelTestTabStripModelDelegate delegate;
-  TabStripModel tab_strip_model(&delegate, profile());
-  tab_strip_model.AppendWebContents(
-      content::WebContents::Create(
-          content::WebContents::CreateParams(browser()->profile())),
-      true);
-
-  TabMenuModel model(&delegate_, browser()->tab_menu_model_delegate(),
-                     browser()->tab_strip_model(), 0);
-  // Pin the first tab so we get the pinned home tab menu.
-  tab_strip_model.SetTabPinned(0, true);
-
-  TabMenuModel home_tab_model(&delegate_, browser()->tab_menu_model_delegate(),
-                              &tab_strip_model, 0);
-
-  // When adding/removing a menu item, either update this count and add it to
-  // the list below or disable it for tabbed web apps.
-  EXPECT_EQ(home_tab_model.GetItemCount(), 5u);
-
-  EXPECT_TRUE(home_tab_model.GetIndexOfCommandId(TabStripModel::CommandCopyURL)
-                  .has_value());
-  EXPECT_TRUE(home_tab_model.GetIndexOfCommandId(TabStripModel::CommandReload)
-                  .has_value());
-  EXPECT_TRUE(home_tab_model.GetIndexOfCommandId(TabStripModel::CommandGoBack)
-                  .has_value());
-
-  EXPECT_EQ(home_tab_model.GetTypeAt(3), ui::MenuModel::TYPE_SEPARATOR);
-
-  EXPECT_TRUE(
-      home_tab_model.GetIndexOfCommandId(TabStripModel::CommandCloseAllTabs)
-          .has_value());
-
-  tab_strip_model.AppendWebContents(
-      content::WebContents::Create(
-          content::WebContents::CreateParams(browser()->profile())),
-      true);
-  EXPECT_EQ(tab_strip_model.count(), 2);
-  EXPECT_FALSE(tab_strip_model.IsTabSelected(0));
-  EXPECT_TRUE(tab_strip_model.IsTabSelected(1));
-
-  TabMenuModel regular_tab_model(
-      &delegate_, browser()->tab_menu_model_delegate(), &tab_strip_model, 1);
-
-  // When adding/removing a menu item, either update this count and add it to
-  // the list below or disable it for tabbed web apps.
-  EXPECT_EQ(regular_tab_model.GetItemCount(), 8u);
-
-  EXPECT_TRUE(
-      regular_tab_model.GetIndexOfCommandId(TabStripModel::CommandCopyURL)
-          .has_value());
-  EXPECT_TRUE(
-      regular_tab_model.GetIndexOfCommandId(TabStripModel::CommandReload)
-          .has_value());
-  EXPECT_TRUE(
-      regular_tab_model.GetIndexOfCommandId(TabStripModel::CommandGoBack)
-          .has_value());
-  EXPECT_TRUE(
-      regular_tab_model
-          .GetIndexOfCommandId(TabStripModel::CommandMoveTabsToNewWindow)
-          .has_value());
-
-  EXPECT_EQ(regular_tab_model.GetTypeAt(4), ui::MenuModel::TYPE_SEPARATOR);
-
-  EXPECT_TRUE(
-      regular_tab_model.GetIndexOfCommandId(TabStripModel::CommandCloseTab)
-          .has_value());
-  EXPECT_TRUE(regular_tab_model
-                  .GetIndexOfCommandId(TabStripModel::CommandCloseOtherTabs)
-                  .has_value());
-  EXPECT_TRUE(
-      regular_tab_model.GetIndexOfCommandId(TabStripModel::CommandCloseAllTabs)
-          .has_value());
-}
-
 class TabMenuModelCommerceProductSpecsTest : public TabMenuModelBrowserTest {
  public:
   TabMenuModelCommerceProductSpecsTest()
       : account_checker_(std::make_unique<commerce::MockAccountChecker>()),
         prefs_(std::make_unique<TestingPrefServiceSimple>()) {
-    feature_list_.InitWithFeatures({commerce::kProductSpecifications}, {});
+    feature_list_.InitAndEnableFeature(commerce::kProductSpecifications);
 
     dependency_manager_subscription_ =
         BrowserContextDependencyManager::GetInstance()
@@ -380,7 +268,8 @@ IN_PROC_BROWSER_TEST_F(TabMenuModelCommerceProductSpecsTest,
              TabStripUserGestureDetails::GestureType::kOther));
   tab_strip->AddSelectionFromAnchorTo(1);
 
-  TabMenuModel model(&delegate_, browser()->tab_menu_model_delegate(),
+  TabMenuModel model(&delegate_,
+                     browser()->GetFeatures().tab_menu_model_delegate(),
                      browser()->tab_strip_model(), 0);
   EXPECT_TRUE(model
                   .GetIndexOfCommandId(
@@ -414,7 +303,8 @@ IN_PROC_BROWSER_TEST_F(TabMenuModelCommerceProductSpecsTest,
              TabStripUserGestureDetails::GestureType::kOther));
   tab_strip->AddSelectionFromAnchorTo(1);
 
-  TabMenuModel model(&delegate_, incognito_browser->tab_menu_model_delegate(),
+  TabMenuModel model(&delegate_,
+                     incognito_browser->GetFeatures().tab_menu_model_delegate(),
                      incognito_browser->tab_strip_model(), 0);
   EXPECT_FALSE(model
                    .GetIndexOfCommandId(
@@ -448,7 +338,8 @@ IN_PROC_BROWSER_TEST_F(TabMenuModelCommerceProductSpecsTest,
       0, TabStripUserGestureDetails(
              TabStripUserGestureDetails::GestureType::kOther));
   tab_strip->AddSelectionFromAnchorTo(1);
-  TabMenuModel model(&delegate_, browser()->tab_menu_model_delegate(),
+  TabMenuModel model(&delegate_,
+                     browser()->GetFeatures().tab_menu_model_delegate(),
                      browser()->tab_strip_model(), 0);
 
   EXPECT_FALSE(model
@@ -480,7 +371,8 @@ IN_PROC_BROWSER_TEST_F(TabMenuModelCommerceProductSpecsTest, MenuShowForHttp) {
              TabStripUserGestureDetails::GestureType::kOther));
 
   tab_strip->AddSelectionFromAnchorTo(1);
-  TabMenuModel model(&delegate_, browser()->tab_menu_model_delegate(),
+  TabMenuModel model(&delegate_,
+                     browser()->GetFeatures().tab_menu_model_delegate(),
                      browser()->tab_strip_model(), 0);
 
   EXPECT_TRUE(model
@@ -493,7 +385,7 @@ class TabMenuModelCommerceProductSpecsDisabledTest
     : public TabMenuModelCommerceProductSpecsTest {
  public:
   TabMenuModelCommerceProductSpecsDisabledTest() {
-    feature_list_.InitWithFeatures({}, {commerce::kProductSpecifications});
+    feature_list_.InitAndDisableFeature(commerce::kProductSpecifications);
   }
 
  private:
@@ -508,7 +400,8 @@ IN_PROC_BROWSER_TEST_F(TabMenuModelCommerceProductSpecsDisabledTest,
   chrome::NewTab(browser());
 
   tab_strip->AddSelectionFromAnchorTo(1);
-  TabMenuModel model(&delegate_, browser()->tab_menu_model_delegate(),
+  TabMenuModel model(&delegate_,
+                     browser()->GetFeatures().tab_menu_model_delegate(),
                      browser()->tab_strip_model(), 0);
 
   EXPECT_FALSE(model
@@ -533,7 +426,8 @@ IN_PROC_BROWSER_TEST_F(TabMenuModelCommerceProductSpecsTest,
                                                    TabCloseTypes::CLOSE_NONE);
 
   tab_strip->AddSelectionFromAnchorTo(1);
-  TabMenuModel model(&delegate_, browser()->tab_menu_model_delegate(),
+  TabMenuModel model(&delegate_,
+                     browser()->GetFeatures().tab_menu_model_delegate(),
                      browser()->tab_strip_model(), 0);
 
   EXPECT_FALSE(model
@@ -553,7 +447,8 @@ IN_PROC_BROWSER_TEST_F(TabMenuModelCommerceProductSpecsTest,
   browser()->tab_strip_model()->CloseWebContentsAt(0,
                                                    TabCloseTypes::CLOSE_NONE);
 
-  TabMenuModel model(&delegate_, browser()->tab_menu_model_delegate(),
+  TabMenuModel model(&delegate_,
+                     browser()->GetFeatures().tab_menu_model_delegate(),
                      browser()->tab_strip_model(), 0);
 
   EXPECT_FALSE(model
@@ -571,9 +466,7 @@ class TabMenuModelComparisonTableTest : public TabMenuModelBrowserTest {
                 &TabMenuModelComparisonTableTest::SetTestingFactory,
                 base::Unretained(this)));
 
-    feature_list_.InitWithFeatures({commerce::kProductSpecifications,
-                                    commerce::kCompareManagementInterface},
-                                   {});
+    feature_list_.InitAndEnableFeature(commerce::kProductSpecifications);
   }
 
   void SetTestingFactory(content::BrowserContext* context) {
@@ -620,8 +513,7 @@ class TabMenuModelComparisonTableDisabledTest
     : public TabMenuModelComparisonTableTest {
  public:
   TabMenuModelComparisonTableDisabledTest() {
-    feature_list_.InitWithFeatures({}, {commerce::kProductSpecifications,
-                                        commerce::kCompareManagementInterface});
+    feature_list_.InitAndDisableFeature(commerce::kProductSpecifications);
   }
 
  private:
@@ -632,7 +524,8 @@ IN_PROC_BROWSER_TEST_F(TabMenuModelComparisonTableDisabledTest,
                        MenuNotShownWhenFeatureDisabled) {
   AddAndSelectTab(browser(), GURL("https://example.com"));
 
-  TabMenuModel model(&delegate_, browser()->tab_menu_model_delegate(),
+  TabMenuModel model(&delegate_,
+                     browser()->GetFeatures().tab_menu_model_delegate(),
                      tab_strip(), 0);
   EXPECT_FALSE(
       model.GetIndexOfCommandId(TabStripModel::CommandAddToNewComparisonTable)
@@ -645,7 +538,8 @@ IN_PROC_BROWSER_TEST_F(TabMenuModelComparisonTableDisabledTest,
 
 IN_PROC_BROWSER_TEST_F(TabMenuModelComparisonTableTest,
                        MenuShownForNormalWindow) {
-  TabMenuModel model(&delegate_, browser()->tab_menu_model_delegate(),
+  TabMenuModel model(&delegate_,
+                     browser()->GetFeatures().tab_menu_model_delegate(),
                      tab_strip(), 0);
 
   // No existing tables, so only the option for adding to a new table should be
@@ -666,7 +560,8 @@ IN_PROC_BROWSER_TEST_F(TabMenuModelComparisonTableTest,
 
   AddAndSelectTab(incognito_browser, GURL("https://example.com"));
 
-  TabMenuModel model(&delegate_, incognito_browser->tab_menu_model_delegate(),
+  TabMenuModel model(&delegate_,
+                     incognito_browser->GetFeatures().tab_menu_model_delegate(),
                      incognito_browser->tab_strip_model(), 0);
   EXPECT_FALSE(
       model.GetIndexOfCommandId(TabStripModel::CommandAddToNewComparisonTable)
@@ -691,7 +586,8 @@ IN_PROC_BROWSER_TEST_F(TabMenuModelComparisonTableTest,
 
   SelectAllTabs();
 
-  TabMenuModel model(&delegate_, browser()->tab_menu_model_delegate(),
+  TabMenuModel model(&delegate_,
+                     browser()->GetFeatures().tab_menu_model_delegate(),
                      tab_strip(), 0);
 
   EXPECT_FALSE(
@@ -725,7 +621,8 @@ IN_PROC_BROWSER_TEST_F(TabMenuModelComparisonTableTest,
   browser()->tab_strip_model()->CloseWebContentsAt(0,
                                                    TabCloseTypes::CLOSE_NONE);
 
-  TabMenuModel model(&delegate_, browser()->tab_menu_model_delegate(),
+  TabMenuModel model(&delegate_,
+                     browser()->GetFeatures().tab_menu_model_delegate(),
                      tab_strip(), 0);
 
   // There are existing tables, so the submenu for adding to an existing table
@@ -761,7 +658,8 @@ IN_PROC_BROWSER_TEST_F(TabMenuModelComparisonTableTest,
   browser()->tab_strip_model()->CloseWebContentsAt(0,
                                                    TabCloseTypes::CLOSE_NONE);
 
-  TabMenuModel model(&delegate_, browser()->tab_menu_model_delegate(),
+  TabMenuModel model(&delegate_,
+                     browser()->GetFeatures().tab_menu_model_delegate(),
                      tab_strip(), 0);
 
   // All existing tables contain the URL, so only the option for adding to a new
@@ -800,7 +698,8 @@ IN_PROC_BROWSER_TEST_F(
   browser()->tab_strip_model()->CloseWebContentsAt(0,
                                                    TabCloseTypes::CLOSE_NONE);
 
-  TabMenuModel model(&delegate_, browser()->tab_menu_model_delegate(),
+  TabMenuModel model(&delegate_,
+                     browser()->GetFeatures().tab_menu_model_delegate(),
                      tab_strip(), 0);
 
   // The existing tables do not contain the selected tab's URL, so the submenu

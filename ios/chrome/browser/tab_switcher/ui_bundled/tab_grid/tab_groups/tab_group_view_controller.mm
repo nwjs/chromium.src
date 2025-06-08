@@ -20,6 +20,7 @@
 #import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/shared/ui/elements/extended_touch_target_button.h"
 #import "ios/chrome/browser/shared/ui/symbols/symbols.h"
+#import "ios/chrome/browser/shared/ui/util/uikit_ui_util.h"
 #import "ios/chrome/browser/tab_switcher/ui_bundled/tab_grid/grid/grid_constants.h"
 #import "ios/chrome/browser/tab_switcher/ui_bundled/tab_grid/grid/tab_group_grid_view_controller.h"
 #import "ios/chrome/browser/tab_switcher/ui_bundled/tab_grid/tab_grid_paging.h"
@@ -51,6 +52,7 @@ constexpr CGFloat kTopToolbarMargin = 16;
 
 // Bottom toolbar.
 constexpr CGFloat kGradientHeight = 86;
+constexpr CGFloat kBottomToolbarMargin = 8;
 
 // Button.
 constexpr CGFloat kButtonSpacing = 10;
@@ -86,6 +88,8 @@ UIButton* TopToolbarButton(NSString* symbol_name,
       [UIBackgroundConfiguration clearConfiguration];
   background_configuration.visualEffect = [UIBlurEffect
       effectWithStyle:UIBlurEffectStyleSystemUltraThinMaterialDark];
+  background_configuration.backgroundColor =
+      TabGroupViewButtonBackgroundColor();
 
   UIButtonConfiguration* configuration =
       [UIButtonConfiguration plainButtonConfiguration];
@@ -663,6 +667,7 @@ UIButton* TopToolbarButton(NSString* symbol_name,
   UIButton* closeButton =
       TopToolbarButton(kXMarkSymbol, closeAction, kCloseImageSize);
   closeButton.accessibilityLabel = l10n_util::GetNSString(IDS_CLOSE);
+  closeButton.accessibilityIdentifier = kTabGroupCloseButtonIdentifier;
 
   [stackView addArrangedSubview:closeButton];
 
@@ -817,15 +822,23 @@ UIButton* TopToolbarButton(NSString* symbol_name,
   titleLabel.adjustsFontForContentSizeCategory = YES;
   titleLabel.accessibilityIdentifier = kTabGroupViewTitleIdentifier;
   titleLabel.translatesAutoresizingMaskIntoConstraints = NO;
-  UIFontDescriptor* boldDescriptor = [[UIFontDescriptor
-      preferredFontDescriptorWithTextStyle:UIFontTextStyleHeadline]
-      fontDescriptorWithSymbolicTraits:UIFontDescriptorTraitBold];
+
   NSMutableAttributedString* boldTitle =
       [[NSMutableAttributedString alloc] initWithString:_groupTitle];
+  if (IsContainedTabGroupEnabled()) {
+    [boldTitle addAttribute:NSFontAttributeName
+                      value:PreferredFontForTextStyle(UIFontTextStyleTitle3,
+                                                      UIFontWeightBold)
+                      range:NSMakeRange(0, _groupTitle.length)];
+  } else {
+    UIFontDescriptor* boldDescriptor = [[UIFontDescriptor
+        preferredFontDescriptorWithTextStyle:UIFontTextStyleHeadline]
+        fontDescriptorWithSymbolicTraits:UIFontDescriptorTraitBold];
 
-  [boldTitle addAttribute:NSFontAttributeName
-                    value:[UIFont fontWithDescriptor:boldDescriptor size:0.0]
-                    range:NSMakeRange(0, _groupTitle.length)];
+    [boldTitle addAttribute:NSFontAttributeName
+                      value:[UIFont fontWithDescriptor:boldDescriptor size:0.0]
+                      range:NSMakeRange(0, _groupTitle.length)];
+  }
   titleLabel.attributedText = boldTitle;
 
   return titleLabel;
@@ -936,8 +949,10 @@ UIButton* TopToolbarButton(NSString* symbol_name,
   bottomToolbar.page =
       _incognito ? TabGridPageIncognitoTabs : TabGridPageRegularTabs;
   bottomToolbar.mode = TabGridMode::kNormal;
-  [bottomToolbar
-      setScrollViewScrolledToEdge:self.gridViewController.scrolledToBottom];
+  if (!IsContainedTabGroupEnabled()) {
+    [bottomToolbar
+        setScrollViewScrolledToEdge:self.gridViewController.scrolledToBottom];
+  }
   [bottomToolbar setEditButtonHidden:YES];
   [bottomToolbar setDoneButtonHidden:YES];
 
@@ -947,9 +962,12 @@ UIButton* TopToolbarButton(NSString* symbol_name,
 
   [_container addSubview:bottomToolbar];
 
+  CGFloat bottomMargin =
+      IsContainedTabGroupEnabled() ? -kBottomToolbarMargin : 0;
+
   [NSLayoutConstraint activateConstraints:@[
-    [bottomToolbar.bottomAnchor
-        constraintEqualToAnchor:_container.bottomAnchor],
+    [bottomToolbar.bottomAnchor constraintEqualToAnchor:_container.bottomAnchor
+                                               constant:bottomMargin],
     [bottomToolbar.leadingAnchor
         constraintEqualToAnchor:_container.leadingAnchor],
     [bottomToolbar.trailingAnchor
@@ -1181,7 +1199,8 @@ UIButton* TopToolbarButton(NSString* symbol_name,
 - (void)updateGridInsets {
   if (IsContainedTabGroupEnabled()) {
     _gridViewController.contentInsets = UIEdgeInsetsMake(
-        kTopToolbarHeight, 0, _bottomToolbar.intrinsicContentSize.height, 0);
+        kTopToolbarHeight, 0,
+        _bottomToolbar.intrinsicContentSize.height + kBottomToolbarMargin, 0);
     return;
   }
   CGFloat bottomToolbarInset = 0;

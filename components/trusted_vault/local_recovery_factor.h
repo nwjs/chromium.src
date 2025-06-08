@@ -62,24 +62,18 @@ class LocalRecoveryFactor {
   virtual LocalRecoveryFactorType GetRecoveryFactorType() const = 0;
 
   // Attempts a key recovery.
-  virtual void AttemptRecovery(TrustedVaultThrottlingConnection* connection,
-                               AttemptRecoveryCallback cb) = 0;
+  virtual void AttemptRecovery(AttemptRecoveryCallback cb) = 0;
 
   // Returns whether the recovery factor is marked as registered.
   virtual bool IsRegistered() = 0;
   // Marks the recovery factor as not registered, which makes it eligible for
   // future registration attempts.
   virtual void MarkAsNotRegistered() = 0;
-  // Clears information about any potential previous registration attempts.
-  // This can be called for accounts other than the account this recovery
-  // factor was created for, thus `gaia_id` is passed in explicitly.
-  virtual void ClearRegistrationAttemptInfo(const GaiaId& gaia_id) = 0;
   // Attempts to register the recovery factor in case it's not yet registered
   // and currently available local data is sufficient to do it. It returns an
   // enum representing the registration state, intended to be used for metric
   // recording.
-  virtual TrustedVaultDeviceRegistrationStateForUMA MaybeRegister(
-      TrustedVaultThrottlingConnection* connection,
+  virtual TrustedVaultRecoveryFactorRegistrationStateForUMA MaybeRegister(
       RegisterCallback cb) = 0;
 };
 

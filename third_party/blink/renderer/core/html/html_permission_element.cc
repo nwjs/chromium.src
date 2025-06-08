@@ -94,13 +94,11 @@ constexpr float kMaximumWordSpacingToFontSizeRatio = 0.5;
 constexpr float kMinimumAllowedContrast = 3.;
 constexpr float kMaximumLetterSpacingToFontSizeRatio = 0.2;
 constexpr float kMinimumLetterSpacingToFontSizeRatio = -0.05;
+constexpr int kMarginVisibleContent = -4;
 constexpr int kMaxLengthToFontSizeRatio = 3;
 constexpr int kMinLengthToFontSizeRatio = 1;
 constexpr int kMaxVerticalPaddingToFontSizeRatio = 1;
 constexpr int kMaxHorizontalPaddingToFontSizeRatio = 5;
-// Needed to avoid IntersectionObserver false-positives caused by other elements
-// being too close.
-constexpr int kMinMargin = 4;
 constexpr float kIntersectionThreshold = 1.0f;
 
 constexpr float kDefaultSmallFontSize = 13;     // Default 'small' font size.
@@ -417,21 +415,6 @@ HTMLPermissionElement::HTMLPermissionElement(Document& document)
   DCHECK(RuntimeEnabledFeatures::PermissionElementEnabled(
       document.GetExecutionContext()));
   SetHasCustomStyleCallbacks();
-  intersection_observer_ = IntersectionObserver::Create(
-      GetDocument(),
-      WTF::BindRepeating(&HTMLPermissionElement::OnIntersectionChanged,
-                         WrapWeakPersistent(this)),
-      LocalFrameUkmAggregator::kPermissionElementIntersectionObserver,
-      IntersectionObserver::Params{
-          .thresholds = {kIntersectionThreshold},
-          .semantics = IntersectionObserver::kFractionOfTarget,
-          .behavior = IntersectionObserver::kDeliverDuringPostLifecycleSteps,
-          .delay = base::Milliseconds(100),
-          .track_visibility = true,
-          .expose_occluder_id = true,
-      });
-
-  intersection_observer_->observe(this);
   EnsureUserAgentShadowRoot();
   UseCounter::Count(document, WebFeature::kHTMLPermissionElement);
 }
@@ -465,6 +448,7 @@ void HTMLPermissionElement::Trace(Visitor* visitor) const {
   visitor->Trace(permission_service_);
   visitor->Trace(embedded_permission_control_receiver_);
   visitor->Trace(permission_text_span_);
+  visitor->Trace(permission_internal_icon_);
   visitor->Trace(intersection_observer_);
   visitor->Trace(disable_reason_expire_timer_);
   HTMLElement::Trace(visitor);
@@ -479,16 +463,42 @@ void HTMLPermissionElement::OnPermissionStatusInitialized(
 Node::InsertionNotificationRequest HTMLPermissionElement::InsertedInto(
     ContainerNode& insertion_point) {
   HTMLElement::InsertedInto(insertion_point);
-  MaybeRegisterPageEmbeddedPermissionControl();
+  if (!is_cache_registered_ && !permission_descriptors_.empty()) {
+    CachedPermissionStatus::From(GetDocument().domWindow())
+        ->RegisterClient(this, permission_descriptors_);
+    is_cache_registered_ = true;
+  }
   return kInsertionDone;
 }
 
 void HTMLPermissionElement::AttachLayoutTree(AttachContext& context) {
   Element::AttachLayoutTree(context);
+  if (fallback_mode_) {
+    return;
+  }
   DisableClickingTemporarily(DisableReason::kRecentlyAttachedToLayoutTree,
                              kDefaultDisableTimeout);
   CHECK(GetDocument().View());
   GetDocument().View()->RegisterForLifecycleNotifications(this);
+  if (!intersection_observer_) {
+    intersection_observer_ = IntersectionObserver::Create(
+        GetDocument(),
+        WTF::BindRepeating(&HTMLPermissionElement::OnIntersectionChanged,
+                           WrapWeakPersistent(this)),
+        LocalFrameUkmAggregator::kPermissionElementIntersectionObserver,
+        IntersectionObserver::Params{
+            .margin = {Length::Fixed(kMarginVisibleContent)},
+            .margin_target = IntersectionObserver::kApplyMarginToTarget,
+            .thresholds = {kIntersectionThreshold},
+            .semantics = IntersectionObserver::kFractionOfTarget,
+            .behavior = IntersectionObserver::kDeliverDuringPostLifecycleSteps,
+            .delay = base::Milliseconds(100),
+            .track_visibility = true,
+            .expose_occluder_id = true,
+        });
+
+    intersection_observer_->observe(this);
+  }
 }
 
 void HTMLPermissionElement::DetachLayoutTree(bool performing_reattach) {
@@ -507,22 +517,25 @@ void HTMLPermissionElement::RemovedFrom(ContainerNode& insertion_point) {
     disable_reason_expire_timer_.Stop();
   }
   intersection_rect_ = std::nullopt;
-  if (embedded_permission_control_receiver_.is_bound()) {
-    embedded_permission_control_receiver_.reset();
-  }
-
-  is_registered_in_browser_process_ = false;
-  if (LocalDOMWindow* window = GetDocument().domWindow()) {
+  LocalDOMWindow* window = GetDocument().domWindow();
+  if (window && is_cache_registered_) {
     CachedPermissionStatus::From(window)->UnregisterClient(
         this, permission_descriptors_);
+    is_cache_registered_ = false;
   }
+  EnsureUnregisterPageEmbeddedPermissionControl();
 }
 
 void HTMLPermissionElement::Focus(const FocusParams& params) {
+  // In fallback mode the permission element behaves like a regular element.
+  if (fallback_mode_) {
+    return HTMLElement::Focus(params);
+  }
   // This will only apply to `focus` and `blur` JS API. Other focus types (like
   // accessibility focusing and manual user focus), will still be permitted as
   // usual.
-  if (params.type == mojom::blink::FocusType::kScript) {
+  if (params.type == mojom::blink::FocusType::kScript &&
+      !LocalFrame::HasTransientUserActivation(GetDocument().GetFrame())) {
     return;
   }
 
@@ -531,7 +544,6 @@ void HTMLPermissionElement::Focus(const FocusParams& params) {
 
 FocusableState HTMLPermissionElement::SupportsFocus(
     UpdateBehavior update_behavior) const {
-  // The permission element is only focusable if it has a valid type.
   if (fallback_mode_) {
     return HTMLElement::SupportsFocus(update_behavior);
   }
@@ -547,7 +559,7 @@ int HTMLPermissionElement::DefaultTabIndex() const {
 
 CascadeFilter HTMLPermissionElement::GetCascadeFilter() const {
   // Reject all properties for which 'kValidForPermissionElement' is false.
-  return CascadeFilter(CSSProperty::kValidForPermissionElement, false);
+  return CascadeFilter(CSSProperty::kValidForPermissionElement);
 }
 
 bool HTMLPermissionElement::CanGeneratePseudoElement(PseudoId id) const {
@@ -570,6 +582,14 @@ bool HTMLPermissionElement::IsOccluded() const {
   return !GetRecentlyAttachedTimeoutRemaining() &&
          IsClickingDisabledIndefinitely(
              DisableReason::kIntersectionVisibilityOccludedOrDistorted);
+}
+
+bool HTMLPermissionElement::IsRenderered() const {
+  LayoutObject* layout_object = GetLayoutObject();
+  if (!layout_object) {
+    return false;
+  }
+  return layout_object->StyleRef().Visibility() == EVisibility::kVisible;
 }
 
 // static
@@ -697,14 +717,25 @@ bool HTMLPermissionElement::MaybeRegisterPageEmbeddedPermissionControl() {
     }
   }
 
-  CachedPermissionStatus::From(GetDocument().domWindow())
-      ->RegisterClient(this, permission_descriptors_);
+  if (!IsRenderered()) {
+    return false;
+  }
+
   mojo::PendingRemote<EmbeddedPermissionControlClient> client;
   embedded_permission_control_receiver_.Bind(
       client.InitWithNewPipeAndPassReceiver(), GetTaskRunner());
+  CHECK(embedded_permission_control_receiver_.is_bound());
   GetPermissionService()->RegisterPageEmbeddedPermissionControl(
       mojo::Clone(permission_descriptors_), std::move(client));
   return true;
+}
+
+void HTMLPermissionElement::EnsureUnregisterPageEmbeddedPermissionControl() {
+  if (embedded_permission_control_receiver_.is_bound()) {
+    embedded_permission_control_receiver_.reset();
+  }
+
+  is_registered_in_browser_process_ = false;
 }
 
 void HTMLPermissionElement::LangAttributeChanged() {
@@ -753,6 +784,12 @@ void HTMLPermissionElement::AttributeChanged(
 }
 
 void HTMLPermissionElement::DidAddUserAgentShadowRoot(ShadowRoot& root) {
+  if (RuntimeEnabledFeatures::PermissionElementIconEnabled(
+          GetDocument().GetExecutionContext())) {
+    permission_internal_icon_ =
+        MakeGarbageCollected<HTMLPermissionIconElement>(GetDocument());
+    root.AppendChild(permission_internal_icon_);
+  }
   permission_text_span_ = MakeGarbageCollected<HTMLSpanElement>(GetDocument());
   permission_text_span_->SetShadowPseudoId(
       shadow_element_names::kPseudoInternalPermissionTextSpan);
@@ -769,26 +806,6 @@ void HTMLPermissionElement::AdjustStyle(ComputedStyleBuilder& builder) {
   }
 
   builder.SetOutlineOffset(builder.OutlineOffset().ClampNegativeToZero());
-
-  auto device_pixel_ratio =
-      GetDocument().GetFrame()->LocalFrameRoot().DevicePixelRatio();
-
-  builder.SetMarginLeft(AdjustedBoundedLength(
-      builder.MarginLeft(), /*lower_bound=*/kMinMargin * device_pixel_ratio,
-      /*upper_bound=*/std::nullopt,
-      /*should_multiply_by_content_size=*/false));
-  builder.SetMarginRight(AdjustedBoundedLength(
-      builder.MarginRight(), /*lower_bound=*/kMinMargin * device_pixel_ratio,
-      /*upper_bound=*/std::nullopt,
-      /*should_multiply_by_content_size=*/false));
-  builder.SetMarginTop(AdjustedBoundedLength(
-      builder.MarginTop(), /*lower_bound=*/kMinMargin * device_pixel_ratio,
-      /*upper_bound=*/std::nullopt,
-      /*should_multiply_by_content_size=*/false));
-  builder.SetMarginBottom(AdjustedBoundedLength(
-      builder.MarginBottom(), /*lower_bound=*/kMinMargin * device_pixel_ratio,
-      /*upper_bound=*/std::nullopt,
-      /*should_multiply_by_content_size=*/false));
 
   // Check and modify (if needed) properties related to the font.
   std::optional<FontDescription> new_font_description;
@@ -820,11 +837,6 @@ void HTMLPermissionElement::AdjustStyle(ComputedStyleBuilder& builder) {
                            kMaximumWordSpacingToFontSizeRatio);
   } else if (builder.GetFontDescription().WordSpacing() < 0) {
     builder.SetWordSpacing(0);
-  }
-
-  if (builder.GetDisplayStyle().Display() != EDisplay::kNone &&
-      builder.GetDisplayStyle().Display() != EDisplay::kInlineBlock) {
-    builder.SetDisplay(EDisplay::kInlineBlock);
   }
 
   if (builder.GetFontDescription().LetterSpacing() >
@@ -941,6 +953,17 @@ void HTMLPermissionElement::AdjustStyle(ComputedStyleBuilder& builder) {
     builder.SetCursor(ECursor::kPointer);
   }
   builder.SetCursorIsInherited(false);
+
+  if (builder.BoxShadow()) {
+    for (const auto& shadow : builder.BoxShadow()->Shadows()) {
+      if (shadow.Style() == ShadowStyle::kInset) {
+        AddConsoleError(
+            "The permission element does not support 'inset' box-shadows.");
+        builder.SetBoxShadow(Member<ShadowList>());
+        break;
+      }
+    }
+  }
 }
 
 void HTMLPermissionElement::DidRecalcStyle(const StyleRecalcChange change) {
@@ -1164,6 +1187,12 @@ bool HTMLPermissionElement::IsClickingEnabled() {
     return false;
   }
 
+  // Do not check click-disabling reasons if the PEPC validation feature is
+  // disabled. This should only occur in testing scenarios.
+  if (RuntimeEnabledFeatures::BypassPepcSecurityForTestingEnabled()) {
+    return true;
+  }
+
   if (!is_registered_in_browser_process()) {
     AddConsoleError(
         WTF::StrCat({"The permission element '", GetType(),
@@ -1173,12 +1202,6 @@ bool HTMLPermissionElement::IsClickingEnabled() {
         "Blink.PermissionElement.UserInteractionDeniedReason",
         UserInteractionDeniedReason::kFailedOrHasNotBeenRegistered);
     return false;
-  }
-
-  // Do not check click-disabling reasons if the PEPC validation feature is
-  // disabled. This should only occur in testing scenarios.
-  if (RuntimeEnabledFeatures::BypassPepcSecurityForTestingEnabled()) {
-    return true;
   }
 
   // Remove expired reasons. If the remaining map is not empty, clicking is
@@ -1373,7 +1396,16 @@ void HTMLPermissionElement::UpdateText() {
     permission_name = permission_status_map_.begin()->key;
     permission_count = permission_status_map_.size();
   }
-
+  if (RuntimeEnabledFeatures::PermissionElementIconEnabled(
+          GetDocument().GetExecutionContext())) {
+    GetTaskRunner()->PostTask(
+        FROM_HERE,
+        WTF::BindOnce(&HTMLPermissionIconElement::SetIcon,
+                      WrapWeakPersistent(permission_internal_icon_.Get()),
+                      permission_count == 1 ? permission_name
+                                            : PermissionName::VIDEO_CAPTURE,
+                      is_precise_location_));
+  }
   AtomicString language_string = ComputeInheritedLanguage().LowerASCII();
 
   uint16_t untranslated_message_id =
@@ -1412,7 +1444,10 @@ void HTMLPermissionElement::OnIntersectionChanged(
   // bound is clipped by the viewport or styling effects). In this case, the
   // `isVisible` false means the element is occluded by something else or has
   // distorted visual effect applied.
-  if (!latest_observation->isVisible()) {
+  // Note: It's unlikely we'll encounter an empty target rectangle (height or
+  // width is 0), but if it happens, we can consider the element as visible.
+  if (!latest_observation->isVisible() &&
+      !latest_observation->GetGeometry().TargetRect().IsEmpty()) {
     new_intersection_visibility =
         latest_observation->intersectionRatio() >= kIntersectionThreshold
             ? IntersectionVisibility::kOccludedOrDistorted
@@ -1459,14 +1494,26 @@ void HTMLPermissionElement::OnIntersectionChanged(
 }
 
 bool HTMLPermissionElement::IsStyleValid() {
+  const ComputedStyle* style = GetComputedStyle();
+
   // No computed style when using `display: none`.
-  if (!GetComputedStyle()) {
+  if (!style) {
     base::UmaHistogramEnumeration("Blink.PermissionElement.InvalidStyleReason",
                                   InvalidStyleReason::kNoComputedStyle);
     return false;
   }
 
-  if (AreColorsNonOpaque(GetComputedStyle())) {
+  if (style->GetDisplayStyle().Display() != EDisplay::kNone &&
+      style->GetDisplayStyle().Display() != EDisplay::kInlineBlock) {
+    AddConsoleWarning(WTF::StrCat(
+        {"Invalid display style of the permission element ", GetType(),
+         ". Only 'display: inline-block' or 'display: none' is allowed"}));
+    base::UmaHistogramEnumeration("Blink.PermissionElement.InvalidStyleReason",
+                                  InvalidStyleReason::kInvalidDisplayProperty);
+    return false;
+  }
+
+  if (AreColorsNonOpaque(style)) {
     AddConsoleWarning(
         WTF::StrCat({"Color or background color of the permission element '",
                      GetType(), "' is non-opaque"}));
@@ -1476,8 +1523,7 @@ bool HTMLPermissionElement::IsStyleValid() {
     return false;
   }
 
-  if (ContrastBetweenColorAndBackgroundColor(GetComputedStyle()) <
-      kMinimumAllowedContrast) {
+  if (ContrastBetweenColorAndBackgroundColor(style) < kMinimumAllowedContrast) {
     AddConsoleWarning(
         WTF::StrCat({"Contrast between color and background color of the "
                      "permission element '",
@@ -1500,11 +1546,9 @@ bool HTMLPermissionElement::IsStyleValid() {
       GetDocument().GetFrame()->LocalFrameRoot().LayoutZoomFactor() /
       GetDocument().GetFrame()->LocalFrameRoot().CssZoomFactor();
 
-  float font_size_dip =
-      GetComputedStyle()->ComputedFontSize() / non_css_layout_zoom_factor;
+  float font_size_dip = style->ComputedFontSize() / non_css_layout_zoom_factor;
 
-  bool is_font_monospace =
-      GetComputedStyle()->GetFontDescription().IsMonospace();
+  bool is_font_monospace = style->GetFontDescription().IsMonospace();
 
   // The min size is what `font-size:small` looks like when rendered in the
   // document element of the local root frame, without any intervening
@@ -1645,6 +1689,12 @@ void HTMLPermissionElement::DidFinishLifecycleUpdate(
                                kDefaultDisableTimeout);
   }
   intersection_rect_ = intersection_rect;
+
+  if (IsRenderered()) {
+    MaybeRegisterPageEmbeddedPermissionControl();
+  } else {
+    EnsureUnregisterPageEmbeddedPermissionControl();
+  }
 }
 
 gfx::Rect HTMLPermissionElement::ComputeIntersectionRectWithViewport(
@@ -1678,15 +1728,19 @@ HTMLPermissionElement::GetRecentlyAttachedTimeoutRemaining() const {
 void HTMLPermissionElement::EnableFallbackMode() {
   CHECK(!fallback_mode_);
   fallback_mode_ = true;
-  intersection_observer_->unobserve(this);
-
+  if (intersection_observer_) {
+    intersection_observer_->unobserve(this);
+  }
   // Adding this slot element will make all children of the permission element
   // render, the permission element's built-in elements are removed at the same
   // time.
   UserAgentShadowRoot()->AppendChild(
       MakeGarbageCollected<HTMLSlotElement>(GetDocument()));
   UserAgentShadowRoot()->RemoveChild(permission_text_span_);
-
+  if (RuntimeEnabledFeatures::PermissionElementIconEnabled(
+          GetDocument().GetExecutionContext())) {
+    UserAgentShadowRoot()->RemoveChild(permission_internal_icon_);
+  }
   MaybeDispatchValidationChangeEvent();
 }
 

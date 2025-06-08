@@ -138,17 +138,9 @@ std::unique_ptr<network::NetworkService>& GetLocalNetworkService() {
 
 // If this feature is enabled, the Network Service will run on its own thread
 // when running in-process; otherwise it will run on the IO thread.
-//
-// On Chrome OS, the Network Service must run on the IO thread because
-// ProfileIOData and NetworkContext both try to set up NSS, which has to be
-// called from the IO thread.
 BASE_FEATURE(kNetworkServiceDedicatedThread,
              "NetworkServiceDedicatedThread",
-#if BUILDFLAG(IS_CHROMEOS)
-             base::FEATURE_DISABLED_BY_DEFAULT
-#else
              base::FEATURE_ENABLED_BY_DEFAULT
-#endif
 );
 
 base::Thread& GetNetworkServiceDedicatedThread() {
@@ -352,8 +344,7 @@ void RunSystemDnsResolverOnThreadPool(
       std::make_unique<content::SystemDnsResolverMojoImpl>(),
       std::move(dns_receiver));
 }
-#endif  // BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_LINUX) ||
-        // BUILDFLAG(IS_CHROMEOS)
+#endif  // BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_LINUX)
 
 network::mojom::NetworkServiceParamsPtr CreateNetworkServiceParams() {
   network::mojom::NetworkServiceParamsPtr network_service_params =
@@ -816,15 +807,8 @@ cert_verifier::mojom::CertVerifierServiceFactory*
 
 std::unique_ptr<cert_verifier::CertVerifierServiceFactoryImpl>&
 GetCertVerifierServiceFactoryImplStorage() {
-#if BUILDFLAG(IS_CHROMEOS)
-  // See the comment in GetCertVerifierServiceFactory() for the thread-affinity
-  // of the CertVerifierService.
-  DCHECK(!BrowserThread::IsThreadInitialized(BrowserThread::IO) ||
-         BrowserThread::CurrentlyOn(BrowserThread::IO));
-#else
   DCHECK(!BrowserThread::IsThreadInitialized(BrowserThread::UI) ||
          BrowserThread::CurrentlyOn(BrowserThread::UI));
-#endif
   static base::SequenceLocalStorageSlot<
       std::unique_ptr<cert_verifier::CertVerifierServiceFactoryImpl>>
       service_factory_slot;
@@ -864,18 +848,8 @@ GetCertVerifierServiceFactory() {
   if (!factory_remote_storage.is_bound() ||
       !factory_remote_storage.is_connected()) {
     factory_remote_storage.reset();
-#if BUILDFLAG(IS_CHROMEOS)
-    // In-process CertVerifierService should run on the IO thread because it
-    // interacts with IO-bound NSS and ChromeOS user slots. See for example
-    // InitializeNSSForChromeOSUser() or CertDbInitializerIOImpl.
-    GetIOThreadTaskRunner({})->PostTask(
-        FROM_HERE,
-        base::BindOnce(&RunInProcessCertVerifierServiceFactory,
-                       factory_remote_storage.BindNewPipeAndPassReceiver()));
-#else
     RunInProcessCertVerifierServiceFactory(
         factory_remote_storage.BindNewPipeAndPassReceiver());
-#endif
   }
   return factory_remote_storage.get();
 }

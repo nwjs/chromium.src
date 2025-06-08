@@ -129,6 +129,8 @@ class CORE_EXPORT HTMLOptionElement final : public HTMLElement {
   // an HTMLOptionElement.
   static bool IsLabelContainerElement(const Element& element);
 
+  bool IsKeyboardFocusableSlow(UpdateBehavior update_behavior) const override;
+
  private:
   FocusableState SupportsFocus(UpdateBehavior update_behavior) const override;
   bool MatchesDefaultPseudoClass() const override;

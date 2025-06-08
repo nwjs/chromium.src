@@ -47,6 +47,7 @@
 <translation id="1917964099031477364">系統會將這個帳戶和所有未儲存的資料從 Chrome 以及這部裝置上的其他 Google 應用程式中移除。</translation>
 <translation id="1919130412786645364">允許登入 Chrome</translation>
 <translation id="1965935827552890526">請完成你在其他已開啟的 Chrome 視窗中正在執行的動作。</translation>
+<translation id="1966638102563776885">Chrome 提示：在任何應用程式中使用儲存的密碼</translation>
 <translation id="1973910962341002002">前往「<ph name="TEXT_OF_THE_SETTINGS_MENU_ITEM" />」設定，將「Chrome」切換為開啟</translation>
 <translation id="1984705450038014246">同步處理你的 Chrome 資料</translation>
 <translation id="1987779152850321833">完成下列建議動作，充分運用 Chrome 的各項功能。</translation>
@@ -114,7 +115,6 @@
 <translation id="3655656110921623717">這代表 Chrome 每次都會對行動版網站發出要求。</translation>
 <translation id="3740397331642243698">在 Google Chrome 無痕模式中開啟輸入的網址。</translation>
 <translation id="3741995255368156336">開啟 Chrome 閱讀清單。</translation>
-<translation id="3808570423967020928">從主畫面 Dock 更快存取 Chrome</translation>
 <translation id="3827545470516145620">這部裝置即將啟用標準安全防護機制</translation>
 <translation id="384394811301901750">Google Chrome 目前無法使用你的相機</translation>
 <translation id="3863841106411295595">將輸入的網址加入 Chrome 閱讀清單。</translation>
@@ -138,6 +138,7 @@
 <translation id="4724297637870447613">在所有裝置上使用 Chrome</translation>
 <translation id="4738647308035481133">Google Chrome 頁面</translation>
 <translation id="4742795653798179840">已刪除 Chrome 資料</translation>
+<translation id="4749294594657945639">如要在其他應用程式中輕鬆使用儲存的密碼，請選擇 Chrome 做為自動填寫來源。</translation>
 <translation id="4761869838909035636">執行 Chrome 安全檢查</translation>
 <translation id="4798859546468762093">如要享有個人化服務和其他功能，請在「<ph name="FEATURE_NAME_1" />」和「<ph name="FEATURE_NAME_2" />」中納入 Chrome</translation>
 <translation id="4819268619367838612">為協助改良應用程式，Chrome 會將使用情形和當機資料傳送給 Google。<ph name="BEGIN_LINK" />管理設定<ph name="END_LINK" /></translation>
@@ -233,7 +234,6 @@
 <translation id="6975725306479268850">選擇使用 Chrome 的自動填入功能</translation>
 <translation id="7056826488869329999">在 Chrome 中開啟並執行安全檢查。</translation>
 <translation id="7061455974939528301">按住 Chrome 圖示，然後點選「編輯主畫面」</translation>
-<translation id="7065813315247345131">將 Chrome 移至 Dock</translation>
 <translation id="7124339256045485976">確保使用最新版本的 Chrome</translation>
 <translation id="7145599899567697473">在 Chrome 中儲存及自動填寫密碼</translation>
 <translation id="7161390184744336561">Google Chrome 版本過舊</translation>
@@ -318,10 +318,10 @@
 <translation id="8603022514504485810">Google 密碼管理工具無法檢查所有密碼，請明天再試。你也可以<ph name="BEGIN_LINK" />檢查 Google 帳戶中的密碼<ph name="END_LINK" />。</translation>
 <translation id="8630122478628016441">開啟「關閉 Chrome 時鎖定無痕分頁」。</translation>
 <translation id="8673726683583791503">透過 Google 智慧鏡頭購物</translation>
-<translation id="8727043961453758442">充分運用 Chrome 的各項功能</translation>
 <translation id="8765470054473112089">在網址列或搜尋框中輸入時，Chrome 會將你輸入的內容傳送給預設搜尋引擎，提供更符合需求的搜尋建議。這項功能在無痕模式中為關閉狀態。</translation>
 <translation id="8772179140489533211">顯示登入 Chrome 的提示。</translation>
 <translation id="8788269841521769222">你不需要記住這組密碼，系統會將密碼儲存至 <ph name="EMAIL" /> 的 Google 密碼管理工具中</translation>
+<translation id="8796490717897731471"><ph name="EMAIL" />。Chrome 目前由貴機構管理。</translation>
 <translation id="880967149107462122">前往 Chrome 設定</translation>
 <translation id="8842132678697187091">你可以在這裡開啟 Google 智慧鏡頭。</translation>
 <translation id="8850736900032787670">如要接收符合興趣的個人化內容，請登入 Chrome。</translation>

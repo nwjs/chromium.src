@@ -207,8 +207,8 @@ public class DOMUtils {
         StringBuilder sb = new StringBuilder();
         sb.append("(function() {");
         sb.append(
-                "  return [document.documentElement.clientWidth,"
-                        + " document.documentElement.clientHeight];");
+                "  return [Math.round(window.visualViewport.width),"
+                        + " Math.round(window.visualViewport.height)];");
         sb.append("})();");
 
         String jsonText =
@@ -810,8 +810,7 @@ public class DOMUtils {
         TestInputMethodManagerWrapper inputMethodManagerWrapper =
                 TestInputMethodManagerWrapper.create(imeAdapter);
         imeAdapter.setInputMethodManagerWrapper(inputMethodManagerWrapper);
-        // Click the text field node, so that it would get focus.
-        DOMUtils.clickNode(webContents, nodeId);
+        DOMUtils.focusNode(webContents, nodeId);
         CriteriaHelper.pollInstrumentationThread(
                 () -> {
                     try {

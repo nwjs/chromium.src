@@ -33,7 +33,8 @@
 #include "chrome/browser/glic/host/host.h"
 #include "chrome/browser/glic/host/webui_contents_container.h"
 #include "chrome/browser/glic/widget/glic_widget.h"
-#include "chrome/browser/glic/widget/glic_window_controller.h"
+#include "chrome/browser/glic/widget/glic_window_controller_impl.h"
+#include "chrome/browser/global_features.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_attributes_storage.h"
 #include "chrome/browser/profiles/profile_manager.h"
@@ -85,16 +86,15 @@ GlicKeyedService::GlicKeyedService(
       metrics_(std::make_unique<GlicMetrics>(profile, enabling_.get())),
       host_(std::make_unique<Host>(profile)),
       window_controller_(
-          std::make_unique<GlicWindowController>(profile,
-                                                 identity_manager,
-                                                 this,
-                                                 enabling_.get())),
+          std::make_unique<GlicWindowControllerImpl>(profile,
+                                                     identity_manager,
+                                                     this,
+                                                     enabling_.get())),
       focused_tab_manager_(profile, *window_controller_),
       screenshot_capturer_(std::make_unique<GlicScreenshotCapturer>()),
       auth_controller_(std::make_unique<AuthController>(profile,
                                                         identity_manager,
                                                         /*use_for_fre=*/false)),
-      glic_profile_manager_(glic_profile_manager),
       contextual_cueing_service_(contextual_cueing_service) {
   CHECK(GlicEnabling::IsProfileEligible(Profile::FromBrowserContext(profile)));
   host_->Initialize(window_controller_.get());
@@ -111,9 +111,8 @@ GlicKeyedService::GlicKeyedService(
     profile_->GetPrefs()->SetInteger(
         prefs::kGlicCompletedFre,
         static_cast<int>(prefs::FreStatus::kNotStarted));
-  }
-  // If automation is enabled do the opposite.
-  if (command_line->HasSwitch(::switches::kGlicAutomation)) {
+    // or if automation is enabled, skip FRE
+  } else if (command_line->HasSwitch(::switches::kGlicAutomation)) {
     profile_->GetPrefs()->SetInteger(
         prefs::kGlicCompletedFre,
         static_cast<int>(prefs::FreStatus::kCompleted));
@@ -124,7 +123,7 @@ GlicKeyedService::GlicKeyedService(
   }
 
   // This is only used by automation for tests.
-  glic_profile_manager_->MaybeAutoOpenGlicPanel();
+  glic_profile_manager->MaybeAutoOpenGlicPanel();
 }
 
 GlicKeyedService::~GlicKeyedService() {
@@ -139,7 +138,10 @@ GlicKeyedService* GlicKeyedService::Get(content::BrowserContext* context) {
 
 void GlicKeyedService::Shutdown() {
   CloseUI();
-  glic_profile_manager_->OnServiceShutdown(this);
+  GlicProfileManager* glic_profile_manager = GlicProfileManager::GetInstance();
+  if (glic_profile_manager) {
+    glic_profile_manager->OnServiceShutdown(this);
+  }
 }
 
 void GlicKeyedService::ToggleUI(BrowserWindowInterface* bwi,
@@ -150,7 +152,10 @@ void GlicKeyedService::ToggleUI(BrowserWindowInterface* bwi,
   // this method should already have been removed.
   CHECK(GlicEnabling::IsEnabledForProfile(profile_));
 
-  glic_profile_manager_->SetActiveGlic(this);
+  GlicProfileManager* glic_profile_manager = GlicProfileManager::GetInstance();
+  if (glic_profile_manager) {
+    glic_profile_manager->SetActiveGlic(this);
+  }
   window_controller_->Toggle(bwi, prevent_close, source);
 }
 
@@ -160,7 +165,10 @@ void GlicKeyedService::OpenFreDialogInNewTab(BrowserWindowInterface* bwi) {
   // this method should already have been removed.
   CHECK(GlicEnabling::IsEnabledForProfile(profile_));
 
-  glic_profile_manager_->SetActiveGlic(this);
+  GlicProfileManager* glic_profile_manager = GlicProfileManager::GetInstance();
+  if (glic_profile_manager) {
+    glic_profile_manager->SetActiveGlic(this);
+  }
   window_controller_->fre_controller()->OpenFreDialogInNewTab(bwi);
 }
 
@@ -218,6 +226,11 @@ void GlicKeyedService::FetchZeroStateSuggestions(
   } else {
     std::move(callback).Run(nullptr);
   }
+}
+
+GlicWindowController& GlicKeyedService::window_controller() {
+  CHECK(window_controller_);
+  return *window_controller_.get();
 }
 
 void GlicKeyedService::GuestAdded(content::WebContents* guest_contents) {
@@ -340,23 +353,14 @@ void GlicKeyedService::GetContextFromFocusedTab(
 
   metrics_->DidRequestContextFromFocusedTab();
 
-  GlicPageContextFetcher::Fetch(GetFocusedTabData(), options,
-                                std::move(callback));
+  FetchPageContext(GetFocusedTabData(), options, std::move(callback));
 }
 
 void GlicKeyedService::ActInFocusedTab(
     const std::vector<uint8_t>& action_proto,
     const mojom::GetTabContextOptions& options,
     mojom::WebClientHandler::ActInFocusedTabCallback callback) {
-  if (!base::FeatureList::IsEnabled(features::kGlicActor)) {
-    mojom::ActInFocusedTabResultPtr result =
-        mojom::ActInFocusedTabResult::NewErrorReason(
-            mojom::ActInFocusedTabErrorReason::kUnknown);
-
-    base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
-        FROM_HERE, base::BindOnce(std::move(callback), std::move(result)));
-    return;
-  }
+  CHECK(base::FeatureList::IsEnabled(features::kGlicActor));
 
   optimization_guide::proto::BrowserAction action;
   if (!action.ParseFromArray(action_proto.data(), action_proto.size())) {
@@ -374,12 +378,36 @@ void GlicKeyedService::ActInFocusedTab(
                          std::move(callback));
 }
 
-void GlicKeyedService::StopActorTask() {
-  if (!actor_controller_) {
-    return;
-  }
+void GlicKeyedService::StopActorTask(actor::TaskId task_id) {
+  CHECK(base::FeatureList::IsEnabled(features::kGlicActor));
+  CHECK(actor_controller_);
+  actor_controller_->StopTask(task_id);
+}
 
-  actor_controller_->StopTask();
+void GlicKeyedService::PauseActorTask(actor::TaskId task_id) {
+  CHECK(base::FeatureList::IsEnabled(features::kGlicActor));
+  CHECK(actor_controller_);
+  actor_controller_->PauseTask(task_id);
+}
+
+void GlicKeyedService::ResumeActorTask(
+    actor::TaskId task_id,
+    const mojom::GetTabContextOptions& context_options,
+    glic::mojom::WebClientHandler::ResumeActorTaskCallback callback) {
+  CHECK(base::FeatureList::IsEnabled(features::kGlicActor));
+  CHECK(actor_controller_);
+  actor_controller_->ResumeTask(task_id, context_options, std::move(callback));
+}
+
+bool GlicKeyedService::IsActorCoordinatorActingOnTab(
+    const content::WebContents* tab) const {
+  return actor_controller_ &&
+         actor_controller_->IsActorCoordinatorActingOnTab(tab);
+}
+
+actor::ActorCoordinator& GlicKeyedService::GetActorCoordinatorForTesting() {
+  CHECK(actor_controller_);
+  return actor_controller_->GetActorCoordinatorForTesting();  // IN-TEST
 }
 
 void GlicKeyedService::CaptureScreenshot(
@@ -404,15 +432,15 @@ void GlicKeyedService::TryPreload() {
       !base::FeatureList::IsEnabled(features::kGlicWarming)) {
     return;
   }
-
-  CHECK(glic_profile_manager_);
+  GlicProfileManager* glic_profile_manager = GlicProfileManager::GetInstance();
+  CHECK(glic_profile_manager);
   base::TimeDelta delay = GetWarmingDelay();
 
   // TODO(b/411100559): Ideally we'd use post delayed task in all cases,
   // but this requires a refactor of tests that are currently brittle. For now,
   // just synchronously call ShouldPreloadForProfile if there is no delay.
   if (delay.is_zero()) {
-    glic_profile_manager_->ShouldPreloadForProfile(
+    glic_profile_manager->ShouldPreloadForProfile(
         profile_,
         base::BindOnce(&GlicKeyedService::FinishPreload, GetWeakPtr()));
   } else {
@@ -420,7 +448,7 @@ void GlicKeyedService::TryPreload() {
         FROM_HERE,
         base::BindOnce(
             &GlicProfileManager::ShouldPreloadForProfile,
-            glic_profile_manager_->GetWeakPtr(), profile_,
+            glic_profile_manager->GetWeakPtr(), profile_,
             base::BindOnce(&GlicKeyedService::FinishPreload, GetWeakPtr())),
         delay);
   }
@@ -431,10 +459,10 @@ void GlicKeyedService::TryPreloadFre() {
       !base::FeatureList::IsEnabled(features::kGlicFreWarming)) {
     return;
   }
+  GlicProfileManager* glic_profile_manager = GlicProfileManager::GetInstance();
+  CHECK(glic_profile_manager);
 
-  CHECK(glic_profile_manager_);
-
-  glic_profile_manager_->ShouldPreloadFreForProfile(
+  glic_profile_manager->ShouldPreloadFreForProfile(
       profile_,
       base::BindOnce(&GlicKeyedService::FinishPreloadFre, GetWeakPtr()));
 }

@@ -47,6 +47,7 @@
 #include "cc/trees/browser_controls_params.h"
 #include "cc/trees/render_frame_metadata.h"
 #include "components/input/dispatch_to_renderer_callback.h"
+#include "components/input/input_constants.h"
 #include "components/input/input_router_config_helper.h"
 #include "components/input/native_web_keyboard_event.h"
 #include "components/input/render_input_router.mojom.h"
@@ -468,7 +469,9 @@ RenderWidgetHostImpl::RenderWidgetHostImpl(
   render_frame_metadata_provider_.AddObserver(this);
 
   if (!hidden) {
-    first_shown_time_ = base::TimeTicks::Now();
+    latest_shown_time_ = base::TimeTicks::Now();
+    first_shown_time_ = latest_shown_time_;
+    NotifyVizOfPageVisibilityUpdates();
   }
 }
 
@@ -870,6 +873,8 @@ void RenderWidgetHostImpl::WasHidden() {
   // Tell the RenderProcessHost we were hidden.
   GetProcess()->UpdateClientPriority(this);
 
+  NotifyVizOfPageVisibilityUpdates();
+
   for (auto& observer : observers_) {
     observer.RenderWidgetHostVisibilityChanged(this, false);
   }
@@ -888,10 +893,10 @@ void RenderWidgetHostImpl::WasShown(
   TRACE_EVENT_WITH_FLOW0("renderer_host", "RenderWidgetHostImpl::WasShown",
                          routing_id_, TRACE_EVENT_FLAG_FLOW_OUT);
   is_hidden_ = false;
-
+  latest_shown_time_ = base::TimeTicks::Now();
   if (!was_ever_shown_) {
     was_ever_shown_ = true;
-    first_shown_time_ = base::TimeTicks::Now();
+    first_shown_time_ = latest_shown_time_;
   }
 
   // If we navigated in background, clear the displayed graphics of the
@@ -899,7 +904,7 @@ void RenderWidgetHostImpl::WasShown(
   // TODO(crbug.com/40249421): Checking if there is a content rendering timeout
   // running isn't ideal for seeing if the tab navigated in the background.
   ForceFirstFrameAfterNavigationTimeout();
-  RestartInputEventAckTimeoutIfNecessary();
+  RestartRenderInputRouterInputEventAckTimeout();
 
   // This methods avoids running when the widget is hidden, so we run it here
   // once it is no longer hidden.
@@ -929,6 +934,8 @@ void RenderWidgetHostImpl::WasShown(
   view_->reset_is_evicted();
 
   GetProcess()->UpdateClientPriority(this);
+
+  NotifyVizOfPageVisibilityUpdates();
 
   for (auto& observer : observers_) {
     observer.RenderWidgetHostVisibilityChanged(this, true);
@@ -1494,27 +1501,34 @@ void RenderWidgetHostImpl::ViewDestroyed() {
   SetView(nullptr);
 }
 
-bool RenderWidgetHostImpl::RequestRepaintForTesting() {
+bool RenderWidgetHostImpl::RequestRepaintOnNewSurface() {
   if (!view_) {
     return false;
   }
 
-  return view_->RequestRepaintForTesting();
+  return view_->RequestRepaintOnNewSurface();
 }
 
 void RenderWidgetHostImpl::RenderProcessBlockedStateChanged(bool blocked) {
-  if (blocked) {
-    GetRenderInputRouter()->StopInputEventAckTimeout();
-  } else {
-    RestartInputEventAckTimeoutIfNecessary();
+  GetRenderInputRouter()->RenderProcessBlockedStateChanged(blocked);
+}
+
+void RenderWidgetHostImpl::NotifyVizOfPageVisibilityUpdates() {
+  if (auto* delegate_remote =
+          delegate()->GetRenderInputRouterDelegateRemote()) {
+    delegate_remote->NotifyVisibilityChanged(frame_sink_id_, is_hidden_);
   }
 }
 
-void RenderWidgetHostImpl::RestartInputEventAckTimeoutIfNecessary() {
+void RenderWidgetHostImpl::RestartRenderInputRouterInputEventAckTimeout() {
   if (is_hidden_) {
     return;
   }
-
+  // Notifies RenderInputRouters on both browser and VizCompositor to restart
+  // their input event ack timers.
+  if (auto* remote = delegate()->GetRenderInputRouterDelegateRemote()) {
+    remote->RestartInputEventAckTimeoutIfNecessary(GetFrameSinkId());
+  }
   GetRenderInputRouter()->RestartInputEventAckTimeoutIfNecessary();
 }
 
@@ -2148,7 +2162,20 @@ void RenderWidgetHostImpl::GetSnapshotFromBrowser(
   if (from_surface) {
     pending_surface_browser_snapshots_.insert(
         std::make_pair(snapshot_id, std::move(callback)));
-    RequestForceRedraw(snapshot_id);
+    if (base::FeatureList::IsEnabled(features::kCDPScreenshotNewSurface)) {
+      // 1. Force content redraw in the renderer.
+      blink_widget_->ForceRedraw(base::DoNothing());
+      // 2. Force a repaint to ensure that surface is updated.
+      RequestRepaintOnNewSurface();
+      // 3. Create a copy request from the newest surface. This
+      // should wait until the requested repaint has arrived.
+      GetView()->CopyFromSurface(
+          gfx::Rect(), gfx::Size(),
+          base::BindOnce(&RenderWidgetHostImpl::OnSnapshotFromSurfaceReceived,
+                         weak_factory_.GetWeakPtr(), snapshot_id, 0));
+    } else {
+      RequestForceRedraw(snapshot_id);
+    }
     return;
   }
 
@@ -2439,14 +2466,23 @@ void RenderWidgetHostImpl::Destroy(bool also_delete) {
   }
 }
 
-void RenderWidgetHostImpl::OnInputEventAckTimeout() {
+void RenderWidgetHostImpl::OnInputEventAckTimeout(
+    base::TimeTicks ack_timeout_ts) {
   if (is_hidden_) {
     return;
   }
+
+  // If a widget's visibility changed mid-input sequence handling and an ack
+  // later times out, defer marking the renderer unresponsive until the widget
+  // has been shown for at least `kHungRendererDelay`.
+  if ((ack_timeout_ts - latest_shown_time_) < input::kHungRendererDelay) {
+    return;
+  }
+
   RendererIsUnresponsive(
       RendererIsUnresponsiveReason::kOnInputEventAckTimeout,
       base::BindRepeating(
-          &RenderWidgetHostImpl::RestartInputEventAckTimeoutIfNecessary,
+          &RenderWidgetHostImpl::RestartRenderInputRouterInputEventAckTimeout,
           weak_factory_.GetWeakPtr()));
 }
 
@@ -3324,10 +3360,6 @@ void RenderWidgetHostImpl::OnInputIgnored(const blink::WebInputEvent& event) {
   delegate_->OnInputIgnored(event);
 }
 
-bool RenderWidgetHostImpl::IsRendererProcessBlocked() {
-  return GetProcess()->IsBlocked();
-}
-
 input::StylusInterface* RenderWidgetHostImpl::GetStylusInterface() {
   return static_cast<input::StylusInterface*>(GetView());
 }
@@ -3598,7 +3630,7 @@ void RenderWidgetHostImpl::CreateFrameSink(
          bool force_enable_zoom, base::UnguessableToken grouping_id,
          const viz::FrameSinkId& frame_sink_id) {
         input::mojom::RenderInputRouterConfigPtr config;
-        if (input::IsTransferInputToVizSupported()) {
+        if (input::InputUtils::IsTransferInputToVizSupported()) {
           config = input::mojom::RenderInputRouterConfig::New();
           config->rir_client = std::move(viz_rir_client_remote);
           config->grouping_id = grouping_id;

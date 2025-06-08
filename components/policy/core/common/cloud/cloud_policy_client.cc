@@ -9,7 +9,6 @@
 #include <variant>
 
 #include "base/check.h"
-#include "base/check_is_test.h"
 #include "base/containers/contains.h"
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
@@ -307,7 +306,24 @@ CloudPolicyClient::Result::Result(DeviceManagementStatus status)
     : result_(status) {}
 CloudPolicyClient::Result::Result(DeviceManagementStatus status, int net_error)
     : result_(status), net_error_(net_error) {}
+CloudPolicyClient::Result::Result(DeviceManagementStatus status,
+                                  int net_error,
+                                  base::Value::Dict response)
+    : result_(status), net_error_(net_error), response_(std::move(response)) {}
 CloudPolicyClient::Result::Result(NotRegistered) : result_(NotRegistered()) {}
+
+CloudPolicyClient::Result::Result(const Result& other)
+    : result_(other.result_),
+      net_error_(other.net_error_),
+      response_(other.response_.Clone()) {}
+
+CloudPolicyClient::Result& CloudPolicyClient::Result::operator=(
+    const Result& other) {
+  result_ = other.result_;
+  net_error_ = other.net_error_;
+  response_ = other.response_.Clone();
+  return *this;
+}
 
 bool CloudPolicyClient::Result::IsSuccess() const {
   return result_ ==
@@ -329,6 +345,10 @@ DeviceManagementStatus CloudPolicyClient::Result::GetDMServerError() const {
 
 int CloudPolicyClient::Result::GetNetError() const {
   return net_error_;
+}
+
+const base::Value::Dict& CloudPolicyClient::Result::GetResponse() const {
+  return response_;
 }
 
 CloudPolicyClient::CloudPolicyClient(
@@ -1134,10 +1154,6 @@ void CloudPolicyClient::FetchRemoteCommands(
   // Unsigned commands and NONE signature are not supported.
   DCHECK_NE(signature_type, em::PolicyFetchRequest::NONE);
 
-  if (reason == RemoteCommandsFetchReason::kTest) {
-    CHECK_IS_TEST();
-  }
-
   auto params = DMServerJobConfiguration::CreateParams::WithClient(
       DeviceManagementService::JobConfiguration::TYPE_REMOTE_COMMANDS, this);
   params.auth_data = DMAuth::FromDMToken(dm_token_);
@@ -1820,7 +1836,13 @@ void CloudPolicyClient::OnRealtimeReportUploadCompleted(
     NotifyClientError();
   }
 
-  std::move(callback).Run(CloudPolicyClient::Result(status));
+  if (response.has_value()) {
+    std::move(callback).Run(CloudPolicyClient::Result(
+        status, reponse_code, std::move(response.value())));
+  } else {
+    std::move(callback).Run(CloudPolicyClient::Result(status, reponse_code));
+  }
+
   RemoveJob(job);
 }
 

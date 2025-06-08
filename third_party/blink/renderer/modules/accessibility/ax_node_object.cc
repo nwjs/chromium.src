@@ -55,6 +55,7 @@
 #include "third_party/blink/renderer/core/dom/layout_tree_builder_traversal.h"
 #include "third_party/blink/renderer/core/dom/node_traversal.h"
 #include "third_party/blink/renderer/core/dom/qualified_name.h"
+#include "third_party/blink/renderer/core/dom/range.h"
 #include "third_party/blink/renderer/core/dom/scroll_marker_pseudo_element.h"
 #include "third_party/blink/renderer/core/dom/shadow_root.h"
 #include "third_party/blink/renderer/core/dom/text.h"
@@ -168,6 +169,7 @@
 #include "third_party/blink/renderer/modules/accessibility/ax_image_map_link.h"
 #include "third_party/blink/renderer/modules/accessibility/ax_inline_text_box.h"
 #include "third_party/blink/renderer/modules/accessibility/ax_node_object.h"
+#include "third_party/blink/renderer/modules/accessibility/ax_object-inl.h"
 #include "third_party/blink/renderer/modules/accessibility/ax_object_cache_impl.h"
 #include "third_party/blink/renderer/modules/accessibility/ax_position.h"
 #include "third_party/blink/renderer/modules/accessibility/ax_range.h"
@@ -437,22 +439,6 @@ String GetTitle(blink::Element* element) {
   return element->title();
 }
 
-bool CanHaveInlineTextBoxChildren(const blink::AXObject* obj) {
-  if (!ui::CanHaveInlineTextBoxChildren(obj->RoleValue())) {
-    return false;
-  }
-
-  // Requires a layout object for there to be any inline text boxes.
-  if (!obj->GetLayoutObject()) {
-    return false;
-  }
-
-  // Inline text boxes are included if and only if the parent is unignored.
-  // If the parent is ignored but included in tree, the inline textbox is
-  // still withheld.
-  return !obj->IsIgnored();
-}
-
 bool HasLayoutText(const blink::AXObject* obj) {
   // This method should only be used when layout is clean.
 #if DCHECK_IS_ON()
@@ -554,6 +540,17 @@ bool IsAddedOnlyViaSpecialTraversal(const Node* node) {
       node->IsScrollButtonPseudoElement()) {
     return true;
   }
+
+  if (RuntimeEnabledFeatures::SelectAccessibilityReparentInputEnabled()) {
+    // The first descendant <input> in a <select> gets taken out of the listbox
+    // because it is not an <option>. It controls the listbox.
+    if (auto* input = DynamicTo<HTMLInputElement>(node)) {
+      if (input->IsFirstTextInputInAncestorSelect()) {
+        return true;
+      }
+    }
+  }
+
   return false;
 }
 
@@ -580,6 +577,17 @@ VectorOf<Node> UnpackScrollerWithSiblingControls(Element* element) {
   return result;
 }
 
+void CollectLayoutTextContentRecursive(StringBuilder& builder,
+                                       const LayoutObject* object) {
+  if (auto* text_object = DynamicTo<LayoutText>(object)) {
+    builder.Append(text_object->TransformedText());
+  }
+  for (auto* child = object->SlowFirstChild(); child;
+       child = child->NextSibling()) {
+    CollectLayoutTextContentRecursive(builder, child);
+  }
+}
+
 }  // namespace
 
 using html_names::kAltAttr;
@@ -595,11 +603,11 @@ const int kDefaultHeadingLevel = 2;
 // means that the LayoutObject is purposely being set to null, as it is not
 // relevant for this object in the AX tree.
 AXNodeObject::AXNodeObject(Node* node, AXObjectCacheImpl& ax_object_cache)
-    : AXObject(ax_object_cache), node_(node) {}
+    : AXObject(ax_object_cache, /*is_node_object=*/true), node_(node) {}
 
 AXNodeObject::AXNodeObject(LayoutObject* layout_object,
                            AXObjectCacheImpl& ax_object_cache)
-    : AXObject(ax_object_cache),
+    : AXObject(ax_object_cache, /*is_node_object=*/true),
       node_(layout_object->GetNode()),
       layout_object_(layout_object) {
 #if DCHECK_IS_ON()
@@ -1400,8 +1408,8 @@ std::optional<String> AXNodeObject::GetCSSAltText(const Element* element) {
   if (element->IsPseudoElement()) {
     for (const ContentData* content_data = style->GetContentData();
          content_data; content_data = content_data->Next()) {
-      if (auto* css_alt = DynamicTo<AltTextContentData>(content_data)) {
-        return css_alt->ConcatenateAltText();
+      if (content_data->IsAlt()) {
+        return ContentData::ConcatenateAltText(*content_data);
       }
     }
     return std::nullopt;
@@ -1412,11 +1420,21 @@ std::optional<String> AXNodeObject::GetCSSAltText(const Element* element) {
   // there is exactly one piece of content, which is an image.
   const ContentData* content_data = style->GetContentData();
   if (content_data && content_data->IsImage() && content_data->Next() &&
-      content_data->Next()->IsAltText()) {
-    return To<AltTextContentData>(content_data->Next())->ConcatenateAltText();
+      content_data->Next()->IsAlt()) {
+    return ContentData::ConcatenateAltText(*content_data->Next());
   }
 
   return std::nullopt;
+}
+
+std::optional<String> AXNodeObject::GetCSSContentText(const Element* element) {
+  if (!element || !element->IsPseudoElement() || !element->GetLayoutObject()) {
+    return std::nullopt;
+  }
+
+  StringBuilder builder;
+  CollectLayoutTextContentRecursive(builder, element->GetLayoutObject());
+  return builder.ToString();
 }
 
 // The following lists are for deciding whether the tags aside,
@@ -3442,12 +3460,12 @@ void AXNodeObject::SerializeMarkerAttributes(ui::AXNodeData* node_data) const {
 
     marker_types.push_back(ToAXMarkerType(marker->GetType()));
     highlight_types.push_back(static_cast<int32_t>(highlight_type));
-    auto start_pos =
-        AXPosition::FromPosition(start_position, TextAffinity::kDownstream,
-                                 AXPositionAdjustmentBehavior::kMoveLeft);
-    auto end_pos =
-        AXPosition::FromPosition(end_position, TextAffinity::kDownstream,
-                                 AXPositionAdjustmentBehavior::kMoveRight);
+    auto start_pos = AXPosition::FromPosition(
+        start_position, AXObjectCache(), TextAffinity::kDownstream,
+        AXPositionAdjustmentBehavior::kMoveLeft);
+    auto end_pos = AXPosition::FromPosition(
+        end_position, AXObjectCache(), TextAffinity::kDownstream,
+        AXPositionAdjustmentBehavior::kMoveRight);
     marker_starts.push_back(start_pos.TextOffset());
     marker_ends.push_back(end_pos.TextOffset());
   }
@@ -4426,6 +4444,23 @@ KURL AXNodeObject::Url() const {
 }
 
 AXObject* AXNodeObject::ChooserPopup() const {
+  if (RuntimeEnabledFeatures::SelectAccessibilityReparentInputEnabled() ||
+      RuntimeEnabledFeatures::SelectAccessibilityNestedInputEnabled()) {
+    // The first input inside of a select filters the listbox, and therefore
+    // controls it.
+    if (auto* input = DynamicTo<HTMLInputElement>(GetNode())) {
+      if (input->IsTextField()) {
+        if (auto* select = input->FirstAncestorSelectElement()) {
+          if (auto* popover = select->PopoverForAppearanceBase()) {
+            if (auto* axobject = AXObjectCache().Get(popover)) {
+              return axobject;
+            }
+          }
+        }
+      }
+    }
+  }
+
   // When color & date chooser popups are visible, they can be found in the tree
   // as a group child of the <input> control itself.
   switch (native_role_) {
@@ -4859,6 +4894,28 @@ String AXNodeObject::GetName(ax::mojom::blink::NameFrom& name_from,
           return element->GetLocale().QueryString(IDS_AX_CAROUSEL_SCROLL_UP);
       }
     }
+  }
+
+  // Handle ::scroll-marker names. Pick the first one that matches:
+  //  - Use CSS alt text if one is available.
+  //  - Use CSS content (from LayoutText descendants) if specified and
+  //    non-empty.
+  //  - Use scroll target's accessibility name is it has one.
+  if (element && element->IsScrollMarkerPseudoElement()) {
+    std::optional<String> alt_text = GetCSSAltText(element);
+    if (alt_text && !alt_text->empty()) {
+      return *alt_text;
+    }
+
+    std::optional<String> content = GetCSSContentText(element);
+    if (content && !content->empty()) {
+      return *content;
+    }
+
+    const AXObject* scroll_target =
+        AXObjectCache().Get(element->parentElement());
+    ax::mojom::blink::NameFrom name_source;
+    return scroll_target ? scroll_target->GetName(name_source, nullptr) : "";
   }
 
   return name;
@@ -5602,28 +5659,6 @@ int AXNodeObject::TextOffsetInFormattingContext(int offset) const {
 // Inline text boxes.
 //
 
-bool AXNodeObject::ShouldLoadInlineTextBoxes() const {
-  CHECK(!IsDetached());
-
-  if (!CanHaveInlineTextBoxChildren(this)) {
-    return false;
-  }
-
-  if (!AXObjectCache().GetAXMode().has_mode(ui::AXMode::kInlineTextBoxes)) {
-    return false;
-  }
-
-#if defined(REDUCE_AX_INLINE_TEXTBOXES)
-  // On Android, once an object has loaded inline text boxes, it will keep
-  // them refreshed.
-  return always_load_inline_text_boxes_;
-#else
-  // Other platforms keep all inline text boxes in the tree and refreshed,
-  // depending on the AXMode.
-  return true;
-#endif
-}
-
 void AXNodeObject::LoadInlineTextBoxes() {
 #if DCHECK_IS_ON()
   DCHECK(GetDocument()->Lifecycle().GetState() >=
@@ -5672,7 +5707,7 @@ void AXNodeObject::LoadInlineTextBoxesHelper() {
   // Keep inline text box children up-to-date for this object in the future.
   // This is only necessary on Android, which tries to skip inline text boxes
   // for most objects.
-  always_load_inline_text_boxes_ = true;
+  SetAlwaysLoadInlineTextBoxes(true);
 #endif
 
   if (AXObjectCache().lifecycle().StateAllowsImmediateTreeUpdates()) {
@@ -5796,6 +5831,10 @@ void AXNodeObject::AddImageMapChildren() {
 }
 
 void AXNodeObject::AddPopupChildren() {
+  if (AXObjectCache().IsForSnapshot()) {
+    // The snapshotter is unaware of the popup document.
+    return;
+  }
   auto* html_select_element = DynamicTo<HTMLSelectElement>(GetNode());
   if (html_select_element) {
     if (html_select_element->UsesMenuList()) {
@@ -5882,6 +5921,19 @@ void AXNodeObject::AddNodeChildren() {
   }
 }
 
+void AXNodeObject::AddSelectChildren() {
+  auto* select = DynamicTo<HTMLSelectElement>(GetNode());
+  if (RuntimeEnabledFeatures::SelectAccessibilityReparentInputEnabled() &&
+      select) {
+    if (auto* input = select->FirstDescendantTextInput()) {
+      // Reparent the first descendant <input> element of this <select> to be
+      // adjacent to the listbox in the a11y tree.
+      AddNodeChild(input);
+    }
+  }
+  AddNodeChildren();
+}
+
 void AXNodeObject::AddOwnedChildren() {
   AXObjectVector owned_children;
   AXObjectCache().ValidatedAriaOwnedChildren(this, owned_children);
@@ -5931,7 +5983,9 @@ void AXNodeObject::AddChildrenImpl() {
     AddValidationMessageChild();
   CHECK_ATTACHED();
 
-  if (HasValidHTMLTableStructureAndLayout()) {
+  if (IsA<HTMLSelectElement>(GetNode())) {
+    AddSelectChildren();
+  } else if (HasValidHTMLTableStructureAndLayout()) {
     AddTableChildren();
   } else if (GetNode() && GetNode()->IsScrollMarkerGroupPseudoElement()) {
     AddScrollMarkerGroupChildren();
@@ -6320,19 +6374,6 @@ Document* AXNodeObject::GetDocument() const {
     return &GetLayoutObject()->GetDocument();
   }
   return nullptr;
-}
-
-Node* AXNodeObject::GetNode() const {
-  if (IsDetached()) {
-    DCHECK(!node_);
-    return nullptr;
-  }
-
-  DCHECK(!GetLayoutObject() || GetLayoutObject()->GetNode() == node_)
-      << "If there is an associated layout object, its node should match the "
-         "associated node of this accessibility object.\n"
-      << this;
-  return node_.Get();
 }
 
 LayoutObject* AXNodeObject::GetLayoutObject() const {

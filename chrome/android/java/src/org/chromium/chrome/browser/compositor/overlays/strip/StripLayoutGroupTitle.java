@@ -128,6 +128,7 @@ public class StripLayoutGroupTitle extends StripLayoutView {
      * Create a {@link StripLayoutGroupTitle} that represents the TabGroup for the {@code rootId}.
      *
      * @param delegate The delegate for additional strip group title functionality.
+     * @param keyboardFocusHandler Handles keyboard focus gain/loss on this view.
      * @param incognito Whether or not this tab group is Incognito.
      * @param rootId The root ID for the tab group.
      * @param tabGroupId The tab group ID for the tab group.
@@ -135,10 +136,11 @@ public class StripLayoutGroupTitle extends StripLayoutView {
     public StripLayoutGroupTitle(
             Context context,
             StripLayoutGroupTitleDelegate delegate,
+            StripLayoutViewOnKeyboardFocusHandler keyboardFocusHandler,
             boolean incognito,
             int rootId,
             Token tabGroupId) {
-        super(incognito, delegate, context);
+        super(incognito, delegate, keyboardFocusHandler, context);
         assert rootId != Tab.INVALID_TAB_ID && tabGroupId != null
                 : "Tried to create a group title for an invalid group.";
         mRootId = rootId;
@@ -206,7 +208,15 @@ public class StripLayoutGroupTitle extends StripLayoutView {
 
     @Override
     public void getAnchorRect(Rect out) {
-        getPaddedBoundsPx(out);
+        // For the context menu, we should use the unpadded height (so that the anchor rect will
+        // stretch to the bottom of the toolbar), but we should use the padded width (so that the
+        // left edge of the context menu will visually align with the tab group indicator oval).
+        float dpToPx = getDpToPx();
+        out.set(
+                Math.round(getPaddedX() * dpToPx),
+                Math.round(getDrawY() * dpToPx),
+                Math.round((getPaddedX() + getPaddedWidth()) * dpToPx),
+                Math.round((getDrawY() + getHeight()) * dpToPx));
     }
 
     /**

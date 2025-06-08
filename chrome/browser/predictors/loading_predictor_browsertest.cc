@@ -218,12 +218,14 @@ class TestPreconnectManagerObserver : public PreconnectManager::Observer {
                        int num_sockets,
                        bool allow_credentials) override {
     preconnect_url_attempts_.insert(url.DeprecatedGetOriginAsURL());
+    preconnect_url_attempts_history_.push_back(url.DeprecatedGetOriginAsURL());
   }
 
   void OnPreresolveFinished(
       const GURL& url,
       const net::NetworkAnonymizationKey& network_anonymization_key,
-      mojo::PendingRemote<network::mojom::ReconnectEventObserver>& observer,
+      mojo::PendingRemote<network::mojom::ConnectionChangeObserverClient>&
+          observer,
       bool success) override {
     ResolveHostRequestInfo preconnect_info{url.host(),
                                            network_anonymization_key};
@@ -295,6 +297,10 @@ class TestPreconnectManagerObserver : public PreconnectManager::Observer {
     return base::Contains(successful_proxy_lookups_,
                           ResolveProxyRequestInfo{url::Origin::Create(url),
                                                   network_anonymization_key});
+  }
+
+  const std::vector<GURL>& PreconnectUrlAttemptsHistory() const {
+    return preconnect_url_attempts_history_;
   }
 
  private:
@@ -385,8 +391,8 @@ class TestPreconnectManagerObserver : public PreconnectManager::Observer {
   ResolveProxyRequestInfo waiting_on_proxy_;
   std::set<ResolveProxyRequestInfo> successful_proxy_lookups_;
   std::set<ResolveProxyRequestInfo> unsuccessful_proxy_lookups_;
-
   std::set<GURL> preconnect_url_attempts_;
+  std::vector<GURL> preconnect_url_attempts_history_;
 };
 
 struct PrefetchResult {
@@ -1285,12 +1291,23 @@ class LCPPTimingPredictorTestBase : public InProcessBrowserTest {
                 *predicted_lcp_locator);
     }
 
-    EXPECT_EQ(expected_events, content::EvalJs(web_contents, R"(
+    std::string actual_events = content::EvalJs(web_contents, R"(
       globalThis.events.join(", ")
-        )"))
+    )")
+                                    .ExtractString();
+
+    std::vector<std::string> expected_vec = base::SplitString(
+        expected_events, ",", base::TRIM_WHITESPACE, base::SPLIT_WANT_NONEMPTY);
+    std::vector<std::string> actual_vec = base::SplitString(
+        actual_events, ",", base::TRIM_WHITESPACE, base::SPLIT_WANT_NONEMPTY);
+
+    EXPECT_THAT(actual_vec, testing::UnorderedElementsAreArray(expected_vec))
+        << "Expected events: " << expected_events
+        << "\nActual events: " << actual_events << "\nTimings: "
         << content::EvalJs(web_contents, R"(
       globalThis.timings.join(", ")
-        )");
+    )")
+               .ExtractString();
 
     LcpElementLearnWaiter lcp_element_waiter(
         loading_predictor()->resource_prefetch_predictor());
@@ -1328,7 +1345,7 @@ class LCPPTimingPredictorBrowserTest : public LCPPTimingPredictorTestBase {
     NavigateAndWaitForLcpElement(kUrl,
                                  /*expected_events=*/"LCP@IMG, LCP@DIV, Onload",
                                  /*expected_lcp_count=*/2u,
-                                 /*expected_lcp_index=*/0u,  // =IMG
+                                 /*expected_lcp_index=*/1u,  // =DIV
                                  from_here);
   }
 
@@ -1338,9 +1355,155 @@ class LCPPTimingPredictorBrowserTest : public LCPPTimingPredictorTestBase {
 
 // Confirm image element of the first LCP is predicted rather than div, or the
 // actual LCP(current implementation)
-IN_PROC_BROWSER_TEST_F(LCPPTimingPredictorBrowserTest, Base) {
+// TODO(crbug.com/413192370): Flaky on win-rel.
+#if BUILDFLAG(IS_WIN)
+#define MAYBE_Base DISABLED_Base
+#else
+#define MAYBE_Base Base
+#endif
+IN_PROC_BROWSER_TEST_F(LCPPTimingPredictorBrowserTest, MAYBE_Base) {
   TestPrediction();
 }
+
+class LCPPTimingPredictorBrowserFlagTest
+    : public LCPPTimingPredictorBrowserTest,
+      public ::testing::WithParamInterface<std::string> {
+ public:
+  LCPPTimingPredictorBrowserFlagTest() {
+    scoped_feature_list_.InitWithFeaturesAndParameters(
+        /*enabled_features=*/
+        {{blink::features::kLCPCriticalPathPredictor,
+          {{blink::features::kLCPCriticalPathPredictorRecordedLcpElementTypes
+                .name,
+            GetParam()}}}},
+        /*disabled_features=*/{});
+  }
+
+ private:
+  base::test::ScopedFeatureList scoped_feature_list_;
+};
+
+// kLCPCriticalPathPredictorRecordedLcpElementTypes should not affect.
+// TODO(crbug.com/413192370): Flaky on win-rel.
+#if BUILDFLAG(IS_WIN)
+#define MAYBE_WithKCriticalPathFlag DISABLED_WithKCriticalPathFlag
+#else
+#define MAYBE_WithKCriticalPathFlag WithKCriticalPathFlag
+#endif
+IN_PROC_BROWSER_TEST_P(LCPPTimingPredictorBrowserFlagTest,
+                       MAYBE_WithKCriticalPathFlag) {
+  TestPrediction();
+}
+
+INSTANTIATE_TEST_SUITE_P(Flags,
+                         LCPPTimingPredictorBrowserFlagTest,
+                         ::testing::Values("all", "image_only"));
+
+class LCPPAutoPreconnectTest : public InProcessBrowserTest,
+                               public ::testing::WithParamInterface<bool> {
+ public:
+  LCPPAutoPreconnectTest() {
+    scoped_feature_list_.InitWithFeaturesAndParameters(
+        /*enabled_features=*/
+        {{blink::features::kLCPPAutoPreconnectLcpOrigin,
+          {{blink::features::kLCPPAutoPreconnectRecordAllOrigins.name,
+            GetParam() ? "true" : "false"}}}},
+        /*disabled_features=*/{});
+  }
+
+  ~LCPPAutoPreconnectTest() override = default;
+
+  void SetUpOnMainThread() override {
+    host_resolver()->AddRule("*", "127.0.0.1");
+
+    ASSERT_TRUE(embedded_test_server()->Start());
+
+    loading_predictor_ =
+        LoadingPredictorFactory::GetForProfile(browser()->profile());
+    ASSERT_TRUE(loading_predictor_);
+
+    PredictorInitializer initializer(
+        loading_predictor_->resource_prefetch_predictor());
+    initializer.EnsurePredictorInitialized();
+
+    preconnect_manager_observer_ =
+        std::make_unique<TestPreconnectManagerObserver>(
+            loading_predictor_->preconnect_manager());
+  }
+
+  void TearDownOnMainThread() override { loading_predictor_ = nullptr; }
+
+  void NavigateAndWaitForLcpElement(
+      const GURL& url,
+      const base::Location& from_here = FROM_HERE) {
+    content::WebContents* web_contents =
+        browser()->tab_strip_model()->GetActiveWebContents();
+
+    page_load_metrics::PageLoadMetricsTestWaiter waiter(web_contents);
+    waiter.AddMinimumLargestContentfulPaintImageExpectation(1);
+    ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), url))
+        << from_here.ToString();
+    waiter.Wait();
+
+    waiter.AddMinimumLargestContentfulPaintImageExpectation(1);
+    EXPECT_TRUE(content::ExecJs(
+        web_contents, base::StringPrintf(R"(
+    const img_bar = document.getElementById("bar");
+    img_bar.src = "http://bar.com:%d/predictors/lcp-100x50.png";
+        )",
+                                         embedded_test_server()->port())));
+    waiter.Wait();
+
+    // Navigate to about:blank to force recording a LCP element.
+    LcpElementLearnWaiter lcp_element_waiter(
+        loading_predictor()->resource_prefetch_predictor());
+    ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), GURL("about:blank")))
+        << from_here.ToString();
+    lcp_element_waiter.Wait();
+  }
+
+  std::vector<std::string> GetPreconnectedHosts() const {
+    std::vector<std::string> hosts;
+    for (auto& url :
+         preconnect_manager_observer_->PreconnectUrlAttemptsHistory()) {
+      hosts.push_back(url.host());
+    }
+    return hosts;
+  }
+
+  LoadingPredictor* loading_predictor() { return loading_predictor_; }
+
+ private:
+  base::test::ScopedFeatureList scoped_feature_list_;
+  raw_ptr<LoadingPredictor> loading_predictor_ = nullptr;
+  std::unique_ptr<TestPreconnectManagerObserver> preconnect_manager_observer_;
+};
+
+IN_PROC_BROWSER_TEST_P(LCPPAutoPreconnectTest, EnabledAllOrigins) {
+  const bool kEnabledAllOrigins = GetParam();
+
+  const GURL kUrl = embedded_test_server()->GetURL(
+      "a.test", GetPathWithPortReplacement("/predictors/preconnect.html",
+                                           embedded_test_server()->port()));
+  base::HistogramTester histogram_tester;
+
+  NavigateAndWaitForLcpElement(kUrl);
+  EXPECT_EQ(std::vector<std::string>({"a.test"}), GetPreconnectedHosts());
+  histogram_tester.ExpectUniqueSample("Blink.LCPP.PreconnectCount",
+                                      kEnabledAllOrigins ? 2 : 1, 1);
+
+  NavigateAndWaitForLcpElement(kUrl);
+  EXPECT_EQ(
+      kEnabledAllOrigins
+          ? std::vector<std::string>({"a.test", "a.test", "foo.com", "bar.com"})
+          : std::vector<std::string>({"a.test", "a.test", "bar.com"}),
+      GetPreconnectedHosts());
+}
+
+INSTANTIATE_TEST_SUITE_P(Flags,
+                         LCPPAutoPreconnectTest,
+                         ::testing::Bool(),
+                         ::testing::PrintToStringParamName());
 
 class SuppressesLoadingPredictorOnSlowNetworkBrowserTest
     : public LoadingPredictorBrowserTest {

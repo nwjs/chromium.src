@@ -17,6 +17,7 @@
 #include "base/functional/overloaded.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/no_destructor.h"
+#include "base/notreached.h"
 #include "base/numerics/safe_conversions.h"
 #include "base/process/process.h"
 #include "base/task/single_thread_task_runner.h"
@@ -27,6 +28,7 @@
 #include "mojo/core/ipcz_driver/object.h"
 #include "mojo/core/ipcz_driver/shared_buffer.h"
 #include "mojo/core/ipcz_driver/transmissible_platform_handle.h"
+#include "mojo/core/ipcz_driver/validate_enum.h"
 #include "mojo/core/ipcz_driver/wrapped_platform_handle.h"
 #include "mojo/public/cpp/platform/platform_channel.h"
 #include "mojo/public/cpp/platform/platform_channel_endpoint.h"
@@ -73,6 +75,10 @@ enum HandleOwner : uint8_t {
   // these handles as-is. Only brokers should be trusted to send handles that
   // already belong to the recipient.
   kRecipient,
+
+  // For ValidateEnum().
+  kMinValue = kSender,
+  kMaxValue = kRecipient,
 };
 
 // HANDLE value size varies by architecture. We always encode them with 64 bits.
@@ -116,14 +122,17 @@ struct IPCZ_ALIGN(8) TransportHeader {
   Transport::EndpointType destination_type;
 
   // Indicates whether the remote process on the other end of this transport
-  // is the same process sending this object.
-  bool is_same_remote_process;
+  // is the same process sending this object. Encodes a `bool`.
+  uint8_t is_same_remote_process;
 
   // See notes on equivalent fields defined on Transport. Note that serialized
   // transports endpoints with `is_peer_trusted` set to true can only be
-  // accepted from transports which are themselves trusted.
-  bool is_peer_trusted;
-  bool is_trusted_by_peer;
+  // accepted from transports which are themselves trusted. Encodes a `bool`.
+  uint8_t is_peer_trusted;
+  uint8_t is_trusted_by_peer;
+
+  // Padding for 8-byte size alignment.
+  uint8_t reserved[1];
 };
 
 #if BUILDFLAG(IS_WIN)
@@ -159,7 +168,7 @@ bool EncodeHandle(PlatformHandle& handle,
   DCHECK(remote_process.IsValid());
 #if BUILDFLAG(IS_WIN)
   if (remote_process_trust == Transport::ProcessTrust::kUntrusted) {
-    DcheckIfFileHandleIsUnsafe(handle.GetHandle().get());
+    MaybeCheckIfHandleIsUnsafe(handle.GetHandle().get());
   }
 #endif
 
@@ -511,17 +520,33 @@ IpczResult Transport::DeserializeObject(
   }
 
   const auto& header = *reinterpret_cast<const ObjectHeader*>(bytes.data());
+  // Validate header fields.
   const uint32_t header_size = header.size;
   if (header_size < sizeof(ObjectHeader) || header_size > bytes.size()) {
     return IPCZ_RESULT_INVALID_ARGUMENT;
   }
+#if BUILDFLAG(IS_WIN)
+  const HandleOwner handle_owner = header.handle_owner;
+  if (!ValidateEnum(handle_owner)) {
+    return IPCZ_RESULT_INVALID_ARGUMENT;
+  }
+#endif
+  if (!ValidateEnum(header.type)) {
+    return IPCZ_RESULT_INVALID_ARGUMENT;
+  }
+  // Return early for objects that cannot be deserialized.
+  if (!(header.type == ObjectBase::kTransport ||
+        header.type == ObjectBase::kSharedBuffer ||
+        header.type == ObjectBase::kTransmissiblePlatformHandle ||
+        header.type == ObjectBase::kWrappedPlatformHandle ||
+        header.type == ObjectBase::kDataPipe)) {
+    return IPCZ_RESULT_UNIMPLEMENTED;
+  }
 
 #if BUILDFLAG(IS_WIN)
   CHECK(handles.empty());
-  size_t num_handles = header.num_handles;
-  const HandleOwner handle_owner = header.handle_owner;
-
-  size_t available_bytes = bytes.size() - header_size;
+  const size_t num_handles = header.num_handles;
+  const size_t available_bytes = bytes.size() - header_size;
   const size_t max_handles = available_bytes / sizeof(HandleData);
   if (num_handles > max_handles) {
     return IPCZ_RESULT_INVALID_ARGUMENT;
@@ -534,7 +559,7 @@ IpczResult Transport::DeserializeObject(
   auto object_data = bytes.subspan(header_size + handle_data_size);
 #else
   auto object_data = bytes.subspan(header_size);
-  size_t num_handles = handles.size();
+  const size_t num_handles = handles.size();
 #endif
 
   // A small amount of stack storage is reserved to avoid heap allocation in the
@@ -559,15 +584,12 @@ IpczResult Transport::DeserializeObject(
 
   auto object_handles = base::span(platform_handles);
   switch (header.type) {
-    case ObjectBase::kTransport: {
+    case ObjectBase::kTransport:
       object = Deserialize(*this, object_data, object_handles);
       break;
-    }
-
     case ObjectBase::kSharedBuffer:
       object = SharedBuffer::Deserialize(object_data, object_handles);
       break;
-
     case ObjectBase::kTransmissiblePlatformHandle:
       object =
           TransmissiblePlatformHandle::Deserialize(object_data, object_handles);
@@ -582,7 +604,8 @@ IpczResult Transport::DeserializeObject(
       break;
 
     default:
-      return IPCZ_RESULT_UNIMPLEMENTED;
+      // Validated at head of function so this should not be reached.
+      NOTREACHED();
   }
 
   if (!object) {
@@ -652,8 +675,7 @@ scoped_refptr<Transport> Transport::Deserialize(
   }
 #endif
   // Reject transports with out of range enum value in destination_type.
-  if (!(header.destination_type == kBroker ||
-        header.destination_type == kNonBroker)) {
+  if (!ValidateEnum(header.destination_type)) {
     return nullptr;
   }
 

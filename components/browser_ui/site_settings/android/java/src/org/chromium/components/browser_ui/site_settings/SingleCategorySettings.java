@@ -630,17 +630,22 @@ public class SingleCategorySettings extends BaseSiteSettingsFragment
                 // In  Android O+, users can manage Notification channels through App Info. If this
                 // is the case we send the user directly to Android Settings to modify the
                 // Notification exception.
-                String channelId =
-                        getSiteSettingsDelegate()
-                                .getChannelIdForOrigin(
-                                        websitePreference.site().getAddress().getOrigin());
-                Intent intent = new Intent(Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS);
-                intent.putExtra(Settings.EXTRA_CHANNEL_ID, channelId);
-                intent.putExtra(
-                        Settings.EXTRA_APP_PACKAGE, preference.getContext().getPackageName());
-                startActivityForResult(
-                        intent, SingleWebsiteSettings.REQUEST_CODE_NOTIFICATION_CHANNEL_SETTINGS);
-
+                getSiteSettingsDelegate()
+                        .getChannelIdForOrigin(
+                                websitePreference.site().getAddress().getOrigin(),
+                                (channelId) -> {
+                                    Intent intent =
+                                            new Intent(
+                                                    Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS);
+                                    intent.putExtra(Settings.EXTRA_CHANNEL_ID, channelId);
+                                    intent.putExtra(
+                                            Settings.EXTRA_APP_PACKAGE,
+                                            preference.getContext().getPackageName());
+                                    startActivityForResult(
+                                            intent,
+                                            SingleWebsiteSettings
+                                                    .REQUEST_CODE_NOTIFICATION_CHANNEL_SETTINGS);
+                                });
             } else {
                 buildPreferenceDialog(websitePreference.site()).show();
                 if (mCategory.getType() == SiteSettingsCategory.Type.REQUEST_DESKTOP_SITE) {
@@ -961,12 +966,17 @@ public class SingleCategorySettings extends BaseSiteSettingsFragment
         int exceptionDialogMessageResourceId = getAddExceptionDialogMessageResourceId();
         assert allowSpecifyingExceptions == (exceptionDialogMessageResourceId != 0);
         if (allowSpecifyingExceptions) {
+            boolean enableAddExceptionButton =
+                    (!mCategory.isManaged()
+                            || mCategory.getType()
+                                    == SiteSettingsCategory.Type.THIRD_PARTY_COOKIES);
             getPreferenceScreen()
                     .addPreference(
                             new AddExceptionPreference(
                                     getStyledContext(),
                                     ADD_EXCEPTION_KEY,
                                     getString(exceptionDialogMessageResourceId),
+                                    enableAddExceptionButton,
                                     mCategory,
                                     this));
         }

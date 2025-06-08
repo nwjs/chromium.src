@@ -910,6 +910,11 @@ enum CSSSampleId {
     kRuleColor = 851,
     kRuleWidth = 852,
     kRuleStyle = 853,
+    kCaretShape = 854,
+    kRowRule = 855,
+    kTextGrow = 856,
+    kTextShrink = 857,
+    kRule = 858,
 
     // 1. Add new features above this line (don't change the assigned numbers of
     //    the existing items).

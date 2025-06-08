@@ -201,16 +201,30 @@ Result PrivateNetworkAccessChecker::CheckInternal(
   // `required_address_space_` is the IP address space the website claimed the
   // subresource to be. If it doesn't meet the real situation, then we should
   // fail the request.
-  if (base::FeatureList::IsEnabled(
-          features::kPrivateNetworkAccessPermissionPrompt) &&
+  //
+  // TODO(crbug.com/395895368): consider collapsing the address spaces for LNA
+  // checks.
+  if ((base::FeatureList::IsEnabled(
+           features::kPrivateNetworkAccessPermissionPrompt) ||
+       base::FeatureList::IsEnabled(features::kLocalNetworkAccessChecks)) &&
       required_address_space_ != mojom::IPAddressSpace::kUnknown &&
       resource_address_space != required_address_space_) {
     return Result::kBlockedByTargetIpAddressSpace;
   }
 
-  if (!IsLessPublicAddressSpace(resource_address_space,
-                                client_security_state_->ip_address_space)) {
-    return Result::kAllowedNoLessPublic;
+  // Currently for LNA we are only blocking public -> local/private/loopback
+  // requests. Requests from local -> loopback (or private -> local in PNA
+  // terminology) are not blocked at present.
+  if (base::FeatureList::IsEnabled(features::kLocalNetworkAccessChecks)) {
+    if (!IsLessPublicAddressSpaceLNA(
+            resource_address_space, client_security_state_->ip_address_space)) {
+      return Result::kAllowedNoLessPublic;
+    }
+  } else {
+    if (!IsLessPublicAddressSpace(resource_address_space,
+                                  client_security_state_->ip_address_space)) {
+      return Result::kAllowedNoLessPublic;
+    }
   }
 
   // We use a switch statement to force this code to be amended when values are

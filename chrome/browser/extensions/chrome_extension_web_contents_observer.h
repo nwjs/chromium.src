@@ -44,7 +44,7 @@ class ChromeExtensionWebContentsObserver
   void OnZoomControllerDestroyed(
       zoom::ZoomController* zoom_controller) override;
   // Creates and initializes an instance of this class for the given
-  // |web_contents|, if it doesn't already exist.
+  // `web_contents`, if it doesn't already exist.
   static void CreateForWebContents(content::WebContents* web_contents);
 
  private:

@@ -162,6 +162,7 @@
 <translation id="6264365405983206840">&amp;Alles auswählen</translation>
 <translation id="6346952829206698721">Aus Zwischenablage einfügen</translation>
 <translation id="6364916375976753737">Nach links blättern</translation>
+<translation id="63712816010840859">Wenn du keinen Touchscreen verwendest, drücke die Esc-Taste.</translation>
 <translation id="6394627529324717982">Komma</translation>
 <translation id="6397363302884558537">Sprachausgabe stoppen</translation>
 <translation id="6404817160109697034">{SECONDS,plural, =1{Vor 1 s}other{Vor # s}}</translation>
@@ -170,8 +171,10 @@
 <translation id="6503257047630241175">RTF-Inhalt</translation>
 <translation id="6539092367496845964">Ein Fehler ist aufgetreten. Versuche es später noch einmal.</translation>
 <translation id="654149438358937226">Alle Benachrichtigungen blockieren</translation>
+<translation id="6612467943526193239">Zum Abbrechen der Kalibrierung ESC drücken.</translation>
 <translation id="6620110761915583480">Datei speichern</translation>
 <translation id="6699343763173986273">Medien – nächster Titel</translation>
+<translation id="6738856801552481343">Wenn du keinen Touchscreen verwendest, drücke die Esc-Taste.</translation>
 <translation id="6807086321996342431">Spalte „<ph name="COLUMN_NAME" />“</translation>
 <translation id="6808150112686056157">Medien – Stopp</translation>
 <translation id="6845383723252244143">Ordner auswählen</translation>
@@ -181,7 +184,7 @@
 <translation id="6907759265145635167"><ph name="QUANTITY" /> PB/s</translation>
 <translation id="6917971086528278418">{YEARS,plural, =1{noch 1 Jahr}other{noch # Jahre}}</translation>
 <translation id="6945221475159498467">Auswählen</translation>
-<translation id="6965382102122355670">Ok</translation>
+<translation id="6965382102122355670">OK</translation>
 <translation id="6974053822202609517">Linksläufig</translation>
 <translation id="7052633198403197513">F1</translation>
 <translation id="7170202025028120564">Die Displayeinstellungen deiner App werden beim nächsten Neustart übernommen.</translation>

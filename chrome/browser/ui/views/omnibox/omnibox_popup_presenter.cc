@@ -7,6 +7,7 @@
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/observer_list_types.h"
+#include "base/strings/stringprintf.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/views/location_bar/location_bar_view.h"
@@ -158,7 +159,14 @@ void OmniboxPopupPresenter::ReleaseWidget(bool close) {
 
     widget->RemoveObserver(this);
     if (close) {
-      widget->Close();
+      // Ensure we close `widget_` synchronously.  This is necessary as the
+      // `widget_`'s contents view has dependencies on the hosting widget's
+      // BrowserView (see `SetContentsView()` above). Since the popup widget is
+      // owned by its NativeWidget there is a risk of dangling pointers if it is
+      // not destroyed synchronously with its parent.
+      // TODO(crbug.com/40232479): Once this is migrated to CLIENT_OWNS_WIDGET
+      // this will no longer be necessary.
+      widget->CloseNow();
     }
   }
   CHECK(!views::WidgetObserver::IsInObserverList());

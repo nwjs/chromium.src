@@ -4,6 +4,7 @@
 
 package org.chromium.chrome.browser.app.tab_activity_glue;
 
+import android.content.Context;
 import android.content.Intent;
 import android.provider.Browser;
 
@@ -24,7 +25,7 @@ import java.util.List;
 /** Handles the setup of the Intent to move an entire tab group to a different activity. */
 @NullMarked
 public class ReparentingTabGroupTask {
-    private TabGroupMetadata mTabGroupMetadata;
+    private final TabGroupMetadata mTabGroupMetadata;
 
     /**
      * @param tabGroupMetadata {@link TabGroupMetadata} object contains the tab group properties.
@@ -37,6 +38,19 @@ public class ReparentingTabGroupTask {
 
     private ReparentingTabGroupTask(TabGroupMetadata tabGroupMetadata) {
         mTabGroupMetadata = tabGroupMetadata;
+    }
+
+    /**
+     * Starts a new Activity with the given Intent and Options. The Intent should already have been
+     * setup with the {@link #setupIntent} method below. This is handled separately, since the group
+     * re-parenting flow includes some pre/post-work (namely pausing relevant observers before
+     * detaching the grouped Tabs and resuming the observers before sending the Intent).
+     *
+     * @param context The {@link Context} from which to call {@link Context#startActivity}.
+     * @param intent The {@link Intent} with which to start the new Activity.
+     */
+    public void begin(Context context, Intent intent) {
+        context.startActivity(intent, /* bundle= */ null);
     }
 
     /**
@@ -65,7 +79,7 @@ public class ReparentingTabGroupTask {
                                 mTabGroupMetadata.sourceWindowId,
                                 mTabGroupMetadata.tabGroupId,
                                 mTabGroupMetadata.isIncognito);
-        if (groupedTabs == null || groupedTabs.size() == 0) return;
+        if (groupedTabs == null || groupedTabs.isEmpty()) return;
         for (Tab tab : groupedTabs) {
             AsyncTabParamsManagerSingleton.getInstance()
                     .add(tab.getId(), new TabReparentingParams(tab, finalizeCallback));

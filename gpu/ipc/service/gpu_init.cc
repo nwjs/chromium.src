@@ -139,7 +139,10 @@ void InitializePlatformOverlaySettings(GPUInfo* gpu_info,
           gpu::FORCE_RGB10A2_OVERLAY_SUPPORT),
       .check_ycbcr_studio_g22_left_p709_for_nv12_support =
           gpu_feature_info.IsWorkaroundEnabled(
-              gpu::CHECK_YCBCR_STUDIO_G22_LEFT_P709_FOR_NV12_SUPPORT)};
+              gpu::CHECK_YCBCR_STUDIO_G22_LEFT_P709_FOR_NV12_SUPPORT),
+      .disable_dcomp_texture =
+          gpu_feature_info.IsWorkaroundEnabled(gpu::DISABLE_DCOMP_TEXTURE),
+  };
   SetDirectCompositionOverlayWorkarounds(workarounds);
 
   DCHECK(gpu_info);
@@ -1014,6 +1017,7 @@ void GpuInit::InitializeInProcess(base::CommandLine* command_line,
     gl_use_swiftshader_ = true;
   }
 #endif  // IS_LINUX || (IS_CHROMEOS && !IS_CHROMEOS_DEVICE)
+  gpu_info_.gl_implementation_parts = gl::GetGLImplementationParts();
 
   if (!gl_disabled && !gl_use_swiftshader_) {
     CollectContextGraphicsInfo(&gpu_info_);

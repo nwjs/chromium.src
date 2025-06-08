@@ -445,6 +445,7 @@ if (_is_default_toolchain) {
       "//chrome/browser/password_manager/android/account_storage_toggle:java",
       "//chrome/browser/password_manager/android/bottom_sheet:java",
       "//chrome/browser/password_manager/android/grouped_affiliations:java",
+      "//chrome/browser/password_manager/android/one_time_passwords:java",
       "//chrome/browser/password_manager/android/pwd_migration:java",
       "//chrome/browser/password_manager/android/pwd_migration:java_resources",
       "//chrome/browser/policy/android:java",
@@ -512,6 +513,7 @@ if (_is_default_toolchain) {
       "//chrome/browser/ui/android/edge_to_edge:factory_java",
       "//chrome/browser/ui/android/edge_to_edge:java",
       "//chrome/browser/ui/android/ephemeraltab:java",
+      "//chrome/browser/ui/android/extensions:java",
       "//chrome/browser/ui/android/fast_checkout:java",
       "//chrome/browser/ui/android/favicon:java",
       "//chrome/browser/ui/android/google_bottom_bar:java",
@@ -530,7 +532,6 @@ if (_is_default_toolchain) {
       "//chrome/browser/ui/android/page_info:java",
       "//chrome/browser/ui/android/pdf:java",
       "//chrome/browser/ui/android/pdf:pdf_provider_java",
-      "//chrome/browser/ui/android/plus_addresses:java",
       "//chrome/browser/ui/android/preloading:java",
       "//chrome/browser/ui/android/quickactionsearchwidget:java",
       "//chrome/browser/ui/android/searchactivityutils:java",
@@ -541,6 +542,7 @@ if (_is_default_toolchain) {
       "//chrome/browser/ui/android/web_app_header:java",
       "//chrome/browser/ui/android/whats_new:java",
       "//chrome/browser/ui/messages/android:java",
+      "//chrome/browser/ui/plus_addresses/android:java",
       "//chrome/browser/uid/android:java",
       "//chrome/browser/usb/android:java",
       "//chrome/browser/user_education:java",
@@ -597,7 +599,6 @@ if (_is_default_toolchain) {
       "//components/content_relationship_verification/android:java",
       "//components/content_settings/android:content_settings_enums_java",
       "//components/content_settings/android:java",
-      "//components/crash/android:anr_collector_java",
       "//components/crash/android:java",
       "//components/data_sharing/public:public_java",
       "//components/device_reauth:device_reauth_java_enums",
@@ -764,6 +765,7 @@ if (_is_default_toolchain) {
       "//third_party/androidx:androidx_viewpager2_viewpager2_java",
       "//third_party/androidx:androidx_viewpager_viewpager_java",
       "//third_party/androidx:androidx_xr_scenecore_scenecore_java",
+      "//third_party/androidx:androidx_xr_runtime_runtime_java",
       "//third_party/blink/public:blink_headers_java",
       "//third_party/blink/public/mojom:android_mojo_bindings_java",
       "//third_party/blink/public/mojom:mojom_core_java",
@@ -1142,7 +1144,6 @@ if (_is_default_toolchain) {
       "//chrome/browser/ui/android/night_mode:junit",
       "//chrome/browser/ui/android/omnibox:junit",
       "//chrome/browser/ui/android/pdf:junit",
-      "//chrome/browser/ui/android/plus_addresses:junit",
       "//chrome/browser/ui/android/searchactivityutils:junit",
       "//chrome/browser/ui/android/settings_promo_card:junit",
       "//chrome/browser/ui/android/signin:junit",
@@ -1152,6 +1153,7 @@ if (_is_default_toolchain) {
       "//chrome/browser/ui/android/webid/internal:junit",
       "//chrome/browser/ui/android/whats_new:junit",
       "//chrome/browser/ui/messages/android:junit",
+      "//chrome/browser/ui/plus_addresses/android:junit",
       "//chrome/browser/uid/android:junit",
       "//chrome/browser/usb/android:junit",
       "//chrome/browser/user_education:junit",
@@ -1823,9 +1825,10 @@ if (_is_default_toolchain) {
       renaming_destinations = []
 
       foreach(_locale, platform_pak_locales) {
-        renaming_sources +=
-            [ "$target_gen_dir/${_variant}_paks/locales/$_locale.pak" ]
-        renaming_destinations += [ "locales/$_locale.pak" ]
+        foreach(_gender_suffix, gender_suffixes) {
+          renaming_sources += [ "$target_gen_dir/${_variant}_paks/locales/${_locale}${_gender_suffix}.pak" ]
+          renaming_destinations += [ "locales/${_locale}${_gender_suffix}.pak" ]
+        }
       }
       treat_as_locale_paks = true
 
@@ -2360,8 +2363,8 @@ if (_is_default_toolchain) {
       "//chrome/browser/touch_to_fill/password_manager/password_generation/android/internal:javatests",
       "//chrome/browser/ui/android/digital_credentials:javatests",
       "//chrome/browser/ui/android/fast_checkout/internal:javatests",
-      "//chrome/browser/ui/android/plus_addresses:javatests",
       "//chrome/browser/ui/android/webid/internal:javatests",
+      "//chrome/browser/ui/plus_addresses/android:javatests",
       "//components/ip_protection/android/android_auth_client_lib/javatests:ip_protection_auth_javatests",
     ]
 
@@ -3053,6 +3056,7 @@ if (_is_default_toolchain) {
       "../browser/share/android/java/src/org/chromium/chrome/browser/share/send_tab_to_self/TargetDeviceInfo.java",
       "java/src/org/chromium/chrome/browser/DevToolsServer.java",
       "java/src/org/chromium/chrome/browser/IntentHandler.java",
+      "java/src/org/chromium/chrome/browser/KeyboardShortcuts.java",
       "java/src/org/chromium/chrome/browser/PlayServicesVersionInfo.java",
       "java/src/org/chromium/chrome/browser/ServiceTabLauncher.java",
       "java/src/org/chromium/chrome/browser/ShortcutHelper.java",
@@ -3065,11 +3069,11 @@ if (_is_default_toolchain) {
       "java/src/org/chromium/chrome/browser/app/tabmodel/TabGroupSyncDepsProvider.java",
       "java/src/org/chromium/chrome/browser/autofill/AutofillAccessibilityUtils.java",
       "java/src/org/chromium/chrome/browser/autofill/AutofillExpirationDateFixFlowBridge.java",
+      "java/src/org/chromium/chrome/browser/autofill/AutofillFallbackSurfaceLauncher.java",
       "java/src/org/chromium/chrome/browser/autofill/AutofillNameFixFlowBridge.java",
       "java/src/org/chromium/chrome/browser/autofill/AutofillSnackbarController.java",
       "java/src/org/chromium/chrome/browser/autofill/CardUnmaskBridge.java",
       "java/src/org/chromium/chrome/browser/autofill/CreditCardScannerBridge.java",
-      "java/src/org/chromium/chrome/browser/autofill/PlusAddressesHelper.java",
       "java/src/org/chromium/chrome/browser/autofill/SaveUpdateAddressProfilePrompt.java",
       "java/src/org/chromium/chrome/browser/autofill/SaveUpdateAddressProfilePromptController.java",
       "java/src/org/chromium/chrome/browser/autofill/iban/AutofillSaveIbanBottomSheetBridge.java",
@@ -3246,6 +3250,10 @@ if (_is_default_toolchain) {
       "//chrome/browser/partnerbookmarks:jni_headers",
       "//chrome/browser/webid:jni_headers",
     ]
+
+    if (enable_extensions_core) {
+      public_deps += [ "//chrome/browser/ui/android/extensions:jni_headers" ]
+    }
   }
 
   source_set("chrome_test_util") {
@@ -3319,11 +3327,11 @@ if (_is_default_toolchain) {
       "//chrome/browser/ui/android/hats/internal:jni_headers",
       "//chrome/browser/ui/android/logo:jni_headers",
       "//chrome/browser/ui/android/omnibox:jni_headers",
-      "//chrome/browser/ui/android/plus_addresses:jni_headers",
       "//chrome/browser/ui/android/preloading:jni_headers",
       "//chrome/browser/ui/android/toolbar:jni_headers",
       "//chrome/browser/ui/android/webid:jni_headers",
       "//chrome/browser/ui/messages/android:jni_headers",
+      "//chrome/browser/ui/plus_addresses/android:jni_headers",
       "//chrome/browser/util:jni_headers",
       "//chrome/browser/webauthn/android:jni_headers",
       "//components/browser_ui/device_lock/android:device_lock_bridge_jni_headers",

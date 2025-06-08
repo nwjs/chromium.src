@@ -54,7 +54,8 @@ enum class CollaborationServiceJoinEvent {
   kManagedAccountSignin = 31,
   kAccountInfoNotReadyOnSignin = 32,
   kReadNewGroupUserIsAlreadyMember = 33,
-  kMaxValue = kReadNewGroupUserIsAlreadyMember,
+  kFailedAddingUserToGroup = 34,
+  kMaxValue = kFailedAddingUserToGroup,
 };
 // LINT.ThenChange(//tools/metrics/histograms/metadata/collaboration_service/enums.xml:CollaborationServiceJoinEvent)
 
@@ -69,7 +70,7 @@ enum class CollaborationServiceShareOrManageEvent {
   kCanceledNotSignedIn = 3,
   kShareDialogShown = 4,
   kManageDialogShown = 5,
-  kTabGroupShared = 6,
+  kCollaborationGroupCreated = 6,
   kUrlReadyToShare = 7,
   kFlowRequirementsMet = 8,
   kSigninVerificationFailed = 9,
@@ -91,7 +92,8 @@ enum class CollaborationServiceShareOrManageEvent {
   kAccountInfoNotReadyOnSignin = 25,
   kCollaborationIdEmptyGroupToken = 26,
   kCollaborationIdShareCanceled = 27,
-  kMaxValue = kCollaborationIdShareCanceled,
+  kTabGroupShared = 28,
+  kMaxValue = kTabGroupShared,
 };
 // LINT.ThenChange(//tools/metrics/histograms/metadata/collaboration_service/enums.xml:CollaborationServiceShareOrManageEvent)
 
@@ -108,6 +110,9 @@ void RecordJoinEvent(data_sharing::Logger* logger,
                      CollaborationServiceJoinEvent event);
 void RecordShareOrManageEvent(data_sharing::Logger* logger,
                               CollaborationServiceShareOrManageEvent event);
+void RecordLeaveOrDeleteEntryPoint(
+    data_sharing::Logger* logger,
+    CollaborationServiceLeaveOrDeleteEntryPoint event);
 void RecordJoinOrShareOrManageEvent(
     data_sharing::Logger* logger,
     FlowType type,

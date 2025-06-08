@@ -20,7 +20,6 @@
 #include "base/metrics/field_trial_params.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
-#include "base/not_fatal_until.h"
 #include "base/path_service.h"
 #include "base/rand_util.h"
 #include "base/strings/utf_string_conversions.h"
@@ -109,7 +108,6 @@
 #include "chrome/browser/download/android/download_utils.h"
 #include "chrome/browser/download/android/duplicate_download_dialog_bridge_delegate.h"
 #include "chrome/browser/download/android/insecure_download_dialog_bridge.h"
-#include "chrome/browser/download/android/insecure_download_infobar_delegate.h"
 #include "chrome/browser/download/android/new_navigation_observer.h"
 #include "chrome/browser/flags/android/chrome_feature_list.h"
 #include "chrome/browser/ui/android/pdf/pdf_jni_headers/PdfUtils_jni.h"
@@ -364,6 +362,17 @@ base::FilePath GetTempPdfDir() {
 bool ShouldOpenPdfInlineInternal(bool incognito) {
   JNIEnv* env = base::android::AttachCurrentThread();
   return Java_PdfUtils_shouldOpenPdfInline(env, incognito);
+}
+
+void OnDetermineSavePackagePathDone(
+    content::SavePackagePathPickedCallback callback,
+    const base::FilePath& file_path,
+    const base::FilePath& display_name) {
+  content::SavePackagePathPickedParams param;
+  param.file_path = file_path;
+  param.save_type = content::SavePageType::SAVE_PAGE_TYPE_AS_MHTML;
+  param.display_name = display_name;
+  std::move(callback).Run(param, base::DoNothing());
 }
 #endif  // BUILDFLAG(IS_ANDROID)
 
@@ -1032,6 +1041,11 @@ bool ChromeDownloadManagerDelegate::InterceptDownloadIfApplicable(
            .is_attachment() &&
       offline_pages::OfflinePageUtils::CanDownloadAsOfflinePage(url,
                                                                 mime_type)) {
+#if BUILDFLAG(IS_ANDROID)
+    if (profile_->IsOffTheRecord()) {
+      return false;
+    }
+#endif  // BUILDFLAG(IS_ANDROID)
     offline_pages::OfflinePageUtils::ScheduleDownload(
         web_contents, offline_pages::kDownloadNamespace, url,
         offline_pages::OfflinePageUtils::DownloadUIActionFlags::ALL,
@@ -1095,10 +1109,22 @@ void ChromeDownloadManagerDelegate::ChooseSavePath(
     bool can_save_as_complete,
     content::SavePackagePathPickedCallback callback) {
 #if BUILDFLAG(IS_ANDROID)
-  content::SavePackagePathPickedParams param;
-  param.file_path = suggested_path.ReplaceExtension("mhtml");
-  param.save_type = content::SavePageType::SAVE_PAGE_TYPE_AS_MHTML;
-  std::move(callback).Run(param, base::DoNothing());
+  if (!web_contents) {
+    std::move(callback).Run(content::SavePackagePathPickedParams(),
+                            base::DoNothing());
+    return;
+  }
+
+  base::OnceCallback<void(bool)> confirm_callback =
+      base::BindOnce(&ChromeDownloadManagerDelegate::
+                         RequestIncognitoSavePackageConfirmationDone,
+                     weak_ptr_factory_.GetWeakPtr(), web_contents->GetURL(),
+                     suggested_path, std::move(callback));
+  if (profile_->IsOffTheRecord()) {
+    RequestIncognitoWarningConfirmation(std::move(confirm_callback));
+  } else {
+    std::move(confirm_callback).Run(/*accepted=*/true);
+  }
 #else
   // Deletes itself.
   new SavePackageFilePicker(web_contents, suggested_path, default_extension,
@@ -1820,7 +1846,7 @@ void ChromeDownloadManagerDelegate::OnInstallerDone(
 
   {
     auto iter = running_crx_installs_.find(token);
-    CHECK(iter != running_crx_installs_.end(), base::NotFatalUntil::M130);
+    CHECK(iter != running_crx_installs_.end());
     installer = iter->second;
     running_crx_installs_.erase(iter);
   }
@@ -2288,3 +2314,21 @@ void ChromeDownloadManagerDelegate::CancelAllEphemeralWarnings() {
     }
   }
 }
+
+#if BUILDFLAG(IS_ANDROID)
+void ChromeDownloadManagerDelegate::RequestIncognitoSavePackageConfirmationDone(
+    const GURL& url,
+    const base::FilePath& suggested_path,
+    content::SavePackagePathPickedCallback callback,
+    bool accept) {
+  if (!accept) {
+    std::move(callback).Run(content::SavePackagePathPickedParams(),
+                            base::DoNothing());
+    return;
+  }
+
+  download::DetermineSavePackagePath(
+      url, suggested_path,
+      base::BindOnce(&OnDetermineSavePackagePathDone, std::move(callback)));
+}
+#endif

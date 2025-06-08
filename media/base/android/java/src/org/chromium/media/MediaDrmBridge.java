@@ -119,7 +119,7 @@ public class MediaDrmBridge {
     private MediaDrmSessionManager mSessionManager;
 
     // The persistent storage to record origin provisioning information.
-    private MediaDrmStorageBridge mStorage;
+    private final MediaDrmStorageBridge mStorage;
 
     // Whether the current MediaDrmBridge instance is waiting for provisioning response.
     private boolean mProvisioningPending;
@@ -1435,9 +1435,14 @@ public class MediaDrmBridge {
             // SessionException may be thrown when an operation failed in a way that is likely to
             // succeed on a subsequent attempt. However, checking for transient errors is only
             // available on S and later. Try only once to repeat it if possible.
-            if (retryAllowed && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && e.isTransient()) {
-                return startProvisioningQorLater(false);
+            // On versions Q and R, since transient error detection is not available, retry no
+            // matter what.
+            if (retryAllowed) {
+                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S || e.isTransient()) {
+                    return startProvisioningQorLater(false);
+                }
             }
+
             Log.e(TAG, "Failed to get provisioning request", e);
             displayMetrics();
             return false;

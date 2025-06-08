@@ -702,6 +702,26 @@ void PeerConnectionTracker::StopEventLog(int peer_connection_local_id) {
   }
 }
 
+void PeerConnectionTracker::StartDataChannelLog(int peer_connection_local_id) {
+  DCHECK_CALLED_ON_VALID_THREAD(main_thread_);
+  for (auto& it : peer_connection_local_id_map_) {
+    if (it.value == peer_connection_local_id) {
+      it.key->StartDataChannelLog();
+      return;
+    }
+  }
+}
+
+void PeerConnectionTracker::StopDataChannelLog(int peer_connection_local_id) {
+  DCHECK_CALLED_ON_VALID_THREAD(main_thread_);
+  for (auto& it : peer_connection_local_id_map_) {
+    if (it.value == peer_connection_local_id) {
+      it.key->StopDataChannelLog();
+      return;
+    }
+  }
+}
+
 void PeerConnectionTracker::GetStandardStats() {
   DCHECK_CALLED_ON_VALID_THREAD(main_thread_);
 
@@ -1185,6 +1205,18 @@ void PeerConnectionTracker::TrackRtcEventLogWrite(
     return;
 
   peer_connection_tracker_host_->WebRtcEventLogWrite(id, output);
+}
+
+void PeerConnectionTracker::TrackRtcDataChannelLogWrite(
+    RTCPeerConnectionHandler* pc_handler,
+    const WTF::Vector<uint8_t>& output) {
+  DCHECK_CALLED_ON_VALID_THREAD(main_thread_);
+  int id = GetLocalIDForHandler(pc_handler);
+  if (id == -1) {
+    return;
+  }
+
+  peer_connection_tracker_host_->WebRtcDataChannelLogWrite(id, output);
 }
 
 int PeerConnectionTracker::GetNextLocalID() {

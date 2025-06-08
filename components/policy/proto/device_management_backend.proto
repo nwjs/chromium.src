@@ -929,6 +929,9 @@ message PolicyData {
   // set for User Policy response.
   optional K12AgeClassificationMetricsLogSegment
       k12_age_classification_metrics_log_segment = 39;
+
+  // Indicates whether the domains has CEC enabled.
+  optional bool cec_enabled = 40;
 }
 
 message ClientActionRequired {
@@ -2358,6 +2361,13 @@ message ProfileSignalsReport {
   // A boolean indicating whether the Site Isolation (a.k.a Site Per Process)
   // setting is enabled.
   optional bool site_isolation_enabled = 7;
+
+  // Providers for various analysis connectors.
+  repeated string file_downloaded_providers = 8;
+  repeated string file_attached_providers = 9;
+  repeated string bulk_data_entry_providers = 10;
+  repeated string print_providers = 11;
+  repeated string security_event_providers = 12;
 }
 
 // Anti virus product information.
@@ -4908,8 +4918,8 @@ enum DeviceManagementErrorDetail {
 //   * The Authorization header isn't used for enterprise_check,
 //     enterprise_psm_check, device_initial_enrollment_state or
 //     certificate_based_register requests.
-//     It is also not used for register requests and check_android_management
-//     requests - for these requests, the OAuth token is passed in the "oauth"
+//     It is also not used for register requests
+//     - for these requests, the OAuth token is passed in the "oauth"
 //     HTTP query parameter.
 //
 // DeviceManagementRequest should only contain one request which matches the

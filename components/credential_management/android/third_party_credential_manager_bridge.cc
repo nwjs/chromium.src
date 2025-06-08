@@ -66,24 +66,27 @@ class JniDelegateImpl : public JniDelegate {
         jni_zero::AttachCurrentThread()));
   }
 
-  void Get(const std::string& origin,
+  void Get(bool is_auto_select_allowed,
+           bool include_passwords,
+           const std::string& origin,
            base::OnceCallback<void(PasswordCredentialResponse)>
                completion_callback) override {
     JNIEnv* env = jni_zero::AttachCurrentThread();
     Java_ThirdPartyCredentialManagerBridge_get(
-        env, java_bridge_, base::android::ConvertUTF8ToJavaString(env, origin),
+        env, java_bridge_, is_auto_select_allowed, include_passwords,
+        base::android::ConvertUTF8ToJavaString(env, origin),
         base::android::ToJniCallback(env, std::move(completion_callback)));
   }
 
-  void Store(const std::string& username,
-             const std::string& password,
+  void Store(const std::u16string& username,
+             const std::u16string& password,
              const std::string& origin,
              base::OnceCallback<void(bool)> completion_callback) override {
     JNIEnv* env = jni_zero::AttachCurrentThread();
     Java_ThirdPartyCredentialManagerBridge_store(
         env, java_bridge_,
-        base::android::ConvertUTF8ToJavaString(env, username),
-        base::android::ConvertUTF8ToJavaString(env, password),
+        base::android::ConvertUTF16ToJavaString(env, username),
+        base::android::ConvertUTF16ToJavaString(env, password),
         base::android::ConvertUTF8ToJavaString(env, origin),
         base::android::ToJniCallback(env, std::move(completion_callback)));
   }
@@ -108,17 +111,19 @@ void ThirdPartyCredentialManagerBridge::Create() {
   jni_delegate_->CreateBridge();
 }
 
-void ThirdPartyCredentialManagerBridge::Get(const std::string& origin,
+void ThirdPartyCredentialManagerBridge::Get(bool is_auto_select_allowed,
+                                            bool include_passwords,
+                                            const std::string& origin,
                                             GetCallback completion_callback) {
   base::OnceCallback<void(PasswordCredentialResponse)> on_complete =
       base::BindOnce(&OnPasswordCredentialReceived, origin,
                      std::move(completion_callback));
-  jni_delegate_->Get(origin, std::move(on_complete));
+  jni_delegate_->Get(is_auto_select_allowed, include_passwords, origin, std::move(on_complete));
 }
 
 void ThirdPartyCredentialManagerBridge::Store(
-    const std::string& username,
-    const std::string& password,
+    const std::u16string& username,
+    const std::u16string& password,
     const std::string& origin,
     StoreCallback completion_callback) {
   base::OnceCallback<void(bool)> on_complete = base::BindOnce(

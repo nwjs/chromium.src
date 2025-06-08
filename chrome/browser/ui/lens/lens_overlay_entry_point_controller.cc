@@ -17,6 +17,7 @@
 #include "chrome/browser/ui/exclusive_access/exclusive_access_manager.h"
 #include "chrome/browser/ui/lens/lens_overlay_controller.h"
 #include "chrome/browser/ui/lens/lens_search_controller.h"
+#include "chrome/browser/ui/lens/lens_url_matcher.h"
 #include "chrome/browser/ui/page_action/page_action_icon_type.h"
 #include "chrome/browser/ui/tabs/public/tab_features.h"
 #include "chrome/browser/ui/ui_features.h"
@@ -94,6 +95,14 @@ void LensOverlayEntryPointController::Initialize(
 
   // Update all entry points.
   UpdateEntryPointsState(/*hide_if_needed=*/true);
+
+  edu_url_matcher_ = std::make_unique<lens::LensUrlMatcher>(
+      lens::features::GetLensOverlayEduUrlAllowFilters(),
+      lens::features::GetLensOverlayEduUrlBlockFilters(),
+      lens::features::GetLensOverlayEduUrlPathMatchAllowFilters(),
+      lens::features::GetLensOverlayEduUrlPathMatchBlockFilters(),
+      lens::features::GetLensOverlayEduUrlForceAllowedMatchPatterns(),
+      lens::features::GetLensOverlayEduHashedDomainBlockFilters());
 }
 
 LensOverlayEntryPointController::~LensOverlayEntryPointController() {
@@ -156,7 +165,7 @@ bool LensOverlayEntryPointController::IsEnabled() const {
   return phys_mem_mb > lens::features::GetLensOverlayMinRamMb();
 }
 
-bool LensOverlayEntryPointController::AreVisible() {
+bool LensOverlayEntryPointController::AreVisible() const {
   return IsEnabled() && !IsOverlayActive();
 }
 
@@ -177,6 +186,14 @@ void LensOverlayEntryPointController::UpdateEntryPointsState(
       toolbar_entry_point->SetVisible(enabled);
     }
   }
+  UpdatePageActionState();
+}
+
+bool LensOverlayEntryPointController::IsUrlEduEligible(const GURL& url) const {
+  if (!IsEnabled()) {
+    return false;
+  }
+  return edu_url_matcher_->IsMatch(url);
 }
 
 // static
@@ -220,7 +237,7 @@ void LensOverlayEntryPointController::InvokeAction(
   // Toggle the Lens overlay. There's no need to show or hide the side
   // panel as the overlay controller will handle that.
   if (overlay_controller->IsOverlayActive()) {
-    overlay_controller->CloseUIAsync(
+    search_controller->CloseLensAsync(
         lens::LensOverlayDismissalSource::kToolbar);
   } else {
     search_controller->OpenLensOverlay(
@@ -311,18 +328,19 @@ void LensOverlayEntryPointController::UpdatePageActionState() {
                                              });
 }
 
-bool LensOverlayEntryPointController::IsOverlayActive() {
-  auto* active_tab = browser_window_interface_->GetActiveTabInterface();
+bool LensOverlayEntryPointController::IsOverlayActive() const {
+  const auto* active_tab = browser_window_interface_->GetActiveTabInterface();
   if (!active_tab) {
     return false;
   }
-  auto* controller = active_tab->GetTabFeatures()->lens_overlay_controller();
+  const auto* controller =
+      active_tab->GetTabFeatures()->lens_overlay_controller();
   return controller && controller->IsOverlayActive();
 }
 
 bool LensOverlayEntryPointController::ShouldShowPageAction(
     tabs::TabInterface* active_tab) const {
-  if (!IsEnabled()) {
+  if (!AreVisible()) {
     return false;
   }
 

@@ -13,10 +13,11 @@
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/controls/separator.h"
-#include "ui/views/layout/box_layout.h"
+#include "ui/views/layout/flex_layout.h"
 #include "ui/views/view_class_properties.h"
 
 namespace {
+using EndpointInfo = ::TabSharingStatusMessageView::EndpointInfo;
 using MessageInfo = ::TabSharingStatusMessageView::MessageInfo;
 using TabRole = ::TabSharingInfoBarDelegate::TabRole;
 
@@ -24,17 +25,45 @@ constexpr auto kButtonInsets = gfx::Insets::VH(2, 8);
 constexpr auto kSeparatorInsets = gfx::Insets::TLBR(0, 16, 0, 0);
 
 std::vector<std::u16string> EndpointInfosToStrings(
-    const std::vector<TabSharingStatusMessageView::EndpointInfo>&
-        endpoint_infos) {
+    const std::vector<EndpointInfo>& endpoint_infos) {
   std::vector<std::u16string> res;
-  for (const TabSharingStatusMessageView::EndpointInfo& endpoint_info :
-       endpoint_infos) {
+  for (const EndpointInfo& endpoint_info : endpoint_infos) {
     res.push_back(endpoint_info.text);
   }
   return res;
 }
 
-void ActivateWebContents(content::GlobalRenderFrameHostId focus_target_id) {
+TabSharingInfoBarInteraction GetTabSharingInfoBarInteraction(
+    TabRole tab_role_for_uma,
+    EndpointInfo::TargetType target_type) {
+  switch (tab_role_for_uma) {
+    case TabRole::kCapturingTab:
+      CHECK_EQ(target_type, EndpointInfo::TargetType::kCapturedTab);
+      return TabSharingInfoBarInteraction::kCapturingToCaptured;
+    case TabRole::kCapturedTab:
+      CHECK_EQ(target_type, EndpointInfo::TargetType::kCapturingTab);
+      return TabSharingInfoBarInteraction::kCapturedToCapturing;
+    case TabRole::kSelfCapturingTab:
+      NOTREACHED();
+    case TabRole::kOtherTab:
+      switch (target_type) {
+        case EndpointInfo::TargetType::kCapturedTab:
+          return TabSharingInfoBarInteraction::kOtherToCaptured;
+        case EndpointInfo::TargetType::kCapturingTab:
+          return TabSharingInfoBarInteraction::kOtherToCapturing;
+      }
+  }
+  NOTREACHED();
+}
+
+void ActivateWebContents(
+    content::GlobalRenderFrameHostId focus_target_id,
+    std::optional<TabSharingInfoBarDelegate::TabRole> tab_role_for_uma,
+    EndpointInfo::TargetType target_type) {
+  if (tab_role_for_uma) {
+    RecordUma(GetTabSharingInfoBarInteraction(*tab_role_for_uma, target_type));
+  }
+
   content::RenderFrameHost* const rfh =
       content::RenderFrameHost::FromID(focus_target_id);
   if (!rfh) {
@@ -52,79 +81,78 @@ void ActivateWebContents(content::GlobalRenderFrameHostId focus_target_id) {
 
 MessageInfo GetMessageInfoCastingNoSinkName(
     TabRole role,
-    const TabSharingStatusMessageView::EndpointInfo& shared_tab_info) {
+    const EndpointInfo& shared_tab_info) {
   if (TabSharingInfoBarDelegate::IsCapturedTab(role)) {
     return MessageInfo(
         IDS_TAB_CASTING_INFOBAR_CASTING_CURRENT_TAB_NO_DEVICE_NAME_LABEL,
-        /*endpoint_infos=*/{});
+        /*endpoint_infos=*/{}, role);
   }
   return shared_tab_info.text.empty()
              ? MessageInfo(
                    IDS_TAB_CASTING_INFOBAR_CASTING_ANOTHER_UNTITLED_TAB_NO_DEVICE_NAME_LABEL,
-                   /*endpoint_infos=*/{})
+                   /*endpoint_infos=*/{}, role)
              : MessageInfo(
                    IDS_TAB_CASTING_INFOBAR_CASTING_ANOTHER_TAB_NO_DEVICE_NAME_LABEL,
-                   {shared_tab_info});
+                   {shared_tab_info}, role);
 }
 
-MessageInfo GetMessageInfoCasting(
-    TabRole role,
-    const TabSharingStatusMessageView::EndpointInfo& shared_tab_info,
-    const std::u16string& sink_name) {
+MessageInfo GetMessageInfoCasting(TabRole role,
+                                  const EndpointInfo& shared_tab_info,
+                                  const std::u16string& sink_name) {
   if (sink_name.empty()) {
     return GetMessageInfoCastingNoSinkName(role, shared_tab_info);
   }
 
-  TabSharingStatusMessageView::EndpointInfo sink_info(
-      sink_name, content::GlobalRenderFrameHostId());
+  EndpointInfo sink_info(sink_name, EndpointInfo::TargetType::kCapturingTab,
+                         content::GlobalRenderFrameHostId());
 
   if (TabSharingInfoBarDelegate::IsCapturedTab(role)) {
     return MessageInfo(IDS_TAB_CASTING_INFOBAR_CASTING_CURRENT_TAB_LABEL,
-                       {sink_info});
+                       {sink_info}, role);
   }
   return shared_tab_info.text.empty()
              ? MessageInfo(
                    IDS_TAB_CASTING_INFOBAR_CASTING_ANOTHER_UNTITLED_TAB_LABEL,
-                   {sink_info})
+                   {sink_info}, role)
              : MessageInfo(IDS_TAB_CASTING_INFOBAR_CASTING_ANOTHER_TAB_LABEL,
-                           {shared_tab_info, sink_info});
+                           {shared_tab_info, sink_info}, role);
 }
 
-MessageInfo GetMessageInfoCapturing(
-    TabRole role,
-    const TabSharingStatusMessageView::EndpointInfo& shared_tab_info,
-    const TabSharingStatusMessageView::EndpointInfo& capturer_info) {
+MessageInfo GetMessageInfoCapturing(TabRole role,
+                                    const EndpointInfo& shared_tab_info,
+                                    const EndpointInfo& capturer_info) {
   if (role == TabRole::kSelfCapturingTab) {
-    return MessageInfo(
-        IDS_TAB_SHARING_INFOBAR_SHARING_CURRENT_TAB_LABEL,
-        {TabSharingStatusMessageView::EndpointInfo(capturer_info.text)});
+    return MessageInfo(IDS_TAB_SHARING_INFOBAR_SHARING_CURRENT_TAB_LABEL,
+                       {EndpointInfo(capturer_info.text,
+                                     EndpointInfo::TargetType::kCapturingTab)},
+                       role);
   }
 
   if (TabSharingInfoBarDelegate::IsCapturedTab(role)) {
     return MessageInfo(IDS_TAB_SHARING_INFOBAR_SHARING_CURRENT_TAB_LABEL,
-                       {capturer_info});
+                       {capturer_info}, role);
   }
 
   if (shared_tab_info.text.empty()) {
     return MessageInfo(
         IDS_TAB_SHARING_INFOBAR_SHARING_ANOTHER_UNTITLED_TAB_LABEL,
-        {capturer_info});
+        {capturer_info}, role);
   }
 
   if (base::FeatureList::IsEnabled(features::kTabCaptureInfobarLinks) &&
       TabSharingInfoBarDelegate::IsCapturingTab(role)) {
     return MessageInfo(
         IDS_TAB_SHARING_INFOBAR_SHARING_ANOTHER_TAB_TO_THIS_TAB_LABEL,
-        {shared_tab_info});
+        {shared_tab_info}, role);
   }
 
   return MessageInfo(IDS_TAB_SHARING_INFOBAR_SHARING_ANOTHER_TAB_LABEL,
-                     {shared_tab_info, capturer_info});
+                     {shared_tab_info, capturer_info}, role);
 }
 
 MessageInfo GetMessageInfo(
-    const TabSharingStatusMessageView::EndpointInfo& shared_tab_info,
-    const TabSharingStatusMessageView::EndpointInfo& capturer_info,
+    const EndpointInfo& shared_tab_info,
+    const EndpointInfo& capturer_info,
     const std::u16string& capturer_name,
     TabSharingInfoBarDelegate::TabRole role,
     TabSharingInfoBarDelegate::TabShareType capture_type) {
@@ -140,21 +168,29 @@ MessageInfo GetMessageInfo(
 
 }  // namespace
 
-TabSharingStatusMessageView::EndpointInfo::EndpointInfo(
-    std::u16string text,
-    content::GlobalRenderFrameHostId focus_target_id)
-    : text(std::move(text)), focus_target_id(focus_target_id) {}
+EndpointInfo::EndpointInfo(std::u16string text,
+                           TargetType target_type,
+                           content::GlobalRenderFrameHostId focus_target_id)
+    : text(std::move(text)),
+      target_type(target_type),
+      focus_target_id(focus_target_id) {}
 
-MessageInfo::MessageInfo(int message_id,
-                         std::vector<EndpointInfo> endpoint_infos)
+MessageInfo::MessageInfo(
+    int message_id,
+    std::vector<EndpointInfo> endpoint_infos,
+    std::optional<TabSharingInfoBarDelegate::TabRole> tab_role_for_uma)
     : MessageInfo(ui::ResourceBundle::GetSharedInstance().GetLocalizedString(
                       message_id),
-                  std::move(endpoint_infos)) {}
+                  std::move(endpoint_infos),
+                  tab_role_for_uma) {}
 
-MessageInfo::MessageInfo(std::u16string format_string,
-                         std::vector<EndpointInfo> endpoint_infos)
+MessageInfo::MessageInfo(
+    std::u16string format_string,
+    std::vector<EndpointInfo> endpoint_infos,
+    std::optional<TabSharingInfoBarDelegate::TabRole> tab_role_for_uma)
     : format_string(std::move(format_string)),
-      endpoint_infos(std::move(endpoint_infos)) {}
+      endpoint_infos(std::move(endpoint_infos)),
+      tab_role_for_uma(tab_role_for_uma) {}
 
 MessageInfo::~MessageInfo() = default;
 
@@ -168,8 +204,8 @@ MessageInfo& MessageInfo::operator=(MessageInfo&& other) = default;
 
 std::unique_ptr<views::View> TabSharingStatusMessageView::Create(
     content::GlobalRenderFrameHostId capturer_id,
-    const TabSharingStatusMessageView::EndpointInfo& shared_tab_info,
-    const TabSharingStatusMessageView::EndpointInfo& capturer_info,
+    const EndpointInfo& shared_tab_info,
+    const EndpointInfo& capturer_info,
     const std::u16string& capturer_name,
     TabSharingInfoBarDelegate::TabRole role,
     TabSharingInfoBarDelegate::TabShareType capture_type) {
@@ -178,8 +214,8 @@ std::unique_ptr<views::View> TabSharingStatusMessageView::Create(
 }
 
 std::u16string TabSharingStatusMessageView::GetMessageText(
-    const TabSharingStatusMessageView::EndpointInfo& shared_tab_info,
-    const TabSharingStatusMessageView::EndpointInfo& capturer_info,
+    const EndpointInfo& shared_tab_info,
+    const EndpointInfo& capturer_info,
     const std::u16string& capturer_name,
     TabSharingInfoBarDelegate::TabRole role,
     TabSharingInfoBarDelegate::TabShareType capture_type) {
@@ -194,25 +230,27 @@ TabSharingStatusMessageView::TabSharingStatusMessageView(
   SetupMessage(info);
   AddChildView(views::Builder<views::Separator>()
                    .SetProperty(views::kMarginsKey, kSeparatorInsets)
+                   .SetProperty(views::kFlexBehaviorKey,
+                                views::FlexSpecification(
+                                    views::MinimumFlexSizeRule::kPreferred))
                    .Build());
-
-  views::BoxLayout* layout =
-      SetLayoutManager(std::make_unique<views::BoxLayout>(
-          views::BoxLayout::Orientation::kHorizontal));
-  layout->set_cross_axis_alignment(
-      views::BoxLayout::CrossAxisAlignment::kStretch);
-  layout->set_between_child_spacing(0);
+  views::FlexLayout* layout =
+      SetLayoutManager(std::make_unique<views::FlexLayout>());
+  layout->SetCrossAxisAlignment(views::LayoutAlignment::kStretch);
 }
 
 TabSharingStatusMessageView::~TabSharingStatusMessageView() = default;
+
+gfx::Size TabSharingStatusMessageView::GetMinimumSize() const {
+  return gfx::Size();
+}
 
 void TabSharingStatusMessageView::SetupMessage(MessageInfo info) {
   // Format the message text and retrieve the offsets to where the replacements
   // should go.
   std::vector<size_t> offsets;
   std::vector<std::u16string> replacements;
-  for (const TabSharingStatusMessageView::EndpointInfo& endpoint_info :
-       info.endpoint_infos) {
+  for (const EndpointInfo& endpoint_info : info.endpoint_infos) {
     replacements.emplace_back(endpoint_info.text);
   }
   const std::u16string label_text =
@@ -238,15 +276,18 @@ void TabSharingStatusMessageView::SetupMessage(MessageInfo info) {
   // This results in the text before the endpoint_info and the replacement text
   // being added to the next label.
   size_t label_start = 0;
+  int flex_layout_order = 1;
   for (size_t i = 0; i < info.endpoint_infos.size(); ++i) {
     if (!info.endpoint_infos[i].focus_target_id) {
       continue;
     }
     const size_t label_length = offsets[i] - label_start;
     if (label_length > 0) {
-      AddLabel(label_text.substr(label_start, label_length));
+      AddLabel(label_text.substr(label_start, label_length),
+               flex_layout_order++);
     }
-    AddButton(info.endpoint_infos[i]);
+    AddButton(info.endpoint_infos[i], flex_layout_order++,
+              info.tab_role_for_uma);
     label_start = offsets[i] + replacements[i].size();
   }
 
@@ -254,7 +295,7 @@ void TabSharingStatusMessageView::SetupMessage(MessageInfo info) {
   // label covers the entire string.
   const size_t label_length = label_text.size() - label_start;
   if (label_length > 0) {
-    AddLabel(label_text.substr(label_start, label_length));
+    AddLabel(label_text.substr(label_start, label_length), flex_layout_order++);
   }
 
   GetViewAccessibility().SetRole(ax::mojom::Role::kGroup);
@@ -262,27 +303,40 @@ void TabSharingStatusMessageView::SetupMessage(MessageInfo info) {
   SetFocusBehavior(FocusBehavior::ACCESSIBLE_ONLY);
 }
 
-void TabSharingStatusMessageView::AddLabel(const std::u16string& text) {
-  AddChildView(std::make_unique<views::Label>(
+void TabSharingStatusMessageView::AddLabel(const std::u16string& text,
+                                           int flex_layout_order) {
+  views::Label* label = AddChildView(std::make_unique<views::Label>(
       text, views::style::CONTEXT_DIALOG_BODY_TEXT));
+  label->SetProperty(
+      views::kFlexBehaviorKey,
+      views::FlexSpecification(views::MinimumFlexSizeRule::kScaleToZero)
+          .WithOrder(flex_layout_order));
 }
 
-void TabSharingStatusMessageView::AddButton(const EndpointInfo& endpoint_info) {
+void TabSharingStatusMessageView::AddButton(
+    const EndpointInfo& endpoint_info,
+    int flex_layout_order,
+    std::optional<TabSharingInfoBarDelegate::TabRole> tab_role_for_uma) {
   views::MdTextButton* button =
       AddChildView(std::make_unique<views::MdTextButton>(
           base::BindRepeating(&ActivateWebContents,
-                              endpoint_info.focus_target_id),
+                              endpoint_info.focus_target_id, tab_role_for_uma,
+                              endpoint_info.target_type),
           endpoint_info.text, views::style::CONTEXT_LABEL));
   button->SetStyle(ui::ButtonStyle::kTonal);
   button->SetCustomPadding(kButtonInsets);
   button->SetTextColor(views::Button::ButtonState::STATE_NORMAL,
-                       ui::kColorSysPrimary);
+                       ui::kColorLinkForeground);
   button->SetTextColor(views::Button::ButtonState::STATE_HOVERED,
-                       ui::kColorSysPrimary);
+                       ui::kColorLinkForeground);
   button->SetTextColor(views::Button::ButtonState::STATE_PRESSED,
-                       ui::kColorSysPrimary);
+                       ui::kColorLinkForeground);
   button->SetBgColorIdOverride(ui::kColorSysNeutralContainer);
   button->SetLabelStyle(views::style::STYLE_BODY_5_MEDIUM);
+  button->SetProperty(
+      views::kFlexBehaviorKey,
+      views::FlexSpecification(views::MinimumFlexSizeRule::kScaleToZero)
+          .WithOrder(flex_layout_order));
 }
 
 BEGIN_METADATA(TabSharingStatusMessageView)

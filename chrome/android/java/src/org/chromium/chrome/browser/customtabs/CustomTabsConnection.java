@@ -65,6 +65,7 @@ import org.chromium.chrome.browser.browserservices.SessionDataHolder;
 import org.chromium.chrome.browser.browserservices.SessionHandler;
 import org.chromium.chrome.browser.browserservices.intents.BrowserCallbackWrapper;
 import org.chromium.chrome.browser.browserservices.intents.BrowserServicesIntentDataProvider;
+import org.chromium.chrome.browser.browserservices.intents.BrowserServicesIntentDataProvider.TitleVisibility;
 import org.chromium.chrome.browser.browserservices.intents.SessionHolder;
 import org.chromium.chrome.browser.content.WebContentsFactory;
 import org.chromium.chrome.browser.customtabs.ClientManager.CalledWarmup;
@@ -165,12 +166,6 @@ public class CustomTabsConnection {
 
     private static final String ON_RESIZED_CALLBACK = "onResized";
     private static final String ON_RESIZED_SIZE_EXTRA = "size";
-
-    @VisibleForTesting
-    static final String IS_EPHEMERAL_BROWSING_SUPPORTED = "isEphemeralBrowsingSupported";
-
-    @VisibleForTesting
-    static final String EPHEMERAL_BROWSING_SUPPORTED_KEY = "ephemeralBrowsingSupported";
 
     static final String IS_AUTH_TAB_SUPPORTED = "isAuthTabSupported";
     static final String AUTH_TAB_SUPPORTED_KEY = "authTabSupported";
@@ -821,13 +816,7 @@ public class CustomTabsConnection {
      * @return The result {@link Bundle}, or null.
      */
     public @Nullable Bundle extraCommand(String commandName, Bundle args) {
-        if (commandName.equals(IS_EPHEMERAL_BROWSING_SUPPORTED)) {
-            var bundle = new Bundle();
-            bundle.putBoolean(
-                    EPHEMERAL_BROWSING_SUPPORTED_KEY,
-                    ChromeFeatureList.isEnabled(ChromeFeatureList.CCT_EPHEMERAL_MODE));
-            return bundle;
-        } else if (commandName.equals(IS_AUTH_TAB_SUPPORTED)) {
+        if (commandName.equals(IS_AUTH_TAB_SUPPORTED)) {
             var bundle = new Bundle();
             boolean supported = ChromeFeatureList.sCctAuthTab.isEnabled();
             bundle.putBoolean(AUTH_TAB_SUPPORTED_KEY, supported);
@@ -2180,11 +2169,6 @@ public class CustomTabsConnection {
         return mClientManager.getEngagementSignalsCallbackForSession(session) != null;
     }
 
-    /** Whether Ephemeral Browsing is supported. */
-    public boolean isEphemeralBrowsingSupported(Bundle extras) {
-        return ChromeFeatureList.sCctEphemeralMode.isEnabled();
-    }
-
     /** Whether a CustomTabs instance should include interactive Omnibox. */
     public boolean shouldEnableOmniboxForIntent(BrowserServicesIntentDataProvider intentData) {
         return false;
@@ -2201,9 +2185,10 @@ public class CustomTabsConnection {
     }
 
     /** Specifies what content should be presented by the CustomTabs instance in location bar. */
-    public int getTitleVisibilityState(BrowserServicesIntentDataProvider intentData) {
+    public @TitleVisibility int getTitleVisibilityState(
+            BrowserServicesIntentDataProvider intentData) {
         if (shouldEnableOmniboxForIntent(intentData)) {
-            return CustomTabsIntent.NO_TITLE;
+            return CustomTabIntentDataProvider.TitleVisibility.HIDDEN;
         }
         return intentData.getTitleVisibilityState();
     }

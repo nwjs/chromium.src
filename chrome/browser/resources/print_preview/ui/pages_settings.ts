@@ -3,7 +3,6 @@
 // found in the LICENSE file.
 
 import 'chrome://resources/cr_elements/cr_input/cr_input.js';
-import 'chrome://resources/cr_elements/md_select.css.js';
 import 'chrome://resources/cr_elements/cr_collapse/cr_collapse.js';
 import './print_preview_shared.css.js';
 import './settings_section.js';
@@ -19,11 +18,11 @@ import type {PropertyValues} from 'chrome://resources/lit/v3_0/lit.rollup.js';
 import type {Range} from '../print_preview_utils.js';
 import {areRangesEqual} from '../print_preview_utils.js';
 
-import {InputMixinLit} from './input_mixin_lit.js';
+import {InputMixin} from './input_mixin.js';
 import {getCss} from './pages_settings.css.js';
 import {getHtml} from './pages_settings.html.js';
-import {SelectMixinLit} from './select_mixin_lit.js';
-import {SettingsMixinLit} from './settings_mixin_lit.js';
+import {SelectMixin} from './select_mixin.js';
+import {SettingsMixin} from './settings_mixin.js';
 
 enum PagesInputErrorState {
   NO_ERROR = 0,
@@ -59,8 +58,8 @@ export interface PrintPreviewPagesSettingsElement {
   };
 }
 
-const PrintPreviewPagesSettingsElementBase = WebUiListenerMixinLit(
-    InputMixinLit(SettingsMixinLit(SelectMixinLit(CrLitElement))));
+const PrintPreviewPagesSettingsElementBase =
+    WebUiListenerMixinLit(InputMixin(SettingsMixin(SelectMixin(CrLitElement))));
 
 export class PrintPreviewPagesSettingsElement extends
     PrintPreviewPagesSettingsElementBase {
@@ -95,15 +94,15 @@ export class PrintPreviewPagesSettingsElement extends
     };
   }
 
-  accessor disabled: boolean;
-  accessor pageCount: number;
-  protected accessor controlsDisabled_: boolean;
+  accessor disabled: boolean = false;
+  accessor pageCount: number = 0;
+  protected accessor controlsDisabled_: boolean = false;
   private accessor errorState_: PagesInputErrorState =
       PagesInputErrorState.NO_ERROR;
   protected accessor hasError_: boolean = false;
   private accessor inputString_: string = '';
   private accessor pagesToPrint_: number[] = [];
-  private accessor rangesToPrint_: Range[];
+  private accessor rangesToPrint_: Range[] = [];
   private accessor selection_: PagesValue = PagesValue.ALL;
 
   /**
@@ -143,7 +142,7 @@ export class PrintPreviewPagesSettingsElement extends
     const changedPrivateProperties =
         changedProperties as Map<PropertyKey, unknown>;
 
-    if (changedProperties.has('disabled') &&
+    if (changedProperties.has('disabled') ||
         changedPrivateProperties.has('hasError_')) {
       this.controlsDisabled_ = this.computeControlsDisabled_();
     }
@@ -256,8 +255,8 @@ export class PrintPreviewPagesSettingsElement extends
         return;
       }
 
-      let min = parseIntStrict(limits[0]);
-      if ((limits[0].length > 0 && Number.isNaN(min)) || min < 1) {
+      let min = parseIntStrict(limits[0]!);
+      if ((limits[0]!.length > 0 && Number.isNaN(min)) || min < 1) {
         this.errorState_ = PagesInputErrorState.INVALID_SYNTAX;
         this.onRangeChange_();
         return;
@@ -275,8 +274,8 @@ export class PrintPreviewPagesSettingsElement extends
         continue;
       }
 
-      let max = parseIntStrict(limits[1]);
-      if (Number.isNaN(max) && limits[1].length > 0) {
+      let max = parseIntStrict(limits[1]!);
+      if (Number.isNaN(max) && limits[1]!.length > 0) {
         this.errorState_ = PagesInputErrorState.INVALID_SYNTAX;
         this.onRangeChange_();
         return;
@@ -321,9 +320,9 @@ export class PrintPreviewPagesSettingsElement extends
       return [];
     }
 
-    let from = this.pagesToPrint_[0];
-    let to = this.pagesToPrint_[0];
-    const ranges = [];
+    let from = this.pagesToPrint_[0]!;
+    let to = this.pagesToPrint_[0]!;
+    const ranges: Range[] = [];
     for (const page of this.pagesToPrint_.slice(1)) {
       if (page === to + 1) {
         to = page;
@@ -438,14 +437,6 @@ export class PrintPreviewPagesSettingsElement extends
    */
   protected isSinglePage_(): boolean {
     return this.pageCount === 1;
-  }
-
-  /**
-   * @return Whether to hide the hint.
-   */
-  private hintHidden_(): boolean {
-    return this.errorState_ === PagesInputErrorState.NO_ERROR ||
-        this.errorState_ === PagesInputErrorState.EMPTY;
   }
 
   /**

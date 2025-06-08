@@ -147,7 +147,6 @@ void AwFieldTrials::RegisterFeatureOverrides(base::FeatureList* feature_list) {
   // kVulkan in case it becomes enabled by default.
   aw_feature_overrides.DisableFeature(::features::kVulkan);
 
-  aw_feature_overrides.DisableFeature(::features::kWebPayments);
   aw_feature_overrides.DisableFeature(::features::kServiceWorkerPaymentApps);
 
   // WebView does not support overlay fullscreen yet for video overlays.
@@ -217,8 +216,6 @@ void AwFieldTrials::RegisterFeatureOverrides(base::FeatureList* feature_list) {
 
   // FedCM is not yet supported on WebView.
   aw_feature_overrides.DisableFeature(::features::kFedCm);
-  aw_feature_overrides.DisableFeature(
-      blink::features::kFedCmWithStorageAccessAPI);
 
   // TODO(crbug.com/40272633): Web MIDI permission prompt for all usage.
   aw_feature_overrides.DisableFeature(blink::features::kBlockMidiByDefault);

@@ -82,6 +82,7 @@ StyleSheetContents::StyleSheetContents(const CSSParserContext* context,
       has_media_queries_(false),
       has_single_owner_document_(true),
       is_used_from_text_cache_(false),
+      is_used_from_resource_cache_(false),
       parser_context_(context) {}
 
 StyleSheetContents::StyleSheetContents(const StyleSheetContents& o)
@@ -102,6 +103,7 @@ StyleSheetContents::StyleSheetContents(const StyleSheetContents& o)
       has_media_queries_(o.has_media_queries_),
       has_single_owner_document_(true),
       is_used_from_text_cache_(false),
+      is_used_from_resource_cache_(false),
       parser_context_(o.parser_context_) {
   for (unsigned i = 0; i < pre_import_layer_statement_rules_.size(); ++i) {
     pre_import_layer_statement_rules_[i] = To<StyleRuleLayerStatement>(
@@ -628,7 +630,8 @@ CSSStyleSheet* StyleSheetContents::ClientInTreeScope(
   auto is_in_tree_scope = [&](CSSStyleSheet* sheet,
                               const TreeScope& tree_scope) -> bool {
     return sheet->IsAdoptedByTreeScope(tree_scope) ||
-           sheet->ownerNode()->GetTreeScope() == tree_scope;
+           (sheet->ownerNode() != nullptr &&
+            sheet->ownerNode()->GetTreeScope() == tree_scope);
   };
 
   StyleSheetContents* root = RootStyleSheet();

@@ -15,6 +15,7 @@
 #include "base/timer/timer.h"
 #include "components/performance_manager/scenario_api/performance_scenario_observer.h"
 #include "content/common/content_export.h"
+#include "content/public/browser/content_browser_client.h"
 #include "content/public/browser/process_allocation_context.h"
 #include "content/public/browser/render_process_host_observer.h"
 #include "content/public/browser/spare_render_process_host_manager.h"
@@ -85,7 +86,7 @@ class CONTENT_EXPORT SpareRenderProcessHostManagerImpl
   // SpareRenderProcessHostManager:
   void AddObserver(Observer* observer) override;
   void RemoveObserver(Observer* observer) override;
-  void WarmupSpare(BrowserContext* browser_context) override;
+  RenderProcessHost* WarmupSpare(BrowserContext* browser_context) override;
   const std::vector<RenderProcessHost*>& GetSpares() override;
   std::vector<ChildProcessId> GetSpareIds() override;
   void CleanupSparesForTesting() override;
@@ -106,8 +107,10 @@ class CONTENT_EXPORT SpareRenderProcessHostManagerImpl
   // If the function is called again without a timeout, the current timeout will
   // be cancelled. If the function is called again with a timeout firing after
   // the current timeout, the timeout will be updated.
-  void WarmupSpare(BrowserContext* browser_context,
-                   std::optional<base::TimeDelta> timeout);
+  //
+  // Returns a RenderProcessHost if a new one is created.
+  RenderProcessHost* WarmupSpare(BrowserContext* browser_context,
+                                 std::optional<base::TimeDelta> timeout);
 
   // RenderProcessHostImpl should call
   // SpareRenderProcessHostManager::MaybeTakeSpare when creating a new RPH. In
@@ -205,6 +208,12 @@ class CONTENT_EXPORT SpareRenderProcessHostManagerImpl
 #if BUILDFLAG(IS_ANDROID)
   void OnApplicationStateChange(base::android::ApplicationState state);
 #endif
+
+  // Checks various conditions that could prevent an embedder from using the
+  // spare.
+  std::optional<ContentBrowserClient::SpareProcessRefusedByEmbedderReason>
+  DoesEmbedderAllowSpareUsage(BrowserContext* browser_context,
+                              SiteInstanceImpl* site_instance);
 
   base::MemoryPressureListener memory_pressure_listener_;
 

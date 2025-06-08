@@ -53,6 +53,10 @@ UIImage* GetOmniboxSuggestionIcon(OmniboxSuggestionIconType icon_type) {
       symbol_name = kUpTrendSymbol;
       default_symbol = false;
       break;
+    case OmniboxSuggestionIconType::kSearchWithSparkle:
+      symbol_name = kMagnifyingglassSparkSymbol;
+      default_symbol = false;
+      break;
     case OmniboxSuggestionIconType::kCount:
       NOTREACHED();
   }

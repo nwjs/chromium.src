@@ -272,11 +272,11 @@ bool IsCookiePrefixValid(CookiePrefix prefix,
 // As above. `secure`, `domain`, and `path` are the raw attribute values (i.e.
 // as taken from a ParsedCookie), NOT in normalized form as represented in
 // CookieBase.
-bool IsCookiePrefixValid(CookiePrefix prefix,
-                         const GURL& url,
-                         bool secure,
-                         const std::string& domain,
-                         const std::string& path);
+NET_EXPORT_PRIVATE bool IsCookiePrefixValid(CookiePrefix prefix,
+                                            const GURL& url,
+                                            bool secure,
+                                            const std::string& domain,
+                                            const std::string& path);
 
 // Returns true iff the cookie is a partitioned cookie with a nonce or that
 // does not violate the semantics of the Partitioned attribute:
@@ -410,9 +410,6 @@ NET_EXPORT bool IsSchemeBoundCookiesEnabled();
 NET_EXPORT bool IsOriginBoundCookiesPartiallyEnabled();
 
 NET_EXPORT bool IsTimeLimitedInsecureCookiesEnabled();
-
-// Returns whether the respective feature is enabled.
-NET_EXPORT bool IsSchemefulSameSiteEnabled();
 
 // Computes the First-Party Sets metadata and cache match information.
 // `isolation_info` must be fully populated.

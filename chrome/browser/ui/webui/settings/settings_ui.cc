@@ -56,7 +56,6 @@
 #include "chrome/browser/ui/webui/metrics_handler.h"
 #include "chrome/browser/ui/webui/plural_string_handler.h"
 #include "chrome/browser/ui/webui/sanitized_image_source.h"
-#include "chrome/browser/ui/webui/search_engine_choice/icon_utils.h"
 #include "chrome/browser/ui/webui/settings/about_handler.h"
 #include "chrome/browser/ui/webui/settings/accessibility_main_handler.h"
 #include "chrome/browser/ui/webui/settings/appearance_handler.h"
@@ -99,6 +98,7 @@
 #include "components/autofill/core/browser/payments/bnpl_manager.h"
 #include "components/autofill/core/browser/payments/payments_autofill_client.h"
 #include "components/autofill/core/browser/permissions/autofill_ai/autofill_ai_permission_utils.h"
+#include "components/autofill/core/common/autofill_features.h"
 #include "components/commerce/core/commerce_feature_list.h"
 #include "components/commerce/core/feature_utils.h"
 #include "components/commerce/core/shopping_service.h"
@@ -161,7 +161,6 @@
 #include "chrome/browser/browser_process_platform_part.h"
 #include "chrome/browser/ui/webui/ash/settings/pages/multidevice/multidevice_handler.h"
 #include "chrome/browser/ui/webui/ash/settings/pages/people/account_manager_ui_handler.h"
-#include "chrome/browser/ui/webui/certificate_provisioning_ui_handler.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/grit/browser_resources.h"
 #include "chromeos/ash/components/account_manager/account_manager_factory.h"
@@ -183,12 +182,6 @@
 #include "chrome/browser/ui/webui/settings/system_handler.h"
 #include "components/language/core/common/language_experiments.h"
 #endif  // BUILDFLAG(IS_CHROMEOS)
-
-#if BUILDFLAG(USE_NSS_CERTS)
-#include "chrome/browser/ui/webui/certificates_handler.h"
-#elif BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
-#include "chrome/browser/ui/webui/settings/native_certificates_handler.h"
-#endif  // BUILDFLAG(USE_NSS_CERTS)
 
 #if BUILDFLAG(IS_MAC)
 #include "chrome/browser/ui/webui/settings/mac_system_settings_handler.h"
@@ -232,24 +225,7 @@ SettingsUI::SettingsUI(content::WebUI* web_ui)
 
   AddSettingsPageUIHandler(std::make_unique<AppearanceHandler>(web_ui));
 
-#if BUILDFLAG(USE_NSS_CERTS)
-  AddSettingsPageUIHandler(
-      std::make_unique<certificate_manager::CertificatesHandler>());
-#elif BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
-  AddSettingsPageUIHandler(std::make_unique<NativeCertificatesHandler>());
-#endif  // BUILDFLAG(USE_NSS_CERTS)
-
-#if BUILDFLAG(CHROME_ROOT_STORE_CERT_MANAGEMENT_UI)
-  // Chrome Certificate Management UI V2.
-  html_source->AddBoolean(
-      "enableCertManagementUIV2",
-      base::FeatureList::IsEnabled(features::kEnableCertManagementUIV2));
-#endif  // BUILDFLAG(CHROME_ROOT_STORE_CERT_MANAGEMENT_UI)
-
 #if BUILDFLAG(IS_CHROMEOS)
-  AddSettingsPageUIHandler(
-      chromeos::cert_provisioning::CertificateProvisioningUiHandler::
-          CreateForProfile(profile));
   AddSettingsPageUIHandler(std::make_unique<LanguagesHandler>(profile));
 #endif  // BUILDFLAG(IS_CHROMEOS)
   html_source->AddBoolean("axTreeFixingEnabled", base::FeatureList::IsEnabled(
@@ -399,6 +375,10 @@ SettingsUI::SettingsUI(content::WebUI* web_ui)
   const bool compose_visible = false;
 #endif  // BUILDFLAG(ENABLE_COMPOSE)
   html_source->AddBoolean(
+      "enableBundledSecuritySettings",
+      base::FeatureList::IsEnabled(safe_browsing::kBundledSecuritySettings));
+
+  html_source->AddBoolean(
       "enableComposeProactiveNudge",
       compose_enabled && base::FeatureList::IsEnabled(
                              compose::features::kEnableComposeProactiveNudge));
@@ -531,6 +511,10 @@ SettingsUI::SettingsUI(content::WebUI* web_ui)
   html_source->AddBoolean("isFingerprintingProtectionUxEnabled", fpp_ux);
   html_source->AddBoolean("enableIncognitoTrackingProtections",
                           ipp_ux || fpp_ux);
+  html_source->AddBoolean(
+      "isIpProtectionDisabledForEnterprise",
+      TrackingProtectionSettingsFactory::GetForProfile(profile)
+          ->IsIpProtectionDisabledForEnterprise());
 
   // Performance
   AddSettingsPageUIHandler(std::make_unique<PerformanceHandler>());
@@ -578,7 +562,7 @@ SettingsUI::SettingsUI(content::WebUI* web_ui)
       base::FeatureList::IsEnabled(
           network::features::kLocalNetworkAccessChecks) &&
           !network::features::kLocalNetworkAccessChecksWarn.Get());
-
+#if 0 //nwjs
   // AI
   bool show_glic_section = false;
 
@@ -604,121 +588,75 @@ SettingsUI::SettingsUI(content::WebUI* web_ui)
   }
 #endif
 
-  const bool ai_settings_refresh_enabled =
-      optimization_guide::features::IsAiSettingsPageRefreshEnabled();
+  const bool use_is_setting_visible = base::FeatureList::IsEnabled(
+      optimization_guide::features::kAiSettingsPageEnterpriseDisabledUi);
 
-  if (ai_settings_refresh_enabled) {
-#if 0
-    const bool use_is_setting_visible = base::FeatureList::IsEnabled(
-        optimization_guide::features::kAiSettingsPageEnterpriseDisabledUi);
+  const auto& autofill_client =
+      *autofill::ContentAutofillClient::FromWebContents(
+          web_ui->GetWebContents());
 
-    const auto& autofill_client =
-        *autofill::ContentAutofillClient::FromWebContents(
-            web_ui->GetWebContents());
+  std::pair<const std::string_view, bool> optimization_guide_features[] = {
+      {"showTabOrganizationControl",
+       use_is_setting_visible
+           ? TabOrganizationUtils::GetInstance()->IsSettingVisible(profile)
+           : TabOrganizationUtils::GetInstance()->IsEnabled(profile)},
+      {"showComposeControl",
+       use_is_setting_visible ? compose_visible : compose_enabled},
+      {"showHistorySearchControl",
+       history_embeddings::IsHistoryEmbeddingsSettingVisible(profile)},
+      {"showCompareControl",
+       use_is_setting_visible ? commerce::IsProductSpecificationsSettingVisible(
+                                    shopping_service->GetAccountChecker())
+                              : commerce::CanFetchProductSpecificationsData(
+                                    shopping_service->GetAccountChecker())},
+      {"showPasswordChangeControl",
+       // TODO(crbug.com/391131625): Update accordingly to enterprise
+       // requirements.
+       PasswordChangeServiceFactory::GetForProfile(profile) &&
+           PasswordChangeServiceFactory::GetForProfile(profile)
+               ->IsPasswordChangeAvailable()},
+      // The code checks only once, when setting is loaded, whether the
+      // Autofill Ai section should be shown.
+      // The code cannot dynamically check whether the Autofill Ai section
+      // should be shown, because otherwise the user could reach weird states,
+      // such as navigating to the Ai Page when the Ai Page has 0 entries.
+      {"showAutofillAiControl",
+       autofill::MayPerformAutofillAiAction(
+           autofill_client,
+           autofill::AutofillAiAction::kListEntityInstancesInSettings)},
+  };
 
-    std::pair<const std::string_view, bool> optimization_guide_features[] = {
-        {"showTabOrganizationControl",
-         use_is_setting_visible
-             ? TabOrganizationUtils::GetInstance()->IsSettingVisible(profile)
-             : TabOrganizationUtils::GetInstance()->IsEnabled(profile)},
-        {"showComposeControl",
-         use_is_setting_visible ? compose_visible : compose_enabled},
-        {"showHistorySearchControl",
-         history_embeddings::IsHistoryEmbeddingsSettingVisible(profile)},
-        {"showCompareControl",
-         use_is_setting_visible
-             ? commerce::IsProductSpecificationsSettingVisible(
-                   shopping_service->GetAccountChecker())
-             : commerce::CanFetchProductSpecificationsData(
-                   shopping_service->GetAccountChecker())},
-        {"showPasswordChangeControl",
-         // TODO(crbug.com/391131625): Update accordingly to enterprise
-         // requirements.
-         PasswordChangeServiceFactory::GetForProfile(profile) &&
-             PasswordChangeServiceFactory::GetForProfile(profile)
-                 ->IsPasswordChangeAvailable()},
-        // The code checks only once, when setting is loaded, whether the
-        // Autofill Ai section should be shown.
-        // The code cannot dynamically check whether the Autofill Ai section
-        // should be shown, because otherwise the user could reach weird states,
-        // such as navigating to the Ai Page when the Ai Page has 0 entries.
-        {"showAutofillAiControl",
-         autofill::MayPerformAutofillAiAction(
-             autofill_client, autofill::AutofillAiAction::kOptIn) ||
-             autofill::MayPerformAutofillAiAction(
-                 autofill_client,
-                 autofill::AutofillAiAction::kListEntityInstancesInSettings)},
-    };
+  const bool show_ai_settings_for_testing = base::FeatureList::IsEnabled(
+      optimization_guide::features::kAiSettingsPageForceAvailable);
 
-    const bool show_ai_settings_for_testing =
-        optimization_guide::features::kShowAiSettingsForTesting.Get();
-    bool show_ai_features_section = show_ai_settings_for_testing;
-    for (auto [name, visible] : optimization_guide_features) {
-      html_source->AddBoolean(name, visible || show_ai_settings_for_testing);
-      show_ai_features_section |= visible;
-    }
-
-    // "showAdvancedFeaturesMainControl", despite the name, controls whether the
-    // AI subpage is shown. Within the AI subpage are separate sections for Glic
-    // and for all other AI features, the visibility of these are separately
-    // controlled but we want to show the subpage if any of the AI features or
-    // Glic are enabled.
-    // TODO(crbug.com/363968675): Rename this to be clearer.
-    html_source->AddBoolean("showAdvancedFeaturesMainControl",
-                            show_glic_section || show_ai_features_section);
-    html_source->AddBoolean("showAiPageAiFeatureSection",
-                            show_ai_features_section);
-#endif
-  } else {
-    std::pair<UserVisibleFeatureKey, const std::string_view>
-        optimization_guide_features[] = {
-            {UserVisibleFeatureKey::kCompose, "showComposeControl"},
-            {UserVisibleFeatureKey::kTabOrganization,
-             "showTabOrganizationControl"},
-            {UserVisibleFeatureKey::kHistorySearch, "showHistorySearchControl"},
-        };
-    bool is_any_ai_feature_enabled = false;
-
-    auto* optimization_guide_service =
-        OptimizationGuideKeyedServiceFactory::GetForProfile(profile);
-    for (auto [key, name] : optimization_guide_features) {
-      const bool visible = optimization_guide_service &&
-                           optimization_guide_service->IsSettingVisible(key);
-      html_source->AddBoolean(name, visible);
-
-      // The main toggle is visible only if at least one of the sub toggles is
-      // visible.
-      is_any_ai_feature_enabled |= visible;
-    }
-
-    html_source->AddBoolean("showAdvancedFeaturesMainControl",
-                            is_any_ai_feature_enabled || show_glic_section);
-    html_source->AddBoolean("showAiPageAiFeatureSection",
-                            is_any_ai_feature_enabled);
-    // Compare is only shown when Synpase ("AiSettingsPageRefresh") is enabled.
-    html_source->AddBoolean("showCompareControl", false);
-    // Password change is only shown when Synpase ("AiSettingsPageRefresh") is
-    // enabled.
-    html_source->AddBoolean("showPasswordChangeControl", false);
+  // Show the AI features section in the AI page if any of the AI features are
+  // enabled.
+  bool show_ai_features_section = show_ai_settings_for_testing;
+  for (auto [name, visible] : optimization_guide_features) {
+    html_source->AddBoolean(name, visible || show_ai_settings_for_testing);
+    show_ai_features_section |= visible;
   }
 
-  html_source->AddBoolean("enableAiSettingsPageRefresh",
-                          ai_settings_refresh_enabled);
+  // Within the AI subpage are separate sections for Glic and for all other AI
+  // features, the visibility of these are separately controlled but we want to
+  // show the subpage if any of the AI features or Glic are enabled.
+  html_source->AddBoolean("showAiPage",
+                          show_glic_section || show_ai_features_section);
+  html_source->AddBoolean("showAiPageAiFeatureSection",
+                          show_ai_features_section);
   html_source->AddBoolean(
       "enableAiSettingsInPrivacyGuide",
       optimization_guide::features::IsPrivacyGuideAiSettingsEnabled());
-
+#endif //nwjs
   // Delete Browsing Data
   html_source->AddBoolean(
       "enableDeleteBrowsingDataRevamp",
       base::FeatureList::IsEnabled(features::kDbdRevampDesktop));
 
-#if !BUILDFLAG(IS_CHROMEOS)
-  // A11y page
   html_source->AddBoolean(
-      "enableToastRefinements",
-      base::FeatureList::IsEnabled(toast_features::kToastRefinements));
-#endif
+      "enableSupportForHomeAndWork",
+      base::FeatureList::IsEnabled(
+          autofill::features::kAutofillEnableSupportForHomeAndWork));
 
   TryShowHatsSurveyWithTimeout();
 }
@@ -874,7 +812,7 @@ void SettingsUI::UpdateShowGlicState() {
   update.Set("showGlicSettings", show_glic);
   update.Set("glicDisallowedByAdmin", enablement.DisallowedByAdmin());
   if (show_glic) {
-    update.Set("showAdvancedFeaturesMainControl", true);
+    update.Set("showAiPage", true);
   }
 
   content::WebUIDataSource::Update(

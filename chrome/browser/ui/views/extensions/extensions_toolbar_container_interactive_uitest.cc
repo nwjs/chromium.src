@@ -10,7 +10,7 @@
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/metrics/user_action_tester.h"
 #include "build/build_config.h"
-#include "chrome/browser/extensions/browsertest_util.h"
+#include "chrome/browser/extensions/blocked_action_waiter.h"
 #include "chrome/browser/extensions/chrome_test_extension_loader.h"
 #include "chrome/browser/extensions/extension_action_runner.h"
 #include "chrome/browser/extensions/extension_browsertest.h"
@@ -140,14 +140,12 @@ class ExtensionsToolbarContainerUITest : public ExtensionsToolbarUITest {
         extensions::ExtensionRegistrar::Get(browser()->profile());
     switch (method) {
       case ExtensionRemovalMethod::kDisable:
-        extension_service->DisableExtension(
-            extension_id, extensions::disable_reason::DISABLE_USER_ACTION);
+        registrar->DisableExtension(
+            extension_id, {extensions::disable_reason::DISABLE_USER_ACTION});
         break;
       case ExtensionRemovalMethod::kUninstall:
-        extensions::ExtensionRegistrar::Get(browser()->profile())
-            ->UninstallExtension(extension_id,
-                                 extensions::UNINSTALL_REASON_FOR_TESTING,
-                                 nullptr);
+        registrar->UninstallExtension(
+            extension_id, extensions::UNINSTALL_REASON_FOR_TESTING, nullptr);
         break;
       case ExtensionRemovalMethod::kBlocklist:
         extension_service->BlocklistExtensionForTest(extension_id);
@@ -465,10 +463,8 @@ IN_PROC_BROWSER_TEST_F(ExtensionsToolbarContainerUITest,
   ASSERT_TRUE(extension);
 
   // Disable the extension. Disabled extensions don't display in the toolbar.
-  extensions::ExtensionService* const extension_service =
-      extensions::ExtensionSystem::Get(profile())->extension_service();
-  extension_service->DisableExtension(
-      extension->id(), extensions::disable_reason::DISABLE_USER_ACTION);
+  extensions::ExtensionRegistrar::Get(profile())->DisableExtension(
+      extension->id(), {extensions::disable_reason::DISABLE_USER_ACTION});
 
   ExtensionsToolbarContainer* const container = GetExtensionsToolbarContainer();
   EXPECT_FALSE(container->GetActionForId(extension->id()));
@@ -784,8 +780,7 @@ IN_PROC_BROWSER_TEST_P(ExtensionsToolbarRuntimeHostPermissionsBrowserTest,
   GURL urlA = embedded_test_server()->GetURL("example.com", "/title1.html");
   {
     content::TestNavigationObserver observer(web_contents);
-    extensions::browsertest_util::BlockedActionWaiter blocked_action_waiter(
-        runner);
+    extensions::BlockedActionWaiter blocked_action_waiter(runner);
     ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), urlA));
     EXPECT_TRUE(observer.last_navigation_succeeded());
 
@@ -828,8 +823,7 @@ IN_PROC_BROWSER_TEST_P(ExtensionsToolbarRuntimeHostPermissionsBrowserTest,
   GURL urlB = embedded_test_server()->GetURL("abc.com", "/title1.html");
   {
     content::TestNavigationObserver observer(web_contents);
-    extensions::browsertest_util::BlockedActionWaiter blocked_action_waiter(
-        runner);
+    extensions::BlockedActionWaiter blocked_action_waiter(runner);
     ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), urlB));
     EXPECT_TRUE(observer.last_navigation_succeeded());
 
@@ -897,8 +891,7 @@ IN_PROC_BROWSER_TEST_P(ExtensionsToolbarRuntimeHostPermissionsBrowserTest,
       browser()->tab_strip_model()->GetActiveWebContents();
   extensions::ExtensionActionRunner* runner =
       extensions::ExtensionActionRunner::GetForWebContents(web_contents);
-  extensions::browsertest_util::BlockedActionWaiter blocked_action_waiter(
-      runner);
+  extensions::BlockedActionWaiter blocked_action_waiter(runner);
   {
     content::TestNavigationObserver observer(web_contents);
     ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), url));
@@ -1388,9 +1381,57 @@ IN_PROC_BROWSER_TEST_F(ExtensionsToolbarContainerFeatureUITest,
       container->GetViewForId(extensionB->id());
   EXPECT_TRUE(action_viewB->GetVisible());
 
+  // Install extension C and pin it.
+  scoped_refptr<const extensions::Extension> extensionC =
+      LoadTestExtension("extensions/uitest/window_open");
+  ASSERT_TRUE(extensionC);
+
+  toolbar_model->SetActionVisibility(extensionC->id(), true);
+  EXPECT_TRUE(toolbar_model->IsActionPinned(extensionC->id()));
+
+  views::test::WaitForAnimatingLayoutManager(container);
+
+  EXPECT_TRUE(container->IsActionVisibleOnToolbar(extensionC->id()));
+  ToolbarActionView* const action_viewC =
+      container->GetViewForId(extensionC->id());
+  EXPECT_TRUE(action_viewC->GetVisible());
+
+  // Verify order of visible items in container:
+  //   A | B | C | ExtensionsToolbarButton
+  std::vector<views::View*> visible_children = GetVisibleChildrenInContainer();
+  EXPECT_EQ(visible_children.size(), 4u);
+  EXPECT_TRUE(views::IsViewClass<ToolbarActionView>(visible_children[0]));
+  EXPECT_EQ(views::AsViewClass<ToolbarActionView>(visible_children[0])
+                ->view_controller()
+                ->GetActionName(),
+            base::ASCIIToUTF16(extensionA->name()));
+  EXPECT_TRUE(views::IsViewClass<ToolbarActionView>(visible_children[1]));
+  EXPECT_EQ(views::AsViewClass<ToolbarActionView>(visible_children[1])
+                ->view_controller()
+                ->GetActionName(),
+            base::ASCIIToUTF16(extensionB->name()));
+  EXPECT_TRUE(views::IsViewClass<ToolbarActionView>(visible_children[2]));
+  EXPECT_EQ(views::AsViewClass<ToolbarActionView>(visible_children[2])
+                ->view_controller()
+                ->GetActionName(),
+            base::ASCIIToUTF16(extensionC->name()));
+  EXPECT_TRUE(views::IsViewClass<ExtensionsToolbarButton>(visible_children[3]));
+
+  // Shrink the window enough to hide the first pinned extension.
+  BrowserView* browser_view = BrowserView::GetBrowserViewForBrowser(browser());
+  ASSERT_TRUE(browser_view);
+
+  gfx::Size size_to_shrink(1, 1);
+  gfx::Rect new_bounds(browser_view->GetBounds());
+  while (visible_children[2]->GetVisible() && new_bounds.width() > 0 &&
+         new_bounds.height() > 0) {
+    new_bounds.set_size(browser_view->GetBounds().size() - size_to_shrink);
+    browser_view->SetBounds(new_bounds);
+  }
+
   // Verify order of visible items in container:
   //   A | B | ExtensionsToolbarButton
-  std::vector<views::View*> visible_children = GetVisibleChildrenInContainer();
+  visible_children = GetVisibleChildrenInContainer();
   EXPECT_EQ(visible_children.size(), 3u);
   EXPECT_TRUE(views::IsViewClass<ToolbarActionView>(visible_children[0]));
   EXPECT_EQ(views::AsViewClass<ToolbarActionView>(visible_children[0])
@@ -1403,28 +1444,6 @@ IN_PROC_BROWSER_TEST_F(ExtensionsToolbarContainerFeatureUITest,
                 ->GetActionName(),
             base::ASCIIToUTF16(extensionB->name()));
   EXPECT_TRUE(views::IsViewClass<ExtensionsToolbarButton>(visible_children[2]));
-
-  // Shrink the window enough to hide the first pinned extension.
-  BrowserView* browser_view = BrowserView::GetBrowserViewForBrowser(browser());
-  ASSERT_TRUE(browser_view);
-
-  gfx::Size size_to_shrink(1, 1);
-  gfx::Rect new_bounds(browser_view->GetBounds());
-  while (visible_children[1]->GetVisible()) {
-    new_bounds.set_size(browser_view->GetBounds().size() - size_to_shrink);
-    browser_view->SetBounds(new_bounds);
-  }
-
-  // Verify order of visible items in container:
-  //   A | ExtensionsToolbarButton
-  visible_children = GetVisibleChildrenInContainer();
-  EXPECT_EQ(visible_children.size(), 2u);
-  EXPECT_TRUE(views::IsViewClass<ToolbarActionView>(visible_children[0]));
-  EXPECT_EQ(views::AsViewClass<ToolbarActionView>(visible_children[0])
-                ->view_controller()
-                ->GetActionName(),
-            base::ASCIIToUTF16(extensionA->name()));
-  EXPECT_TRUE(views::IsViewClass<ExtensionsToolbarButton>(visible_children[1]));
 }
 
 // Temporary test class to test functionality while kExtensionsMenuAccessControl

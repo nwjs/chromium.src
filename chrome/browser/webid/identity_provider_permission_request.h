@@ -23,10 +23,11 @@ class IdentityProviderPermissionRequest
       const IdentityProviderPermissionRequest&) = delete;
 
  private:
-  void PermissionDecided(ContentSetting result,
-                         bool is_one_time,
-                         bool is_final_decision);
-  void DeleteRequest();
+  void PermissionDecided(
+      ContentSetting result,
+      bool is_one_time,
+      bool is_final_decision,
+      const permissions::PermissionRequestData& request_data);
 
   base::OnceCallback<void(bool accepted)> callback_;
 };

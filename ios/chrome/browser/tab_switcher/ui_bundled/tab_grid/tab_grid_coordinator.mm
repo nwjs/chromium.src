@@ -24,6 +24,7 @@
 #import "components/strings/grit/components_strings.h"
 #import "components/supervised_user/core/browser/supervised_user_utils.h"
 #import "components/sync/service/sync_service.h"
+#import "ios/chrome/app/profile/first_run_profile_agent.h"
 #import "ios/chrome/browser/authentication/ui_bundled/history_sync/history_sync_coordinator.h"
 #import "ios/chrome/browser/authentication/ui_bundled/history_sync/history_sync_popup_coordinator.h"
 #import "ios/chrome/browser/authentication/ui_bundled/history_sync/history_sync_utils.h"
@@ -42,9 +43,12 @@
 #import "ios/chrome/browser/feature_engagement/model/tracker_factory.h"
 #import "ios/chrome/browser/find_in_page/model/find_tab_helper.h"
 #import "ios/chrome/browser/find_in_page/model/util.h"
+#import "ios/chrome/browser/first_run/ui_bundled/guided_tour/guided_tour_coordinator.h"
 #import "ios/chrome/browser/history/ui_bundled/history_coordinator.h"
 #import "ios/chrome/browser/history/ui_bundled/history_coordinator_delegate.h"
 #import "ios/chrome/browser/history/ui_bundled/public/history_presentation_delegate.h"
+#import "ios/chrome/browser/incognito_reauth/ui_bundled/features.h"
+#import "ios/chrome/browser/incognito_reauth/ui_bundled/incognito_reauth_scene_agent.h"
 #import "ios/chrome/browser/main/ui_bundled/bvc_container_view_controller.h"
 #import "ios/chrome/browser/menu/ui_bundled/tab_context_menu_delegate.h"
 #import "ios/chrome/browser/policy/model/policy_util.h"
@@ -54,7 +58,6 @@
 #import "ios/chrome/browser/recent_tabs/ui_bundled/recent_tabs_presentation_delegate.h"
 #import "ios/chrome/browser/recent_tabs/ui_bundled/recent_tabs_table_view_controller.h"
 #import "ios/chrome/browser/saved_tab_groups/model/ios_tab_group_sync_util.h"
-#import "ios/chrome/browser/saved_tab_groups/model/tab_group_service_factory.h"
 #import "ios/chrome/browser/saved_tab_groups/model/tab_group_sync_service_factory.h"
 #import "ios/chrome/browser/search_engines/model/template_url_service_factory.h"
 #import "ios/chrome/browser/sessions/model/ios_chrome_tab_restore_service_factory.h"
@@ -79,6 +82,7 @@
 #import "ios/chrome/browser/shared/public/commands/bookmarks_commands.h"
 #import "ios/chrome/browser/shared/public/commands/bring_android_tabs_commands.h"
 #import "ios/chrome/browser/shared/public/commands/browser_commands.h"
+#import "ios/chrome/browser/shared/public/commands/browser_coordinator_commands.h"
 #import "ios/chrome/browser/shared/public/commands/command_dispatcher.h"
 #import "ios/chrome/browser/shared/public/commands/open_new_tab_command.h"
 #import "ios/chrome/browser/shared/public/commands/popup_menu_commands.h"
@@ -173,6 +177,7 @@ bool FindNavigatorShouldBePresentedInBrowser(Browser* browser) {
 @interface TabGridCoordinator () <BringAndroidTabsCommands,
                                   GridCoordinatorAudience,
                                   GridMediatorDelegate,
+                                  GuidedTourCoordinatorDelegate,
                                   HistoryCoordinatorDelegate,
                                   HistoryPresentationDelegate,
                                   HistorySyncPopupCoordinatorDelegate,
@@ -286,7 +291,12 @@ bool FindNavigatorShouldBePresentedInBrowser(Browser* browser) {
 
 @end
 
-@implementation TabGridCoordinator
+@implementation TabGridCoordinator {
+  // Coordinator for the long press step of the guided tour.
+  GuidedTourCoordinator* _guidedTourCoordinator;
+  // Completion block for when the `_guidedTourCoordinator` finishes.
+  ProceduralBlock _guidedTourCompletionBlock;
+}
 // Superclass property.
 @synthesize baseViewController = _baseViewController;
 // Ivars are not auto-synthesized when accessors are overridden.
@@ -483,9 +493,27 @@ bool FindNavigatorShouldBePresentedInBrowser(Browser* browser) {
 
   BOOL toTabGroup = tabGroup != nullptr;
 
+  if (IsIOSSoftLockEnabled()) {
+    // Only check the lock state if animation is enabled and the current
+    // interface is Incognito.
+    if (animated && currentActivePage == TabGridPageIncognitoTabs) {
+      IncognitoReauthSceneAgent* incognitoReauthAgent =
+          [IncognitoReauthSceneAgent
+              agentFromScene:self.incognitoBrowser->GetSceneState()];
+      animated = !incognitoReauthAgent.isAuthenticationRequired;
+    }
+  }
+
   __weak __typeof(self) weakSelf = self;
 
   ProceduralBlock transitionCompletionBlock = ^{
+    TabGridCoordinator* strongSelf = weakSelf;
+    if (strongSelf && IsBestOfAppGuidedTourEnabled()) {
+      Browser* browser = strongSelf.regularBrowser;
+      FirstRunProfileAgent* profileAgent = [FirstRunProfileAgent
+          agentFromProfile:browser->GetSceneState().profileState];
+      [profileAgent tabGridWasPresented];
+    }
     [weakSelf transitionToGridCompleteForAndroidTabsPrompt:
                   shouldDisplayBringAndroidTabsPrompt];
   };
@@ -830,9 +858,9 @@ bool FindNavigatorShouldBePresentedInBrowser(Browser* browser) {
 
   std::unique_ptr<IOSCollaborationControllerDelegate> delegate =
       std::make_unique<IOSCollaborationControllerDelegate>(
-          browser, self.baseViewController,
-          TabGroupServiceFactory::GetForProfile(browser->GetProfile()),
-          FlowType::kShareOrManage);
+          browser, CreateControllerDelegateParamsFromProfile(
+                       browser->GetProfile(), self.baseViewController,
+                       FlowType::kShareOrManage));
   collaborationService->StartShareOrManageFlow(
       std::move(delegate), tabGroup->tab_group_id(), entryPoint);
 }
@@ -1076,6 +1104,11 @@ bool FindNavigatorShouldBePresentedInBrowser(Browser* browser) {
   self.incognitoTabsMediator.gridConsumer = self.baseViewController;
   self.regularTabsMediator.gridConsumer = self.baseViewController;
   self.remoteTabsMediator.gridConsumer = self.baseViewController;
+
+  // Set the `baseViewController` active and current page.
+  TabGridPage page = profile->IsOffTheRecord() ? TabGridPageIncognitoTabs
+                                               : TabGridPageRegularTabs;
+  [_mediator setActivePage:page];
 
   self.incognitoTabsMediator.tabGridIdleStatusHandler = self.baseViewController;
   self.regularTabsMediator.tabGridIdleStatusHandler = self.baseViewController;
@@ -1355,6 +1388,26 @@ bool FindNavigatorShouldBePresentedInBrowser(Browser* browser) {
               kIOSSwipeRightForIncognitoIPHDismissButtonTapped);
     }
   }
+}
+
+- (void)closeCurrentTab {
+  Browser* browser = nil;
+  switch (self.baseViewController.activePage) {
+    case TabGridPageIncognitoTabs:
+      browser = self.incognitoBrowser;
+      break;
+    case TabGridPageRegularTabs:
+      browser = self.regularBrowser;
+      break;
+    case TabGridPageRemoteTabs:
+    case TabGridPageTabGroups:
+      NOTREACHED();
+  }
+
+  id<BrowserCoordinatorCommands> browserCoordinatorCommandsHandler =
+      HandlerForProtocol(browser->GetCommandDispatcher(),
+                         BrowserCoordinatorCommands);
+  [browserCoordinatorCommandsHandler closeCurrentTab];
 }
 
 #pragma mark - InactiveTabsCoordinatorDelegate
@@ -1801,6 +1854,28 @@ bool FindNavigatorShouldBePresentedInBrowser(Browser* browser) {
   [self showActiveTabInPage:targetPage focusOmnibox:NO];
 }
 
+- (void)showGuidedTourLongPressStepWithDismissalCompletion:
+    (ProceduralBlock)completion {
+  _guidedTourCoordinator =
+      [[GuidedTourCoordinator alloc] initWithStep:GuidedTourStepTabGridLongPress
+                               baseViewController:self.baseViewController
+                                          browser:self.regularBrowser
+                                         delegate:self];
+  [_guidedTourCoordinator start];
+  _guidedTourCompletionBlock = completion;
+}
+
+#pragma mark - GuidedTourCoordinatorDelegate
+
+- (void)nextTappedForStep:(GuidedTourStep)step {
+}
+
+- (void)stepCompleted:(GuidedTourStep)step {
+  [_guidedTourCoordinator stop];
+  _guidedTourCoordinator = nil;
+  _guidedTourCompletionBlock();
+}
+
 #pragma mark - SnackbarCoordinatorDelegate
 
 - (CGFloat)snackbarCoordinatorBottomOffsetForCurrentlyPresentedView:
@@ -1857,7 +1932,7 @@ bool FindNavigatorShouldBePresentedInBrowser(Browser* browser) {
 #pragma mark - HistorySyncPopupCoordinatorDelegate
 
 - (void)historySyncPopupCoordinator:(HistorySyncPopupCoordinator*)coordinator
-                didFinishWithResult:(SigninCoordinatorResult)result {
+                didFinishWithResult:(HistorySyncResult)result {
   [self stopHistorySyncPopupCoordinator];
   [self.remoteTabsMediator refreshSessionsView];
 }

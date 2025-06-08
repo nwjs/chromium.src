@@ -535,10 +535,12 @@ InstallerResult RunApplicationInstaller(
     int exit_code = -1;
     base::TerminationStatus final_status =
         base::TerminationStatus::TERMINATION_STATUS_MAX_ENUM;
-    const bool success = base::GetAppOutputWithExitCodeAndTimeout(
+    std::ignore = base::GetAppOutputWithExitCodeAndTimeout(
         cmdline, true, nullptr, &exit_code, timeout - timer.Elapsed(), options,
         [&](std::string_view partial_output) {
-          VLOG(1) << "Installer output: " << partial_output;
+          if (!partial_output.empty()) {
+            VLOG(1) << "Installer output: " << partial_output;
+          }
 
           const int progress =
               GetInstallerProgress(app_info.scope, app_info.app_id);
@@ -547,15 +549,15 @@ InstallerResult RunApplicationInstaller(
         },
         &final_status);
 
-    if (!success) {
-      if (final_status ==
-          base::TerminationStatus::TERMINATION_STATUS_LAUNCH_FAILED) {
-        return InstallerResult(GOOPDATEINSTALL_E_INSTALLER_FAILED_START,
-                               HRESULTFromLastError());
-      }
-
-      VLOG(1) << "Installer timed out or abnormally terminated, final_status: "
-              << final_status;
+    if (final_status ==
+        base::TerminationStatus::TERMINATION_STATUS_LAUNCH_FAILED) {
+      VLOG(1) << "Installer failed to launch";
+      return InstallerResult(GOOPDATEINSTALL_E_INSTALLER_FAILED_START,
+                             HRESULTFromLastError());
+    }
+    if (final_status ==
+        base::TerminationStatus::TERMINATION_STATUS_STILL_RUNNING) {
+      VLOG(1) << "Installer timed out";
       return InstallerResult(GOOPDATEINSTALL_E_INSTALLER_TIMED_OUT);
     }
 

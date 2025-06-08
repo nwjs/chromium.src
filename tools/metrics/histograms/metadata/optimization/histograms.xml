@@ -71,6 +71,7 @@ chromium-metrics-reviews@google.com.
       summary="Password Change Submission"/>
   <variant name="PermissionsAi" summary="Permissions AI"/>
   <variant name="PromptApi" summary="Prompt API"/>
+  <variant name="ProofreaderApi" summary="Proofreader API"/>
   <variant name="ScamDetection" summary="Scam Detection"/>
   <variant name="Summarize" summary="Summarize"/>
   <variant name="TabOrganization" summary="Tab Organization"/>
@@ -110,6 +111,8 @@ chromium-metrics-reviews@google.com.
       summary="Model Execution Feature: Permissions AI"/>
   <variant name="ModelExecutionFeaturePromptAPI"
       summary="Model Execution Feature: Prompt API"/>
+  <variant name="ModelExecutionFeatureProofreaderApi"
+      summary="Model Execution Feature: Proofreader API"/>
   <variant name="ModelExecutionFeatureScamDetection"
       summary="Model Execution Feature: Scam Detection"/>
   <variant name="ModelExecutionFeatureSummarize"
@@ -318,6 +321,11 @@ chromium-metrics-reviews@google.com.
       summary="Returns suitability of this page for compose."/>
   <variant name="CompressPublicImages" summary="Compresses public images"/>
   <variant name="DeferAllScript" summary="Defers execution of script"/>
+  <variant name="DigitalCredentialsLowFriction"
+      summary="This optimization provides information about whether a URL is
+               a known low risk origin for which the digital credential
+               interstitial should not be shown regardless of the credential
+               being requested."/>
   <variant name="EwalletMerchantAllowlist"
       summary="This optimization provides information about merchant origins
                for which eWallet push payments payments should be triggered."/>
@@ -433,12 +441,6 @@ chromium-metrics-reviews@google.com.
   <variant name="ShoppingPageTypes"
       summary="This optimization provides information about shopping page
                types of this page."/>
-  <variant name="SossHostingServiceProviders"
-      summary="This optimization determines whether a host corresponds to a
-               commonly abused hosting servicer provider."/>
-  <variant name="SossTlds"
-      summary="This optimization determines whether a the TLD of the host is
-               commonly abused."/>
   <variant name="TextClassifierEntityDetection"
       summary="Provides information about whether about whether a page is
                eligible for text classifier entity detection - iOS only."/>
@@ -749,7 +751,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="OptimizationGuide.HintsFetcher.GetHintsRequest.Status"
-    enum="HttpResponseCode" expires_after="2025-08-24">
+    enum="HttpResponseCode" expires_after="2025-10-26">
   <owner>mcrouse@chromium.org</owner>
   <owner>sophiechang@chromium.org</owner>
   <summary>
@@ -770,7 +772,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="OptimizationGuide.HintsFetcher.GetHintsRequest.UrlCount.{RequestContext}"
-    units="total url count" expires_after="2025-09-14">
+    units="total url count" expires_after="2025-11-16">
   <owner>mcrouse@chromium.org</owner>
   <owner>sophiechang@chromium.org</owner>
   <summary>
@@ -831,7 +833,7 @@ chromium-metrics-reviews@google.com.
 <histogram
     name="OptimizationGuide.HintsManager.RaceNavigationFetchAttemptStatus"
     enum="OptimizationGuideRaceNavigationFetchAttemptStatus"
-    expires_after="2025-08-24">
+    expires_after="2025-10-26">
   <owner>mcrouse@chromium.org</owner>
   <owner>sophiechang@chromium.org</owner>
   <summary>
@@ -888,7 +890,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="OptimizationGuide.ModelExecution.ContextStartToExecutionTime.{ModelExecutionFeature}"
-    units="ms" expires_after="2025-08-24">
+    units="ms" expires_after="2025-10-26">
   <owner>cduvall@chromium.org</owner>
   <owner>sophiechang@chromium.org</owner>
   <summary>
@@ -937,7 +939,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="OptimizationGuide.ModelExecution.OnDeviceAdaptationModelAvailability.{ModelExecutionFeature}"
-    enum="OnDeviceModelAdaptationAvailability" expires_after="2025-08-24">
+    enum="OnDeviceModelAdaptationAvailability" expires_after="2025-10-26">
   <owner>rajendrant@chromium.org</owner>
   <owner>sophiechang@chromium.org</owner>
   <summary>
@@ -958,6 +960,26 @@ chromium-metrics-reviews@google.com.
     Session::AddContext() is called. context.
   </summary>
   <token key="ModelExecutionFeature" variants="ModelExecutionFeature"/>
+</histogram>
+
+<histogram name="OptimizationGuide.ModelExecution.OnDeviceBaseModelLoadResult"
+    enum="LoadPlatformModelStatus" expires_after="2025-10-12">
+  <owner>rajendrant@chromium.org</owner>
+  <owner>sophiechang@chromium.org</owner>
+  <summary>
+    Records the result of loading the base model, whether it succeeded or failed
+    with various reasons.
+  </summary>
+</histogram>
+
+<histogram name="OptimizationGuide.ModelExecution.OnDeviceBaseModelLoadVersion"
+    enum="OnDeviceBaseModelVersion" expires_after="2025-10-12">
+  <owner>rajendrant@chromium.org</owner>
+  <owner>sophiechang@chromium.org</owner>
+  <summary>
+    Records the hash code of base model version that is loaded. Recorded on
+    every load of the base model.
+  </summary>
 </histogram>
 
 <histogram
@@ -999,7 +1021,7 @@ chromium-metrics-reviews@google.com.
 <histogram
     name="OptimizationGuide.ModelExecution.OnDeviceExecuteModelResult.{ModelExecutionFeature}"
     enum="OptimizationGuideOnDeviceExecuteModelResult"
-    expires_after="2025-08-24">
+    expires_after="2025-10-26">
   <owner>sky@chromium.org</owner>
   <owner>sophiechang@chromium.org</owner>
   <summary>
@@ -1011,7 +1033,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="OptimizationGuide.ModelExecution.OnDeviceFirstResponseTime.{ModelExecutionFeature}"
-    units="ms" expires_after="2025-08-31">
+    units="ms" expires_after="2025-11-02">
   <owner>cduvall@chromium.org</owner>
   <owner>sophiechang@chromium.org</owner>
   <summary>
@@ -1022,10 +1044,21 @@ chromium-metrics-reviews@google.com.
   <token key="ModelExecutionFeature" variants="ModelExecutionFeature"/>
 </histogram>
 
+<histogram name="OptimizationGuide.ModelExecution.OnDeviceModelCrashCount"
+    enum="OnDeviceModelValidationResult" expires_after="2026-05-19">
+  <owner>cduvall@chromium.org</owner>
+  <owner>sophiechang@chromium.org</owner>
+  <summary>
+    Records the number of consecutive crashes of the on-device model service
+    without a successful response. Recorded each time the on-device model
+    service crashes.
+  </summary>
+</histogram>
+
 <histogram
     name="OptimizationGuide.ModelExecution.OnDeviceModelEligibilityReason.{ModelExecutionFeature}"
     enum="OptimizationGuideOnDeviceModelEligibilityReason"
-    expires_after="2025-08-24">
+    expires_after="2025-10-26">
   <owner>sophiechang@chromium.org</owner>
   <owner>cduvall@chromium.org</owner>
   <summary>
@@ -1037,7 +1070,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="OptimizationGuide.ModelExecution.OnDeviceModelInstallCriteria.AtRegistration.DiskSpaceWhenNotEnoughAvailable"
-    units="GB" expires_after="2025-08-24">
+    units="GB" expires_after="2025-10-26">
   <owner>sophiechang@chromium.org</owner>
   <owner>holte@chromium.org</owner>
   <summary>
@@ -1050,7 +1083,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="OptimizationGuide.ModelExecution.OnDeviceModelInstallCriteria.{Event}.{Criteria}"
-    enum="Boolean" expires_after="2025-08-24">
+    enum="Boolean" expires_after="2025-10-26">
   <owner>harringtond@chromium.org</owner>
   <owner>sophiechang@chromium.org</owner>
   <summary>
@@ -1083,7 +1116,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="OptimizationGuide.ModelExecution.OnDeviceModelInstalledAtRegistrationTime"
-    enum="Boolean" expires_after="2025-08-24">
+    enum="Boolean" expires_after="2025-10-26">
   <owner>harringtond@chromium.org</owner>
   <owner>sophiechang@chromium.org</owner>
   <summary>
@@ -1105,7 +1138,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="OptimizationGuide.ModelExecution.OnDeviceModelStatusAtUseTime"
-    enum="OptimizationGuideOnDeviceModelStatus" expires_after="2025-09-07">
+    enum="OptimizationGuideOnDeviceModelStatus" expires_after="2025-11-09">
   <owner>harringtond@chromium.org</owner>
   <owner>sophiechang@chromium.org</owner>
   <summary>
@@ -1131,7 +1164,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="OptimizationGuide.ModelExecution.OnDeviceModelValidationResult"
-    enum="OnDeviceModelValidationResult" expires_after="2025-08-31">
+    enum="OnDeviceModelValidationResult" expires_after="2025-11-09">
   <owner>cduvall@chromium.org</owner>
   <owner>sophiechang@chromium.org</owner>
   <summary>
@@ -1289,7 +1322,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="OptimizationGuide.ModelExecutionFetcher.RequestStatus.{ModelExecutionFeature}"
-    enum="OptimizationGuideFetcherRequestStatus" expires_after="2025-08-24">
+    enum="OptimizationGuideFetcherRequestStatus" expires_after="2025-10-26">
   <owner>sophiechang@chromium.org</owner>
   <owner>rajendrant@chromium.org</owner>
   <summary>
@@ -1353,7 +1386,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="OptimizationGuide.ModelExecutor.ExecutionThreadTime.{OptimizationTarget}"
-    units="ms" expires_after="2025-09-07">
+    units="ms" expires_after="2025-11-09">
   <owner>sophiechang@chromium.org</owner>
   <owner>chrome-intelligence-core@google.com</owner>
   <summary>
@@ -1369,7 +1402,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="OptimizationGuide.ModelExecutor.ExecutionThreadTimeMicroseconds.{OptimizationTarget}"
-    units="microseconds" expires_after="2025-08-24">
+    units="microseconds" expires_after="2025-10-26">
   <owner>sophiechang@chromium.org</owner>
   <owner>chrome-intelligence-core@google.com</owner>
   <summary>
@@ -1413,7 +1446,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="OptimizationGuide.ModelExecutor.TaskExecutionLatency.{OptimizationTarget}"
-    units="ms" expires_after="2025-09-07">
+    units="ms" expires_after="2025-11-09">
   <owner>mcrouse@chromium.org</owner>
   <owner>chrome-intelligence-core@google.com</owner>
   <summary>
@@ -1431,7 +1464,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="OptimizationGuide.ModelExecutor.TaskSchedulingLatency.{OptimizationTarget}"
-    units="ms" expires_after="2025-08-24">
+    units="ms" expires_after="2025-10-26">
   <owner>robertogden@chromium.org</owner>
   <owner>chrome-intelligence-core@google.com</owner>
   <summary>
@@ -1532,7 +1565,7 @@ chromium-metrics-reviews@google.com.
 <histogram
     name="OptimizationGuide.ModelQualityLogsUploaderService.UploadStatus.{LogAiDataRequestFeature}"
     enum="OptimizationGuideModelQualityLogsUploadStatus"
-    expires_after="2025-08-24">
+    expires_after="2025-10-26">
   <owner>sophiechang@chromium.org</owner>
   <owner>sreejakshetty@chromium.org</owner>
   <summary>
@@ -1807,7 +1840,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="OptimizationGuide.PredictionManager.IsDownloadUrlValid.{OptimizationTarget}"
-    enum="BooleanValid" expires_after="2025-09-07">
+    enum="BooleanValid" expires_after="2025-11-09">
   <owner>sophiechang@chromium.org</owner>
   <owner>mcrouse@chromium.org</owner>
   <summary>
@@ -1876,7 +1909,7 @@ chromium-metrics-reviews@google.com.
 <histogram
     name="OptimizationGuide.PredictionModelDownloadManager.DownloadStatus"
     enum="OptimizationGuidePredictionModelDownloadStatus"
-    expires_after="2025-08-24">
+    expires_after="2025-10-26">
   <owner>sophiechang@chromium.org</owner>
   <owner>mcrouse@chromium.org</owner>
   <summary>
@@ -1952,7 +1985,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="OptimizationGuide.PredictionModelFetcher.GetModelsResponse.NetErrorCode"
-    enum="NetErrorCodes" expires_after="2025-09-07">
+    enum="NetErrorCodes" expires_after="2025-11-09">
   <owner>mcrouse@chromium.org</owner>
   <owner>sophiechang@chromium.org</owner>
   <summary>
@@ -1966,7 +1999,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="OptimizationGuide.PredictionModelFetcher.GetModelsResponse.NetErrorCode.{OptimizationTarget}"
-    enum="NetErrorCodes" expires_after="2025-08-24">
+    enum="NetErrorCodes" expires_after="2025-10-26">
   <owner>mcrouse@chromium.org</owner>
   <owner>sophiechang@chromium.org</owner>
   <summary>
@@ -2109,7 +2142,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="OptimizationGuide.ProcessHintsResult"
-    enum="OptimizationGuideProcessHintsResult" expires_after="2025-09-07">
+    enum="OptimizationGuideProcessHintsResult" expires_after="2025-11-09">
   <owner>mcrouse@chromium.org</owner>
   <owner>sophiechang@chromium.org</owner>
   <summary>
@@ -2173,7 +2206,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="OptimizationGuide.PushNotifications.ReceivedNotificationType"
-    enum="OptimizationType" expires_after="2025-08-24">
+    enum="OptimizationType" expires_after="2025-10-26">
   <owner>robertogden@chromium.org</owner>
   <owner>chrome-intelligence-core@google.com</owner>
   <summary>
@@ -2184,7 +2217,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="OptimizationGuide.RemoteFetchingEnabled" enum="BooleanEnabled"
-    expires_after="2025-08-24">
+    expires_after="2025-10-26">
   <owner>sophiechang@chromium.org</owner>
   <owner>mcrouse@chromium.org</owner>
   <summary>
@@ -2197,9 +2230,9 @@ chromium-metrics-reviews@google.com.
 
 <histogram name="OptimizationGuide.TextSafetyChecker.InferenceResult"
     enum="OptimizationGuideTextSafetyInferenceResult"
-    expires_after="2025-08-24">
-  <owner>rockot@google.com</owner>
-  <owner>sophiechange@chromium.org</owner>
+    expires_after="2025-10-26">
+  <owner>holte@google.com</owner>
+  <owner>sophiechang@chromium.org</owner>
   <summary>
     The result of a text safety inference request. Recorded once for each such
     request.
@@ -2208,8 +2241,8 @@ chromium-metrics-reviews@google.com.
 
 <histogram name="OptimizationGuide.TextSafetyChecker.InitTime" units="ms"
     expires_after="2025-10-19">
-  <owner>rockot@google.com</owner>
-  <owner>sophiechange@chromium.org</owner>
+  <owner>holte@google.com</owner>
+  <owner>sophiechang@chromium.org</owner>
   <summary>
     The duration of the text safety checker's initialization time. Recorded once
     for each new model execution session.
@@ -2218,8 +2251,8 @@ chromium-metrics-reviews@google.com.
 
 <histogram name="OptimizationGuide.TextSafetyChecker.ModelCreationTime"
     units="ms" expires_after="2025-10-19">
-  <owner>rockot@google.com</owner>
-  <owner>sophiechange@chromium.org</owner>
+  <owner>holte@google.com</owner>
+  <owner>sophiechang@chromium.org</owner>
   <summary>
     The duration elapsed during text safety model creation. Recorded once for
     each text safety inference request.
@@ -2228,8 +2261,8 @@ chromium-metrics-reviews@google.com.
 
 <histogram name="OptimizationGuide.TextSafetyChecker.ModelExecutionTime"
     units="ms" expires_after="M145">
-  <owner>rockot@google.com</owner>
-  <owner>sophiechange@chromium.org</owner>
+  <owner>holte@google.com</owner>
+  <owner>sophiechang@chromium.org</owner>
   <summary>
     The duration of text safety model execution. Recorded once for each text
     safety inference request.
@@ -2237,9 +2270,9 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="OptimizationGuide.TextSafetyChecker.TokensPerSecond"
-    units="counts" expires_after="2025-08-24">
-  <owner>rockot@google.com</owner>
-  <owner>sophiechange@chromium.org</owner>
+    units="counts" expires_after="2025-10-26">
+  <owner>holte@google.com</owner>
+  <owner>sophiechang@chromium.org</owner>
   <summary>
     An estimate of the text safety model's inference throughput in tokens per
     second. Recorded once for each text safety inference request.

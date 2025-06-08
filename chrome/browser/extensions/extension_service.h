@@ -92,7 +92,7 @@ class ExtensionServiceInterface {
 
   // Attempts finishing installation of an update for an extension with the
   // specified id, when installation of that extension was previously delayed.
-  // |install_immediately| - Whether the extension should be installed if it's
+  // `install_immediately` - Whether the extension should be installed if it's
   //     currently in use.
   // Returns whether the extension installation was finished.
   virtual bool FinishDelayedInstallationIfReady(const std::string& extension_id,
@@ -128,7 +128,7 @@ class ExtensionService : public ExtensionServiceInterface,
                          public ExtensionHostRegistry::Observer,
                          public ProfileManagerObserver {
  public:
-  // Constructor stores pointers to |profile| and |extension_prefs| but
+  // Constructor stores pointers to `profile` and `extension_prefs` but
   // ownership remains at caller.
   ExtensionService(Profile* profile,
                    const base::CommandLine* command_line,
@@ -166,10 +166,6 @@ class ExtensionService : public ExtensionServiceInterface,
   // KeyedService two-phase shutdown.
   void Shutdown();
 
-  // Enables the extension. If the extension is already enabled, does
-  // nothing.
-  void EnableExtension(const std::string& extension_id);
-
   // Performs action based on Omaha attributes for the extension.
   void PerformActionBasedOnOmahaAttributes(const std::string& extension_id,
                                            const base::Value::Dict& attributes);
@@ -179,17 +175,9 @@ class ExtensionService : public ExtensionServiceInterface,
   void PerformActionBasedOnExtensionTelemetryServiceVerdicts(
       const Blocklist::BlocklistStateMap& blocklist_state_map);
 
-  // Disables the extension. If the extension is already disabled, just adds
-  // the incoming disable reason(s). If the extension cannot be disabled (due to
-  // policy), does nothing.
-  void DisableExtension(const ExtensionId& extension_id,
-                        disable_reason::DisableReason disable_reason);
-  void DisableExtension(const ExtensionId& extension_id,
-                        const DisableReasonSet& disable_reasons);
-
   // Disable non-default and non-managed extensions with ids not in
-  // |except_ids|. Default extensions are those from the Web Store with
-  // |was_installed_by_default| flag.
+  // `except_ids`. Default extensions are those from the Web Store with
+  // `was_installed_by_default` flag.
   void DisableUserExtensionsExcept(const std::vector<std::string>& except_ids);
 
   // Returns whether a user is able to disable a given extension or if that is

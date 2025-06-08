@@ -34,6 +34,7 @@ chromium-metrics-reviews@google.com.
 <enum name="CertificatePrivateKeySource">
   <int value="0" label="Unexportable"/>
   <int value="1" label="Software"/>
+  <int value="2" label="OsSoftware"/>
 </enum>
 
 <enum name="CertificateProvisioningError">
@@ -2227,7 +2228,13 @@ chromium-metrics-reviews@google.com.
   <int value="1357" label="BuiltInAIAPIsEnabled"/>
   <int value="1358" label="TabGroupSharingSettings"/>
   <int value="1359" label="NTPFootermanagementNoticeEnabled"/>
-  <int value="1360" label="NTPFooterThemeAttributionEnabled"/>
+  <int value="1360" label="NTPFooterExtensionAttributionEnabled"/>
+  <int value="1361" label="ClearWindowNameForNewBrowsingContextGroup"/>
+  <int value="1362" label="PasswordManagerBlocklist"/>
+  <int value="1363" label="TLS13EarlyDataEnabled"/>
+  <int value="1364" label="LocalNetworkAccessRestrictionsEnabled"/>
+  <int value="1365" label="PrefetchWithServiceWorkerEnabled"/>
+  <int value="1366" label="AIModeSearchSuggestSettings"/>
 </enum>
 
 <enum name="EnterprisePoliciesSources">

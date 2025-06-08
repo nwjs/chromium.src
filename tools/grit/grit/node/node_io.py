@@ -76,6 +76,11 @@ class OutputNode(base.Node):
   def EndParsing(self):
     super().EndParsing()
 
+    # 'data_package' and 'android' types are expected to always have a gender
+    # set, even if self.translate_genders=False.
+    if self.GetType() == 'data_package' or self.GetType() == 'android':
+      self.gender = constants.DEFAULT_GENDER
+
     if not self.translate_genders:
       return
 
@@ -87,7 +92,6 @@ class OutputNode(base.Node):
         cloned_node.gender = gender
         cloned_node._AddGenderToFilenames()
 
-      self.gender = constants.DEFAULT_GENDER
       self._AddGenderToFilenames()
 
   def _AddGenderToFilenames(self):
@@ -110,11 +114,14 @@ class OutputNode(base.Node):
   def _AddGenderToFilename(self, path):
     assert self.GetType() == 'data_package' or self.GetType() == 'android'
 
+    if self.GetGender() == constants.DEFAULT_GENDER:
+      return path
+
     if self.GetType() == 'data_package':
       match = DATA_PACKAGE_FILENAME_RE.search(path)
       assert match is not None, f'unrecognized data_package path: {path}'
-      return path.replace(match.group(1),
-                          f'{match.group(1)}_{self.GetGender()}')
+      return path.replace(match.group(),
+                          f'{match.group(1)}_{self.GetGender()}.pak')
     else:  # self.GetType() == 'android'
       match = ANDROID_FILENAME_RE.search(path)
       assert match is not None, f'unrecognized android path: {path}'

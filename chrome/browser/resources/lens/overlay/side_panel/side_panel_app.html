@@ -25,49 +25,7 @@
   }
 
   :host([dark-mode]) .results-pane {
-    background-color: #101218;
-  }
-
-  #closeFeedbackToastButton {
-    margin-block-end: 8px;
-    margin-block-start: 8px;
-    margin-inline-end: 0;
-    margin-inline-start: 0;
-  }
-
-  #feedbackButtonContainer {
-    align-items: center;
-    display: flex;
-    justify-content: center;
-    margin-inline-start: auto;
-  }
-
-  #feedbackToast {
-    --color-toast-background: white;
-    --color-toast-button: #1558D6;
-    --color-toast-foreground: #474747;
-    --cr-icon-button-fill-color: #5E5E5E;
-    box-shadow: 0px 2px 6px 0px rgba(23, 23, 23, 0.32);
-    display: flex;
-    height: 48px;
-    left: 0;
-    margin: auto auto 16px;
-    min-height: 48px;
-    padding: 0;
-    right: 0;
-    width: 336px;
-    white-space: nowrap;
-  }
-
-  :host([dark-mode]) #feedbackToast {
-    --color-toast-background: #303134;
-    --color-toast-button: #99C3FF6;
-    --color-toast-foreground: #BFBFBF;
-    --cr-icon-button-fill-color: #9E9E9E;
-  }
-
-  #feedbackToastMessage {
-    margin-inline-start: 16px;
+    background-color: #1F1F1F;
   }
 
   /* Set z-index to hide results to prevent ghost frames when reshowing. */
@@ -81,7 +39,7 @@
   }
 
   :host([dark-mode]) #ghostLoader {
-    background-color: #101218;
+    background-color: #1F1F1F;
   }
 
   :host(:not([is-loading-results])) #ghostLoader,
@@ -112,23 +70,23 @@
   }
 
   :host([dark-mode]) #searchboxContainer {
-    background-color: #101218;
+    background-color: #1F1F1F;
     /* Colors used in the cr-searchbox results dropdown */
     --color-searchbox-answer-icon-background: #004a77ff;
     --color-searchbox-answer-icon-foreground: #c2e7ffff;
-    --color-searchbox-dropdown-divider: #60626C;
+    --color-searchbox-dropdown-divider: #444746;
     --color-searchbox-results-action-chip: #047db7ff;
     --color-searchbox-results-action-chip-icon: #a8c7faff;
     --color-searchbox-results-action-chip-focus-outline: #669df6ff;
-    --color-searchbox-results-background: #2E313B;
-    --color-searchbox-results-background-hovered: #3D4049;
+    --color-searchbox-results-background: #28292A;
+    --color-searchbox-results-background-hovered: #3C4043;
     --color-searchbox-results-button-hover: #fdfcfb1a;
     --color-searchbox-results-dim-selected: #c7c7c7ff;
     --color-searchbox-results-focus-indicator: #3C4043;
     --color-searchbox-results-foreground: #E8EAED;
     --color-searchbox-results-foreground-dimmed: #c7c7c7ff;
-    --color-searchbox-results-icon: #9aa0a6;
-    --color-searchbox-results-icon-container-background: #262830;
+    --color-searchbox-results-icon: #9DA3A9;
+    --color-searchbox-results-icon-container-background: #3C4043;
     --color-searchbox-results-icon-focused-outline: #a8c7faff;
     --color-searchbox-results-icon-selected: #9DA3A9;
     --color-searchbox-results-typed-prefix: #9DA3A9;
@@ -138,11 +96,11 @@
     --color-searchbox-thumbnail-overlay: #8CB7FA66;
     --color-searchbox-thumbnail-outline: #8CB7FA;
     /* Colors specific to the cr-searchbox input */
-    --color-searchbox-background-hovered: #4D5160;
-    --color-searchbox-background: #3F4454;
+    --color-searchbox-background-hovered: #303134;
+    --color-searchbox-background: #303134;
     --color-searchbox-border: #dadce0ff;
-    --color-searchbox-foreground: #e8eaed;
-    --color-searchbox-placeholder: #999da9;
+    --color-searchbox-foreground: #BDC1C6;
+    --color-searchbox-placeholder: #9E9E9E;
     --color-searchbox-shadow: #20212451;
     /* Colors for searchbox ghost loader */
     --color-searchbox-ghost-loader-spinner: #70757A;
@@ -152,14 +110,6 @@
 
   :host([show-ghost-loader]) #searchboxContainer {
     --color-searchbox-background: var(--color-searchbox-results-background);
-  }
-
-  #sendFeedbackButton {
-    background-color: transparent;
-    border: none;
-    margin-block-end: 6px;
-    margin-block-start: 6px;
-    padding: 0;
   }
 
   #toast {
@@ -268,21 +218,11 @@
     allow="cross-origin-isolated; display-capture; geolocation; microphone;"
     frameBorder="0">
 </iframe>
-<cr-toast id="feedbackToast" duration="0">
-  <div id="feedbackToastMessage">$i18n{feedbackToastMessage}</div>
-  <div id="feedbackButtonContainer">
-    <cr-button id="sendFeedbackButton" on-click="onSendFeedbackClick">
-      $i18n{sendFeedbackButtonText}
-    </cr-button>
-    <cr-icon-button id="closeFeedbackToastButton" iron-icon="cr:close"
-                    on-click="onHideFeedbackToastClick">
-    </cr-icon-button>
-  </div>
-</cr-toast>
+<feedback-toast id="feedbackToast"></feedback-toast>
 
 <cr-toast id="messageToast" duration="4000">
   <div>[[toastMessage]]</div>
-  <cr-button on-click="onHideMessageToastClick">
+  <cr-button id="messageToastDismissButton" on-click="onHideMessageToastClick">
     $i18n{dismiss}
   </cr-button>
 </cr-toast>

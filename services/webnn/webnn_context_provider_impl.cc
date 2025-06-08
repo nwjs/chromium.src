@@ -9,6 +9,7 @@
 
 #include "base/check_is_test.h"
 #include "base/metrics/histogram_functions.h"
+#include "gpu/command_buffer/service/scheduler.h"
 #include "mojo/public/cpp/bindings/self_owned_receiver.h"
 #include "services/webnn/buildflags.h"
 #include "services/webnn/error.h"
@@ -19,11 +20,17 @@
 #include "services/webnn/webnn_context_impl.h"
 
 #if BUILDFLAG(IS_WIN)
-#include "services/webnn/dml/context_provider.h"
+#include "base/types/expected_macros.h"
+#include "services/webnn/dml/context_provider_dml.h"
+#include "services/webnn/ort/context_provider_ort.h"
+#include "services/webnn/ort/ort_session_options.h"
 #endif
 
 #if BUILDFLAG(IS_MAC)
 #include "base/mac/mac_util.h"
+#endif
+
+#if BUILDFLAG(IS_APPLE)
 #include "services/webnn/coreml/context_impl_coreml.h"
 #endif
 
@@ -51,16 +58,16 @@ enum class DeviceTypeUma {
   kMaxValue = kNpu,
 };
 
-void RecordDeviceType(const mojom::CreateContextOptions::Device device) {
+void RecordDeviceType(const mojom::Device device) {
   DeviceTypeUma uma_value;
   switch (device) {
-    case mojom::CreateContextOptions::Device::kCpu:
+    case mojom::Device::kCpu:
       uma_value = DeviceTypeUma::kCpu;
       break;
-    case mojom::CreateContextOptions::Device::kGpu:
+    case mojom::Device::kGpu:
       uma_value = DeviceTypeUma::kGpu;
       break;
-    case mojom::CreateContextOptions::Device::kNpu:
+    case mojom::Device::kNpu:
       uma_value = DeviceTypeUma::kNpu;
       break;
   }
@@ -73,11 +80,20 @@ WebNNContextProviderImpl::WebNNContextProviderImpl(
     scoped_refptr<gpu::SharedContextState> shared_context_state,
     gpu::GpuFeatureInfo gpu_feature_info,
     gpu::GPUInfo gpu_info,
-    LoseAllContextsCallback lose_all_contexts_callback)
+    LoseAllContextsCallback lose_all_contexts_callback,
+    scoped_refptr<base::SingleThreadTaskRunner> main_thread_task_runner,
+    gpu::Scheduler* scheduler,
+    int32_t client_id)
     : shared_context_state_(std::move(shared_context_state)),
       gpu_feature_info_(std::move(gpu_feature_info)),
       gpu_info_(std::move(gpu_info)),
-      lose_all_contexts_callback_(std::move(lose_all_contexts_callback)) {}
+      lose_all_contexts_callback_(std::move(lose_all_contexts_callback)),
+      scheduler_(scheduler),
+      main_thread_task_runner_(std::move(main_thread_task_runner)),
+      client_id_(client_id) {
+  CHECK_NE(scheduler_, nullptr);
+  CHECK_NE(main_thread_task_runner_, nullptr);
+}
 
 WebNNContextProviderImpl::~WebNNContextProviderImpl() = default;
 
@@ -85,11 +101,15 @@ std::unique_ptr<WebNNContextProviderImpl> WebNNContextProviderImpl::Create(
     scoped_refptr<gpu::SharedContextState> shared_context_state,
     gpu::GpuFeatureInfo gpu_feature_info,
     gpu::GPUInfo gpu_info,
-    LoseAllContextsCallback lose_all_contexts_callback) {
+    LoseAllContextsCallback lose_all_contexts_callback,
+    scoped_refptr<base::SingleThreadTaskRunner> main_thread_task_runner,
+    gpu::Scheduler* scheduler,
+    int32_t client_id) {
   CHECK_NE(shared_context_state, nullptr);
   return base::WrapUnique(new WebNNContextProviderImpl(
       std::move(shared_context_state), std::move(gpu_feature_info),
-      std::move(gpu_info), std::move(lose_all_contexts_callback)));
+      std::move(gpu_info), std::move(lose_all_contexts_callback),
+      std::move(main_thread_task_runner), scheduler, client_id));
 }
 
 void WebNNContextProviderImpl::BindWebNNContextProvider(
@@ -98,7 +118,8 @@ void WebNNContextProviderImpl::BindWebNNContextProvider(
 }
 
 // static
-void WebNNContextProviderImpl::CreateForTesting(
+base::optional_ref<WebNNContextProviderImpl>
+WebNNContextProviderImpl::CreateForTesting(
     mojo::PendingReceiver<mojom::WebNNContextProvider> receiver,
     WebNNStatus status,
     LoseAllContextsCallback lose_all_contexts_callback) {
@@ -123,11 +144,28 @@ void WebNNContextProviderImpl::CreateForTesting(
         DISABLE_WEBNN_FOR_NPU);
   }
 
-  mojo::MakeSelfOwnedReceiver<WebNNContextProvider>(
-      base::WrapUnique(new WebNNContextProviderImpl(
-          /*shared_context_state=*/nullptr, std::move(gpu_feature_info),
-          std::move(gpu_info), std::move(lose_all_contexts_callback))),
-      std::move(receiver));
+  // Initialize a Gpu Scheduler so tests can also use a scheduler
+  // runner without the Gpu service. We only need to initialize once for the
+  // whole GPU process and no teardown logic is needed, so use a global
+  // singleton here. The sync point manager must come first since it is
+  // passed to the scheduler as a naked pointer.
+  static base::NoDestructor<gpu::SyncPointManager> g_webnn_sync_point_manager;
+  static base::NoDestructor<gpu::Scheduler> g_webnn_scheduler{
+      g_webnn_sync_point_manager.get()};
+
+  // All tests use the same client ID since no other client exists.
+  constexpr int32_t kFakeClientIdForTesting = 0;
+
+  // Cast is safe because only a WebNNContextProviderImpl can be created.
+  return static_cast<WebNNContextProviderImpl*>(
+      mojo::MakeSelfOwnedReceiver<mojom::WebNNContextProvider>(
+          base::WrapUnique(new WebNNContextProviderImpl(
+              /*shared_context_state=*/nullptr, std::move(gpu_feature_info),
+              std::move(gpu_info), std::move(lose_all_contexts_callback),
+              base::SingleThreadTaskRunner::GetCurrentDefault(),
+              g_webnn_scheduler.get(), kFakeClientIdForTesting)),
+          std::move(receiver))
+          ->impl());
 }
 
 void WebNNContextProviderImpl::OnConnectionError(WebNNContextImpl* impl) {
@@ -170,8 +208,22 @@ void WebNNContextProviderImpl::CreateWebNNContext(
   RecordDeviceType(options->device);
 
 #if BUILDFLAG(IS_WIN)
-  if (dml::ShouldCreateDmlContext(*options)) {
-    auto context_creation_results = dml::CreateContextFromOptions(
+  base::expected<std::unique_ptr<WebNNContextImpl>, mojom::ErrorPtr>
+      context_creation_results;
+
+  if (base::FeatureList::IsEnabled(mojom::features::kWebNNOnnxRuntime)) {
+    context_creation_results = ort::CreateContextFromOptions(
+        std::move(options), std::move(receiver), this);
+    if (!context_creation_results.has_value()) {
+      std::move(callback).Run(mojom::CreateContextResult::NewError(
+          std::move(context_creation_results.error())));
+      return;
+    }
+    context_impl = std::move(context_creation_results.value());
+  }
+
+  if (!context_impl && dml::ShouldCreateDmlContext(*options)) {
+    context_creation_results = dml::CreateContextFromOptions(
         std::move(options), gpu_feature_info_, gpu_info_,
         shared_context_state_.get(), std::move(receiver), this);
     if (!context_creation_results.has_value()) {
@@ -183,15 +235,18 @@ void WebNNContextProviderImpl::CreateWebNNContext(
   }
 #endif  // BUILDFLAG(IS_WIN)
 
+#if BUILDFLAG(IS_APPLE)
+  if (__builtin_available(macOS 14.4, *)) {
+    if (base::FeatureList::IsEnabled(mojom::features::kWebNNCoreML)
 #if BUILDFLAG(IS_MAC)
-  if (__builtin_available(macOS 14, *)) {
-    if (base::FeatureList::IsEnabled(mojom::features::kWebNNCoreML) &&
-        base::mac::GetCPUType() == base::mac::CPUType::kArm) {
+        && base::mac::GetCPUType() == base::mac::CPUType::kArm
+#endif  // BUILDFLAG(IS_MAC)
+    ) {
       context_impl = std::make_unique<coreml::ContextImplCoreml>(
           std::move(receiver), this, std::move(options));
     }
   }
-#endif  // BUILDFLAG(IS_MAC)
+#endif  // BUILDFLAG(IS_APPLE)
 
 #if BUILDFLAG(WEBNN_USE_TFLITE)
   if (!context_impl) {
@@ -218,6 +273,18 @@ void WebNNContextProviderImpl::CreateWebNNContext(
                                                   std::move(context_handle));
   std::move(callback).Run(
       mojom::CreateContextResult::NewSuccess(std::move(success)));
+}
+
+base::optional_ref<WebNNContextImpl>
+WebNNContextProviderImpl::GetWebNNContextImplForTesting(
+    const blink::WebNNContextToken& handle) {
+  CHECK_IS_TEST();
+  const auto it = impls_.find(handle);
+  if (it == impls_.end()) {
+    mojo::ReportBadMessage(kBadMessageInvalidContext);
+    return std::nullopt;
+  }
+  return it->get();
 }
 
 }  // namespace webnn

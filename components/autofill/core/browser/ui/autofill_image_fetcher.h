@@ -52,14 +52,15 @@ class AutofillImageFetcher : public AutofillImageFetcherBase {
   // Subclasses may override this to provide custom handling of a given card art
   // URL for `image_type`. Resolved URLs are used as mapping keys for image
   // caching.
-  virtual GURL ResolveImageURL(const GURL& card_art_url,
+  virtual GURL ResolveImageURL(const GURL& image_url,
                                ImageType image_type) const = 0;
 
-  // Subclasses may override this to provide custom handling of a fetched card
-  // art image. The default behavior is a no-op. The passed-in `card_art_url` is
-  // the original URL before resolving via `ResolveCardArtURL`.
-  virtual gfx::Image ResolveCardArtImage(const GURL& card_art_url,
-                                         const gfx::Image& card_art_image);
+  // Applies platform-specific post-processing to the `image` of the given
+  // `image_type`. The passed-in `image_url` is the original URL before
+  // resolving via `ResolveImageURL`.
+  virtual gfx::Image ResolveImage(const GURL& image_url,
+                                  const gfx::Image& image,
+                                  ImageType image_type);
 
   // Subclasses override this to provide the underlying image fetcher instance.
   //
@@ -77,20 +78,20 @@ class AutofillImageFetcher : public AutofillImageFetcherBase {
   AutofillImageFetcher();
 
   // Called when an image is fetched. If the fetch was unsuccessful,
-  // `card_art_image` will be an empty gfx::Image().
-  void OnCardArtImageFetched(
-      const GURL& card_art_url,
-      const gfx::Image& card_art_image,
-      const image_fetcher::RequestMetadata& metadata);
+  // `image` will be an empty gfx::Image().
+  void OnImageFetched(const GURL& image_url,
+                      ImageType image_type,
+                      const gfx::Image& image,
+                      const image_fetcher::RequestMetadata& metadata);
 
-  void OnValuableImageFetched(const GURL& image_url,
-                              const gfx::Image& valuable_image,
-                              const image_fetcher::RequestMetadata& metadata);
+  // Subclasses may override this to provide custom handling of a fetched card
+  // art image. The passed-in `card_art_url` is the original URL before
+  // resolving via `ResolveImageURL`.
+  virtual gfx::Image ResolveCardArtImage(const GURL& card_art_url,
+                                         const gfx::Image& card_art_image) = 0;
 
  private:
-  void FetchImageForURL(const GURL& image_url,
-                        ImageType image_type,
-                        image_fetcher::ImageFetcherCallback callback);
+  void FetchImageForURL(const GURL& image_url, ImageType image_type);
 
   // Keeps track of the number of fetch attempts for a given URL.
   std::map<GURL, int> fetch_attempt_counter_;

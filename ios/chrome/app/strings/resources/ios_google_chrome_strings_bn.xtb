@@ -47,6 +47,7 @@
 <translation id="1917964099031477364">এই ডিভাইসের Chrome এবং অন্যান্য Google অ্যাপ থেকে এই অ্যাকাউন্টটি এবং কোনও সেভ না করা ডেটা থাকলে তা সরানো হবে।</translation>
 <translation id="1919130412786645364">Chrome-এ সাইন-ইন করতে দিন</translation>
 <translation id="1965935827552890526">আপনার খুলে রাখা অন্যান্য Chrome উইন্ডোতে যেসব কাজ করছেন, সেগুলি সম্পূর্ণ করুন।</translation>
+<translation id="1966638102563776885">Chrome সম্পর্কিত পরামর্শ: যেকোনও অ্যাপে আপনার পাসওয়ার্ড পান</translation>
 <translation id="1973910962341002002">"<ph name="TEXT_OF_THE_SETTINGS_MENU_ITEM" />" সেটিংস থেকে টগল করে "Chrome" চালু করুন</translation>
 <translation id="1984705450038014246">আপনার Chrome ডেটা সিঙ্ক করুন</translation>
 <translation id="1987779152850321833">Chrome ব্যবহার করার সবচেয়ে ভাল সুবিধা পেতে নিচে সাজেস্ট করা এইসব অ্যাকশন সম্পূর্ণ করুন।</translation>
@@ -114,7 +115,6 @@
 <translation id="3655656110921623717">এর মানে Chrome প্রতিবার মোবাইল সাইটের অনুরোধ করবে।</translation>
 <translation id="3740397331642243698">এটি ইনপুট করা ইউআরএলগুলিকে Google Chrome-এ, 'ছদ্মবেশী' মোডে খোলে।</translation>
 <translation id="3741995255368156336">Chrome-এর পড়ার তালিকা খোলে।</translation>
-<translation id="3808570423967020928">হোম স্ক্রিন ডক থেকে আরও দ্রুত Chrome অ্যাক্সেস করুন।</translation>
 <translation id="3827545470516145620">এই ডিভাইসে আপনি স্টান্ডার্ড নিরাপত্তামূলক সুরক্ষা পাচ্ছেন</translation>
 <translation id="384394811301901750">Google Chrome এই মুহূর্তে আপনার ক্যামেরা ব্যবহার করতে পারছে না</translation>
 <translation id="3863841106411295595">Chrome-এ আপনার পড়ার তালিকাতে ইনপুট করা URL যোগ করে।</translation>
@@ -138,6 +138,7 @@
 <translation id="4724297637870447613">সব জায়গায় Chrome ব্যবহার করুন</translation>
 <translation id="4738647308035481133">Google Chrome পৃষ্ঠা</translation>
 <translation id="4742795653798179840">Chrome সম্পর্কিত ডেটা মুছে ফেলা হয়েছে</translation>
+<translation id="4749294594657945639">অন্য অ্যাপে সেভ করা পাসওয়ার্ড পেতে অটোফিলের জন্য Chrome বেছে নিন।</translation>
 <translation id="4761869838909035636">'Chrome নিরাপত্তা সংক্রান্ত পরীক্ষা' চালান</translation>
 <translation id="4798859546468762093">পছন্দমতো সুবিধা ও অন্যান্য ফিচার ব্যবহার করতে <ph name="FEATURE_NAME_1" /> ও <ph name="FEATURE_NAME_2" />-এ Chrome যোগ করে নিন</translation>
 <translation id="4819268619367838612">অ্যাপ উন্নত করতে সাহায্য করার জন্য, Chrome ব্যবহার সম্পর্কিত ও ক্র্যাশ ডেটা Google-এ পাঠায়। <ph name="BEGIN_LINK" />ম্যানেজ করুন<ph name="END_LINK" /></translation>
@@ -233,7 +234,6 @@
 <translation id="6975725306479268850">অটোফিলের জন্য Chrome বেছে নিন</translation>
 <translation id="7056826488869329999">Chrome-এ 'নিরাপত্তা সংক্রান্ত পরীক্ষা' ফিচার খুলে রান করায়।</translation>
 <translation id="7061455974939528301">Chrome আইকন প্রেস করে ধরে রাখুন ও "হোম স্ক্রিন এডিট করুন" বিকল্পে ক্লিক করুন</translation>
-<translation id="7065813315247345131">Chrome ডকে সরান</translation>
 <translation id="7124339256045485976">Chrome আপ-টু-ডেট রাখুন</translation>
 <translation id="7145599899567697473">Chrome-এ সেভ ও অটোফিল করুন</translation>
 <translation id="7161390184744336561">Google Chrome-এর এই ভার্সন পুরনো হয়ে গেছে</translation>
@@ -317,10 +317,10 @@
 <translation id="8603022514504485810">Google Password Manager সব পাসওয়ার্ড চেক করতে পারেনি। আগামীকাল আবার চেষ্টা করুন বা <ph name="BEGIN_LINK" />আপনার Google অ্যাকাউন্টের পাসওয়ার্ড চেক করুন।<ph name="END_LINK" /></translation>
 <translation id="8630122478628016441">“Chrome বন্ধ করার সময় 'ছদ্মবেশী' ট্যাব লক করুন” বিকল্প চালু করুন।</translation>
 <translation id="8673726683583791503">Google Lens দিয়ে কেনাকাটা করুন</translation>
-<translation id="8727043961453758442">Chrome থেকে সবচেয়ে বেশি সুবিধা পান</translation>
 <translation id="8765470054473112089">আপনি যখন অ্যাড্রেস বার বা সার্চ বক্সে টাইপ করেন, তখন আরও ভালো পরামর্শ পেতে Chrome আপনি যা টাইপ করেন তা আপনার ডিফল্ট সার্চ ইঞ্জিনে পাঠায়। এটি ছদ্মবেশী মোডে বন্ধ আছে।</translation>
 <translation id="8772179140489533211">Chrome-এ সাইন-ইন করার প্রম্পট দেখাবে।</translation>
 <translation id="8788269841521769222">আপনার এই পাসওয়ার্ড মনে রাখার দরকার নেই। <ph name="EMAIL" />-এর Google পাসওয়ার্ড ম্যানেজারে এটি সেভ করা হবে</translation>
+<translation id="8796490717897731471"><ph name="EMAIL" />. Chrome ম্যানেজ করা হয়।</translation>
 <translation id="880967149107462122">Chrome 'সেটিংস'-এ যান</translation>
 <translation id="8842132678697187091">আপনি এখান থেকে Google Lens খুলতে পারবেন।</translation>
 <translation id="8850736900032787670">আপনার আগ্রহ অনুযায়ী পছন্দমতো কন্টেন্ট পেতে, Chrome-এ সাইন-ইন করুন।</translation>

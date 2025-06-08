@@ -1242,11 +1242,16 @@ ash/webui/personalization_app/mojom/personalization_app.mojom -->
 
 <!-- LINT.ThenChange(//ash/system/extended_updates/extended_updates_metrics.h:ExtendedUpdatesEntryPointEvent) -->
 
-<enum name="FloatingWorkspaceV1RestoredSessionType">
-  <int value="0" label="Unknown browser session type"/>
-  <int value="1" label="Local browser session"/>
-  <int value="2" label="Remote browser session"/>
+<!-- LINT.IfChange(FloatingWorkspaceStartupUiClosureReason) -->
+
+<enum name="FloatingWorkspaceStartupUiClosureReason">
+  <int value="0" label="Closed manually"/>
+  <int value="1" label="Closed automatically"/>
 </enum>
+
+<!-- LINT.ThenChange(//chrome/browser/ash/floating_workspace/floating_workspace_metrics_util.h:StartupUiClosureReason) -->
+
+<!-- LINT.IfChange(FloatingWorkspaceV2LaunchTemplateFailureType) -->
 
 <enum name="FloatingWorkspaceV2LaunchTemplateFailureType">
   <int value="0" label="Unknown failure type"/>
@@ -1254,11 +1259,7 @@ ash/webui/personalization_app/mojom/personalization_app.mojom -->
   <int value="2" label="The desk count requirement not met"/>
 </enum>
 
-<enum name="FloatingWorkspaceV2LaunchTemplateTimeoutType">
-  <int value="0" label="Unknown timeout type"/>
-  <int value="1" label="Passed wait period timeout"/>
-  <int value="2" label="No floating workspace template"/>
-</enum>
+<!-- LINT.ThenChange(//chrome/browser/ash/floating_workspace/floating_workspace_metrics_util.h:LaunchTemplateFailureType) -->
 
 <enum name="FloatingWorkspaceV2UploadTemplateStatusType">
   <int value="0" label="Unknown upload status"/>
@@ -1571,6 +1572,7 @@ ash/webui/personalization_app/mojom/personalization_app.mojom -->
   <int value="37" label="Video Conference Tray Sidetone Enabled"/>
   <int value="38" label="Content Transfer App Enabled"/>
   <int value="39" label="Sunfish Launcher Nudge"/>
+  <int value="40" label="Sunfish Incognito Nudge"/>
 </enum>
 
 <enum name="OnDeviceToServerSpeechRecognitionFallbackReason">
@@ -3019,8 +3021,8 @@ chromeos/ash/components/peripheral_notification/peripheral_notification_manager.
       label="Window is snapped when updating a window in snap group"/>
   <int value="16" label="Window is snapped in test"/>
   <int value="17"
-      label="Window is snapped by long pressing lacros window caption button
-             or window layout menu"/>
+      label="(Obsolete) Window is snapped by long pressing lacros window
+             caption button or window layout menu"/>
   <int value="18"
       label="Window is snapped during the windows swapping in a Snap Group"/>
 </enum>

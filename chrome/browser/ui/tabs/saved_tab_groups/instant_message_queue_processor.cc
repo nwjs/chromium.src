@@ -16,7 +16,6 @@
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/tabs/saved_tab_groups/collaboration_messaging_tab_data.h"
 #include "chrome/browser/ui/tabs/saved_tab_groups/saved_tab_group_utils.h"
-#include "chrome/browser/ui/tabs/tab_group.h"
 #include "chrome/browser/ui/tabs/tab_group_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/toasts/api/toast_id.h"
@@ -29,6 +28,7 @@
 #include "components/image_fetcher/core/image_fetcher_service.h"
 #include "components/saved_tab_groups/public/tab_group_sync_service.h"
 #include "components/signin/public/base/avatar_icon_util.h"
+#include "components/tabs/public/tab_group.h"
 
 namespace tab_groups {
 namespace {
@@ -60,10 +60,6 @@ InstantMessageQueueProcessor::~InstantMessageQueueProcessor() = default;
 
 void InstantMessageQueueProcessor::Enqueue(InstantMessage message,
                                            SuccessCallback success_callback) {
-  if (!base::FeatureList::IsEnabled(toast_features::kToastFramework)) {
-    return;
-  }
-
   if (message.level !=
       collaboration::messaging::InstantNotificationLevel::BROWSER) {
     // Only handle browser notifications.
@@ -289,9 +285,8 @@ base::TimeDelta InstantMessageQueueProcessor::GetMessageInterval() {
   // to show the next message.
   // TODO(crbug.com/390814333): Determine the correct heuristic for
   // time-between-messages.
-  return base::Seconds(1) +
-         std::max(toast_features::kToastTimeout.Get(),
-                  toast_features::kToastWithoutActionTimeout.Get());
+  return base::Seconds(1) + std::max(ToastController::kToastDefaultTimeout,
+                                     ToastController::kToastWithActionTimeout);
 }
 
 void InstantMessageQueueProcessor::ProcessQueueAfterMessageShown() {

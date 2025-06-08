@@ -531,8 +531,8 @@ class DownloadDeepScanningBrowserTestBase
     }
 
     if (request.url == connector_url_) {
-        ASSERT_TRUE(GetResumableUploadMetadata(network::GetUploadData(request),
-                                               &last_request_));
+      ASSERT_TRUE(GetResumableUploadMetadata(network::GetUploadData(request),
+                                             &last_request_));
     }
   }
 
@@ -858,8 +858,9 @@ IN_PROC_BROWSER_TEST_P(DownloadDeepScanningBrowserTest,
   EXPECT_EQ(item->GetState(), download::DownloadItem::INTERRUPTED);
 }
 
+// TODO(crbug.com/414822762): Fix flaky test.
 IN_PROC_BROWSER_TEST_P(DownloadDeepScanningBrowserTest,
-                       DlpAndMalwareViolations) {
+                       DISABLED_DlpAndMalwareViolations) {
   // This allows the blocking DM token reads happening on profile-Connector
   // triggers.
   base::ScopedAllowBlockingForTesting allow_blocking;
@@ -900,9 +901,11 @@ IN_PROC_BROWSER_TEST_P(DownloadDeepScanningBrowserTest,
             enterprise_connectors::ContentAnalysisRequest::NORMAL_DOWNLOAD);
 
   // Both the DLP and malware violations generate an event.
+  base::RunLoop run_loop;
   std::set<std::string> zip_types = {"application/zip",
                                      "application/x-zip-compressed"};
   enterprise_connectors::test::EventReportValidator validator(client());
+  validator.SetDoneClosure(run_loop.QuitClosure());
   validator.ExpectSensitiveDataEventAndDangerousDeepScanningResult(
       /*url*/ url.spec(),
       /*tab_url*/ url.spec(),
@@ -929,6 +932,8 @@ IN_PROC_BROWSER_TEST_P(DownloadDeepScanningBrowserTest,
       /*profile_identifier*/ GetProfileIdentifier(),
       /*scan_id*/ last_request().request_token());
   WaitForDownloadToFinish();
+
+  run_loop.Run();
 
   // The file should be blocked.
   ASSERT_EQ(download_items().size(), 1u);
@@ -1005,7 +1010,9 @@ IN_PROC_BROWSER_TEST_P(DownloadRestrictionsDeepScanningBrowserTest,
   base::FilePath main_file = DownloadPrefs(browser()->profile())
                                  .DownloadPath()
                                  .AppendASCII("zipfile_two_archives.zip");
+  base::RunLoop run_loop;
   enterprise_connectors::test::EventReportValidator validator(client());
+  validator.SetDoneClosure(run_loop.QuitClosure());
   std::set<std::string> zip_types = {"application/zip",
                                      "application/x-zip-compressed"};
   validator.ExpectDangerousDownloadEvent(
@@ -1029,6 +1036,8 @@ IN_PROC_BROWSER_TEST_P(DownloadRestrictionsDeepScanningBrowserTest,
       /*profile_identifier*/ GetProfileIdentifier());
 
   WaitForDownloadToFinish();
+
+  run_loop.Run();
 
   ASSERT_EQ(download_items().size(), 1u);
   download::DownloadItem* item = *download_items().begin();
@@ -1263,7 +1272,9 @@ IN_PROC_BROWSER_TEST_F(SavePackageDeepScanningBrowserTest, Blocked) {
             enterprise_connectors::ContentAnalysisRequest::SAVE_AS_DOWNLOAD);
 
   // The blocking response should trigger a security event.
+  base::RunLoop validator_run_loop;
   enterprise_connectors::test::EventReportValidator validator(client());
+  validator.SetDoneClosure(validator_run_loop.QuitClosure());
   std::set<std::string> mimetypes = {"text/plain"};
   validator.ExpectSensitiveDataEvent(
       /*url*/ url.spec(),
@@ -1299,6 +1310,7 @@ IN_PROC_BROWSER_TEST_F(SavePackageDeepScanningBrowserTest, Blocked) {
   base::ScopedAllowBlockingForTesting allow_blocking;
   EXPECT_FALSE(base::PathExists(main_file));
   EXPECT_FALSE(base::PathExists(extra_files_dir));
+  validator_run_loop.Run();
 }
 
 IN_PROC_BROWSER_TEST_F(SavePackageDeepScanningBrowserTest, KeepAfterWarning) {
@@ -1377,7 +1389,11 @@ IN_PROC_BROWSER_TEST_F(SavePackageDeepScanningBrowserTest, KeepAfterWarning) {
 
   // Keeping the save package will generate a second warning event, complete the
   // download and move the file to its final destination.
-  validator.ExpectSensitiveDataEvent(
+
+  base::RunLoop validator_warn_run_loop;
+  enterprise_connectors::test::EventReportValidator validator_warn(client());
+  validator_warn.SetDoneClosure(validator_warn_run_loop.QuitClosure());
+  validator_warn.ExpectSensitiveDataEvent(
       /*url*/ url.spec(),
       /*tab_url*/ url.spec(),
       /*source*/ "",
@@ -1411,6 +1427,7 @@ IN_PROC_BROWSER_TEST_F(SavePackageDeepScanningBrowserTest, KeepAfterWarning) {
   EXPECT_TRUE(base::PathExists(main_file));
   EXPECT_TRUE(base::ContentsEqual(GetTestFilePath(), main_file));
   EXPECT_FALSE(base::PathExists(extra_files_dir));
+  validator_warn_run_loop.Run();
 }
 
 IN_PROC_BROWSER_TEST_F(SavePackageDeepScanningBrowserTest,

@@ -241,7 +241,12 @@ void DesktopDataControlsDialog::Show(base::OnceClosure on_destructed) {
 
   widget_ = base::WrapUnique(views::DialogDelegate::CreateDialogWidget(
       dialog_delegate_.get(), gfx::NativeWindow(),
+#if BUILDFLAG(IS_MAC)
       top_web_contents->GetNativeView()));
+#else
+      top_web_contents->GetTopLevelNativeWindow()));
+#endif
+
   widget_->MakeCloseSynchronous(base::BindOnce(
       &DesktopDataControlsDialog::CloseDialog, base::Unretained(this)));
   widget_->SetBounds(
@@ -249,15 +254,8 @@ void DesktopDataControlsDialog::Show(base::OnceClosure on_destructed) {
   scoped_ignore_input_events_ =
       top_web_contents->IgnoreInputEvents(std::nullopt);
 
-  if (auto* tab_interface =
-          tabs::TabInterface::MaybeGetFromContents(top_web_contents);
-      tab_interface && tab_interface->CanShowModalUI()) {
-    tab_interface->GetTabFeatures()
-        ->tab_dialog_manager()
-        ->ShowDialogAndBlockTabInteraction(widget_.get());
-  } else {
-    widget_->Show();
-  }
+  constrained_window::ShowModalDialog(widget_->GetNativeWindow(),
+                                      top_web_contents);
 }
 
 void DesktopDataControlsDialog::CloseDialog(
@@ -293,7 +291,7 @@ void DesktopDataControlsDialog::WebContentsDestroyed() {
   // was neither bypassed or accepted so it should close without calling
   // any callback.
   ClearCallbacks();
-  OnDialogButtonClicked(/*bypassed=*/false);
+  CloseDialog(views::Widget::ClosedReason::kAcceptButtonClicked);
 }
 
 void DesktopDataControlsDialog::PrimaryPageChanged(content::Page& page) {
@@ -303,7 +301,7 @@ void DesktopDataControlsDialog::PrimaryPageChanged(content::Page& page) {
   // that trigger on the new page, so callbacks must be cleared before closing
   // the dialog.
   ClearCallbacks();
-  OnDialogButtonClicked(/*bypassed=*/false);
+  CloseDialog(views::Widget::ClosedReason::kAcceptButtonClicked);
 }
 
 DesktopDataControlsDialog::DesktopDataControlsDialog(

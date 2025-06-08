@@ -37,6 +37,12 @@ constexpr char kTestUrl3[] = "https://www.example3.com/";
 constexpr char kTestUrl4[] = "https://www.example4.com/";
 constexpr char kTestUrl5[] = "https://www.example5.com/";
 constexpr char kTestUrl6[] = "https://www.example6.com/";
+constexpr char kTestUrl7[] = "https://www.example7.com/";
+constexpr char kTestUrl8[] = "https://www.example8.com/";
+constexpr char kTestUrl9[] = "https://www.example9.com/";
+constexpr char kTestUrl10[] = "https://www.example10.com/";
+constexpr char kTestUrl11[] = "https://www.example11.com/";
+constexpr char kTestUrl12[] = "https://www.example12.com/";
 
 URLVisitAggregate CreateVisitForTab(base::TimeDelta time_since_active,
                                     int tab_id,
@@ -47,6 +53,15 @@ URLVisitAggregate CreateVisitForTab(base::TimeDelta time_since_active,
   auto tab_data_it = candidate.fetcher_data_map.find(Fetcher::kTabModel);
   auto* tab = std::get_if<URLVisitAggregate::TabData>(&tab_data_it->second);
   tab->last_active_tab.id = tab_id;
+
+  history::AnnotatedVisit annotated_visit = GenerateSampleAnnotatedVisit(
+      /*visit_id=*/1, /*page_title=*/u"Test Title", GURL(),
+      /*has_url_keyed_image=*/true, /*originator_cache_guid=*/"",
+      /*visibility_score=*/0.9, /*categories=*/{}, base::Time());
+  candidate.fetcher_data_map.emplace(
+      Fetcher::kHistory,
+      URLVisitAggregate::HistoryData(std::move(annotated_visit)));
+
   return candidate;
 }
 
@@ -121,18 +136,18 @@ class GroupSuggestionsServiceImplTest : public testing::Test {
     std::vector<URLVisitAggregate> candidates;
     // 5 tabs with new IDs.
     candidates.push_back(
-        CreateVisitForTab(base::Seconds(60), 11, GURL(kTestUrl1)));
+        CreateVisitForTab(base::Seconds(60), 11, GURL(kTestUrl7)));
     GetTabMetadata(candidates[0]).is_currently_active = true;
     candidates.push_back(
-        CreateVisitForTab(base::Seconds(250), 12, GURL(kTestUrl2)));
+        CreateVisitForTab(base::Seconds(250), 12, GURL(kTestUrl8)));
     candidates.push_back(
-        CreateVisitForTab(base::Seconds(300), 14, GURL(kTestUrl3)));
+        CreateVisitForTab(base::Seconds(300), 14, GURL(kTestUrl9)));
     candidates.push_back(
-        CreateVisitForTab(base::Seconds(500), 15, GURL(kTestUrl4)));
+        CreateVisitForTab(base::Seconds(500), 15, GURL(kTestUrl10)));
     candidates.push_back(
-        CreateVisitForTab(base::Seconds(500), 16, GURL(kTestUrl5)));
+        CreateVisitForTab(base::Seconds(500), 16, GURL(kTestUrl11)));
     candidates.push_back(
-        CreateVisitForTab(base::Seconds(800), 17, GURL(kTestUrl6)));
+        CreateVisitForTab(base::Seconds(800), 17, GURL(kTestUrl12)));
     return candidates;
   }
 
@@ -224,7 +239,6 @@ TEST_F(GroupSuggestionsServiceImplTest, NoRepeatedSuggestions) {
   EXPECT_CALL(*mock_delegate_, ShowSuggestion(_, _)).Times(0);
   TriggerSuggestions(GetSampleCandidates());
 
-  // Remove 2 tabs to generate different suggestion, that should be shown.
   auto candidates = GetNonOverlappingCandidates();
   EXPECT_CALL(*mock_delegate_, ShowSuggestion(_, _)).Times(1);
   TriggerSuggestions(std::move(candidates));

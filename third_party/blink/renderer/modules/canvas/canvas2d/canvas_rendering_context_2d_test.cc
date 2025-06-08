@@ -401,12 +401,17 @@ INSTANTIATE_PAINT_TEST_SUITE_P(CanvasRenderingContext2DTest);
 class CanvasRenderingContext2DTestGLES2
     : public CanvasRenderingContext2DTestBase {
  public:
+  bool AllowsAcceleration() override { return true; }
+
   void CreateContextProvider(SetIsContextLost set_context_lost) override {
     test_context_provider_ = viz::TestContextProvider::Create();
     InitializeSharedGpuContextGLES2(test_context_provider_.get(),
                                     /*cache=*/nullptr, set_context_lost);
     ConfigureContextProvider(*test_context_provider_);
   }
+
+ private:
+  ScopedTestingPlatformSupport<GpuMemoryBufferTestPlatform> platform_;
 };
 
 INSTANTIATE_PAINT_TEST_SUITE_P(CanvasRenderingContext2DTestGLES2);
@@ -754,6 +759,37 @@ TEST_P(CanvasRenderingContext2DTest, GetImageWithAccelerationDisabled) {
   // the validity of the resource.
   EXPECT_EQ(CanvasElement().GetRasterMode(), RasterMode::kCPU);
   EXPECT_TRUE(CanvasElement().IsResourceValid());
+}
+
+TEST_P(CanvasRenderingContext2DTestGLES2, ReleaseResourcesAfterPageTornDown) {
+  CreateContext(kNonOpaque);
+
+  ASSERT_TRUE(CanvasElement().GetOrCreateCanvasResourceProvider());
+
+  // Invoking PrepareTransferableResource() has a precondition that a CC layer
+  // is present.
+  ASSERT_TRUE(CanvasElement().GetOrCreateCcLayerIfNeeded());
+
+  Context2D()->fillRect(3, 3, 1, 1);
+
+  viz::TransferableResource resource;
+  viz::ReleaseCallback release_callback;
+
+  // Resources aren't released if the canvas still uses them.
+  ASSERT_TRUE(CanvasElement().PrepareTransferableResource(&resource,
+                                                          &release_callback));
+  EXPECT_EQ(test_context_provider_->TestContextGL()->NumTextures(), 1u);
+  std::move(release_callback).Run(gpu::SyncToken(), /*is_lost=*/false);
+  EXPECT_EQ(test_context_provider_->TestContextGL()->NumTextures(), 1u);
+
+  // Tearing down the page does not destroy unreleased resources.
+  CanvasElement().PrepareTransferableResource(&resource, &release_callback);
+  TearDownPage();
+  EXPECT_EQ(test_context_provider_->TestContextGL()->NumTextures(), 1u);
+
+  std::move(release_callback).Run(gpu::SyncToken(), /*is_lost=*/false);
+  EXPECT_EQ(test_context_provider_->TestContextGL()->NumTextures(), 0u);
+  SharedGpuContext::Reset();
 }
 
 TEST_P(CanvasRenderingContext2DTestGLES2,
@@ -1829,6 +1865,28 @@ TEST_P(CanvasRenderingContext2DTestAccelerated, GetImage) {
 }
 
 TEST_P(CanvasRenderingContext2DTestAccelerated,
+       ReleaseLostTransferableResource) {
+  CreateContext(kNonOpaque);
+
+  ASSERT_TRUE(CanvasElement().GetOrCreateCanvasResourceProvider());
+
+  // Invoking PrepareTransferableResource() has a precondition that a CC layer
+  // is present.
+  ASSERT_TRUE(CanvasElement().GetOrCreateCcLayerIfNeeded());
+
+  Context2D()->fillRect(3, 3, 1, 1);
+
+  // Prepare a TransferableResource, then report the resource as lost.
+  // This test passes by not crashing and not triggering assertions.
+  viz::TransferableResource resource;
+  viz::ReleaseCallback release_callback;
+  ASSERT_TRUE(CanvasElement().PrepareTransferableResource(&resource,
+                                                          &release_callback));
+  bool lost_resource = true;
+  std::move(release_callback).Run(gpu::SyncToken(), lost_resource);
+}
+
+TEST_P(CanvasRenderingContext2DTestAccelerated,
        NoRegenerationOfTransferableResourceWhenAlreadyInCcLayer) {
   CreateContext(kNonOpaque);
 
@@ -1849,7 +1907,7 @@ TEST_P(CanvasRenderingContext2DTestAccelerated,
   // TransferableResource without modifying the canvas in between. This new call
   // should not generate a new TransferableResource as the canvas' resource is
   // already present in the CC layer.
-  CanvasElement().CcLayer()->SetTransferableResource(
+  CanvasElement().GetCcLayerForTesting()->SetTransferableResource(
       resource, std::move(release_callback));
   viz::ReleaseCallback release_callback2;
   EXPECT_FALSE(CanvasElement().PrepareTransferableResource(&resource,
@@ -1973,6 +2031,33 @@ TEST_P(CanvasRenderingContext2DTestAccelerated,
 }
 
 TEST_P(CanvasRenderingContext2DTestAccelerated,
+       ReleaseLostTransferableResourceWithLostContext) {
+  CreateContext(kNonOpaque);
+
+  ASSERT_TRUE(CanvasElement().GetOrCreateCanvasResourceProvider());
+
+  // Invoking PrepareTransferableResource() has a precondition that a CC layer
+  // is present.
+  ASSERT_TRUE(CanvasElement().GetOrCreateCcLayerIfNeeded());
+
+  EXPECT_TRUE(CanvasElement().GetRasterMode() == RasterMode::kGPU);
+
+  viz::TransferableResource resource;
+  viz::ReleaseCallback release_callback;
+  EXPECT_TRUE(CanvasElement().PrepareTransferableResource(&resource,
+                                                          &release_callback));
+
+  test_context_provider_->GetTestRasterInterface()->set_context_lost(true);
+
+  // Get a new context provider so that the WeakPtr to the old one is null.
+  // This verifies that ReleaseFrameResources() handles null
+  // context_provider_wrapper properly.
+  SharedGpuContext::ContextProviderWrapper();
+  std::move(release_callback).Run(gpu::SyncToken(), /*lost_resource=*/true);
+  SharedGpuContext::Reset();
+}
+
+TEST_P(CanvasRenderingContext2DTestAccelerated,
        FallbackToSoftwareIfContextLost) {
   // Configure context provider to stay lost after context losses.
   CreateContextProvider(SetIsContextLost::kNotModifyValue);
@@ -2054,6 +2139,35 @@ TEST_P(CanvasRenderingContext2DTestAccelerated,
   EXPECT_EQ(CanvasElement().GetRasterMode(), RasterMode::kGPU);
   Context2D()->getImageData(0, 0, 1, 1, settings, exception_state);
   EXPECT_EQ(CanvasElement().GetRasterMode(), RasterMode::kGPU);
+}
+
+TEST_P(CanvasRenderingContext2DTestAccelerated,
+       GetImageDataDoesntEndHibernation) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitWithFeatures({features::kCanvas2DHibernation}, {});
+
+  CreateContext(kNonOpaque);
+  CanvasElement().GetOrCreateCanvasResourceProvider();
+
+  auto& handler = CHECK_DEREF(CanvasElement().GetHibernationHandler());
+  ASSERT_FALSE(handler.IsHibernating());
+
+  GetDocument().GetPage()->SetVisibilityState(
+      mojom::blink::PageVisibilityState::kHidden,
+      /*is_initial_state=*/false);
+
+  // Run the task that initiates hibernation, which has been posted as an idle
+  // task.
+  ThreadScheduler::Current()
+      ->ToMainThreadScheduler()
+      ->StartIdlePeriodForTesting();
+  blink::test::RunPendingTasks();
+  ASSERT_TRUE(handler.IsHibernating());
+
+  NonThrowableExceptionState exception_state;
+  Context2D()->getImageData(0, 0, 1, 1, exception_state);
+
+  EXPECT_TRUE(handler.IsHibernating());
 }
 
 // https://crbug.com/708445: When the canvas hibernates or wakes up from
@@ -2696,10 +2810,12 @@ TEST_P(CanvasRenderingContext2DTestAccelerated,
   ASSERT_TRUE(SetUpFullAccelerationAndCcLayer(CanvasElement()));
 
   SetDocumentVisibility(GetDocument(), PageVisibilityState::kHidden);
-  EXPECT_FALSE(CanvasElement().CcLayer()->needs_set_resource_for_testing());
+  EXPECT_FALSE(
+      CanvasElement().GetCcLayerForTesting()->needs_set_resource_for_testing());
 
   SetDocumentVisibility(GetDocument(), PageVisibilityState::kVisible);
-  EXPECT_TRUE(CanvasElement().CcLayer()->needs_set_resource_for_testing());
+  EXPECT_TRUE(
+      CanvasElement().GetCcLayerForTesting()->needs_set_resource_for_testing());
 }
 
 TEST_P(CanvasRenderingContext2DTestAccelerated,

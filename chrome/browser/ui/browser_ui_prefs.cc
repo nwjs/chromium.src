@@ -8,6 +8,7 @@
 #include <string>
 
 #include "base/numerics/safe_conversions.h"
+#include "build/branding_buildflags.h"
 #include "build/build_config.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/upgrade_detector/upgrade_detector.h"
@@ -23,6 +24,10 @@
 #include "components/translate/core/browser/translate_pref_names.h"
 #include "media/media_buildflags.h"
 #include "third_party/blink/public/common/peerconnection/webrtc_ip_handling_policy.h"
+
+#if BUILDFLAG(IS_WIN) && BUILDFLAG(GOOGLE_CHROME_BRANDING)
+#include "chrome/browser/win/installer_downloader/installer_downloader_pref_names.h"
+#endif  // BUILDFLAG(IS_WIN) && BUILDFLAG(GOOGLE_CHROME_BRANDING)
 
 #if !BUILDFLAG(IS_CHROMEOS)
 #include "ui/accessibility/accessibility_features.h"
@@ -41,6 +46,14 @@ void RegisterBrowserPrefs(PrefRegistrySimple* registry) {
   registry->RegisterDictionaryPref(prefs::kRelaunchWindow);
   registry->RegisterIntegerPref(prefs::kRelaunchFastIfOutdated, 0);
 #endif  // !BUILDFLAG(IS_ANDROID)
+
+#if BUILDFLAG(IS_WIN) && BUILDFLAG(GOOGLE_CHROME_BRANDING)
+  registry->RegisterIntegerPref(
+      installer_downloader::prefs::kInstallerDownloaderInfobarShowCount, 0);
+  registry->RegisterBooleanPref(
+      installer_downloader::prefs::kInstallerDownloaderBypassEligibilityCheck,
+      false);
+#endif  // BUILDFLAG(IS_WIN) && BUILDFLAG(GOOGLE_CHROME_BRANDING)
 
 #if BUILDFLAG(IS_MAC)
   registry->RegisterIntegerPref(
@@ -163,6 +176,8 @@ void RegisterBrowserUserPrefs(user_prefs::PrefRegistrySyncable* registry) {
 #if !BUILDFLAG(IS_ANDROID)
   registry->RegisterBooleanPref(prefs::kCaretBrowsingEnabled, false);
   registry->RegisterBooleanPref(prefs::kShowCaretBrowsingDialog, true);
+  registry->RegisterBooleanPref(prefs::kNTPFooterExtensionAttributionEnabled,
+                                true);
 #endif
 
 #if !BUILDFLAG(IS_CHROMEOS)
@@ -192,6 +207,5 @@ void RegisterBrowserUserPrefs(user_prefs::PrefRegistrySyncable* registry) {
                                std::string());
   registry->RegisterIntegerPref(prefs::kEnterpriseProfileBadgeToolbarSettings,
                                 0);
-  registry->RegisterBooleanPref(prefs::kNTPFooterThemeAttributionEnabled, true);
 #endif  // BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
 }

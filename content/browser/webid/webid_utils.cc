@@ -439,16 +439,6 @@ bool HasSharingPermissionOrIdpHasThirdPartyCookiesAccess(
       requester_origin, embedder_origin, url::Origin::Create(provider_url));
 }
 
-bool IsFedCmAuthzEnabled() {
-  // If field trials or an explicit user selection disables authz, we should
-  // respect that.
-  std::optional<bool> is_overridden = IsFedCmAuthzOverridden();
-  if (is_overridden) {
-    return *is_overridden;
-  }
-  return true;
-}
-
 FederatedAuthRequestPageData* GetPageData(Page& page) {
   return FederatedAuthRequestPageData::GetOrCreateForPage(page);
 }
@@ -464,6 +454,18 @@ FedCmRequesterFrameType ComputeRequesterFrameType(const RenderFrameHost& rfh,
   return net::SchemefulSite::IsSameSite(requester, embedder)
              ? FedCmRequesterFrameType::kSameSiteIframe
              : FedCmRequesterFrameType::kCrossSiteIframe;
+}
+
+void MaybeAddResponseCodeToConsole(RenderFrameHost& render_frame_host,
+                                   const char* fetch_description,
+                                   int response_code) {
+  std::optional<std::string> console_message =
+      webid::ComputeConsoleMessageForHttpResponseCode(fetch_description,
+                                                      response_code);
+  if (console_message) {
+    render_frame_host.AddMessageToConsole(
+        blink::mojom::ConsoleMessageLevel::kError, *console_message);
+  }
 }
 
 }  // namespace content::webid

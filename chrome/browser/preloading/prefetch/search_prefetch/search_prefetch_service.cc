@@ -16,6 +16,7 @@
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/time/time.h"
+#include "base/trace_event/named_trigger.h"
 #include "base/values.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/content_settings/host_content_settings_map_factory.h"
@@ -772,20 +773,18 @@ bool SearchPrefetchService::OnNavigationLikely(
   }
 
   GURL canonical_search_url;
+  std::u16string search_terms;
   if (!HasCanonicalPreloadingOmniboxSearchURL(match.destination_url, profile_,
-                                              &canonical_search_url)) {
+                                              &canonical_search_url,
+                                              &search_terms)) {
+    return false;
+  }
+  // Normalized search terms can be empty.
+  if (search_terms.empty()) {
     return false;
   }
 
-  // Parse the search terms from the match URL to verify this is a valid search
-  // query.
-  std::u16string search_terms;
-  template_url_service->GetDefaultSearchProvider()->ExtractSearchTermsFromURL(
-      match.destination_url, template_url_service->search_terms_data(),
-      &search_terms);
-
-  if (search_terms.size() == 0)
-    return false;
+  RecordPotentialDuplicateSearchTermsAheadOfNavigationalPrefetch(search_terms);
 
   // Search history suggestions (those that are not also server suggestions)
   // don't have search term args. If search history suggestions are enabled,
@@ -1295,10 +1294,37 @@ void SearchPrefetchService::RecordInterceptionMetrics(
   }
   auto iter = search_terms_cache_.Get(search_terms);
   if (iter != search_terms_cache_.end()) {
+    base::TimeDelta age = base::Time::Now() - iter->second;
     base::UmaHistogramCustomTimes(
-        "Omnibox.SearchPrefetch.DuplicateSearchTermsAge",
-        base::Time::Now() - iter->second, base::Milliseconds(1),
-        base::Hours(10), 100);
+        "Omnibox.SearchPrefetch.DuplicateSearchTermsAge", age,
+        base::Milliseconds(1), base::Hours(10), 100);
+    if (age < base::Milliseconds(30)) {
+      base::trace_event::EmitNamedTrigger("second-search-request-within30");
+    }
+    if (age < base::Seconds(1)) {
+      // Limit the age to 1 second to rule out the case where restarting chrome
+      // affects the distribution.
+      base::UmaHistogramCustomTimes(
+          "Omnibox.SearchPrefetch.Within1sDuplicateSearchTermsAge", age,
+          base::Milliseconds(1), base::Seconds(1), 20);
+    }
   }
   search_terms_cache_.Put(search_terms, base::Time::Now());
+  base::trace_event::EmitNamedTrigger("first-search-request");
+}
+
+void SearchPrefetchService::
+    RecordPotentialDuplicateSearchTermsAheadOfNavigationalPrefetch(
+        const std::u16string& search_terms) {
+  // Do not affect the order.
+  const auto& iter = search_terms_cache_.Peek(search_terms);
+  if (iter != search_terms_cache_.end()) {
+    // For now we just want to track the very recent duplicate terms which might
+    // be a bug.
+    base::UmaHistogramCustomTimes(
+        "Omnibox.SearchPrefetch."
+        "DuplicateSearchTermsAgeAheadOfNavigationalPrefetch",
+        base::Time::Now() - iter->second, base::Milliseconds(1),
+        base::Minutes(2), 50);
+  }
 }

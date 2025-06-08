@@ -17,6 +17,7 @@ import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
 import android.os.SystemClock;
 import android.text.TextUtils;
+import android.util.SparseArray;
 import android.view.Gravity;
 import android.view.KeyEvent;
 import android.view.LayoutInflater;
@@ -54,6 +55,7 @@ import org.chromium.build.annotations.RequiresNonNull;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider.ControlsPosition;
 import org.chromium.chrome.browser.ui.appmenu.internal.R;
 import org.chromium.components.browser_ui.styles.SemanticColorUtils;
+import org.chromium.components.browser_ui.util.motion.MotionEventInfo;
 import org.chromium.components.browser_ui.widget.chips.ChipView;
 import org.chromium.components.browser_ui.widget.highlight.ViewHighlighter;
 import org.chromium.components.browser_ui.widget.highlight.ViewHighlighter.HighlightParams;
@@ -65,12 +67,18 @@ import org.chromium.ui.widget.Toast;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Function;
 
 /**
- * Shows a popup of menuitems anchored to a host view. When a item is selected we call
- * AppMenuHandlerImpl.AppMenuDelegate.onOptionsItemSelected with the appropriate MenuItem.
- *   - Only visible MenuItems are shown.
- *   - Disabled items are grayed out.
+ * Shows a popup of menu items anchored to a host view.
+ *
+ * <p>When an item is selected, we call {@link AppMenuHandlerImpl#onOptionsItemSelected}, which then
+ * delegates to {@link AppMenuDelegate#onOptionsItemSelected}.
+ *
+ * <ul>
+ *   <li>Only visible menu items are shown.
+ *   <li>Disabled items are grayed out.
+ * </ul>
  */
 @NullMarked
 class AppMenu implements OnItemClickListener, OnKeyListener, AppMenuClickHandler {
@@ -88,7 +96,7 @@ class AppMenu implements OnItemClickListener, OnKeyListener, AppMenuClickHandler
     private @Nullable PopupWindow mPopup;
     private @Nullable ListView mListView;
     private @Nullable ModelListAdapter mAdapter;
-    private AppMenuHandlerImpl mHandler;
+    private final AppMenuHandlerImpl mHandler;
     private @Nullable View mFooterView;
     private int mCurrentScreenRotation = -1;
     private boolean mIsByPermanentButton;
@@ -174,7 +182,9 @@ class AppMenu implements OnItemClickListener, OnKeyListener, AppMenuClickHandler
      * @param highlightedItemId The resource id of the menu item that should be highlighted. Can be
      *     {@code null} if no item should be highlighted. Note that {@code 0} is dedicated to custom
      *     menu items and can be declared by external apps.
-     * @param customViewBinders See {@link AppMenuPropertiesDelegate#getCustomViewBinders()}.
+     * @param customSizingProviders Provides sizing/height for item types that do not use the
+     *     default item height. If a item's type does not have an entry in this object, then it
+     *     should use the default sizing value.
      * @param isMenuIconAtStart Whether the menu is being shown from a menu icon positioned at the
      *     start.
      * @param addTopPaddingBeforeFirstRow Whether top padding is needed above the first row.
@@ -189,7 +199,7 @@ class AppMenu implements OnItemClickListener, OnKeyListener, AppMenuClickHandler
             @IdRes int headerResourceId,
             @IdRes int groupDividerResourceId,
             @Nullable Integer highlightedItemId,
-            @Nullable List<CustomViewBinder> customViewBinders,
+            SparseArray<Function<Context, Integer>> customSizingProviders,
             boolean isMenuIconAtStart,
             @ControlsPosition int controlsPosition,
             boolean addTopPaddingBeforeFirstRow) {
@@ -252,7 +262,8 @@ class AppMenu implements OnItemClickListener, OnKeyListener, AppMenuClickHandler
         for (int i = 0; i < mModelList.size(); i++) {
             int itemId = mModelList.get(i).model.get(AppMenuItemProperties.MENU_ITEM_ID);
             menuItemIds.add(itemId);
-            heightList.add(getMenuItemHeight(itemId, context, customViewBinders));
+            heightList.add(
+                    getMenuItemHeight(mModelList.get(i).type, context, customSizingProviders));
         }
 
         View contentView = createAppMenuContentView(context, addTopPaddingBeforeFirstRow);
@@ -283,7 +294,7 @@ class AppMenu implements OnItemClickListener, OnKeyListener, AppMenuClickHandler
             sizingPadding.bottom = originalPadding.bottom;
         }
 
-        mListView = (ListView) contentView.findViewById(R.id.app_menu_list);
+        mListView = contentView.findViewById(R.id.app_menu_list);
 
         int footerHeight = inflateFooter(footerResourceId, contentView, menuWidth);
         int headerHeight = inflateHeader(headerResourceId, contentView, menuWidth);
@@ -447,13 +458,13 @@ class AppMenu implements OnItemClickListener, OnKeyListener, AppMenuClickHandler
     }
 
     @Override
-    public void onItemClick(PropertyModel model) {
+    public void onItemClick(PropertyModel model, @Nullable MotionEventInfo triggeringMotion) {
         if (!model.get(AppMenuItemProperties.ENABLED)) return;
 
         int id = model.get(AppMenuItemProperties.MENU_ITEM_ID);
         mSelectedItemBeforeDismiss = true;
         dismiss();
-        mHandler.onOptionsItemSelected(id);
+        mHandler.onOptionsItemSelected(id, triggeringMotion);
     }
 
     @Override
@@ -726,7 +737,7 @@ class AppMenu implements OnItemClickListener, OnKeyListener, AppMenuClickHandler
             return 0;
         }
 
-        ViewStub footerStub = (ViewStub) contentView.findViewById(R.id.app_menu_footer_stub);
+        ViewStub footerStub = contentView.findViewById(R.id.app_menu_footer_stub);
         footerStub.setLayoutResource(footerResourceId);
         mFooterView = footerStub.inflate();
 
@@ -770,15 +781,11 @@ class AppMenu implements OnItemClickListener, OnKeyListener, AppMenuClickHandler
     }
 
     private int getMenuItemHeight(
-            int itemId, Context context, @Nullable List<CustomViewBinder> customViewBinders) {
-        // Check if |item| is custom type
-        if (customViewBinders != null) {
-            for (int i = 0; i < customViewBinders.size(); i++) {
-                CustomViewBinder binder = customViewBinders.get(i);
-                if (binder.getItemViewType(itemId) != CustomViewBinder.NOT_HANDLED) {
-                    return binder.getPixelHeight(context);
-                }
-            }
+            int itemType,
+            Context context,
+            SparseArray<Function<Context, Integer>> customSizingProviders) {
+        if (customSizingProviders.get(itemType) != null) {
+            return assumeNonNull(customSizingProviders.get(itemType)).apply(context);
         }
         return mItemRowHeight;
     }

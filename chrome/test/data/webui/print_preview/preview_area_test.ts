@@ -2,10 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+import 'chrome://print/print_preview.js';
+
 import type {PrintPreviewPreviewAreaElement} from 'chrome://print/print_preview.js';
-import {Destination, DestinationOrigin, Error, Margins, MeasurementSystem, MeasurementSystemUnitType, NativeLayerImpl, PluginProxyImpl, PreviewAreaState, Size, State} from 'chrome://print/print_preview.js';
+import {Destination, DestinationOrigin, Error, Margins, MarginsType, MeasurementSystem, MeasurementSystemUnitType, NativeLayerImpl, PluginProxyImpl, PreviewAreaState, Size, State} from 'chrome://print/print_preview.js';
 import {assertEquals, assertFalse, assertTrue} from 'chrome://webui-test/chai_assert.js';
-import {fakeDataBind} from 'chrome://webui-test/polymer_test_util.js';
 import {microtasksFinished} from 'chrome://webui-test/test_util.js';
 
 import {NativeLayerStub} from './native_layer_stub.js';
@@ -14,9 +15,7 @@ import {TestPluginProxy} from './test_plugin_proxy.js';
 
 suite('PreviewAreaTest', function() {
   let previewArea: PrintPreviewPreviewAreaElement;
-
   let nativeLayer: NativeLayerStub;
-
   let pluginProxy: TestPluginProxy;
 
   setup(function() {
@@ -36,8 +35,6 @@ suite('PreviewAreaTest', function() {
     model.setSetting('pages', [1, 2, 3]);
     previewArea = document.createElement('print-preview-preview-area');
     document.body.appendChild(previewArea);
-    previewArea.settings = model.settings;
-    fakeDataBind(model, previewArea, 'settings');
     previewArea.destination =
         new Destination('FooDevice', DestinationOrigin.LOCAL, 'FooName');
     previewArea.destination.capabilities =
@@ -59,10 +56,10 @@ suite('PreviewAreaTest', function() {
     previewArea.state = State.READY;
     assertEquals(PreviewAreaState.LOADING, previewArea.previewState);
     assertFalse(
-        previewArea.shadowRoot!.querySelector('.preview-area-overlay-layer')!
+        previewArea.shadowRoot.querySelector('.preview-area-overlay-layer')!
             .classList.contains('invisible'));
     const message =
-        previewArea.shadowRoot!.querySelector('.preview-area-message')!
+        previewArea.shadowRoot.querySelector('.preview-area-message')!
             .querySelector('span')!;
     assertEquals('Loading preview', message.textContent!.trim());
 
@@ -74,7 +71,7 @@ suite('PreviewAreaTest', function() {
     assertEquals(PreviewAreaState.DISPLAY_PREVIEW, previewArea.previewState);
     assertEquals(3, pluginProxy.getCallCount('loadPreviewPage'));
     assertTrue(
-        previewArea.shadowRoot!.querySelector('.preview-area-overlay-layer')!
+        previewArea.shadowRoot.querySelector('.preview-area-overlay-layer')!
             .classList.contains('invisible'));
 
     // If destination capabilities fetch fails, the invalid printer error
@@ -83,9 +80,11 @@ suite('PreviewAreaTest', function() {
         'InvalidDevice', DestinationOrigin.LOCAL, 'InvalidName');
     previewArea.state = State.ERROR;
     previewArea.error = Error.INVALID_PRINTER;
+    await microtasksFinished();
+
     assertEquals(PreviewAreaState.ERROR, previewArea.previewState);
     assertFalse(
-        previewArea.shadowRoot!.querySelector('.preview-area-overlay-layer')!
+        previewArea.shadowRoot.querySelector('.preview-area-overlay-layer')!
             .classList.contains('invisible'));
     assertEquals(
         'The selected printer is not available or not installed ' +
@@ -106,10 +105,10 @@ suite('PreviewAreaTest', function() {
 
     assertEquals(PreviewAreaState.DISPLAY_PREVIEW, previewArea.previewState);
     assertTrue(
-        previewArea.shadowRoot!.querySelector('.preview-area-overlay-layer')!
+        previewArea.shadowRoot.querySelector('.preview-area-overlay-layer')!
             .classList.contains('invisible'));
     const plugin =
-        previewArea.shadowRoot!.querySelector('.preview-area-plugin')!;
+        previewArea.shadowRoot.querySelector('.preview-area-plugin')!;
     assertEquals(null, plugin.getAttribute('tabindex'));
 
     // This can be triggered at any time by a resizing of the viewport or
@@ -126,5 +125,38 @@ suite('PreviewAreaTest', function() {
     // Plugin is large enough for zoom toolbar.
     pluginProxy.triggerVisualStateChange(0, 0, 500, 800, 1000);
     assertEquals('0', plugin.getAttribute('tabindex'));
+  });
+
+  test('PointerEvents', async function() {
+    const whenPreviewStarted = nativeLayer.whenCalled('getPreview');
+    previewArea.state = State.READY;
+    previewArea.startPreview(false);
+    await whenPreviewStarted;
+    await microtasksFinished();
+
+    const marginControls =
+        previewArea.$.marginControlContainer.shadowRoot.querySelectorAll(
+            'print-preview-margin-control');
+    assertEquals(4, marginControls.length);
+
+    function assertVisible(visible: boolean) {
+      for (const control of marginControls) {
+        assertEquals(visible, !control.invisible);
+      }
+    }
+
+    assertVisible(false);
+
+    previewArea.setSetting('margins', MarginsType.CUSTOM);
+    await microtasksFinished();
+    assertVisible(true);
+
+    previewArea.dispatchEvent(new PointerEvent('pointerout', {pointerId: 1}));
+    await microtasksFinished();
+    assertVisible(false);
+
+    previewArea.dispatchEvent(new PointerEvent('pointerover', {pointerId: 1}));
+    await microtasksFinished();
+    assertVisible(true);
   });
 });

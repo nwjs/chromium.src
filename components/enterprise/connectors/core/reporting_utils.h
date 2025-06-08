@@ -25,6 +25,9 @@ inline constexpr int kReferrerUserGestureLimit = 5;
 // username should be masked.
 std::string MaskUsername(const std::u16string& username);
 
+// Convert base::Time to Timestamp proto.
+::google3_protos::Timestamp ToProtoTimestamp(base::Time);
+
 // Verify if the given `matcher` matches the `url`.
 bool IsUrlMatched(url_matcher::URLMatcher* matcher, const GURL& url);
 
@@ -69,7 +72,9 @@ chrome::cros::reporting::proto::LoginEvent GetLoginEvent(
     const GURL& url,
     bool is_federated,
     const url::SchemeHostPort& federated_origin,
-    const std::u16string& username);
+    const std::u16string& username,
+    const std::string& profile_identifier,
+    const std::string& profile_username);
 
 chrome::cros::reporting::proto::SafeBrowsingInterstitialEvent
 GetInterstitialEvent(const GURL& url,

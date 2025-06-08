@@ -13,8 +13,6 @@
 
 namespace content {
 
-class NavigationHandle;
-
 // This class can be used to cancel navigations synchronously or asynchronously
 // at specific times in the NavigationThrottle lifecycle.
 //
@@ -36,7 +34,7 @@ class TestNavigationThrottle : public NavigationThrottle {
     ASYNCHRONOUS,
   };
 
-  TestNavigationThrottle(NavigationHandle* handle);
+  explicit TestNavigationThrottle(NavigationThrottleRegistry& registry);
 
   TestNavigationThrottle(const TestNavigationThrottle&) = delete;
   TestNavigationThrottle& operator=(const TestNavigationThrottle&) = delete;

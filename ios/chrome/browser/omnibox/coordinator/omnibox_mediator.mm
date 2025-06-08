@@ -14,13 +14,14 @@
 #import "ios/chrome/browser/favicon/model/favicon_loader.h"
 #import "ios/chrome/browser/lens/ui_bundled/lens_entrypoint.h"
 #import "ios/chrome/browser/net/model/crurl.h"
+#import "ios/chrome/browser/omnibox/coordinator/omnibox_mediator_delegate.h"
 #import "ios/chrome/browser/omnibox/model/autocomplete_suggestion.h"
 #import "ios/chrome/browser/omnibox/model/omnibox_text_controller.h"
 #import "ios/chrome/browser/omnibox/public/omnibox_constants.h"
 #import "ios/chrome/browser/omnibox/public/omnibox_suggestion_icon_util.h"
 #import "ios/chrome/browser/omnibox/public/omnibox_ui_features.h"
 #import "ios/chrome/browser/omnibox/public/omnibox_util.h"
-#import "ios/chrome/browser/omnibox/ui_bundled/omnibox_consumer.h"
+#import "ios/chrome/browser/omnibox/ui/omnibox_consumer.h"
 #import "ios/chrome/browser/search_engines/model/search_engine_observer_bridge.h"
 #import "ios/chrome/browser/search_engines/model/search_engines_util.h"
 #import "ios/chrome/browser/shared/public/commands/lens_commands.h"
@@ -186,6 +187,7 @@ using base::UserMetricsAction;
 
 - (void)onDidBeginEditing {
   [self.omniboxTextController onDidBeginEditing];
+  [self.delegate omniboxMediatorDidBeginEditing:self];
 }
 
 - (BOOL)shouldChangeCharactersInRange:(NSRange)range

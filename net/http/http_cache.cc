@@ -25,7 +25,6 @@
 #include "base/metrics/field_trial.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/metrics/histogram_macros_local.h"
-#include "base/not_fatal_until.h"
 #include "base/numerics/safe_conversions.h"
 #include "base/pickle.h"
 #include "base/strings/strcat.h"
@@ -564,9 +563,8 @@ void HttpCache::ClearNoVarySearchCache(
   }
 }
 
-int HttpCache::CreateTransaction(
-    RequestPriority priority,
-    std::unique_ptr<HttpTransaction>* transaction) {
+std::unique_ptr<HttpTransaction> HttpCache::CreateTransaction(
+    RequestPriority priority) {
   // Do lazy initialization of disk cache if needed.
   if (!disk_cache_.get()) {
     // We don't care about the result.
@@ -585,8 +583,7 @@ int HttpCache::CreateTransaction(
     new_transaction->FailConditionalizationForTest();
   }
 
-  *transaction = std::move(new_transaction);
-  return OK;
+  return new_transaction;
 }
 
 HttpCache* HttpCache::GetCache() {
@@ -662,6 +659,7 @@ std::string HttpCache::GenerateCacheKey(
     int64_t upload_data_identifier,
     bool is_subframe_document_resource,
     bool is_mainframe_navigation,
+    bool is_shared_resource,
     std::optional<url::Origin> initiator) {
   // The first character of the key may vary depending on whether or not sending
   // credentials is permitted for this request. This only happens if the
@@ -673,7 +671,7 @@ std::string HttpCache::GenerateCacheKey(
                                   : '1';
 
   std::string isolation_key;
-  if (IsSplitCacheEnabled()) {
+  if (!is_shared_resource && IsSplitCacheEnabled()) {
     // Prepend the key with |kDoubleKeyPrefix| = "_dk_" to mark it as
     // double-keyed (and makes it an invalid url so that it doesn't get
     // confused with a single-keyed entry). Separate the origin and url
@@ -736,7 +734,8 @@ HttpCache::GenerateCacheKeyForRequestWithAlternateURL(
   return GenerateCacheKey(
       url, request->load_flags, request->network_isolation_key,
       upload_data_identifier, request->is_subframe_document_resource,
-      request->is_main_frame_navigation, request->initiator);
+      request->is_main_frame_navigation, request->is_shared_resource,
+      request->initiator);
 }
 
 // static
@@ -974,7 +973,7 @@ void HttpCache::DeletePendingOp(PendingOp* pending_op) {
 
   if (!key.empty()) {
     auto it = pending_ops_.find(key);
-    CHECK(it != pending_ops_.end(), base::NotFatalUntil::M130);
+    CHECK(it != pending_ops_.end());
     pending_ops_.erase(it);
   } else {
     for (auto it = pending_ops_.begin(); it != pending_ops_.end(); ++it) {
@@ -1166,7 +1165,7 @@ void HttpCache::DoneWithEntry(scoped_refptr<ActiveEntry>& entry,
   // Transaction is reading from the entry.
   DCHECK(!entry->HasWriters());
   auto readers_it = entry->readers().find(transaction);
-  CHECK(readers_it != entry->readers().end(), base::NotFatalUntil::M130);
+  CHECK(readers_it != entry->readers().end());
   entry->readers().erase(readers_it);
   ProcessQueuedTransactions(entry);
 }

@@ -131,7 +131,7 @@ BASE_DECLARE_FEATURE(kWebAuthnMicrosoftSoftwareUnexportableKeyProvider);
 COMPONENT_EXPORT(DEVICE_FIDO)
 BASE_DECLARE_FEATURE(kWebAuthnSignalApiHidePasskeys);
 
-// Enables rate limiting of immediate requests.
+// Enables rate limiting of immediate requests based on eTLD+1.
 COMPONENT_EXPORT(DEVICE_FIDO)
 BASE_DECLARE_FEATURE(kWebAuthnImmediateRequestRateLimit);
 
@@ -149,6 +149,15 @@ BASE_DECLARE_FEATURE_PARAM(int,
 // Enables the immediate mediation for `navigator.credentials.get` requests.
 COMPONENT_EXPORT(DEVICE_FIDO)
 BASE_DECLARE_FEATURE(kWebAuthnImmediateGet);
+
+// Parameter controlling the duration (in milliseconds) for the immediate
+// mediation timeout.
+COMPONENT_EXPORT(DEVICE_FIDO)
+BASE_DECLARE_FEATURE_PARAM(int, kWebAuthnImmediateMediationTimeoutMilliseconds);
+
+// Enables autoselecting the single mechanism in immediate mediation requests.
+COMPONENT_EXPORT(DEVICE_FIDO)
+BASE_DECLARE_FEATURE(kWebAuthnImmediateGetAutoselect);
 
 }  // namespace device
 

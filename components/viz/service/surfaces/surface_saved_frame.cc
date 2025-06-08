@@ -157,10 +157,8 @@ void SurfaceSavedFrame::RequestCopyOfOutput(
     for (auto& [index, shared_image] : blit_shared_images_) {
       OutputCopyResult* slot = &frame_result_->shared_results[index].emplace();
 
-      slot->is_software = is_software;
       slot->sync_token = shared_image->creation_sync_token();
       slot->shared_image = shared_image;
-      slot->draw_data = draw_data_[index];
       slot->release_callback = base::BindOnce(
           [](scoped_refptr<gpu::ClientSharedImage> image,
              const gpu::SyncToken& sync_token, bool is_lost) {
@@ -194,8 +192,7 @@ std::unique_ptr<CopyOutputRequest> SurfaceSavedFrame::CreateCopyRequestIfNeeded(
     return nullptr;
   }
 
-  RenderPassDrawData draw_data(render_pass);
-  draw_data_[shared_pass_index] = draw_data;
+  const gfx::Size size = render_pass.output_rect.size();
 
   auto request = std::make_unique<CopyOutputRequest>(
       kResultFormat, kResultDestination,
@@ -219,17 +216,16 @@ std::unique_ptr<CopyOutputRequest> SurfaceSavedFrame::CreateCopyRequestIfNeeded(
       gpu::SharedImageUsageSet flags = gpu::SHARED_IMAGE_USAGE_CPU_WRITE_ONLY;
       shared_image =
           shared_image_interface_->CreateSharedImageForSoftwareCompositor(
-              {image_format, draw_data.size, color_space, flags,
+              {image_format, size, color_space, flags,
                "ViewTransitionTexture"});
     } else {
       gpu::SharedImageUsageSet flags = gpu::SHARED_IMAGE_USAGE_DISPLAY_READ |
                                        gpu::SHARED_IMAGE_USAGE_DISPLAY_WRITE;
       shared_image = shared_image_interface_->CreateSharedImage(
-          {image_format, draw_data.size, color_space, flags,
-           "ViewTransitionTexture"},
+          {image_format, size, color_space, flags, "ViewTransitionTexture"},
           gpu::kNullSurfaceHandle);
     }
-    request->set_result_selection(gfx::Rect(draw_data.size));
+    request->set_result_selection(gfx::Rect(size));
     request->set_blit_request(BlitRequest(
         gfx::Point(), LetterboxingBehavior::kDoNotLetterbox,
         shared_image->mailbox(), shared_image->creation_sync_token(),
@@ -299,8 +295,6 @@ void SurfaceSavedFrame::CompleteSavedFrameForTesting() {
     result->sync_token = shared_image_interface_->GenVerifiedSyncToken();
     result->release_callback =
         base::DoNothingWithBoundArgs(result->shared_image);
-    result->draw_data.size = kDefaultTextureSizeForTesting;
-    result->is_software = true;
   }
 
   copy_request_count_ = 0;
@@ -321,11 +315,6 @@ void SurfaceSavedFrame::CompleteSavedFrameForTesting() {
   DCHECK(IsValid());
 }
 
-SurfaceSavedFrame::RenderPassDrawData::RenderPassDrawData() = default;
-SurfaceSavedFrame::RenderPassDrawData::RenderPassDrawData(
-    const CompositorRenderPass& render_pass)
-    : size(render_pass.output_rect.size()) {}
-
 SurfaceSavedFrame::OutputCopyResult::OutputCopyResult() = default;
 SurfaceSavedFrame::OutputCopyResult::OutputCopyResult(
     OutputCopyResult&& other) {
@@ -340,23 +329,12 @@ SurfaceSavedFrame::OutputCopyResult::~OutputCopyResult() {
 
 SurfaceSavedFrame::OutputCopyResult&
 SurfaceSavedFrame::OutputCopyResult::operator=(OutputCopyResult&& other) {
-  mailbox = std::move(other.mailbox);
-  other.mailbox = gpu::Mailbox();
-
   sync_token = std::move(other.sync_token);
   other.sync_token = gpu::SyncToken();
 
-  color_space = std::move(other.color_space);
-  other.color_space = gfx::ColorSpace();
-
   shared_image = std::move(other.shared_image);
 
-  draw_data = std::move(other.draw_data);
-
   release_callback = std::move(other.release_callback);
-
-  is_software = other.is_software;
-  other.is_software = false;
 
   return *this;
 }

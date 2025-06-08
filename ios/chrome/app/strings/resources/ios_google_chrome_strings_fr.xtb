@@ -47,6 +47,7 @@ Points à prendre en compte :
 <translation id="1917964099031477364">Ce compte et les données non enregistrées seront supprimés de Chrome et des autres applications Google sur cet appareil.</translation>
 <translation id="1919130412786645364">Autoriser la connexion à Chrome</translation>
 <translation id="1965935827552890526">Terminez ce que vous étiez en train de faire dans l'autre fenêtre Chrome ouverte.</translation>
+<translation id="1966638102563776885">Astuce Chrome : Retrouvez vos mots de passe dans toutes les applis</translation>
 <translation id="1973910962341002002">Dans les paramètres "<ph name="TEXT_OF_THE_SETTINGS_MENU_ITEM" />", activez "Chrome"</translation>
 <translation id="1984705450038014246">Synchroniser vos données Chrome</translation>
 <translation id="1987779152850321833">Suivez les suggestions ci-dessous pour profiter pleinement de Chrome.</translation>
@@ -114,7 +115,6 @@ Patientez quelques minutes avant de vous déconnecter. Si vous vous déconnectez
 <translation id="3655656110921623717">Cela signifie que Chrome demandera la version pour mobile à chaque fois.</translation>
 <translation id="3740397331642243698">Ouvre les URL saisies dans Google Chrome en mode navigation privée.</translation>
 <translation id="3741995255368156336">Ouvre la liste de lecture Chrome.</translation>
-<translation id="3808570423967020928">Accédez plus rapidement à Chrome depuis le Dock de l'écran d'accueil.</translation>
 <translation id="3827545470516145620">Vous disposez de la protection standard sur cet appareil</translation>
 <translation id="384394811301901750">Google Chrome ne peut pas utiliser votre appareil photo pour le moment</translation>
 <translation id="3863841106411295595">Ajoute les URL saisies à votre liste de lecture dans Chrome.</translation>
@@ -138,6 +138,7 @@ Patientez quelques minutes avant de vous déconnecter. Si vous vous déconnectez
 <translation id="4724297637870447613">Utilisez Chrome où que vous soyez</translation>
 <translation id="4738647308035481133">Page Google Chrome</translation>
 <translation id="4742795653798179840">Données Chrome supprimées</translation>
+<translation id="4749294594657945639">Pour retrouver facilement vos mots de passe enregistrés dans d'autres applis, choisissez Chrome pour la saisie automatique.</translation>
 <translation id="4761869838909035636">Effectuer un contrôle de sécurité de Chrome</translation>
 <translation id="4798859546468762093">Pour bénéficier de la personnalisation et d'autres fonctionnalités, ajoutez Chrome à l'<ph name="FEATURE_NAME_1" /> ainsi qu'aux <ph name="FEATURE_NAME_2" /></translation>
 <translation id="4819268619367838612">Pour améliorer l'appli, Chrome envoie les données d'utilisation et de plantage à Google. <ph name="BEGIN_LINK" />Gérer<ph name="END_LINK" /></translation>
@@ -233,7 +234,6 @@ Pour voir d'autres paramètres qui utilisent les données pour améliorer votre 
 <translation id="6975725306479268850">Choisissez Chrome pour la saisie automatique</translation>
 <translation id="7056826488869329999">Lance le contrôle de sécurité dans Chrome.</translation>
 <translation id="7061455974939528301">Appuyez de manière prolongée sur l'icône Chrome, puis cliquez sur "Modifier l'écran d'accueil"</translation>
-<translation id="7065813315247345131">Déplacer Chrome vers le Dock</translation>
 <translation id="7124339256045485976">Pour garder Chrome à jour</translation>
 <translation id="7145599899567697473">Enregistrez et remplissez automatiquement les mots de passe dans Chrome</translation>
 <translation id="7161390184744336561">La version de Google Chrome est obsolète</translation>
@@ -317,10 +317,10 @@ Vos données ont été chiffrées avec votre phrase secrète le <ph name="TIME" 
 <translation id="8603022514504485810">Le Gestionnaire de mots de passe de Google n'a pas pu vérifier tous les mots de passe. Réessayez demain ou <ph name="BEGIN_LINK" />vérifiez les mots de passe enregistrés dans votre compte Google<ph name="END_LINK" />.</translation>
 <translation id="8630122478628016441">Activez l'option "Verrouiller les onglets de navigation privée lorsque vous fermez Chrome".</translation>
 <translation id="8673726683583791503">Acheter avec Google Lens</translation>
-<translation id="8727043961453758442">Profiter pleinement de Chrome</translation>
 <translation id="8765470054473112089">Lorsque vous saisissez du texte dans la barre d'adresse ou le champ de recherche, Chrome envoie le contenu saisi à votre moteur de recherche par défaut pour obtenir de meilleures suggestions. Ce paramètre est désactivé en navigation privée.</translation>
 <translation id="8772179140489533211">Permet d'afficher des invites de connexion à Chrome.</translation>
 <translation id="8788269841521769222">Vous n'aurez pas besoin de mémoriser ce mot de passe. Il sera enregistré dans le Gestionnaire de mots de passe Google pour <ph name="EMAIL" /></translation>
+<translation id="8796490717897731471"><ph name="EMAIL" />. Chrome est géré.</translation>
 <translation id="880967149107462122">Accéder aux paramètres Chrome</translation>
 <translation id="8842132678697187091">Vous pouvez ouvrir Google Lens ici.</translation>
 <translation id="8850736900032787670">Pour recevoir des contenus personnalisés en fonction de vos centres d'intérêt, connectez-vous à Chrome.</translation>

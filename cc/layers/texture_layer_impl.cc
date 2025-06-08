@@ -53,13 +53,12 @@ void TextureLayerImpl::PushPropertiesTo(LayerImpl* layer) {
   TextureLayerImpl* texture_layer = static_cast<TextureLayerImpl*>(layer);
   texture_layer->SetUVTopLeft(uv_top_left_);
   texture_layer->SetUVBottomRight(uv_bottom_right_);
-  texture_layer->SetPremultipliedAlpha(premultiplied_alpha_);
   texture_layer->SetBlendBackgroundColor(blend_background_color_);
   texture_layer->SetForceTextureToOpaque(force_texture_to_opaque_);
-  if (own_resource_) {
+  if (needs_set_resource_push_) {
     texture_layer->SetTransferableResource(transferable_resource_,
                                            std::move(release_callback_));
-    own_resource_ = false;
+    needs_set_resource_push_ = false;
   }
 }
 
@@ -100,6 +99,7 @@ bool TextureLayerImpl::WillDraw(
         DCHECK(MayEvictResourceInBackground(
             transferable_resource_.resource_source));
       }
+
       resource_id_ = resource_provider->ImportResource(
           transferable_resource_,
           /* impl_thread_release_callback= */ viz::ReleaseCallback(),
@@ -146,8 +146,8 @@ void TextureLayerImpl::AppendQuads(const AppendQuadsContext& context,
 
   auto* quad = render_pass->CreateAndAppendDrawQuad<viz::TextureDrawQuad>();
   quad->SetNew(shared_quad_state, quad_rect, visible_quad_rect, needs_blending,
-               resource_id_, premultiplied_alpha_, uv_top_left_,
-               uv_bottom_right_, bg_color, nearest_neighbor,
+               resource_id_, uv_top_left_, uv_bottom_right_, bg_color,
+               nearest_neighbor,
                /*secure_output=*/false, gfx::ProtectedVideoType::kClear);
   quad->dynamic_range_limit = GetDynamicRangeLimit();
   ValidateQuadResources(quad);
@@ -188,10 +188,6 @@ gfx::ContentColorUsage TextureLayerImpl::GetContentColorUsage() const {
   return transferable_resource_.color_space.GetContentColorUsage();
 }
 
-void TextureLayerImpl::SetPremultipliedAlpha(bool premultiplied_alpha) {
-  premultiplied_alpha_ = premultiplied_alpha;
-}
-
 void TextureLayerImpl::SetBlendBackgroundColor(bool blend) {
   blend_background_color_ = blend;
 }
@@ -210,17 +206,14 @@ void TextureLayerImpl::SetUVBottomRight(const gfx::PointF& bottom_right) {
 
 void TextureLayerImpl::SetTransferableResource(
     const viz::TransferableResource& resource,
-    viz::ReleaseCallback release_callback,
-    bool own_resource) {
+    viz::ReleaseCallback release_callback) {
+  DCHECK_EQ(resource.is_empty(), !release_callback);
   FreeTransferableResource();
-
-  if (own_resource) {
-    DCHECK_EQ(resource.is_empty(), !release_callback);
-  }
 
   transferable_resource_ = resource;
   release_callback_ = std::move(release_callback);
-  own_resource_ = own_resource;
+  own_resource_ = true;
+  needs_set_resource_push_ = true;
 }
 
 void TextureLayerImpl::FreeTransferableResource() {

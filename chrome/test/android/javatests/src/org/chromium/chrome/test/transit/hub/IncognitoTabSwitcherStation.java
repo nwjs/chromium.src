@@ -6,7 +6,6 @@ package org.chromium.chrome.test.transit.hub;
 
 import static androidx.test.espresso.matcher.ViewMatchers.isSelected;
 
-import org.chromium.base.test.transit.Elements;
 import org.chromium.base.test.transit.ViewElementMatchesCondition;
 import org.chromium.chrome.browser.hub.PaneId;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
@@ -17,6 +16,10 @@ public class IncognitoTabSwitcherStation extends TabSwitcherStation {
 
     public IncognitoTabSwitcherStation(boolean regularTabsExist, boolean incognitoTabsExist) {
         super(/* isIncognito= */ true, regularTabsExist, incognitoTabsExist);
+
+        assert incognitoTabsButtonElement != null;
+        declareEnterCondition(
+                new ViewElementMatchesCondition(incognitoTabsButtonElement, isSelected()));
     }
 
     /**
@@ -31,14 +34,6 @@ public class IncognitoTabSwitcherStation extends TabSwitcherStation {
     @Override
     public @PaneId int getPaneId() {
         return PaneId.INCOGNITO_TAB_SWITCHER;
-    }
-
-    @Override
-    public void declareElements(Elements.Builder elements) {
-        super.declareElements(elements);
-        assert incognitoTabsButtonElement != null;
-        elements.declareEnterCondition(
-                new ViewElementMatchesCondition(incognitoTabsButtonElement, isSelected()));
     }
 
     /** Open a new tab using the New Tab action button. */

@@ -94,6 +94,7 @@ public class FlatBufferTabStateSerializer implements TabStateSerializer {
         TabStateFlatBufferV1.addTabGroupId(
                 fbb, TabGroupIdToken.createTabGroupIdToken(fbb, tokenHigh, tokenLow));
         TabStateFlatBufferV1.addTabHasSensitiveContent(fbb, state.tabHasSensitiveContent);
+        TabStateFlatBufferV1.addIsPinned(fbb, state.isPinned);
         int r = TabStateFlatBufferV1.endTabStateFlatBufferV1(fbb);
         fbb.finish(r);
         return fbb.dataBuffer();
@@ -128,6 +129,7 @@ public class FlatBufferTabStateSerializer implements TabStateSerializer {
                     getLaunchTypeFromFlatBuffer(tabStateFlatBuffer.launchTypeAtCreation());
             state.themeColor = tabStateFlatBuffer.themeColor();
             state.tabHasSensitiveContent = tabStateFlatBuffer.tabHasSensitiveContent();
+            state.isPinned = tabStateFlatBuffer.isPinned();
             ByteBuffer webContentsStateBuffer =
                     tabStateFlatBuffer.webContentsStateBytesAsByteBuffer() == null
                             ? ByteBuffer.allocateDirect(0)
@@ -226,6 +228,8 @@ public class FlatBufferTabStateSerializer implements TabStateSerializer {
                 return TabLaunchType.FROM_HISTORY_NAVIGATION_BACKGROUND;
             case TabLaunchTypeAtCreation.FROM_HISTORY_NAVIGATION_FOREGROUND:
                 return TabLaunchType.FROM_HISTORY_NAVIGATION_FOREGROUND;
+            case TabLaunchTypeAtCreation.FROM_LONGPRESS_FOREGROUND_IN_GROUP:
+                return TabLaunchType.FROM_LONGPRESS_FOREGROUND_IN_GROUP;
             case TabLaunchTypeAtCreation.SIZE:
                 return TabLaunchType.SIZE;
             case TabLaunchTypeAtCreation.UNKNOWN:
@@ -302,6 +306,8 @@ public class FlatBufferTabStateSerializer implements TabStateSerializer {
                 return TabLaunchTypeAtCreation.FROM_HISTORY_NAVIGATION_BACKGROUND;
             case TabLaunchType.FROM_HISTORY_NAVIGATION_FOREGROUND:
                 return TabLaunchTypeAtCreation.FROM_HISTORY_NAVIGATION_FOREGROUND;
+            case TabLaunchType.FROM_LONGPRESS_FOREGROUND_IN_GROUP:
+                return TabLaunchTypeAtCreation.FROM_LONGPRESS_FOREGROUND_IN_GROUP;
             case TabLaunchType.SIZE:
                 return TabLaunchTypeAtCreation.SIZE;
             default:

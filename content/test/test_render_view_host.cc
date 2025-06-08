@@ -195,6 +195,12 @@ uint64_t TestRenderWidgetHostView::GetNSViewId() const {
 }
 #endif
 
+#if BUILDFLAG(IS_ANDROID)
+bool TestRenderWidgetHostView::IsTouchSequencePotentiallyActiveOnViz() {
+  return false;
+}
+#endif
+
 gfx::Rect TestRenderWidgetHostView::GetBoundsInRootWindow() {
   return gfx::Rect();
 }
@@ -405,13 +411,17 @@ TestRenderViewHost::~TestRenderViewHost() {
 }
 
 bool TestRenderViewHost::CreateTestRenderView() {
-  return CreateRenderView(std::nullopt, MSG_ROUTING_NONE, false);
+  return CreateRenderView(/*opener_frame_token=*/std::nullopt,
+                          /*proxy_route_id=*/MSG_ROUTING_NONE,
+                          /*window_was_created_with_opener=*/false,
+                          /*navigation_metrics_token=*/std::nullopt);
 }
 
 bool TestRenderViewHost::CreateRenderView(
     const std::optional<blink::FrameToken>& opener_frame_token,
     int proxy_route_id,
-    bool window_was_created_with_opener) {
+    bool window_was_created_with_opener,
+    const std::optional<base::UnguessableToken>& navigation_metrics_token) {
   DCHECK(!IsRenderViewLive());
   // Mark the `blink::WebView` as live, though there's nothing to do here since
   // we don't yet use mojo to talk to the RenderView.

@@ -35,6 +35,18 @@ void VerifyMatches(const ACMatches& matches,
   EXPECT_THAT(relevances, testing::ElementsAreArray(expected_relevances));
 }
 
+void VerifyMatches(
+    const ACMatches& matches,
+    const std::vector<std::pair<int, omnibox::GroupId>>& expected) {
+  std::vector<std::pair<int, omnibox::GroupId>> actual;
+  std::ranges::transform(
+      matches, std::back_inserter(actual), [](const auto& match) {
+        return std::make_pair(match.relevance,
+                              match.suggestion_group_id.value());
+      });
+  EXPECT_THAT(actual, testing::ElementsAreArray(expected));
+}
+
 }  // namespace
 
 // Tests rules for Section.
@@ -82,43 +94,43 @@ TEST(AutocompleteGrouperSectionsTest, Section) {
   test({CreateMatch(1, omnibox::GROUP_SEARCH)}, {});
 }
 
-// Tests rules for ZpsSection.
-TEST(AutocompleteGrouperGroupsTest, ZpsSection) {
-  class TestZpsSection : public ZpsSection {
+// Tests rules for Section.
+TEST(AutocompleteGrouperGroupsTest, Section) {
+  class TestSection : public Section {
    public:
     // Up to 2 items of the following types.
-    explicit TestZpsSection(omnibox::GroupConfigMap& group_configs)
-        : ZpsSection(
-              2,
-              {
-                  Group(1,
-                        {
-                            {omnibox::GROUP_MOBILE_SEARCH_READY_OMNIBOX, 1},
-                        }),
-                  Group(1,
-                        {
-                            {omnibox::GROUP_MOBILE_CLIPBOARD, 1},
-                        }),
-                  Group(1,
-                        {
-                            {omnibox::GROUP_MOBILE_MOST_VISITED, 1},
-                        }),
-                  Group(1,
-                        {
-                            {omnibox::GROUP_VISITED_DOC_RELATED, 1},
-                        }),
-                  Group(1,
-                        {
-                            {omnibox::GROUP_RELATED_QUERIES, 1},
-                        }),
-              },
-              group_configs) {}
+    explicit TestSection(omnibox::GroupConfigMap& group_configs)
+        : Section(2,
+                  {
+                      Group(1,
+                            {
+                                {omnibox::GROUP_MOBILE_SEARCH_READY_OMNIBOX, 1},
+                            }),
+                      Group(1,
+                            {
+                                {omnibox::GROUP_MOBILE_CLIPBOARD, 1},
+                            }),
+                      Group(1,
+                            {
+                                {omnibox::GROUP_MOBILE_MOST_VISITED, 1},
+                            }),
+                      Group(1,
+                            {
+                                {omnibox::GROUP_VISITED_DOC_RELATED, 1},
+                            }),
+                      Group(1,
+                            {
+                                {omnibox::GROUP_RELATED_QUERIES, 1},
+                            }),
+                  },
+                  group_configs,
+                  omnibox::GroupConfig_SideType_DEFAULT_PRIMARY) {}
   };
 
   auto test = [](ACMatches matches, std::vector<int> expected_relevances) {
     PSections sections;
     omnibox::GroupConfigMap group_configs;
-    sections.push_back(std::make_unique<TestZpsSection>(group_configs));
+    sections.push_back(std::make_unique<TestSection>(group_configs));
     auto out_matches = Section::GroupMatches(std::move(sections), matches);
     VerifyMatches(out_matches, expected_relevances);
   };
@@ -135,7 +147,7 @@ TEST(AutocompleteGrouperGroupsTest, ZpsSection) {
             CreateMatch(2, omnibox::GROUP_MOBILE_SEARCH_READY_OMNIBOX),
             CreateMatch(1, omnibox::GROUP_MOBILE_SEARCH_READY_OMNIBOX),
         },
-        {2, 3});
+        {5, 6});
   }
 }
 
@@ -145,7 +157,7 @@ TEST(AutocompleteGrouperSectionsTest, DesktopNTPZpsSection) {
     PSections sections;
     omnibox::GroupConfigMap group_configs;
     sections.push_back(
-        std::make_unique<DesktopNTPZpsSection>(group_configs, 8u));
+        std::make_unique<DesktopNTPZpsSection>(group_configs, 8u, false));
     auto out_matches = Section::GroupMatches(std::move(sections), matches);
     VerifyMatches(out_matches, expected_relevances);
   };
@@ -165,11 +177,10 @@ TEST(AutocompleteGrouperSectionsTest, DesktopNTPZpsSection) {
         {98});
   }
   {
-    SCOPED_TRACE(
-        "Matches should be ranked by group, not relevance or add order.");
+    SCOPED_TRACE("Personalized suggestions get precedence over trending ones");
     test(
         {
-            // `GROUP_TRENDS` matches come 2rd and should not be added.
+            // `GROUP_TRENDS` matches are more relevant but will not be added.
             CreateMatch(90, omnibox::GROUP_TRENDS),
             CreateMatch(89, omnibox::GROUP_TRENDS),
             CreateMatch(88, omnibox::GROUP_TRENDS),
@@ -180,8 +191,7 @@ TEST(AutocompleteGrouperSectionsTest, DesktopNTPZpsSection) {
             CreateMatch(83, omnibox::GROUP_TRENDS),
             CreateMatch(82, omnibox::GROUP_TRENDS),
             CreateMatch(81, omnibox::GROUP_TRENDS),
-            // `GROUP_PERSONALIZED_ZERO_SUGGEST` matches come 1st and should be
-            // added.
+            // `GROUP_PERSONALIZED_ZERO_SUGGEST` matches should be added.
             CreateMatch(80, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST),
             CreateMatch(79, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST),
             CreateMatch(78, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST),
@@ -192,17 +202,6 @@ TEST(AutocompleteGrouperSectionsTest, DesktopNTPZpsSection) {
             CreateMatch(73, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST),
             CreateMatch(72, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST),
             CreateMatch(71, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST),
-            // `GROUP_PREVIOUS_SEARCH_RELATED` matches should not be added.
-            CreateMatch(70, omnibox::GROUP_PREVIOUS_SEARCH_RELATED),
-            CreateMatch(69, omnibox::GROUP_PREVIOUS_SEARCH_RELATED),
-            CreateMatch(68, omnibox::GROUP_PREVIOUS_SEARCH_RELATED),
-            CreateMatch(67, omnibox::GROUP_PREVIOUS_SEARCH_RELATED),
-            CreateMatch(66, omnibox::GROUP_PREVIOUS_SEARCH_RELATED),
-            CreateMatch(65, omnibox::GROUP_PREVIOUS_SEARCH_RELATED),
-            CreateMatch(64, omnibox::GROUP_PREVIOUS_SEARCH_RELATED),
-            CreateMatch(63, omnibox::GROUP_PREVIOUS_SEARCH_RELATED),
-            CreateMatch(62, omnibox::GROUP_PREVIOUS_SEARCH_RELATED),
-            CreateMatch(61, omnibox::GROUP_PREVIOUS_SEARCH_RELATED),
         },
         {
             80,
@@ -246,8 +245,7 @@ TEST(AutocompleteGrouperSectionsTest, DesktopNTPZpsSection) {
     test(
         {
             // `GROUP_TRENDS` matches should be added up to the remaining
-            // section limit
-            // (3).
+            // section limit (3).
             CreateMatch(90, omnibox::GROUP_TRENDS),
             CreateMatch(89, omnibox::GROUP_TRENDS),
             CreateMatch(88, omnibox::GROUP_TRENDS),
@@ -259,21 +257,228 @@ TEST(AutocompleteGrouperSectionsTest, DesktopNTPZpsSection) {
             CreateMatch(82, omnibox::GROUP_TRENDS),
             CreateMatch(81, omnibox::GROUP_TRENDS),
             // `GROUP_PERSONALIZED_ZERO_SUGGEST` matches should all be added.
-            CreateMatch(80, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST),
-            CreateMatch(79, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST),
             CreateMatch(78, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST),
             CreateMatch(77, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST),
             CreateMatch(76, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST),
+            CreateMatch(75, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST),
+            CreateMatch(74, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST),
         },
         {
-            80,
-            79,
             78,
             77,
             76,
+            75,
+            74,
             90,
             89,
             88,
+        });
+  }
+}
+
+// Tests the groups, limits, and rules for the Desktop NTP ZPS section.
+TEST(AutocompleteGrouperSectionsTest, DesktopNTPZpsSectionWithMIA) {
+  auto test = [](std::vector<std::pair<int, omnibox::GroupId>> input,
+                 bool mia_enabled,
+                 std::vector<std::pair<int, omnibox::GroupId>> output) {
+    ACMatches in_matches;
+    for (const auto& [relevance, group_id] : input) {
+      in_matches.push_back(CreateMatch(relevance, group_id));
+    }
+    PSections sections;
+    omnibox::GroupConfigMap group_configs;
+    sections.push_back(
+        std::make_unique<DesktopNTPZpsSection>(group_configs, 8u, mia_enabled));
+    auto out_matches = Section::GroupMatches(std::move(sections), in_matches);
+    VerifyMatches(out_matches, output);
+  };
+
+  {
+    SCOPED_TRACE(
+        "MIA above pSuggest - local history zps takes precedence over Trends.");
+    test(
+        {
+            // `GROUP_PERSONALIZED_ZERO_SUGGEST_WITH_MIA` and
+            // `GROUP_MIA_RECOMMENDATIONS` matches should all be added and
+            // appear first due to their higher relevance scores.
+            {90, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST_WITH_MIA},
+            {89, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST_WITH_MIA},
+            {88, omnibox::GROUP_MIA_RECOMMENDATIONS},
+            {87, omnibox::GROUP_MIA_RECOMMENDATIONS},
+            // remote `GROUP_PERSONALIZED_ZERO_SUGGEST` should all be added.
+            {86, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST},
+            {85, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST},
+            // `GROUP_TRENDS` matches should not be added.
+            {84, omnibox::GROUP_TRENDS},
+            {83, omnibox::GROUP_TRENDS},
+            {82, omnibox::GROUP_TRENDS},
+            {81, omnibox::GROUP_TRENDS},
+            // local `GROUP_PERSONALIZED_ZERO_SUGGEST` should be added up to the
+            // remaining section limit (2) despite having lower relevance than
+            // `GROUP_TRENDS`.
+            {50, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST},
+            {49, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST},
+            {48, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST},
+            {47, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST},
+        },
+        /*mia_enabled=*/true,
+        {
+            {90, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST_WITH_MIA},
+            {89, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST_WITH_MIA},
+            {88, omnibox::GROUP_MIA_RECOMMENDATIONS},
+            {87, omnibox::GROUP_MIA_RECOMMENDATIONS},
+            {86, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST},
+            {85, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST},
+            {50, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST},
+            {49, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST},
+        });
+  }
+  {
+    SCOPED_TRACE(
+        "MIA below pSuggest - Local history zps is grouped with pSuggest but "
+        "doesn't take precedence over non-Trends.");
+    test(
+        {
+            // remote `GROUP_PERSONALIZED_ZERO_SUGGEST` should all be added.
+            {90, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST},
+            {89, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST},
+            // `GROUP_PERSONALIZED_ZERO_SUGGEST_WITH_MIA` and
+            // `GROUP_MIA_RECOMMENDATIONS` matches should should all be added
+            // and appear last due to their lower relevance scores.
+            {88, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST_WITH_MIA},
+            {87, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST_WITH_MIA},
+            {86, omnibox::GROUP_MIA_RECOMMENDATIONS},
+            {85, omnibox::GROUP_MIA_RECOMMENDATIONS},
+            // `GROUP_TRENDS` matches should not be added.
+            {84, omnibox::GROUP_TRENDS},
+            {83, omnibox::GROUP_TRENDS},
+            {82, omnibox::GROUP_TRENDS},
+            {81, omnibox::GROUP_TRENDS},
+            // local `GROUP_PERSONALIZED_ZERO_SUGGEST` should be added up to the
+            // remaining section limit (2).
+            {50, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST},
+            {49, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST},
+            {48, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST},
+            {47, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST},
+        },
+        /*mia_enabled=*/true,
+        {
+            {90, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST},
+            {89, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST},
+            {50, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST},
+            {49, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST},
+            {88, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST_WITH_MIA},
+            {87, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST_WITH_MIA},
+            {86, omnibox::GROUP_MIA_RECOMMENDATIONS},
+            {85, omnibox::GROUP_MIA_RECOMMENDATIONS},
+        });
+  }
+  {
+    SCOPED_TRACE(
+        "MIA and no pSuggest - Local history zps doesn't take precedence over "
+        "non-Trends.");
+    test(
+        {
+            // `GROUP_PERSONALIZED_ZERO_SUGGEST_WITH_MIA` and
+            // `GROUP_MIA_RECOMMENDATIONS` matches should all be added and
+            // appear first due to their higher relevance scores.
+            {90, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST_WITH_MIA},
+            {89, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST_WITH_MIA},
+            {88, omnibox::GROUP_MIA_RECOMMENDATIONS},
+            {87, omnibox::GROUP_MIA_RECOMMENDATIONS},
+            {86, omnibox::GROUP_MIA_RECOMMENDATIONS},
+            {85, omnibox::GROUP_MIA_RECOMMENDATIONS},
+            {84, omnibox::GROUP_MIA_RECOMMENDATIONS},
+            {83, omnibox::GROUP_MIA_RECOMMENDATIONS},
+            // `GROUP_TRENDS` matches should not be added.
+            {82, omnibox::GROUP_TRENDS},
+            {81, omnibox::GROUP_TRENDS},
+            // local `GROUP_PERSONALIZED_ZERO_SUGGEST` should not be added.
+            {50, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST},
+            {49, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST},
+            {48, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST},
+            {47, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST},
+        },
+        /*mia_enabled=*/true,
+        {
+            {90, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST_WITH_MIA},
+            {89, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST_WITH_MIA},
+            {88, omnibox::GROUP_MIA_RECOMMENDATIONS},
+            {87, omnibox::GROUP_MIA_RECOMMENDATIONS},
+            {86, omnibox::GROUP_MIA_RECOMMENDATIONS},
+            {85, omnibox::GROUP_MIA_RECOMMENDATIONS},
+            {84, omnibox::GROUP_MIA_RECOMMENDATIONS},
+            {83, omnibox::GROUP_MIA_RECOMMENDATIONS},
+        });
+  }
+  {
+    SCOPED_TRACE(
+        "MIA and no pSuggest - Local history zps added but doesn't take "
+        "precedence over non-Trends.");
+    test(
+        {
+            // `GROUP_PERSONALIZED_ZERO_SUGGEST_WITH_MIA` and
+            // `GROUP_MIA_RECOMMENDATIONS` matches should all be added and
+            // appear first due to their higher relevance scores.
+            {90, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST_WITH_MIA},
+            {89, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST_WITH_MIA},
+            {88, omnibox::GROUP_MIA_RECOMMENDATIONS},
+            {87, omnibox::GROUP_MIA_RECOMMENDATIONS},
+            {86, omnibox::GROUP_MIA_RECOMMENDATIONS},
+            {85, omnibox::GROUP_MIA_RECOMMENDATIONS},
+            // `GROUP_TRENDS` matches should not be added.
+            {84, omnibox::GROUP_TRENDS},
+            {83, omnibox::GROUP_TRENDS},
+            {82, omnibox::GROUP_TRENDS},
+            {81, omnibox::GROUP_TRENDS},
+            // local `GROUP_PERSONALIZED_ZERO_SUGGEST` should not be added.
+            {50, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST},
+            {49, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST},
+            {48, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST},
+            {47, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST},
+        },
+        /*mia_enabled=*/true,
+        {
+            {90, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST_WITH_MIA},
+            {89, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST_WITH_MIA},
+            {88, omnibox::GROUP_MIA_RECOMMENDATIONS},
+            {87, omnibox::GROUP_MIA_RECOMMENDATIONS},
+            {86, omnibox::GROUP_MIA_RECOMMENDATIONS},
+            {85, omnibox::GROUP_MIA_RECOMMENDATIONS},
+            {50, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST},
+            {49, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST},
+        });
+  }
+  {
+    SCOPED_TRACE("MIA is not added if feature is disabled.");
+    test(
+        {
+            // remote `GROUP_PERSONALIZED_ZERO_SUGGEST` should all be added.
+            {90, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST},
+            {89, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST},
+            // `GROUP_PERSONALIZED_ZERO_SUGGEST_WITH_MIA` and
+            // `GROUP_MIA_RECOMMENDATIONS` matches should not be added.
+            {88, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST_WITH_MIA},
+            {87, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST_WITH_MIA},
+            {86, omnibox::GROUP_MIA_RECOMMENDATIONS},
+            {85, omnibox::GROUP_MIA_RECOMMENDATIONS},
+            // `GROUP_TRENDS` matches should all be added.
+            {84, omnibox::GROUP_TRENDS},
+            {83, omnibox::GROUP_TRENDS},
+            {82, omnibox::GROUP_TRENDS},
+            {81, omnibox::GROUP_TRENDS},
+            // local `GROUP_PERSONALIZED_ZERO_SUGGEST` should be added.
+            {50, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST},
+        },
+        /*mia_enabled=*/false,
+        {
+            {90, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST},
+            {89, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST},
+            {50, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST},
+            {84, omnibox::GROUP_TRENDS},
+            {83, omnibox::GROUP_TRENDS},
+            {82, omnibox::GROUP_TRENDS},
+            {81, omnibox::GROUP_TRENDS},
         });
   }
 }
@@ -287,7 +492,7 @@ TEST(AutocompleteGrouperSectionsTest, DesktopNTPZpsSection_WithIPH) {
     PSections sections;
     omnibox::GroupConfigMap group_configs;
     sections.push_back(
-        std::make_unique<DesktopNTPZpsSection>(group_configs, 7u));
+        std::make_unique<DesktopNTPZpsSection>(group_configs, 7u, false));
     sections.push_back(
         std::make_unique<DesktopNTPZpsIPHSection>(group_configs));
     auto out_matches = Section::GroupMatches(std::move(sections), matches);
@@ -308,11 +513,10 @@ TEST(AutocompleteGrouperSectionsTest, DesktopNTPZpsSection_WithIPH) {
         {98});
   }
   {
-    SCOPED_TRACE(
-        "Matches should be ranked by group, not relevance or add order.");
+    SCOPED_TRACE("Personalized suggestions get precedence over trending ones");
     test(
         {
-            // `GROUP_TRENDS` matches come 2nd and should not be added.
+            // `GROUP_TRENDS` matches are more relevant but will not be added.
             CreateMatch(90, omnibox::GROUP_TRENDS),
             CreateMatch(89, omnibox::GROUP_TRENDS),
             CreateMatch(88, omnibox::GROUP_TRENDS),
@@ -323,8 +527,7 @@ TEST(AutocompleteGrouperSectionsTest, DesktopNTPZpsSection_WithIPH) {
             CreateMatch(83, omnibox::GROUP_TRENDS),
             CreateMatch(82, omnibox::GROUP_TRENDS),
             CreateMatch(81, omnibox::GROUP_TRENDS),
-            // `GROUP_PERSONALIZED_ZERO_SUGGEST` matches come 1st and should be
-            // added.
+            // `GROUP_PERSONALIZED_ZERO_SUGGEST` matches should be added.
             CreateMatch(80, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST),
             CreateMatch(79, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST),
             CreateMatch(78, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST),
@@ -392,8 +595,7 @@ TEST(AutocompleteGrouperSectionsTest, DesktopNTPZpsSection_WithIPH) {
     test(
         {
             // `GROUP_TRENDS` matches should be added up to the remaining
-            // section limit
-            // (2).
+            // section limit (2).
             CreateMatch(90, omnibox::GROUP_TRENDS),
             CreateMatch(89, omnibox::GROUP_TRENDS),
             CreateMatch(88, omnibox::GROUP_TRENDS),
@@ -774,7 +976,6 @@ TEST(AutocompleteGrouperSectionsTest, AndroidSRPZpsSection) {
   }
   {
     SCOPED_TRACE("Android/ZPS with extra searches.");
-    // Verify that the Clipboard suggestion is retained on top.
     test(
         {
             CreateMatch(100, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST),
@@ -799,9 +1000,12 @@ TEST(AutocompleteGrouperSectionsTest, AndroidSRPZpsSection) {
   }
   {
     SCOPED_TRACE("Android/ZPS with Clipboard entries.");
-    // Verify that the Clipboard suggestion is retained on top.
+    // Verify that up to one Clipboard suggestion is retained on top.
     test(
         {
+            CreateMatch(200, omnibox::GROUP_MOBILE_CLIPBOARD),
+            CreateMatch(199, omnibox::GROUP_MOBILE_CLIPBOARD),
+            CreateMatch(198, omnibox::GROUP_MOBILE_CLIPBOARD),
             CreateMatch(100, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST),
             CreateMatch(99, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST),
             CreateMatch(98, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST),
@@ -819,18 +1023,17 @@ TEST(AutocompleteGrouperSectionsTest, AndroidSRPZpsSection) {
             CreateMatch(86, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST),
             CreateMatch(85, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST),
             CreateMatch(84, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST),
-            CreateMatch(3, omnibox::GROUP_MOBILE_CLIPBOARD),
-            // Bogus, repetitive, only one allowed.
-            CreateMatch(2, omnibox::GROUP_MOBILE_CLIPBOARD),
-            CreateMatch(1, omnibox::GROUP_MOBILE_CLIPBOARD),
         },
-        {3, 100, 99, 98, 97, 96, 95, 94, 93, 92, 91, 90, 89, 88, 87});
+        {200, 100, 99, 98, 97, 96, 95, 94, 93, 92, 91, 90, 89, 88, 87});
   }
   {
     SCOPED_TRACE("Android/ZPS with Search Ready Omnibox.");
-    // Verify that the Clipboard suggestion is retained on top.
+    // Verify that up to one SRO suggestion is retained on top.
     test(
         {
+            CreateMatch(200, omnibox::GROUP_MOBILE_SEARCH_READY_OMNIBOX),
+            CreateMatch(199, omnibox::GROUP_MOBILE_SEARCH_READY_OMNIBOX),
+            CreateMatch(198, omnibox::GROUP_MOBILE_SEARCH_READY_OMNIBOX),
             CreateMatch(100, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST),
             CreateMatch(99, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST),
             CreateMatch(98, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST),
@@ -848,16 +1051,12 @@ TEST(AutocompleteGrouperSectionsTest, AndroidSRPZpsSection) {
             CreateMatch(86, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST),
             CreateMatch(85, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST),
             CreateMatch(84, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST),
-            // Not allowed.
-            CreateMatch(2, omnibox::GROUP_MOBILE_SEARCH_READY_OMNIBOX),
-            CreateMatch(1, omnibox::GROUP_MOBILE_SEARCH_READY_OMNIBOX),
-            CreateMatch(0, omnibox::GROUP_MOBILE_SEARCH_READY_OMNIBOX),
         },
-        {2, 100, 99, 98, 97, 96, 95, 94, 93, 92, 91, 90, 89, 88, 87});
+        {200, 100, 99, 98, 97, 96, 95, 94, 93, 92, 91, 90, 89, 88, 87});
   }
   {
     SCOPED_TRACE("Android/ZPS on SRP with recent searches only.");
-    // Verify that the Clipboard suggestion is retained on top.
+    // Verify that recent searches are shown up to the section limit.
     test(
         {
             CreateMatch(100, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST),
@@ -877,15 +1076,17 @@ TEST(AutocompleteGrouperSectionsTest, AndroidSRPZpsSection) {
             CreateMatch(86, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST),
             CreateMatch(85, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST),
             CreateMatch(84, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST),
-            CreateMatch(2, omnibox::GROUP_MOBILE_SEARCH_READY_OMNIBOX),
         },
-        {2, 100, 99, 98, 97, 96, 95, 94, 93, 92, 91, 90, 89, 88, 87});
+        {100, 99, 98, 97, 96, 95, 94, 93, 92, 91, 90, 89, 88, 87, 86});
   }
   {
     SCOPED_TRACE("Android/ZPS with MV Tiles.");
-    // Verify that the Clipboard suggestion is retained on top.
+    // Verify that the MV suggestions are not allowed.
     test(
         {
+            CreateMatch(300, omnibox::GROUP_MOBILE_MOST_VISITED),
+            CreateMatch(299, omnibox::GROUP_MOBILE_MOST_VISITED),
+            CreateMatch(298, omnibox::GROUP_MOBILE_MOST_VISITED),
             CreateMatch(100, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST),
             CreateMatch(99, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST),
             CreateMatch(98, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST),
@@ -903,82 +1104,43 @@ TEST(AutocompleteGrouperSectionsTest, AndroidSRPZpsSection) {
             CreateMatch(86, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST),
             CreateMatch(85, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST),
             CreateMatch(84, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST),
-            // Not allowed.
-            CreateMatch(4, omnibox::GROUP_MOBILE_MOST_VISITED),
-            CreateMatch(3, omnibox::GROUP_MOBILE_MOST_VISITED),
-            CreateMatch(2, omnibox::GROUP_MOBILE_MOST_VISITED),
         },
         {100, 99, 98, 97, 96, 95, 94, 93, 92, 91, 90, 89, 88, 87, 86});
   }
   {
     SCOPED_TRACE("Android/ZPS with multiple auxiliary suggestions.");
-    // Verify that the Clipboard suggestion is retained on top.
     test(
         {
-            CreateMatch(100, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST),
+            // Up to one SRO should be shown first.
+            CreateMatch(300, omnibox::GROUP_MOBILE_SEARCH_READY_OMNIBOX),
+            CreateMatch(299, omnibox::GROUP_MOBILE_SEARCH_READY_OMNIBOX),
+            // Up to one Clipboard should be shown after SRO.
+            CreateMatch(298, omnibox::GROUP_MOBILE_CLIPBOARD),
+            CreateMatch(297, omnibox::GROUP_MOBILE_CLIPBOARD),
+            // MV Tiles are not allowed.
+            CreateMatch(296, omnibox::GROUP_MOBILE_MOST_VISITED),
+            CreateMatch(295, omnibox::GROUP_MOBILE_MOST_VISITED),
+            // Previous Search Related and recent searches should be shown up to
+            // the remaining section limit.
+            CreateMatch(100, omnibox::GROUP_PREVIOUS_SEARCH_RELATED),
             CreateMatch(99, omnibox::GROUP_PREVIOUS_SEARCH_RELATED),
-            CreateMatch(98, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST),
+            CreateMatch(98, omnibox::GROUP_PREVIOUS_SEARCH_RELATED),
             CreateMatch(97, omnibox::GROUP_PREVIOUS_SEARCH_RELATED),
-            CreateMatch(96, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST),
+            CreateMatch(96, omnibox::GROUP_PREVIOUS_SEARCH_RELATED),
             CreateMatch(95, omnibox::GROUP_PREVIOUS_SEARCH_RELATED),
-            CreateMatch(94, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST),
+            CreateMatch(94, omnibox::GROUP_PREVIOUS_SEARCH_RELATED),
             CreateMatch(93, omnibox::GROUP_PREVIOUS_SEARCH_RELATED),
             CreateMatch(92, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST),
-            CreateMatch(91, omnibox::GROUP_PREVIOUS_SEARCH_RELATED),
+            CreateMatch(91, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST),
             CreateMatch(90, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST),
-            CreateMatch(89, omnibox::GROUP_PREVIOUS_SEARCH_RELATED),
+            CreateMatch(89, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST),
             CreateMatch(88, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST),
-            CreateMatch(87, omnibox::GROUP_PREVIOUS_SEARCH_RELATED),
+            CreateMatch(87, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST),
             CreateMatch(86, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST),
-            CreateMatch(85, omnibox::GROUP_PREVIOUS_SEARCH_RELATED),
+            CreateMatch(85, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST),
             CreateMatch(84, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST),
-            // SRO should always be shown first, despite low relevance.
-            // Only one item permitted.
-            CreateMatch(2, omnibox::GROUP_MOBILE_SEARCH_READY_OMNIBOX),
-            CreateMatch(1, omnibox::GROUP_MOBILE_SEARCH_READY_OMNIBOX),
-            // Clipboard should always be shown after SRO, if both are present.
-            // Only one item permitted.
-            CreateMatch(20, omnibox::GROUP_MOBILE_CLIPBOARD),
-            CreateMatch(19, omnibox::GROUP_MOBILE_CLIPBOARD),
-            // MV Tiles should always be on the third position if both SRO and
-            // Clipboard are present.
-            // Currently only one item is permitted.
-            CreateMatch(40, omnibox::GROUP_MOBILE_MOST_VISITED),
-            CreateMatch(39, omnibox::GROUP_MOBILE_MOST_VISITED),
         },
-        // Observe that PERSONALIZED_ZERO_SUGGEST and VISITED_DOC suggestions
-        // are grouped together. VISITED_DOC_RELATED are prioritized over the
-        // PERSONALIZED_ZERO_SUGGEST because these are more context relevant.
-        {2, 20, 99, 97, 95, 93, 91, 89, 87, 85, 100, 98, 96, 94, 92});
-  }
-  {
-    SCOPED_TRACE("No Inspire Me content shown in the core ZPS content");
-    test(
-        {
-            CreateMatch(100, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST),
-            CreateMatch(99, omnibox::GROUP_PREVIOUS_SEARCH_RELATED),
-            CreateMatch(98, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST),
-            CreateMatch(97, omnibox::GROUP_RELATED_QUERIES),
-            CreateMatch(96, omnibox::GROUP_TRENDS),
-            CreateMatch(95, omnibox::GROUP_PREVIOUS_SEARCH_RELATED),
-            CreateMatch(94, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST),
-            CreateMatch(93, omnibox::GROUP_RELATED_QUERIES),
-            CreateMatch(92, omnibox::GROUP_TRENDS),
-            CreateMatch(91, omnibox::GROUP_PREVIOUS_SEARCH_RELATED),
-            CreateMatch(90, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST),
-            CreateMatch(89, omnibox::GROUP_RELATED_QUERIES),
-            CreateMatch(88, omnibox::GROUP_TRENDS),
-            CreateMatch(87, omnibox::GROUP_PREVIOUS_SEARCH_RELATED),
-            CreateMatch(86, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST),
-            CreateMatch(85, omnibox::GROUP_RELATED_QUERIES),
-            CreateMatch(84, omnibox::GROUP_TRENDS),
-            // Auxiliary suggestions.
-            CreateMatch(2, omnibox::GROUP_MOBILE_SEARCH_READY_OMNIBOX),
-            CreateMatch(3, omnibox::GROUP_MOBILE_CLIPBOARD),
-            // Not allowed.
-            CreateMatch(4, omnibox::GROUP_MOBILE_MOST_VISITED),
-        },
-        {2, 3, 99, 95, 91, 87, 100, 98, 94, 90, 86});
+        {300, 298, 100, 99, 98, 97, 96, 95, 94, 93, 92, 91, 90, 89, 88});
   }
 }
 
@@ -998,7 +1160,6 @@ TEST(AutocompleteGrouperSectionsTest, AndroidWebZpsSection) {
   }
   {
     SCOPED_TRACE("Android/ZPS with extra searches.");
-    // Verify that the Clipboard suggestion is retained on top.
     test(
         {
             CreateMatch(100, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST),
@@ -1023,9 +1184,12 @@ TEST(AutocompleteGrouperSectionsTest, AndroidWebZpsSection) {
   }
   {
     SCOPED_TRACE("Android/ZPS with Clipboard entries.");
-    // Verify that the Clipboard suggestion is retained on top.
+    // Verify that up to one Clipboard suggestion is retained on top.
     test(
         {
+            CreateMatch(200, omnibox::GROUP_MOBILE_CLIPBOARD),
+            CreateMatch(199, omnibox::GROUP_MOBILE_CLIPBOARD),
+            CreateMatch(198, omnibox::GROUP_MOBILE_CLIPBOARD),
             CreateMatch(100, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST),
             CreateMatch(99, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST),
             CreateMatch(98, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST),
@@ -1043,18 +1207,17 @@ TEST(AutocompleteGrouperSectionsTest, AndroidWebZpsSection) {
             CreateMatch(86, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST),
             CreateMatch(85, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST),
             CreateMatch(84, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST),
-            CreateMatch(3, omnibox::GROUP_MOBILE_CLIPBOARD),
-            // Bogus, repetitive, only one allowed.
-            CreateMatch(2, omnibox::GROUP_MOBILE_CLIPBOARD),
-            CreateMatch(1, omnibox::GROUP_MOBILE_CLIPBOARD),
         },
-        {3, 100, 99, 98, 97, 96, 95, 94, 93, 92, 91, 90, 89, 88, 87});
+        {200, 100, 99, 98, 97, 96, 95, 94, 93, 92, 91, 90, 89, 88, 87});
   }
   {
     SCOPED_TRACE("Android/ZPS with Search Ready Omnibox.");
-    // Verify that the Clipboard suggestion is retained on top.
+    // Verify that up to one SRO suggestion is retained on top.
     test(
         {
+            CreateMatch(200, omnibox::GROUP_MOBILE_SEARCH_READY_OMNIBOX),
+            CreateMatch(199, omnibox::GROUP_MOBILE_SEARCH_READY_OMNIBOX),
+            CreateMatch(198, omnibox::GROUP_MOBILE_SEARCH_READY_OMNIBOX),
             CreateMatch(100, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST),
             CreateMatch(99, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST),
             CreateMatch(98, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST),
@@ -1072,44 +1235,18 @@ TEST(AutocompleteGrouperSectionsTest, AndroidWebZpsSection) {
             CreateMatch(86, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST),
             CreateMatch(85, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST),
             CreateMatch(84, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST),
-            CreateMatch(2, omnibox::GROUP_MOBILE_SEARCH_READY_OMNIBOX),
-            // Bogus, repetitive, only one allowed.
-            CreateMatch(1, omnibox::GROUP_MOBILE_SEARCH_READY_OMNIBOX),
-            CreateMatch(0, omnibox::GROUP_MOBILE_SEARCH_READY_OMNIBOX),
         },
-        {2, 100, 99, 98, 97, 96, 95, 94, 93, 92, 91, 90, 89, 88, 87});
-  }
-  {
-    SCOPED_TRACE("Android/ZPS on Web with recent searches only.");
-    // Verify that the Clipboard suggestion is retained on top.
-    test(
-        {
-            CreateMatch(100, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST),
-            CreateMatch(99, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST),
-            CreateMatch(98, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST),
-            CreateMatch(97, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST),
-            CreateMatch(96, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST),
-            CreateMatch(95, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST),
-            CreateMatch(94, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST),
-            CreateMatch(93, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST),
-            CreateMatch(92, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST),
-            CreateMatch(91, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST),
-            CreateMatch(90, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST),
-            CreateMatch(89, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST),
-            CreateMatch(88, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST),
-            CreateMatch(87, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST),
-            CreateMatch(86, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST),
-            CreateMatch(85, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST),
-            CreateMatch(84, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST),
-            CreateMatch(2, omnibox::GROUP_MOBILE_SEARCH_READY_OMNIBOX),
-        },
-        {2, 100, 99, 98, 97, 96, 95, 94, 93, 92, 91, 90, 89, 88, 87});
+        {200, 100, 99, 98, 97, 96, 95, 94, 93, 92, 91, 90, 89, 88, 87});
   }
   {
     SCOPED_TRACE("Android/ZPS with MV Tiles.");
-    // Verify that the Clipboard suggestion is retained on top.
+    // Verify that the MV suggestions are retained on top.
     test(
         {
+            // Slotted in horizontal render group, taking up 1 row.
+            CreateMatch(300, omnibox::GROUP_MOBILE_MOST_VISITED),
+            CreateMatch(299, omnibox::GROUP_MOBILE_MOST_VISITED),
+            CreateMatch(298, omnibox::GROUP_MOBILE_MOST_VISITED),
             CreateMatch(100, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST),
             CreateMatch(99, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST),
             CreateMatch(98, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST),
@@ -1127,81 +1264,46 @@ TEST(AutocompleteGrouperSectionsTest, AndroidWebZpsSection) {
             CreateMatch(86, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST),
             CreateMatch(85, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST),
             CreateMatch(84, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST),
-            // Slotted in horizontal render group.
-            CreateMatch(4, omnibox::GROUP_MOBILE_MOST_VISITED),
-            CreateMatch(3, omnibox::GROUP_MOBILE_MOST_VISITED),
-            CreateMatch(2, omnibox::GROUP_MOBILE_MOST_VISITED),
         },
-        {4, 3, 2, 100, 99, 98, 97, 96, 95, 94, 93, 92, 91, 90, 89, 88, 87});
+        {300, 299, 298, 100, 99, 98, 97, 96, 95, 94, 93, 92, 91, 90, 89, 88,
+         87});
   }
   {
     SCOPED_TRACE("Android/ZPS with multiple auxiliary suggestions.");
-    // Verify that the Clipboard suggestion is retained on top.
     test(
         {
-            CreateMatch(100, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST),
+            // Up to one SRO should be shown first.
+            CreateMatch(300, omnibox::GROUP_MOBILE_SEARCH_READY_OMNIBOX),
+            CreateMatch(299, omnibox::GROUP_MOBILE_SEARCH_READY_OMNIBOX),
+            // Up to one Clipboard should be shown after SRO.
+            CreateMatch(298, omnibox::GROUP_MOBILE_CLIPBOARD),
+            CreateMatch(297, omnibox::GROUP_MOBILE_CLIPBOARD),
+            CreateMatch(297, omnibox::GROUP_MOBILE_CLIPBOARD),
+            // MV Tiles are slotted in horizontal render group, taking up 1
+            // row.
+            CreateMatch(296, omnibox::GROUP_MOBILE_MOST_VISITED),
+            CreateMatch(295, omnibox::GROUP_MOBILE_MOST_VISITED),
+            // Visited Doc Related and recent searches should be shown up to
+            // the remaining section limit.
+            CreateMatch(100, omnibox::GROUP_VISITED_DOC_RELATED),
             CreateMatch(99, omnibox::GROUP_VISITED_DOC_RELATED),
-            CreateMatch(98, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST),
+            CreateMatch(98, omnibox::GROUP_VISITED_DOC_RELATED),
             CreateMatch(97, omnibox::GROUP_VISITED_DOC_RELATED),
-            CreateMatch(96, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST),
+            CreateMatch(96, omnibox::GROUP_VISITED_DOC_RELATED),
             CreateMatch(95, omnibox::GROUP_VISITED_DOC_RELATED),
-            CreateMatch(94, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST),
+            CreateMatch(94, omnibox::GROUP_VISITED_DOC_RELATED),
             CreateMatch(93, omnibox::GROUP_VISITED_DOC_RELATED),
             CreateMatch(92, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST),
-            CreateMatch(91, omnibox::GROUP_VISITED_DOC_RELATED),
+            CreateMatch(91, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST),
             CreateMatch(90, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST),
-            CreateMatch(89, omnibox::GROUP_VISITED_DOC_RELATED),
+            CreateMatch(89, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST),
             CreateMatch(88, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST),
-            CreateMatch(87, omnibox::GROUP_VISITED_DOC_RELATED),
+            CreateMatch(87, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST),
             CreateMatch(86, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST),
-            CreateMatch(85, omnibox::GROUP_VISITED_DOC_RELATED),
+            CreateMatch(85, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST),
             CreateMatch(84, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST),
-            // SRO should always be shown first, despite low relevance.
-            // Only one item permitted.
-            CreateMatch(2, omnibox::GROUP_MOBILE_SEARCH_READY_OMNIBOX),
-            CreateMatch(1, omnibox::GROUP_MOBILE_SEARCH_READY_OMNIBOX),
-            // Clipboard should always be shown after SRO, if both are present.
-            // Only one item permitted.
-            CreateMatch(20, omnibox::GROUP_MOBILE_CLIPBOARD),
-            CreateMatch(19, omnibox::GROUP_MOBILE_CLIPBOARD),
-            // MV Tiles should always be on the third position if both SRO and
-            // Clipboard are present.
-            // Slotted in horizontal render group.
-            CreateMatch(40, omnibox::GROUP_MOBILE_MOST_VISITED),
-            CreateMatch(39, omnibox::GROUP_MOBILE_MOST_VISITED),
         },
-        // Observe that PERSONALIZED_ZERO_SUGGEST and VISITED_DOC suggestions
-        // are grouped together. VISITED_DOC_RELATED are prioritized over the
-        // PERSONALIZED_ZERO_SUGGEST because these are more context relevant.
-        {2, 20, 40, 39, 99, 97, 95, 93, 91, 89, 87, 85, 100, 98, 96, 94});
-  }
-  {
-    SCOPED_TRACE("No Inspire Me content shown in the core ZPS content");
-    test(
-        {
-            CreateMatch(100, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST),
-            CreateMatch(99, omnibox::GROUP_VISITED_DOC_RELATED),
-            CreateMatch(98, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST),
-            CreateMatch(97, omnibox::GROUP_RELATED_QUERIES),
-            CreateMatch(96, omnibox::GROUP_TRENDS),
-            CreateMatch(95, omnibox::GROUP_VISITED_DOC_RELATED),
-            CreateMatch(94, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST),
-            CreateMatch(93, omnibox::GROUP_RELATED_QUERIES),
-            CreateMatch(92, omnibox::GROUP_TRENDS),
-            CreateMatch(91, omnibox::GROUP_VISITED_DOC_RELATED),
-            CreateMatch(90, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST),
-            CreateMatch(89, omnibox::GROUP_RELATED_QUERIES),
-            CreateMatch(88, omnibox::GROUP_TRENDS),
-            CreateMatch(87, omnibox::GROUP_VISITED_DOC_RELATED),
-            CreateMatch(86, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST),
-            CreateMatch(85, omnibox::GROUP_RELATED_QUERIES),
-            CreateMatch(84, omnibox::GROUP_TRENDS),
-            // Auxiliary suggestions.
-            CreateMatch(2, omnibox::GROUP_MOBILE_SEARCH_READY_OMNIBOX),
-            CreateMatch(3, omnibox::GROUP_MOBILE_CLIPBOARD),
-            CreateMatch(4, omnibox::GROUP_MOBILE_MOST_VISITED),
-        },
-        {2, 3, 4, 99, 95, 91, 87, 100, 98, 94, 90, 86});
+        {300, 298, 296, 295, 100, 99, 98, 97, 96, 95, 94, 93, 92, 91, 90, 89});
   }
 }
 
@@ -1211,7 +1313,8 @@ TEST(AutocompleteGrouperSectionsTest, AndroidNTPZpsSection_withInspireMe) {
 
     PSections sections;
     omnibox::GroupConfigMap group_configs;
-    sections.push_back(std::make_unique<AndroidNTPZpsSection>(group_configs));
+    sections.push_back(
+        std::make_unique<AndroidNTPZpsSection>(group_configs, false));
     auto out_matches = Section::GroupMatches(std::move(sections), matches);
     VerifyMatches(out_matches, expected_relevances);
   };
@@ -1454,7 +1557,8 @@ TEST(AutocompleteGrouperSectionsTest, IOSNTPZpsSection) {
   auto test = [](ACMatches matches, std::vector<int> expected_relevances) {
     PSections sections;
     omnibox::GroupConfigMap group_configs;
-    sections.push_back(std::make_unique<IOSNTPZpsSection>(group_configs));
+    sections.push_back(
+        std::make_unique<IOSNTPZpsSection>(group_configs, false));
     auto out_matches = Section::GroupMatches(std::move(sections), matches);
     VerifyMatches(out_matches, expected_relevances);
   };
@@ -1637,7 +1741,7 @@ TEST(AutocompleteGrouperSectionsTest,
     group_configs[group4].set_side_type(
         omnibox::GroupConfig_SideType_SECONDARY);
     sections.push_back(
-        std::make_unique<DesktopNTPZpsSection>(group_configs, 8u));
+        std::make_unique<DesktopNTPZpsSection>(group_configs, 8u, false));
     sections.push_back(
         std::make_unique<DesktopSecondaryNTPZpsSection>(group_configs));
     auto out_matches = Section::GroupMatches(std::move(sections), matches);
@@ -1727,59 +1831,99 @@ TEST(AutocompleteGrouperSectionsTest, DesktopSRPZpsSectionWithUrls) {
   scoped_config.Get().enabled = true;
   scoped_config.Get().max_search_suggestions = 4;
   scoped_config.Get().max_url_suggestions = 4;
-  auto test = [](ACMatches matches, std::vector<int> expected_relevances,
-                 bool trends_has_default_side_type = true) {
+  auto test = [](size_t action_count, ACMatches matches,
+                 std::vector<int> expected_relevances) {
     PSections sections;
     omnibox::GroupConfigMap group_configs;
     group_configs[omnibox::GROUP_MOST_VISITED];
     group_configs[omnibox::GROUP_PREVIOUS_SEARCH_RELATED];
     // Max 8 suggestions, with an upper limit of 4 search suggestions.
-    sections.push_back(
-        std::make_unique<DesktopSRPZpsSection>(group_configs, 8u, 4u, 4u));
+    sections.push_back(std::make_unique<DesktopSRPZpsSection>(
+        group_configs, 8u + action_count, 4u, 4u, action_count));
     auto out_matches = Section::GroupMatches(std::move(sections), matches);
     VerifyMatches(out_matches, expected_relevances);
   };
   {
     SCOPED_TRACE(
         "Given 12 srp zps matches, the group should respect the search "
-        "suggestion limit as well as show them first in the suggestion list.");
-    test(
-        {
-            CreateMatch(100, omnibox::GROUP_MOST_VISITED),
-            CreateMatch(99, omnibox::GROUP_MOST_VISITED),
-            CreateMatch(98, omnibox::GROUP_MOST_VISITED),
-            CreateMatch(97, omnibox::GROUP_MOST_VISITED),
-            CreateMatch(96, omnibox::GROUP_MOST_VISITED),
-            CreateMatch(95, omnibox::GROUP_MOST_VISITED),
-            CreateMatch(94, omnibox::GROUP_PREVIOUS_SEARCH_RELATED),
-            CreateMatch(93, omnibox::GROUP_PREVIOUS_SEARCH_RELATED),
-            CreateMatch(92, omnibox::GROUP_PREVIOUS_SEARCH_RELATED),
-            CreateMatch(91, omnibox::GROUP_PREVIOUS_SEARCH_RELATED),
-            CreateMatch(90, omnibox::GROUP_PREVIOUS_SEARCH_RELATED),
-            CreateMatch(89, omnibox::GROUP_PREVIOUS_SEARCH_RELATED),
-        },
-        {94, 93, 92, 91, 100, 99, 98, 97});
+        "suggestion limit");
+    test(0,
+         {
+             CreateMatch(100, omnibox::GROUP_PREVIOUS_SEARCH_RELATED),
+             CreateMatch(99, omnibox::GROUP_PREVIOUS_SEARCH_RELATED),
+             CreateMatch(98, omnibox::GROUP_PREVIOUS_SEARCH_RELATED),
+             CreateMatch(97, omnibox::GROUP_PREVIOUS_SEARCH_RELATED),
+             CreateMatch(96, omnibox::GROUP_PREVIOUS_SEARCH_RELATED),
+             CreateMatch(95, omnibox::GROUP_PREVIOUS_SEARCH_RELATED),
+             CreateMatch(94, omnibox::GROUP_MOST_VISITED),
+             CreateMatch(93, omnibox::GROUP_MOST_VISITED),
+             CreateMatch(92, omnibox::GROUP_MOST_VISITED),
+             CreateMatch(91, omnibox::GROUP_MOST_VISITED),
+             CreateMatch(89, omnibox::GROUP_MOST_VISITED),
+             CreateMatch(88, omnibox::GROUP_MOST_VISITED),
+         },
+         {100, 99, 98, 97, 94, 93, 92, 91});
   }
   {
     SCOPED_TRACE(
-        "Given 12 srp zps matches, if there aren't enough serach suggestions, "
-        "backfill with max_url_suggestions suggestions");
-    test(
-        {
-            CreateMatch(100, omnibox::GROUP_MOST_VISITED),
-            CreateMatch(99, omnibox::GROUP_MOST_VISITED),
-            CreateMatch(98, omnibox::GROUP_MOST_VISITED),
-            CreateMatch(97, omnibox::GROUP_MOST_VISITED),
-            CreateMatch(96, omnibox::GROUP_MOST_VISITED),
-            CreateMatch(95, omnibox::GROUP_MOST_VISITED),
-            CreateMatch(94, omnibox::GROUP_MOST_VISITED),
-            CreateMatch(93, omnibox::GROUP_MOST_VISITED),
-            CreateMatch(91, omnibox::GROUP_MOST_VISITED),
-            CreateMatch(90, omnibox::GROUP_MOST_VISITED),
-            CreateMatch(89, omnibox::GROUP_MOST_VISITED),
-            CreateMatch(88, omnibox::GROUP_PREVIOUS_SEARCH_RELATED),
-        },
-        {88, 100, 99, 98, 97});
+        "Given 12 srp zps matches, the group should respect the url suggestion "
+        "limit");
+    test(0,
+         {
+             CreateMatch(100, omnibox::GROUP_PREVIOUS_SEARCH_RELATED),
+             CreateMatch(99, omnibox::GROUP_MOST_VISITED),
+             CreateMatch(98, omnibox::GROUP_MOST_VISITED),
+             CreateMatch(97, omnibox::GROUP_MOST_VISITED),
+             CreateMatch(96, omnibox::GROUP_MOST_VISITED),
+             CreateMatch(95, omnibox::GROUP_MOST_VISITED),
+             CreateMatch(94, omnibox::GROUP_MOST_VISITED),
+             CreateMatch(93, omnibox::GROUP_MOST_VISITED),
+             CreateMatch(92, omnibox::GROUP_MOST_VISITED),
+             CreateMatch(91, omnibox::GROUP_MOST_VISITED),
+             CreateMatch(90, omnibox::GROUP_MOST_VISITED),
+             CreateMatch(89, omnibox::GROUP_MOST_VISITED),
+         },
+         {100, 99, 98, 97, 96});
+  }
+  {
+    SCOPED_TRACE("Contextual search action is excluded when disabled.");
+    test(0,
+         {
+             CreateMatch(100, omnibox::GROUP_PREVIOUS_SEARCH_RELATED),
+             CreateMatch(99, omnibox::GROUP_PREVIOUS_SEARCH_RELATED),
+             CreateMatch(98, omnibox::GROUP_PREVIOUS_SEARCH_RELATED),
+             CreateMatch(97, omnibox::GROUP_PREVIOUS_SEARCH_RELATED),
+             CreateMatch(96, omnibox::GROUP_PREVIOUS_SEARCH_RELATED),
+             CreateMatch(95, omnibox::GROUP_PREVIOUS_SEARCH_RELATED),
+             CreateMatch(94, omnibox::GROUP_MOST_VISITED),
+             CreateMatch(93, omnibox::GROUP_MOST_VISITED),
+             CreateMatch(92, omnibox::GROUP_MOST_VISITED),
+             CreateMatch(91, omnibox::GROUP_MOST_VISITED),
+             CreateMatch(89, omnibox::GROUP_MOST_VISITED),
+             CreateMatch(88, omnibox::GROUP_MOST_VISITED),
+             CreateMatch(87, omnibox::GROUP_CONTEXTUAL_SEARCH_ACTION),
+         },
+         {100, 99, 98, 97, 94, 93, 92, 91});
+  }
+  {
+    SCOPED_TRACE("Contextual search action is included when enabled.");
+    test(1,
+         {
+             CreateMatch(100, omnibox::GROUP_PREVIOUS_SEARCH_RELATED),
+             CreateMatch(99, omnibox::GROUP_PREVIOUS_SEARCH_RELATED),
+             CreateMatch(98, omnibox::GROUP_PREVIOUS_SEARCH_RELATED),
+             CreateMatch(97, omnibox::GROUP_PREVIOUS_SEARCH_RELATED),
+             CreateMatch(96, omnibox::GROUP_PREVIOUS_SEARCH_RELATED),
+             CreateMatch(95, omnibox::GROUP_PREVIOUS_SEARCH_RELATED),
+             CreateMatch(94, omnibox::GROUP_MOST_VISITED),
+             CreateMatch(93, omnibox::GROUP_MOST_VISITED),
+             CreateMatch(92, omnibox::GROUP_MOST_VISITED),
+             CreateMatch(91, omnibox::GROUP_MOST_VISITED),
+             CreateMatch(89, omnibox::GROUP_MOST_VISITED),
+             CreateMatch(88, omnibox::GROUP_MOST_VISITED),
+             CreateMatch(87, omnibox::GROUP_CONTEXTUAL_SEARCH_ACTION),
+         },
+         {100, 99, 98, 97, 94, 93, 92, 91, 87});
   }
 }
 
@@ -1800,9 +1944,11 @@ TEST(AutocompleteGrouperSectionsTest, DesktopWebZpsSectionWithUrls) {
     // Max 4 url suggestions.
     sections.push_back(
         std::make_unique<DesktopWebURLZpsSection>(group_configs, 4u));
-    // Max 4 search suggestions.
-    sections.push_back(
-        std::make_unique<DesktopWebSearchZpsSection>(group_configs, 4u, 4u));
+    // Max 4 suggestions, with an upper limit of 4 contextual search
+    // suggestions and no contextual actions.
+    sections.push_back(std::make_unique<DesktopWebSearchZpsSection>(
+        group_configs, /*limit=*/4u, /*contextual_action_limit=*/0u,
+        /*contextual_search_limit=*/4u));
     auto out_matches = Section::GroupMatches(std::move(sections), matches);
     VerifyMatches(out_matches, expected_relevances);
   };
@@ -1858,20 +2004,20 @@ TEST(AutocompleteGrouperSectionsTest, DesktopWebZpsWithActionsSection) {
     // Max 3 suggestions, with an upper limit of 3 url suggestions.
     sections.push_back(
         std::make_unique<DesktopWebURLZpsSection>(group_configs, 3u));
-    // Max 3 suggestions, with an upper limit of 3 search suggestions.
-    sections.push_back(
-        std::make_unique<DesktopWebSearchZpsSection>(group_configs, 3u, 3u));
-    sections.push_back(
-        std::make_unique<DesktopWebZpsActionsSection>(group_configs));
+    // Max 3 suggestions, with an upper limit of 3 contextual search
+    // suggestions and one contextual action.
+    sections.push_back(std::make_unique<DesktopWebSearchZpsSection>(
+        group_configs, /*limit=*/3u, /*contextual_action_limit=*/1u,
+        /*contextual_search_limit=*/3u));
     auto out_matches = Section::GroupMatches(std::move(sections), matches);
     VerifyMatches(out_matches, expected_relevances);
   };
   {
-    SCOPED_TRACE("ZPS action matches group after contextual search matches");
+    SCOPED_TRACE("ZPS action matches group before contextual search matches");
     test(
         {
-            CreateMatch(300, omnibox::GROUP_ZERO_SUGGEST_IN_PRODUCT_HELP),
-            CreateMatch(299, omnibox::GROUP_ZERO_SUGGEST_IN_PRODUCT_HELP),
+            CreateMatch(300, omnibox::GROUP_CONTEXTUAL_SEARCH_ACTION),
+            CreateMatch(299, omnibox::GROUP_CONTEXTUAL_SEARCH_ACTION),
             CreateMatch(200, omnibox::GROUP_CONTEXTUAL_SEARCH),
             CreateMatch(199, omnibox::GROUP_CONTEXTUAL_SEARCH),
             CreateMatch(100, omnibox::GROUP_MOST_VISITED),
@@ -1887,8 +2033,8 @@ TEST(AutocompleteGrouperSectionsTest, DesktopWebZpsWithActionsSection) {
             CreateMatch(90, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST),
             CreateMatch(89, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST),
         },
-        // 3 URLs, 1 other search, 2 contextual searches, and 2 actions.
-        {100, 99, 98, 94, 200, 199, 300, 299});
+        // 3 URLs, 1 action, 2 contextual searches.
+        {100, 99, 98, 300, 200, 199});
   }
 }
 
@@ -1899,9 +2045,8 @@ TEST(AutocompleteGrouperSectionsTest, DesktopWebZpsNoContextualSuggestions) {
     sections.push_back(
         std::make_unique<DesktopWebURLZpsSection>(group_configs, 3u));
     sections.push_back(std::make_unique<DesktopWebSearchZpsSection>(
-        group_configs, /*limit=*/3u, /*contextual_search_limit=*/0u));
-    sections.push_back(
-        std::make_unique<DesktopWebZpsActionsSection>(group_configs));
+        group_configs, /*limit=*/4u, /*contextual_action_limit=*/1u,
+        /*contextual_search_limit=*/0u));
     auto out_matches = Section::GroupMatches(std::move(sections), matches);
     VerifyMatches(out_matches, expected_relevances);
   };
@@ -1912,14 +2057,42 @@ TEST(AutocompleteGrouperSectionsTest, DesktopWebZpsNoContextualSuggestions) {
             CreateMatch(99, omnibox::GROUP_MOST_VISITED),
             CreateMatch(98, omnibox::GROUP_VISITED_DOC_RELATED),
             CreateMatch(97, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST),
-            CreateMatch(96, omnibox::GROUP_ZERO_SUGGEST_IN_PRODUCT_HELP),
+            CreateMatch(96, omnibox::GROUP_CONTEXTUAL_SEARCH_ACTION),
             CreateMatch(95, omnibox::GROUP_CONTEXTUAL_SEARCH),
-            CreateMatch(94, omnibox::GROUP_ZERO_SUGGEST_IN_PRODUCT_HELP),
+            CreateMatch(94, omnibox::GROUP_CONTEXTUAL_SEARCH_ACTION),
             CreateMatch(93, omnibox::GROUP_CONTEXTUAL_SEARCH),
         },
-        // URLs, then searches, then actions, stable sorted.
+        // URLs, then searches, then one action, stable sorted.
         // No contextual search matches due to above configuration.
-        {99, 98, 97, 96, 94});
+        {99, 98, 97, 96});
+  }
+}
+
+TEST(AutocompleteGrouperSectionsTest, DesktopWebZpsContextualSuggestionsOnly) {
+  auto test = [](ACMatches matches, std::vector<int> expected_relevances) {
+    PSections sections;
+    omnibox::GroupConfigMap group_configs;
+    sections.push_back(
+        std::make_unique<DesktopWebSearchZpsContextualOnlySection>(
+            group_configs, /*contextual_action_limit=*/1u,
+            /*contextual_search_limit=*/3u));
+    auto out_matches = Section::GroupMatches(std::move(sections), matches);
+    VerifyMatches(out_matches, expected_relevances);
+  };
+  {
+    SCOPED_TRACE("ZPS contextual search matches only");
+    test(
+        {
+            CreateMatch(99, omnibox::GROUP_MOST_VISITED),
+            CreateMatch(98, omnibox::GROUP_VISITED_DOC_RELATED),
+            CreateMatch(97, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST),
+            CreateMatch(96, omnibox::GROUP_CONTEXTUAL_SEARCH_ACTION),
+            CreateMatch(95, omnibox::GROUP_CONTEXTUAL_SEARCH),
+            CreateMatch(94, omnibox::GROUP_CONTEXTUAL_SEARCH_ACTION),
+            CreateMatch(93, omnibox::GROUP_CONTEXTUAL_SEARCH),
+        },
+        // Nothing but contextual action and contextual search matches.
+        {96, 95, 93});
   }
 }
 #endif  // !(BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS))

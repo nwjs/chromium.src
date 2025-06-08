@@ -19,6 +19,7 @@ import android.graphics.Color;
 import android.graphics.Rect;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.LayerDrawable;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 
@@ -36,6 +37,7 @@ import org.chromium.base.supplier.ObservableSupplierImpl;
 import org.chromium.base.supplier.OneshotSupplierImpl;
 import org.chromium.base.supplier.Supplier;
 import org.chromium.base.test.BaseRobolectricTestRunner;
+import org.chromium.base.test.util.Features;
 import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.HistogramWatcher;
 import org.chromium.cc.input.BrowserControlsState;
@@ -55,6 +57,7 @@ import org.chromium.chrome.browser.toolbar.top.ToolbarControlContainer.ToolbarVi
 import org.chromium.chrome.browser.toolbar.top.ToolbarControlContainer.ToolbarViewResourceFrameLayout;
 import org.chromium.components.browser_ui.desktop_windowing.AppHeaderState;
 import org.chromium.components.browser_ui.styles.SemanticColorUtils;
+import org.chromium.components.browser_ui.widget.TouchEventObserver;
 import org.chromium.ui.base.TestActivity;
 
 import java.util.concurrent.atomic.AtomicInteger;
@@ -62,6 +65,12 @@ import java.util.function.BooleanSupplier;
 
 /** Unit tests for {@link ToolbarControlContainer}. */
 @RunWith(BaseRobolectricTestRunner.class)
+// TODO(crbug.com/419289558): Re-enable color surface feature flags
+@Features.DisableFeatures({
+    ChromeFeatureList.ANDROID_SURFACE_COLOR_UPDATE,
+    ChromeFeatureList.GRID_TAB_SWITCHER_SURFACE_COLOR_UPDATE,
+    ChromeFeatureList.GRID_TAB_SWITCHER_UPDATE
+})
 public class ToolbarControlContainerTest {
     private static final String BLOCK_NAME = "Android.TopToolbar.BlockCaptureReason";
     private static final String ALLOW_NAME = "Android.TopToolbar.AllowCaptureReason";
@@ -80,6 +89,7 @@ public class ToolbarControlContainerTest {
     @Mock private Tab mTab;
     @Mock private LayoutStateProvider mLayoutStateProvider;
     @Mock private FullscreenManager mFullscreenManager;
+    @Mock private TouchEventObserver mTouchEventObserver;
 
     private final Supplier<Tab> mTabSupplier = () -> mTab;
     private final ObservableSupplierImpl<Boolean> mCompositorInMotionSupplier =
@@ -514,8 +524,8 @@ public class ToolbarControlContainerTest {
                 mFullscreenManager);
 
         controlContainer.toggleLocationBarOnlyMode(true);
-        verify(mProgressBar).setVisibility(View.INVISIBLE);
-        verify(mToolbarView).setVisibility(View.INVISIBLE);
+        verify(mProgressBar).setVisibility(View.GONE);
+        verify(mToolbarView).setVisibility(View.GONE);
         verify(mToolbarView).removeView(mLocationBarView);
         assertEquals(Color.RED, ((ColorDrawable) controlContainer.getBackground()).getColor());
         ToolbarViewResourceFrameLayout toolbarViewResourceFrameLayout =
@@ -532,5 +542,42 @@ public class ToolbarControlContainerTest {
         verify(mToolbar).restoreLocationBarView();
         assertEquals(
                 Color.TRANSPARENT, ((ColorDrawable) controlContainer.getBackground()).getColor());
+    }
+
+    @Test
+    public void testInterceptTouchEvent() {
+        TestActivity activity = Robolectric.buildActivity(TestActivity.class).get();
+        ToolbarControlContainer controlContainer =
+                (ToolbarControlContainer)
+                        activity.getLayoutInflater().inflate(R.layout.control_container, null);
+        controlContainer.initWithToolbar(R.layout.toolbar_phone);
+        controlContainer.setPostInitializationDependencies(
+                mToolbar,
+                mToolbarView,
+                false,
+                mConstraintsSupplier,
+                mTabSupplier,
+                mCompositorInMotionSupplier,
+                mBrowserStateBrowserControlsVisibilityDelegate,
+                mLayoutStateProviderSupplier,
+                mFullscreenManager);
+        ToolbarControlContainer.ToolbarViewResourceFrameLayout toolbarContainer =
+                controlContainer.findViewById(R.id.toolbar_container);
+        toolbarContainer.setVisibility(View.GONE);
+
+        MotionEvent clickEvent = MotionEvent.obtain(0, 0, MotionEvent.ACTION_DOWN, 0, 0, 0);
+
+        assertTrue(controlContainer.onInterceptTouchEvent(clickEvent));
+
+        toolbarContainer.setVisibility(View.VISIBLE);
+        doReturn(100).when(mToolbar).getTabStripHeight();
+        assertFalse(controlContainer.onInterceptTouchEvent(clickEvent));
+
+        doReturn(0).when(mToolbar).getTabStripHeight();
+        controlContainer.addTouchEventObserver(mTouchEventObserver);
+        assertFalse(controlContainer.onInterceptTouchEvent(clickEvent));
+
+        doReturn(true).when(mTouchEventObserver).onInterceptTouchEvent(clickEvent);
+        assertTrue(controlContainer.onInterceptTouchEvent(clickEvent));
     }
 }

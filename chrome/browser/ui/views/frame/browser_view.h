@@ -74,6 +74,7 @@ class AccessibilityFocusHighlight;
 class BookmarkBarView;
 class Browser;
 class ContentsLayoutManager;
+struct DropData;
 class ExclusiveAccessBubbleViews;
 class FullscreenControlHost;
 class InfoBarContainerView;
@@ -105,10 +106,6 @@ namespace version_info {
 enum class Channel;
 }
 
-namespace split_tabs {
-class SplitTabVisualData;
-}
-
 namespace views {
 class ExternalFocusTracker;
 class WebView;
@@ -126,6 +123,10 @@ class WatermarkView;
 namespace glic {
 class GlicBorderView;
 }  // namespace glic
+
+namespace new_tab_footer {
+class NewTabFooterWebView;
+}  // namespace new_tab_footer
 
 ///////////////////////////////////////////////////////////////////////////////
 // BrowserView
@@ -238,8 +239,7 @@ class BrowserView : public BrowserWindow,
   // In tabbed mode the tab strip is contained within the window's titlebar. In
   // non-tabbed mode the tab strip is positioned below the titlebar.
   // The return value is determined based on the state of
-  // `features::kImmersiveFullscreen` and `features::kImmersiveFullscreenTabs`
-  // as well as the type of browser.
+  // `features::kImmersiveFullscreen` as well as the type of browser.
   bool UsesImmersiveFullscreenTabbedMode() const;
 #endif
 
@@ -309,6 +309,10 @@ class BrowserView : public BrowserWindow,
 #endif
 
   ScrimView* window_scrim_view() { return window_scrim_view_; }
+
+  new_tab_footer::NewTabFooterWebView* new_tab_footer_web_view() const {
+    return new_tab_footer_web_view_;
+  }
 
   base::WeakPtr<BrowserView> GetAsWeakPtr() {
     return weak_ptr_factory_.GetWeakPtr();
@@ -480,24 +484,36 @@ class BrowserView : public BrowserWindow,
   // Getter for the `window.setResizable(bool)` state.
   std::optional<bool> GetWebApiWindowResizable() const;
 
+  // Returns true if the browser is currently showing tabs in a split view.
+  bool IsInSplitView() const;
+
   // Display the current active split view as a series of multiple side-by-side
   // web contents.
-  void ShowSplitView();
+  void ShowSplitView(bool focus_active_view);
 
   // Display only the current active tab's web contents, hiding any previous
   // side-by-side display.
   void HideSplitView();
 
-  // Update the index of the active split based on the active tab's web contents
-  void UpdateActiveSplitView();
+  // Update the index of the active split based on the active tab's web
+  // contents.
+  void UpdateActiveTabInSplitView();
 
-  // Reverses the order of the tabs in the active split.
-  void SwapTabsInActiveSplit();
+  // Updates the contents in the active split view.
+  void UpdateContentsInSplitView(
+      const std::vector<std::pair<tabs::TabInterface*, int>>& prev_tabs,
+      const std::vector<std::pair<tabs::TabInterface*, int>>& new_tabs);
 
   // True if an activation from `old_contents` to `new_contents` happens between
   // tabs that are already in a split-view configuration.
   bool IsTabChangeInSplitView(content::WebContents* old_contents,
                               content::WebContents* new_contents);
+
+  // Reverses the order of the contents in the active split.
+  void ReverseWebContents();
+
+  // Resize the ratio of the contents in the active split.
+  void ResizeWebContents(double start_ratio);
 
   // Activate the tab containing the given WebContents (if any).
   void ActivateWebContents(content::WebContents* web_contents);
@@ -608,6 +624,7 @@ class BrowserView : public BrowserWindow,
   bool IsBookmarkBarVisible() const override;
   bool IsBookmarkBarAnimating() const override;
   bool IsTabStripEditable() const override;
+  void SetTabStripNotEditableForTesting() override;
   bool IsToolbarVisible() const override;
   bool IsToolbarShowing() const override;
   bool IsLocationBarVisible() const override;
@@ -672,6 +689,9 @@ class BrowserView : public BrowserWindow,
   void UserChangedTheme(BrowserThemeChangeType theme_change_type) override;
   void ShowAppMenu() override;
   bool PreHandleMouseEvent(const blink::WebMouseEvent& event) override;
+  void PreHandleDragUpdate(const content::DropData& drop_data,
+                           const gfx::PointF& point) override;
+  void PreHandleDragExit() override;
   content::KeyboardEventProcessingResult PreHandleKeyboardEvent(
       const input::NativeWebKeyboardEvent& event) override;
   bool HandleKeyboardEvent(const input::NativeWebKeyboardEvent& event) override;
@@ -727,38 +747,23 @@ class BrowserView : public BrowserWindow,
   void ShowIncognitoClearBrowsingDataDialog() override;
 
   void ShowIncognitoHistoryDisclaimerDialog() override;
-  bool IsTabModalPopup() const override;
-  void SetIsTabModalPopup(bool is_tab_modal_popup) override;
+  bool IsTabModalPopupDeprecated() const override;
+  void SetIsTabModalPopupDeprecated(
+      bool is_tab_modal_popup_deprecated) override;
 
   // TabStripModelObserver:
   void OnTabStripModelChanged(
       TabStripModel* tab_strip_model,
       const TabStripModelChange& change,
       const TabStripSelectionChange& selection) override;
-  void OnSplitTabContentsUpdated(
-      split_tabs::SplitTabId split_id,
-      std::vector<std::pair<tabs::TabInterface*, int>> prev_tabs,
-      std::vector<std::pair<tabs::TabInterface*, int>> new_tabs) override;
   void TabChangedAt(content::WebContents* contents,
                     int index,
                     TabChangeType change_type) override;
-  void OnSplitTabCreated(std::vector<std::pair<tabs::TabInterface*, int>> tabs,
-                         split_tabs::SplitTabId split_id,
-                         SplitTabAddReason reason,
-                         split_tabs::SplitTabVisualData visual_data) override;
-  void OnSplitTabRemoved(std::vector<std::pair<tabs::TabInterface*, int>> tabs,
-                         split_tabs::SplitTabId split_id,
-                         SplitTabRemoveReason reason) override;
-  void OnSplitTabVisualsChanged(
-      split_tabs::SplitTabId split_id,
-      split_tabs::SplitTabVisualData old_visual_data,
-      split_tabs::SplitTabVisualData new_visual_data) override;
+  void OnSplitTabChanged(const SplitTabChange& change) override;
   void TabStripEmpty() override;
   void WillCloseAllTabs(TabStripModel* tab_strip_model) override;
   void CloseAllTabsStopped(TabStripModel* tab_strip_model,
                            CloseAllStoppedReason reason) override;
-
-  void OnSplitTabResize(double start_ratio);
 
   // ui::AcceleratorProvider:
   bool GetAcceleratorForCommandId(int command_id,
@@ -1138,11 +1143,6 @@ private:
   // Called when ui::TouchUiController changes the current touch mode.
   void TouchModeChanged();
 
-  // Attempts to show in-product help for the WebUI tab strip. Should be
-  // called when the IPH backend is initialized or whenever the touch
-  // mode changes.
-  void MaybeShowWebUITabStripIPH();
-
   // Attempts to show in-product help for the reading list as moved into the
   // side panel. Should be called when the IPH backend is initialized or
   // whenever the touch mode changes.
@@ -1308,6 +1308,11 @@ private:
 
   // The view that contains all visible WebContents.
   raw_ptr<MultiContentsView> multi_contents_view_ = nullptr;
+
+  // The view that shows a footer at the bottom of the contents
+  // container on new tab pages.
+  raw_ptr<new_tab_footer::NewTabFooterWebView> new_tab_footer_web_view_ =
+      nullptr;
 
   // The scrim view that covers the content area when a tab-modal dialog is
   // open.

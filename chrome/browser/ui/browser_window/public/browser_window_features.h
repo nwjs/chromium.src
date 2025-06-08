@@ -18,6 +18,7 @@ class GlicIphController;
 #endif
 
 class Browser;
+class BrowserInstantController;
 class BrowserView;
 class BrowserWindowInterface;
 class ChromeLabsCoordinator;
@@ -27,12 +28,14 @@ class BookmarksSidePanelCoordinator;
 class MemorySaverOptInIPHController;
 class SidePanelCoordinator;
 class SidePanelUI;
+class TabMenuModelDelegate;
 class TabSearchToolbarButtonController;
 class TabStripModel;
 class TranslateBubbleController;
 class ToastController;
 class ToastService;
 class DownloadToolbarUIController;
+class TabStripServiceRegister;
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
 class PdfInfoBarController;
@@ -68,6 +71,10 @@ namespace memory_saver {
 class MemorySaverBubbleController;
 }  // namespace memory_saver
 
+namespace new_tab_footer {
+class NewTabFooterController;
+}  // namespace new_tab_footer
+
 namespace tab_groups {
 class SessionServiceTabGroupSyncObserver;
 class SharedTabGroupFeedbackController;
@@ -77,10 +84,6 @@ class MostRecentSharedTabUpdateStore;
 namespace send_tab_to_self {
 class SendTabToSelfToolbarBubbleController;
 }  // namespace send_tab_to_self
-
-namespace tabs_api::mojom {
-class TabStripController;
-}
 
 // This class owns the core controllers for features that are scoped to a given
 // browser window on desktop. It can be subclassed by tests to perform
@@ -226,6 +229,19 @@ class BrowserWindowFeatures {
     return cookie_controls_bubble_coordinator_.get();
   }
 
+  TabMenuModelDelegate* tab_menu_model_delegate() {
+    return tab_menu_model_delegate_.get();
+  }
+
+  // Only fetch the tab_strip_service to register a pending receiver.
+  TabStripServiceRegister* tab_strip_service() {
+    return tab_strip_service_.get();
+  }
+
+  new_tab_footer::NewTabFooterController* new_tab_footer_controller() {
+    return new_tab_footer_controller_.get();
+  }
+
  protected:
   BrowserWindowFeatures();
 
@@ -236,6 +252,8 @@ class BrowserWindowFeatures {
  private:
   // Features that are per-browser window will each have a controller. e.g.
   // std::unique_ptr<FooFeature> foo_feature_;
+
+  std::unique_ptr<BrowserInstantController> instant_controller_;
 
   std::unique_ptr<send_tab_to_self::SendTabToSelfToolbarBubbleController>
       send_tab_to_self_toolbar_bubble_controller_;
@@ -309,8 +327,13 @@ class BrowserWindowFeatures {
   std::unique_ptr<CookieControlsBubbleCoordinator>
       cookie_controls_bubble_coordinator_;
 
+  std::unique_ptr<TabMenuModelDelegate> tab_menu_model_delegate_;
+
+  std::unique_ptr<new_tab_footer::NewTabFooterController>
+      new_tab_footer_controller_;
+
   // This is an experimental API that interacts with the TabStripModel.
-  std::unique_ptr<tabs_api::mojom::TabStripController> tab_strip_controller_;
+  std::unique_ptr<TabStripServiceRegister> tab_strip_service_;
 };
 
 #endif  // CHROME_BROWSER_UI_BROWSER_WINDOW_PUBLIC_BROWSER_WINDOW_FEATURES_H_

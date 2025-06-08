@@ -92,7 +92,7 @@ const CGFloat kIdentityDiscMaxFontSize = 24;
 @property(nonatomic, strong) NewTabPageHeaderView* headerView;
 @property(nonatomic, strong) UIButton* fakeOmnibox;
 @property(nonatomic, strong) UIButton* accessibilityButton;
-@property(nonatomic, strong) NSString* identityDiscAccessibilityLabel;
+@property(nonatomic, copy) NSString* identityDiscAccessibilityLabel;
 @property(nonatomic, strong, readwrite) UIButton* identityDiscButton;
 @property(nonatomic, strong) UIImage* identityDiscImage;
 @property(nonatomic, strong) UIButton* fakeTapButton;
@@ -553,13 +553,13 @@ const CGFloat kIdentityDiscMaxFontSize = 24;
 
   UIColor* backgroundColor =
       IsSignInButtonNoAvatarEnabled()
-          ? [[UIColor colorNamed:kBlueColor] colorWithAlphaComponent:0.08]
+          ? [[UIColor colorNamed:kSolidWhiteColor] colorWithAlphaComponent:0.75]
           : [[UIColor colorNamed:@"fake_omnibox_solid_background_color"]
                 colorWithAlphaComponent:0.8];
   customizationMenuButton.backgroundColor = backgroundColor;
 
   UIColor* tintColor = [UIColor
-      colorNamed:(IsSignInButtonNoAvatarEnabled() ? kBlueColor
+      colorNamed:(IsSignInButtonNoAvatarEnabled() ? kBlue600Color
                                                   : kTextSecondaryColor)];
   customizationMenuButton.tintColor = tintColor;
 
@@ -597,11 +597,12 @@ const CGFloat kIdentityDiscMaxFontSize = 24;
     UIButtonConfiguration* config =
         [UIButtonConfiguration plainButtonConfiguration];
     config.background.backgroundColor =
-        [[UIColor colorNamed:kBlueColor] colorWithAlphaComponent:0.08];
+        [[UIColor colorNamed:kSolidWhiteColor] colorWithAlphaComponent:0.75];
     NSDictionary* attributes = @{
       NSFontAttributeName : PreferredFontForTextStyle(
-          UIFontTextStyleBody, UIFontWeightSemibold, kIdentityDiscMaxFontSize),
-      NSForegroundColorAttributeName : [UIColor colorNamed:kBlueColor],
+          UIFontTextStyleSubheadline, UIFontWeightSemibold,
+          kIdentityDiscMaxFontSize),
+      NSForegroundColorAttributeName : [UIColor colorNamed:kBlue600Color],
     };
     config.attributedTitle = [[NSAttributedString alloc]
         initWithString:l10n_util::GetNSString(IDS_IOS_SIGNIN_BUTTON_TEXT)
@@ -861,7 +862,8 @@ const CGFloat kIdentityDiscMaxFontSize = 24;
                                 name:(NSString*)name
                                email:(NSString*)email {
   CHECK(
-      base::FeatureList::IsEnabled(switches::kEnableErrorBadgeOnIdentityDisc));
+      base::FeatureList::IsEnabled(switches::kEnableErrorBadgeOnIdentityDisc) ||
+      base::FeatureList::IsEnabled(switches::kEnableIdentityInAuthError));
 
   if (hasAccountError == _hasAccountError) {
     return;
@@ -884,8 +886,11 @@ const CGFloat kIdentityDiscMaxFontSize = 24;
 
   self.isSignedIn = NO;
 
-  self.identityDiscAccessibilityLabel = l10n_util::GetNSString(
-      IDS_IOS_IDENTITY_DISC_SIGNED_OUT_ACCESSIBILITY_LABEL);
+  self.identityDiscAccessibilityLabel =
+      IsSignInButtonNoAvatarEnabled()
+          ? l10n_util::GetNSString(IDS_IOS_SIGN_IN_BUTTON_ACCESSIBILITY_LABEL)
+          : l10n_util::GetNSString(
+                IDS_IOS_IDENTITY_DISC_SIGNED_OUT_ACCESSIBILITY_LABEL);
 
   // `self.identityDiscButton` should not be updated if the view has not been
   // created yet.
@@ -995,17 +1000,10 @@ const CGFloat kIdentityDiscMaxFontSize = 24;
 - (void)updateIdentityDiscAccessibilityLabelWithName:(NSString*)name
                                                email:(NSString*)email {
   NSString* accountButtonLabel;
-  if (!base::FeatureList::IsEnabled(
-          switches::kEnableErrorBadgeOnIdentityDisc)) {
-    if (name) {
-      accountButtonLabel = l10n_util::GetNSStringF(
-          IDS_IOS_IDENTITY_DISC_WITH_NAME_AND_EMAIL,
-          base::SysNSStringToUTF16(name), base::SysNSStringToUTF16(email));
-    } else {
-      accountButtonLabel = l10n_util::GetNSStringF(
-          IDS_IOS_IDENTITY_DISC_WITH_EMAIL, base::SysNSStringToUTF16(email));
-    }
-  } else {
+  if (base::FeatureList::IsEnabled(kIdentityDiscAccountMenu)) {
+    // _hasAccountError is only set if the feature
+    // `kEnableErrorBadgeOnIdentityDisc` is enabled, and the primary identity
+    // has an error.
     if (name) {
       accountButtonLabel =
           _hasAccountError
@@ -1026,6 +1024,17 @@ const CGFloat kIdentityDiscMaxFontSize = 24;
               : l10n_util::GetNSStringF(
                     IDS_IOS_IDENTITY_DISC_WITH_EMAIL_OPEN_ACCOUNT_MENU,
                     base::SysNSStringToUTF16(email));
+    }
+  } else {
+    // TODO(crbug.com/389915527): Update the following strings to reflect the
+    // error badge introduced with kEnableErrorBadgeOnIdentityDisc.
+    if (name) {
+      accountButtonLabel = l10n_util::GetNSStringF(
+          IDS_IOS_IDENTITY_DISC_WITH_NAME_AND_EMAIL,
+          base::SysNSStringToUTF16(name), base::SysNSStringToUTF16(email));
+    } else {
+      accountButtonLabel = l10n_util::GetNSStringF(
+          IDS_IOS_IDENTITY_DISC_WITH_EMAIL, base::SysNSStringToUTF16(email));
     }
   }
 

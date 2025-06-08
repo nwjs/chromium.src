@@ -21,6 +21,7 @@ class BrowserDelegateImpl : public BrowserDelegate {
   Browser& GetBrowser() const override;
   BrowserType GetType() const override;
   SessionID GetSessionID() const override;
+  bool IsOffTheRecord() const override;
   gfx::Rect GetBounds() const override;
   content::WebContents* GetActiveWebContents() const override;
   size_t GetWebContentsCount() const override;
@@ -30,6 +31,9 @@ class BrowserDelegateImpl : public BrowserDelegate {
   void Show() override;
   void Minimize() override;
   void Close() override;
+  void AddTab(const GURL& url,
+              std::optional<size_t> index,
+              TabDisposition disposition) override;
   content::WebContents* NavigateWebApp(const GURL& url,
                                        TabPinning pin_tab) override;
 

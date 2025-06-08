@@ -54,6 +54,7 @@
 #include "cc/base/math_util.h"
 #include "cc/input/touch_action.h"
 #include "components/input/features.h"
+#include "components/input/input_constants.h"
 #include "components/input/input_router.h"
 #include "components/input/render_widget_host_input_event_router.h"
 #include "components/input/switches.h"
@@ -451,6 +452,38 @@ void GenerateTapDownGesture(RenderWidgetHost* rwh) {
   gesture_tap_down.is_source_touch_event_set_blocking = true;
   rwh->ForwardGestureEvent(gesture_tap_down);
 }
+
+// Overrides process reuse preference based on URL for testing purposes.
+class SitePerProcessWithMainFrameThresholdAndSiteRestrictionBrowserClient
+    : public ContentBrowserTestContentBrowserClient {
+ public:
+  SitePerProcessWithMainFrameThresholdAndSiteRestrictionBrowserClient() =
+      default;
+  ~SitePerProcessWithMainFrameThresholdAndSiteRestrictionBrowserClient()
+      override = default;
+
+  SitePerProcessWithMainFrameThresholdAndSiteRestrictionBrowserClient(
+      const SitePerProcessWithMainFrameThresholdAndSiteRestrictionBrowserClient&) =
+      delete;
+  SitePerProcessWithMainFrameThresholdAndSiteRestrictionBrowserClient&
+  operator=(
+      const SitePerProcessWithMainFrameThresholdAndSiteRestrictionBrowserClient&) =
+      delete;
+
+  // Controls whether reuse is preferred under the main frame threshold policy.
+  bool ShouldReuseExistingProcessForNewMainFrameSiteInstance(
+      content::BrowserContext* browser_context,
+      const GURL& site_instance_original_url) override {
+    // Only reuse for foo.com/title1.html specifically.
+    if (site_instance_original_url.DomainIs("foo.com") &&
+        site_instance_original_url.path_piece() == "/title1.html") {
+      return true;
+    }
+    // For all other URLs, including other paths on foo.com or other domains,
+    // do not force reuse via this override. Let default policies apply.
+    return false;
+  }
+};
 
 }  // namespace
 
@@ -9036,8 +9069,9 @@ IN_PROC_BROWSER_TEST_P(
   TestNavigationThrottleInserter navigation_throttle_inserter(
       web_contents(),
       base::BindRepeating(
-          [](NavigationHandle* handle) -> std::unique_ptr<NavigationThrottle> {
-            auto throttle = std::make_unique<TestNavigationThrottle>(handle);
+          [](NavigationThrottleRegistry& registry) -> void {
+            auto throttle = std::make_unique<TestNavigationThrottle>(registry);
+            auto* handle = &registry.GetNavigationHandle();
             throttle->SetCallback(
                 TestNavigationThrottle::WILL_PROCESS_RESPONSE,
                 base::BindLambdaForTesting([handle]() {
@@ -9052,7 +9086,7 @@ IN_PROC_BROWSER_TEST_P(
                       ->url_loader_client =
                       remote_to_be_dropped.BindNewPipeAndPassReceiver();
                 }));
-            return throttle;
+            registry.AddThrottle(std::move(throttle));
           }));
 
   // <object> fallback handling should never reach ReadyToCommitNavigation.
@@ -9120,8 +9154,9 @@ IN_PROC_BROWSER_TEST_P(
   TestNavigationThrottleInserter navigation_throttle_inserter(
       web_contents(),
       base::BindRepeating(
-          [](NavigationHandle* handle) -> std::unique_ptr<NavigationThrottle> {
-            auto throttle = std::make_unique<TestNavigationThrottle>(handle);
+          [](NavigationThrottleRegistry& registry) -> void {
+            auto throttle = std::make_unique<TestNavigationThrottle>(registry);
+            auto* handle = &registry.GetNavigationHandle();
             throttle->SetCallback(
                 TestNavigationThrottle::WILL_PROCESS_RESPONSE,
                 base::BindLambdaForTesting([handle]() {
@@ -9136,7 +9171,7 @@ IN_PROC_BROWSER_TEST_P(
                       ->url_loader_client =
                       remote_to_be_dropped.BindNewPipeAndPassReceiver();
                 }));
-            return throttle;
+            registry.AddThrottle(std::move(throttle));
           }));
 
   // <object> fallback handling should never reach ReadyToCommitNavigation.
@@ -9452,12 +9487,11 @@ IN_PROC_BROWSER_TEST_P(SitePerProcessBrowserTest,
   auto size = root_view->GetSizeDIPs();
   float x = size.width() / 2;
   float y = size.height() / 2;
-  ui::MotionEventAndroid::Pointer pointer0(0, x, y, 0, 0, 0, 0, 0);
-  ui::MotionEventAndroid::Pointer pointer1(0, 0, 0, 0, 0, 0, 0, 0);
+  ui::MotionEventAndroid::Pointer pointer0(0, x, y, 0, 0, 0, 0, 0, 0);
   ui::MotionEventAndroidJava event(nullptr, nullptr,
                                    1.f / root_view->GetDipScale(), 0.f, 0.f,
                                    0.f, base::TimeTicks(), 0, 1, 0, 0, 0, 0, 0,
-                                   0, 0, 0, 0, false, &pointer0, &pointer1);
+                                   0, 0, 0, 0, false, &pointer0, nullptr);
   root_view->OnTouchEventForTesting(event);
 
   EXPECT_TRUE(mock_handler.did_receive_event());
@@ -9790,7 +9824,8 @@ class TouchSelectionControllerClientAndroidSiteIsolationTest
     DCHECK(action >= ui::MotionEvent::Action::DOWN &&
            action < ui::MotionEvent::Action::CANCEL);
 
-    ui::MotionEventAndroid::Pointer p(0, point.x(), point.y(), 10, 0, 0, 0, 0);
+    ui::MotionEventAndroid::Pointer p(0, point.x(), point.y(), 10, 0, 0, 0, 0,
+                                      0);
     JNIEnv* env = base::android::AttachCurrentThread();
     auto time_ns = (ui::EventTimeForNow() - base::TimeTicks()).InNanoseconds();
     ui::MotionEventAndroidJava touch(
@@ -11640,7 +11675,7 @@ class AndroidInputBrowserTest : public SitePerProcessBrowserTest {
 // InputVizard enabled.
 IN_PROC_BROWSER_TEST_P(AndroidInputBrowserTest, CheckForceEnableZoomValue) {
   // Return early if transferring input to Viz isn't supported.
-  if (!input::IsTransferInputToVizSupported()) {
+  if (!input::InputUtils::IsTransferInputToVizSupported()) {
     return;
   }
 
@@ -11755,11 +11790,12 @@ IN_PROC_BROWSER_TEST_P(AndroidInputBrowserTest,
   ASSERT_TRUE(result.has_value());
 
   // `result.value()` would look something like this: {{"cnt"}, {"<num>"}}.
-  EXPECT_THAT(result.value(),
-              testing::ElementsAre(
-                  testing::ElementsAre("cnt"),
-                  testing::ElementsAre(
-                      input::IsTransferInputToVizSupported() ? "1" : "0")));
+  EXPECT_THAT(
+      result.value(),
+      testing::ElementsAre(
+          testing::ElementsAre("cnt"),
+          testing::ElementsAre(
+              input::InputUtils::IsTransferInputToVizSupported() ? "1" : "0")));
 }
 
 IN_PROC_BROWSER_TEST_P(SitePerProcessBrowserTouchActionTest,
@@ -13943,7 +13979,8 @@ IN_PROC_BROWSER_TEST_P(SitePerProcessWithMainFrameThresholdTest,
     // SimulateUnresponsiveRenderer does not work here, because it hits only
     // WebContents, while we need widget to know that it is unresponsive.
     static_cast<RenderWidgetHostImpl*>(subframe->GetRenderWidgetHost())
-        ->OnInputEventAckTimeout();
+        ->OnInputEventAckTimeout(base::TimeTicks::Now() +
+                                 input::kHungRendererDelay);
 
     RenderProcessHost* hung_process = unresponsive_renderer_observer.Wait();
     EXPECT_EQ(hung_process, b_subframe_process);
@@ -13971,6 +14008,93 @@ IN_PROC_BROWSER_TEST_P(SitePerProcessWithMainFrameThresholdTest,
   // Check that b.com main frame is not reusing existing unresponsive process
   // with b.com.
   ASSERT_NE(b_subframe_process, b_main_frame->GetProcess());
+}
+
+// Test fixture that enables kProcessPerSiteUpToMainFrameThreshold and sets up
+// a SitePerProcessWithMainFrameThresholdAndSiteRestrictionBrowserClient to
+// restrict the sites for which ProcessPerSite is used.
+class SitePerProcessWithMainFrameThresholdAndSiteRestrictionTest
+    : public SitePerProcessWithMainFrameThresholdTest {
+ public:
+  SitePerProcessWithMainFrameThresholdAndSiteRestrictionTest() {
+    // Initialize both features in a single call
+    scoped_feature_list_.InitAndEnableFeature(
+        features::kProcessPerSiteUpToMainFrameThreshold);
+  }
+
+  void SetUpOnMainThread() override {
+    SitePerProcessWithMainFrameThresholdTest::SetUpOnMainThread();
+    test_client_ = std::make_unique<
+        SitePerProcessWithMainFrameThresholdAndSiteRestrictionBrowserClient>();
+  }
+
+ private:
+  base::test::ScopedFeatureList scoped_feature_list_;
+  std::unique_ptr<
+      SitePerProcessWithMainFrameThresholdAndSiteRestrictionBrowserClient>
+      test_client_;
+};
+
+// Verify that ShouldReuseExistingProcessForNewMainFrameSiteInstance is honored
+// when deciding whether to reuse a process for a main frame navigation under
+// the threshold, provided the controlling feature flag is enabled.
+IN_PROC_BROWSER_TEST_P(
+    SitePerProcessWithMainFrameThresholdAndSiteRestrictionTest,
+    RestrictedToURLWithContentClient) {
+  GURL foo_url = embedded_test_server()->GetURL("foo.com", "/title1.html");
+  GURL bar_url = embedded_test_server()->GetURL("bar.com", "/title2.html");
+
+  auto* shell_foo1 = CreateShellAndNavigateToURL(foo_url);
+  RenderProcessHost* rph_foo1 =
+      shell_foo1->web_contents()->GetPrimaryMainFrame()->GetProcess();
+
+  auto* shell_foo2 = CreateShellAndNavigateToURL(foo_url);
+  RenderProcessHost* rph_foo2 =
+      shell_foo2->web_contents()->GetPrimaryMainFrame()->GetProcess();
+
+  // Verify foo.com reuse processes.
+  EXPECT_EQ(rph_foo1, rph_foo2);
+
+  auto* shell_bar1 = CreateShellAndNavigateToURL(bar_url);
+  RenderProcessHost* rph_bar1 =
+      shell_bar1->web_contents()->GetPrimaryMainFrame()->GetProcess();
+
+  auto* shell_bar2 = CreateShellAndNavigateToURL(bar_url);
+  RenderProcessHost* rph_bar2 =
+      shell_bar2->web_contents()->GetPrimaryMainFrame()->GetProcess();
+
+  // Verify bar.com did not reuse processes.
+  EXPECT_NE(rph_bar1, rph_bar2);
+
+  // Verify foo.com and bar.com are in different processes.
+  EXPECT_NE(rph_foo1, rph_bar1);
+  EXPECT_NE(rph_foo1, rph_bar2);
+}
+
+// Verify that ShouldReuseExistingProcessForNewMainFrameSiteInstance's
+// path-specific logic, using the original_url, correctly assigns different
+// processes to main frame navigations on the same domain but with different
+// paths, under the kProcessPerSiteUpToMainFrameThreshold policy.
+IN_PROC_BROWSER_TEST_P(
+    SitePerProcessWithMainFrameThresholdAndSiteRestrictionTest,
+    PathSpecificOriginalUrlReuse) {
+  GURL foo_url_path = embedded_test_server()->GetURL("foo.com", "/title1.html");
+  GURL foo_url_path_noreuse =
+      embedded_test_server()->GetURL("foo.com", "/title2.html");
+  // Navigate to foo.com/title1.html (matches client rule for reuse) however
+  // foo.com/title2.html should not be reused since they have different paths.
+  auto* shell_foo_url_path = CreateShellAndNavigateToURL(foo_url_path);
+  RenderProcessHost* rph_foo_url_path =
+      shell_foo_url_path->web_contents()->GetPrimaryMainFrame()->GetProcess();
+
+  auto* shell_foo_url_path_noreuse =
+      CreateShellAndNavigateToURL(foo_url_path_noreuse);
+  RenderProcessHost* rph_foo_url_path_noreuse =
+      shell_foo_url_path_noreuse->web_contents()
+          ->GetPrimaryMainFrame()
+          ->GetProcess();
+
+  EXPECT_NE(rph_foo_url_path, rph_foo_url_path_noreuse);
 }
 
 // A test fixture that provides an upper limit of 4 bytes, so should fail the
@@ -14366,5 +14490,10 @@ INSTANTIATE_TEST_SUITE_P(All,
 INSTANTIATE_TEST_SUITE_P(All,
                          SitePerProcessWithSubframeProcessReuseThresholdsTest,
                          testing::ValuesIn(RenderDocumentFeatureLevelValues()));
+
+INSTANTIATE_TEST_SUITE_P(
+    All,
+    SitePerProcessWithMainFrameThresholdAndSiteRestrictionTest,
+    testing::ValuesIn(RenderDocumentFeatureLevelValues()));
 
 }  // namespace content

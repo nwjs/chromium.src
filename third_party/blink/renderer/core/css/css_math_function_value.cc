@@ -60,21 +60,6 @@ bool CSSMathFunctionValue::MayHaveRelativeUnit() const {
   return IsRelativeUnit(resolved_type) || resolved_type == UnitType::kUnknown;
 }
 
-double CSSMathFunctionValue::DoubleValue() const {
-#if DCHECK_IS_ON()
-  if (IsPercentage()) {
-    DCHECK(!AllowsNegativePercentageReference() ||
-           !expression_->InvolvesPercentageComparisons());
-  }
-#endif
-  return ClampToPermittedRange(expression_->DoubleValue());
-}
-
-double CSSMathFunctionValue::ComputeDegrees() const {
-  DCHECK_EQ(kCalcAngle, expression_->Category());
-  return ClampToPermittedRange(*expression_->ComputeValueInCanonicalUnit());
-}
-
 double CSSMathFunctionValue::ComputeDegrees(
     const CSSLengthResolver& length_resolver) const {
   DCHECK_EQ(kCalcAngle, expression_->Category());

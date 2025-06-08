@@ -19,6 +19,7 @@
 #include "components/content_settings/core/common/content_settings_pattern.h"
 #include "components/content_settings/core/common/content_settings_types.h"
 #include "components/content_settings/core/common/cookie_blocking_3pcd_status.h"
+#include "components/content_settings/core/common/cookie_controls_state.h"
 #include "components/page_info/core/page_info_action.h"
 #include "components/safe_browsing/buildflags.h"
 #include "components/security_state/core/security_state.h"
@@ -176,6 +177,10 @@ class PageInfo : private content_settings::CookieControlsObserver,
   // clicked.
   void OnThirdPartyToggleClicked(bool block_third_party_cookies);
 
+  // Called when the protections button in the privacy and site data subpage
+  // gets clicked.
+  void OnTrackingProtectionButtonPressed(bool pause_protections);
+
   // Checks whether this permission is currently the factory default, as set by
   // Chrome. Specifically, that the following three conditions are true:
   //   - The current active setting comes from the default or pref provider.
@@ -224,6 +229,9 @@ class PageInfo : private content_settings::CookieControlsObserver,
 
   // Handles opening the link to show cookies settings and records the event.
   void OpenCookiesSettingsView();
+
+  // Handles opening the link to show Incognito tracking protection settings.
+  void OpenIncognitoSettingsView();
 
   // Handles opening the link to show all sites settings with a filter for
   // current site's fps  and records the event.
@@ -315,8 +323,7 @@ class PageInfo : private content_settings::CookieControlsObserver,
                            ShowInfoBarWhenBlockingThirdPartyCookies);
 
   // CookieControlsObserver:
-  void OnStatusChanged(bool controls_visible,
-                       bool protections_on,
+  void OnStatusChanged(CookieControlsState controls_state,
                        CookieControlsEnforcement enforcement,
                        CookieBlocking3pcdStatus blocking_status,
                        base::Time expiration) override;
@@ -493,14 +500,13 @@ class PageInfo : private content_settings::CookieControlsObserver,
                           content_settings::CookieControlsObserver>
       observation_{this};
 
-  bool protections_on_ = true;
-  bool controls_visible_ = true;
-
   CookieControlsEnforcement enforcement_ =
       CookieControlsEnforcement::kNoEnforcement;
 
   CookieBlocking3pcdStatus blocking_status_ =
       CookieBlocking3pcdStatus::kNotIn3pcd;
+
+  CookieControlsState controls_state_ = CookieControlsState::kBlocked3pc;
 
   base::Time cookie_exception_expiration_;
 

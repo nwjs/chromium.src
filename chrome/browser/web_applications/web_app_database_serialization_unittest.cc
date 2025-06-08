@@ -11,9 +11,12 @@
 #include "chrome/browser/web_applications/isolated_web_apps/isolation_data.h"
 #include "chrome/browser/web_applications/proto/web_app.pb.h"
 #include "chrome/browser/web_applications/test/web_app_test.h"
+#include "chrome/browser/web_applications/test/web_app_test_utils.h"
+#include "chrome/browser/web_applications/web_app.h"
 #include "chrome/browser/web_applications/web_app_helpers.h"
 #include "chrome/browser/web_applications/web_app_proto_utils.h"
 #include "chrome/browser/web_applications/web_app_utils.h"
+#include "chrome/browser/web_applications/test/web_app_test_utils.h"
 #include "components/sync/base/time.h"
 #include "components/webapps/browser/installable/installable_metrics.h"
 #include "components/webapps/common/web_app_id.h"
@@ -58,6 +61,26 @@ proto::WebApp CreateWebAppProtoForTesting(const std::string& name,
 
 using WebAppDatabaseSerializationTest = WebAppTest;
 
+TEST_F(WebAppDatabaseSerializationTest, RandomWebApps) {
+  // This tests attempts to ensure that the WebApp serialization code and
+  // deserialization code is consistent when serialized back and forth from the
+  // proto representation. The random web app generation should ensure that all
+  // fields in all relevant combinations are tested.
+  for (int i = 0; i < 1000; ++i) {
+    std::unique_ptr<WebApp> app = test::CreateRandomWebApp(
+        {.seed = static_cast<uint32_t>(i), .non_zero = i == 0});
+    std::unique_ptr<proto::WebApp> proto = WebAppToProto(*app);
+    std::unique_ptr<WebApp> parsed_app = ParseWebAppProto(*proto);
+    ASSERT_THAT(parsed_app, NotNull());
+    ASSERT_EQ(*app, *parsed_app);
+    std::unique_ptr<proto::WebApp> round_trip_proto =
+        WebAppToProto(*parsed_app);
+    ASSERT_THAT(round_trip_proto, NotNull());
+    ASSERT_EQ(proto->SerializeAsString(),
+              round_trip_proto->SerializeAsString());
+  }
+}
+
 TEST_F(WebAppDatabaseSerializationTest, ParseWebAppProto_MissingSyncData) {
   proto::WebApp proto =
       CreateWebAppProtoForTesting("Test App", GURL("https://example.com/"));
@@ -79,6 +102,15 @@ TEST_F(WebAppDatabaseSerializationTest, ParseWebAppProto_InvalidStartUrl) {
   EXPECT_THAT(ParseWebAppProto(proto), IsNull());
 }
 
+TEST_F(WebAppDatabaseSerializationTest,
+       ParseWebAppProto_MissingRelativeManifestId) {
+  proto::WebApp proto =
+      CreateWebAppProtoForTesting("Test App", GURL("https://example.com/"));
+  // Clear the field that should be populated by migration.
+  proto.mutable_sync_data()->clear_relative_manifest_id();
+  EXPECT_THAT(ParseWebAppProto(proto), IsNull());
+}
+
 TEST_F(WebAppDatabaseSerializationTest, ParseWebAppProto_MissingScope) {
   proto::WebApp proto =
       CreateWebAppProtoForTesting("Test App", GURL("https://example.com/"));
@@ -90,6 +122,22 @@ TEST_F(WebAppDatabaseSerializationTest, ParseWebAppProto_InvalidScope) {
   proto::WebApp proto =
       CreateWebAppProtoForTesting("Test App", GURL("https://example.com/"));
   proto.set_scope("invalid-scope");
+  EXPECT_THAT(ParseWebAppProto(proto), IsNull());
+}
+
+TEST_F(WebAppDatabaseSerializationTest, ParseWebAppProto_ScopeWithQuery) {
+  proto::WebApp proto =
+      CreateWebAppProtoForTesting("Test App", GURL("https://example.com/"));
+  // Set a scope with a query, which should have been removed by migration.
+  proto.set_scope("https://example.com/path?query=1");
+  EXPECT_THAT(ParseWebAppProto(proto), IsNull());
+}
+
+TEST_F(WebAppDatabaseSerializationTest, ParseWebAppProto_ScopeWithRef) {
+  proto::WebApp proto =
+      CreateWebAppProtoForTesting("Test App", GURL("https://example.com/"));
+  // Set a scope with a ref, which should have been removed by migration.
+  proto.set_scope("https://example.com/path#ref");
   EXPECT_THAT(ParseWebAppProto(proto), IsNull());
 }
 

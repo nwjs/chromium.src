@@ -5,11 +5,9 @@
 #ifndef COMPONENTS_PRIVACY_SANDBOX_PRIVACY_SANDBOX_SURVEY_SERVICE_H_
 #define COMPONENTS_PRIVACY_SANDBOX_PRIVACY_SANDBOX_SURVEY_SERVICE_H_
 
-#include "components/keyed_service/core/keyed_service.h"
-
 namespace privacy_sandbox {
 
-class PrivacySandboxSurveyService : public KeyedService {
+class PrivacySandboxSurveyService{
  public:
   // Records the survey's status when attempting to surface a
   // sentiment survey.
@@ -24,13 +22,7 @@ class PrivacySandboxSurveyService : public KeyedService {
     kInvalidSurveyConfig = 4,  // Failed to initialize survey config.
     kMaxValue = kInvalidSurveyConfig,
   };
-  // LINT.ThenChange(/tools/metrics/histograms/enums.xml)
-
-  PrivacySandboxSurveyService();
-  ~PrivacySandboxSurveyService() override;
-  PrivacySandboxSurveyService(const PrivacySandboxSurveyService&) = delete;
-  PrivacySandboxSurveyService& operator=(const PrivacySandboxSurveyService&) =
-      delete;
+  // LINT.ThenChange(/tools/metrics/histograms/metadata/privacy/enums.xml)
 };
 
 }  // namespace privacy_sandbox

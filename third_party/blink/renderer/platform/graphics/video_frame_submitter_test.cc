@@ -118,8 +118,8 @@ class VideoMockCompositorFrameSink
   MOCK_METHOD1(DidNotProduceFrame, void(const viz::BeginFrameAck&));
   MOCK_METHOD1(InitializeCompositorFrameSinkType,
                void(viz::mojom::CompositorFrameSinkType));
-  MOCK_METHOD1(BindLayerContext,
-               void(viz::mojom::blink::PendingLayerContextPtr));
+  MOCK_METHOD2(BindLayerContext,
+               void(viz::mojom::blink::PendingLayerContextPtr, bool));
   MOCK_METHOD1(SetThreads, void(const WTF::Vector<viz::Thread>&));
 
  private:
@@ -1029,7 +1029,7 @@ TEST_F(VideoFrameSubmitterTest, PreferredInterval) {
   task_environment_.RunUntilIdle();
 
   EXPECT_EQ(sink_->last_submitted_compositor_frame()
-                .metadata.begin_frame_ack.preferred_frame_interval,
+                .metadata.preferred_frame_interval,
             video_frame_provider_->preferred_interval);
   const auto& frame_interval_inputs =
       sink_->last_submitted_compositor_frame().metadata.frame_interval_inputs;

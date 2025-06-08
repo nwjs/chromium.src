@@ -4,7 +4,8 @@
 
 #include "chrome/browser/ai/ai_summarizer.h"
 
-#include "base/strings/stringprintf.h"
+#include "base/strings/strcat.h"
+#include "base/strings/string_util.h"
 #include "chrome/browser/ai/ai_context_bound_object.h"
 #include "chrome/browser/ai/ai_utils.h"
 #include "components/optimization_guide/core/optimization_guide_util.h"
@@ -68,7 +69,8 @@ AISummarizer::AISummarizer(
 
 AISummarizer::~AISummarizer() {
   for (auto& responder : responder_set_) {
-    responder->OnError(
+    AIUtils::SendStreamingStatus(
+        responder,
         blink::mojom::ModelStreamingResponseStatus::kErrorSessionDestroyed);
   }
 }
@@ -86,20 +88,12 @@ AISummarizer::ToProtoOptions(
 }
 
 // static
-std::string AISummarizer::CombineContexts(const std::string& shared_context,
-                                          const std::string& input_context) {
-  std::string final_context = shared_context;
-  if (!input_context.empty()) {
-    if (!final_context.empty()) {
-      final_context = final_context + " " + input_context;
-    } else {
-      final_context = input_context;
-    }
-  }
-  if (!final_context.empty()) {
-    final_context += "\n";
-  }
-  return final_context;
+std::string AISummarizer::CombineContexts(std::string_view shared,
+                                          std::string_view input) {
+  std::string result = (!shared.empty() && !input.empty())
+                           ? base::JoinString({shared, input}, " ")
+                           : std::string(shared.empty() ? input : shared);
+  return result.empty() ? result : base::StrCat({result, "\n"});
 }
 
 void AISummarizer::Summarize(
@@ -111,7 +105,8 @@ void AISummarizer::Summarize(
   if (!session) {
     mojo::Remote<blink::mojom::ModelStreamingResponder> responder(
         std::move(pending_responder));
-    responder->OnError(
+    AIUtils::SendStreamingStatus(
+        responder,
         blink::mojom::ModelStreamingResponseStatus::kErrorSessionDestroyed);
     return;
   }
@@ -138,20 +133,25 @@ void AISummarizer::DidGetExecutionInputSizeForSummarize(
   }
 
   if (!session_wrapper_.session()) {
-    responder->OnError(
+    AIUtils::SendStreamingStatus(
+        responder,
         blink::mojom::ModelStreamingResponseStatus::kErrorSessionDestroyed);
     return;
   }
 
   if (!result.has_value()) {
-    responder->OnError(
+    AIUtils::SendStreamingStatus(
+        responder,
         blink::mojom::ModelStreamingResponseStatus::kErrorGenericFailure);
     return;
   }
 
-  if (result.value() > blink::mojom::kWritingAssistanceMaxInputTokenSize) {
-    responder->OnError(
-        blink::mojom::ModelStreamingResponseStatus::kErrorInputTooLarge);
+  uint32_t quota = blink::mojom::kWritingAssistanceMaxInputTokenSize;
+  if (result.value() > quota) {
+    AIUtils::SendStreamingStatus(
+        responder,
+        blink::mojom::ModelStreamingResponseStatus::kErrorInputTooLarge,
+        blink::mojom::QuotaErrorInfo::New(result.value(), quota));
     return;
   }
 
@@ -171,7 +171,8 @@ void AISummarizer::ModelExecutionCallback(
   }
 
   if (!result.response.has_value()) {
-    responder->OnError(
+    AIUtils::SendStreamingStatus(
+        responder,
         AIUtils::ConvertModelExecutionError(result.response.error().error()));
     return;
   }

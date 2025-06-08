@@ -22,22 +22,22 @@ class URLMatcher;
 namespace performance_manager::policies {
 
 #if BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
-constexpr base::TimeDelta kNonVisiblePagesUrgentProtectionTime =
+inline constexpr base::TimeDelta kNonVisiblePagesUrgentProtectionTime =
     base::TimeDelta();
 #else
 // Time during which non visible pages are protected from urgent discarding
 // (not on ChromeOS).
-constexpr base::TimeDelta kNonVisiblePagesUrgentProtectionTime =
+inline constexpr base::TimeDelta kNonVisiblePagesUrgentProtectionTime =
     base::Minutes(10);
 #endif
 
 #if BUILDFLAG(IS_ANDROID)
 // TODO(crbug.com/412839833): kTabAudioProtectionTime may be needed on Android
 // as well.
-constexpr base::TimeDelta kTabAudioProtectionTime = base::TimeDelta();
+inline constexpr base::TimeDelta kTabAudioProtectionTime = base::TimeDelta();
 #else
 // Time during which a tab cannot be discarded after having played audio.
-constexpr base::TimeDelta kTabAudioProtectionTime = base::Minutes(1);
+inline constexpr base::TimeDelta kTabAudioProtectionTime = base::Minutes(1);
 #endif
 
 // Whether a page can be discarded.
@@ -58,7 +58,7 @@ class PageNodeSortProxy {
                     CanDiscardResult can_discard_result,
                     bool is_visible,
                     bool is_focused,
-                    base::TimeDelta last_visible);
+                    base::TimeTicks last_visibility_change_time);
   PageNodeSortProxy(PageNodeSortProxy&&);
   PageNodeSortProxy& operator=(PageNodeSortProxy&&);
   ~PageNodeSortProxy();
@@ -72,7 +72,9 @@ class PageNodeSortProxy {
   }
   bool is_visible() const { return is_visible_; }
   bool is_focused() const { return is_focused_; }
-  base::TimeDelta last_visible() const { return last_visible_; }
+  base::TimeTicks last_visibility_change_time() const {
+    return last_visibility_change_time_;
+  }
 
   // Returns true if the rhs is more important.
   bool operator<(const PageNodeSortProxy& rhs) const {
@@ -88,7 +90,7 @@ class PageNodeSortProxy {
     if (is_protected() != rhs.is_protected()) {
       return rhs.is_protected();
     }
-    return last_visible_ > rhs.last_visible_;
+    return last_visibility_change_time_ < rhs.last_visibility_change_time_;
   }
 
  private:
@@ -96,8 +98,7 @@ class PageNodeSortProxy {
   CanDiscardResult can_discard_result_;
   bool is_visible_;
   bool is_focused_;
-  // Delta between current time and last visibility change time.
-  base::TimeDelta last_visible_;
+  base::TimeTicks last_visibility_change_time_;
 };
 
 // DiscardEligibilityPolicy decides which PageNode is eligigle for tab

@@ -122,7 +122,9 @@ public class AutofillImageFetcherTest {
         HistogramWatcher expectedHistogram =
                 HistogramWatcher.newBuilder()
                         .expectBooleanRecordTimes(
-                                "Autofill.ImageFetcher.Result", /* value= */ true, /* times= */ 2)
+                                "Autofill.ImageFetcher.CreditCardArt.Result",
+                                /* value= */ true,
+                                /* times= */ 2)
                         .expectBooleanRecordTimes(
                                 "Autofill.ImageFetcher.CreditCardArt.OverallResultOnBrowserStart",
                                 /* value= */ true,
@@ -158,7 +160,7 @@ public class AutofillImageFetcherTest {
         // No histogram should be logged since no image fetching is done.
         HistogramWatcher expectedHistogram =
                 HistogramWatcher.newBuilder()
-                        .expectNoRecords("Autofill.ImageFetcher.Result")
+                        .expectNoRecords("Autofill.ImageFetcher.CreditCardArt.Result")
                         .build();
 
         mAutofillImageFetcher.prefetchCardArtImages(
@@ -191,7 +193,9 @@ public class AutofillImageFetcherTest {
         HistogramWatcher expectedHistogram =
                 HistogramWatcher.newBuilder()
                         .expectBooleanRecordTimes(
-                                "Autofill.ImageFetcher.Result", /* value= */ false, /* times= */ 2)
+                                "Autofill.ImageFetcher.CreditCardArt.Result",
+                                /* value= */ false,
+                                /* times= */ 2)
                         .expectBooleanRecordTimes(
                                 "Autofill.ImageFetcher.CreditCardArt.OverallResultOnBrowserStart",
                                 /* value= */ false,
@@ -248,9 +252,13 @@ public class AutofillImageFetcherTest {
         HistogramWatcher expectedHistogram =
                 HistogramWatcher.newBuilder()
                         .expectBooleanRecordTimes(
-                                "Autofill.ImageFetcher.Result", /* value= */ false, /* times= */ 1)
+                                "Autofill.ImageFetcher.CreditCardArt.Result",
+                                /* value= */ false,
+                                /* times= */ 1)
                         .expectBooleanRecordTimes(
-                                "Autofill.ImageFetcher.Result", /* value= */ true, /* times= */ 1)
+                                "Autofill.ImageFetcher.CreditCardArt.Result",
+                                /* value= */ true,
+                                /* times= */ 1)
                         .expectBooleanRecordTimes(
                                 "Autofill.ImageFetcher.CreditCardArt.OverallResultOnBrowserStart",
                                 /* value= */ true,
@@ -291,7 +299,9 @@ public class AutofillImageFetcherTest {
         HistogramWatcher expectedHistogram =
                 HistogramWatcher.newBuilder()
                         .expectBooleanRecordTimes(
-                                "Autofill.ImageFetcher.Result", /* value= */ false, /* times= */ 1)
+                                "Autofill.ImageFetcher.CreditCardArt.Result",
+                                /* value= */ false,
+                                /* times= */ 1)
                         .expectNoRecords(
                                 "Autofill.ImageFetcher.CreditCardArt.OverallResultOnBrowserStart")
                         .build();
@@ -319,7 +329,7 @@ public class AutofillImageFetcherTest {
         // No histogram should be logged since image fetching isn't attempted for invalid URLs.
         HistogramWatcher expectedHistogram =
                 HistogramWatcher.newBuilder()
-                        .expectNoRecords("Autofill.ImageFetcher.Result")
+                        .expectNoRecords("Autofill.ImageFetcher.CreditCardArt.Result")
                         .build();
 
         mAutofillImageFetcher.prefetchCardArtImages(
@@ -342,7 +352,7 @@ public class AutofillImageFetcherTest {
         // URL.
         HistogramWatcher expectedHistogram =
                 HistogramWatcher.newBuilder()
-                        .expectNoRecords("Autofill.ImageFetcher.Result")
+                        .expectNoRecords("Autofill.ImageFetcher.CreditCardArt.Result")
                         .build();
 
         mAutofillImageFetcher.prefetchCardArtImages(
@@ -367,7 +377,9 @@ public class AutofillImageFetcherTest {
         HistogramWatcher expectedHistogram =
                 HistogramWatcher.newBuilder()
                         .expectBooleanRecordTimes(
-                                "Autofill.ImageFetcher.Result", /* value= */ true, /* times= */ 1)
+                                "Autofill.ImageFetcher.PixAccountImage.Result",
+                                /* value= */ true,
+                                /* times= */ 1)
                         .expectBooleanRecordTimes(
                                 "Autofill.ImageFetcher.PixAccountImage.OverallResultOnBrowserStart",
                                 /* value= */ true,
@@ -396,7 +408,7 @@ public class AutofillImageFetcherTest {
         // No histogram should be logged since no image fetching is done.
         HistogramWatcher expectedHistogram =
                 HistogramWatcher.newBuilder()
-                        .expectNoRecords("Autofill.ImageFetcher.Result")
+                        .expectNoRecords("Autofill.ImageFetcher.PixAccountImage.Result")
                         .build();
 
         mAutofillImageFetcher.prefetchPixAccountImages(new GURL[] {TEST_IMAGE_URL});
@@ -428,7 +440,9 @@ public class AutofillImageFetcherTest {
         HistogramWatcher expectedHistogram =
                 HistogramWatcher.newBuilder()
                         .expectBooleanRecordTimes(
-                                "Autofill.ImageFetcher.Result", /* value= */ false, /* times= */ 2)
+                                "Autofill.ImageFetcher.PixAccountImage.Result",
+                                /* value= */ false,
+                                /* times= */ 2)
                         .expectBooleanRecordTimes(
                                 "Autofill.ImageFetcher.PixAccountImage.OverallResultOnBrowserStart",
                                 /* value= */ false,
@@ -478,9 +492,13 @@ public class AutofillImageFetcherTest {
         HistogramWatcher expectedHistogram =
                 HistogramWatcher.newBuilder()
                         .expectBooleanRecordTimes(
-                                "Autofill.ImageFetcher.Result", /* value= */ false, /* times= */ 1)
+                                "Autofill.ImageFetcher.PixAccountImage.Result",
+                                /* value= */ false,
+                                /* times= */ 1)
                         .expectBooleanRecordTimes(
-                                "Autofill.ImageFetcher.Result", /* value= */ true, /* times= */ 1)
+                                "Autofill.ImageFetcher.PixAccountImage.Result",
+                                /* value= */ true,
+                                /* times= */ 1)
                         .expectBooleanRecordTimes(
                                 "Autofill.ImageFetcher.PixAccountImage.OverallResultOnBrowserStart",
                                 /* value= */ true,
@@ -511,7 +529,7 @@ public class AutofillImageFetcherTest {
         // No histogram should be logged since image fetching isn't attempted for invalid URLs.
         HistogramWatcher expectedHistogram =
                 HistogramWatcher.newBuilder()
-                        .expectNoRecords("Autofill.ImageFetcher.Result")
+                        .expectNoRecords("Autofill.ImageFetcher.PixAccountImage.Result")
                         .build();
 
         mAutofillImageFetcher.prefetchPixAccountImages(new GURL[] {invalidUrl, emptyUrl});
@@ -558,6 +576,113 @@ public class AutofillImageFetcherTest {
         assertNotNull(pixAccountIcon);
         assertTrue(
                 drawableToBitmap(genericBankAccountIcon).sameAs(drawableToBitmap(pixAccountIcon)));
+    }
+
+    @Test
+    @SmallTest
+    public void testPrefetchValuableImages_successfulImageFetch() {
+        // Image fetcher has a predefined number of image sizes to fetch.
+        final int imageNumber = AutofillImageFetcher.VALUABLE_IMAGE_SIZES.length;
+
+        HistogramWatcher expectedHistogram =
+                HistogramWatcher.newBuilder()
+                        .expectBooleanRecordTimes(
+                                "Autofill.ImageFetcher.ValuableImage.Result",
+                                /* value= */ true,
+                                /* times= */ imageNumber)
+                        .expectBooleanRecordTimes(
+                                "Autofill.ImageFetcher.ValuableImage.OverallResultOnBrowserStart",
+                                /* value= */ true,
+                                /* times= */ imageNumber)
+                        .build();
+
+        mAutofillImageFetcher.prefetchValuableImages(new GURL[] {TEST_IMAGE_URL});
+        Map<String, Bitmap> cachedImages = mAutofillImageFetcher.getCachedImagesForTesting();
+
+        // Verify that fetchImage was called once per each image size.
+        verify(mMockImageFetcher, times(imageNumber))
+                .fetchImage(any(Params.class), any(Callback.class));
+
+        // Verify that the images are successfully fetched and cached.
+        assertEquals(imageNumber, cachedImages.size());
+        for (@ImageSize int imageSize : AutofillImageFetcher.VALUABLE_IMAGE_SIZES) {
+            IconSpecs specs =
+                    IconSpecs.create(
+                            ContextUtils.getApplicationContext(),
+                            ImageType.VALUABLE_IMAGE,
+                            imageSize);
+            assertTrue(
+                    TEST_IMAGE.sameAs(
+                            cachedImages.get(specs.getResolvedIconUrl(TEST_IMAGE_URL).getSpec())));
+        }
+
+        expectedHistogram.assertExpected();
+    }
+
+    @Test
+    @SmallTest
+    public void testPrefetchValuableImages_unsuccessfulImageFetch() {
+        // Image fetcher has a predefined number of image sizes to fetch.
+        final int imageNumber = AutofillImageFetcher.VALUABLE_IMAGE_SIZES.length;
+
+        doAnswer(
+                        invocation -> {
+                            Callback callback = invocation.getArgument(1);
+                            callback.onResult(null);
+                            return null;
+                        })
+                .when(mMockImageFetcher)
+                .fetchImage(any(Params.class), any(Callback.class));
+        HistogramWatcher expectedHistogram =
+                HistogramWatcher.newBuilder()
+                        .expectBooleanRecordTimes(
+                                "Autofill.ImageFetcher.ValuableImage.Result",
+                                /* value= */ false,
+                                /* times= */ 2 * imageNumber)
+                        .expectBooleanRecordTimes(
+                                "Autofill.ImageFetcher.ValuableImage.OverallResultOnBrowserStart",
+                                /* value= */ false,
+                                /* times= */ imageNumber)
+                        .build();
+        mAutofillImageFetcher.prefetchValuableImages(new GURL[] {TEST_IMAGE_URL});
+
+        // Advance the clock to trigger the retry.
+        mShadowLooper.runOneTask();
+        // Advance the task again to make sure image fetching is retried only once.
+        mShadowLooper.runOneTask();
+
+        // Verify that fetchImage was called twice.
+        verify(mMockImageFetcher, times(2 * imageNumber))
+                .fetchImage(any(Params.class), any(Callback.class));
+
+        // Verify that the cache is empty since image fetching failed.
+        assertTrue(mAutofillImageFetcher.getCachedImagesForTesting().isEmpty());
+
+        expectedHistogram.assertExpected();
+    }
+
+    @Test
+    @SmallTest
+    public void testPrefetchValuableImages_invalidOrEmptyUrl() {
+        GURL invalidUrl = new GURL("invalid-image-url");
+        GURL emptyUrl = new GURL("");
+
+        HistogramWatcher expectedHistogram =
+                HistogramWatcher.newBuilder()
+                        .expectNoRecords("Autofill.ImageFetcher.ValuableImage.Result")
+                        .expectNoRecords(
+                                "Autofill.ImageFetcher.ValuableImage.OverallResultOnBrowserStart")
+                        .build();
+        mAutofillImageFetcher.prefetchValuableImages(new GURL[] {invalidUrl, emptyUrl});
+
+        // Verify that fetchImage was not called for invalid URLs.
+        verify(mMockImageFetcher, never()).fetchImage(any(Params.class), any(Callback.class));
+
+        // Verify that the cache is empty since the image URLs weren't valid and no images were
+        // fetched.
+        assertTrue(mAutofillImageFetcher.getCachedImagesForTesting().isEmpty());
+
+        expectedHistogram.assertExpected();
     }
 
     private @Nullable Bitmap drawableToBitmap(Drawable drawable) {

@@ -40,7 +40,6 @@
 #include "base/memory/ptr_util.h"
 #include "base/metrics/field_trial_params.h"
 #include "base/metrics/histogram_functions.h"
-#include "base/not_fatal_until.h"
 #include "base/numerics/safe_conversions.h"
 #include "base/time/time.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
@@ -62,7 +61,6 @@
 #include "third_party/blink/renderer/bindings/core/v8/js_based_event_listener.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_promise.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_promise_resolver.h"
-#include "third_party/blink/renderer/bindings/core/v8/v8_throw_dom_exception.h"
 #include "third_party/blink/renderer/bindings/core/v8/worker_or_worklet_script_controller.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_background_fetch_event_init.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_content_index_event_init.h"
@@ -173,7 +171,7 @@ ServiceWorkerEventQueue::AbortCallback CreateAbortCallback(MapType* map,
       [](MapType* map, Args&&... args, int event_id,
          mojom::blink::ServiceWorkerEventStatus status) {
         auto iter = map->find(event_id);
-        CHECK(iter != map->end(), base::NotFatalUntil::M130);
+        CHECK(iter != map->end());
         std::move(iter->value).Run(status, std::forward<Args>(args)...);
         map->erase(iter);
       },
@@ -637,7 +635,7 @@ void ServiceWorkerGlobalScope::OnNavigationPreloadResponse(
     mojo::ScopedDataPipeConsumerHandle data_pipe) {
   DCHECK(IsContextThread());
   auto it = pending_preload_fetch_events_.find(fetch_event_id);
-  CHECK(it != pending_preload_fetch_events_.end(), base::NotFatalUntil::M130);
+  CHECK(it != pending_preload_fetch_events_.end());
   FetchEvent* fetch_event = it->value.Get();
   DCHECK(fetch_event);
   fetch_event->OnNavigationPreloadResponse(ScriptController()->GetScriptState(),
@@ -837,24 +835,33 @@ bool ServiceWorkerGlobalScope::IsIsolatedContext() const {
   return Agent::IsIsolatedContext();
 }
 
-void ServiceWorkerGlobalScope::importScripts(const Vector<String>& urls) {
-  for (const String& string_url : urls) {
+void ServiceWorkerGlobalScope::importScripts(
+    const HeapVector<Member<V8UnionTrustedScriptURLOrUSVString>>& urls,
+    ExceptionState& exception_state) {
+  Vector<String> url_strings;
+  for (const auto& url : urls) {
+    url_strings.push_back(TrustedTypesCheckForScriptURL(
+        url, GetExecutionContext(), "WorkerGlobalScope", "importScripts",
+        exception_state));
+    if (exception_state.HadException()) {
+      return;
+    }
+  }
+
+  for (const String& string_url : url_strings) {
     KURL completed_url = CompleteURL(string_url);
     if (installed_scripts_manager_ &&
         !installed_scripts_manager_->IsScriptInstalled(completed_url)) {
       DCHECK(installed_scripts_manager_->IsScriptInstalled(Url()));
-      v8::Isolate* isolate = GetThread()->GetIsolate();
-      V8ThrowException::ThrowException(
-          isolate,
-          V8ThrowDOMException::CreateOrEmpty(
-              isolate, DOMExceptionCode::kNetworkError,
-              "Failed to import '" + completed_url.ElidedString() +
-                  "'. importScripts() of new scripts after service worker "
-                  "installation is not allowed."));
+      exception_state.ThrowDOMException(
+          DOMExceptionCode::kNetworkError,
+          "Failed to import '" + completed_url.ElidedString() +
+              "'. importScripts() of new scripts after service worker "
+              "installation is not allowed.");
       return;
     }
   }
-  WorkerGlobalScope::importScripts(urls);
+  WorkerGlobalScope::ImportScriptsInternal(url_strings, exception_state);
 }
 
 CachedMetadataHandler*
@@ -1746,7 +1753,7 @@ void ServiceWorkerGlobalScope::AbortInstallEvent(
     mojom::blink::ServiceWorkerEventStatus status) {
   DCHECK(IsContextThread());
   auto iter = install_event_callbacks_.find(event_id);
-  CHECK(iter != install_event_callbacks_.end(), base::NotFatalUntil::M130);
+  CHECK(iter != install_event_callbacks_.end());
   GlobalFetch::ScopedFetcher* fetcher = GlobalFetch::ScopedFetcher::From(*this);
   std::move(iter->value).Run(status, fetcher->FetchCount());
   install_event_callbacks_.erase(iter);

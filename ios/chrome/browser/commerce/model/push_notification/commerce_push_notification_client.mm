@@ -5,6 +5,7 @@
 #import "ios/chrome/browser/commerce/model/push_notification/commerce_push_notification_client.h"
 
 #import "base/base64.h"
+#import "base/check.h"
 #import "base/functional/callback.h"
 #import "base/functional/callback_helpers.h"
 #import "base/metrics/histogram_functions.h"
@@ -22,6 +23,7 @@
 #import "ios/chrome/browser/optimization_guide/model/optimization_guide_service_factory.h"
 #import "ios/chrome/browser/push_notification/model/push_notification_client_id.h"
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
+#import "ios/chrome/browser/shared/model/profile/features.h"
 #import "ios/chrome/browser/shared/model/profile/profile_manager_ios.h"
 #import "url/gurl.h"
 
@@ -61,9 +63,17 @@ ProfileIOS* GetAnyProfile() {
 
 }  // namespace
 
+CommercePushNotificationClient::CommercePushNotificationClient(
+    ProfileIOS* profile)
+    : PushNotificationClient(PushNotificationClientId::kCommerce, profile) {
+  CHECK(IsMultiProfilePushNotificationHandlingEnabled());
+}
+
 CommercePushNotificationClient::CommercePushNotificationClient()
     : PushNotificationClient(PushNotificationClientId::kCommerce,
-                             PushNotificationClientScope::kPerProfile) {}
+                             PushNotificationClientScope::kPerProfile) {
+  CHECK(!IsMultiProfilePushNotificationHandlingEnabled());
+}
 
 CommercePushNotificationClient::~CommercePushNotificationClient() = default;
 
@@ -109,7 +119,7 @@ std::optional<UIBackgroundFetchResult>
 CommercePushNotificationClient::HandleNotificationReception(
     NSDictionary<NSString*, id>* notification) {
   OptimizationGuideService* optimization_guide_service =
-      OptimizationGuideServiceFactory::GetForProfile(GetAnyProfile());
+      OptimizationGuideServiceFactory::GetForProfile(GetTargetProfile());
   std::unique_ptr<optimization_guide::proto::HintNotificationPayload>
       hint_notification_payload = ParseHintNotificationPayload(
           [notification objectForKey:kSerializedPayloadKey]);
@@ -144,13 +154,21 @@ CommercePushNotificationClient::RegisterActionableNotifications() {
                      options:UNNotificationCategoryOptionNone] ];
 }
 
+ProfileIOS* CommercePushNotificationClient::GetTargetProfile() {
+  if (IsMultiProfilePushNotificationHandlingEnabled()) {
+    return GetProfile();
+  }
+
+  return GetAnyProfile();
+}
+
 commerce::ShoppingService*
 CommercePushNotificationClient::GetShoppingService() {
-  return commerce::ShoppingServiceFactory::GetForProfile(GetAnyProfile());
+  return commerce::ShoppingServiceFactory::GetForProfile(GetTargetProfile());
 }
 
 bookmarks::BookmarkModel* CommercePushNotificationClient::GetBookmarkModel() {
-  return ios::BookmarkModelFactory::GetForProfile(GetAnyProfile());
+  return ios::BookmarkModelFactory::GetForProfile(GetTargetProfile());
 }
 
 bool CommercePushNotificationClient::HandleNotificationInteraction(

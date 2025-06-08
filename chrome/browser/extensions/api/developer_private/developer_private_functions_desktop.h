@@ -231,7 +231,7 @@ class DeveloperPrivateLoadDirectoryFunction : public ExtensionFunction {
   // call of the API. It is returned as a response of the API call.
   bool success_;
 
-  // Error string if |success_| is false.
+  // Error string if `success_` is false.
   std::string error_;
 };
 
@@ -263,17 +263,6 @@ class DeveloperPrivateSetShortcutHandlingSuspendedFunction
 
  protected:
   ~DeveloperPrivateSetShortcutHandlingSuspendedFunction() override;
-  ResponseAction Run() override;
-};
-
-class DeveloperPrivateUpdateExtensionCommandFunction
-    : public DeveloperPrivateAPIFunction {
- public:
-  DECLARE_EXTENSION_FUNCTION("developerPrivate.updateExtensionCommand",
-                             DEVELOPERPRIVATE_UPDATEEXTENSIONCOMMAND)
-
- protected:
-  ~DeveloperPrivateUpdateExtensionCommandFunction() override;
   ResponseAction Run() override;
 };
 

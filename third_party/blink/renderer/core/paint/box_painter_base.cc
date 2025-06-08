@@ -432,8 +432,7 @@ void BoxPainterBase::PaintInsetBoxShadow(const PaintInfo& info,
                                   DrawLooperBuilder::kShadowIgnoresAlpha);
     context.SetDrawLooper(draw_looper_builder.DetachDrawLooper());
 
-    Color fill_color(shadow_color.Red(), shadow_color.Green(),
-                     shadow_color.Blue());
+    const Color fill_color = shadow_color.MakeOpaque();
     gfx::RectF outer_rect = AreaCastingShadowInHole(bounds.Rect(), shadow);
     // |AutoDarkMode::Disabled()| is used because |fill_color(shadow_color)| has
     // already been adjusted for dark mode.
@@ -1283,9 +1282,10 @@ void BoxPainterBase::PaintFillLayer(
     geometry.Calculate(bg_layer, bg_paint_context, scrolled_paint_rect,
                        paint_info);
 
-    image = fill_layer_info.image->GetImage(bg_paint_context.ImageClient(),
-                                            document_, image_style,
-                                            gfx::SizeF(geometry.TileSize()));
+    const Node* node = node_;
+    image = fill_layer_info.image->GetImage(
+        bg_paint_context.ImageClient(), node ? *node : document_, image_style,
+        gfx::SizeF(geometry.TileSize()));
 
     image_rendering_settings_context.emplace(context,
                                              style_.GetInterpolationQuality(),

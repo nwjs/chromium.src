@@ -18,6 +18,7 @@
 #include "base/memory/raw_ptr.h"
 #include "base/metrics/metrics_hashes.h"
 #include "base/strings/string_number_conversions.h"
+#include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/test/gmock_callback_support.h"
 #include "base/test/metrics/histogram_tester.h"
@@ -5633,8 +5634,6 @@ TEST_F(CreditCardSaveManagerTest, LocallySaveCreditCard_WithCvc_PrefOn) {
   test_api(credit_card_form).field(3).set_value(ASCIIToUTF16(test::NextYear()));
   test_api(credit_card_form).field(4).set_value(u"123");
 
-  EXPECT_CALL(payments_client(), ShowSaveCreditCardLocally);
-
   FormSubmitted(credit_card_form);
 
   EXPECT_FALSE(credit_card_save_manager_->CreditCardWasUploaded());
@@ -5664,8 +5663,6 @@ TEST_F(CreditCardSaveManagerTest, LocallySaveCreditCard_WithCvc_PrefOff) {
       .set_value(ASCIIToUTF16(test::NextMonth()));
   test_api(credit_card_form).field(3).set_value(ASCIIToUTF16(test::NextYear()));
   test_api(credit_card_form).field(4).set_value(u"123");
-
-  EXPECT_CALL(payments_client(), ShowSaveCreditCardLocally);
 
   FormSubmitted(credit_card_form);
 

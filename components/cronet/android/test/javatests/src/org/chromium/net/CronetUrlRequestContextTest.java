@@ -13,7 +13,11 @@ import static org.chromium.net.CronetEngine.Builder.HTTP_CACHE_IN_MEMORY;
 import static org.chromium.net.CronetTestRule.getTestStorage;
 import static org.chromium.net.truth.UrlResponseInfoSubject.assertThat;
 
+import android.content.Context;
+import android.content.ContextWrapper;
+import android.content.pm.ApplicationInfo;
 import android.net.Network;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.ConditionVariable;
 import android.os.Handler;
@@ -35,17 +39,22 @@ import org.junit.runner.RunWith;
 import org.chromium.base.Log;
 import org.chromium.base.PathUtils;
 import org.chromium.base.test.util.DoNotBatch;
+import org.chromium.build.BuildConfig;
+import org.chromium.net.CronetTestRule.BoolFlag;
 import org.chromium.net.CronetTestRule.CronetImplementation;
 import org.chromium.net.CronetTestRule.DisableAutomaticNetLog;
 import org.chromium.net.CronetTestRule.Flags;
 import org.chromium.net.CronetTestRule.IgnoreFor;
 import org.chromium.net.CronetTestRule.IntFlag;
+import org.chromium.net.CronetTestRule.RequiresMinAndroidApi;
 import org.chromium.net.CronetTestRule.RequiresMinApi;
 import org.chromium.net.NetworkChangeNotifierAutoDetect.ConnectivityManagerDelegate;
 import org.chromium.net.TestUrlRequestCallback.ResponseStep;
 import org.chromium.net.httpflags.BaseFeature;
 import org.chromium.net.httpflags.FlagValue;
 import org.chromium.net.httpflags.HttpFlagsLoader;
+import org.chromium.net.impl.AndroidOsBuild;
+import org.chromium.net.impl.AndroidOsSystemProperties;
 import org.chromium.net.impl.CronetEngineBuilderImpl;
 import org.chromium.net.impl.CronetExceptionImpl;
 import org.chromium.net.impl.CronetLibraryLoader;
@@ -54,6 +63,7 @@ import org.chromium.net.impl.CronetManifestInterceptor;
 import org.chromium.net.impl.CronetUrlRequestContext;
 import org.chromium.net.impl.ImplVersion;
 import org.chromium.net.impl.NativeCronetEngineBuilderImpl;
+import org.chromium.net.impl.NativeCronetProvider;
 import org.chromium.net.impl.NetworkExceptionImpl;
 
 import java.io.BufferedReader;
@@ -61,6 +71,7 @@ import java.io.File;
 import java.io.FileReader;
 import java.net.URL;
 import java.util.Arrays;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Executor;
@@ -183,6 +194,9 @@ public class CronetUrlRequestContextTest {
                                                 .addConstrainedValues(constrainedValueBuilder)
                                                 .build())
                                 .build());
+        // Httpflags might have been cached if it has been requested before we changed the flags.
+        // Flush the cached flags to make sure that subsequent calls read the new flag.
+        HttpFlagsLoader.flushHttpFlags();
     }
 
     private void runOneRequest() {
@@ -374,6 +388,9 @@ public class CronetUrlRequestContextTest {
                                         .build())
                         .build();
         mTestRule.getTestFramework().setHttpFlags(flags);
+        // Httpflags might have been cached if it has been requested before we changed the flags.
+        // Flush the cached flags to make sure that subsequent calls read the new flag.
+        HttpFlagsLoader.flushHttpFlags();
     }
 
     @Test
@@ -400,6 +417,144 @@ public class CronetUrlRequestContextTest {
         String marker = UUID.randomUUID().toString();
         setChromiumBaseFeatureLogFlag(false, marker);
         runRequestWhileExpectingLog(marker, /* shouldBeLogged= */ false);
+    }
+
+    @NetLogCaptureMode
+    int getTraceNetLogCaptureMode(
+            String traceNetLogSystemPropertyValue, String buildType, boolean appIsDebuggable) {
+        mTestRule
+                .getTestFramework()
+                .interceptContext(
+                        new ContextInterceptor() {
+                            @Override
+                            public Context interceptContext(Context context) {
+                                return new ContextWrapper(context) {
+                                    @Override
+                                    public ApplicationInfo getApplicationInfo() {
+                                        var applicationInfo =
+                                                new ApplicationInfo(context.getApplicationInfo());
+                                        applicationInfo.flags &= ~ApplicationInfo.FLAG_DEBUGGABLE;
+                                        if (appIsDebuggable) {
+                                            applicationInfo.flags |=
+                                                    ApplicationInfo.FLAG_DEBUGGABLE;
+                                        }
+                                        return applicationInfo;
+                                    }
+                                };
+                            }
+                        });
+        try (var withSystemPropertyOverrides =
+                        new AndroidOsSystemProperties.WithOverridesForTesting(
+                                traceNetLogSystemPropertyValue == null
+                                        ? Map.of()
+                                        : Map.of(
+                                                CronetLibraryLoader
+                                                        .TRACE_NET_LOG_SYSTEM_PROPERTY_KEY,
+                                                traceNetLogSystemPropertyValue));
+                var withBuildOverride =
+                        new AndroidOsBuild.WithOverrideForTesting(
+                                new AndroidOsBuild(/* type= */ buildType))) {
+            // Make sure Cronet is ready, so that we don't race against the init thread which is
+            // where trace netlog is initialized.
+            runOneRequest();
+            return CronetLibraryLoader.getTraceNetLogCaptureModeForTesting();
+        }
+    }
+
+    @Test
+    @SmallTest
+    @IgnoreFor(
+            implementations = {CronetImplementation.FALLBACK, CronetImplementation.AOSP_PLATFORM},
+            reason =
+                    "FALLBACK: does not support netlog. "
+                            + "AOSP_PLATFORM: emulator image does not have this code yet.")
+    public void testDefaultTraceNetLogCaptureMode() throws Exception {
+        assertThat(
+                        getTraceNetLogCaptureMode(
+                                /* traceNetLogSystemPropertyValue= */ null,
+                                /* buildType= */ "user",
+                                /* appIsDebuggable= */ false))
+                .isEqualTo(NetLogCaptureMode.HEAVILY_REDACTED);
+    }
+
+    @Test
+    @SmallTest
+    @IgnoreFor(
+            implementations = {CronetImplementation.FALLBACK, CronetImplementation.AOSP_PLATFORM},
+            reason =
+                    "FALLBACK: does not support netlog. "
+                            + "AOSP_PLATFORM: emulator image does not have this code yet.")
+    public void testSetTraceNetLogCaptureModeToHeavilyRedacted() throws Exception {
+        assertThat(
+                        getTraceNetLogCaptureMode(
+                                /* traceNetLogSystemPropertyValue= */ "heavily_redacted",
+                                /* buildType= */ "user",
+                                /* appIsDebuggable= */ false))
+                .isEqualTo(NetLogCaptureMode.HEAVILY_REDACTED);
+    }
+
+    @Test
+    @SmallTest
+    @IgnoreFor(
+            implementations = {CronetImplementation.FALLBACK, CronetImplementation.AOSP_PLATFORM},
+            reason =
+                    "FALLBACK: does not support netlog. "
+                            + "AOSP_PLATFORM: emulator image does not have this code yet.")
+    public void testSetTraceNetLogCaptureModeOnDebuggableApp() throws Exception {
+        assertThat(
+                        getTraceNetLogCaptureMode(
+                                /* traceNetLogSystemPropertyValue= */ "on",
+                                /* buildType= */ "user",
+                                /* appIsDebuggable= */ true))
+                .isEqualTo(NetLogCaptureMode.DEFAULT);
+    }
+
+    @Test
+    @SmallTest
+    @IgnoreFor(
+            implementations = {CronetImplementation.FALLBACK, CronetImplementation.AOSP_PLATFORM},
+            reason =
+                    "FALLBACK: does not support netlog. "
+                            + "AOSP_PLATFORM: emulator image does not have this code yet.")
+    public void testSetTraceNetLogCaptureModeOnDebugBuild() throws Exception {
+        assertThat(
+                        getTraceNetLogCaptureMode(
+                                /* traceNetLogSystemPropertyValue= */ "on",
+                                /* buildType= */ "userdebug",
+                                /* appIsDebuggable= */ false))
+                .isEqualTo(NetLogCaptureMode.DEFAULT);
+    }
+
+    @Test
+    @SmallTest
+    @IgnoreFor(
+            implementations = {CronetImplementation.FALLBACK, CronetImplementation.AOSP_PLATFORM},
+            reason =
+                    "FALLBACK: does not support netlog. "
+                            + "AOSP_PLATFORM: emulator image does not have this code yet.")
+    public void testCannotSetTraceNetLogCaptureModeOnNonDebug() throws Exception {
+        assertThat(
+                        getTraceNetLogCaptureMode(
+                                /* traceNetLogSystemPropertyValue= */ "on",
+                                /* buildType= */ "user",
+                                /* appIsDebuggable= */ false))
+                .isEqualTo(NetLogCaptureMode.HEAVILY_REDACTED);
+    }
+
+    @Test
+    @SmallTest
+    @IgnoreFor(
+            implementations = {CronetImplementation.FALLBACK, CronetImplementation.AOSP_PLATFORM},
+            reason =
+                    "FALLBACK: does not support netlog. "
+                            + "AOSP_PLATFORM: emulator image does not have this code yet.")
+    public void testIgnoresUnknownTraceNetLogSystemPropertyValue() throws Exception {
+        assertThat(
+                        getTraceNetLogCaptureMode(
+                                /* traceNetLogSystemPropertyValue= */ "invalid",
+                                /* buildType= */ "userdebug",
+                                /* appIsDebuggable= */ true))
+                .isEqualTo(NetLogCaptureMode.HEAVILY_REDACTED);
     }
 
     @Test
@@ -1988,37 +2143,6 @@ public class CronetUrlRequestContextTest {
     @Test
     @SmallTest
     @IgnoreFor(
-            implementations = {CronetImplementation.FALLBACK, CronetImplementation.AOSP_PLATFORM},
-            reason = "Global metrics delta is supported only by the native implementation")
-    public void testGetGlobalMetricsDeltas() throws Exception {
-        ExperimentalCronetEngine cronetEngine = mTestRule.getTestFramework().startEngine();
-
-        byte[] delta1 = cronetEngine.getGlobalMetricsDeltas();
-
-        TestUrlRequestCallback callback = new TestUrlRequestCallback();
-        UrlRequest.Builder builder =
-                cronetEngine.newUrlRequestBuilder(mUrl, callback, callback.getExecutor());
-        builder.build().start();
-        callback.blockForDone();
-        // Fetch deltas on a different thread the second time to make sure this is permitted.
-        // See crbug.com/719448
-        FutureTask<byte[]> task =
-                new FutureTask<byte[]>(
-                        new Callable<byte[]>() {
-                            @Override
-                            public byte[] call() {
-                                return cronetEngine.getGlobalMetricsDeltas();
-                            }
-                        });
-        new Thread(task).start();
-        byte[] delta2 = task.get();
-        assertThat(delta2).isNotEmpty();
-        assertThat(delta2).isNotEqualTo(delta1);
-    }
-
-    @Test
-    @SmallTest
-    @IgnoreFor(
             implementations = {CronetImplementation.FALLBACK},
             reason = "Deliberate manual creation of native engines")
     public void testCronetEngineBuilderConfig() throws Exception {
@@ -2099,6 +2223,52 @@ public class CronetUrlRequestContextTest {
         assertThat(engine).isNotNull();
         assertThat(loader.wasCalled()).isFalse();
         engine.shutdown();
+    }
+
+    @Test
+    @SmallTest
+    @IgnoreFor(
+            implementations = {CronetImplementation.FALLBACK, CronetImplementation.AOSP_PLATFORM},
+            reason = "This test is intended specifically for NativeCronetProvider")
+    @Flags(
+            boolFlags = {
+                @BoolFlag(
+                        name = NativeCronetProvider.OVERRIDE_NATIVE_CRONET_WITH_HTTPENGINE_FLAG,
+                        value = true)
+            })
+    @RequiresMinAndroidApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
+    public void testNativeCronetProviderShouldServeHttpEngineWithFlagEnabled() throws Exception {
+        CronetProvider nativeProvider =
+                new NativeCronetProvider(mTestRule.getTestFramework().getContext());
+        assertThat(nativeProvider.createBuilder().getDefaultUserAgent())
+                .contains("AndroidHttpClient");
+    }
+
+    @Test
+    @SmallTest
+    @IgnoreFor(
+            implementations = {CronetImplementation.FALLBACK, CronetImplementation.AOSP_PLATFORM},
+            reason = "This test is intended specifically for NativeCronetProvider")
+    @Flags(
+            boolFlags = {
+                @BoolFlag(
+                        name = NativeCronetProvider.OVERRIDE_NATIVE_CRONET_WITH_HTTPENGINE_FLAG,
+                        value = false)
+            })
+    public void testNativeCronetProviderShouldNotServeHttpEngineWithFlagDisabled()
+            throws Exception {
+        CronetProvider nativeProvider =
+                new NativeCronetProvider(mTestRule.getTestFramework().getContext());
+        // TODO(crbug.com/412608685): Cronet in AOSP always forces the user agent to
+        // AndroidHttpClient, breaking the assumption of this test. Drop this once the
+        // divergence is fixed.
+        if (BuildConfig.CRONET_FOR_AOSP_BUILD) {
+            assertThat(nativeProvider.createBuilder().getDefaultUserAgent())
+                    .contains("AndroidHttpClient");
+        } else {
+            assertThat(nativeProvider.createBuilder().getDefaultUserAgent())
+                    .doesNotContain("AndroidHttpClient");
+        }
     }
 
     // Creates a CronetEngine on another thread and then one on the main thread.  This shouldn't

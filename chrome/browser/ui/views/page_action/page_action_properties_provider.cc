@@ -66,6 +66,7 @@ const PageActionProperties& PageActionPropertiesProvider::GetProperties(
                   .histogram_name = "PaymentsOfferNotification",
                   .is_ephemeral = true,
                   .type = PageActionIconType::kPaymentsOfferNotification,
+                  .element_identifier = kOfferNotificationChipElementId,
               },
           },
           {
@@ -91,6 +92,14 @@ const PageActionProperties& PageActionPropertiesProvider::GetProperties(
                   .is_ephemeral = true,
                   .type = PageActionIconType::kPriceInsights,
                   .element_identifier = kPriceInsightsChipElementId,
+              },
+          },
+          {
+              kActionManagePasswords,
+              {
+                  .histogram_name = "ManagePasswords",
+                  .is_ephemeral = true,
+                  .type = PageActionIconType::kManagePasswords,
               },
           },
       });

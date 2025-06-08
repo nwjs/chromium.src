@@ -6,7 +6,6 @@ import type {CrButtonElement, Destination, NativeInitialSettings, PrintPreviewAp
 import {MeasurementSystemUnitType, NativeLayerImpl, PluginProxyImpl, State, whenReady} from 'chrome://print/print_preview.js';
 import {assert} from 'chrome://resources/js/assert.js';
 import {assertEquals, assertFalse, assertTrue} from 'chrome://webui-test/chai_assert.js';
-import {waitBeforeNextRender} from 'chrome://webui-test/polymer_test_util.js';
 import {microtasksFinished} from 'chrome://webui-test/test_util.js';
 
 import {NativeLayerStub} from './native_layer_stub.js';
@@ -83,18 +82,18 @@ suite('InvalidSettingsTest', function() {
     // Get references to relevant elements.
     const previewAreaEl = page.$.previewArea;
     const overlay =
-        previewAreaEl.shadowRoot!.querySelector('.preview-area-overlay-layer')!;
+        previewAreaEl.shadowRoot.querySelector('.preview-area-overlay-layer')!;
     const messageEl =
-        previewAreaEl.shadowRoot!.querySelector('.preview-area-message')!;
-    const sidebar = page.shadowRoot!.querySelector('print-preview-sidebar')!;
+        previewAreaEl.shadowRoot.querySelector('.preview-area-message')!;
+    const sidebar = page.shadowRoot.querySelector('print-preview-sidebar')!;
     let printButton: CrButtonElement;
-    const destinationSettings = sidebar.shadowRoot!.querySelector(
-        'print-preview-destination-settings')!;
+    const destinationSettings =
+        sidebar.shadowRoot.querySelector('print-preview-destination-settings')!;
 
-    return waitBeforeNextRender(page)
+    return microtasksFinished()
         .then(() => {
           const parentElement =
-              sidebar.shadowRoot!.querySelector('print-preview-button-strip')!;
+              sidebar.shadowRoot.querySelector('print-preview-button-strip')!;
           printButton = parentElement.shadowRoot.querySelector<CrButtonElement>(
               '.action-button')!;
 

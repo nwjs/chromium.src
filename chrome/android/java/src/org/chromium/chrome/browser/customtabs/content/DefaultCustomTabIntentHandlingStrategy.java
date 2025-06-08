@@ -4,10 +4,8 @@
 
 package org.chromium.chrome.browser.customtabs.content;
 
-import android.net.Uri;
+import android.app.Activity;
 import android.text.TextUtils;
-
-import androidx.browser.trusted.FileHandlingData;
 
 import org.chromium.chrome.browser.browserservices.intents.BrowserServicesIntentDataProvider;
 import org.chromium.chrome.browser.browserservices.ui.controller.CurrentPageVerifier;
@@ -19,8 +17,6 @@ import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.components.embedder_support.util.UrlUtilities;
 import org.chromium.content_public.browser.LoadUrlParams;
 
-import java.util.List;
-
 /**
  * Default implementation of {@link CustomTabIntentHandlingStrategy}. Navigates the Custom Tab to
  * urls provided in intents.
@@ -30,19 +26,22 @@ public class DefaultCustomTabIntentHandlingStrategy implements CustomTabIntentHa
     private final CustomTabActivityNavigationController mNavigationController;
     private final CustomTabObserver mCustomTabObserver;
     private final Verifier mVerifier;
-    private final CurrentPageVerifier mCurrentPageVerfier;
+    private final CurrentPageVerifier mCurrentPageVerifier;
+    private final Activity mActivity;
 
     public DefaultCustomTabIntentHandlingStrategy(
             CustomTabActivityTabProvider tabProvider,
             CustomTabActivityNavigationController navigationController,
             CustomTabObserver customTabObserver,
             Verifier verifier,
-            CurrentPageVerifier currentPageVerfier) {
+            CurrentPageVerifier currentPageVerifier,
+            Activity activity) {
         mTabProvider = tabProvider;
         mNavigationController = navigationController;
         mCustomTabObserver = customTabObserver;
         mVerifier = verifier;
-        mCurrentPageVerfier = currentPageVerfier;
+        mCurrentPageVerifier = currentPageVerifier;
+        mActivity = activity;
     }
 
     @Override
@@ -62,8 +61,16 @@ public class DefaultCustomTabIntentHandlingStrategy implements CustomTabIntentHa
         CustomTabAuthUrlHeuristics.recordUrlParamsHistogram(intentDataProvider.getUrlToLoad());
         CustomTabAuthUrlHeuristics.recordRedirectUriSchemeHistogram(intentDataProvider);
 
-        if (ChromeFeatureList.isEnabled(ChromeFeatureList.ANDROID_WEB_APP_LAUNCH_HANDLER)) {
-            handleLaunch(intentDataProvider, true);
+        if (ChromeFeatureList.isEnabled(ChromeFeatureList.ANDROID_WEB_APP_LAUNCH_HANDLER)
+                && intentDataProvider.isTrustedWebActivity()) {
+            WebAppLaunchHandler launchHandler =
+                    WebAppLaunchHandler.create(
+                            mVerifier,
+                            mCurrentPageVerifier,
+                            mNavigationController,
+                            mTabProvider.getTab().getWebContents(),
+                            mActivity);
+            launchHandler.handleInitialIntent(intentDataProvider);
         }
     }
 
@@ -97,43 +104,6 @@ public class DefaultCustomTabIntentHandlingStrategy implements CustomTabIntentHa
         mNavigationController.navigate(params, intentDataProvider.getIntent());
     }
 
-    private void handleLaunch(
-            BrowserServicesIntentDataProvider intentDataProvider, boolean isInitialIntent) {
-        List<Uri> fileUris = null;
-        FileHandlingData fileHandlingData = intentDataProvider.getFileHandlingData();
-        if (fileHandlingData != null) {
-            fileUris = fileHandlingData.uris;
-        }
-
-        WebAppLaunchHandler launchHandler =
-                new WebAppLaunchHandler(
-                        intentDataProvider.getLaunchHandlerClientMode(),
-                        intentDataProvider.getUrlToLoad(),
-                        intentDataProvider.getClientPackageName(),
-                        fileUris,
-                        isInitialIntent);
-
-        if (launchHandler.getStartNewNavigation() && !isInitialIntent) {
-            loadUrl(intentDataProvider);
-        } else {
-            // Check if the URL of the current page is in the web app scope.
-            // Launch params should not be sent to a not verified origin.
-            CurrentPageVerifier.VerificationState state = mCurrentPageVerfier.getState();
-            if (state == null || state.status != CurrentPageVerifier.VerificationStatus.SUCCESS) {
-                return;
-            }
-        }
-
-        // Check if the URL sent in launch params is in the web app scope.
-        mVerifier
-                .verify(intentDataProvider.getUrlToLoad())
-                .then(
-                        (verified) -> {
-                            if (!verified) return;
-                            launchHandler.notifyLaunchQueue(mTabProvider.getTab().getWebContents());
-                        });
-    }
-
     private void loadUrl(BrowserServicesIntentDataProvider intentDataProvider) {
         String url = intentDataProvider.getUrlToLoad();
         if (TextUtils.isEmpty(url)) return;
@@ -152,8 +122,16 @@ public class DefaultCustomTabIntentHandlingStrategy implements CustomTabIntentHa
 
     @Override
     public void handleNewIntent(BrowserServicesIntentDataProvider intentDataProvider) {
-        if (ChromeFeatureList.isEnabled(ChromeFeatureList.ANDROID_WEB_APP_LAUNCH_HANDLER)) {
-            handleLaunch(intentDataProvider, false);
+        if (ChromeFeatureList.isEnabled(ChromeFeatureList.ANDROID_WEB_APP_LAUNCH_HANDLER)
+                && intentDataProvider.isTrustedWebActivity()) {
+            WebAppLaunchHandler launchHandler =
+                    WebAppLaunchHandler.create(
+                            mVerifier,
+                            mCurrentPageVerifier,
+                            mNavigationController,
+                            mTabProvider.getTab().getWebContents(),
+                            mActivity);
+            launchHandler.handleNewIntent(intentDataProvider);
         } else {
             loadUrl(intentDataProvider);
         }

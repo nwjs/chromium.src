@@ -10,6 +10,7 @@
 #include "base/memory/raw_ptr.h"
 #include "base/observer_list.h"
 #include "chrome/browser/privacy_sandbox/notice/desktop_entrypoint_handlers.h"
+#include "chrome/browser/privacy_sandbox/notice/desktop_view_manager_interface.h"
 #include "chrome/browser/privacy_sandbox/notice/notice.mojom-forward.h"
 #include "chrome/browser/privacy_sandbox/notice/notice_service_interface.h"
 
@@ -18,33 +19,6 @@ class BrowserWindowInterface;
 namespace privacy_sandbox {
 
 class PrivacySandboxNoticeServiceInterface;
-
-// This class will:
-// 1. Manage the showing, hiding and closing of notices in the correct order on
-// the desktop side.
-// 2. Advance multi-step notices
-// 3. Manage sticky behavior of notices across tabs
-class DesktopViewManagerInterface {
- public:
-  class Observer {
-   public:
-    // Fired whenever observers are required to proceed to the next step.
-    virtual void MaybeNavigateToNextStep(
-        std::optional<notice::mojom::PrivacySandboxNotice> next_id) = 0;
-  };
-
-  virtual ~DesktopViewManagerInterface();
-
-  // Returns handler responsible for tracking navigations.
-  virtual NavigationHandler* GetNavigationHandler() = 0;
-  // Called by navigation handler when a suitable URL has
-  // been found. All suitable URLs are chrome-owned.
-  virtual void HandleChromeOwnedPageNavigation(
-      BrowserWindowInterface* browser_interface) = 0;
-
-  virtual void AddObserver(Observer* observer) = 0;
-  virtual void RemoveObserver(Observer* observer) = 0;
-};
 
 class DesktopViewManager : public DesktopViewManagerInterface {
  public:
@@ -56,10 +30,6 @@ class DesktopViewManager : public DesktopViewManagerInterface {
       PrivacySandboxNoticeServiceInterface* notice_service);
   ~DesktopViewManager() override;
 
-  // Triggered by the WebUI handler once an event occurs on a |notice|.
-  void OnEventOccurred(notice::mojom::PrivacySandboxNotice notice,
-                       notice::mojom::PrivacySandboxNoticeEvent event);
-
   // Accessors
   std::vector<notice::mojom::PrivacySandboxNotice> GetPendingNoticesToShow();
 
@@ -67,6 +37,8 @@ class DesktopViewManager : public DesktopViewManagerInterface {
   NavigationHandler* GetNavigationHandler() override;
   void HandleChromeOwnedPageNavigation(
       BrowserWindowInterface* browser_interface) override;
+  void OnEventOccurred(notice::mojom::PrivacySandboxNotice notice,
+                       notice::mojom::PrivacySandboxNoticeEvent event) override;
   void AddObserver(Observer* observer) override;
   void RemoveObserver(Observer* observer) override;
 

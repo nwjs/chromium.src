@@ -31,8 +31,16 @@ source_set("prefs") {
     "//components/sync_preferences",
     "//mojo/public/cpp/bindings",
     "//services/preferences/public/mojom",
+    "//third_party/blink/public/mojom:mojom_platform_headers",
     "//url",
   ]
+
+  if (!is_android) {
+    sources += [
+      "persistent_renderer_prefs_manager.h",
+      "persistent_renderer_prefs_manager_factory.h",
+    ]
+  }
 }
 
 source_set("impl") {
@@ -59,16 +67,20 @@ source_set("impl") {
     "//chrome/browser/media/webrtc",
     "//chrome/browser/permissions",
     "//chrome/browser/preloading:prefs",
-    "//chrome/browser/privacy_sandbox",
+    "//chrome/browser/privacy_sandbox/notice:core",
+    "//chrome/browser/profiles",
     "//chrome/browser/profiles:profile",
     "//chrome/browser/profiles:profile_util",
     "//chrome/browser/search",
+    "//chrome/browser/serial",
     "//chrome/browser/sync",
     "//chrome/browser/task_manager",
     "//chrome/browser/ui/hats",
     "//chrome/browser/ui/prefs",
     "//chrome/browser/ui/safety_hub",
+    "//chrome/browser/ui/search_engines",
     "//chrome/browser/ui/startup:startup_tab",
+    "//chrome/browser/ui/webui/accessibility",
     "//chrome/browser/updates/announcement_notification",
     "//components/blocked_content",
     "//components/bookmarks/common",
@@ -278,13 +290,19 @@ source_set("impl") {
       "//chrome/browser/search/background",
       "//chrome/browser/search_engine_choice",
       "//chrome/browser/search_engines",
+      "//chrome/browser/sharing_hub",
       "//chrome/browser/ui/commerce",
+      "//chrome/browser/ui/send_tab_to_self",
       "//chrome/browser/ui/tabs",
       "//chrome/browser/ui/tabs:tab_strip",
       "//chrome/browser/ui/views/side_panel",
       "//components/headless/policy",
       "//components/live_caption",
       "//components/live_caption:live_translate",
+    ]
+    sources += [
+      "persistent_renderer_prefs_manager.cc",
+      "persistent_renderer_prefs_manager_factory.cc",
     ]
   }
 
@@ -431,6 +449,10 @@ source_set("unit_tests") {
     "//ui/base",
     "//url",
   ]
+
+  if (!is_android) {
+    sources += [ "persistent_renderer_prefs_unittest.cc" ]
+  }
 }
 
 if (!is_android) {

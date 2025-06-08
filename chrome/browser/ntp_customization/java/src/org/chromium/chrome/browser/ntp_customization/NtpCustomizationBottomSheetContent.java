@@ -10,14 +10,14 @@ import android.content.Context;
 import android.content.res.Resources;
 import android.view.View;
 
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
-
 import org.chromium.base.supplier.ObservableSupplierImpl;
 import org.chromium.base.supplier.Supplier;
+import org.chromium.build.annotations.NullMarked;
+import org.chromium.build.annotations.Nullable;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetContent;
 
 /** Bottom sheet content of the NTP customization. */
+@NullMarked
 public class NtpCustomizationBottomSheetContent implements BottomSheetContent {
     private final View mContentView;
     private final Runnable mBackPressRunnable;
@@ -49,7 +49,7 @@ public class NtpCustomizationBottomSheetContent implements BottomSheetContent {
 
     @Override
     public int getVerticalScrollOffset() {
-        return 0;
+        return mContentView.findViewById(R.id.bottom_sheet_container).getScrollY();
     }
 
     @Override
@@ -65,11 +65,6 @@ public class NtpCustomizationBottomSheetContent implements BottomSheetContent {
     @Override
     public boolean swipeToDismissEnabled() {
         return false;
-    }
-
-    @Override
-    public int getPeekHeight() {
-        return BottomSheetContent.HeightMode.DISABLED;
     }
 
     @Override
@@ -94,7 +89,7 @@ public class NtpCustomizationBottomSheetContent implements BottomSheetContent {
     }
 
     @Override
-    public String getSheetContentDescription(@NonNull Context context) {
+    public @Nullable String getSheetContentDescription(Context context) {
         // Returns null when the current sheet is the main bottom sheet. This ensures TalkBack reads
         // the full content of the main bottom sheet in a top-to-bottom, left-to-right order.
         if (mCurrentBottomSheetTypeSupplier.get() == MAIN) {

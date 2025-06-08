@@ -94,6 +94,16 @@ public abstract class MultiInstanceManager {
     }
 
     /**
+     * Open a new instance of the ChromeTabbedActivity window and move the specified tab group from
+     * existing instance to the new one.
+     *
+     * @param tabGroupMetadata The object containing the metadata of the tab group.
+     */
+    public void moveTabGroupToNewWindow(TabGroupMetadata tabGroupMetadata) {
+        // Not implemented
+    }
+
+    /**
      * Move the specified tab to the current instance of the ChromeTabbedActivity window.
      *
      * @param activity Activity of the Chrome Window in which the tab is to be moved.
@@ -123,6 +133,16 @@ public abstract class MultiInstanceManager {
      * @param tab The tab to move.
      */
     public void moveTabToOtherWindow(Tab tab) {
+        // Not implemented
+    }
+
+    /**
+     * If there's only one window currently, moves the matching group to a new window. Otherwise,
+     * opens a dialog to select which window to move the matching group to.
+     *
+     * @param tabGroupMetadata The metadata for the group to move.
+     */
+    public void moveTabGroupToOtherWindow(TabGroupMetadata tabGroupMetadata) {
         // Not implemented
     }
 

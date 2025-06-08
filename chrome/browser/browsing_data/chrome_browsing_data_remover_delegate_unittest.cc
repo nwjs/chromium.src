@@ -144,10 +144,12 @@
 #include "components/permissions/features.h"
 #include "components/permissions/permission_actions_history.h"
 #include "components/permissions/permission_decision_auto_blocker.h"
+#include "components/permissions/permission_request_data.h"
 #include "components/permissions/permission_request_enums.h"
 #include "components/permissions/permission_uma_util.h"
 #include "components/permissions/permission_util.h"
 #include "components/permissions/request_type.h"
+#include "components/permissions/resolvers/content_setting_permission_resolver.h"
 #include "components/privacy_sandbox/privacy_sandbox_attestations/privacy_sandbox_attestations.h"
 #include "components/privacy_sandbox/privacy_sandbox_attestations/scoped_privacy_sandbox_attestations.h"
 #include "components/privacy_sandbox/privacy_sandbox_settings.h"
@@ -215,6 +217,8 @@
 #include "chrome/browser/ui/android/tab_model/tab_model_list.h"
 #include "chrome/browser/ui/android/tab_model/tab_model_test_helper.h"
 #include "components/password_manager/core/browser/split_stores_and_local_upm.h"
+#include "components/payments/content/browser_binding/browser_bound_keys_deleter_factory.h"
+#include "components/payments/content/browser_binding/mock_browser_bound_keys_deleter.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #else
 #include "base/task/current_thread.h"
@@ -3225,9 +3229,17 @@ TEST_F(ChromeBrowsingDataRemoverDelegateTest, RemoveDurablePermission) {
 
   DurableStoragePermissionContext durable_permission(GetProfile());
   durable_permission.UpdateContentSetting(
-      kOrigin1, GURL(), CONTENT_SETTING_ALLOW, /*is_one_time=*/false);
+      permissions::PermissionRequestData(
+          std::make_unique<permissions::ContentSettingPermissionResolver>(
+              ContentSettingsType::DURABLE_STORAGE),
+          /*user_gesture=*/true, kOrigin1, GURL()),
+      CONTENT_SETTING_ALLOW, /*is_one_time=*/false);
   durable_permission.UpdateContentSetting(
-      kOrigin2, GURL(), CONTENT_SETTING_ALLOW, /*is_one_time=*/false);
+      permissions::PermissionRequestData(
+          std::make_unique<permissions::ContentSettingPermissionResolver>(
+              ContentSettingsType::DURABLE_STORAGE),
+          /*user_gesture=*/true, kOrigin2, GURL()),
+      CONTENT_SETTING_ALLOW, /*is_one_time=*/false);
 
   // Clear all except for origin1 and origin3.
   std::unique_ptr<BrowsingDataFilterBuilder> filter(
@@ -3267,9 +3279,13 @@ TEST_F(ChromeBrowsingDataRemoverDelegateTest,
   HostContentSettingsMap* host_content_settings_map =
       HostContentSettingsMapFactory::GetForProfile(GetProfile());
   DurableStoragePermissionContext durable_permission(GetProfile());
-  durable_permission.UpdateContentSetting(GURL("http://host1.com:1"), GURL(),
-                                          CONTENT_SETTING_ALLOW,
-                                          /*is_one_time=*/false);
+  durable_permission.UpdateContentSetting(
+      permissions::PermissionRequestData(
+          std::make_unique<permissions::ContentSettingPermissionResolver>(
+              ContentSettingsType::DURABLE_STORAGE),
+          /*user_gesture=*/true, GURL("http://host1.com:1"), GURL()),
+      CONTENT_SETTING_ALLOW,
+      /*is_one_time=*/false);
   ContentSettingsForOneType host_settings =
       host_content_settings_map->GetSettingsForOneType(
           ContentSettingsType::DURABLE_STORAGE);
@@ -4019,6 +4035,33 @@ TEST_F(ChromeBrowsingDataRemoverDelegateTest,
   EXPECT_TRUE(prefs->GetDict(kPermissionActionsPrefPath).empty());
 }
 
+TEST_F(ChromeBrowsingDataRemoverDelegateTest, WipeSuspiciousNotificationIds) {
+  // Add setting value.
+  const GURL kOrigin1("http://host1.com:1");
+  base::Value::List suspicious_notification_ids;
+  suspicious_notification_ids.Append("1");
+  suspicious_notification_ids.Append("2");
+  base::Value::Dict suspicious_notification_id_dict;
+  suspicious_notification_id_dict.Set("suspicious-notification-ids",
+                                      std::move(suspicious_notification_ids));
+  HostContentSettingsMap* host_content_settings_map =
+      HostContentSettingsMapFactory::GetForProfile(GetProfile());
+  host_content_settings_map->SetWebsiteSettingDefaultScope(
+      kOrigin1, GURL(), ContentSettingsType::SUSPICIOUS_NOTIFICATION_IDS,
+      base::Value(suspicious_notification_id_dict.Clone()));
+  ContentSettingsForOneType host_settings =
+      host_content_settings_map->GetSettingsForOneType(
+          ContentSettingsType::SUSPICIOUS_NOTIFICATION_IDS);
+  ASSERT_EQ(1u, host_settings.size());
+
+  // Wipe the setting.
+  BlockUntilBrowsingDataRemoved(base::Time::Now(), base::Time::Max(),
+                                constants::DATA_TYPE_HISTORY, false);
+  host_settings = host_content_settings_map->GetSettingsForOneType(
+      ContentSettingsType::SUSPICIOUS_NOTIFICATION_IDS);
+  ASSERT_EQ(0u, host_settings.size());
+}
+
 // Tests with non-null AccountPasswordStoreFactory::GetForProfile().
 class ChromeBrowsingDataRemoverDelegateWithAccountPasswordsTest
     : public ChromeBrowsingDataRemoverDelegateWithPasswordsTest {
@@ -4418,6 +4461,28 @@ TEST_F(ChromeBrowsingDataRemoverDelegateTest, ClearNewTabPageLocalStorage) {
   EXPECT_TRUE(auth_service->GetAccessToken().empty());
 }
 #endif  // !BUILDFLAG(IS_ANDROID)
+
+#if BUILDFLAG(IS_ANDROID)
+// Verify that clearing cookies will also trigger removing invalid browser bound
+// keys.
+TEST_F(ChromeBrowsingDataRemoverDelegateTest,
+       ClearInvalidBrowserBoundKeysForSecurePaymentConfirmation) {
+  auto* mock_browser_bound_keys_deleter = static_cast<
+      payments::MockBrowserBoundKeyDeleter*>(
+      payments::BrowserBoundKeyDeleterFactory::GetInstance()
+          ->SetTestingFactoryAndUse(
+              GetProfile(),
+              base::BindOnce([](content::BrowserContext*)
+                                 -> std::unique_ptr<KeyedService> {
+                return std::make_unique<payments::MockBrowserBoundKeyDeleter>();
+              })));
+
+  EXPECT_CALL(*mock_browser_bound_keys_deleter, RemoveInvalidBBKs());
+  BlockUntilBrowsingDataRemoved(base::Time(), base::Time::Max(),
+                                content::BrowsingDataRemover::DATA_TYPE_COOKIES,
+                                false);
+}
+#endif  // BUILDFLAG(IS_ANDROID)
 
 class ChromeBrowsingDataRemoverDelegateOriginTrialsTest
     : public ChromeBrowsingDataRemoverDelegateTest {

@@ -99,6 +99,7 @@ import org.chromium.ui.mojom.VirtualKeyboardMode;
 import org.chromium.ui.resources.AndroidResourceType;
 import org.chromium.ui.resources.ResourceManager;
 import org.chromium.ui.resources.dynamics.DynamicResourceLoader;
+import org.chromium.ui.util.MotionEventUtils;
 import org.chromium.url.GURL;
 
 import java.util.ArrayList;
@@ -1037,8 +1038,8 @@ public class CompositorViewHolder extends FrameLayout
 
         onViewportChanged();
 
-        // When scrolling browser controls in viz, don't produce new browser frames unless it's
-        // forced with |needs_animate|
+        // TODO(crbug.com/415825206): Revisit when requestNewFrame is set to true, it currently
+        // depends on the controls' hidden ratio, but I don't think that's right.
         boolean scrollingWithBciv =
                 ChromeFeatureList.sBrowserControlsInViz.isEnabled()
                         && (mInGesture || mContentViewScrolling);
@@ -1640,8 +1641,11 @@ public class CompositorViewHolder extends FrameLayout
                         }
 
                         @Override
-                        public boolean dispatchKeyEvent(KeyEvent event) {
-                            return CompositorViewHolder.this.dispatchKeyEvent(event);
+                        public void onFocusChanged(
+                                boolean gainFocus, int direction, Rect previouslyFocusedRect) {
+                            super.onFocusChanged(gainFocus, direction, previouslyFocusedRect);
+                            // Clear focus ring indicators.
+                            if (!gainFocus) resetKeyboardFocus();
                         }
                     };
             addView(mAccessibilityView);
@@ -1688,7 +1692,6 @@ public class CompositorViewHolder extends FrameLayout
 
     @Override
     public boolean dispatchKeyEvent(KeyEvent event) {
-        // TODO(crbug.com/6341205): Handle scrolling.
         // If mSceneOverlay == null, i.e. we're not handling keyboard focus, return early.
         // If the event is not one of the ones we need to process, return early.
         // Returning early allows us to avoid getting the list of virtual views.
@@ -1719,7 +1722,10 @@ public class CompositorViewHolder extends FrameLayout
         if (isButtonActivate(event)
                 && 0 < mKeyboardFocusIndex
                 && mKeyboardFocusIndex < keyboardFocusableViews.size()) {
-            keyboardFocusableViews.get(mKeyboardFocusIndex).handleClick(LayoutManagerImpl.time());
+            keyboardFocusableViews
+                    .get(mKeyboardFocusIndex)
+                    .handleClick(
+                            LayoutManagerImpl.time(), MotionEventUtils.MOTION_EVENT_BUTTON_NONE);
             return true;
         }
         return super.dispatchKeyEvent(event);
@@ -1737,7 +1743,12 @@ public class CompositorViewHolder extends FrameLayout
         if (isA11ySetUp()) {
             // If a11y is set up, mAccessibilityView needs to hold keyboard focus.
             // mNodeProvider.requestKeyboardFocusForVirtualView will fail otherwise.
-            if (mAccessibilityView.hasFocus()) mAccessibilityView.requestFocus();
+            if (!mAccessibilityView.hasFocus()) mAccessibilityView.requestFocus();
+            // We must manually change the accessibility focus to keep it aligned with the
+            // input/keyboard focus. We do this before moving the keyboard focus because otherwise
+            // TalkBack does not honor the request for unknown reasons.
+            mNodeProvider.sendEventForVirtualView(
+                    mKeyboardFocusIndex, AccessibilityEvent.TYPE_VIEW_ACCESSIBILITY_FOCUSED);
             mNodeProvider.requestKeyboardFocusForVirtualView(mKeyboardFocusIndex);
         } else {
             // If a11y is not set up, CompositorViewHolder needs to hold the keyboard focus so that
@@ -1773,7 +1784,7 @@ public class CompositorViewHolder extends FrameLayout
     /** Sets keyboard focus on the first content view item. */
     public void setFocusOnFirstContentViewItem() {
         // We are no longer focusing on a scene overlay b/c we are focus on main content
-        mSceneOverlay = null;
+        resetKeyboardFocus();
         View view = getCurrentTab().getView();
         if (view instanceof ViewGroup viewGroup) {
             setFocusOnFirstFocusableDescendant(viewGroup);
@@ -1791,7 +1802,7 @@ public class CompositorViewHolder extends FrameLayout
      */
     private class CompositorAccessibilityProvider extends ExploreByTouchHelper {
         private final float mDpToPx;
-        List<VirtualView> mVirtualViews = new ArrayList<>();
+        final List<VirtualView> mVirtualViews = new ArrayList<>();
         private final Rect mPlaceHolderRect = new Rect(0, 0, 1, 1);
         private static final String PLACE_HOLDER_STRING = "";
         private final RectF mTouchTarget = new RectF();
@@ -1828,7 +1839,11 @@ public class CompositorViewHolder extends FrameLayout
                 int virtualViewId, int action, Bundle arguments) {
             switch (action) {
                 case AccessibilityNodeInfoCompat.ACTION_CLICK:
-                    mVirtualViews.get(virtualViewId).handleClick(LayoutManagerImpl.time());
+                    mVirtualViews
+                            .get(virtualViewId)
+                            .handleClick(
+                                    LayoutManagerImpl.time(),
+                                    MotionEventUtils.MOTION_EVENT_BUTTON_NONE);
                     return true;
             }
 
@@ -1918,5 +1933,9 @@ public class CompositorViewHolder extends FrameLayout
             mDragAndDropPermissions = null;
         }
         mDropUri = null;
+    }
+
+    public void setContentViewScrollingStateForTesting(boolean scrolling) {
+        mContentViewScrolling = scrolling;
     }
 }

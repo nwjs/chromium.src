@@ -52,7 +52,7 @@ public class TabbedAppMenuPTTest {
     @Rule
     public final ChromeRenderTestRule mRenderTestRule =
             ChromeRenderTestRule.Builder.withPublicCorpus()
-                    .setRevision(0)
+                    .setRevision(2)
                     .setDescription("App menu")
                     .setBugComponent(ChromeRenderTestRule.Component.UI_BROWSER_MOBILE_APP_MENU)
                     .build();
@@ -112,7 +112,7 @@ public class TabbedAppMenuPTTest {
         RegularNewTabPageStation newTabPage = blankPage.openRegularTabAppMenu().openNewTab();
         RegularNewTabPageAppMenuFacility menu = newTabPage.openAppMenu();
 
-        mRenderTestRule.render(menu.menuListElement.get(), "regular_ntp_app_menu");
+        mRenderTestRule.render(menu.menuListElement.get(), "regular_ntp_app_menu_v3");
         menu.verifyPresentItems();
         assertFinalDestination(newTabPage, menu);
 
@@ -151,7 +151,7 @@ public class TabbedAppMenuPTTest {
         WebPageStation blankPage = mCtaTestRule.startOnBlankPage();
         RegularWebPageAppMenuFacility menu = blankPage.openRegularTabAppMenu();
 
-        mRenderTestRule.render(menu.menuListElement.get(), "regular_webpage_app_menu");
+        mRenderTestRule.render(menu.menuListElement.get(), "regular_webpage_app_menu_v2");
         menu.verifyPresentItems();
         assertFinalDestination(blankPage, menu);
 

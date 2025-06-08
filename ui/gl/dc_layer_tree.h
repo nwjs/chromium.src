@@ -216,8 +216,8 @@ class GL_EXPORT DCLayerTree {
     return no_downscaled_overlay_promotion_;
   }
 
-  Microsoft::WRL::ComPtr<IDXGISwapChain1> GetLayerSwapChainForTesting(
-      size_t index) const;
+  IDXGISwapChain1* GetLayerSwapChainForTesting(
+      const gfx::OverlayLayerId& layer_id) const;
 
   void GetSwapChainVisualInfoForTesting(const gfx::OverlayLayerId& layer_id,
                                         gfx::Transform* out_transform,
@@ -345,6 +345,14 @@ class GL_EXPORT DCLayerTree {
       int z_order() const { return z_order_; }
       void set_z_order(int z_order) { z_order_ = z_order; }
 
+      gfx::Transform GetQuadToRootTransformForTesting() const {
+        return quad_to_root_transform_;
+      }
+
+      std::optional<gfx::Rect> GetClipRectInRootForTesting() const {
+        return clip_rect_in_root_;
+      }
+
      private:
 #if DCHECK_IS_ON()
       friend class VisualTree;
@@ -434,6 +442,8 @@ class GL_EXPORT DCLayerTree {
 #endif  // DCHECK_IS_ON()
     };
 
+    VisualSubtree* GetFrontMostVisualSubtreeForTesting() const;
+
    private:
     // This function is called as part of |BuildTreeOptimized|.
     // For each given overlay:
@@ -503,6 +513,8 @@ class GL_EXPORT DCLayerTree {
         const gfx::OverlayLayerId& layer_id) const;
   };
 
+  VisualTree::VisualSubtree* GetFrontMostVideoVisualSubtreeForTesting() const;
+
  private:
   const bool disable_nv12_dynamic_textures_;
   const bool disable_vp_auto_hdr_;
@@ -533,8 +545,9 @@ class GL_EXPORT DCLayerTree {
   // Root direct composition visual for window dcomp target.
   Microsoft::WRL::ComPtr<IDCompositionVisual2> dcomp_root_visual_;
 
-  // List of swap chain presenters for previous frame.
-  std::vector<std::unique_ptr<SwapChainPresenter>> video_swap_chains_;
+  // Map of layer ID to swap chain presenters for previous frame.
+  base::flat_map<gfx::OverlayLayerId, std::unique_ptr<SwapChainPresenter>>
+      video_swap_chains_;
 
   // A tree that owns all DCOMP visuals for overlays along with attributes
   // required to build DCOMP tree. It's updated for each frame.

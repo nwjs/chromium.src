@@ -50,14 +50,14 @@ struct CpuTick {
   }
 };
 
-constexpr char kRestoredAppWindowCountHistogram[] =
+inline constexpr char kRestoredAppWindowCountHistogram[] =
     "Apps.RestoreArcWindowCount";
 
 // The restoration process might be blocked by some issues, e.g. the memory
 // pressure, CPU rate, etc. However we don't want to have the restoration
 // process taking too long to interact the normal usage. So if the restoration
 // has finished in `kAppLaunchDelay` timeframe, we stop the restoration process.
-constexpr base::TimeDelta kStopRestoreDelay = base::Minutes(1);
+inline constexpr base::TimeDelta kStopRestoreDelay = base::Minutes(1);
 
 // The ArcAppQueueRestoreHandler class restores ARC apps during the system
 // startup phase.

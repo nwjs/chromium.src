@@ -42,6 +42,7 @@ import org.chromium.chrome.browser.tab_ui.TabSwitcher;
 import org.chromium.chrome.browser.tabmodel.TabCreatorManager;
 import org.chromium.chrome.browser.tabmodel.TabGroupModelFilter;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
+import org.chromium.chrome.browser.tasks.tab_management.archived_tabs_auto_delete_promo.ArchivedTabsAutoDeletePromoManager;
 import org.chromium.chrome.browser.theme.ThemeColorProvider;
 import org.chromium.chrome.browser.ui.edge_to_edge.EdgeToEdgeController;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
@@ -121,7 +122,10 @@ public class TabManagementDelegateImpl implements TabManagementDelegate {
             @NonNull ObservableSupplier<ShareDelegate> shareDelegateSupplier,
             @NonNull ObservableSupplier<TabBookmarker> tabBookmarkerSupplier,
             @NonNull TabGroupCreationUiDelegate tabGroupCreationUiDelegate,
-            UndoBarThrottle undoBarThrottle) {
+            UndoBarThrottle undoBarThrottle,
+            @NonNull LazyOneshotSupplier<HubManager> hubManagerSupplier,
+            @Nullable ArchivedTabsAutoDeletePromoManager archivedTabsAutoDeletePromoManager,
+            @NonNull Supplier<TabGroupUiActionHandler> tabGroupUiActionHandlerSupplier) {
         // TODO(crbug.com/40946413): Consider making this an activity scoped singleton and possibly
         // hosting it in CTA/HubProvider.
         TabSwitcherPaneCoordinatorFactory factory =
@@ -144,7 +148,9 @@ public class TabManagementDelegateImpl implements TabManagementDelegate {
                         edgeToEdgeSupplier,
                         shareDelegateSupplier,
                         tabBookmarkerSupplier,
-                        undoBarThrottle);
+                        undoBarThrottle,
+                        () -> hubManagerSupplier.get().getPaneManager(),
+                        tabGroupUiActionHandlerSupplier);
         OneshotSupplierImpl<Profile> profileSupplier = new OneshotSupplierImpl<>();
         Handler handler = new Handler();
         profileProviderSupplier.onAvailable(
@@ -185,7 +191,8 @@ public class TabManagementDelegateImpl implements TabManagementDelegate {
                                 userEducationHelper,
                                 edgeToEdgeSupplier,
                                 compositorViewHolderSupplier,
-                                tabGroupCreationUiDelegate);
+                                tabGroupCreationUiDelegate,
+                                archivedTabsAutoDeletePromoManager);
         return Pair.create(pane, pane);
     }
 
@@ -198,7 +205,8 @@ public class TabManagementDelegateImpl implements TabManagementDelegate {
             @NonNull LazyOneshotSupplier<HubManager> hubManagerSupplier,
             @NonNull Supplier<TabGroupUiActionHandler> tabGroupUiActionHandlerSupplier,
             @NonNull Supplier<ModalDialogManager> modalDialogManagerSupplier,
-            @NonNull ObservableSupplier<EdgeToEdgeController> edgeToEdgeSupplier) {
+            @NonNull ObservableSupplier<EdgeToEdgeController> edgeToEdgeSupplier,
+            @NonNull DataSharingTabManager dataSharingTabManager) {
         LazyOneshotSupplier<TabGroupModelFilter> tabGroupModelFilterSupplier =
                 LazyOneshotSupplier.fromSupplier(
                         () ->
@@ -213,7 +221,8 @@ public class TabManagementDelegateImpl implements TabManagementDelegate {
                 () -> hubManagerSupplier.get().getPaneManager(),
                 tabGroupUiActionHandlerSupplier,
                 modalDialogManagerSupplier,
-                edgeToEdgeSupplier);
+                edgeToEdgeSupplier,
+                dataSharingTabManager);
     }
 
     @Override

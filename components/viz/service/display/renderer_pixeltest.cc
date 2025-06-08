@@ -71,7 +71,6 @@
 #include "ui/gfx/geometry/mask_filter_info.h"
 #include "ui/gfx/geometry/skia_conversions.h"
 #include "ui/gfx/geometry/transform_util.h"
-#include "ui/gfx/test/icc_profiles.h"
 #include "ui/gfx/video_types.h"
 #include "ui/gl/gl_implementation.h"
 
@@ -128,6 +127,7 @@ ResourceId CreateGpuResource(
     ClientResourceProvider* resource_provider,
     const gfx::Size& size,
     SharedImageFormat format,
+    SkAlphaType alpha_type,
     gfx::ColorSpace color_space,
     base::span<const uint8_t> pixels,
     GrSurfaceOrigin origin = kTopLeft_GrSurfaceOrigin) {
@@ -135,16 +135,13 @@ ResourceId CreateGpuResource(
   gpu::SharedImageInterface* sii = context_provider->SharedImageInterface();
   DCHECK(sii);
   auto client_shared_image = sii->CreateSharedImage(
-      {format, size, color_space, gpu::SHARED_IMAGE_USAGE_DISPLAY_READ,
-       "TestLabel"},
+      {format, size, color_space, origin, alpha_type,
+       gpu::SHARED_IMAGE_USAGE_DISPLAY_READ, "TestLabel"},
       pixels);
-  gpu::SyncToken sync_token = sii->GenUnverifiedSyncToken();
 
-  TransferableResource gl_resource = TransferableResource::MakeGpu(
-      client_shared_image, GL_TEXTURE_2D, sync_token, size, format,
-      false /* is_overlay_candidate */);
-  gl_resource.color_space = std::move(color_space);
-  gl_resource.origin = origin;
+  TransferableResource gl_resource = TransferableResource::Make(
+      client_shared_image, TransferableResource::ResourceSource::kTest,
+      client_shared_image->creation_sync_token());
   auto release_callback =
       base::BindOnce(&DeleteSharedImage, std::move(client_shared_image));
   return resource_provider->ImportResource(gl_resource,
@@ -307,10 +304,11 @@ void CreateTestTwoColoredTextureDrawQuad(
 
   ResourceId resource;
   if (gpu_resource) {
-    resource =
-        CreateGpuResource(child_context_provider, child_resource_provider,
-                          rect.size(), SinglePlaneFormat::kBGRA_8888,
-                          gfx::ColorSpace(), MakePixelSpan(pixels), origin);
+    resource = CreateGpuResource(
+        child_context_provider, child_resource_provider, rect.size(),
+        SinglePlaneFormat::kBGRA_8888,
+        premultiplied_alpha ? kPremul_SkAlphaType : kUnpremul_SkAlphaType,
+        gfx::ColorSpace(), MakePixelSpan(pixels), origin);
   } else {
     scoped_refptr<gpu::ClientSharedImage> shared_image;
     gpu::SyncToken sync_token;
@@ -348,8 +346,7 @@ void CreateTestTwoColoredTextureDrawQuad(
   const bool nearest_neighbor = false;
   auto* quad = render_pass->CreateAndAppendDrawQuad<TextureDrawQuad>();
   quad->SetNew(shared_state, rect, rect, needs_blending, mapped_resource,
-               premultiplied_alpha, uv_top_left, uv_bottom_right,
-               background_color, nearest_neighbor,
+               uv_top_left, uv_bottom_right, background_color, nearest_neighbor,
                /*secure_output=*/false, gfx::ProtectedVideoType::kClear);
 }
 
@@ -377,10 +374,11 @@ void CreateTestTextureDrawQuad(
 
   ResourceId resource;
   if (gpu_resource) {
-    resource =
-        CreateGpuResource(child_context_provider, child_resource_provider,
-                          rect.size(), SinglePlaneFormat::kRGBA_8888,
-                          gfx::ColorSpace(), MakePixelSpan(pixels));
+    resource = CreateGpuResource(
+        child_context_provider, child_resource_provider, rect.size(),
+        SinglePlaneFormat::kRGBA_8888,
+        premultiplied_alpha ? kPremul_SkAlphaType : kUnpremul_SkAlphaType,
+        gfx::ColorSpace(), MakePixelSpan(pixels));
   } else {
     scoped_refptr<gpu::ClientSharedImage> shared_image;
     gpu::SyncToken sync_token;
@@ -417,8 +415,7 @@ void CreateTestTextureDrawQuad(
   const bool nearest_neighbor = false;
   auto* quad = render_pass->CreateAndAppendDrawQuad<TextureDrawQuad>();
   quad->SetNew(shared_state, rect, rect, needs_blending, mapped_resource,
-               premultiplied_alpha, uv_top_left, uv_bottom_right,
-               background_color, nearest_neighbor,
+               uv_top_left, uv_bottom_right, background_color, nearest_neighbor,
                /*secure_output=*/false, gfx::ProtectedVideoType::kClear);
 }
 
@@ -1762,8 +1759,8 @@ TEST_P(GPURendererPixelTest, OverlayHintRequiredFallback) {
   TextureDrawQuad* quad = pass->CreateAndAppendDrawQuad<TextureDrawQuad>();
   quad->SetNew(texture_quad_state, gfx::Rect(this->device_viewport_size_),
                gfx::Rect(this->device_viewport_size_), false, ResourceId{1},
-               true, gfx::PointF(), gfx::PointF(), SkColors::kTransparent,
-               false, false, gfx::ProtectedVideoType::kClear);
+               gfx::PointF(), gfx::PointF(), SkColors::kTransparent, false,
+               false, gfx::ProtectedVideoType::kClear);
   quad->overlay_priority_hint = OverlayPriority::kRequired;
 
   // Add a background that's not the expected fallback color.
@@ -1808,8 +1805,8 @@ TEST_P(GPURendererPixelTest, OverlayHintRequiredFallbackRPDQBypassCase) {
     TextureDrawQuad* quad = pass->CreateAndAppendDrawQuad<TextureDrawQuad>();
     quad->SetNew(sqs, gfx::Rect(this->device_viewport_size_),
                  gfx::Rect(this->device_viewport_size_), false, ResourceId{1},
-                 true, gfx::PointF(), gfx::PointF(), SkColors::kTransparent,
-                 false, false, gfx::ProtectedVideoType::kClear);
+                 gfx::PointF(), gfx::PointF(), SkColors::kTransparent, false,
+                 false, gfx::ProtectedVideoType::kClear);
     quad->overlay_priority_hint = OverlayPriority::kRequired;
 
     pass_list.push_back(std::move(pass));
@@ -3531,8 +3528,8 @@ TEST_P(RendererPixelTest, RenderPassAndMaskWithPartialQuad) {
   if (!is_software_renderer()) {
     mask_resource_id = CreateGpuResource(
         this->child_context_provider_, this->child_resource_provider_.get(),
-        mask_rect.size(), SinglePlaneFormat::kRGBA_8888, gfx::ColorSpace(),
-        MakePixelSpan(bitmap));
+        mask_rect.size(), SinglePlaneFormat::kRGBA_8888, kPremul_SkAlphaType,
+        gfx::ColorSpace(), MakePixelSpan(bitmap));
   } else {
     mask_resource_id = this->AllocateAndFillSoftwareResource(
         this->child_context_provider_, mask_rect.size(), bitmap);
@@ -3629,8 +3626,8 @@ TEST_P(RendererPixelTest, RenderPassAndMaskWithPartialQuad2) {
   if (!is_software_renderer()) {
     mask_resource_id = CreateGpuResource(
         this->child_context_provider_, this->child_resource_provider_.get(),
-        mask_rect.size(), SinglePlaneFormat::kRGBA_8888, gfx::ColorSpace(),
-        MakePixelSpan(bitmap));
+        mask_rect.size(), SinglePlaneFormat::kRGBA_8888, kPremul_SkAlphaType,
+        gfx::ColorSpace(), MakePixelSpan(bitmap));
   } else {
     mask_resource_id = this->AllocateAndFillSoftwareResource(
         this->child_context_provider_, mask_rect.size(), bitmap);
@@ -3722,8 +3719,8 @@ TEST_P(RendererPixelTest, RenderPassAndMaskForRoundedCorner) {
   if (!is_software_renderer()) {
     mask_resource_id = CreateGpuResource(
         this->child_context_provider_, this->child_resource_provider_.get(),
-        mask_rect.size(), SinglePlaneFormat::kRGBA_8888, gfx::ColorSpace(),
-        MakePixelSpan(bitmap));
+        mask_rect.size(), SinglePlaneFormat::kRGBA_8888, kPremul_SkAlphaType,
+        gfx::ColorSpace(), MakePixelSpan(bitmap));
   } else {
     mask_resource_id = this->AllocateAndFillSoftwareResource(
         this->child_context_provider_, mask_rect.size(), bitmap);
@@ -3828,8 +3825,8 @@ TEST_P(RendererPixelTest, RenderPassAndMaskForRoundedCornerMultiRadii) {
   if (!is_software_renderer()) {
     mask_resource_id = CreateGpuResource(
         this->child_context_provider_, this->child_resource_provider_.get(),
-        mask_rect.size(), SinglePlaneFormat::kRGBA_8888, gfx::ColorSpace(),
-        MakePixelSpan(bitmap));
+        mask_rect.size(), SinglePlaneFormat::kRGBA_8888, kPremul_SkAlphaType,
+        gfx::ColorSpace(), MakePixelSpan(bitmap));
   } else {
     mask_resource_id = this->AllocateAndFillSoftwareResource(
         this->child_context_provider_, mask_rect.size(), bitmap);
@@ -3945,8 +3942,8 @@ class RendererPixelTestWithBackdropFilter : public VizPixelTestWithParam {
       if (!is_software_renderer()) {
         mask_resource_id = CreateGpuResource(
             this->child_context_provider_, this->child_resource_provider_.get(),
-            mask_rect.size(), SinglePlaneFormat::kRGBA_8888, gfx::ColorSpace(),
-            MakePixelSpan(bitmap));
+            mask_rect.size(), SinglePlaneFormat::kRGBA_8888,
+            kPremul_SkAlphaType, gfx::ColorSpace(), MakePixelSpan(bitmap));
       } else {
         mask_resource_id = this->AllocateAndFillSoftwareResource(
             this->child_context_provider_, mask_rect.size(), bitmap);
@@ -4336,10 +4333,10 @@ TEST_P(GPURendererPixelTest, TileDrawQuadForceAntiAliasingOff) {
   gfx::Size tile_size(32, 32);
   ResourceId resource;
   if (!is_software_renderer()) {
-    resource = CreateGpuResource(this->child_context_provider_,
-                                 this->child_resource_provider_.get(),
-                                 tile_size, SinglePlaneFormat::kRGBA_8888,
-                                 gfx::ColorSpace(), MakePixelSpan(bitmap));
+    resource = CreateGpuResource(
+        this->child_context_provider_, this->child_resource_provider_.get(),
+        tile_size, SinglePlaneFormat::kRGBA_8888, kPremul_SkAlphaType,
+        gfx::ColorSpace(), MakePixelSpan(bitmap));
   } else {
     resource = this->AllocateAndFillSoftwareResource(
         this->child_context_provider_, tile_size, bitmap);
@@ -4873,9 +4870,10 @@ TEST_P(RendererPixelTest, TileDrawQuadNearestNeighbor) {
   gfx::Size tile_size(2, 2);
   ResourceId resource;
   if (!is_software_renderer()) {
-    resource = CreateGpuResource(
-        this->child_context_provider_, this->child_resource_provider_.get(),
-        tile_size, format, gfx::ColorSpace(), MakePixelSpan(bitmap));
+    resource = CreateGpuResource(this->child_context_provider_,
+                                 this->child_resource_provider_.get(),
+                                 tile_size, format, kPremul_SkAlphaType,
+                                 gfx::ColorSpace(), MakePixelSpan(bitmap));
   } else {
     resource = this->AllocateAndFillSoftwareResource(
         this->child_context_provider_, tile_size, bitmap);
@@ -4949,7 +4947,7 @@ TEST_F(SoftwareRendererPixelTest, TextureDrawQuadNearestNeighbor) {
 
   auto* quad = pass->CreateAndAppendDrawQuad<TextureDrawQuad>();
   quad->SetNew(shared_state, viewport, viewport, needs_blending,
-               mapped_resource, false, gfx::PointF(0, 0), gfx::PointF(1, 1),
+               mapped_resource, gfx::PointF(0, 0), gfx::PointF(1, 1),
                SkColors::kBlack, nearest_neighbor,
                /*secure_output_only=*/false, gfx::ProtectedVideoType::kClear);
 
@@ -5002,8 +5000,8 @@ TEST_F(SoftwareRendererPixelTest, TextureDrawQuadLinear) {
 
   auto* quad = pass->CreateAndAppendDrawQuad<TextureDrawQuad>();
   quad->SetNew(shared_state, viewport, viewport, needs_blending,
-               mapped_resource, /*premultiplied=*/true, gfx::PointF(0, 0),
-               gfx::PointF(1, 1), SkColors::kBlack, nearest_neighbor,
+               mapped_resource, gfx::PointF(0, 0), gfx::PointF(1, 1),
+               SkColors::kBlack, nearest_neighbor,
                /*secure_output=*/false, gfx::ProtectedVideoType::kClear);
 
   AggregatedRenderPassList pass_list;
@@ -5343,8 +5341,8 @@ TEST_P(GPURendererPixelTest, TextureQuadBatching) {
 
   ResourceId resource = CreateGpuResource(
       this->child_context_provider_, this->child_resource_provider_.get(),
-      mask_rect.size(), SinglePlaneFormat::kRGBA_8888, gfx::ColorSpace(),
-      MakePixelSpan(bitmap));
+      mask_rect.size(), SinglePlaneFormat::kRGBA_8888, kPremul_SkAlphaType,
+      gfx::ColorSpace(), MakePixelSpan(bitmap));
 
   // Return the mapped resource id.
   std::unordered_map<ResourceId, ResourceId, ResourceIdHasher> resource_map =
@@ -5384,8 +5382,8 @@ TEST_P(GPURendererPixelTest, TextureQuadBatching) {
       auto* texture_quad = pass->CreateAndAppendDrawQuad<TextureDrawQuad>();
       texture_quad->SetNew(
           shared_state, layer_rect, layer_rect, needs_blending, mapped_resource,
-          true, uv_rect.origin(), uv_rect.bottom_right(), SkColors::kWhite,
-          false, /*secure_output_only=*/false, gfx::ProtectedVideoType::kClear);
+          uv_rect.origin(), uv_rect.bottom_right(), SkColors::kWhite, false,
+          /*secure_output_only=*/false, gfx::ProtectedVideoType::kClear);
     }
   }
 
@@ -5423,10 +5421,10 @@ TEST_P(GPURendererPixelTest, TileQuadClamping) {
 
   ResourceId resource;
   if (!is_software_renderer()) {
-    resource = CreateGpuResource(this->child_context_provider_,
-                                 this->child_resource_provider_.get(),
-                                 tile_size, SinglePlaneFormat::kRGBA_8888,
-                                 gfx::ColorSpace(), MakePixelSpan(bitmap));
+    resource = CreateGpuResource(
+        this->child_context_provider_, this->child_resource_provider_.get(),
+        tile_size, SinglePlaneFormat::kRGBA_8888, kPremul_SkAlphaType,
+        gfx::ColorSpace(), MakePixelSpan(bitmap));
   } else {
     resource = this->AllocateAndFillSoftwareResource(
         this->child_context_provider_, tile_size, bitmap);
@@ -5534,8 +5532,8 @@ TEST_P(GPURendererPixelTest, RoundedCornerSimpleTextureDrawQuad) {
                             0, 0, 255, 255, 0, 0, 255, 255};
   ResourceId resource = CreateGpuResource(
       this->child_context_provider_, this->child_resource_provider_.get(),
-      gfx::Size(2, 2), SinglePlaneFormat::kRGBA_8888, gfx::ColorSpace(),
-      colors);
+      gfx::Size(2, 2), SinglePlaneFormat::kRGBA_8888, kPremul_SkAlphaType,
+      gfx::ColorSpace(), colors);
 
   std::unordered_map<ResourceId, ResourceId, ResourceIdHasher> resource_map =
       cc::SendResourceAndGetChildToParentMap(
@@ -5549,8 +5547,8 @@ TEST_P(GPURendererPixelTest, RoundedCornerSimpleTextureDrawQuad) {
   const bool nearest_neighbor = false;
   auto* blue = root_pass->CreateAndAppendDrawQuad<TextureDrawQuad>();
   blue->SetNew(shared_state_rounded, blue_rect, blue_rect, needs_blending,
-               mapped_resource, true, uv_top_left, uv_bottom_right,
-               SkColors::kBlack, nearest_neighbor,
+               mapped_resource, uv_top_left, uv_bottom_right, SkColors::kBlack,
+               nearest_neighbor,
                /*secure_output_only=*/false, gfx::ProtectedVideoType::kClear);
 
   SharedQuadState* shared_state_normal = CreateTestSharedQuadState(
@@ -6012,11 +6010,9 @@ INSTANTIATE_TEST_SUITE_P(,
 GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(
     RendererPixelTestWithOverdrawFeedback);
 
-class RendererPixelTestColorConversion
-    : public VizPixelTest,
-      public testing::WithParamInterface<std::tuple<RendererType, bool>> {
+class RendererPixelTestColorConversion : public VizPixelTestWithParam {
  public:
-  RendererPixelTestColorConversion() : VizPixelTest(std::get<0>(GetParam())) {
+  RendererPixelTestColorConversion() {
     // Set a color space that is not suitable for blending to ensure we go
     // through the color conversion code paths.
     this->display_color_spaces_ =
@@ -6024,16 +6020,7 @@ class RendererPixelTestColorConversion
     this->display_color_spaces_.SetSDRMaxLuminanceNits(80.f);
     this->display_color_spaces_.SetOutputBufferFormats(
         gfx::BufferFormat::RGBA_F16, gfx::BufferFormat::RGBA_F16);
-
-    if (std::get<1>(GetParam())) {
-      features_.InitAndEnableFeature(features::kColorConversionInRenderer);
-    } else {
-      features_.InitAndDisableFeature(features::kColorConversionInRenderer);
-    }
   }
-
- private:
-  base::test::ScopedFeatureList features_;
 };
 
 // Check that render pass updates do not blend with previous frames.
@@ -6071,11 +6058,10 @@ TEST_P(RendererPixelTestColorConversion,
   }
 }
 
-INSTANTIATE_TEST_SUITE_P(
-    ,
-    RendererPixelTestColorConversion,
-    testing::Combine(testing::ValuesIn(GetGpuRendererTypes()),
-                     testing::Bool()));
+INSTANTIATE_TEST_SUITE_P(,
+                         RendererPixelTestColorConversion,
+                         testing::ValuesIn(GetGpuRendererTypes()),
+                         testing::PrintToStringParamName());
 
 // GetGpuRendererTypes() can return an empty list, e.g. on Fuchsia ARM64.
 GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(RendererPixelTestColorConversion);
@@ -6083,10 +6069,10 @@ GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(RendererPixelTestColorConversion);
 #if BUILDFLAG(IS_WIN)
 class VideoPixelRendererPixelTestColorConversion
     : public VideoRendererPixelTestBase,
-      public testing::WithParamInterface<std::tuple<RendererType, bool>> {
+      public testing::WithParamInterface<RendererType> {
  public:
   VideoPixelRendererPixelTestColorConversion()
-      : VideoRendererPixelTestBase(std::get<0>(GetParam())) {}
+      : VideoRendererPixelTestBase(GetParam()) {}
 
   void SetUp() override {
     // Set a color space that is not suitable for blending to ensure we go
@@ -6101,14 +6087,7 @@ class VideoPixelRendererPixelTestColorConversion
     // color space by being scanout.
     renderer_settings_.force_non_scanout_backing_for_pixel_tests = true;
 
-    if (std::get<1>(GetParam())) {
-      features_.InitWithFeatures({features::kDelegatedCompositing,
-                                  features::kColorConversionInRenderer},
-                                 {});
-    } else {
-      features_.InitWithFeatures({features::kDelegatedCompositing},
-                                 {features::kColorConversionInRenderer});
-    }
+    features_.InitAndEnableFeature(features::kDelegatedCompositing);
 
     VideoRendererPixelTestBase::SetUp();
   }
@@ -6137,7 +6116,9 @@ TEST_P(VideoPixelRendererPixelTestColorConversion,
     CompositorRenderPassId id{1};
     auto child_pass = CreateTestRootRenderPass(id, rect);
 
-    auto color_space = gfx::ColorSpace::CreateHDR10();
+    auto color_space = gfx::ColorSpace(
+        gfx::ColorSpace::PrimaryID::BT2020, gfx::ColorSpace::TransferID::PQ,
+        gfx::ColorSpace::MatrixID::BT2020_NCL, gfx::ColorSpace::RangeID::FULL);
 
     CreateTestMultiplanarVideoDrawQuad(
         TestVideoFrameBuilder(media::PIXEL_FORMAT_I420, color_space,
@@ -6165,11 +6146,8 @@ TEST_P(VideoPixelRendererPixelTestColorConversion,
         child_pass_copy->will_backing_be_read_by_viz = false;
       }
 
-      // When `ColorConversionInRenderer` is enabled, make the HDR child render
-      // pass not use the color conversion layer since it won't contain quads
-      // that require blending.
-      // When `ColorConversionInRenderer` is disabled, color conversion will
-      // happen unconditionally as a render pass.
+      // Make the HDR child render pass not use the color conversion layer if
+      // it doesn't contain quads that require blending.
       for (auto* quad : child_pass_copy->quad_list) {
         quad->needs_blending = child_pass_needs_blending;
       }
@@ -6207,39 +6185,108 @@ TEST_P(VideoPixelRendererPixelTestColorConversion,
                                  cc::AlphaDiscardingExactPixelComparator()));
 }
 
-INSTANTIATE_TEST_SUITE_P(
-    ,
-    VideoPixelRendererPixelTestColorConversion,
-    testing::Combine(testing::ValuesIn(GetGpuRendererTypes()),
-                     testing::Bool()));
+INSTANTIATE_TEST_SUITE_P(,
+                         VideoPixelRendererPixelTestColorConversion,
+                         testing::ValuesIn(GetGpuRendererTypes()),
+                         testing::PrintToStringParamName());
 #endif
 
 using PrimaryID = gfx::ColorSpace::PrimaryID;
 using TransferID = gfx::ColorSpace::TransferID;
 
+enum class NamedColorSpace {
+  kBt709Bt709,
+  kWideGamutColorSpinGamma28,
+  kBt709LinearHdr,
+  kBt709Linear,
+  kBt709SrgbHdr,
+  kBt709Srgb,
+  kXyzD50Linear,
+  kXyzD50SrgbHdr,
+  kHdr10,
+  kHlg,
+  kScrgbLinear80Nits,
+};
+
+const char* ToString(NamedColorSpace named_color_space) {
+  // Note that these names are used in the test parametrization stringification
+  // and thus used in test filter files.
+  switch (named_color_space) {
+    case NamedColorSpace::kBt709Bt709:
+      return "Bt709Bt709";
+    case NamedColorSpace::kWideGamutColorSpinGamma28:
+      return "WideGamutColorSpinGamma28";
+    case NamedColorSpace::kBt709LinearHdr:
+      return "Bt709LinearHdr";
+    case NamedColorSpace::kBt709Linear:
+      return "Bt709Linear";
+    case NamedColorSpace::kBt709SrgbHdr:
+      return "Bt709SrgbHdr";
+    case NamedColorSpace::kBt709Srgb:
+      return "Bt709Srgb";
+    case NamedColorSpace::kXyzD50Linear:
+      return "XyzD50Linear";
+    case NamedColorSpace::kXyzD50SrgbHdr:
+      return "XyzD50SrgbHdr";
+    case NamedColorSpace::kHdr10:
+      return "Hdr10";
+    case NamedColorSpace::kHlg:
+      return "Hlg";
+    case NamedColorSpace::kScrgbLinear80Nits:
+      return "ScrgbLinear80Nits";
+  }
+  NOTREACHED();
+}
+
+gfx::ColorSpace GetColorSpace(NamedColorSpace named_color_space) {
+  switch (named_color_space) {
+    case NamedColorSpace::kBt709Bt709:
+      return gfx::ColorSpace(PrimaryID::BT709, TransferID::BT709);
+    case NamedColorSpace::kWideGamutColorSpinGamma28:
+      return gfx::ColorSpace(PrimaryID::WIDE_GAMUT_COLOR_SPIN,
+                             TransferID::GAMMA28);
+    case NamedColorSpace::kBt709LinearHdr:
+      return gfx::ColorSpace(PrimaryID::BT709, TransferID::LINEAR_HDR);
+    case NamedColorSpace::kBt709Linear:
+      return gfx::ColorSpace(PrimaryID::BT709, TransferID::LINEAR);
+    case NamedColorSpace::kBt709SrgbHdr:
+      return gfx::ColorSpace(PrimaryID::BT709, TransferID::SRGB_HDR);
+    case NamedColorSpace::kBt709Srgb:
+      return gfx::ColorSpace(PrimaryID::BT709, TransferID::SRGB);
+    case NamedColorSpace::kXyzD50Linear:
+      return gfx::ColorSpace(PrimaryID::XYZ_D50, TransferID::LINEAR);
+    case NamedColorSpace::kXyzD50SrgbHdr:
+      return gfx::ColorSpace(PrimaryID::XYZ_D50, TransferID::SRGB_HDR);
+    case NamedColorSpace::kHdr10:
+      return gfx::ColorSpace::CreateHDR10();
+    case NamedColorSpace::kHlg:
+      return gfx::ColorSpace::CreateHLG();
+    case NamedColorSpace::kScrgbLinear80Nits:
+      return gfx::ColorSpace::CreateSCRGBLinear80Nits();
+  }
+  NOTREACHED();
+}
+
 class ColorTransformPixelTest
     : public VizPixelTest,
-      public testing::WithParamInterface<std::tuple<RendererType,
-                                                    gfx::ColorSpace,
-                                                    gfx::ColorSpace,
-                                                    bool,
-                                                    bool>> {
+      public testing::WithParamInterface<
+          std::tuple<RendererType, NamedColorSpace, NamedColorSpace, bool>> {
  public:
+  static std::string GetParamName(
+      const testing::TestParamInfo<ParamType>& info) {
+    return base::StringPrintf(
+        "%s_%s_%s_%s", testing::PrintToString(std::get<0>(info.param)),
+        ToString(std::get<1>(info.param)), ToString(std::get<2>(info.param)),
+        std::get<3>(info.param) ? "premul" : "unpremul");
+  }
+
   ColorTransformPixelTest() : VizPixelTest(std::get<0>(GetParam())) {
     // Note that this size of 17 is not random -- it is chosen to match the
     // size of LUTs that are created. If we did not match the LUT size exactly,
     // then the error for LUT based transforms is much larger.
     this->device_viewport_size_ = gfx::Size(17, 5);
-    this->src_color_space_ = std::get<1>(GetParam());
-    this->dst_color_space_ = std::get<2>(GetParam());
-    if (!this->src_color_space_.IsValid()) {
-      this->src_color_space_ =
-          gfx::ICCProfileForTestingNoAnalyticTrFn().GetColorSpace();
-    }
-    if (!this->dst_color_space_.IsValid()) {
-      this->dst_color_space_ =
-          gfx::ICCProfileForTestingNoAnalyticTrFn().GetColorSpace();
-    }
+    this->src_color_space_ = GetColorSpace(std::get<1>(GetParam()));
+    this->dst_color_space_ = GetColorSpace(std::get<2>(GetParam()));
     this->display_color_spaces_ =
         gfx::DisplayColorSpaces(this->dst_color_space_);
     if (this->dst_color_space_.IsWide()) {
@@ -6247,79 +6294,9 @@ class ColorTransformPixelTest
           gfx::BufferFormat::RGBA_F16, gfx::BufferFormat::RGBA_F16);
     }
     this->premultiplied_alpha_ = std::get<3>(GetParam());
-    if (std::get<4>(GetParam())) {
-      features_.InitAndEnableFeature(features::kColorConversionInRenderer);
-    } else {
-      features_.InitAndDisableFeature(features::kColorConversionInRenderer);
-    }
-  }
-
-  // Add a new root pass to handle the color conversion to ensure the previous
-  // root pass can blend in a color space suitable for blending. This mimics
-  // what |SurfaceAggregator::AddColorConversionPass|.
-  void AddColorConversionPass(AggregatedRenderPassList& pass_list) {
-    AggregatedRenderPassId color_conversion_pass_id{2};
-
-    // Ensure that the color conversion pass id doesn't conflict with an
-    // existing render pass.
-    ASSERT_THAT(pass_list,
-                testing::Each(testing::Property(
-                    "get", &AggregatedRenderPassList::value_type::get,
-                    testing::Field(
-                        "id", &AggregatedRenderPass::id,
-                        testing::Not(testing::Eq(color_conversion_pass_id))))));
-
-    const gfx::Rect current_output_rect = pass_list.back()->output_rect;
-
-    auto color_conversion_pass = std::make_unique<AggregatedRenderPass>(1, 1);
-    color_conversion_pass->SetAll(
-        color_conversion_pass_id, current_output_rect,
-        pass_list.back()->damage_rect, gfx::Transform(),
-        /*filters=*/cc::FilterOperations(),
-        /*backdrop_filters=*/cc::FilterOperations(),
-        /*backdrop_filter_bounds=*/SkPath(),
-        dst_color_space_.GetContentColorUsage(),
-        pass_list.back()->has_transparent_background,
-        /*cache_render_pass=*/false,
-        /*has_damage_from_contributing_content=*/false,
-        /*generate_mipmap=*/false);
-    color_conversion_pass->is_color_conversion_pass = true;
-
-    auto* shared_quad_state =
-        color_conversion_pass->CreateAndAppendSharedQuadState();
-    shared_quad_state->SetAll(
-        /*transform=*/gfx::Transform(),
-        /*layer_rect=*/current_output_rect,
-        /*visible_layer_rect=*/current_output_rect, gfx::MaskFilterInfo(),
-        /*clip=*/std::nullopt, /*contents_opaque=*/false,
-        /*opacity_f=*/1.f, SkBlendMode::kSrc, /*sorting_context=*/0,
-        /*layer_id=*/0u,
-        /*fast_rounded_corner=*/false);
-
-    auto* quad = color_conversion_pass
-                     ->CreateAndAppendDrawQuad<AggregatedRenderPassDrawQuad>();
-    quad->SetNew(shared_quad_state, /*rect=*/current_output_rect,
-                 /*visible_rect=*/current_output_rect, pass_list.back()->id,
-                 /*mask_resource_id=*/kInvalidResourceId,
-                 /*mask_uv_rect=*/gfx::RectF(),
-                 /*mask_texture_size=*/gfx::Size(),
-                 /*filters_scale=*/gfx::Vector2dF(1.0f, 1.0f),
-                 /*filters_origin=*/gfx::PointF(),
-                 /*tex_coord_rect=*/gfx::RectF(current_output_rect),
-                 /*force_anti_aliasing_off=*/false,
-                 /*backdrop_filter_quality=*/1.0f);
-
-    pass_list.push_back(std::move(color_conversion_pass));
   }
 
   void Basic() {
-#if BUILDFLAG(IS_IOS)
-    if (this->src_color_space_.IsToneMappedByDefault() &&
-        !this->dst_color_space_.IsHDR()) {
-      GTEST_SKIP() << "Skipping tonemapped src for non-hdr dst";
-    }
-#endif
-
     gfx::Rect rect(this->device_viewport_size_);
     std::vector<uint8_t> input_colors(4 * rect.width() * rect.height(), 0);
     std::vector<SkColor> expected_output_colors(rect.width() * rect.height());
@@ -6405,8 +6382,9 @@ class ColorTransformPixelTest
 
       ResourceId resource = CreateGpuResource(
           this->child_context_provider_, this->child_resource_provider_.get(),
-          rect.size(), SinglePlaneFormat::kRGBA_8888, this->src_color_space_,
-          input_colors);
+          rect.size(), SinglePlaneFormat::kRGBA_8888,
+          premultiplied_alpha_ ? kPremul_SkAlphaType : kUnpremul_SkAlphaType,
+          this->src_color_space_, input_colors);
 
       // Return the mapped resource id.
       std::unordered_map<ResourceId, ResourceId, ResourceIdHasher>
@@ -6423,8 +6401,8 @@ class ColorTransformPixelTest
       auto* quad = pass->CreateAndAppendDrawQuad<TextureDrawQuad>();
 
       quad->SetNew(shared_state, rect, rect, needs_blending, mapped_resource,
-                   this->premultiplied_alpha_, uv_top_left, uv_bottom_right,
-                   SkColors::kBlack, nearest_neighbor,
+                   uv_top_left, uv_bottom_right, SkColors::kBlack,
+                   nearest_neighbor,
                    /*secure_output=*/false, gfx::ProtectedVideoType::kClear);
 
       auto* color_quad = pass->CreateAndAppendDrawQuad<SolidColorDrawQuad>();
@@ -6433,11 +6411,6 @@ class ColorTransformPixelTest
 
     AggregatedRenderPassList pass_list;
     pass_list.push_back(std::move(pass));
-
-    if (!this->dst_color_space_.IsSuitableForBlending() &&
-        !base::FeatureList::IsEnabled(features::kColorConversionInRenderer)) {
-      AddColorConversionPass(pass_list);
-    }
 
     // Allow a difference of 2 bytes in comparison for most cases.
     float avg_abs_error_limit = 2.0f;
@@ -6455,8 +6428,7 @@ class ColorTransformPixelTest
                           .SetAvgAbsErrorLimit(avg_abs_error_limit)
                           .SetAbsErrorLimit(max_abs_error_limit);
     EXPECT_TRUE(
-        this->RunPixelTest(&pass_list, &expected_output_colors, comparator))
-        << " src:" << src_color_space_ << ", dst:" << dst_color_space_;
+        this->RunPixelTest(&pass_list, &expected_output_colors, comparator));
   }
 
   base::test::ScopedFeatureList features_;
@@ -6483,37 +6455,22 @@ TEST_P(ColorTransformPixelTest, MAYBE_Basic) {
   Basic();
 }
 
-gfx::ColorSpace src_color_spaces[] = {
-    // This will be replaced by an ICC-based space (which can't be initialized
-    // here).
-    gfx::ColorSpace(),
-    gfx::ColorSpace(PrimaryID::BT709, TransferID::BT709),
-    gfx::ColorSpace(PrimaryID::BT709, TransferID::GAMMA28),
-    gfx::ColorSpace(PrimaryID::BT709, TransferID::SMPTE240M),
-    gfx::ColorSpace(PrimaryID::BT709, TransferID::LINEAR),
-    gfx::ColorSpace(PrimaryID::BT709, TransferID::SRGB),
-    gfx::ColorSpace(PrimaryID::BT709, TransferID::SMPTEST428_1),
-    gfx::ColorSpace(PrimaryID::BT709, TransferID::SRGB_HDR),
-    gfx::ColorSpace(PrimaryID::BT709, TransferID::LINEAR_HDR),
-    gfx::ColorSpace::CreateHDR10(),
+NamedColorSpace src_color_spaces[] = {
+    NamedColorSpace::kBt709Bt709,   NamedColorSpace::kWideGamutColorSpinGamma28,
+    NamedColorSpace::kBt709Linear,  NamedColorSpace::kBt709Srgb,
+    NamedColorSpace::kBt709SrgbHdr, NamedColorSpace::kBt709LinearHdr,
+    NamedColorSpace::kHdr10,
 };
 
-gfx::ColorSpace dst_color_spaces[] = {
-    // This will be replaced by an ICC-based space (which can't be initialized
-    // here).
-    gfx::ColorSpace(),
-    gfx::ColorSpace(PrimaryID::BT709, TransferID::BT709),
-    gfx::ColorSpace(PrimaryID::BT709, TransferID::GAMMA28),
-    gfx::ColorSpace(PrimaryID::BT709, TransferID::SMPTE240M),
-    gfx::ColorSpace(PrimaryID::BT709, TransferID::LINEAR),
-    gfx::ColorSpace(PrimaryID::BT709, TransferID::SRGB),
-    gfx::ColorSpace(PrimaryID::BT709, TransferID::SRGB_HDR),
-    gfx::ColorSpace(PrimaryID::BT709, TransferID::LINEAR_HDR),
+NamedColorSpace dst_color_spaces[] = {
+    NamedColorSpace::kBt709Bt709,   NamedColorSpace::kWideGamutColorSpinGamma28,
+    NamedColorSpace::kBt709Linear,  NamedColorSpace::kBt709Srgb,
+    NamedColorSpace::kBt709SrgbHdr, NamedColorSpace::kBt709LinearHdr,
 };
 
-gfx::ColorSpace intermediate_color_spaces[] = {
-    gfx::ColorSpace(PrimaryID::XYZ_D50, TransferID::LINEAR),
-    gfx::ColorSpace(PrimaryID::XYZ_D50, TransferID::SRGB_HDR),
+NamedColorSpace intermediate_color_spaces[] = {
+    NamedColorSpace::kXyzD50Linear,
+    NamedColorSpace::kXyzD50SrgbHdr,
 };
 
 INSTANTIATE_TEST_SUITE_P(
@@ -6522,8 +6479,8 @@ INSTANTIATE_TEST_SUITE_P(
     testing::Combine(testing::ValuesIn(GetGpuRendererTypes()),
                      testing::ValuesIn(src_color_spaces),
                      testing::ValuesIn(intermediate_color_spaces),
-                     testing::Bool(),
-                     testing::Values(false)));
+                     testing::Bool()),
+    &ColorTransformPixelTest::GetParamName);
 
 INSTANTIATE_TEST_SUITE_P(
     ToColorSpace,
@@ -6531,8 +6488,8 @@ INSTANTIATE_TEST_SUITE_P(
     testing::Combine(testing::ValuesIn(GetGpuRendererTypes()),
                      testing::ValuesIn(intermediate_color_spaces),
                      testing::ValuesIn(dst_color_spaces),
-                     testing::Bool(),
-                     testing::Values(false)));
+                     testing::Bool()),
+    &ColorTransformPixelTest::GetParamName);
 
 // Test cases that simulate HDR content with tone mapping, which may require
 // color conversion when the destination color space is not suitable for
@@ -6542,16 +6499,16 @@ INSTANTIATE_TEST_SUITE_P(
     ColorTransformPixelTest,
     testing::Combine(testing::ValuesIn(GetGpuRendererTypes()),
                      testing::ValuesIn({
-                         gfx::ColorSpace::CreateExtendedSRGB(),
-                         gfx::ColorSpace::CreateHDR10(),
-                         gfx::ColorSpace::CreateHLG(),
+                         NamedColorSpace::kBt709SrgbHdr,
+                         NamedColorSpace::kHdr10,
+                         NamedColorSpace::kHlg,
                      }),
                      testing::ValuesIn({
-                         gfx::ColorSpace::CreateExtendedSRGB(),
-                         gfx::ColorSpace::CreateSCRGBLinear80Nits(),
+                         NamedColorSpace::kBt709SrgbHdr,
+                         NamedColorSpace::kScrgbLinear80Nits,
                      }),
-                     testing::Bool(),
-                     testing::Bool()));
+                     testing::Bool()),
+    &ColorTransformPixelTest::GetParamName);
 
 // GetGpuRendererTypes() can return an empty list, e.g. on Fuchsia ARM64.
 GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(ColorTransformPixelTest);

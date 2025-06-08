@@ -381,7 +381,7 @@ class AutofillAgent : public content::RenderFrameObserver,
       const blink::WebFormControlElement& element,
       AutofillSuggestionTriggerSource trigger_source,
       const SynchronousFormCache& form_cache,
-      base::optional_ref<const PasswordSuggestionRequest> password_request);
+      const std::optional<PasswordSuggestionRequest>& password_request);
 
   // Shows Autofill suggestions for `element` if `element` is a contenteditable.
   void ShowSuggestionsForContentEditable(
@@ -583,6 +583,10 @@ class AutofillAgent : public content::RenderFrameObserver,
     base::TimeTicks time;
     FieldRendererId field = {};
   } last_ask_for_values_to_fill_;
+
+  const bool optimize_form_extraction_ = false;
+  const bool replace_form_element_observer_ = false;
+  const bool detect_removed_form_controls_ = false;
 
   base::WeakPtrFactory<AutofillAgent> weak_ptr_factory_{this};
 };

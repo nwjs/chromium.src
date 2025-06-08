@@ -30,6 +30,7 @@
 #include "base/check_op.h"
 #include "base/feature_list.h"
 #include "base/memory/raw_ptr.h"
+#include "base/strings/stringprintf.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
@@ -932,43 +933,6 @@ IN_PROC_BROWSER_TEST_F(FullRestoreAppLaunchHandlerBrowserTest,
   EXPECT_LT(browser_from_template->window()->GetNativeWindow()->GetProperty(
                 ::app_restore::kRestoreWindowIdKey),
             -1);
-}
-
-class FullRestoreAppLaunchHandlerWithFloatingWorkspaceBrowserTest
-    : public FullRestoreAppLaunchHandlerTestBase {
- public:
-  FullRestoreAppLaunchHandlerWithFloatingWorkspaceBrowserTest() {
-    scoped_feature_list_.InitWithFeatures(
-        /*enabled_features=*/{features::kFloatingWorkspaceV2,
-                              features::kDeskTemplateSync},
-        /*disabled_features=*/{});
-  }
-  ~FullRestoreAppLaunchHandlerWithFloatingWorkspaceBrowserTest() override =
-      default;
-};
-
-IN_PROC_BROWSER_TEST_F(
-    FullRestoreAppLaunchHandlerWithFloatingWorkspaceBrowserTest,
-    AddAppAndNotRestoreWithFloatingWorkspaceEnabled) {
-  // Add app launch infos.
-  SaveBrowserAppLaunchInfo(kWindowId1);
-  SaveDefaultAppLaunchInfo();
-  AppLaunchInfoSaveWaiter::Wait();
-
-  size_t count = BrowserList::GetInstance()->size();
-
-  // Create FullRestoreAppLaunchHandler.
-  auto app_launch_handler =
-      std::make_unique<FullRestoreAppLaunchHandler>(profile());
-  app_launch_handler->LaunchBrowserWhenReady(/*first_run_full_restore=*/false);
-
-  CreateWebApp();
-
-  content::RunAllTasksUntilIdle();
-
-  // Verify there is no new browser launched.
-  EXPECT_EQ(count, BrowserList::GetInstance()->size());
-  EXPECT_FALSE(FindWebAppWindow());
 }
 
 class FullRestoreAppLaunchHandlerChromeAppBrowserTest

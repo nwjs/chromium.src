@@ -66,6 +66,10 @@ BASE_FEATURE(kComputePressureRateObfuscationMitigation,
 
 BASE_FEATURE(kCrashReportingAPIMoreContextData,
              "CrashReportingAPIMoreContextData",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kOverrideCrashReportingEndpoint,
+             "OverrideCrashReportingEndpoint",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kLowerHighResolutionTimerThreshold,
@@ -93,10 +97,6 @@ BASE_FEATURE(kAllowURNsInIframes,
 BASE_FEATURE(kDisplayWarningDeprecateURNIframesUseFencedFrames,
              "DisplayWarningDeprecateURNIframesUseFencedFrames",
              base::FEATURE_DISABLED_BY_DEFAULT);
-
-BASE_FEATURE(kAndroidExtendedKeyboardShortcuts,
-             "AndroidExtendedKeyboardShortcuts",
-             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // A server-side switch for the kRealtimeAudio thread type of
 // RealtimeAudioWorkletThread object. This can be controlled by a field trial,
@@ -145,10 +145,6 @@ BASE_FEATURE_PARAM(bool,
                    &kAutoSpeculationRules,
                    "holdback",
                    false);
-
-BASE_FEATURE(kAvifGainmapHdrImages,
-             "AvifGainmapHdrImages",
-             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kAvoidForcedLayoutOnInitialEmptyDocumentInSubframe,
              "AvoidForcedLayoutOnInitialEmptyDocumentInSubframe",
@@ -389,23 +385,6 @@ BASE_FEATURE_PARAM(base::TimeDelta,
                    "first_timeout_retry_delay",
                    base::Minutes(1));
 
-// When enabled, code cache is produced asynchronously from the script execution
-// (https://crbug.com/1260908).
-BASE_FEATURE(kCacheCodeOnIdle,
-             "CacheCodeOnIdle",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-BASE_FEATURE_PARAM(int,
-                   kCacheCodeOnIdleDelayParam,
-                   &kCacheCodeOnIdle,
-                   "delay-in-ms",
-                   1);
-// Apply CacheCodeOnIdle only for service workers (https://crbug.com/1410082).
-BASE_FEATURE_PARAM(bool,
-                   kCacheCodeOnIdleDelayServiceWorkerOnlyParam,
-                   &kCacheCodeOnIdle,
-                   "service-worker-only",
-                   true);
-
 // When enabled allows the header name used in the blink
 // CacheStorageCodeCacheHint runtime feature to be modified.  This runtime
 // feature disables generating full code cache for responses stored in
@@ -453,7 +432,7 @@ BASE_FEATURE(kCheckHTMLParserBudgetLessOften,
 
 BASE_FEATURE(kClearSiteDataPrefetchPrerenderCache,
              "ClearSiteDataPrefetchPrerenderCache",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enable legacy `dpr` client hint.
 BASE_FEATURE(kClientHintsDPR_DEPRECATED,
@@ -767,10 +746,6 @@ BASE_FEATURE(kEnforceNoopenerOnBlobURLNavigation,
 BASE_FEATURE(kEventTimingIgnorePresentationTimeFromUnexpectedFrameSource,
              "EventTimingIgnorePresentationTimeFromUnexpectedFrameSource",
              base::FEATURE_DISABLED_BY_DEFAULT);
-
-BASE_FEATURE(kExemptSpeculationRulesHeaderFromCSP,
-             "ExemptSpeculationRulesHeaderFromCSP",
-             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kExpandCompositedCullRect,
              "ExpandCompositedCullRect",
@@ -1163,9 +1138,23 @@ BASE_FEATURE(kGetUserMediaDeferredDeviceSettingsSelection,
              base::FEATURE_DISABLED_BY_DEFAULT);
 #endif
 
-BASE_FEATURE(kHiddenSelectionBounds,
-             "HiddenSelectionBounds",
-             base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE_PARAM(std::string,
+                   kHTMLParserYieldEventNameForPause,
+                   &kHTMLParserYieldByUserTiming,
+                   "pause_event_name",
+                   "");
+
+BASE_FEATURE_PARAM(std::string,
+                   kHTMLParserYieldEventNameForResume,
+                   &kHTMLParserYieldByUserTiming,
+                   "resume_event_name",
+                   "");
+
+BASE_FEATURE_PARAM(size_t,
+                   kHTMLParserYieldTimeoutInMs,
+                   &kHTMLParserYieldByUserTiming,
+                   "timeout_ms",
+                   20);
 
 BASE_FEATURE(kIgnoreInputWhileHidden,
              "IgnoreInputWhileHidden",
@@ -1276,7 +1265,7 @@ BASE_FEATURE(kKeepAliveInBrowserMigration,
 
 BASE_FEATURE(kAttributionReportingInBrowserMigration,
              "AttributionReportingInBrowserMigration",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kLimitLayerMergeDistance,
              "LimitLayerMergeDistance",
@@ -1456,6 +1445,12 @@ BASE_FEATURE_PARAM(int,
                    &kLCPPAutoPreconnectLcpOrigin,
                    "lcpp_preconnect_max_histogram_buckets",
                    10);
+
+BASE_FEATURE_PARAM(bool,
+                   kLCPPAutoPreconnectRecordAllOrigins,
+                   &kLCPPAutoPreconnectLcpOrigin,
+                   "lcpp_preconnect_record_all_origins",
+                   false);
 
 BASE_FEATURE(kLCPPDeferUnusedPreload,
              "LCPPDeferUnusedPreload",
@@ -1679,6 +1674,10 @@ BASE_FEATURE_PARAM(int,
 
 BASE_FEATURE(kLCPPPrefetchSubresource,
              "LCPPPrefetchSubresource",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kLCPPPrefetchSubresourceAsync,
+             "LCPPPrefetchSubresourceAsync",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kHttpDiskCachePrewarming,
@@ -1944,6 +1943,10 @@ BASE_FEATURE_PARAM(int,
                    "memory_cache_strong_ref_resource_size_threshold",
                    3 * 1024 * 1024);
 
+BASE_FEATURE(kMemoryPurgeOnFreezeLimit,
+             "MemoryPurgeOnFreezeLimit",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 BASE_FEATURE(kMemorySaverModeRenderTuning,
              "MemorySaverModeRenderTuning",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -2147,10 +2150,6 @@ BASE_FEATURE(kPageHideEventForPrerender2,
              "PageHideEventForPrerender2",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(kPrerender2MainFrameNavigation,
-             "Prerender2MainFrameNavigation",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 const char kPrerender2MaxNumOfRunningSpeculationRules[] =
     "max_num_of_running_speculation_rules";
 
@@ -2164,26 +2163,6 @@ const char kPrerender2MemoryAcceptablePercentOfSystemMemoryParamName[] =
 BASE_FEATURE(kPrerender2EarlyDocumentLifecycleUpdate,
              "Prerender2EarlyDocumentLifecycleUpdate",
              base::FEATURE_DISABLED_BY_DEFAULT);
-
-BASE_FEATURE(kPrerender2WarmUpCompositor,
-             "Prerender2WarmUpCompositor",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-const base::FeatureParam<Prerender2WarmUpCompositorTriggerPoint>::Option
-    prerender2_warm_up_compositor_trigger_point[] = {
-        {Prerender2WarmUpCompositorTriggerPoint::kDidCommitLoad,
-         "did_commit_load"},
-        {Prerender2WarmUpCompositorTriggerPoint::
-             kDidDispatchDOMContentLoadedEvent,
-         "did_dispatch_dom_content_loaded_event"},
-        {Prerender2WarmUpCompositorTriggerPoint::kDidFinishLoad,
-         "did_finish_load"},
-};
-BASE_FEATURE_ENUM_PARAM(Prerender2WarmUpCompositorTriggerPoint,
-                        kPrerender2WarmUpCompositorTriggerPoint,
-                        &kPrerender2WarmUpCompositor,
-                        "trigger_point",
-                        Prerender2WarmUpCompositorTriggerPoint::kDidCommitLoad,
-                        &prerender2_warm_up_compositor_trigger_point);
 
 // Enable limiting previews loading hints to specific resource types.
 BASE_FEATURE(kPreviewsResourceLoadingHintsSpecificResourceTypes,
@@ -2403,7 +2382,7 @@ BASE_FEATURE(kScriptStreamingForNonHTTP,
 // Enables sending Sec-Purpose: "prefetch" header for rel="prefetch".
 BASE_FEATURE(kSecPurposePrefetchHeaderRelPrefetch,
              "SecPurposePrefetchHeaderRelPrefetch",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kSelectiveInOrderScript,
              "SelectiveInOrderScript",
@@ -2464,10 +2443,6 @@ const char kSkipTouchEventFilterFilteringProcessParamValueBrowser[] = "browser";
 const char kSkipTouchEventFilterFilteringProcessParamValueBrowserAndRenderer[] =
     "browser_and_renderer";
 
-BASE_FEATURE(kSpeculationRulesPrefetchFuture,
-             "SpeculationRulesPrefetchFuture",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 BASE_FEATURE(kSpeculativeImageDecodes,
              "SpeculativeImageDecodes",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -2499,10 +2474,6 @@ const base::FeatureParam<bool> kSpeculativeServiceWorkerWarmUpOnPointerover{
 // Warms up service workers when a pointerdown event is triggered on an anchor.
 const base::FeatureParam<bool> kSpeculativeServiceWorkerWarmUpOnPointerdown{
     &kSpeculativeServiceWorkerWarmUp, "sw_warm_up_on_pointerdown", true};
-
-// Warms up service worker after service worker is stopped on idle timeout.
-const base::FeatureParam<bool> kSpeculativeServiceWorkerWarmUpOnIdleTimeout{
-    &kSpeculativeServiceWorkerWarmUp, "sw_warm_up_on_idle_timeout", false};
 
 // (crbug.com/352578800): Enables building a sysnthetic response by
 // ServiceWorker. For navigation requests, the pre-learned static response
@@ -2582,10 +2553,6 @@ BASE_FEATURE(kStreamlineRendererInit,
 
 BASE_FEATURE(kSubSampleWindowProxyUsageMetrics,
              "SubSampleWindowProxyUsageMetrics",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-BASE_FEATURE(kStylusRichGestures,
-             "StylusRichGestures",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kThreadedBodyLoader,
@@ -2848,8 +2815,10 @@ BASE_FEATURE(kWebRtcUseMinMaxVEADimensions,
 #endif
 );
 
-// Allow access to WebSQL APIs.
-BASE_FEATURE(kWebSQLAccess, "kWebSQLAccess", base::FEATURE_DISABLED_BY_DEFAULT);
+// Kill switch for crbug.com/407785197.
+BASE_FEATURE(kWebRtcAllowDataChannelRecordingInWebrtcInternals,
+             "WebRtcAllowDataChannelRecordingInWebrtcInternals",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Kill switch for https://crbug.com/338955051.
 BASE_FEATURE(kWebUSBTransferSizeLimit,
@@ -2866,6 +2835,11 @@ BASE_FEATURE(kWebviewAccelerateSmallCanvases,
 // Kill switch for crbug.com/409059706.
 BASE_FEATURE(kWorkerThreadSequentialShutdown,
              "WorkerThreadSequentialShutdown",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+// WorkerThread termination respects the current thread termination request.
+BASE_FEATURE(kWorkerThreadRespectTermRequest,
+             "WorkerThreadRespectTermRequest",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kNoReferrerForPreloadFromSubresource,

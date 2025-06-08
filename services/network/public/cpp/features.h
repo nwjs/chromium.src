@@ -46,10 +46,6 @@ BASE_DECLARE_FEATURE(kCrossOriginOpenerPolicyByDefault);
 COMPONENT_EXPORT(NETWORK_CPP_FLAGS_AND_SWITCHES)
 BASE_DECLARE_FEATURE(kCoopNoopenerAllowPopups);
 COMPONENT_EXPORT(NETWORK_CPP_FLAGS_AND_SWITCHES)
-BASE_DECLARE_FEATURE(kCoopRestrictProperties);
-COMPONENT_EXPORT(NETWORK_CPP_FLAGS_AND_SWITCHES)
-BASE_DECLARE_FEATURE(kCoopRestrictPropertiesOriginTrial);
-COMPONENT_EXPORT(NETWORK_CPP_FLAGS_AND_SWITCHES)
 BASE_DECLARE_FEATURE(kSplitAuthCacheByNetworkIsolationKey);
 COMPONENT_EXPORT(NETWORK_CPP_FLAGS_AND_SWITCHES)
 BASE_DECLARE_FEATURE(kDnsOverHttpsUpgrade);
@@ -122,10 +118,6 @@ BASE_DECLARE_FEATURE(kIntegrityPolicyScript);
 COMPONENT_EXPORT(NETWORK_CPP_FLAGS_AND_SWITCHES)
 BASE_DECLARE_FEATURE(kVisibilityAwareResourceScheduler);
 
-// Enables Compression Dictionary Transport with Zstandard (aka Shared Zstd).
-COMPONENT_EXPORT(NETWORK_CPP_FLAGS_AND_SWITCHES)
-BASE_DECLARE_FEATURE(kSharedZstd);
-
 COMPONENT_EXPORT(NETWORK_CPP_FLAGS_AND_SWITCHES)
 BASE_DECLARE_FEATURE(kReduceTransferSizeUpdatedIPC);
 
@@ -173,9 +165,6 @@ BASE_DECLARE_FEATURE(kCloneDevToolsConnectionOnlyIfRequested);
 // https://wicg.github.io/signature-based-sri/
 COMPONENT_EXPORT(NETWORK_CPP_FLAGS_AND_SWITCHES)
 BASE_DECLARE_FEATURE(kSRIMessageSignatureEnforcement);
-
-COMPONENT_EXPORT(NETWORK_CPP_FLAGS_AND_SWITCHES)
-BASE_DECLARE_FEATURE(kCreateURLLoaderPipeAsync);
 
 // Should Sec-Ad-Auction-Event-Recording-Eligible be sent on requests made
 // with attributionsrc, and should Ad-Auction-Register-Event responses on
@@ -328,6 +317,28 @@ BASE_DECLARE_FEATURE(kDeviceBoundSessionAccessObserverSharedRemote);
 
 COMPONENT_EXPORT(NETWORK_CPP_FLAGS_AND_SWITCHES)
 BASE_DECLARE_FEATURE(kCSPScriptSrcV2);
+
+// When enabled, fetches for "pervasive" scripts that match one of the
+// configured patterns will use a shared, single-keyed cache.
+// See https://chromestatus.com/feature/5202380930678784
+COMPONENT_EXPORT(NETWORK_CPP_FLAGS_AND_SWITCHES)
+BASE_DECLARE_FEATURE(kCacheSharingForPervasiveScripts);
+
+// newline-delimited list of URL patterns for "pervasive" scripts.
+COMPONENT_EXPORT(NETWORK_CPP_FLAGS_AND_SWITCHES)
+BASE_DECLARE_FEATURE_PARAM(std::string, kPervasiveScriptURLPatterns);
+
+// When enabled, disk-based shared dictionaries will use a memory cache to
+// keep frequently used dictionaries in memory.
+COMPONENT_EXPORT(NETWORK_CPP_FLAGS_AND_SWITCHES)
+BASE_DECLARE_FEATURE(kSharedDictionaryCache);
+
+COMPONENT_EXPORT(NETWORK_CPP_FLAGS_AND_SWITCHES)
+BASE_DECLARE_FEATURE_PARAM(size_t, kSharedDictionaryCacheSize);
+
+// Maximum size of dictionaries that are allowed to be stored in the cache.
+COMPONENT_EXPORT(NETWORK_CPP_FLAGS_AND_SWITCHES)
+BASE_DECLARE_FEATURE_PARAM(size_t, kSharedDictionaryCacheMaxSizeBytes);
 
 }  // namespace network::features
 

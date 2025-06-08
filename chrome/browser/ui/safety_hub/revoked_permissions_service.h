@@ -36,7 +36,7 @@
 class PrefChangeRegistrar;
 class PrefService;
 
-constexpr char kRevokedPermissionsResultKey[] = "permissions";
+inline constexpr char kRevokedPermissionsResultKey[] = "permissions";
 
 namespace url {
 class Origin;
@@ -103,17 +103,17 @@ class RevokedPermissionsService final : public SafetyHubService,
     // Adds a revoked permission, defined by origin, a set of permission types
     // and the expiration until the user is made aware of the revoked
     // permission.
-    void AddRevokedPermission(const PermissionsData&);
+    void AddRevokedPermission(PermissionsData);
 
     void SetRecentlyUnusedPermissions(UnusedPermissionMap map) {
-      recently_unused_permissions_ = map;
+      recently_unused_permissions_ = std::move(map);
     }
 
-    UnusedPermissionMap GetRecentlyUnusedPermissions() {
+    const UnusedPermissionMap& GetRecentlyUnusedPermissions() {
       return recently_unused_permissions_;
     }
 
-    std::list<PermissionsData> GetRevokedPermissions();
+    const std::list<PermissionsData>& GetRevokedPermissions();
 
     std::set<ContentSettingsPattern> GetRevokedOrigins() const;
 
@@ -189,9 +189,10 @@ class RevokedPermissionsService final : public SafetyHubService,
   // the user. Does not change permissions themselves.
   void ClearRevokedPermissionsList();
 
-  // Stores revoked permissions data on HCSM.
-  void StorePermissionInRevokedPermissionSetting(
-      const PermissionsData& permission_data);
+  // Restores the list of revoked permissions after it was deleted after user
+  // has accepted the revocation (via `ClearRevokedPermissionsList()`).
+  void RestoreDeletedRevokedPermissionsList(
+      const std::vector<PermissionsData>& permissions_data_list);
 
   // Returns the list of all permissions that have been revoked.
   std::unique_ptr<RevokedPermissionsResult> GetRevokedPermissions();
@@ -233,8 +234,7 @@ class RevokedPermissionsService final : public SafetyHubService,
   void SetClockForTesting(base::Clock* clock);
   std::vector<ContentSettingEntry> GetTrackedUnusedPermissionsForTesting();
 
-  using UnusedPermissionMap =
-      std::map<std::string, std::list<ContentSettingEntry>>;
+  using UnusedPermissionMap = RevokedPermissionsResult::UnusedPermissionMap;
 
  private:
   FRIEND_TEST_ALL_PREFIXES(RevokedPermissionsServiceTest,
@@ -263,7 +263,7 @@ class RevokedPermissionsService final : public SafetyHubService,
   void RevokeUnusedPermissions();
 
   // Stores revoked permissions data on HCSM.
-  void StorePermissionInRevokedPermissionSetting(
+  void StorePermissionInUnusedSitePermissionSetting(
       const std::set<ContentSettingsType>& permissions,
       const base::Value::Dict& chooser_permissions_data,
       const std::optional<content_settings::ContentSettingConstraints>
@@ -274,6 +274,8 @@ class RevokedPermissionsService final : public SafetyHubService,
   HostContentSettingsMap* hcsm() {
     return HostContentSettingsMapFactory::GetForProfile(browser_context_.get());
   }
+
+  void MaybeStartRepeatedUpdates();
 
   // SafetyHubService implementation
 

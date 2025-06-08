@@ -47,6 +47,7 @@
 <translation id="1917964099031477364">Այս հաշիվը և բոլոր չպահված տվյալները կհեռացվեն Chrome-ից և Google-ի մյուս հավելվածներից այս սարքում։</translation>
 <translation id="1919130412786645364">Թույլատրել մուտքը Chrome-ում</translation>
 <translation id="1965935827552890526">Ավարտեք աշխատանքը Chrome-ի մյուս բացված պատուհանում։</translation>
+<translation id="1966638102563776885">Խորհուրդ Chrome-ից. մուտքագրեք ձեր գաղտնաբառերը ցանկացած հավելվածում</translation>
 <translation id="1973910962341002002">«<ph name="TEXT_OF_THE_SETTINGS_MENU_ITEM" />» կարգավորումներից միացրեք «Chrome»-ը</translation>
 <translation id="1984705450038014246">Համաժամացնել Chrome-ի տվյալները</translation>
 <translation id="1987779152850321833">Կատարեք այս առաջարկվող գործողությունները՝ Chrome-ի բոլոր հնարավորություններից օգտվելու համար։</translation>
@@ -114,7 +115,6 @@
 <translation id="3655656110921623717">Սա նշանակում է, որ Chrome-ը միշտ կփորձի բացել կայքի բջջային տարբերակը։</translation>
 <translation id="3740397331642243698">Մուտքագրված URL-ները բացվում են Google Chrome-ի ինկոգնիտո ներդիրում։</translation>
 <translation id="3741995255368156336">Բացում է Chrome-ի ընթերցանության ցանկը։</translation>
-<translation id="3808570423967020928">Ավելի արագ բացեք Chrome-ը հիմնական էկրանի Dock վահանակից։</translation>
 <translation id="3827545470516145620">Այս սարքում միացված է անվտանգության ստանդարտ ռեժիմը</translation>
 <translation id="384394811301901750">Այս պահին Google Chrome-ը չի կարող օգտագործել ձեր ֆոտոխցիկը</translation>
 <translation id="3863841106411295595">Ավելացնում է մուտքագրված URL-ը ձեր ընթերցանության ցանկին Chrome-ում։</translation>
@@ -138,6 +138,7 @@
 <translation id="4724297637870447613">Օգտագործեք Chrome-ն ամենուրեք</translation>
 <translation id="4738647308035481133">Google Chrome-ի էջ</translation>
 <translation id="4742795653798179840">Տվյալները ջնջվել են Chrome-ից</translation>
+<translation id="4749294594657945639">Պահված գաղտնաբառերն այլ հավելվածներում հեշտությամբ մուտքագրելու համար ընտրեք ինքնալրացման գործառույթը Chrome-ում։</translation>
 <translation id="4761869838909035636">Անցնել Chrome-ի անվտանգության ստուգում</translation>
 <translation id="4798859546468762093">Անհատականացումը և այլ գործառույթներ կարգավորելու համար ավելացրեք Chrome-ն այստեղ՝ <ph name="FEATURE_NAME_1" /> և <ph name="FEATURE_NAME_2" /></translation>
 <translation id="4819268619367838612">Հավելվածը բարելավելու նպատակով Chrome-ը ուղարկում է օգտագործման և խափանումների մասին տվյալները Google-ին։ <ph name="BEGIN_LINK" />Կառավարել<ph name="END_LINK" /></translation>
@@ -233,7 +234,6 @@
 <translation id="6975725306479268850">«Ինքնալրացում» պարամետրի համար ընտրեք Chrome-ը</translation>
 <translation id="7056826488869329999">Բացում և գործարկում է անվտանգության ստուգումը Chrome-ում։</translation>
 <translation id="7061455974939528301">Սեղմեք Chrome-ի պատկերակը և պահեք, ապա ընտրեք «Փոփոխել հիմնական էկրանը»</translation>
-<translation id="7065813315247345131">Տեղափոխեք Chrome-ը Dock վահանակ</translation>
 <translation id="7124339256045485976">Chrome-ը թարմացված պահեք</translation>
 <translation id="7145599899567697473">Պահեք և ավտոմատ լրացրեք գաղտնաբառերը Chrome-ում</translation>
 <translation id="7161390184744336561">Google Chrome-ը հնացած է</translation>
@@ -317,10 +317,10 @@
 <translation id="8603022514504485810">Google գաղտնաբառերի կառավարիչը չկարողացավ ստուգել բոլոր գաղտնաբառերը։ Վաղը նորից փորձեք կամ <ph name="BEGIN_LINK" />գաղտնաբառերը ստուգեք ձեր Google հաշվում<ph name="END_LINK" />։</translation>
 <translation id="8630122478628016441">Միացրեք «Կողպել ինկոգնիտո ներդիրները, երբ փակում եք Chrome-ը» գործառույթը։</translation>
 <translation id="8673726683583791503">Կատարեք գնումներ Google Տեսապակու օգնությամբ</translation>
-<translation id="8727043961453758442">Օգտվեք Chrome-ի բոլոր հնարավորություններից</translation>
 <translation id="8765470054473112089">Երբ դուք տեքստ եք մուտքագրում հասցեագոտում կամ որոնման դաշտում, Chrome-ը ձեր հարցումն ուղարկում է կանխադրված որոնողական համակարգին՝ ավելի լավ առաջարկներ ստանալու համար։ Այս գործառույթն անջատված է ինկոգնիտո ռեժիմում։</translation>
 <translation id="8772179140489533211">Ցույց է տալիս հաղորդագրություն Chrome-ում մուտք գործելու համար։</translation>
 <translation id="8788269841521769222">Այս գաղտնաբառը հիշելու կարիք չկա։ Այն կպահվի <ph name="EMAIL" /> հաշվի Google Գաղտնաբառերի կառավարիչում։</translation>
+<translation id="8796490717897731471"><ph name="EMAIL" />։ Chrome-ը կառավարվում է։</translation>
 <translation id="880967149107462122">Բացեք Chrome-ի կարգավորումները</translation>
 <translation id="8842132678697187091">Google Տեսապակին կարող եք բացել այստեղ։</translation>
 <translation id="8850736900032787670">Ձեր հետաքրքրությունների հիման վրա անհատականացված բովանդակություն ստանալու համար մուտք գործեք Chrome։</translation>

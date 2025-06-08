@@ -52,6 +52,8 @@ import org.chromium.chrome.browser.readaloud.ReadAloudMetrics;
 import org.chromium.chrome.browser.readaloud.ReadAloudPrefs;
 import org.chromium.chrome.browser.readaloud.ReadAloudPrefsJni;
 import org.chromium.chrome.browser.readaloud.testing.MockPrefServiceHelper;
+import org.chromium.chrome.modules.readaloud.Feedback.FeedbackType;
+import org.chromium.chrome.modules.readaloud.Feedback.NegativeFeedbackReason;
 import org.chromium.chrome.modules.readaloud.Playback;
 import org.chromium.chrome.modules.readaloud.PlaybackArgs.PlaybackMode;
 import org.chromium.chrome.modules.readaloud.PlaybackArgs.PlaybackModeSelectionEnablementStatus;
@@ -86,6 +88,7 @@ public class PlayerMediatorUnitTest {
     private ObservableSupplierImpl<Boolean> mHighlightingEnabledSupplier;
     private ObservableSupplierImpl<PlaybackModeSelectionEnablementStatus>
             mPlaybackModeSelectorEnabledSupplier;
+    private ObservableSupplierImpl<FeedbackType> mFeedbackTypeSupplier;
     @Captor private ArgumentCaptor<PlaybackListener> mPlaybackListenerCaptor;
     public UserActionTester mUserActionTester;
 
@@ -163,10 +166,15 @@ public class PlayerMediatorUnitTest {
         doReturn(TITLE).when(mPlaybackMetadata).title();
         doReturn(PUBLISHER).when(mPlaybackMetadata).publisher();
         doReturn(PlaybackMode.OVERVIEW).when(mPlaybackMetadata).playbackMode();
+        doReturn(1000).when(mSeekbar).getMax();
         mVoicesSupplier = new ObservableSupplierImpl<>();
         mVoicesSupplier.set(List.of(new PlaybackVoice("en", "a")));
         mSelectedVoiceIdSupplier = new ObservableSupplierImpl<>();
         mSelectedVoiceIdSupplier.set("a");
+
+        mFeedbackTypeSupplier = new ObservableSupplierImpl<>();
+        mFeedbackTypeSupplier.set(FeedbackType.NONE);
+
         mHighlightingEnabledSupplier = new ObservableSupplierImpl<>();
         mHighlightingEnabledSupplier.set(true);
         mPlaybackModeSelectorEnabledSupplier = new ObservableSupplierImpl<>();
@@ -177,10 +185,11 @@ public class PlayerMediatorUnitTest {
         mPlaybackData = new TestPlaybackData();
         mClock = new FakeClock();
 
-        doReturn(true).when(mDelegate).isHighlightingSupported();
+        doReturn(true).when(mDelegate).isHighlightingSupported(any());
         doReturn(mHighlightingEnabledSupplier).when(mDelegate).getHighlightingEnabledSupplier();
         doReturn(mVoicesSupplier).when(mDelegate).getCurrentLanguageVoicesSupplier();
         doReturn(mPlaybackModeSelectorEnabledSupplier).when(mDelegate).getPlaybackModeSelectionEnabled();
+        doReturn(mFeedbackTypeSupplier).when(mDelegate).getFeedbackTypeSupplier();
         doReturn(mSelectedVoiceIdSupplier).when(mDelegate).getVoiceIdSupplier();
         doReturn(mMockPrefServiceHelper.getPrefService()).when(mDelegate).getPrefService();
         mPreviewPromise = new Promise<>();
@@ -242,6 +251,15 @@ public class PlayerMediatorUnitTest {
         verify(mPlayback).addListener(eq(mPlaybackListenerCaptor.getValue()));
         assertEquals(TITLE, mModel.get(PlayerProperties.TITLE));
         assertEquals(PUBLISHER, mModel.get(PlayerProperties.PUBLISHER));
+    }
+
+    @Test
+    public void testSetRequestedPlaybackMode() {
+        mMediator.setRequestedPlaybackMode(PlaybackMode.OVERVIEW);
+
+        assertEquals(
+                PlaybackMode.OVERVIEW.getValue(),
+                (int) mModel.get(PlayerProperties.REQUESTED_PLAYBACK_MODE));
     }
 
     @Test
@@ -547,7 +565,31 @@ public class PlayerMediatorUnitTest {
     }
 
     @Test
+    public void testOnProgressChangedDuringScrubbing_notSeeking() {
+        mMediator.setPlayback(mPlayback);
+        mModel.set(PlayerProperties.DURATION_NANOS, 100L);
+
+        mOnSeekBarChangeListener.onStartTrackingTouch(mSeekbar);
+
+        mOnSeekBarChangeListener.onProgressChanged(mSeekbar, 20, true);
+        verify(mPlayback, never()).seek(anyLong());
+    }
+
+    @Test
+    public void testOnStopTrackingTouch_seeking() {
+        mMediator.setPlayback(mPlayback);
+        mModel.set(PlayerProperties.DURATION_NANOS, 100L);
+
+        mOnSeekBarChangeListener.onStartTrackingTouch(mSeekbar);
+        mOnSeekBarChangeListener.onProgressChanged(mSeekbar, 20, true);
+        mOnSeekBarChangeListener.onStopTrackingTouch(mSeekbar);
+
+        verify(mPlayback).seek(anyLong());
+    }
+
+    @Test
     public void testOnStartStopTrackingTouch() {
+      mMediator.setPlayback(mPlayback);
         int initialState = PLAYING;
         mMediator.setPlaybackState(initialState);
 
@@ -578,6 +620,7 @@ public class PlayerMediatorUnitTest {
         mOnSeekBarChangeListener.onStartTrackingTouch(mSeekbar);
         mPlaybackData.mAbsolutePositionNanos = 20 * 1_000_000_000L;
         mPlaybackListenerCaptor.getValue().onPlaybackDataChanged(mPlaybackData);
+        mOnSeekBarChangeListener.onProgressChanged(mSeekbar, mSeekbar.getMax() / 2, true);
         mOnSeekBarChangeListener.onStopTrackingTouch(mSeekbar);
 
         histogram.assertExpected();
@@ -594,6 +637,7 @@ public class PlayerMediatorUnitTest {
         mOnSeekBarChangeListener.onStartTrackingTouch(mSeekbar);
         mPlaybackData.mAbsolutePositionNanos = 20 * 1_000_000_000L;
         mPlaybackListenerCaptor.getValue().onPlaybackDataChanged(mPlaybackData);
+        mOnSeekBarChangeListener.onProgressChanged(mSeekbar, mSeekbar.getMax() / 2, true);
         mOnSeekBarChangeListener.onStopTrackingTouch(mSeekbar);
 
         histogram.assertExpected();
@@ -607,6 +651,25 @@ public class PlayerMediatorUnitTest {
         assertEquals(
                 PlaybackModeSelectionEnablementStatus.MODE_SELECTION_ENABLED.getValue(),
                 mModel.get(PlayerProperties.PLAYBACK_MODE_SELECTION_ENABLED));
+    }
+
+    @Test
+    public void testObserveFeedbackType() {
+      mFeedbackTypeSupplier.set(FeedbackType.POSITIVE);
+
+      assertEquals(FeedbackType.POSITIVE.getValue(), mModel.get(PlayerProperties.FEEDBACK_TYPE));
+    }
+
+    @Test
+    public void testOnPositiveFeedback() {
+      mMediator.onPositiveFeedback();
+      verify(mDelegate).onPositiveFeedback();
+    }
+
+    @Test
+    public void testOnNegativeFeedback() {
+      mMediator.onNegativeFeedback(NegativeFeedbackReason.BAD_VOICE);
+      verify(mDelegate).onNegativeFeedback(eq(NegativeFeedbackReason.BAD_VOICE));
     }
 
     @Test

@@ -279,6 +279,20 @@ BrowserCommandController::BrowserCommandController(Browser* browser)
   }
 #endif  // BUILDFLAG(ENABLE_GLIC)
 
+#if BUILDFLAG(ENABLE_GLIC)
+  if (glic::GlicEnabling::IsEnabledByFlags()) {
+    auto* service =
+        glic::GlicKeyedServiceFactory::GetGlicKeyedService(profile());
+    if (service) {
+      glic_window_activation_subscription_ =
+          service->window_controller().AddWindowActivationChangedCallback(
+              base::BindRepeating(
+                  &BrowserCommandController::GlicWindowActivationChanged,
+                  base::Unretained(this)));
+    }
+  }
+#endif
+
   InitCommandState();
 
   sessions::TabRestoreService* tab_restore_service =
@@ -400,6 +414,12 @@ void BrowserCommandController::LoadingStateChanged(bool is_loading,
                                                    bool force) {
   UpdateReloadStopState(is_loading, force);
 }
+
+#if BUILDFLAG(ENABLE_GLIC)
+void BrowserCommandController::GlicWindowActivationChanged(bool active) {
+  UpdateGlicState();
+}
+#endif
 
 void BrowserCommandController::FindBarVisibilityChanged() {
   // Block find command updates in locked fullscreen mode unless the instance is
@@ -1573,8 +1593,7 @@ void BrowserCommandController::InitCommandState() {
   // Glic commands.
   command_updater_.UpdateCommandEnabled(
       IDC_GLIC_TOGGLE_PIN, glic::GlicEnabling::IsProfileEligible(profile()));
-  command_updater_.UpdateCommandEnabled(
-      IDC_OPEN_GLIC, glic::GlicEnabling::IsEnabledForProfile(profile()));
+  UpdateGlicState();
 #endif
 
   // Initialize other commands whose state changes based on various conditions.
@@ -1731,7 +1750,8 @@ void BrowserCommandController::UpdateCommandsForTabState() {
 
 #if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_WIN)
   command_updater_.UpdateCommandEnabled(
-      IDC_CREATE_SHORTCUT, shortcuts::CanCreateDesktopShortcut(browser_));
+      IDC_CREATE_SHORTCUT,
+      shortcuts::CanCreateDesktopShortcut(current_web_contents));
 #else
   command_updater_.UpdateCommandEnabled(IDC_CREATE_SHORTCUT,
                                         can_create_web_app);
@@ -2037,6 +2057,20 @@ void BrowserCommandController::UpdatePrintingState() {
                                         CanBasicPrint(browser_));
 #endif
 }
+
+#if BUILDFLAG(ENABLE_GLIC)
+void BrowserCommandController::UpdateGlicState() {
+  if (glic::GlicEnabling::IsEnabledByFlags()) {
+    auto* service =
+        glic::GlicKeyedServiceFactory::GetGlicKeyedService(profile());
+    if (service) {
+      command_updater_.UpdateCommandEnabled(
+          IDC_OPEN_GLIC, glic::GlicEnabling::IsEnabledForProfile(profile()) &&
+                             !service->window_controller().IsShowing());
+    }
+  }
+}
+#endif
 
 void BrowserCommandController::UpdateSaveAsState() {
   if (is_locked_fullscreen_) {

@@ -47,6 +47,7 @@
 <translation id="1917964099031477364">บัญชีนี้และข้อมูลที่ไม่ได้บันทึกจะถูกนำออกจาก Chrome และแอปอื่นๆ ของ Google ในอุปกรณ์นี้</translation>
 <translation id="1919130412786645364">อนุญาตให้ลงชื่อเข้าใช้ Chrome</translation>
 <translation id="1965935827552890526">ทำสิ่งที่กำลังทำในหน้าต่าง Chrome ที่เปิดอยู่อีกอันให้เสร็จ</translation>
+<translation id="1966638102563776885">เคล็ดลับสำหรับ Chrome: เรียกดูรหัสผ่านในแอปใดก็ได้</translation>
 <translation id="1973910962341002002">เปิด "Chrome" จากการตั้งค่า "<ph name="TEXT_OF_THE_SETTINGS_MENU_ITEM" />"</translation>
 <translation id="1984705450038014246">ซิงค์ข้อมูล Chrome</translation>
 <translation id="1987779152850321833">โปรดดำเนินการตามที่แนะนําด้านล่างเพื่อให้ใช้ Chrome ได้เกิดประโยชน์สูงสุด</translation>
@@ -114,7 +115,6 @@
 <translation id="3655656110921623717">ซึ่งหมายความว่า Chrome จะขอเว็บไซต์เวอร์ชันอุปกรณ์เคลื่อนที่ทุกครั้ง</translation>
 <translation id="3740397331642243698">เปิด URL ที่ป้อนใน Google Chrome ในโหมดไม่ระบุตัวตน</translation>
 <translation id="3741995255368156336">เปิดเรื่องรออ่านใน Chrome</translation>
-<translation id="3808570423967020928">เข้าถึง Chrome ได้เร็วขึ้นจากแถบแอปในหน้าจอหลัก</translation>
 <translation id="3827545470516145620">คุณกำลังได้รับการรักษาความปลอดภัยแบบมาตรฐานในอุปกรณ์นี้</translation>
 <translation id="384394811301901750">Google Chrome ไม่สามารถใช้กล้องถ่ายรูปได้ในขณะนี้</translation>
 <translation id="3863841106411295595">เพิ่ม URL ที่ป้อนลงในเรื่องรออ่านใน Chrome</translation>
@@ -138,6 +138,7 @@
 <translation id="4724297637870447613">ใช้ Chrome ได้ทุกที่</translation>
 <translation id="4738647308035481133">หน้า Google Chrome</translation>
 <translation id="4742795653798179840">ลบข้อมูลใน Chrome แล้ว</translation>
+<translation id="4749294594657945639">หากต้องการเรียกข้อมูลรหัสผ่านที่บันทึกไว้ในแอปอื่นๆ ได้อย่างง่ายดาย ให้เลือก Chrome สำหรับการป้อนข้อความอัตโนมัติ</translation>
 <translation id="4761869838909035636">เรียกใช้การตรวจสอบความปลอดภัยของ Chrome</translation>
 <translation id="4798859546468762093">รวม Chrome ไว้ใน <ph name="FEATURE_NAME_1" /> และ <ph name="FEATURE_NAME_2" /> เพื่อรับการปรับเปลี่ยนในแบบของคุณและฟีเจอร์อื่นๆ</translation>
 <translation id="4819268619367838612">Chrome จะส่งข้อมูลการใช้งานและข้อขัดข้องไปยัง Google เพื่อช่วยปรับปรุงแอป <ph name="BEGIN_LINK" />จัดการ<ph name="END_LINK" /></translation>
@@ -233,7 +234,6 @@
 <translation id="6975725306479268850">เลือก Chrome สำหรับการป้อนข้อความอัตโนมัติ</translation>
 <translation id="7056826488869329999">เปิดและเรียกใช้การตรวจสอบความปลอดภัยใน Chrome</translation>
 <translation id="7061455974939528301">กดไอคอน Chrome ค้างไว้แล้วคลิก "แก้ไขหน้าจอหลัก"</translation>
-<translation id="7065813315247345131">ย้าย Chrome ไปที่แถบแอป</translation>
 <translation id="7124339256045485976">อัปเดต Chrome อยู่เสมอ</translation>
 <translation id="7145599899567697473">บันทึกและป้อนรหัสผ่านอัตโนมัติใน Chrome</translation>
 <translation id="7161390184744336561">Google Chrome เป็นเวอร์ชันเก่า</translation>
@@ -317,10 +317,10 @@
 <translation id="8603022514504485810">เครื่องมือจัดการรหัสผ่านบน Google ตรวจสอบรหัสผ่านได้ไม่ครบทั้งหมด โปรดลองอีกครั้งในวันพรุ่งนี้หรือ<ph name="BEGIN_LINK" />ตรวจสอบรหัสผ่านในบัญชี Google<ph name="END_LINK" /></translation>
 <translation id="8630122478628016441">เปิด "ล็อกแท็บที่ไม่ระบุตัวตนเมื่อปิด Chrome"</translation>
 <translation id="8673726683583791503">เลือกซื้อด้วย Google Lens</translation>
-<translation id="8727043961453758442">ใช้ประโยชน์สูงสุดจาก Chrome</translation>
 <translation id="8765470054473112089">เมื่อคุณพิมพ์ในแถบที่อยู่หรือช่องค้นหา Chrome จะส่งสิ่งที่คุณพิมพ์ไปยังเครื่องมือค้นหาเริ่มต้นเพื่อให้ได้รับการแนะนำที่ดียิ่งขึ้น ตัวเลือกนี้จะปิดไว้ในโหมดไม่ระบุตัวตน</translation>
 <translation id="8772179140489533211">แสดงข้อความแจ้งให้ลงชื่อเข้าใช้ Chrome</translation>
 <translation id="8788269841521769222">คุณไม่จำเป็นต้องจำรหัสผ่านนี้ เพราะระบบจะบันทึกไว้ในเครื่องมือจัดการรหัสผ่านบน Google สำหรับ <ph name="EMAIL" /></translation>
+<translation id="8796490717897731471"><ph name="EMAIL" /> Chrome ได้รับการจัดการ</translation>
 <translation id="880967149107462122">ไปที่การตั้งค่า Chrome</translation>
 <translation id="8842132678697187091">คุณเปิด Google Lens ได้ที่นี่</translation>
 <translation id="8850736900032787670">ลงชื่อเข้าใช้ Chrome เพื่อรับเนื้อหาที่ปรับเปลี่ยนตามความสนใจของคุณ</translation>

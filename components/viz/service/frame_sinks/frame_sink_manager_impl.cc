@@ -94,7 +94,7 @@ FrameSinkManagerImpl::FrameSinkManagerImpl(const InitParams& params)
   surface_manager_.AddObserver(&hit_test_manager_);
   surface_manager_.AddObserver(this);
 
-  if (input::IsTransferInputToVizSupported()) {
+  if (input::InputUtils::IsTransferInputToVizSupported()) {
     input_manager_ = std::make_unique<InputManager>(this);
   }
 }
@@ -160,7 +160,7 @@ void FrameSinkManagerImpl::SetLocalClient(
 
 void FrameSinkManagerImpl::SetInputManagerForTesting(
     std::unique_ptr<InputManager> input_manager) {
-  if (!input::IsTransferInputToVizSupported()) {
+  if (!input::InputUtils::IsTransferInputToVizSupported()) {
     return;
   }
 
@@ -183,6 +183,8 @@ void FrameSinkManagerImpl::RegisterFrameSinkId(const FrameSinkId& frame_sink_id,
 
 void FrameSinkManagerImpl::InvalidateFrameSinkId(
     const FrameSinkId& frame_sink_id) {
+  TRACE_EVENT("viz", "FrameSinkManagerImpl::InvalidateFrameSinkId",
+              "frame_sink_id", frame_sink_id);
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 
   surface_manager_.InvalidateFrameSinkId(frame_sink_id);
@@ -352,6 +354,9 @@ void FrameSinkManagerImpl::RegisterFrameSinkHierarchy(
 void FrameSinkManagerImpl::UnregisterFrameSinkHierarchy(
     const FrameSinkId& parent_frame_sink_id,
     const FrameSinkId& child_frame_sink_id) {
+  TRACE_EVENT("viz", "FrameSinkManagerImpl::UnregisterFrameSinkHierarchy",
+              "parent_frame_sink_id", parent_frame_sink_id,
+              "child_frame_sink_id", child_frame_sink_id);
   // Deliberately do not check validity of either parent or child FrameSinkId
   // here. They were valid during the registration, so were valid at some point
   // in time. This makes it possible to invalidate parent and child FrameSinkIds
@@ -614,6 +619,9 @@ void FrameSinkManagerImpl::RegisterCompositorFrameSinkSupport(
 
 void FrameSinkManagerImpl::UnregisterCompositorFrameSinkSupport(
     const FrameSinkId& frame_sink_id) {
+  TRACE_EVENT("viz",
+              "FrameSinkManagerImpl::UnregisterCompositorFrameSinkSupport",
+              "frame_sink_id", frame_sink_id);
   DCHECK(base::Contains(support_map_, frame_sink_id));
 
   for (auto& observer : observer_list_)
@@ -674,10 +682,14 @@ void FrameSinkManagerImpl::RecursivelyAttachBeginFrameSource(
     mapping.source = source;
     auto iter = support_map_.find(frame_sink_id);
     if (iter != support_map_.end()) {
-      iter->second->SetBeginFrameSource(source);
+      // Updates the InputManager(or FlingScheduler) of BeginFrameSource changes
+      // before CompositorFrameSinkSupport since it is 1:1 with
+      // RenderInputRouter (for layer tree frame sinks associated CFSS) and
+      // updating it earlier may cause UAF bugs.
       if (GetInputManager()) {
         GetInputManager()->SetBeginFrameSource(frame_sink_id, source);
       }
+      iter->second->SetBeginFrameSource(source);
     }
   }
 
@@ -700,10 +712,14 @@ void FrameSinkManagerImpl::RecursivelyDetachBeginFrameSource(
     mapping.source = nullptr;
     auto client_iter = support_map_.find(frame_sink_id);
     if (client_iter != support_map_.end()) {
-      client_iter->second->SetBeginFrameSource(nullptr);
+      // Updates the InputManager(or FlingScheduler) of BeginFrameSource changes
+      // before CompositorFrameSinkSupport since it is 1:1 with
+      // RenderInputRouter (for layer tree frame sinks associated CFSS) and
+      // updating it earlier may cause UAF bugs.
       if (GetInputManager()) {
         GetInputManager()->SetBeginFrameSource(frame_sink_id, nullptr);
       }
+      client_iter->second->SetBeginFrameSource(nullptr);
     }
   }
 
@@ -1067,7 +1083,7 @@ void FrameSinkManagerImpl::ClearThrottling(const FrameSinkId& id) {
 
 void FrameSinkManagerImpl::MaybeEraseHitTestQuery(
     const FrameSinkId& frame_sink_id) {
-  if (!input::IsTransferInputToVizSupported()) {
+  if (!input::InputUtils::IsTransferInputToVizSupported()) {
     return;
   }
   display_hit_test_query_.erase(frame_sink_id);
@@ -1075,7 +1091,7 @@ void FrameSinkManagerImpl::MaybeEraseHitTestQuery(
 
 void FrameSinkManagerImpl::MaybeAddHitTestQuery(
     const FrameSinkId& frame_sink_id) {
-  if (!input::IsTransferInputToVizSupported()) {
+  if (!input::InputUtils::IsTransferInputToVizSupported()) {
     return;
   }
   auto it = support_map_.find(frame_sink_id);

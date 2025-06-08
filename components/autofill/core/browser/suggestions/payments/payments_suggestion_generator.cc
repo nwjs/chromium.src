@@ -407,9 +407,8 @@ void SetSuggestionLabelsForCard(
       // of users with benefit-eligible cards and assess how actually
       // displaying the benefit in the experiment influences the users autofill
       // interactions.
-      metadata_logging_context
-          .instrument_ids_to_issuer_ids_with_benefits_available.insert(
-              {credit_card.instrument_id(), credit_card.issuer_id()});
+      metadata_logging_context.instrument_ids_to_available_benefit_sources
+          .insert({credit_card.instrument_id(), credit_card.benefit_source()});
       if (client.GetPersonalDataManager()
               .payments_data_manager()
               .IsCardEligibleForBenefits(credit_card)) {
@@ -1362,9 +1361,10 @@ std::vector<Suggestion> GetCreditCardSuggestionsForTouchToFill(
     suggestion.main_text.value = card_name;
     suggestion.minor_texts.emplace_back(
         credit_card.ObfuscatedNumberWithVisibleLastFourDigits());
-    suggestion.custom_icon = Suggestion::CustomIconUrl(
-        client.GetPersonalDataManager().payments_data_manager().GetCardArtURL(
-            credit_card));
+    SetCardArtURL(
+        suggestion, credit_card,
+        client.GetPersonalDataManager().payments_data_manager(),
+        credit_card.record_type() == CreditCard::RecordType::kVirtualCard);
     suggestion.icon = credit_card.CardIconForAutofillSuggestion();
     std::optional<Suggestion::Text> benefit_label =
         GetCreditCardBenefitSuggestionLabel(credit_card, client);
@@ -1374,9 +1374,8 @@ std::vector<Suggestion> GetCreditCardSuggestionsForTouchToFill(
       // IsCardEligibleForBenefits() == false. This helps denote a control
       // group of users with benefit-eligible cards to help determine how
       // benefit availability affects autofill usage.
-      metadata_logging_context
-          .instrument_ids_to_issuer_ids_with_benefits_available.insert(
-              {credit_card.instrument_id(), credit_card.issuer_id()});
+      metadata_logging_context.instrument_ids_to_available_benefit_sources
+          .insert({credit_card.instrument_id(), credit_card.benefit_source()});
       if (client.GetPersonalDataManager()
               .payments_data_manager()
               .IsCardEligibleForBenefits(credit_card)) {
@@ -1385,7 +1384,9 @@ std::vector<Suggestion> GetCreditCardSuggestionsForTouchToFill(
       }
     }
     suggestion.payload = Suggestion::PaymentsPayload(
-        main_text_content_description, should_display_terms_available);
+        main_text_content_description, should_display_terms_available,
+        Suggestion::Guid(credit_card.guid()),
+        credit_card.record_type() == CreditCard::RecordType::kLocalCard);
     if (credit_card.record_type() == CreditCard::RecordType::kVirtualCard) {
       suggestion.type = SuggestionType::kVirtualCreditCardEntry;
       bool acceptable = IsCardSuggestionAcceptable(credit_card, client);
@@ -1635,6 +1636,7 @@ bool IsCreditCardFooterSuggestion(
     case SuggestionType::kBnplEntry:
     case SuggestionType::kPendingStateSignin:
     case SuggestionType::kLoyaltyCardEntry:
+    case SuggestionType::kHomeAndWorkAddressEntry:
       return false;
   }
 }

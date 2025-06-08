@@ -46,15 +46,15 @@ class FakeWebNNGraphImpl final : public WebNNGraphImpl {
       ComputeResourceInfo compute_resource_info)
       : WebNNGraphImpl(std::move(receiver),
                        context,
-                       std::move(compute_resource_info)),
+                       std::move(compute_resource_info),
+                       /*devices=*/{}),
         context_(context) {}
   ~FakeWebNNGraphImpl() override = default;
 
  private:
   void DispatchImpl(
-      const base::flat_map<std::string_view, WebNNTensorImpl*>& named_inputs,
-      const base::flat_map<std::string_view, WebNNTensorImpl*>& named_outputs)
-      override {
+      base::flat_map<std::string, WebNNTensorImpl*> named_inputs,
+      base::flat_map<std::string, WebNNTensorImpl*> named_outputs) override {
     RemoveDeviceToDestroyAllContexts(context_);
   }
 
@@ -123,7 +123,7 @@ CreateTensorSuccess CreateWebNNTensor(
           *OperandDescriptor::Create(webnn::GetContextPropertiesForTesting(),
                                      data_type, shape, "tensor"),
           MLTensorUsage{MLTensorUsageFlags::kWrite, MLTensorUsageFlags::kRead}),
-      create_tensor_future.GetCallback());
+      mojo_base::BigBuffer(0), create_tensor_future.GetCallback());
   mojom::CreateTensorResultPtr create_tensor_result =
       create_tensor_future.Take();
   mojo::AssociatedRemote<mojom::WebNNTensor> webnn_tensor_remote;
@@ -153,7 +153,7 @@ class WebNNContextDMLImplTest : public TestBase {
     base::test::TestFuture<mojom::CreateContextResultPtr> create_context_future;
     webnn_provider_remote_->CreateWebNNContext(
         mojom::CreateContextOptions::New(
-            mojom::CreateContextOptions::Device::kGpu,
+            mojom::Device::kGpu,
             mojom::CreateContextOptions::PowerPreference::kDefault),
         create_context_future.GetCallback());
     auto create_context_result = create_context_future.Take();
@@ -224,22 +224,24 @@ TEST_F(WebNNContextDMLImplTest, CreateGraphImplTest) {
       graph_builder_remote.BindNewEndpointAndPassReceiver());
   GraphInfoBuilder builder(graph_builder_remote);
 
-  uint64_t input_operand_id =
+  OperandId input_operand_id =
       builder.BuildInput("input", {1, 2, 3, 4}, OperandDataType::kFloat32);
-  uint64_t output_operand_id =
+  OperandId output_operand_id =
       builder.BuildOutput("output", {1, 2, 3, 4}, OperandDataType::kFloat32);
   builder.BuildRelu(input_operand_id, output_operand_id);
 
   // The GraphImplDml should be built successfully.
-  base::test::TestFuture<mojom::CreateGraphResultPtr> create_graph_future;
+  base::test::TestFuture<
+      base::expected<mojom::CreateGraphSuccessPtr, mojom::ErrorPtr>>
+      create_graph_future;
   graph_builder_remote->CreateGraph(builder.TakeGraphInfo(),
                                     create_graph_future.GetCallback());
-  mojom::CreateGraphResultPtr create_graph_result = create_graph_future.Take();
-  EXPECT_TRUE(create_graph_result->is_graph_remote());
+  auto create_graph_result = create_graph_future.Take();
+  EXPECT_TRUE(create_graph_result.has_value());
 
   // Reset the remote to ensure `WebNNGraphImpl` is released.
-  if (create_graph_result->is_graph_remote()) {
-    create_graph_result->get_graph_remote().reset();
+  if (create_graph_result.has_value()) {
+    create_graph_result.value()->graph_remote.reset();
   }
 
   // Ensure `WebNNContextImpl::OnConnectionError()` is called and
@@ -268,18 +270,20 @@ TEST_F(WebNNFakeContextDMLImplTest, DeviceRemovalFromDispatch) {
   webnn_context_remote_->CreateGraphBuilder(
       graph_builder_remote.BindNewEndpointAndPassReceiver());
   GraphInfoBuilder builder(graph_builder_remote);
-  uint64_t input_operand_id = builder.BuildInput("input", shape, data_type);
-  uint64_t output_operand_id = builder.BuildOutput("output", shape, data_type);
+  OperandId input_operand_id = builder.BuildInput("input", shape, data_type);
+  OperandId output_operand_id = builder.BuildOutput("output", shape, data_type);
   builder.BuildRelu(input_operand_id, output_operand_id);
 
   // The GraphImplDml should be built successfully.
-  base::test::TestFuture<mojom::CreateGraphResultPtr> create_graph_future;
+  base::test::TestFuture<
+      base::expected<mojom::CreateGraphSuccessPtr, mojom::ErrorPtr>>
+      create_graph_future;
   graph_builder_remote->CreateGraph(builder.TakeGraphInfo(),
                                     create_graph_future.GetCallback());
-  mojom::CreateGraphResultPtr create_graph_result = create_graph_future.Take();
-  EXPECT_TRUE(create_graph_result->is_graph_remote());
+  auto create_graph_result = create_graph_future.Take();
+  EXPECT_TRUE(create_graph_result.has_value());
   mojo::AssociatedRemote<mojom::WebNNGraph> webnn_graph_remote;
-  webnn_graph_remote.Bind(std::move(create_graph_result->get_graph_remote()));
+  webnn_graph_remote.Bind(std::move(create_graph_result.value()->graph_remote));
 
   CreateTensorSuccess input_tensor =
       CreateWebNNTensor(webnn_context_remote_, data_type, shape);

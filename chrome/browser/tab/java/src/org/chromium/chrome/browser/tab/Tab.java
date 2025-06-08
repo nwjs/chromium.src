@@ -331,9 +331,19 @@ public interface Tab extends TabLifecycle {
     void goForward();
 
     /**
-     * @return true if the {@link Tab} is a custom tab.
+     * @return true if the {@link Tab} is a custom tab, including CCTs, TWAs and WebAPKs.
      */
     boolean isCustomTab();
+
+    /**
+     * @return true if the {@link Tab} is in either a TWA or a WebAPK, both types of PWA.
+     */
+    boolean isTabInPWA();
+
+    /**
+     * @return true if the {@link Tab} is in the main browser app (i.e. not a CCT, TWA, or WebApk).
+     */
+    boolean isTabInBrowser();
 
     /**
      * @return the last time this tab was shown or the time of its initialization if it wasn't yet
@@ -447,6 +457,16 @@ public interface Tab extends TabLifecycle {
      * @param contentIsSensitive True if the content is sensitive.
      */
     void setTabHasSensitiveContent(boolean contentIsSensitive);
+
+    /** Returns the current pinned state of the tab. */
+    boolean getIsPinned();
+
+    /**
+     * Sets the pinned state of the tab.
+     *
+     * @param isPinned True if the tab is pinned.
+     */
+    void setIsPinned(boolean isPinned);
 
     /** Called when the tab is restored from the archived tab model. */
     void onTabRestoredFromArchivedTabModel();

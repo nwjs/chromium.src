@@ -266,6 +266,12 @@ PaymentsDataManager::PaymentsDataManager(
       autofill_metrics::LogAutofillPaymentMethodsDisabledReasonAtStartup(
           *pref_service_);
     }
+#if !BUILDFLAG(IS_IOS)
+    // Clean up for crbug.com/411681430.
+    if (!IsPaymentCvcStorageEnabled()) {
+      CleanupForCrbug411681430();
+    }
+#endif
   }
   if (sync_service_) {
     sync_observer_.Observe(sync_service_);
@@ -513,6 +519,12 @@ void PaymentsDataManager::OnStateChanged(syncer::SyncService* sync_service) {
 void PaymentsDataManager::OnAccountsCookieDeletedByUserAction() {
   // Clear all the Sync Transport feature opt-ins.
   prefs::ClearSyncTransportOptIns(pref_service_);
+}
+
+void PaymentsDataManager::OnIdentityManagerShutdown(
+    signin::IdentityManager* identity_manager) {
+  CHECK_EQ(identity_manager, identity_manager_);
+  identity_observer_.Reset();
 }
 
 void PaymentsDataManager::Refresh() {
@@ -990,19 +1002,27 @@ void PaymentsDataManager::NotifyObservers() {
 
 bool PaymentsDataManager::IsCardEligibleForBenefits(
     const CreditCard& card) const {
-  return (card.issuer_id() == kAmexCardIssuerId &&
+  return (card.benefit_source() == kAmexCardBenefitSource &&
           base::FeatureList::IsEnabled(
               features::kAutofillEnableCardBenefitsForAmericanExpress)) ||
-         (card.issuer_id() == kBmoCardIssuerId &&
+         (card.benefit_source() == kBmoCardBenefitSource &&
           base::FeatureList::IsEnabled(
-              features::kAutofillEnableCardBenefitsForBmo));
+              features::kAutofillEnableCardBenefitsForBmo)) ||
+         (card.benefit_source() == kCurinosCardBenefitSource &&
+          GetFlatRateBenefitByInstrumentId(
+              CreditCardBenefitBase::LinkedCardInstrumentId(
+                  card.instrument_id())) &&
+          base::FeatureList::IsEnabled(
+              features::kAutofillEnableFlatRateCardBenefitsFromCurinos));
 }
 
 bool PaymentsDataManager::IsCardBenefitsFeatureEnabled() {
   return base::FeatureList::IsEnabled(
              features::kAutofillEnableCardBenefitsForAmericanExpress) ||
          base::FeatureList::IsEnabled(
-             features::kAutofillEnableCardBenefitsForBmo);
+             features::kAutofillEnableCardBenefitsForBmo) ||
+         base::FeatureList::IsEnabled(
+             features::kAutofillEnableFlatRateCardBenefitsFromCurinos);
 }
 
 bool PaymentsDataManager::ShouldBlockCardBenefitSuggestionLabels(
@@ -1524,6 +1544,17 @@ void PaymentsDataManager::ClearLocalCvcs() {
 
   // Clear the local CVCs in the web database.
   GetLocalDatabase()->ClearLocalCvcs();
+
+  // Refresh our local cache and send notifications to observers.
+  Refresh();
+}
+
+void PaymentsDataManager::CleanupForCrbug411681430() {
+  if (!GetLocalDatabase()) {
+    return;
+  }
+
+  GetLocalDatabase()->CleanupForCrbug411681430();
 
   // Refresh our local cache and send notifications to observers.
   Refresh();

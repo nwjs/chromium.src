@@ -77,10 +77,12 @@ void ModulatorImplBase::FetchTree(
     const ScriptFetchOptions& options,
     ModuleScriptCustomFetchType custom_fetch_type,
     ModuleTreeClient* client,
+    ModuleImportPhase import_phase,
     String referrer) {
   tree_linker_registry_->Fetch(
       url, module_type, fetch_client_settings_object_fetcher, context_type,
-      destination, options, this, custom_fetch_type, client, referrer);
+      destination, options, this, custom_fetch_type, client, import_phase,
+      referrer);
 }
 
 void ModulatorImplBase::FetchDescendantsForInlineScript(
@@ -296,13 +298,11 @@ void ModulatorImplBase::ProduceCacheModuleTree(
 
   discovered_set->insert(module_script);
 
-  v8::Local<v8::Module> record = module_script->V8Module();
-  DCHECK(!record.IsEmpty());
+  DCHECK(!module_script->HasEmptyRecord());
 
   module_script->ProduceCache();
-
   Vector<ModuleRequest> child_specifiers =
-      ModuleRecord::ModuleRequests(GetScriptState(), record);
+      module_script->GetModuleRecordRequests();
 
   for (const auto& module_request : child_specifiers) {
     KURL child_url =

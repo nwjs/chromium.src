@@ -86,7 +86,7 @@ public class TopToolbarCoordinator implements Toolbar {
 
     private OptionalBrowsingModeButtonController mOptionalButtonController;
 
-    private MenuButtonCoordinator mMenuButtonCoordinator;
+    private final MenuButtonCoordinator mMenuButtonCoordinator;
     private @Nullable ReloadButtonCoordinator mReloadButtonCoordinator;
     private @Nullable final BackButtonCoordinator mBackButtonCoordinator;
     private @Nullable ObservableSupplier<AppMenuButtonHelper> mAppMenuButtonHelperSupplier;
@@ -95,29 +95,29 @@ public class TopToolbarCoordinator implements Toolbar {
     private @Nullable TabStripTransitionCoordinator mTabStripTransitionCoordinator;
 
     private ToolbarControlContainer mControlContainer;
-    private Supplier<ResourceManager> mResourceManagerSupplier;
+    private final Supplier<ResourceManager> mResourceManagerSupplier;
     private @Nullable TopToolbarOverlayCoordinator mOverlayCoordinator;
 
     /**
      * The observer manager will receive all types of toolbar color change updates from toolbar
      * components and send the rendering toolbar color to the ToolbarColorObserver.
      */
-    private ToolbarColorObserverManager mToolbarColorObserverManager;
+    private final ToolbarColorObserverManager mToolbarColorObserverManager;
 
     private @Nullable IncognitoStateProvider mIncognitoStateProvider;
     private @Nullable IncognitoStateObserver mIncognitoStateObserver;
 
-    private TabObscuringHandler mTabObscuringHandler;
-    private @Nullable DesktopWindowStateManager mDesktopWindowStateManager;
-    private OneshotSupplier<TabStripTransitionDelegate> mTabStripTransitionDelegateSupplier;
-    private ObservableSupplierImpl<Boolean> mNtpLoadingSupplier;
+    private final TabObscuringHandler mTabObscuringHandler;
+    private final @Nullable DesktopWindowStateManager mDesktopWindowStateManager;
+    private final OneshotSupplier<TabStripTransitionDelegate> mTabStripTransitionDelegateSupplier;
+    private final ObservableSupplierImpl<Boolean> mNtpLoadingSupplier;
 
     private ObservableSupplier<Integer> mTabCountSupplier;
 
     /** Token used to block the tab strip transition when find in page toolbar is showing. */
     private int mFindToolbarToken = TokenHolder.INVALID_TOKEN;
 
-    private int mIndexOfLocationBarInToolbar;
+    private final int mIndexOfLocationBarInToolbar;
 
     /**
      * Creates a new {@link TopToolbarCoordinator}.
@@ -138,6 +138,8 @@ public class TopToolbarCoordinator implements Toolbar {
      * @param tabCountSupplier Supplier of {@link
      *     org.chromium.chrome.browser.toolbar.CustomTabCount}.
      * @param homepageEnabledSupplier Supplier of whether Home button is enabled.
+     * @param homepageNonNtpSupplier Supplier of whether homepage is set to something other than the
+     *     NTP.
      * @param resourceManagerSupplier A supplier of a resource manager for native textures.
      * @param historyDelegate Delegate used to display navigation history.
      * @param initializeWithIncognitoColors Whether the toolbar should be initialized with incognito
@@ -167,6 +169,7 @@ public class TopToolbarCoordinator implements Toolbar {
             ToggleTabStackButtonCoordinator tabSwitcherButtonCoordinator,
             ObservableSupplier<Integer> tabCountSupplier,
             ObservableSupplier<Boolean> homepageEnabledSupplier,
+            ObservableSupplier<Boolean> homepageNonNtpSupplier,
             Supplier<ResourceManager> resourceManagerSupplier,
             HistoryDelegate historyDelegate,
             boolean initializeWithIncognitoColors,
@@ -180,7 +183,8 @@ public class TopToolbarCoordinator implements Toolbar {
             OneshotSupplier<TabStripTransitionDelegate> tabStripTransitionDelegateSupplier,
             @Nullable OnLongClickListener onLongClickListener,
             ToolbarProgressBar progressBar,
-            ObservableSupplier<Tab> tabSupplier,
+            ObservableSupplier<@Nullable Tab> tabSupplier,
+            ObservableSupplier<Boolean> toolbarNavControlsEnabledSupplier,
             @Nullable BackButtonCoordinator backButtonCoordinator) {
         mToolbarLayout = toolbarLayout;
         mMenuButtonCoordinator = browsingModeMenuButtonCoordinator;
@@ -220,6 +224,7 @@ public class TopToolbarCoordinator implements Toolbar {
                             },
                             tabSupplier,
                             mNtpLoadingSupplier,
+                            toolbarNavControlsEnabledSupplier,
                             normalThemeColorProvider);
         }
 
@@ -247,7 +252,10 @@ public class TopToolbarCoordinator implements Toolbar {
         mToolbarLayout.setThemeColorProvider(normalThemeColorProvider);
         mAppMenuButtonHelperSupplier = appMenuButtonHelperSupplier;
         new OneShotCallback<>(mAppMenuButtonHelperSupplier, this::setAppMenuButtonHelper);
-        homepageEnabledSupplier.addObserver((show) -> mToolbarLayout.onHomeButtonUpdate(show));
+        homepageEnabledSupplier.addObserver(
+                (show) -> mToolbarLayout.onHomeButtonIsEnabledUpdate(show));
+        homepageNonNtpSupplier.addObserver(
+                (isNonNtp) -> mToolbarLayout.onHomepageIsNonNtpUpdate(isNonNtp));
     }
 
     /**
@@ -282,7 +290,7 @@ public class TopToolbarCoordinator implements Toolbar {
             OnClickListener bookmarkClickHandler,
             OnClickListener customTabsBackClickHandler,
             LayoutManager layoutManager,
-            ObservableSupplier<Tab> tabSupplier,
+            ObservableSupplier<@Nullable Tab> tabSupplier,
             BrowserControlsVisibilityManager browserControlsVisibilityManager,
             TopUiThemeColorProvider topUiThemeColorProvider,
             ObservableSupplier<Integer> bottomToolbarControlsOffsetSupplier,
@@ -564,6 +572,15 @@ public class TopToolbarCoordinator implements Toolbar {
     }
 
     /**
+     * Sets custom actions visibility of the custom tab toolbar.
+     *
+     * @param isVisible true if should be visible, false if should be hidden.
+     */
+    public void setCustomActionsVisibility(boolean isVisible) {
+        mToolbarLayout.setCustomActionsVisibility(isVisible);
+    }
+
+    /**
      * Adds a custom action button to the toolbar layout, if it is supported.
      *
      * @param drawable The icon for the button.
@@ -623,10 +640,6 @@ public class TopToolbarCoordinator implements Toolbar {
      */
     public void setTabSwitcherMode(boolean inTabSwitcherMode) {
         mToolbarLayout.setTabSwitcherMode(inTabSwitcherMode);
-
-        if (mReloadButtonCoordinator != null) {
-            mReloadButtonCoordinator.setEnabled(!inTabSwitcherMode);
-        }
     }
 
     /**

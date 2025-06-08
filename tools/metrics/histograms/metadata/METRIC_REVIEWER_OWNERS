@@ -195,6 +195,8 @@ mcrouse@chromium.org
 perrier@chromium.org
 andreaxg@google.com
 iwells@google.com
+bryantchandler@chromium.org
+sanaakbani@google.com
 # gpu
 jonross@chromium.org
 # hang_watcher
@@ -230,7 +232,7 @@ tby@chromium.org
 # login
 jorgelo@chromium.org
 # mac
-bur@google.com
+avi@chromium.org
 mek@chromium.org
 # magic_stack
 ckitagawa@chromium.org
@@ -445,8 +447,7 @@ fdoray@chromium.org
 spvw@chromium.org
 # storage
 ayui@chromium.org
-# structured_metrics
-jongahn@chromium.org
+leimy@chromium.org
 # subresource
 csharrison@chromium.org
 tbansal@chromium.org

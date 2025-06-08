@@ -359,15 +359,9 @@ component("platform") {
     "audio/audio_destination.h",
     "audio/audio_destination_uma_reporter.cc",
     "audio/audio_destination_uma_reporter.h",
-    "audio/audio_dsp_kernel.cc",
-    "audio/audio_dsp_kernel.h",
-    "audio/audio_dsp_kernel_processor.cc",
-    "audio/audio_dsp_kernel_processor.h",
     "audio/audio_frame_stats_accumulator.cc",
     "audio/audio_frame_stats_accumulator.h",
     "audio/audio_io_callback.h",
-    "audio/audio_processor.cc",
-    "audio/audio_processor.h",
     "audio/audio_source_provider.h",
     "audio/audio_source_provider_client.h",
     "audio/audio_utilities.cc",
@@ -755,7 +749,7 @@ component("platform") {
     "fonts/shaping/glyph_data_range.cc",
     "fonts/shaping/glyph_data_range.h",
     "fonts/shaping/glyph_index_result.h",
-    "fonts/shaping/glyph_offset_array.h",
+    "fonts/shaping/glyph_offset_iterator.h",
     "fonts/shaping/han_kerning.cc",
     "fonts/shaping/han_kerning.h",
     "fonts/shaping/harfbuzz_face.cc",
@@ -1694,6 +1688,8 @@ component("platform") {
       "audio/mac/vector_math_mac.h",
       "fonts/mac/attributed_string_type_converter.h",
       "fonts/mac/attributed_string_type_converter.mm",
+      "fonts/mac/character_fallback_cache.h",
+      "fonts/mac/character_fallback_cache.mm",
       "fonts/mac/font_cache_mac.mm",
       "fonts/mac/font_matcher_mac.h",
       "fonts/mac/font_matcher_mac.mm",
@@ -1977,7 +1973,10 @@ static_library("test_support") {
   ]
   testonly = true
 
+  defines = [ "BLINK_PLATFORM_TEST_IMPLEMENTATION" ]
+
   sources = [
+    "graphics/gpu/drawing_buffer_test_helpers.cc",
     "graphics/gpu/drawing_buffer_test_helpers.h",
     "graphics/paint/paint_controller_test.h",
     "graphics/test/fake_canvas_resource_host.h",
@@ -1990,6 +1989,7 @@ static_library("test_support") {
     "graphics/test/mock_compositor_frame_sink_client.h",
     "graphics/test/mock_embedded_frame_sink_provider.h",
     "graphics/test/mock_frame_sink_bundle.h",
+    "graphics/test/mock_image_decoder.cc",
     "graphics/test/mock_image_decoder.h",
     "graphics/test/mock_paint_canvas.h",
     "graphics/test/stub_image.h",
@@ -2084,6 +2084,7 @@ static_library("test_support") {
     "//testing/gtest:gtest",
     "//testing/perf",
     "//third_party/blink/public:test_headers",
+    "//third_party/blink/public/test/mojom:modules_test_automation_blink",
     "//third_party/blink/renderer/platform/blob:test_support",
     "//third_party/blink/renderer/platform/heap:test_support",
     "//third_party/blink/renderer/platform/loader:test_support",
@@ -2303,7 +2304,6 @@ source_set("blink_platform_unittests_sources") {
     "json/json_values_test.cc",
     "media/web_audio_source_provider_impl_test.cc",
     "mediastream/audio_service_audio_processor_proxy_test.cc",
-    "mediastream/media_stream_audio_processor_options_test.cc",
     "mediastream/media_stream_audio_test.cc",
     "mediastream/transferred_media_stream_component_test.cc",
     "mediastream/webrtc_uma_histograms_test.cc",
@@ -2416,6 +2416,7 @@ source_set("blink_platform_unittests_sources") {
     sources += [ "text/locale_win_test.cc" ]
   } else if (is_mac) {
     sources += [
+      "fonts/mac/character_fallback_cache_test.mm",
       "fonts/mac/font_cache_mac_test.mm",
       "fonts/mac/font_matcher_mac_test.mm",
       "fonts/mac/font_platform_data_mac_test.mm",
@@ -2442,6 +2443,7 @@ source_set("blink_platform_unittests_sources") {
     "//base/test:test_support",
     "//cc",
     "//cc:test_support",
+    "//components/viz/common:shared_image_format",
     "//gin:gin",
     "//media:test_support",
     "//media/capture/mojom:video_capture",
@@ -3000,7 +3002,6 @@ source_set("unit_tests") {
     "graphics/animation_worklet_mutator_dispatcher_impl_test.cc",
     "graphics/canvas_hibernation_handler_test.cc",
     "graphics/canvas_resource_dispatcher_test.cc",
-    "graphics/canvas_resource_host_test.cc",
     "graphics/canvas_resource_provider_test.cc",
     "graphics/canvas_resource_test.cc",
     "graphics/deferred_image_decoder_test.cc",

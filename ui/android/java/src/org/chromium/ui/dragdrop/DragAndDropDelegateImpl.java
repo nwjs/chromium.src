@@ -26,13 +26,11 @@ import android.view.ViewGroup;
 import android.widget.ImageView;
 
 import androidx.annotation.IntDef;
-import androidx.annotation.VisibleForTesting;
 import androidx.appcompat.content.res.AppCompatResources;
 import androidx.core.graphics.drawable.RoundedBitmapDrawable;
 import androidx.core.graphics.drawable.RoundedBitmapDrawableFactory;
 
 import org.chromium.base.ContextUtils;
-import org.chromium.base.MathUtils;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
@@ -53,6 +51,8 @@ import java.lang.annotation.RetentionPolicy;
  */
 @NullMarked
 public class DragAndDropDelegateImpl implements DragAndDropDelegate, DragStateTracker {
+    private static final String TAG = "DnDDelegateImpl";
+
     /**
      * Java Enum of AndroidDragTargetType used for histogram recording for
      * Android.DragDrop.FromWebContent.TargetType. This is used for histograms and should therefore
@@ -88,9 +88,6 @@ public class DragAndDropDelegateImpl implements DragAndDropDelegate, DragStateTr
     /** The type of drag target from the view this object tracks. */
     private @DragTargetType int mDragTargetType;
 
-    private float mDragStartXDp;
-    private float mDragStartYDp;
-
     private long mDragStartSystemElapsedTime;
 
     private @Nullable DragAndDropBrowserDelegate mDragAndDropBrowserDelegate;
@@ -122,7 +119,8 @@ public class DragAndDropDelegateImpl implements DragAndDropDelegate, DragStateTr
             int cursorOffsetY,
             int dragObjRectWidth,
             int dragObjRectHeight) {
-        if (isA11yStateEnabled()) return false;
+        // Tab tearing to be enabled on XR device all the time.
+        if (isA11yStateEnabled() && !XrUtils.isXrDevice()) return false;
         int windowWidth = containerView.getRootView().getWidth();
         int windowHeight = containerView.getRootView().getHeight();
         View.DragShadowBuilder dragShadowBuilder =
@@ -143,18 +141,16 @@ public class DragAndDropDelegateImpl implements DragAndDropDelegate, DragStateTr
     @Override
     public boolean startDragAndDrop(
             View containerView, DragShadowBuilder dragShadowBuilder, DropDataAndroid dropData) {
-        if (isA11yStateEnabled()) return false;
+        // Tab tearing to be enabled on XR device all the time.
+        if (isA11yStateEnabled() && !XrUtils.isXrDevice()) return false;
         return startDragAndDropInternal(containerView, dragShadowBuilder, dropData);
     }
 
     private static boolean isA11yStateEnabled() {
         // Drag and drop is disabled when gesture related a11y service is enabled.
         // See https://crbug.com/1250067.
-        // On XR devices, gesture control is always enabled. Therefore, to verify accessibility
-        // (A11y) status on these devices for drag and drop functionalities, we examine the
-        // `isTouchExplorationEnabled` state, effectively limiting our check to this condition.
         return AccessibilityState.isTouchExplorationEnabled()
-                || (AccessibilityState.isPerformGesturesEnabled() && !XrUtils.isXrDevice());
+                || AccessibilityState.isPerformGesturesEnabled();
     }
 
     private boolean startDragAndDropInternal(
@@ -174,7 +170,7 @@ public class DragAndDropDelegateImpl implements DragAndDropDelegate, DragStateTr
     }
 
     @Override
-    public void setDragAndDropBrowserDelegate(DragAndDropBrowserDelegate delegate) {
+    public void setDragAndDropBrowserDelegate(@Nullable DragAndDropBrowserDelegate delegate) {
         mDragAndDropBrowserDelegate = delegate;
     }
 
@@ -213,11 +209,8 @@ public class DragAndDropDelegateImpl implements DragAndDropDelegate, DragStateTr
         }
 
         switch (dragEvent.getAction()) {
-            case DragEvent.ACTION_DRAG_STARTED:
-                onDragStarted(dragEvent);
-                break;
             case DragEvent.ACTION_DROP:
-                onDrop(dragEvent);
+                onDrop();
                 break;
             case DragEvent.ACTION_DRAG_ENDED:
                 onDragEnd(dragEvent);
@@ -258,6 +251,7 @@ public class DragAndDropDelegateImpl implements DragAndDropDelegate, DragStateTr
                 return ClipData.newUri(
                         ContextUtils.getApplicationContext().getContentResolver(), null, cachedUri);
             case DragTargetType.LINK:
+                assumeNonNull(dropData.gurl);
                 if (mDragAndDropBrowserDelegate != null) {
                     Intent intent =
                             mDragAndDropBrowserDelegate.createUrlIntent(
@@ -417,21 +411,8 @@ public class DragAndDropDelegateImpl implements DragAndDropDelegate, DragStateTr
         mShadowHeight = targetHeight + borderSize * 2;
     }
 
-    private void onDragStarted(DragEvent dragStartEvent) {
-        mDragStartXDp = dragStartEvent.getX();
-        mDragStartYDp = dragStartEvent.getY();
-    }
-
-    private void onDrop(DragEvent dropEvent) {
+    private void onDrop() {
         mIsDropOnView = true;
-
-        final int dropDistance =
-                Math.round(
-                        MathUtils.distance(
-                                mDragStartXDp, mDragStartYDp, dropEvent.getX(), dropEvent.getY()));
-        RecordHistogram.recordExactLinearHistogram(
-                "Android.DragDrop.FromWebContent.DropInWebContent.DistanceDip", dropDistance, 51);
-
         long dropDuration = SystemClock.elapsedRealtime() - mDragStartSystemElapsedTime;
         RecordHistogram.deprecatedRecordMediumTimesHistogram(
                 "Android.DragDrop.FromWebContent.DropInWebContent.Duration", dropDuration);
@@ -486,6 +467,7 @@ public class DragAndDropDelegateImpl implements DragAndDropDelegate, DragStateTr
     /** Return the text to be dropped when {@link DropDataAndroid} contains a link. */
     static String getTextForLinkData(DropDataAndroid dropData) {
         assert dropData.hasLink();
+        assumeNonNull(dropData.gurl);
         if (TextUtils.isEmpty(dropData.text)) return dropData.gurl.getSpec();
         return dropData.text + "\n" + dropData.gurl.getSpec();
     }
@@ -509,15 +491,5 @@ public class DragAndDropDelegateImpl implements DragAndDropDelegate, DragStateTr
         String histogramPrefix = "Android.DragDrop.FromWebContent.Duration.";
         String suffix = result ? "Success" : "Canceled";
         RecordHistogram.deprecatedRecordMediumTimesHistogram(histogramPrefix + suffix, duration);
-    }
-
-    @VisibleForTesting
-    float getDragStartXDp() {
-        return mDragStartXDp;
-    }
-
-    @VisibleForTesting
-    float getDragStartYDp() {
-        return mDragStartYDp;
     }
 }

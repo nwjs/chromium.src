@@ -219,7 +219,7 @@ bool IFace_Method_ForwardToCallback::Accept(
           internal::IFace_Method_ResponseParams_Data*>(
               message->mutable_payload());
   
-  
+
   // Validation for IFace.0
   bool success = true;
   std::string p_result{};
@@ -270,17 +270,20 @@ void IFace_Method_ProxyToResponder::Run(
   mojo::internal::MessageFragment<
       typename decltype(params->result)::BaseType> result_fragment(
           params.message());
+  
   mojo::internal::Serialize<mojo::StringDataView>(
-      in_result,
-      result_fragment);
+    in_result,
+    result_fragment);
 
   params->result.Set(
       result_fragment.is_null() ? nullptr : result_fragment.data());
 
-  MOJO_INTERNAL_DLOG_SERIALIZATION_WARNING(
-      params->result.is_null(),
-      mojo::internal::VALIDATION_ERROR_UNEXPECTED_NULL_POINTER,
-      "null result in ");
+  
+  MOJO_INTERNAL_CHECK_SERIALIZATION(
+    mojo::internal::SendValidation::kDefault,
+    !(params->result.is_null()),
+    mojo::internal::VALIDATION_ERROR_UNEXPECTED_NULL_POINTER,
+    "null result in ");
 
 #if defined(ENABLE_IPC_FUZZER)
   message.set_interface_name(IFace::Name_);
@@ -326,7 +329,7 @@ bool IFaceStubDispatch::AcceptWithResponder(
               internal::IFace_Method_Params_Data*>(
                   message->mutable_payload());
       
-      
+
       // Validation for IFace.0
       bool success = true;
       bool p_param{};

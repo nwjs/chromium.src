@@ -96,14 +96,12 @@
 <translation id="2199691482078155239">Chrome te otorga más control sobre los anuncios que ves y limita la información que pueden obtener los sitios sobre ti cuando te muestran anuncios personalizados</translation>
 <translation id="2216543877350048334">Sal de Chrome para quitar tu Cuenta de Google</translation>
 <translation id="2236949375853147973">Mi actividad</translation>
-<translation id="223889379102603431">Información sobre cómo administra Chrome sus certificados raíz.</translation>
 <translation id="2290014774651636340">Faltan las claves de la API de Google. Se inhabilitarán algunas funciones de Google Chrome.</translation>
 <translation id="2290095356545025170">¿Estás seguro de que deseas desinstalar Google Chrome?</translation>
 <translation id="2309047409763057870">Como esta es una instalación secundaria de Google Chrome, no puede establecerse como tu navegador predeterminado.</translation>
 <translation id="2345992953227471816">Chrome detectó que las siguientes extensiones contienen software malicioso:</translation>
 <translation id="2348335408836342058">Chrome necesita permiso para acceder a tu cámara y micrófono para este sitio</translation>
 <translation id="234869673307233423">Chrome no puede revisar las contraseñas. Vuelve a intentarlo más tarde.</translation>
-<translation id="235650106824528204">El administrador del perfil de trabajo puede quitar cualquier dato de Chrome que se genere durante el uso de este perfil (como la creación de favoritos, un historial, contraseñas y otras opciones de configuración). <ph name="LEARN_MORE" /></translation>
 <translation id="2359808026110333948">Continuar</translation>
 <translation id="2403703063067034158">Error de inicio: Se está ejecutando otra instancia de configuración. Vuelve a intentarlo más tarde.</translation>
 <translation id="2409816192575564775">{NUM_DEVICES,plural, =0{Una o más extensiones de Chrome tenían acceso a 1 dispositivo HID}=1{Una o más extensiones de Chrome tienen acceso a 1 dispositivo HID}other{Una o más extensiones de Chrome tienen acceso a # dispositivos HID}}</translation>
@@ -189,6 +187,7 @@
 <translation id="3286538390144397061">Reiniciar ahora</translation>
 <translation id="3292333338048274092">Luego, deberás reiniciar Chrome.</translation>
 <translation id="3327226547491422998">Más adelante, Chrome puede preguntarte si quieres usar la información guardada para completar formularios automáticamente</translation>
+<translation id="3352986031709923790">esquina superior derecha del área de búsqueda: derecha <ph name="RIGHT" />%, superior <ph name="TOP" />%</translation>
 <translation id="3360895254066713204">Ayuda de Chrome</translation>
 <translation id="3379938682270551431">{0,plural, =0{Se reiniciará Chrome ahora}=1{Se reiniciará Chrome en 1 segundo}other{Se reiniciará Chrome en # segundos}}</translation>
 <translation id="3396977131400919238">Se produjo un error del sistema operativo durante la instalación. Descargue Google Chrome nuevamente.</translation>
@@ -241,6 +240,7 @@
 <translation id="4050175100176540509">La última versión proporciona importantes mejoras de seguridad y nuevas funciones.</translation>
 <translation id="4053720452172726777">Personalizar y controlar Google Chrome</translation>
 <translation id="408393047846373801">Para acceder a tus contraseñas y más en todos tus dispositivos, accede a Chrome. Esta contraseña se guardará en tu Cuenta de Google después de que accedas.</translation>
+<translation id="409936259433005390">¿Actualizarás pronto a Windows 11? Descarga el instalador de Chrome en OneDrive para tener todo listo desde el primer día.</translation>
 <translation id="4110895483821904099">Configura tu nuevo perfil de Chrome</translation>
 <translation id="4111566860456076004">Chrome no puede verificar de dónde proviene esta extensión y es posible que no sea segura. Quítala de Chrome para que ya no pueda ver ni cambiar tus datos en los sitios que visitas, incluida la información personal.</translation>
 <translation id="4128488089242627000">Chrome se ejecuta más rápido, y las funciones que usan JavaScript deberían funcionar según lo previsto (recomendado)</translation>
@@ -314,6 +314,7 @@
 <translation id="4970880042055371251">Versión de ChromeOS</translation>
 <translation id="4990567037958725628">Google Chrome Canary</translation>
 <translation id="5003967926796347400">Haz clic en "Administrador de contraseñas de Google"</translation>
+<translation id="504867494566807945">Abre vínculos en Chrome desde cualquier app. Además, para facilitar el acceso, se fija en la barra de tareas.</translation>
 <translation id="5114340746415930644">Ingresa tu frase de contraseña para usar y guardar datos de Chrome en tu cuenta, <ph name="USER_EMAIL" /></translation>
 <translation id="5120334927898581447">Ingresa a Chrome cuando accedas a otros servicios de Google</translation>
 <translation id="5126049312684316860">Chrome precarga más páginas que probablemente visites para que se carguen más rápido cuando lo hagas</translation>
@@ -341,6 +342,7 @@
 <translation id="5430073640787465221">Tu archivo de preferencias está dañado o no es válido. Google Chrome no puede recuperar tu configuración.</translation>
 <translation id="5468572406162360320">Para ayudar a mejorar estas funciones, Chrome envía tus interacciones con ellas a Google. Los revisores manuales podrán leer, procesar y anotar estos datos.</translation>
 <translation id="5524761631371622910">Cuando comienzan las pruebas, si Chrome te ubicó de manera aleatoria en una prueba activa, tu historial de navegación afecta los anuncios que ves y los intereses, como se estima a continuación. Para proteger tu privacidad, Chrome borra tus intereses de manera continua todos los meses.</translation>
+<translation id="5524890928877629608">esquina superior izquierda del área de búsqueda: izquierda <ph name="LEFT" />%, superior <ph name="TOP" />%</translation>
 <translation id="5530733413481476019">Logra que Chrome sea más rápido</translation>
 <translation id="5566025111015594046">Google Chrome (tráfico mDNS entrante)</translation>
 <translation id="5579324208890605088">Error de inicio: Ejecuta el instalador como usuario normal, no como administrador.</translation>
@@ -370,6 +372,7 @@
 <translation id="5895138241574237353">Reiniciar</translation>
 <translation id="5903106910045431592"><ph name="PAGE_TITLE" />: Acceso a la red</translation>
 <translation id="5924017743176219022">Conectando a Internet...</translation>
+<translation id="5925596746603389877">Descargar el instalador de Chrome</translation>
 <translation id="5940385492829620908">Aquí puedes encontrar tus páginas web, favoritos y otros contenidos de Chrome.</translation>
 <translation id="5941711191222866238">Minimizar</translation>
 <translation id="5941830788786076944">Haga de Google Chrome su navegador predeterminado</translation>
@@ -386,9 +389,9 @@
 <translation id="6069027071882229820">Copiar como imagen</translation>
 <translation id="6070348360322141662">Para mejorar la seguridad, Google Chrome encriptará los datos</translation>
 <translation id="6075300983329039771">Tu organización, <ph name="MANAGER" />, requiere que accedas a Chrome</translation>
-<translation id="608006075545470555">Agrega un perfil de trabajo a este navegador</translation>
 <translation id="6113794647360055231">Chrome mejorado</translation>
 <translation id="6116252277240876590">Este idioma se usa para mostrar menús, parámetros de configuración, alertas y otros textos en Chrome</translation>
+<translation id="6127237283587442951">Usa Chrome de forma predeterminada y fíjalo</translation>
 <translation id="6134085236017727171">Para usar el micrófono, otorga acceso a Chrome en la <ph name="BEGIN_LINK" />configuración del sistema<ph name="END_LINK" /></translation>
 <translation id="6135456723633883042">Estas pestañas están usando recursos adicionales. Para mejorar el rendimiento, permite que Chrome las desactive.</translation>
 <translation id="6145313976051292476">Abrir archivos PDF en Chrome</translation>
@@ -444,6 +447,7 @@
 <translation id="683440813066116847">Regla de entrada para que Google Chrome Canary permita el tráfico mDNS.</translation>
 <translation id="684888714667046800">No se puede establecer la conexión a Internet. Si usas un firewall, asegúrate de que <ph name="PRODUCT_EXE_NAME" /> esté en la lista de elementos permitidos.</translation>
 <translation id="6851981911629679515">Activar la protección adicional en el motor de JavaScript y de WebAssembly de Chrome</translation>
+<translation id="6877155553248388166">esquina inferior derecha del área de búsqueda: derecha <ph name="RIGHT" />%, inferior <ph name="BOTTOM" />%</translation>
 <translation id="6881299373831449287">Actualizando Chrome</translation>
 <translation id="6885412569789873916">Apps de Chrome Beta</translation>
 <translation id="6893363893008038481">Quitar la cuenta de Chrome</translation>
@@ -560,7 +564,6 @@
 <translation id="8255190535488645436">Google Chrome está usando tu cámara y tu micrófono.</translation>
 <translation id="8257796129973882597">Puedes abrir los favoritos, el modo de lectura y más desde el Menú de Chrome</translation>
 <translation id="8267953129876836456">Chrome encontró algunas recomendaciones de seguridad para que revises</translation>
-<translation id="8270775718612349140">Certificados administrados por Chrome</translation>
 <translation id="8286862437124483331">Google Chrome está intentando mostrar contraseñas. Para permitirlo, ingresa tu contraseña de Windows.</translation>
 <translation id="829923460755755423">Agrega un acceso directo al Administrador de contraseñas de Google</translation>
 <translation id="8313851650939857356">Error de inicio: <ph name="STARTUP_ERROR" />.</translation>
@@ -582,7 +585,6 @@
 <translation id="8521348052903287641">Regla de entrada para que Google Chrome Dev permita el tráfico mDNS.</translation>
 <translation id="852529348814672339">Mostrar Chrome en este idioma</translation>
 <translation id="8533056045953418157">Establece Google Chrome como tu lector de PDF predeterminado</translation>
-<translation id="8550334526674375523">Este perfil de trabajo está totalmente separado de tu perfil personal.</translation>
 <translation id="8555465886620020932">Error del servicio: <ph name="SERVICE_ERROR" />.</translation>
 <translation id="856656450041460113">Buscar en la lista de idiomas</translation>
 <translation id="8601359445272098721">¡Novedad! Puedes traducir texto e imágenes en la pantalla seleccionando el botón “Traducir pantalla”</translation>
@@ -597,6 +599,7 @@
 <translation id="8712767363896337380">Ya casi completas la actualización. Reinicia Chrome para completar la actualización.</translation>
 <translation id="8718062187489036808">Salir de Chrome</translation>
 <translation id="873133009373065397">Google Chrome no puede determinar ni establecer el navegador predeterminado</translation>
+<translation id="8747073452963259673">esquina inferior izquierda del área de búsqueda: izquierda <ph name="LEFT" />%, inferior <ph name="BOTTOM" />%</translation>
 <translation id="8748735421235723888">Chrome libera memoria de las pestañas inactivas. Esto brinda más recursos informáticos a las pestañas activas y a otras apps, y permite que Chrome siga funcionando rápido. Las pestañas inactivas se vuelven a activar automáticamente cuando regresas a ellas. <ph name="BEGIN_LINK" />Obtén más información sobre el Ahorro de memoria<ph name="END_LINK" /></translation>
 <translation id="8753189155654018347">Quitar los datos de esta app de Chrome</translation>
 <translation id="8765470054473112089">Cuando escribes en la barra de direcciones o en el cuadro de búsqueda, Chrome envía lo que escribes a tu motor de búsqueda predeterminado para obtener mejores sugerencias. Esta función está desactivada en el modo Incógnito.</translation>
@@ -614,7 +617,6 @@
 <translation id="8914504000324227558">Volver a iniciar Chrome</translation>
 <translation id="8922193594870374009">Para enviar un número de <ph name="ORIGIN" /> a tu teléfono Android, accede a Chrome en ambos dispositivos.</translation>
 <translation id="8948460679427074738">Esta extensión no publicó prácticas de privacidad, como la forma en que recopila y usa datos. Chrome te recomienda quitarla.</translation>
-<translation id="8986207147630327271">Estás agregando un perfil de trabajo a este navegador y dándole a tu administrador el control únicamente del perfil de trabajo.</translation>
 <translation id="8989968390305463310">Tu historial de navegación afecta los anuncios que ves y los intereses como se estima a continuación. Para proteger tu privacidad, Chrome borra tus intereses automáticamente de manera continua todos los meses. Los intereses se pueden actualizar a no ser que los quites.</translation>
 <translation id="8992769679401294069">Tus datos se encriptan con tu frase de contraseña. Ingrésala para usar y guardar datos de Chrome en tu Cuenta de Google.</translation>
 <translation id="8999117580775242387">Cuando HTTPS no esté disponible, Chrome usará una conexión no segura sin advertirte</translation>
@@ -624,6 +626,7 @@
 <translation id="9090566250983691233">Descubre por qué Chrome bloquea algunos archivos</translation>
 <translation id="9106236359747881194">Seleccionar texto para buscarlo</translation>
 <translation id="911206726377975832">¿También eliminar datos de navegación?</translation>
+<translation id="9134482777260927479">Ayuda para las actividades para el hogar</translation>
 <translation id="9138603949443464873">Para aplicar los cambios, vuelve a ejecutar Chrome</translation>
 <translation id="9148058034647219655">Salir</translation>
 <translation id="9195993889682885387">Chrome puede estimar tus intereses en función de tu historial de navegación de las últimas semanas. Esta información permanece en tu dispositivo.</translation>

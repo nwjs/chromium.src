@@ -19,8 +19,10 @@ class PrefRegistrySimple;
 enum class TipsNotificationType;
 enum class TipsNotificationUserType;
 
-// A notification client responsible for registering notification requests and
-// handling the receiving of user notifications that are user-ed "Tips".
+// A notification client responsible for registering notification requests
+// (see `UNNotificationRequest`) in order to trigger iOS local notifications
+// and handling the receiving of user notifications (See `UNNotification`)
+// that lead to user education promos or tips on how to use the app.
 class TipsNotificationClient : public PushNotificationClient {
  public:
   TipsNotificationClient();
@@ -76,36 +78,40 @@ class TipsNotificationClient : public PushNotificationClient {
 
   // Request a notification of the given `type`.
   void RequestNotification(TipsNotificationType type,
+                           std::string_view profile_name,
                            base::OnceClosure completion);
   void OnNotificationRequested(TipsNotificationType type, NSError* error);
 
   // Returns true if a notification of the given `type` should be sent.
-  bool ShouldSendNotification(TipsNotificationType type);
+  bool ShouldSendNotification(TipsNotificationType type, ProfileIOS* profile);
 
   // Returns true if a Default Browser notification should be sent.
   bool ShouldSendDefaultBrowser();
 
   // Returns true if a Signin notification should be sent.
-  bool ShouldSendSignin();
+  bool ShouldSendSignin(ProfileIOS* profile);
 
   // Returns true if a WhatsNew notification should be sent.
-  bool ShouldSendWhatsNew();
+  bool ShouldSendWhatsNew(ProfileIOS* profile);
 
   // Returns true if a SetUpList continuation notification should be sent.
-  bool ShouldSendSetUpListContinuation();
+  bool ShouldSendSetUpListContinuation(ProfileIOS* profile);
 
   // Returns true if a Docking promo notification should be sent.
-  bool ShouldSendDocking();
+  bool ShouldSendDocking(ProfileIOS* profile);
 
   // Returns true if an Omnibox Position promo notification should be sent.
   bool ShouldSendOmniboxPosition();
 
   // Returns true if a Lens promo notification should be sent.
-  bool ShouldSendLens();
+  bool ShouldSendLens(ProfileIOS* profile);
 
   // Returns true if an Enhanced Safe Browsing promo notification should be
   // sent.
-  bool ShouldSendEnhancedSafeBrowsing();
+  bool ShouldSendEnhancedSafeBrowsing(ProfileIOS* profile);
+
+  // Returns true if the CPE notification should be sent.
+  bool ShouldSendCPE(ProfileIOS* profile);
 
   // Returns `true` if there is foreground active browser.
   bool IsSceneLevelForegroundActive();
@@ -120,6 +126,7 @@ class TipsNotificationClient : public PushNotificationClient {
   void ShowOmniboxPosition(Browser* browser);
   void ShowLensPromo(Browser* browser);
   void ShowEnhancedSafeBrowsingPromo(Browser* browser);
+  void ShowCPEPromo(Browser* browser);
 
   // Helpers to store state in local state prefs.
   void MarkNotificationTypeSent(TipsNotificationType type);
@@ -144,9 +151,6 @@ class TipsNotificationClient : public PushNotificationClient {
   // Updates the instance variable that stores whether provisional
   // notifications are allowed by policy.
   void UpdateProvisionalAllowed();
-
-  // Returns true if the Dismiss Limit has been reached.
-  bool DismissLimitReached();
 
   // Called when the pref that stores whether Tips notifications are permitted
   // changes.

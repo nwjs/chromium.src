@@ -231,6 +231,7 @@ bool AutofillExternalDelegate::IsAutofillAndFirstLayerSuggestionId(
     case SuggestionType::kAddressEntry:
     case SuggestionType::kAddressEntryOnTyping:
     case SuggestionType::kAddressFieldByFieldFilling:
+    case SuggestionType::kHomeAndWorkAddressEntry:
     case SuggestionType::kCreditCardEntry:
     case SuggestionType::kDevtoolsTestAddresses:
     case SuggestionType::kSaveAndFillCreditCardEntry:
@@ -483,10 +484,8 @@ bool AutofillExternalDelegate::HasActiveScreenReader() const {
   // a11y internally.
   return false;
 #else
-  // Note: This always returns false if ChromeVox is in use because the
-  // process-wide AXMode is not updated in that case.
   return ui::AXPlatform::GetInstance().GetMode().has_mode(
-      ui::AXMode::kExtendedProperties);
+      ui::AXMode::kScreenReader);
 #endif
 }
 
@@ -551,6 +550,7 @@ void AutofillExternalDelegate::DidSelectSuggestion(
 #endif
       break;
     case SuggestionType::kAddressEntry:
+    case SuggestionType::kHomeAndWorkAddressEntry:
     case SuggestionType::kCreditCardEntry:
     case SuggestionType::kDevtoolsTestAddressEntry:
       FillAutofillFormData(
@@ -699,6 +699,7 @@ void AutofillExternalDelegate::DidAcceptSuggestion(
     case SuggestionType::kAddressEntry:
     case SuggestionType::kAddressFieldByFieldFilling:
     case SuggestionType::kDevtoolsTestAddressEntry:
+    case SuggestionType::kHomeAndWorkAddressEntry:
       DidAcceptAddressSuggestion(suggestion, metadata);
       break;
     case SuggestionType::kCreditCardEntry:
@@ -845,19 +846,28 @@ void AutofillExternalDelegate::DidAcceptSuggestion(
       }
       break;
     case SuggestionType::kIdentityCredential: {
-      // TODO(crbug.com/380367784): support filling and loading state.
       if (const IdentityCredentialDelegate* identity_credential_delegate =
               manager_->client().GetIdentityCredentialDelegate()) {
         identity_credential_delegate->NotifySuggestionAccepted(
-            suggestion, base::NullCallback());
+            suggestion, /*show_modal=*/true,
+            base::BindOnce(
+                [](base::WeakPtr<AutofillExternalDelegate> delegate,
+                   const Suggestion& suggestion, bool accepted) {
+                  if (!delegate || !accepted) {
+                    return;
+                  }
 
-        VerifiedProfile profile =
-            suggestion.GetPayload<Suggestion::IdentityCredentialPayload>()
-                .fields;
-        manager_->FillOrPreviewForm(
-            mojom::ActionPersistence::kFill, query_form_,
-            query_field_.global_id(), &profile,
-            TriggerSourceFromSuggestionTriggerSource(trigger_source_));
+                  VerifiedProfile profile =
+                      suggestion
+                          .GetPayload<Suggestion::IdentityCredentialPayload>()
+                          .fields;
+                  delegate->manager_->FillOrPreviewForm(
+                      mojom::ActionPersistence::kFill, delegate->query_form_,
+                      delegate->query_field_.global_id(), &profile,
+                      TriggerSourceFromSuggestionTriggerSource(
+                          delegate->trigger_source_));
+                },
+                GetWeakPtr(), suggestion));
       }
       break;
     }
@@ -925,6 +935,7 @@ bool AutofillExternalDelegate::RemoveSuggestion(const Suggestion& suggestion) {
     // These SuggestionTypes are various types which can appear in the first
     // level suggestion to fill an address or credit card field.
     case SuggestionType::kAddressEntry:
+    case SuggestionType::kHomeAndWorkAddressEntry:
     case SuggestionType::kAddressFieldByFieldFilling: {
       const std::string guid =
           std::get<Suggestion::AutofillProfilePayload>(suggestion.payload)
@@ -932,9 +943,18 @@ bool AutofillExternalDelegate::RemoveSuggestion(const Suggestion& suggestion) {
       if (AddressDataManager& adm = manager_->client()
                                         .GetPersonalDataManager()
                                         .address_data_manager();
-          adm.GetProfileByGUID(guid)) {
-        adm.RemoveProfile(guid);
-        return true;
+          auto* profile = adm.GetProfileByGUID(guid)) {
+        switch (profile->record_type()) {
+          case AutofillProfile::RecordType::kLocalOrSyncable:
+          case AutofillProfile::RecordType::kAccount:
+            adm.RemoveProfile(guid);
+            return true;
+          case AutofillProfile::RecordType::kAccountHome:
+          case AutofillProfile::RecordType::kAccountWork:
+            // Home and Work profiles are read-only and therefore cannot be
+            // deleted.
+            break;
+        }
       }
       return false;
     }
@@ -1357,7 +1377,7 @@ void AutofillExternalDelegate::DidAcceptPaymentsSuggestion(
       payments::BnplManager* bnpl_manager = manager_->GetPaymentsBnplManager();
       CHECK(bnpl_manager);
 
-      bnpl_manager->InitBnplFlow(
+      bnpl_manager->OnDidAcceptBnplSuggestion(
           /*final_checkout_amount=*/suggestion
               .GetPayload<Suggestion::PaymentsPayload>()
               .extracted_amount_in_micros.value(),

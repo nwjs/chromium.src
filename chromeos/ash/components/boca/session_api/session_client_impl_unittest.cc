@@ -10,6 +10,8 @@
 #include "base/test/test_future.h"
 #include "chromeos/ash/components/boca/proto/session.pb.h"
 #include "chromeos/ash/components/boca/session_api/get_session_request.h"
+#include "chromeos/ash/components/boca/session_api/renotify_student_request.h"
+#include "chromeos/ash/components/boca/session_api/update_student_activities_request.h"
 #include "google_apis/common/dummy_auth_service.h"
 #include "google_apis/common/request_sender.h"
 #include "net/http/http_status_code.h"
@@ -78,6 +80,16 @@ class SessionClientImplTest : public testing::Test {
     request->OverrideURLForTesting(test_server_.base_url().spec());
     return request;
   }
+
+  std::unique_ptr<UpdateStudentActivitiesRequest> CreateInsertActivityRequest(
+      SessionClientImpl::UpdateStudentActivitiesCallback callback) {
+    auto request = std::make_unique<UpdateStudentActivitiesRequest>(
+        request_sender_, "https://test", "1", GaiaId("2"), "device_id",
+        std::move(callback));
+    request->OverrideURLForTesting(test_server_.base_url().spec());
+    return request;
+  }
+
   net::EmbeddedTestServer test_server_;
   base::test::TaskEnvironment task_environment_{
       base::test::TaskEnvironment::MainThreadType::IO};
@@ -158,17 +170,84 @@ TEST_F(SessionClientImplTest, SequentialGetSessionRequestRunInOrder) {
   EXPECT_CALL(request_handler_, HandleRequest(_)).Times(1);
   session_client_impl_->GetSession(
       CreateGetSessionRequest(future_1.GetCallback()),
-      /*can_skip_duplicate_request=*/true);
+      /*can_skip_duplicate_request=*/false);
   EXPECT_TRUE(future_1.Wait());
   EXPECT_CALL(request_handler_, HandleRequest(_)).Times(1);
   session_client_impl_->GetSession(
       CreateGetSessionRequest(future_2.GetCallback()),
-      /*can_skip_duplicate_request=*/true);
+      /*can_skip_duplicate_request=*/false);
   EXPECT_TRUE(future_2.Wait());
   EXPECT_CALL(request_handler_, HandleRequest(_)).Times(1);
   session_client_impl_->GetSession(
       CreateGetSessionRequest(future_3.GetCallback()),
-      /*can_skip_duplicate_request=*/true);
+      /*can_skip_duplicate_request=*/false);
   EXPECT_TRUE(future_3.Wait());
 }
+
+TEST_F(SessionClientImplTest, RenotifyStudent) {
+  base::test::TestFuture<base::expected<bool, google_apis::ApiErrorCode>>
+      future;
+
+  std::unique_ptr<RenotifyStudentRequest> request =
+      std::make_unique<RenotifyStudentRequest>(request_sender_, "https://test",
+                                               GaiaId("gaia_id"), "session_id",
+                                               future.GetCallback());
+
+  request->OverrideURLForTesting(test_server_.base_url().spec());
+
+  EXPECT_CALL(request_handler_, HandleRequest(_)).Times(1);
+  session_client_impl_->RenotifyStudent(std::move(request));
+  EXPECT_TRUE(future.Wait());
+}
+
+TEST_F(SessionClientImplTest, ConcurrentInsertActivityDisallowDedupe) {
+  EXPECT_CALL(request_handler_, HandleRequest(_)).Times(2);
+  base::test::TestFuture<base::expected<bool, google_apis::ApiErrorCode>>
+      future_1;
+  base::test::TestFuture<base::expected<bool, google_apis::ApiErrorCode>>
+      future_2;
+
+  session_client_impl_->UpdateStudentActivity(
+      CreateInsertActivityRequest(future_1.GetCallback()));
+  session_client_impl_->UpdateStudentActivity(
+      CreateInsertActivityRequest(future_2.GetCallback()));
+
+  EXPECT_TRUE(future_1.Wait());
+  EXPECT_TRUE(future_2.Wait());
+}
+
+TEST_F(SessionClientImplTest, SequentialInsertActivityRequestRunInOrder) {
+  base::test::TestFuture<base::expected<bool, google_apis::ApiErrorCode>>
+      future_1;
+  base::test::TestFuture<base::expected<bool, google_apis::ApiErrorCode>>
+      future_2;
+  EXPECT_CALL(request_handler_, HandleRequest(_)).Times(1);
+  session_client_impl_->UpdateStudentActivity(
+      CreateInsertActivityRequest(future_1.GetCallback()));
+  EXPECT_TRUE(future_1.Wait());
+  EXPECT_CALL(request_handler_, HandleRequest(_)).Times(1);
+  session_client_impl_->UpdateStudentActivity(
+      CreateInsertActivityRequest(future_2.GetCallback()));
+  EXPECT_TRUE(future_2.Wait());
+}
+
+TEST_F(SessionClientImplTest, GetSessionAfterInsertActivityShouldBeExecuted) {
+  base::test::TestFuture<base::expected<bool, google_apis::ApiErrorCode>>
+      future_1;
+
+  EXPECT_CALL(request_handler_, HandleRequest(_)).Times(2);
+  session_client_impl_->UpdateStudentActivity(
+      CreateInsertActivityRequest(future_1.GetCallback()));
+  EXPECT_TRUE(future_1.Wait());
+
+  base::test::TestFuture<base::expected<std::unique_ptr<::boca::Session>,
+                                        google_apis::ApiErrorCode>>
+      future_2;
+
+  session_client_impl_->GetSession(
+      CreateGetSessionRequest(future_2.GetCallback()),
+      /*can_skip_duplicate_request=*/false);
+  EXPECT_TRUE(future_2.Wait());
+}
+
 }  // namespace ash::boca

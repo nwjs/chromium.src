@@ -120,6 +120,7 @@
 #include "chromeos/ash/components/dbus/session_manager/fake_session_manager_client.h"
 #include "chromeos/ash/components/login/auth/public/user_context.h"
 #include "chromeos/ash/components/network/policy_certificate_provider.h"
+#include "chromeos/ash/components/policy/device_local_account/device_local_account_type.h"
 #include "chromeos/ash/components/settings/timezone_settings.h"
 #include "chromeos/components/mgs/managed_guest_session_utils.h"
 #include "components/crx_file/crx_verifier.h"
@@ -129,7 +130,6 @@
 #include "components/policy/core/common/cloud/cloud_policy_core.h"
 #include "components/policy/core/common/cloud/cloud_policy_store.h"
 #include "components/policy/core/common/cloud/test/policy_builder.h"
-#include "components/policy/core/common/device_local_account_type.h"
 #include "components/policy/core/common/external_data_fetcher.h"
 #include "components/policy/core/common/policy_map.h"
 #include "components/policy/core/common/policy_namespace.h"
@@ -414,8 +414,7 @@ void EnableUrlKeyedAnonymizedDataCollection(Profile* profile) {
       UnifiedConsentServiceFactory::GetForProfile(profile);
   if (consent_service) {
     consent_service->SetUrlKeyedAnonymizedDataCollectionEnabled(true);
-    g_browser_process->GetMetricsServicesManager()->UpdateUploadPermissions(
-        true);
+    g_browser_process->GetMetricsServicesManager()->UpdateUploadPermissions();
   }
 }
 
@@ -1581,7 +1580,7 @@ IN_PROC_BROWSER_TEST_F(DeviceLocalAccountTest, LastWindowClosedLogoutReminder) {
   scoped_refptr<extensions::CrxInstaller> installer =
       extensions::CrxInstaller::CreateSilent(profile);
   installer->set_allow_silent_install(true);
-  installer->set_install_cause(extension_misc::INSTALL_CAUSE_USER_DOWNLOAD);
+  installer->set_was_triggered_by_user_download();
   installer->set_creation_flags(extensions::Extension::FROM_WEBSTORE);
 
   {

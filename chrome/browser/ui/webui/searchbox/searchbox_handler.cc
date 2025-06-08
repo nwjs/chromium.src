@@ -227,6 +227,7 @@ bool MatchHasSideTypeAndRenderType(
 
 std::vector<searchbox::mojom::AutocompleteMatchPtr> CreateAutocompleteMatches(
     const AutocompleteResult& result,
+    const OmniboxEditModel* edit_model,
     bookmarks::BookmarkModel* bookmark_model,
     const omnibox::GroupConfigMap& suggestion_groups_map,
     const TemplateURLService* turl_service) {
@@ -341,14 +342,16 @@ std::vector<searchbox::mojom::AutocompleteMatchPtr> CreateAutocompleteMatches(
           label_strings.accessibility_hint, label_strings.hint,
           label_strings.suggestion_contents, icon_url));
     }
+    std::u16string header_text =
+        edit_model->GetSuggestionGroupHeaderText(match.suggestion_group_id);
     mojom_match->a11y_label = AutocompleteMatchType::ToAccessibilityLabel(
-        match, match.contents, line, 0,
+        match, header_text, match.contents, line, 0,
         GetAdditionalA11yMessage(
             match, searchbox::mojom::SelectionLineState::kNormal));
 
     mojom_match->remove_button_a11y_label =
         AutocompleteMatchType::ToAccessibilityLabel(
-            match, match.contents, line, 0,
+            match, header_text, match.contents, line, 0,
             GetAdditionalA11yMessage(match,
                                      searchbox::mojom::SelectionLineState::
                                          kFocusedButtonRemoveSuggestion));
@@ -399,12 +402,6 @@ CreateSuggestionGroupsMap(
         static_cast<searchbox::mojom::SideType>(pair.second.side_type());
     suggestion_group->render_type =
         static_cast<searchbox::mojom::RenderType>(pair.second.render_type());
-    suggestion_group->hidden =
-        result.IsSuggestionGroupHidden(prefs, pair.first);
-    suggestion_group->show_group_a11y_label = l10n_util::GetStringFUTF16(
-        IDS_ACC_HEADER_SHOW_SUGGESTIONS_BUTTON, suggestion_group->header);
-    suggestion_group->hide_group_a11y_label = l10n_util::GetStringFUTF16(
-        IDS_ACC_HEADER_HIDE_SUGGESTIONS_BUTTON, suggestion_group->header);
 
     result_map.emplace(static_cast<int>(pair.first),
                        std::move(suggestion_group));
@@ -415,13 +412,14 @@ CreateSuggestionGroupsMap(
 searchbox::mojom::AutocompleteResultPtr CreateAutocompleteResult(
     const std::u16string& input,
     const AutocompleteResult& result,
+    const OmniboxEditModel* edit_model,
     bookmarks::BookmarkModel* bookmark_model,
     const PrefService* prefs,
     const TemplateURLService* turl_service) {
   return searchbox::mojom::AutocompleteResult::New(
       input,
       CreateSuggestionGroupsMap(result, prefs, result.suggestion_groups_map()),
-      CreateAutocompleteMatches(result, bookmark_model,
+      CreateAutocompleteMatches(result, edit_model, bookmark_model,
                                 result.suggestion_groups_map(), turl_service));
 }
 
@@ -443,9 +441,10 @@ void SearchboxHandler::SetupWebUIDataSource(content::WebUIDataSource* source,
   // layout options.
   source->AddBoolean("isLensSearchbox", false);
   source->AddBoolean("queryAutocompleteOnEmptyInput", false);
+  source->AddBoolean("forceHideEllipsis", false);
+  source->AddBoolean("enableThumbnailSizingTweaks", false);
 
   static constexpr webui::LocalizedString kStrings[] = {
-      {"hideSuggestions", IDS_TOOLTIP_HEADER_HIDE_SUGGESTIONS_BUTTON},
       {"lensSearchButtonLabel", IDS_TOOLTIP_LENS_SEARCH},
       {"searchboxSeparator", IDS_AUTOCOMPLETE_MATCH_DESCRIPTION_SEPARATOR},
       {"removeSuggestion", IDS_OMNIBOX_REMOVE_SUGGESTION},
@@ -453,7 +452,6 @@ void SearchboxHandler::SetupWebUIDataSource(content::WebUIDataSource* source,
       {"searchBoxHintMultimodal", IDS_GOOGLE_SEARCH_BOX_EMPTY_HINT_MULTIMODAL},
       {"searchboxThumbnailLabel",
        IDS_GOOGLE_SEARCH_BOX_MULTIMODAL_IMAGE_THUMBNAIL},
-      {"showSuggestions", IDS_TOOLTIP_HEADER_SHOW_SUGGESTIONS_BUTTON},
       {"voiceSearchButtonLabel", IDS_TOOLTIP_MIC_SEARCH}};
   source->AddLocalizedStrings(kStrings);
 
@@ -643,6 +641,14 @@ std::string SearchboxHandler::ActionVectorIconToResourceName(
       icon.name == omnibox::kStarActiveChromeRefreshIcon.name) {
     return kStarActiveIconResourceName;
   }
+  if (icon.name == omnibox::kSubdirectoryArrowRightIcon.name) {
+    // The subdirectory arrow right icon is used for contextual suggestions only
+    // in the omnibox. It is not supported in the WebUI contextual searchbox,
+    // so use the search icon instead.
+    // TODO(crbug.com/419077032): Allow the derived class to override these
+    // icons so that there is not conditional logic based on one derived class.
+    return kSearchIconResourceName;
+  }
   NOTREACHED() << "Every vector icon returned by OmniboxAction::GetVectorIcon "
                   "must have an equivalent SVG resource for the NTP Realbox. "
                   "icon.name: '"
@@ -685,7 +691,7 @@ void SearchboxHandler::OnFocusChanged(bool focused) {
 }
 
 void SearchboxHandler::QueryAutocomplete(const std::u16string& input,
-                                       bool prevent_inline_autocomplete) {
+                                         bool prevent_inline_autocomplete) {
   // TODO(tommycli): We use the input being empty as a signal we are requesting
   // on-focus suggestions. It would be nice if we had a more explicit signal.
   bool is_on_focus = input.empty();
@@ -729,13 +735,13 @@ void SearchboxHandler::StopAutocomplete(bool clear_result) {
 }
 
 void SearchboxHandler::OpenAutocompleteMatch(uint8_t line,
-                                           const GURL& url,
-                                           bool are_matches_showing,
-                                           uint8_t mouse_button,
-                                           bool alt_key,
-                                           bool ctrl_key,
-                                           bool meta_key,
-                                           bool shift_key) {
+                                             const GURL& url,
+                                             bool are_matches_showing,
+                                             uint8_t mouse_button,
+                                             bool alt_key,
+                                             bool ctrl_key,
+                                             bool meta_key,
+                                             bool shift_key) {
   const AutocompleteMatch* match = GetMatchWithUrl(line, url);
   if (!match) {
     // This can happen due to asynchronous updates changing the result while
@@ -774,7 +780,7 @@ void SearchboxHandler::OnResultChanged(AutocompleteController* controller,
   }
   page_->AutocompleteResultChanged(CreateAutocompleteResult(
       autocomplete_controller()->input().text(),
-      autocomplete_controller()->result(),
+      autocomplete_controller()->result(), edit_model(),
       BookmarkModelFactory::GetForBrowserContext(profile_),
       profile_->GetPrefs(),
       omnibox_controller()->client()->GetTemplateURLService()));
@@ -795,7 +801,7 @@ void SearchboxHandler::OnResultChanged(AutocompleteController* controller,
 }
 
 const AutocompleteMatch* SearchboxHandler::GetMatchWithUrl(size_t index,
-                                                         const GURL& url) {
+                                                           const GURL& url) {
   const AutocompleteResult& result = autocomplete_controller()->result();
   if (index >= result.size()) {
     // This can happen due to asynchronous updates changing the result while

@@ -22,6 +22,7 @@
 #include "cc/trees/layer_tree_frame_sink_client.h"
 #include "components/viz/common/features.h"
 #include "components/viz/common/frame_sinks/begin_frame_args.h"
+#include "components/viz/common/gpu/raster_context_provider.h"
 #include "components/viz/common/hit_test/hit_test_region_list.h"
 #include "components/viz/common/quads/compositor_frame.h"
 #include "services/viz/public/mojom/compositing/thread.mojom.h"
@@ -64,11 +65,11 @@ AsyncLayerTreeFrameSink::UnboundMessagePipes::UnboundMessagePipes(
 
 AsyncLayerTreeFrameSink::AsyncLayerTreeFrameSink(
     scoped_refptr<viz::RasterContextProvider> context_provider,
-    scoped_refptr<RasterContextProviderWrapper> worker_context_provider_wrapper,
+    scoped_refptr<viz::RasterContextProvider> worker_context_provider,
     scoped_refptr<gpu::ClientSharedImageInterface> shared_image_interface,
     InitParams* params)
     : LayerTreeFrameSink(std::move(context_provider),
-                         std::move(worker_context_provider_wrapper),
+                         std::move(worker_context_provider),
                          std::move(params->compositor_task_runner),
                          std::move(shared_image_interface)),
       use_direct_client_receiver_(params->use_direct_client_receiver),
@@ -285,13 +286,7 @@ void AsyncLayerTreeFrameSink::SubmitCompositorFrame(
   compositor_frame_sink_ptr_->SubmitCompositorFrame(
       local_surface_id_, std::move(frame), std::move(hit_test_region_list), 0);
 
-  if (base::FeatureList::IsEnabled(
-          features::kExportFrameTimingAfterFrameDone)) {
-    for (const auto& pair : timing_details_) {
-      client_->DidPresentCompositorFrame(pair.first, pair.second);
-    }
-    timing_details_.clear();
-  }
+  ExportFrameTiming();
 
   num_did_not_produce_frame_since_last_submit_ = 0;
   if (use_internal_begin_frame_source_) {
@@ -320,23 +315,9 @@ void AsyncLayerTreeFrameSink::DidNotProduceFrame(const viz::BeginFrameAck& ack,
         data->set_surface_frame_trace_id(ack.trace_id);
       });
 
-  if (base::FeatureList::IsEnabled(
-          features::kExportFrameTimingAfterFrameDone)) {
-    for (const auto& pair : timing_details_) {
-      client_->DidPresentCompositorFrame(pair.first, pair.second);
-    }
-    timing_details_.clear();
-  }
+  ExportFrameTiming();
+
   if (use_internal_begin_frame_source_) {
-    if (ack.preferred_frame_interval) {
-      const viz::BeginFrameArgs last_args =
-          begin_frame_source_->last_begin_frame_args();
-      auto preferred_interval = ack.preferred_frame_interval > base::TimeDelta()
-                                    ? *ack.preferred_frame_interval
-                                    : last_args.interval;
-      internal_begin_frame_source_->OnUpdateVSyncParameters(
-          last_args.frame_time, preferred_interval);
-    }
     return;
   }
   compositor_frame_sink_ptr_->DidNotProduceFrame(ack);
@@ -349,6 +330,16 @@ void AsyncLayerTreeFrameSink::DidNotProduceFrame(const viz::BeginFrameAck& ack,
         FROM_HERE,
         base::BindOnce(&AsyncLayerTreeFrameSink::UpdateInternalBeginFrameSource,
                        weak_factory_.GetWeakPtr(), true));
+  }
+}
+
+void AsyncLayerTreeFrameSink::ExportFrameTiming() {
+  if (base::FeatureList::IsEnabled(
+          features::kExportFrameTimingAfterFrameDone)) {
+    for (const auto& pair : timing_details_) {
+      client_->DidPresentCompositorFrame(pair.first, pair.second);
+    }
+    timing_details_.clear();
   }
 }
 

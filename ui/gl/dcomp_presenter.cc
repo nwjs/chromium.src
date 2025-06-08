@@ -41,7 +41,7 @@ DCompPresenter::DCompPresenter(const Settings& settings)
       use_gpu_vsync_(features::UseGpuVsync()) {
   CHECK(DirectCompositionSupported());
   d3d11_device_ = GetDirectCompositionD3D11Device();
-  child_window_.Initialize(/*remove_redirection_bitmap=*/true);
+  child_window_.Initialize();
   layer_tree_->Initialize(child_window_.window(), d3d11_device_);
 }
 
@@ -166,8 +166,9 @@ DCompPresenter::GetWindowTaskRunnerForTesting() {
 }
 
 Microsoft::WRL::ComPtr<IDXGISwapChain1>
-DCompPresenter::GetLayerSwapChainForTesting(size_t index) const {
-  return layer_tree_->GetLayerSwapChainForTesting(index);  // IN-TEST
+DCompPresenter::GetLayerSwapChainForTesting(
+    const gfx::OverlayLayerId& layer_id) const {
+  return layer_tree_->GetLayerSwapChainForTesting(layer_id);  // IN-TEST
 }
 
 void DCompPresenter::GetSwapChainVisualInfoForTesting(

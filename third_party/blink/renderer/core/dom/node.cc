@@ -325,8 +325,8 @@ void Node::DumpStatistics() {
 
 Node::Node(TreeScope* tree_scope, ConstructionType type)
     : node_flags_(type),
-      parent_or_shadow_host_node_(kParentNodeTag, nullptr),
       tree_scope_(tree_scope),
+      parent_or_shadow_host_node_(kParentNodeTag, nullptr),
       previous_(nullptr),
       next_(nullptr),
       layout_object_(nullptr),
@@ -1832,15 +1832,9 @@ void Node::AttachLayoutTree(AttachContext& context) {
 }
 
 void Node::DetachLayoutTree(bool performing_reattach) {
-  // Re-attachment is not generally allowed from PositionTryStyleRecalc, but
-  // computing style for display:none pseudo elements will insert a pseudo
-  // element, compute the style, and remove it again, which includes a
-  // DetachLayoutTree().
   DCHECK(GetDocument().Lifecycle().StateAllowsDetach() ||
-         GetDocument().GetStyleEngine().InContainerQueryStyleRecalc() ||
-         GetDocument().GetStyleEngine().InScrollMarkersAttachment() ||
-         (GetDocument().GetStyleEngine().InPositionTryStyleRecalc() &&
-          IsPseudoElement() && !GetLayoutObject()));
+         GetDocument().GetStyleEngine().InInterleavedStyleRecalc() ||
+         GetDocument().GetStyleEngine().InScrollMarkersAttachment());
   DCHECK(!performing_reattach ||
          GetDocument().GetStyleEngine().InRebuildLayoutTree() ||
          GetDocument().GetStyleEngine().InScrollMarkersAttachment());
@@ -3713,8 +3707,8 @@ void Node::AddConsoleMessage(mojom::blink::ConsoleMessageSource source,
 }
 
 void Node::Trace(Visitor* visitor) const {
-  visitor->Trace(parent_or_shadow_host_node_);
   visitor->Trace(tree_scope_);
+  visitor->Trace(parent_or_shadow_host_node_);
   visitor->Trace(previous_);
   visitor->Trace(next_);
   visitor->Trace(layout_object_);

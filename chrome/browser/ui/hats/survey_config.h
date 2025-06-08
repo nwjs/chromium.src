@@ -33,11 +33,7 @@ extern const char kHatsSurveyTriggerHistoryEmbeddings[];
 extern const char kHatsSurveyTriggerLensOverlayResults[];
 extern const char kHatsSurveyTriggerNtpModules[];
 extern const char kHatsSurveyTriggerNtpPhotosModuleOptOut[];
-extern const char kHatsSurveyTriggerPerformanceControlsPerformance[];
 extern const char kHatsSurveyTriggerPerformanceControlsPPM[];
-extern const char kHatsSurveyTriggerPerformanceControlsBatteryPerformance[];
-extern const char kHatsSurveyTriggerPerformanceControlsMemorySaverOptOut[];
-extern const char kHatsSurveyTriggerPerformanceControlsBatterySaverOptOut[];
 extern const char kHatsSurveyTriggerPrivacyGuide[];
 extern const char kHatsSurveyTriggerRedWarning[];
 extern const char kHatsSurveyTriggerSafetyHubOneOffExperimentControl[];
@@ -88,6 +84,7 @@ extern const char
 extern const char
     kHatsSurveyTriggerPlusAddressFilledPlusAddressViaManualFallback[];
 extern const char kHatsSurveyTriggerPrivacySandboxSentimentSurvey[];
+extern const char kHatsSurveyTriggerPrivacySandboxActSurvey[];
 extern const char kHatsSurveyTriggerMerchantTrustEvaluationControlSurvey[];
 extern const char kHatsSurveyTriggerMerchantTrustEvaluationExperimentSurvey[];
 extern const char kHatsSurveyTriggerMerchantTrustLearnSurvey[];

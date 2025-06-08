@@ -9,6 +9,7 @@
 
 #import <memory>
 
+#import "base/apple/foundation_util.h"
 #import "base/debug/dump_without_crashing.h"
 #import "base/functional/bind.h"
 #import "base/metrics/histogram_functions.h"
@@ -25,13 +26,17 @@
 #import "components/tab_groups/tab_group_visual_data.h"
 #import "ios/chrome/browser/bubble/model/tab_based_iph_browser_agent.h"
 #import "ios/chrome/browser/collaboration/model/collaboration_service_factory.h"
+#import "ios/chrome/browser/collaboration/model/features.h"
 #import "ios/chrome/browser/commerce/model/shopping_persisted_data_tab_helper.h"
 #import "ios/chrome/browser/default_browser/model/utils.h"
 #import "ios/chrome/browser/drag_and_drop/model/drag_item_util.h"
+#import "ios/chrome/browser/favicon/model/ios_chrome_favicon_loader_factory.h"
 #import "ios/chrome/browser/menu/ui_bundled/action_factory.h"
 #import "ios/chrome/browser/reading_list/model/reading_list_browser_agent.h"
 #import "ios/chrome/browser/saved_tab_groups/model/ios_tab_group_action_context.h"
 #import "ios/chrome/browser/saved_tab_groups/model/ios_tab_group_sync_util.h"
+#import "ios/chrome/browser/saved_tab_groups/model/tab_group_service.h"
+#import "ios/chrome/browser/saved_tab_groups/model/tab_group_service_factory.h"
 #import "ios/chrome/browser/saved_tab_groups/model/tab_group_sync_service_factory.h"
 #import "ios/chrome/browser/shared/coordinator/scene/scene_controller.h"
 #import "ios/chrome/browser/shared/coordinator/scene/scene_state.h"
@@ -50,6 +55,7 @@
 #import "ios/chrome/browser/shared/public/commands/bookmarks_commands.h"
 #import "ios/chrome/browser/shared/public/commands/command_dispatcher.h"
 #import "ios/chrome/browser/shared/public/commands/reading_list_add_command.h"
+#import "ios/chrome/browser/shared/public/commands/shared_tab_group_last_tab_closed_alert_command.h"
 #import "ios/chrome/browser/shared/public/commands/tab_grid_commands.h"
 #import "ios/chrome/browser/shared/public/commands/tab_grid_toolbar_commands.h"
 #import "ios/chrome/browser/shared/public/commands/tab_groups_commands.h"
@@ -77,6 +83,7 @@
 #import "ios/chrome/browser/tab_switcher/ui_bundled/tab_grid/toolbars/tab_grid_toolbars_configuration.h"
 #import "ios/chrome/browser/tab_switcher/ui_bundled/tab_group_action_type.h"
 #import "ios/chrome/browser/tab_switcher/ui_bundled/tab_group_item.h"
+#import "ios/chrome/browser/tab_switcher/ui_bundled/tab_snapshot_and_favicon_configurator.h"
 #import "ios/chrome/browser/tab_switcher/ui_bundled/tab_utils.h"
 #import "ios/chrome/browser/tab_switcher/ui_bundled/web_state_tab_switcher_item.h"
 #import "ios/chrome/browser/tabs_search/model/tabs_search_service.h"
@@ -138,6 +145,9 @@ void LogPriceDropMetrics(web::WebState* web_state) {
 
   // Holder for the current mode of the Tab Grid.
   TabGridModeHolder* _modeHolder;
+
+  // Helper class to configure tab item images.
+  std::unique_ptr<TabSnapshotAndFaviconConfigurator> _tabImagesConfigurator;
 }
 
 - (instancetype)initWithModeHolder:(TabGridModeHolder*)modeHolder {
@@ -179,6 +189,19 @@ void LogPriceDropMetrics(web::WebState* web_state) {
   _webStateList = browser ? browser->GetWebStateList() : nullptr;
   _profile = browser ? browser->GetProfile() : nullptr;
   _URLLoader = browser ? UrlLoadingBrowserAgent::FromBrowser(browser) : nullptr;
+
+  FaviconLoader* faviconLoader = nil;
+  // Fetch favicons if in regular mode and sync or shared tab groups is enabled.
+  if (_profile && !_profile->IsOffTheRecord()) {
+    collaboration::CollaborationService* collaborationService =
+        collaboration::CollaborationServiceFactory::GetForProfile(_profile);
+    if (IsTabGroupSyncEnabled() ||
+        IsSharedTabGroupsJoinEnabled(collaborationService)) {
+      faviconLoader = IOSChromeFaviconLoaderFactory::GetForProfile(_profile);
+    }
+  }
+  _tabImagesConfigurator =
+      std::make_unique<TabSnapshotAndFaviconConfigurator>(faviconLoader);
 
   [self.snapshotStorage addObserver:self];
 
@@ -290,8 +313,7 @@ void LogPriceDropMetrics(web::WebState* web_state) {
   if (IsTabGroupInGridEnabled()) {
     const TabGroup* group = webStateList->GetGroupOfWebStateAt(webStateIndex);
     if (group) {
-      return [GridItemIdentifier groupIdentifier:group
-                                withWebStateList:webStateList];
+      return [GridItemIdentifier groupIdentifier:group];
     }
   }
 
@@ -362,8 +384,7 @@ void LogPriceDropMetrics(web::WebState* web_state) {
     const TabGroup* group =
         webStateList->GetGroupOfWebStateAt(nextWebStateIndex);
     if (group) {
-      nextItemIdentifier = [GridItemIdentifier groupIdentifier:group
-                                              withWebStateList:webStateList];
+      nextItemIdentifier = [GridItemIdentifier groupIdentifier:group];
     } else {
       nextItemIdentifier = [GridItemIdentifier
           tabIdentifier:self.webStateList->GetWebStateAt(nextWebStateIndex)];
@@ -381,8 +402,7 @@ void LogPriceDropMetrics(web::WebState* web_state) {
     const TabGroup* group =
         self.webStateList->GetGroupOfWebStateAt(nextWebStateIndex);
     if (group) {
-      nextItem = [GridItemIdentifier groupIdentifier:group
-                                    withWebStateList:self.webStateList];
+      nextItem = [GridItemIdentifier groupIdentifier:group];
     } else {
       nextItem = [GridItemIdentifier
           tabIdentifier:self.webStateList->GetWebStateAt(nextWebStateIndex)];
@@ -401,8 +421,7 @@ void LogPriceDropMetrics(web::WebState* web_state) {
   }
   GridItemIdentifier* item;
   if (group) {
-    item = [GridItemIdentifier groupIdentifier:group
-                              withWebStateList:webStateList];
+    item = [GridItemIdentifier groupIdentifier:group];
   } else {
     item = [GridItemIdentifier tabIdentifier:webState];
   }
@@ -427,10 +446,9 @@ void LogPriceDropMetrics(web::WebState* web_state) {
     // should be a search result from a different window. Since this item is not
     // from the current browser, no UI updates will be sent to the current grid.
     // Notify the current grid consumer about the change.
-    CHECK(_modeHolder.mode == TabGridMode::kSearch, base::NotFatalUntil::M130);
+    CHECK(_modeHolder.mode == TabGridMode::kSearch);
     GridItemIdentifier* identifierToRemove =
-        [GridItemIdentifier groupIdentifier:group
-                           withWebStateList:groupWebStateList];
+        [GridItemIdentifier groupIdentifier:group];
     [self.consumer removeItemWithIdentifier:identifierToRemove
                      selectedItemIdentifier:nil];
   }
@@ -468,10 +486,9 @@ void LogPriceDropMetrics(web::WebState* web_state) {
     // should be a search result from a different window. Since this item is not
     // from the current browser, no UI updates will be sent to the current grid.
     // Notify the current grid consumer about the change.
-    CHECK(_modeHolder.mode == TabGridMode::kSearch, base::NotFatalUntil::M130);
+    CHECK(_modeHolder.mode == TabGridMode::kSearch);
     GridItemIdentifier* identifierToRemove =
-        [GridItemIdentifier groupIdentifier:group
-                           withWebStateList:groupWebStateList];
+        [GridItemIdentifier groupIdentifier:group];
     [self.consumer removeItemWithIdentifier:identifierToRemove
                      selectedItemIdentifier:nil];
   }
@@ -592,8 +609,7 @@ void LogPriceDropMetrics(web::WebState* web_state) {
         } else {
           // The tab left a group.
           GridItemIdentifier* oldGroupIdentifier =
-              [GridItemIdentifier groupIdentifier:oldGroup
-                                 withWebStateList:_webStateList];
+              [GridItemIdentifier groupIdentifier:oldGroup];
           [self.consumer replaceItem:oldGroupIdentifier
                  withReplacementItem:oldGroupIdentifier];
         }
@@ -601,8 +617,7 @@ void LogPriceDropMetrics(web::WebState* web_state) {
         if (newGroup) {
           // The tab joined a group.
           GridItemIdentifier* newGroupIdentifier =
-              [GridItemIdentifier groupIdentifier:newGroup
-                                 withWebStateList:_webStateList];
+              [GridItemIdentifier groupIdentifier:newGroup];
 
           [self.consumer replaceItem:newGroupIdentifier
                  withReplacementItem:newGroupIdentifier];
@@ -733,8 +748,7 @@ void LogPriceDropMetrics(web::WebState* web_state) {
 
       const TabGroup* currentGroup = groupCreateChange.created_group();
       GridItemIdentifier* groupItemIdentifier =
-          [GridItemIdentifier groupIdentifier:currentGroup
-                             withWebStateList:webStateList];
+          [GridItemIdentifier groupIdentifier:currentGroup];
       CHECK(groupItemIdentifier.tabGroupItem.tabGroup);
       [self insertItem:groupItemIdentifier
           beforeWebStateIndex:groupItemIdentifier.tabGroupItem.tabGroup->range()
@@ -746,8 +760,7 @@ void LogPriceDropMetrics(web::WebState* web_state) {
       const WebStateListChangeGroupVisualDataUpdate& visualDataChange =
           change.As<WebStateListChangeGroupVisualDataUpdate>();
       GridItemIdentifier* groupItemIdentifier =
-          [GridItemIdentifier groupIdentifier:visualDataChange.updated_group()
-                             withWebStateList:webStateList];
+          [GridItemIdentifier groupIdentifier:visualDataChange.updated_group()];
       [self.consumer replaceItem:groupItemIdentifier
              withReplacementItem:groupItemIdentifier];
 
@@ -757,8 +770,7 @@ void LogPriceDropMetrics(web::WebState* web_state) {
       const WebStateListChangeGroupMove& groupMoveChange =
           change.As<WebStateListChangeGroupMove>();
       [self moveItem:[GridItemIdentifier
-                          groupIdentifier:groupMoveChange.moved_group()
-                         withWebStateList:webStateList]
+                         groupIdentifier:groupMoveChange.moved_group()]
           beforeWebStateIndex:groupMoveChange.moved_to_range().range_end()];
       break;
     }
@@ -766,9 +778,8 @@ void LogPriceDropMetrics(web::WebState* web_state) {
       const WebStateListChangeGroupDelete& groupDeleteChange =
           change.As<WebStateListChangeGroupDelete>();
 
-      GridItemIdentifier* groupItemIdentifier =
-          [GridItemIdentifier groupIdentifier:groupDeleteChange.deleted_group()
-                             withWebStateList:_webStateList];
+      GridItemIdentifier* groupItemIdentifier = [GridItemIdentifier
+          groupIdentifier:groupDeleteChange.deleted_group()];
       [_selectedEditingItems removeItem:groupItemIdentifier];
       [self.consumer removeItemWithIdentifier:groupItemIdentifier
                        selectedItemIdentifier:[self activeIdentifier]];
@@ -1058,7 +1069,17 @@ void LogPriceDropMetrics(web::WebState* web_state) {
   };
   int index = GetWebStateIndex(self.webStateList, searchCriteria);
   if (index != WebStateList::kInvalidIndex) {
-    self.webStateList->CloseWebStateAt(index, WebStateList::CLOSE_USER_ACTION);
+    TabGroupService* groupService =
+        TabGroupServiceFactory::GetForProfile(self.profile);
+    const TabGroup* group = self.webStateList->GetGroupOfWebStateAt(index);
+    if (groupService && groupService->ShouldDisplayLastTabCloseAlert(group)) {
+      [self.baseDelegate displayLastTabInSharedGroupAlert:self
+                                                  lastTab:itemID
+                                                    group:group];
+    } else {
+      self.webStateList->CloseWebStateAt(index,
+                                         WebStateList::CLOSE_USER_ACTION);
+    }
     return;
   }
 
@@ -1235,9 +1256,8 @@ void LogPriceDropMetrics(web::WebState* web_state) {
              results) {
           if (IsTabGroupInGridEnabled()) {
             for (const TabGroup* group : browserResults.tab_groups) {
-              GridItemIdentifier* item = [GridItemIdentifier
-                   groupIdentifier:group
-                  withWebStateList:browserResults.browser->GetWebStateList()];
+              GridItemIdentifier* item =
+                  [GridItemIdentifier groupIdentifier:group];
               if (browserResults.browser == self.browser) {
                 [currentBrowserItems addObject:item];
               } else {
@@ -1710,8 +1730,7 @@ void LogPriceDropMetrics(web::WebState* web_state) {
 // Updates the cell of the given `group`.
 - (void)updateCellGroup:(const TabGroup*)group {
   GridItemIdentifier* groupIdentifier =
-      [GridItemIdentifier groupIdentifier:group
-                         withWebStateList:self.webStateList];
+      [GridItemIdentifier groupIdentifier:group];
   [self.consumer replaceItem:groupIdentifier
          withReplacementItem:groupIdentifier];
 }
@@ -1992,6 +2011,40 @@ void LogPriceDropMetrics(web::WebState* web_state) {
 - (UIView*)facePileViewForItem:(GridItemIdentifier*)itemID {
   // Only implemented by the "RegularGridMediator".
   return nil;
+}
+
+- (void)fetchTabGroupItemInfo:(TabGroupItem*)tabGroupItem
+                   completion:
+                       (GroupTabSnapshotAndFaviconCompletionBlock)completion {
+  WebStateList* webStateList = self.webStateList;
+  // If this is called during a search result, it may contain items from other
+  // windows or from the inactive browser.
+  if (!webStateList->ContainsGroup(tabGroupItem.tabGroup)) {
+    BOOL incognito = self.profile->IsOffTheRecord();
+    BrowserList* browserList = BrowserListFactory::GetForProfile(self.profile);
+    Browser* browser =
+        GetBrowserForGroup(browserList, tabGroupItem.tabGroup, incognito);
+    if (!browser) {
+      base::debug::DumpWithoutCrashing();
+      return;
+    }
+    webStateList = browser->GetWebStateList();
+  }
+  _tabImagesConfigurator->FetchSnapshotAndFaviconForTabGroupItem(
+      tabGroupItem, webStateList, completion);
+}
+
+#pragma mark - TabSwitcherItemSnapShotAndFaviconDataSource
+
+// Fetches the `item` info and executes the given `completion` block.
+- (void)fetchTabSnapshotAndFavicon:(TabSwitcherItem*)item
+                        completion:
+                            (TabSnapshotAndFaviconFetchingCompletionBlock)
+                                completion {
+  WebStateTabSwitcherItem* tabSwitcherItem =
+      base::apple::ObjCCastStrict<WebStateTabSwitcherItem>(item);
+  _tabImagesConfigurator->FetchSnapshotAndFaviconForTabSwitcherItem(
+      tabSwitcherItem, completion);
 }
 
 @end

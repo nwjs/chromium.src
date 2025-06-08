@@ -4,21 +4,22 @@
 
 #import "ios/chrome/browser/signin/model/system_account_updater.h"
 
+#import "base/check_is_test.h"
 #import "base/task/single_thread_task_runner.h"
 #import "base/task/task_traits.h"
 #import "base/task/thread_pool.h"
 #import "base/threading/scoped_blocking_call.h"
+#import "components/prefs/pref_service.h"
+#import "ios/chrome/browser/shared/model/application_context/application_context.h"
+#import "ios/chrome/browser/shared/model/prefs/pref_names.h"
+#import "ios/chrome/browser/shared/model/profile/features.h"
 #import "ios/chrome/browser/shared/model/profile/profile_ios.h"
 #import "ios/chrome/browser/signin/model/constants.h"
 #import "ios/chrome/browser/signin/model/system_identity.h"
 #import "ios/chrome/browser/widget_kit/model/features.h"
 #import "ios/chrome/common/app_group/app_group_constants.h"
 
-#if BUILDFLAG(ENABLE_WIDGETS_FOR_MIM)
-#import "base/check_is_test.h"
-#import "components/prefs/pref_service.h"
-#import "ios/chrome/browser/shared/model/application_context/application_context.h"
-#import "ios/chrome/browser/shared/model/prefs/pref_names.h"
+#if BUILDFLAG(ENABLE_WIDGET_KIT_EXTENSION)
 #import "ios/chrome/browser/widget_kit/model/model_swift.h"  // nogncheck
 #endif
 
@@ -26,9 +27,11 @@ namespace {
 
 // Updates all widget timelines with the updated data.
 void ReloadAllTimelines() {
-#if BUILDFLAG(ENABLE_WIDGETS_FOR_MIM)
-  [WidgetTimelinesUpdater reloadAllTimelines];
+  if (IsWidgetsForMultiprofileEnabled()) {
+#if BUILDFLAG(ENABLE_WIDGET_KIT_EXTENSION)
+    [WidgetTimelinesUpdater reloadAllTimelines];
 #endif
+  }
 }
 
 // Save avatar info to disk.
@@ -37,8 +40,32 @@ void StoreAvatarDataToDisk(NSURL* identity_file, NSData* png_data) {
                                                 base::BlockingType::WILL_BLOCK);
   if (png_data) {
     [png_data writeToURL:identity_file atomically:YES];
-  } else {
-    [[NSFileManager defaultManager] removeItemAtURL:identity_file error:nil];
+  }
+}
+
+// Remove legacy avatar data from disk.
+void RemoveAvatarDataFromDisk(NSDictionary* avatars) {
+  base::ScopedBlockingCall scoped_blocking_call(FROM_HERE,
+                                                base::BlockingType::WILL_BLOCK);
+  NSURL* avatars_folder = app_group::WidgetsAvatarFolder();
+  if (!avatars_folder) {
+    return;
+  }
+  NSFileManager* manager = [NSFileManager defaultManager];
+  NSArray<NSURL*>* contents =
+      [manager contentsOfDirectoryAtURL:avatars_folder
+             includingPropertiesForKeys:nil
+                                options:NSDirectoryEnumerationSkipsHiddenFiles
+                                  error:nil];
+
+  for (NSURL* url in contents) {
+    if ([url.pathExtension.lowercaseString isEqualToString:@"png"]) {
+      NSString* file_name =
+          [[url lastPathComponent] stringByDeletingPathExtension];
+      if (avatars[file_name] == nil) {
+        [manager removeItemAtURL:url error:nil];
+      }
+    }
   }
 }
 
@@ -51,6 +78,8 @@ void UpdateAvatarData(NSDictionary* avatars) {
     NSData* avatar_data = avatars[gaia];
     StoreAvatarDataToDisk(identity_file, avatar_data);
   }
+  // Check if disk cleanup in WidgetsAvatarFolder folder is needed.
+  RemoveAvatarDataFromDisk(avatars);
 }
 
 }  // namespace
@@ -160,7 +189,10 @@ void SystemAccountUpdater::UpdateLoadedAccounts() {
 }
 
 void SystemAccountUpdater::HandleMigrationIfNeeded() {
-#if BUILDFLAG(ENABLE_WIDGETS_FOR_MIM)
+  // Perform migration only if the flag is enabled.
+  if (!IsWidgetsForMultiprofileEnabled()) {
+    return;
+  }
   PrefService* local_state = GetApplicationContext()->GetLocalState();
 
   if (!local_state) {
@@ -177,5 +209,4 @@ void SystemAccountUpdater::HandleMigrationIfNeeded() {
   }
   local_state->SetBoolean(prefs::kMigrateWidgetsPrefs, true);
   UpdateLoadedAccounts();
-#endif
 }

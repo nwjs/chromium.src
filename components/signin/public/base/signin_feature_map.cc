@@ -21,7 +21,6 @@ namespace {
 const base::Feature* const kFeaturesExposedToJava[] = {
     &switches::kCctSignInPrompt,
     &switches::kDeferWebSigninTrackerCreation,
-    &switches::kForceSupervisedSigninWithCapabilities,
     &switches::kHistoryPageHistorySyncPromo,
     &switches::kHistoryPagePromoCtaStringVariation,
     &switches::kSkipCheckForAccountManagementOnSignin,
@@ -29,6 +28,8 @@ const base::Feature* const kFeaturesExposedToJava[] = {
     &switches::kUseHostedDomainForManagementCheckOnSignin,
     &switches::kSyncEnableBookmarksInTransportMode,
     &switches::kHistoryOptInEducationalTip,
+    &switches::kMakeAccountsAvailableInIdentityManager,
+    &switches::kFullscreenSignInPromoUseDate,
 };
 
 // static

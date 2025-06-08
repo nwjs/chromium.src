@@ -8,7 +8,6 @@
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/task_environment.h"
 #include "base/time/time.h"
-#include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/extensions/extension_service_test_base.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/supervised_user/supervised_user_service_factory.h"
@@ -44,14 +43,10 @@ class SupervisedUserExtensionsMetricsDelegateImplTest
     params.profile_is_supervised = true;
     InitializeExtensionService(std::move(params));
 
-    supervised_user::SupervisedUserService* service =
-        SupervisedUserServiceFactory::GetForProfile(profile_.get());
-    CHECK(service);
-    service->Init();
-
     supervised_user_metrics_service_ =
         std::make_unique<supervised_user::SupervisedUserMetricsService>(
-            profile()->GetPrefs(), GetURLFilter(),
+            profile()->GetPrefs(),
+            *SupervisedUserServiceFactory::GetForProfile(profile_.get()),
             std::make_unique<SupervisedUserExtensionsMetricsDelegateImpl>(
                 extensions::ExtensionRegistry::Get(profile()), profile()));
     CHECK(supervised_user_metrics_service_);
@@ -67,12 +62,6 @@ class SupervisedUserExtensionsMetricsDelegateImplTest
   int GetDayIdPref() {
     return profile()->GetPrefs()->GetInteger(
         prefs::kSupervisedUserMetricsDayId);
-  }
-
-  supervised_user::SupervisedUserURLFilter* GetURLFilter() {
-    supervised_user::SupervisedUserService* service =
-        SupervisedUserServiceFactory::GetForProfile(profile_.get());
-    return service->GetURLFilter();
   }
 
   base::HistogramTester histogram_tester_;
@@ -107,8 +96,9 @@ TEST_F(SupervisedUserExtensionsMetricsDelegateImplTest,
   auto extension2 = MakeExtension("Extension 2");
   registrar()->AddExtension(extension1);
   registrar()->AddExtension(extension2);
-  service()->DisableExtension(
-      extension1->id(), extensions::disable_reason::DISABLE_BLOCKED_BY_POLICY);
+  registrar()->DisableExtension(
+      extension1->id(),
+      {extensions::disable_reason::DISABLE_BLOCKED_BY_POLICY});
 
   // Move to the next day and ensure the extension histograms are recorded.
   task_environment()->FastForwardBy(base::Days(1));

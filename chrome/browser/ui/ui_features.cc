@@ -8,6 +8,9 @@
 #include "base/metrics/field_trial_params.h"
 #include "base/time/time.h"
 #include "build/build_config.h"
+#include "chrome/browser/browser_process.h"
+#include "components/search/ntp_features.h"
+#include "components/variations/service/variations_service.h"
 #include "components/webui/flags/feature_entry.h"
 #include "ui/base/ui_base_features.h"
 
@@ -45,12 +48,6 @@ BASE_FEATURE(kFewerUpdateConfirmations,
 
 #if BUILDFLAG(ENABLE_EXTENSIONS)
 
-// Controls whether we use a different UX for simple extensions overriding
-// settings.
-BASE_FEATURE(kLightweightExtensionOverrideConfirmations,
-             "LightweightExtensionOverrideConfirmations",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 BASE_FEATURE(kExtensionsCollapseMainMenu,
              "ExtensionsCollapseMainMenu",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -61,6 +58,9 @@ BASE_FEATURE(kExtensionsCollapseMainMenu,
 BASE_FEATURE(kOfferPinToTaskbarWhenSettingToDefault,
              "OfferPinToTaskbarWhenSettingDefault",
              base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kOfferPinToTaskbarInFirstRunExperience,
+             "OfferPinToTaskbarInFirstRunExperience",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 #endif
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
@@ -79,7 +79,7 @@ constexpr base::FeatureParam<PdfInfoBarTrigger> kPdfInfoBarTrigger = {
 // so that it can be shown instantly at a later time when necessary.
 BASE_FEATURE(kPreloadTopChromeWebUI,
              "PreloadTopChromeWebUI",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 const char kPreloadTopChromeWebUIModeName[] = "preload-mode";
 const char kPreloadTopChromeWebUIModePreloadOnWarmupName[] =
@@ -100,11 +100,11 @@ const base::FeatureParam<PreloadTopChromeWebUIMode> kPreloadTopChromeWebUIMode{
 
 const char kPreloadTopChromeWebUISmartPreloadName[] = "smart-preload";
 const base::FeatureParam<bool> kPreloadTopChromeWebUISmartPreload{
-    &kPreloadTopChromeWebUI, kPreloadTopChromeWebUISmartPreloadName, false};
+    &kPreloadTopChromeWebUI, kPreloadTopChromeWebUISmartPreloadName, true};
 
 const char kPreloadTopChromeWebUIDelayPreloadName[] = "delay-preload";
 const base::FeatureParam<bool> kPreloadTopChromeWebUIDelayPreload{
-    &kPreloadTopChromeWebUI, kPreloadTopChromeWebUIDelayPreloadName, false};
+    &kPreloadTopChromeWebUI, kPreloadTopChromeWebUIDelayPreloadName, true};
 
 const char kPreloadTopChromeWebUIExcludeOriginsName[] = "exclude-origins";
 const base::FeatureParam<std::string> kPreloadTopChromeWebUIExcludeOrigins{
@@ -132,6 +132,15 @@ BASE_FEATURE(KScrimForTabModal,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kSideBySide, "SideBySide", base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kSideBySideLinkMenuNewBadge,
+             "SideBySideLinkMenuNewBadge",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+bool IsNtpFooterEnabledWithoutSideBySide() {
+  return (base::FeatureList::IsEnabled(ntp_features::kNtpFooter) &&
+          !base::FeatureList::IsEnabled(features::kSideBySide));
+}
 
 BASE_FEATURE(kSidePanelResizing,
              "SidePanelResizing",
@@ -246,6 +255,12 @@ BASE_FEATURE(kTearOffWebAppTabOpensWebAppWindow,
              "TearOffWebAppTabOpensWebAppWindow",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+#if !BUILDFLAG(IS_ANDROID)
+BASE_FEATURE(kThreeButtonPasswordSaveDialog,
+             "ThreeButtonPasswordSaveDialog",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+#endif
+
 #if !defined(ANDROID)
 BASE_FEATURE(kPinnedCastButton,
              "PinnedCastButton",
@@ -264,7 +279,7 @@ BASE_FEATURE(kEnterpriseProfileBadgingForAvatar,
 // a badge in the profile menu.
 BASE_FEATURE(kEnterpriseProfileBadgingForMenu,
              "EnterpriseProfileBadgingForMenu",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables enterprise profile badging for managed profiles on the toolbar avatar
 // and in the profile menu when the policies are set. This acts as a kill
@@ -296,7 +311,7 @@ BASE_FEATURE(kEnterpriseManagementDisclaimerUsesCustomLabel,
 
 BASE_FEATURE(kEnterpriseUpdatedProfileCreationScreen,
              "EnterpriseUpdatedProfileCreationScreen",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kManagedProfileRequiredInterstitial,
              "ManagedProfileRequiredInterstitial",
@@ -384,6 +399,12 @@ const base::FeatureParam<bool> kPageActionsMigrationPwaInstall{
     &kPageActionsMigration, "pwa_install", false};
 const base::FeatureParam<bool> kPageActionsMigrationPriceInsights{
     &kPageActionsMigration, "price_insights", false};
+const base::FeatureParam<bool> kPageActionsMigrationManagePasswords{
+    &kPageActionsMigration, "manage_passwords", false};
+
+BASE_FEATURE(kSavePasswordsContextualUi,
+             "SavePasswordsContextualUi",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kCompositorLoadingAnimations,
              "CompositorLoadingAnimations",
@@ -396,5 +417,82 @@ BASE_FEATURE(kByDateHistoryInSidePanel,
 BASE_FEATURE(kTabStripBrowserApi,
              "TabStripBrowserApi",
              base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kTabstripComboButton,
+             "TabstripComboButton",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kLaunchedTabSearchToolbarButton,
+             "LaunchedTabSearchToolbarButton",
+#if BUILDFLAG(IS_CHROMEOS)
+             base::FEATURE_DISABLED_BY_DEFAULT
+#else
+             base::FEATURE_ENABLED_BY_DEFAULT
+#endif
+);
+
+const base::FeatureParam<bool> kTabstripComboButtonHasBackground{
+    &kTabstripComboButton, "has_background", false};
+
+const base::FeatureParam<bool> kTabstripComboButtonHasReverseButtonOrder{
+    &kTabstripComboButton, "reverse_button_order", false};
+
+const base::FeatureParam<bool> kTabSearchToolbarButton{
+    &kTabstripComboButton, "tab_search_toolbar_button", false};
+
+static std::string GetCountryCode() {
+  if (!g_browser_process || !g_browser_process->variations_service()) {
+    return std::string();
+  }
+  std::string country_code =
+      g_browser_process->variations_service()->GetStoredPermanentCountry();
+  if (country_code.empty()) {
+    country_code = g_browser_process->variations_service()->GetLatestCountry();
+  }
+  return country_code;
+}
+
+bool IsTabSearchMoving() {
+  static const bool is_tab_search_moving = [] {
+    if (GetCountryCode() == "us" &&
+        base::FeatureList::IsEnabled(
+            features::kLaunchedTabSearchToolbarButton)) {
+      return true;
+    }
+    return base::FeatureList::IsEnabled(features::kTabstripComboButton);
+  }();
+
+  return is_tab_search_moving;
+}
+
+bool HasTabstripComboButtonWithBackground() {
+  return IsTabSearchMoving() &&
+         features::kTabstripComboButtonHasBackground.Get() &&
+         !features::kTabSearchToolbarButton.Get();
+}
+
+bool HasTabstripComboButtonWithReverseButtonOrder() {
+  return IsTabSearchMoving() &&
+         features::kTabstripComboButtonHasReverseButtonOrder.Get() &&
+         !features::kTabSearchToolbarButton.Get();
+}
+
+bool HasTabSearchToolbarButton() {
+  static const bool has_tab_search_toolbar_button = [] {
+    if (!IsTabSearchMoving()) {
+      return false;
+    }
+    if (GetCountryCode() == "us" &&
+        base::FeatureList::IsEnabled(
+            features::kLaunchedTabSearchToolbarButton)) {
+      return true;
+    }
+    // Gate on server-side Finch config for all other countries
+    // as well as ChromeOS.
+    return features::kTabSearchToolbarButton.Get();
+  }();
+
+  return has_tab_search_toolbar_button;
+}
 
 }  // namespace features

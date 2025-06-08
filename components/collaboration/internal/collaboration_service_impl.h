@@ -9,6 +9,7 @@
 
 #include "base/memory/weak_ptr.h"
 #include "base/scoped_observation.h"
+#include "base/threading/thread_checker.h"
 #include "components/collaboration/public/collaboration_service.h"
 #include "components/prefs/pref_change_registrar.h"
 #include "components/prefs/pref_service.h"
@@ -116,7 +117,6 @@ class CollaborationServiceImpl : public CollaborationService,
       const data_sharing::GroupId& group_id,
       base::OnceCallback<void(bool)> callback,
       data_sharing::DataSharingService::PeopleGroupActionOutcome result);
-  void OnPrefChanged();
 
   ServiceStatus current_status_;
   base::ScopedObservation<syncer::SyncService, syncer::SyncServiceObserver>
@@ -151,6 +151,8 @@ class CollaborationServiceImpl : public CollaborationService,
       join_controllers_;
   std::map<tab_groups::EitherGroupID, std::unique_ptr<CollaborationController>>
       collaboration_controllers_;
+
+  THREAD_CHECKER(thread_checker_);
 
   base::WeakPtrFactory<CollaborationServiceImpl> weak_ptr_factory_{this};
 };

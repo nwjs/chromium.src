@@ -23,8 +23,8 @@
 #import "ios/chrome/browser/omnibox/public/omnibox_constants.h"
 #import "ios/chrome/browser/omnibox/public/omnibox_popup_accessibility_identifier_constants.h"
 #import "ios/chrome/browser/omnibox/public/omnibox_ui_features.h"
-#import "ios/chrome/browser/omnibox/ui_bundled/keyboard_assist/omnibox_assistive_keyboard_views_utils.h"
-#import "ios/chrome/browser/omnibox/ui_bundled/omnibox_text_field_ios.h"
+#import "ios/chrome/browser/omnibox/ui/keyboard_assist/omnibox_assistive_keyboard_views_utils.h"
+#import "ios/chrome/browser/omnibox/ui/omnibox_text_field_ios.h"
 #import "ios/chrome/browser/popup_menu/ui_bundled/popup_menu_constants.h"
 #import "ios/chrome/browser/recent_tabs/ui_bundled/recent_tabs_constants.h"
 #import "ios/chrome/browser/settings/ui_bundled/autofill/autofill_add_credit_card_view_controller.h"
@@ -102,7 +102,16 @@ NSString* IdentifierForStripGroupCellAtIndex(unsigned int index) {
                                     index];
 }
 
-// Identifier for the tab groups panel cell at given `index` in the tab groups
+// Identifier for the notification cell at the given `index` in the tab groups
+// panel.
+NSString* IdentifierForTabGroupsPanelNotificationCellAtIndex(
+    unsigned int index) {
+  return [NSString
+      stringWithFormat:@"%@%u", kTabGroupsPanelNotificationCellIdentifierPrefix,
+                       index];
+}
+
+// Identifier for the tab group cell at the given `index` in the tab groups
 // panel.
 NSString* IdentifierForTabGroupsPanelCellAtIndex(unsigned int index) {
   return [NSString
@@ -1194,6 +1203,13 @@ UIWindow* WindowWithAccessibilityIdentifier(NSString* accessibility_id) {
       grey_sufficientlyVisible(), nil);
 }
 
++ (id<GREYMatcher>)tabGroupsPanelNotificationCellAtIndex:(unsigned int)index {
+  return grey_allOf(
+      grey_accessibilityID(
+          IdentifierForTabGroupsPanelNotificationCellAtIndex(index)),
+      grey_sufficientlyVisible(), nil);
+}
+
 + (id<GREYMatcher>)tabGroupsPanelCellAtIndex:(unsigned int)index {
   return grey_allOf(
       grey_accessibilityID(IdentifierForTabGroupsPanelCellAtIndex(index)),
@@ -1723,9 +1739,8 @@ UIWindow* WindowWithAccessibilityIdentifier(NSString* accessibility_id) {
 
 + (id<GREYMatcher>)closeTabGroupButton {
   if (IsContainedTabGroupEnabled()) {
-    return grey_allOf(
-        grey_accessibilityLabel(l10n_util::GetNSString(IDS_CLOSE)),
-        grey_sufficientlyVisible(), nil);
+    return grey_allOf(grey_accessibilityID(kTabGroupCloseButtonIdentifier),
+                      grey_sufficientlyVisible(), nil);
   } else {
     return grey_allOf(
         [ChromeMatchersAppInterface

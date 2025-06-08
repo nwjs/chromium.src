@@ -46,7 +46,7 @@ class PLATFORM_EXPORT StaticBitmapImage : public Image {
   gfx::Size SizeWithConfig(SizeConfig) const final;
 
   // Methods have common implementation for all sub-classes
-  bool CurrentFrameIsComplete() override { return true; }
+  bool FirstFrameIsComplete() override { return true; }
   void DestroyDecodedData() override {}
 
   // Methods that have a default implementation, and overridden by only one
@@ -96,9 +96,7 @@ class PLATFORM_EXPORT StaticBitmapImage : public Image {
   // StaticBitmapImage needs to store the orientation of the image itself,
   // because the underlying representations do not. If the bitmap represents
   // a non-default orientation it must be explicitly given in the constructor.
-  ImageOrientation CurrentFrameOrientation() const override {
-    return orientation_;
-  }
+  ImageOrientation Orientation() const override { return orientation_; }
 
   void SetOrientation(ImageOrientation orientation) {
     orientation_ = orientation;
@@ -114,7 +112,6 @@ class PLATFORM_EXPORT StaticBitmapImage : public Image {
 
   virtual gfx::Size GetSize() const = 0;
   virtual SkAlphaType GetAlphaType() const = 0;
-  virtual sk_sp<SkColorSpace> GetSkColorSpace() const = 0;
   virtual gfx::ColorSpace GetColorSpace() const = 0;
   virtual viz::SharedImageFormat GetSharedImageFormat() const = 0;
 

@@ -50,10 +50,8 @@ on_device_model::ModelAssets LoadModelAssets(const base::FilePath& model_path) {
   }
 
   if (optimization_guide::features::ForceCpuBackendForOnDeviceModel()) {
-    // TODO(crbug.com/401011041): Pass the model via a file descriptor.
-    on_device_model::ModelAssets assets;
-    assets.weights_path = model_paths.weights;
-    return assets;
+    model_paths.cache =
+        model_paths.weights.AddExtension(FILE_PATH_LITERAL("cache"));
   }
 
   return on_device_model::LoadModelAssets(model_paths);
@@ -178,8 +176,10 @@ void PageHandler::OnModelAssetsLoaded(
     LoadModelCallback callback,
     ml::ModelPerformanceHint performance_hint,
     on_device_model::ModelAssets assets) {
+  on_device_model::ModelFile weights = assets.weights;
+
   auto params = on_device_model::mojom::LoadModelParams::New();
-  params->assets = assets;
+  params->assets = std::move(assets);
   params->backend_type =
       optimization_guide::features::ForceCpuBackendForOnDeviceModel()
           ? ml::ModelBackendType::kCpuBackend
@@ -190,19 +190,19 @@ void PageHandler::OnModelAssetsLoaded(
       std::move(params), std::move(model),
       base::BindOnce(&PageHandler::OnModelLoaded,
                      weak_ptr_factory_.GetWeakPtr(), std::move(callback),
-                     std::move(assets)));
+                     std::move(weights)));
 }
 
 void PageHandler::OnModelLoaded(
     LoadModelCallback callback,
-    on_device_model::ModelAssets assets,
+    on_device_model::ModelFile weights,
     on_device_model::mojom::LoadModelResult result) {
   if (result != on_device_model::mojom::LoadModelResult::kSuccess) {
     std::move(callback).Run(result, on_device_model::Capabilities());
     return;
   }
   GetService().GetCapabilities(
-      std::move(assets),
+      std::move(weights),
       base::BindOnce(std::move(callback),
                      on_device_model::mojom::LoadModelResult::kSuccess));
 }

@@ -15,7 +15,6 @@
 #include "build/chromeos_buildflags.h"
 #include "chrome/browser/extensions/permissions/permissions_updater.h"
 #include "chrome/browser/extensions/shared_module_service.h"
-#include "chrome/browser/extensions/updater/chrome_update_client_config.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/webui/extensions/extension_icon_source.h"
 #include "chrome/common/extensions/api/url_handlers/url_handlers_parser.h"
@@ -23,7 +22,6 @@
 #include "chrome/common/pref_names.h"
 #include "components/pref_registry/pref_registry_syncable.h"
 #include "components/prefs/pref_service.h"
-#include "components/update_client/update_client.h"
 #include "components/variations/variations_associated_data.h"
 #include "content/public/browser/site_instance.h"
 #include "extensions/browser/disable_reason.h"
@@ -34,13 +32,14 @@
 #include "extensions/browser/extension_util.h"
 #include "extensions/browser/pref_names.h"
 #include "extensions/browser/renderer_startup_helper.h"
+#include "extensions/browser/updater/scoped_extension_updater_keep_alive.h"
 #include "extensions/browser/user_script_manager.h"
 #include "extensions/common/extension.h"
-#include "extensions/common/extension_urls.h"
 #include "extensions/common/features/feature_developer_mode_only.h"
 #include "extensions/common/icons/extension_icon_set.h"
 #include "extensions/common/manifest_handlers/incognito_info.h"
 #include "extensions/common/permissions/permissions_data.h"
+#include "extensions/common/switches.h"
 #include "ui/gfx/text_constants.h"
 #include "ui/gfx/text_elider.h"
 #include "url/gurl.h"
@@ -60,8 +59,10 @@ namespace extensions::util {
 
 namespace {
 
-constexpr std::string_view kCrxUrlPath = "/service/update2/crx";
-constexpr std::string_view kJsonUrlPath = "/service/update2/json";
+bool ExtensionsDisabledViaCommandLine(const base::CommandLine& command_line) {
+  return command_line.HasSwitch(switches::kDisableExtensions) ||
+         command_line.HasSwitch(switches::kDisableExtensionsExcept);
+}
 
 // Returns |extension_id|. See note below.
 std::string ReloadExtension(const std::string& extension_id,
@@ -288,9 +289,6 @@ std::unique_ptr<const PermissionSet> GetInstallPromptPermissionSetForExtension(
   return extension->permissions_data()->active_permissions().Clone();
 }
 
-// TODO(crbug.com/356905053): Enable more extension util functions on
-// desktop android.
-#if !BUILDFLAG(IS_ANDROID)
 std::vector<content::BrowserContext*> GetAllRelatedProfiles(
     Profile* profile,
     const Extension& extension) {
@@ -313,7 +311,6 @@ std::vector<content::BrowserContext*> GetAllRelatedProfiles(
 
   return related_contexts;
 }
-#endif  // !BUILDFLAG(IS_ANDROID)
 
 void SetDeveloperModeForProfile(Profile* profile, bool in_developer_mode) {
   profile->GetPrefs()->SetBoolean(prefs::kExtensionsUIDeveloperMode,
@@ -357,19 +354,11 @@ void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry) {
                                 false);
 }
 
-scoped_refptr<update_client::UpdateClient> CreateUpdateClient(
-    content::BrowserContext* context) {
-  std::optional<GURL> override_url;
-  GURL update_url = extension_urls::GetWebstoreUpdateUrl();
-  if (update_url != extension_urls::GetDefaultWebstoreUpdateUrl()) {
-    if (update_url.path() == kCrxUrlPath) {
-      override_url = update_url.GetWithEmptyPath().Resolve(kJsonUrlPath);
-    } else {
-      override_url = update_url;
-    }
-  }
-  return update_client::UpdateClientFactory(
-      ChromeUpdateClientConfig::Create(context, override_url));
+bool AreExtensionsDisabled(const base::CommandLine& command_line,
+                           content::BrowserContext* context) {
+  Profile* profile = Profile::FromBrowserContext(context);
+  return ExtensionsDisabledViaCommandLine(command_line) ||
+         profile->GetPrefs()->GetBoolean(prefs::kDisableExtensions);
 }
 
 } // namespace extensions::util

@@ -128,7 +128,8 @@ class PermissionPromptBubbleBaseViewBrowserTest : public DialogBrowserTest {
   void SetEmbeddingOrigin(const GURL& origin) { embedding_origin_ = origin; }
 
  private:
-  permissions::PermissionRequest* MakeRegisterProtocolHandlerRequest() {
+  std::unique_ptr<custom_handlers::RegisterProtocolHandlerPermissionRequest>
+  MakeRegisterProtocolHandlerRequest() {
     std::string protocol = "mailto";
     custom_handlers::ProtocolHandler handler =
         custom_handlers::ProtocolHandler::CreateProtocolHandler(protocol,
@@ -137,7 +138,8 @@ class PermissionPromptBubbleBaseViewBrowserTest : public DialogBrowserTest {
         ProtocolHandlerRegistryFactory::GetForBrowserContext(
             browser()->profile());
     // Deleted in RegisterProtocolHandlerPermissionRequest::RequestFinished().
-    return new custom_handlers::RegisterProtocolHandlerPermissionRequest(
+    return std::make_unique<
+        custom_handlers::RegisterProtocolHandlerPermissionRequest>(
         registry, handler, GetTestUrl(), base::ScopedClosureRunner());
   }
 
@@ -181,7 +183,7 @@ class PermissionPromptBubbleBaseViewBrowserTest : public DialogBrowserTest {
         break;
       case ContentSettingsType::AUTOMATIC_DOWNLOADS:
         manager->AddRequest(source_frame,
-                            new DownloadPermissionRequest(
+                            std::make_unique<DownloadPermissionRequest>(
                                 nullptr, url::Origin::Create(GetTestUrl())));
         break;
       case ContentSettingsType::DURABLE_STORAGE:
@@ -235,15 +237,9 @@ IN_PROC_BROWSER_TEST_F(PermissionPromptBubbleBaseViewBrowserTest,
   EXPECT_EQ(0, counter.GetCount(ax::mojom::Event::kAlert));
   ShowUi("geolocation");
 
-  ChipController* chip_controller = GetChipController();
-
-  // If chip UI is used, two notifications will be announced: one that
-  // permission was requested and second when bubble is opened.
-  if (chip_controller->IsPermissionPromptChipVisible()) {
-    EXPECT_EQ(2, counter.GetCount(ax::mojom::Event::kAlert));
-  } else {
-    EXPECT_EQ(1, counter.GetCount(ax::mojom::Event::kAlert));
-  }
+  // Even though chip UI is used, only the event "permission prompt bubble is
+  // opened" will be announced.
+  EXPECT_EQ(1, counter.GetCount(ax::mojom::Event::kAlert));
 }
 
 // Test switching between PermissionChip and PermissionPromptBubbleBaseView and

@@ -660,7 +660,7 @@ bool CollectGraphicsInfoGL(GPUInfo* gpu_info, gl::GLDisplay* display) {
       gfx::HasExtension(extension_set, "GL_ARB_robustness");
   if (supports_robustness) {
     glGetIntegerv(
-        GL_RESET_NOTIFICATION_STRATEGY_ARB,
+        GL_RESET_NOTIFICATION_STRATEGY,
         reinterpret_cast<GLint*>(&gpu_info->gl_reset_notification_strategy));
   }
 
@@ -943,7 +943,9 @@ void CollectDawnInfo(const gpu::GpuPreferences& gpu_preferences,
       wgpu::AdapterInfo info = {};
       adapter.GetInfo(&info);
       if (featureLevel == wgpu::FeatureLevel::Compatibility &&
-          info.backendType != wgpu::BackendType::OpenGLES) {
+          adapter.HasFeature(wgpu::FeatureName::CoreFeaturesAndLimits)) {
+        // If this adapter also supports Core feature level, then skip listing it as Compat
+        // mode adapter.
         continue;
       }
 

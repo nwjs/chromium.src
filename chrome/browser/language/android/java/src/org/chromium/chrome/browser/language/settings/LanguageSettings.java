@@ -64,7 +64,7 @@ public class LanguageSettings extends ChromeBaseSettingsFragment
 
     private static final String TAG = "LanguageSettings";
 
-    private AppLanguagePreferenceDelegate mAppLanguageDelegate =
+    private final AppLanguagePreferenceDelegate mAppLanguageDelegate =
             new AppLanguagePreferenceDelegate();
     private PrefChangeRegistrar mPrefChangeRegistrar;
     private final ObservableSupplierImpl<String> mPageTitle = new ObservableSupplierImpl<>();
@@ -397,5 +397,10 @@ public class LanguageSettings extends ChromeBaseSettingsFragment
     @VisibleForTesting
     PrefService getPrefService() {
         return UserPrefs.get(getProfile());
+    }
+
+    @Override
+    public @AnimationType int getAnimationType() {
+        return AnimationType.PROPERTY;
     }
 }

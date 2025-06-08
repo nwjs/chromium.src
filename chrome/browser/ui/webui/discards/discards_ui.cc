@@ -14,6 +14,7 @@
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/notreached.h"
+#include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
 #include "build/android_buildflags.h"
 #include "build/build_config.h"
@@ -34,6 +35,7 @@
 #include "components/favicon_base/favicon_url_parser.h"
 #include "components/performance_manager/public/decorators/page_live_state_decorator.h"
 #include "components/performance_manager/public/features.h"
+#include "components/performance_manager/public/freezing/cannot_freeze_reason.h"
 #include "components/performance_manager/public/freezing/freezing.h"
 #include "components/performance_manager/public/graph/graph.h"
 #include "components/performance_manager/public/graph/page_node.h"
@@ -118,6 +120,38 @@ mojom::LifecycleUnitLoadingState GetLifecycleUnitLoadingState(
   }
 }
 
+#if !BUILDFLAG(IS_ANDROID)
+discards::mojom::CanFreeze ToCanFreezeMojom(
+    performance_manager::freezing::CanFreeze can_freeze) {
+  switch (can_freeze) {
+    case performance_manager::freezing::CanFreeze::kYes:
+      return discards::mojom::CanFreeze::YES;
+    case performance_manager::freezing::CanFreeze::kNo:
+      return discards::mojom::CanFreeze::NO;
+    case performance_manager::freezing::CanFreeze::kVaries:
+      return discards::mojom::CanFreeze::VARIES;
+  }
+  NOTREACHED();
+}
+
+std::vector<std::string> ToCannotFreezeReasonsStrings(
+    const performance_manager::freezing::CanFreezeDetails& details) {
+  std::vector<std::string> reasons;
+  reasons.reserve(details.cannot_freeze_reasons.size() +
+                  details.cannot_freeze_reasons_connected_pages.size());
+  for (auto reason : details.cannot_freeze_reasons) {
+    reasons.push_back(
+        performance_manager::freezing::CannotFreezeReasonToString(reason));
+  }
+  for (auto reason : details.cannot_freeze_reasons_connected_pages) {
+    reasons.push_back(base::StringPrintf(
+        "%s (from connected page)",
+        performance_manager::freezing::CannotFreezeReasonToString(reason)));
+  }
+  return reasons;
+}
+#endif  // !BUILDFLAG(IS_ANDROID)
+
 class DiscardsDetailsProviderImpl
     : public discards::mojom::DetailsProvider,
       public performance_manager::GraphOwnedDefaultImpl {
@@ -151,7 +185,7 @@ class DiscardsDetailsProviderImpl
               page_node, DiscardEligibilityPolicy::DiscardReason::URGENT);
       candidates.emplace_back(page_node->GetWeakPtr(), can_discard_result,
                               page_node->IsVisible(), page_node->IsFocused(),
-                              page_node->GetTimeSinceLastVisibilityChange());
+                              page_node->GetLastVisibilityChangeTime());
     }
 
     // Sorts with ascending importance.
@@ -180,18 +214,18 @@ class DiscardsDetailsProviderImpl
               page_node.get());
       info->can_discard = info->cannot_discard_reasons.empty();
 
-#if BUILDFLAG(IS_DESKTOP_ANDROID)
+#if BUILDFLAG(IS_ANDROID)
       info->cannot_freeze_reasons = {"not implemented"};
       info->can_freeze = discards::mojom::CanFreeze::NO;
 #else
       // TODO(crbug.com/40160563): Add FreezingPolicy to Android.
-      info->cannot_freeze_reasons = base::ToVector(
-          performance_manager::freezing::GetCannotFreezeReasonsForPageNode(
-              page_node.get()));
-      info->can_freeze = info->cannot_freeze_reasons.empty()
-                             ? discards::mojom::CanFreeze::YES
-                             : discards::mojom::CanFreeze::NO;
-#endif  // BUILDFLAG(IS_DESKTOP_ANDROID)
+      const auto can_freeze_details =
+          performance_manager::freezing::GetCanFreezeDetailsForPageNode(
+              page_node.get());
+      info->cannot_freeze_reasons =
+          ToCannotFreezeReasonsStrings(can_freeze_details);
+      info->can_freeze = ToCanFreezeMojom(can_freeze_details.can_freeze);
+#endif  // BUILDFLAG(IS_ANDROID)
 
       info->utility_rank = rank++;
       info->id = id++;

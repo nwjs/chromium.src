@@ -62,7 +62,6 @@
 #include "components/search_engines/template_url_service.h"
 #include "components/variations/variations_associated_data.h"
 #include "components/version_info/version_info.h"
-#include "components/webui/chrome_urls/features.h"
 #include "components/webui/chrome_urls/pref_names.h"
 #include "content/public/browser/browsing_data_filter_builder.h"
 #include "content/public/browser/browsing_data_remover.h"
@@ -855,7 +854,6 @@ TEST_F(ChromeContentBrowserClientTest, RedirectCertManagerFeatureOn) {
 
 #endif  // BUILDFLAG(CHROME_ROOT_STORE_CERT_MANAGEMENT_UI)
 
-#if BUILDFLAG(IS_CHROMEOS)
 class ChromeContentSettingsRedirectTest
     : public ChromeContentBrowserClientTest {
  public:
@@ -866,6 +864,31 @@ class ChromeContentSettingsRedirectTest
   ScopedTestingLocalState testing_local_state_;
 };
 
+TEST_F(ChromeContentSettingsRedirectTest, RedirectDebugURL) {
+  TestChromeContentBrowserClient test_content_browser_client;
+  // Disable the internal only uis pref.
+  testing_local_state_.Get()->SetBoolean(chrome_urls::kInternalOnlyUisEnabled,
+                                         false);
+
+  // chrome://local-state is an internal debugging page available on all
+  // platforms.
+  const GURL debug_url(chrome::kChromeUILocalStateURL);
+  GURL dest_url = debug_url;
+  test_content_browser_client.HandleWebUI(&dest_url, &profile_);
+  EXPECT_EQ(chrome::kChromeUIInternalDebugPagesDisabledHost, dest_url.host());
+  std::string query_param_name("host=");
+  EXPECT_EQ(query_param_name + chrome::kChromeUILocalStateHost,
+            dest_url.query());
+
+  // Enable the internal only uis pref.
+  testing_local_state_.Get()->SetBoolean(chrome_urls::kInternalOnlyUisEnabled,
+                                         true);
+  dest_url = debug_url;
+  test_content_browser_client.HandleWebUI(&dest_url, &profile_);
+  EXPECT_EQ(debug_url, dest_url);
+}
+
+#if BUILDFLAG(IS_CHROMEOS)
 TEST_F(ChromeContentSettingsRedirectTest, RedirectSettingsURL) {
   TestChromeContentBrowserClient test_content_browser_client;
   const GURL settings_url(chrome::kChromeUISettingsURL);
@@ -1616,27 +1639,31 @@ TEST_F(ChromeContentBrowserClientTest, ShouldUseSpareRenderProcessHost) {
       content::ContentBrowserClient::SpareProcessRefusedByEmbedderReason;
   ChromeContentBrowserClient browser_client;
 
+  std::optional<SpareProcessRefusedByEmbedderReason> refused_reason;
   // Standard web URL
-  EXPECT_FALSE(browser_client.ShouldUseSpareRenderProcessHost(
-      &profile_, GURL("https://www.example.com")));
+  EXPECT_TRUE(browser_client.ShouldUseSpareRenderProcessHost(
+      &profile_, GURL("https://www.example.com"), refused_reason));
+  EXPECT_FALSE(refused_reason.has_value());
 
   // No profile
-  EXPECT_EQ(SpareProcessRefusedByEmbedderReason::NoProfile,
-            browser_client.ShouldUseSpareRenderProcessHost(
-                nullptr, GURL("https://www.example.com")));
+  EXPECT_FALSE(browser_client.ShouldUseSpareRenderProcessHost(
+      nullptr, GURL("https://www.example.com"), refused_reason));
+  EXPECT_EQ(SpareProcessRefusedByEmbedderReason::NoProfile, refused_reason);
 
 #if !BUILDFLAG(IS_ANDROID)
   // Chrome-search URL
+  EXPECT_FALSE(browser_client.ShouldUseSpareRenderProcessHost(
+      &profile_, GURL("chrome-search://test"), refused_reason));
   EXPECT_EQ(SpareProcessRefusedByEmbedderReason::InstantRendererForNewTabPage,
-            browser_client.ShouldUseSpareRenderProcessHost(
-                &profile_, GURL("chrome-search://test")));
+            refused_reason);
 #endif
 
 #if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
   // Extension URL
+  EXPECT_FALSE(browser_client.ShouldUseSpareRenderProcessHost(
+      &profile_, GURL("chrome-extension://test-extension/"), refused_reason));
   EXPECT_EQ(SpareProcessRefusedByEmbedderReason::ExtensionProcess,
-            browser_client.ShouldUseSpareRenderProcessHost(
-                &profile_, GURL("chrome-extension://test-extension/")));
+            refused_reason);
 #endif
 }
 
@@ -1825,12 +1852,14 @@ TEST_P(GrantCookieAccessDueToHeuristicTest,
   GURL url("https://www.subresource.test/favicon.ico");
 
   ASSERT_FALSE(client.IsFullCookieAccessAllowed(
-      profile(), web_contents(), url, FirstPartyStorageKey(top_level_url)));
+      profile(), web_contents(), url, FirstPartyStorageKey(top_level_url),
+      /*overrides=*/{}));
   client.GrantCookieAccessDueToHeuristic(
       profile(), SchemefulSite(top_level_url), SchemefulSite(url),
       base::Hours(1), IgnoreSchemes());
   ASSERT_TRUE(client.IsFullCookieAccessAllowed(
-      profile(), web_contents(), url, FirstPartyStorageKey(top_level_url)));
+      profile(), web_contents(), url, FirstPartyStorageKey(top_level_url),
+      /*overrides=*/{}));
 }
 
 TEST_P(GrantCookieAccessDueToHeuristicTest, SchemeMismatch_AccessMayBeGranted) {
@@ -1843,10 +1872,11 @@ TEST_P(GrantCookieAccessDueToHeuristicTest, SchemeMismatch_AccessMayBeGranted) {
       profile(), SchemefulSite(top_level_url), SchemefulSite(url),
       base::Hours(1), IgnoreSchemes());
   // Cookie access granted iff ignore_schemes=true:
-  ASSERT_EQ(client.IsFullCookieAccessAllowed(
-                profile(), web_contents(), WithHttp(url),
-                FirstPartyStorageKey(WithHttp(top_level_url))),
-            IgnoreSchemes());
+  ASSERT_EQ(
+      client.IsFullCookieAccessAllowed(
+          profile(), web_contents(), WithHttp(url),
+          FirstPartyStorageKey(WithHttp(top_level_url)), /*overrides=*/{}),
+      IgnoreSchemes());
 }
 
 TEST_P(GrantCookieAccessDueToHeuristicTest, PortMismatch_AccessAlwaysGranted) {
@@ -1860,7 +1890,7 @@ TEST_P(GrantCookieAccessDueToHeuristicTest, PortMismatch_AccessAlwaysGranted) {
       base::Hours(1), IgnoreSchemes());
   ASSERT_TRUE(client.IsFullCookieAccessAllowed(
       profile(), web_contents(), WithPort999(url),
-      FirstPartyStorageKey(WithPort999(top_level_url))));
+      FirstPartyStorageKey(WithPort999(top_level_url)), /*overrides=*/{}));
 }
 
 TEST_P(GrantCookieAccessDueToHeuristicTest,
@@ -1875,7 +1905,8 @@ TEST_P(GrantCookieAccessDueToHeuristicTest,
       profile(), SchemefulSite(top_level_url), SchemefulSite(url1),
       base::Hours(1), IgnoreSchemes());
   ASSERT_FALSE(client.IsFullCookieAccessAllowed(
-      profile(), web_contents(), url2, FirstPartyStorageKey(top_level_url)));
+      profile(), web_contents(), url2, FirstPartyStorageKey(top_level_url),
+      /*overrides=*/{}));
 }
 
 TEST_P(GrantCookieAccessDueToHeuristicTest,
@@ -1890,69 +1921,10 @@ TEST_P(GrantCookieAccessDueToHeuristicTest,
       profile(), SchemefulSite(top_level_url1), SchemefulSite(url),
       base::Hours(1), IgnoreSchemes());
   ASSERT_FALSE(client.IsFullCookieAccessAllowed(
-      profile(), web_contents(), url, FirstPartyStorageKey(top_level_url2)));
+      profile(), web_contents(), url, FirstPartyStorageKey(top_level_url2),
+      /*overrides=*/{}));
 }
 
 INSTANTIATE_TEST_SUITE_P(All,
                          GrantCookieAccessDueToHeuristicTest,
-                         testing::Bool());
-
-const char kTestWebUIURL[] = "chrome://test";
-
-class ChromeContentBrowserClientOverrideForInternalWebUITest
-    : public ChromeRenderViewHostTestHarness,
-      public testing::WithParamInterface<bool> {
- protected:
-  ChromeContentBrowserClientOverrideForInternalWebUITest() {
-    testing_local_state_.Get()->SetBoolean(chrome_urls::kInternalOnlyUisEnabled,
-                                           GetParam());
-  }
-
-  ChromeContentBrowserClient& client() { return client_; }
-
- protected:
-  ScopedTestingLocalState testing_local_state_{
-      TestingBrowserProcess::GetGlobal()};
-
- private:
-  ChromeContentBrowserClient client_;
-};
-
-TEST_P(ChromeContentBrowserClientOverrideForInternalWebUITest, FeatureOff) {
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitAndDisableFeature(chrome_urls::kInternalOnlyUisPref);
-
-  // When the feature flag is off, OverrideForInternalWebUI should return
-  // null regardless of the state of the pref.
-  std::unique_ptr<TestingProfile> profile = CreateTestingProfile();
-  content::TestWebUI test_webui;
-  auto web_contents =
-      content::WebContentsTester::CreateTestWebContents(profile.get(), nullptr);
-  test_webui.set_web_contents(web_contents.get());
-  std::unique_ptr<content::WebUIController> webui_controller =
-      client().OverrideForInternalWebUI(&test_webui, GURL(kTestWebUIURL));
-
-  EXPECT_EQ(nullptr, webui_controller);
-}
-
-TEST_P(ChromeContentBrowserClientOverrideForInternalWebUITest, FeatureOn) {
-  base::test::ScopedFeatureList scoped_feature_list(
-      chrome_urls::kInternalOnlyUisPref);
-
-  // When the feature flag is on, OverrideForInternalWebUI should return
-  // non-null if kInternalOnlyUisEnabled pref is turned off, and null
-  // otherwise.
-  std::unique_ptr<TestingProfile> profile = CreateTestingProfile();
-  content::TestWebUI test_webui;
-  auto web_contents =
-      content::WebContentsTester::CreateTestWebContents(profile.get(), nullptr);
-  test_webui.set_web_contents(web_contents.get());
-  std::unique_ptr<content::WebUIController> webui_controller =
-      client().OverrideForInternalWebUI(&test_webui, GURL(kTestWebUIURL));
-
-  EXPECT_EQ(GetParam(), webui_controller == nullptr);
-}
-
-INSTANTIATE_TEST_SUITE_P(All,
-                         ChromeContentBrowserClientOverrideForInternalWebUITest,
                          testing::Bool());

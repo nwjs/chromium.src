@@ -19,7 +19,6 @@
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/metrics/histogram_macros.h"
-#include "base/not_fatal_until.h"
 #include "base/observer_list.h"
 #include "base/power_monitor/power_monitor.h"
 #include "base/strings/string_number_conversions.h"
@@ -232,9 +231,6 @@ Compositor::Compositor(const viz::FrameSinkId& frame_sink_id,
     settings.log_on_ui_double_background_blur = true;
   }
 #endif
-
-  settings.enable_shared_image_cache_for_gpu =
-      base::FeatureList::IsEnabled(features::kUIEnableSharedImageCacheForGpu);
 
   animation_host_ = cc::AnimationHost::CreateMainInstance();
 
@@ -951,7 +947,7 @@ void Compositor::StartMetricsTracker(
 
 bool Compositor::StopMetricsTracker(TrackerId tracker_id) {
   auto it = compositor_metrics_tracker_map_.find(tracker_id);
-  CHECK(it != compositor_metrics_tracker_map_.end(), base::NotFatalUntil::M130);
+  CHECK(it != compositor_metrics_tracker_map_.end());
 
   // Clean up if report has happened since StopCompositorMetricsTracking would
   // not trigger report in this case.
@@ -967,7 +963,7 @@ bool Compositor::StopMetricsTracker(TrackerId tracker_id) {
 
 void Compositor::CancelMetricsTracker(TrackerId tracker_id) {
   auto it = compositor_metrics_tracker_map_.find(tracker_id);
-  CHECK(it != compositor_metrics_tracker_map_.end(), base::NotFatalUntil::M130);
+  CHECK(it != compositor_metrics_tracker_map_.end());
 
   const bool should_stop = !it->second.report_attempted;
 

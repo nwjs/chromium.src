@@ -32,6 +32,7 @@
 #include "chrome/browser/ui/startup/startup_browser_creator.h"
 #include "chrome/browser/ui/tab_modal_confirm_dialog_browsertest.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
+#include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/side_panel/side_panel_ui.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/test_browser_window.h"
@@ -610,10 +611,7 @@ class BrowserCommandControllerBrowserTestCompare
     : public BrowserCommandControllerBrowserTest {
  public:
   BrowserCommandControllerBrowserTestCompare() {
-    scoped_feature_list_.InitWithFeatures(
-        {commerce::kProductSpecifications,
-         commerce::kCompareManagementInterface},
-        {});
+    scoped_feature_list_.InitAndEnableFeature(commerce::kProductSpecifications);
   }
 
  private:
@@ -690,47 +688,19 @@ IN_PROC_BROWSER_TEST_F(BrowserCommandControllerBrowserTestGlic,
   EXPECT_TRUE(chrome::IsCommandEnabled(browser(), IDC_GLIC_TOGGLE_PIN));
 }
 
-// TODO(https://crbug.com/410751413): Deleting temporary directories using
-// test_file_util is flaky on Windows.
-#if BUILDFLAG(IS_WIN)
-#define MAYBE_DisabledInIncognitoProfile DISABLED_DisabledInIncognitoProfile
-#else
-#define MAYBE_DisabledInIncognitoProfile DisabledInIncognitoProfile
-#endif
 IN_PROC_BROWSER_TEST_F(BrowserCommandControllerBrowserTestGlic,
-                       MAYBE_DisabledInIncognitoProfile) {
-  // Set up a profile with an off the record profile.
-  std::unique_ptr<TestingProfile> profile = TestingProfile::Builder().Build();
-  Profile* incognito_profile =
-      profile->GetPrimaryOTRProfile(/*create_if_needed=*/true);
-  ASSERT_EQ(incognito_profile->GetOriginalProfile(), profile.get());
-  ASSERT_TRUE(incognito_profile->IsIncognitoProfile());
-
-  // Create a new browser based on the off the record profile.
-  Browser::CreateParams profile_params(incognito_profile, true);
-  std::unique_ptr<Browser> incognito_browser =
-      CreateBrowserWithTestWindowForParams(profile_params);
-
+                       DisabledInIncognitoProfile) {
+  Browser* incognito_browser = CreateIncognitoBrowser();
+  EXPECT_TRUE(incognito_browser->profile()->IsIncognitoProfile());
   EXPECT_FALSE(
-      chrome::IsCommandEnabled(incognito_browser.get(), IDC_GLIC_TOGGLE_PIN));
+      chrome::IsCommandEnabled(incognito_browser, IDC_GLIC_TOGGLE_PIN));
 }
 
 IN_PROC_BROWSER_TEST_F(BrowserCommandControllerBrowserTestGlic,
                        DisabledInGuestProfile) {
-  // Set up a guest profile.
-  std::unique_ptr<TestingProfile> profile = TestingProfile::Builder().Build();
-  profile->SetGuestSession(true);
-  Profile* guest_profile =
-      profile->GetPrimaryOTRProfile(/*create_if_needed=*/true);
-  ASSERT_TRUE(guest_profile->IsGuestSession());
-
-  // Create a new browser based on the off the record profile.
-  Browser::CreateParams profile_params(guest_profile, true);
-  std::unique_ptr<Browser> guest_browser =
-      CreateBrowserWithTestWindowForParams(profile_params);
-
-  EXPECT_FALSE(
-      chrome::IsCommandEnabled(guest_browser.get(), IDC_GLIC_TOGGLE_PIN));
+  Browser* guest_browser = CreateGuestBrowser();
+  EXPECT_TRUE(guest_browser->profile()->IsGuestSession());
+  EXPECT_FALSE(chrome::IsCommandEnabled(guest_browser, IDC_GLIC_TOGGLE_PIN));
 }
 
 IN_PROC_BROWSER_TEST_F(BrowserCommandControllerBrowserTestGlic,
@@ -755,6 +725,6 @@ IN_PROC_BROWSER_TEST_F(BrowserCommandControllerBrowserTestGlic,
       glic::GlicKeyedServiceFactory::GetGlicKeyedService(browser()->profile())
           ->IsWindowShowing());
 }
-#endif
+#endif  // BUILDFLAG(ENABLE_GLIC)
 
 }  // namespace chrome

@@ -27,6 +27,7 @@ android_library("third_party_provider_java") {
 android_library("java") {
   sources = [
     "java/src/org/chromium/chrome/browser/autofill/AddressNormalizerFactory.java",
+    "java/src/org/chromium/chrome/browser/autofill/AndroidAutofillAccessibilityFieldTrial.java",
     "java/src/org/chromium/chrome/browser/autofill/AutofillAddress.java",
     "java/src/org/chromium/chrome/browser/autofill/AutofillClientProviderUtils.java",
     "java/src/org/chromium/chrome/browser/autofill/AutofillEditorBase.java",
@@ -69,6 +70,7 @@ android_library("java") {
     ":java_resources",
     ":third_party_provider_java",
     "//base:base_java",
+    "//base:service_loader_java",
     "//build/android:build_java",
     "//chrome/android:chrome_app_java_resources",
     "//chrome/browser/android/customtabs/branding:java",
@@ -85,6 +87,7 @@ android_library("java") {
     "//chrome/browser/ui/android/favicon:java",
     "//chrome/browser/util:java",
     "//components/android_autofill/browser:features_java",
+    "//components/android_autofill/browser:java",
     "//components/autofill/android:autofill_features_java",
     "//components/autofill/android:autofill_java",
     "//components/autofill/android:autofill_java_resources",

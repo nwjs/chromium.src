@@ -21,6 +21,7 @@
 #include "base/run_loop.h"
 #include "base/strings/string_split.h"
 #include "base/strings/string_util.h"
+#include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/cancelable_task_tracker.h"
 #include "base/test/bind.h"
@@ -2766,7 +2767,7 @@ class TemplateURLServiceEnterpriseSearchTest
     if (policy_origin_ == TemplateURLData::PolicyOrigin::kSearchAggregator) {
       data->suggestions_url = "https://" + keyword + ".com/suggest";
     }
-    data->enforced_by_policy = false;
+    data->enforced_by_policy = true;
     data->featured_by_policy = featured_by_policy;
     data->is_active = TemplateURLData::ActiveStatus::kTrue;
     data->favicon_url =

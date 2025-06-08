@@ -804,9 +804,13 @@ public class SingleWebsiteSettings extends BaseSiteSettingsFragment
         // generic Sites channel if no specific channel has been created for the given
         // origin, so it is safe to open the channel settings for whatever channel ID
         // it returns.
-        String channelId =
-                getSiteSettingsDelegate().getChannelIdForOrigin(mSite.getAddress().getOrigin());
-        launchOsChannelSettings(preference.getContext(), channelId);
+        getSiteSettingsDelegate()
+                .getChannelIdForOrigin(
+                        mSite.getAddress().getOrigin(),
+                        (channelId) -> {
+                            assumeNonNull(mSite);
+                            launchOsChannelSettings(preference.getContext(), channelId);
+                        });
     }
 
     @RequiresNonNull({"mSite"})
@@ -1675,5 +1679,10 @@ public class SingleWebsiteSettings extends BaseSiteSettingsFragment
             }
         }
         return false;
+    }
+
+    @Override
+    public @AnimationType int getAnimationType() {
+        return AnimationType.PROPERTY;
     }
 }

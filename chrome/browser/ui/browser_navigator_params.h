@@ -31,7 +31,6 @@
 #include "third_party/blink/public/mojom/window_features/window_features.mojom.h"
 #include "ui/base/page_transition_types.h"
 #include "ui/base/window_open_disposition.h"
-#include "ui/gfx/geometry/rect.h"
 #include "url/gurl.h"
 
 #if !BUILDFLAG(IS_ANDROID)
@@ -240,7 +239,7 @@ struct NavigateParams {
   // Whether the browser popup is being created as a tab modal. If true,
   // `disposition` should be NEW_POPUP. Additionally, it prevents card saving
   // and other prompts for payments autofill enrollment.
-  bool is_tab_modal_popup = false;
+  bool is_tab_modal_popup_deprecated = false;
 
   // If false then the navigation was not initiated by a user gesture. This
   // variable will be set to true for popups to get windows focus even if

@@ -13,6 +13,7 @@
 #include "chromeos/ash/components/boca/session_api/get_session_request.h"
 #include "chromeos/ash/components/boca/session_api/join_session_request.h"
 #include "chromeos/ash/components/boca/session_api/remove_student_request.h"
+#include "chromeos/ash/components/boca/session_api/renotify_student_request.h"
 #include "chromeos/ash/components/boca/session_api/update_session_config_request.h"
 #include "chromeos/ash/components/boca/session_api/update_session_request.h"
 #include "chromeos/ash/components/boca/session_api/update_student_activities_request.h"
@@ -69,7 +70,6 @@ void SessionClientImpl::GetSession(std::unique_ptr<GetSessionRequest> request,
       }
       return;
     }
-
     request->set_callback(
         base::BindOnce(&SessionClientImpl::OnGetSessionCompleted,
                        weak_ptr_factory_.GetWeakPtr(), request->callback()));
@@ -95,6 +95,18 @@ void SessionClientImpl::UpdateSessionConfig(
 
 void SessionClientImpl::UpdateStudentActivity(
     std::unique_ptr<UpdateStudentActivitiesRequest> request) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  if (features::IsBocaSequentialInsertActivityEnabled()) {
+    if (has_blocking_update_activity_request_) {
+      pending_update_student_activity_request_ = std::move(request);
+      return;
+    }
+
+    request->set_callback(
+        base::BindOnce(&SessionClientImpl::OnInsertStudentActivityCompleted,
+                       weak_ptr_factory_.GetWeakPtr(), request->callback()));
+    has_blocking_update_activity_request_ = true;
+  }
   sender_->StartRequestWithAuthRetry(std::move(request));
 }
 
@@ -114,6 +126,27 @@ void SessionClientImpl::JoinSession(
 }
 void SessionClientImpl::StudentHeartbeat(
     std::unique_ptr<StudentHeartbeatRequest> request) {
+  sender_->StartRequestWithAuthRetry(std::move(request));
+}
+
+void SessionClientImpl::RenotifyStudent(
+    std::unique_ptr<RenotifyStudentRequest> request) {
+  sender_->StartRequestWithAuthRetry(std::move(request));
+}
+
+void SessionClientImpl::OnInsertStudentActivityCompleted(
+    UpdateStudentActivitiesCallback callback,
+    base::expected<bool, google_apis::ApiErrorCode> result) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  has_blocking_update_activity_request_ = false;
+  std::move(callback).Run(std::move(result));
+  if (!pending_update_student_activity_request_) {
+    return;
+  }
+  auto request = std::move(pending_update_student_activity_request_);
+  request->set_callback(
+      base::BindOnce(&SessionClientImpl::OnInsertStudentActivityCompleted,
+                     weak_ptr_factory_.GetWeakPtr(), request->callback()));
   sender_->StartRequestWithAuthRetry(std::move(request));
 }
 

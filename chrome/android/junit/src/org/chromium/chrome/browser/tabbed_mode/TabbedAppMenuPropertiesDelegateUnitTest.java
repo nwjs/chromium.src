@@ -103,8 +103,6 @@ import org.chromium.chrome.browser.translate.TranslateBridgeJni;
 import org.chromium.chrome.browser.ui.appmenu.AppMenuDelegate;
 import org.chromium.chrome.browser.ui.appmenu.AppMenuHandler;
 import org.chromium.chrome.browser.ui.appmenu.AppMenuItemProperties;
-import org.chromium.chrome.browser.ui.appmenu.AppMenuPropertiesDelegate;
-import org.chromium.chrome.browser.ui.appmenu.CustomViewBinder;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
 import org.chromium.chrome.browser.ui.native_page.NativePage;
 import org.chromium.components.browser_ui.accessibility.PageZoomCoordinator;
@@ -137,9 +135,13 @@ import java.util.Iterator;
 import java.util.List;
 
 /** Unit tests for {@link TabbedAppMenuPropertiesDelegate}. */
+// TODO(crbug.com/376238770): Removes ChromeFeatureList.NEW_TAB_PAGE_CUSTOMIZATION from
+// @DisableFeatures() and adds "Customize New Tab Page" to all expectedItems list once the feature
+// flag is turned on by default.
 @RunWith(BaseRobolectricTestRunner.class)
 @DisableFeatures({
     ChromeFeatureList.ADAPTIVE_BUTTON_IN_TOP_TOOLBAR_PAGE_SUMMARY,
+    ChromeFeatureList.NEW_TAB_PAGE_CUSTOMIZATION,
     DomDistillerFeatures.READER_MODE_IMPROVEMENTS
 })
 public class TabbedAppMenuPropertiesDelegateUnitTest {
@@ -203,7 +205,6 @@ public class TabbedAppMenuPropertiesDelegateUnitTest {
     @Mock private SyncService mSyncService;
     @Mock private WebFeedBridge.Natives mWebFeedBridgeJniMock;
     @Mock private AppMenuHandler mAppMenuHandler;
-    @Mock private AppMenuPropertiesDelegate.CustomItemViewTypeProvider mCustomItemViewTypeProvider;
     @Mock private TranslateBridge.Natives mTranslateBridgeJniMock;
 
     private ShadowPackageManager mShadowPackageManager;
@@ -1622,13 +1623,10 @@ public class TabbedAppMenuPropertiesDelegateUnitTest {
         when(mReadAloudController.isReadable(mTab)).thenReturn(initiallyReadable);
         setUpMocksForPageMenu();
         Menu menu = createTestMenu();
-        mTabbedAppMenuPropertiesDelegate.getMenuItemsForMenu(
-                menu, mCustomItemViewTypeProvider, mAppMenuHandler);
+        mTabbedAppMenuPropertiesDelegate.getMenuItemsForMenu(menu, mAppMenuHandler);
         // When menu is created, the visibility should match readability state at that time
         assertEquals(initiallyReadable, hasReadAloudInMenu());
 
-        when(mCustomItemViewTypeProvider.fromMenuItemId(anyInt()))
-                .thenReturn(CustomViewBinder.NOT_HANDLED);
         when(mReadAloudController.isReadable(mTab)).thenReturn(laterReadable);
         // When a new readability result is retrieved, ensure that the menu item visibility matches
         // the current readability state.

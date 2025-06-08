@@ -13,8 +13,8 @@ import {GameOverPanel} from './game_over_panel.js';
 import {GeneratedSoundFx} from './generated_sound_fx.js';
 import {Horizon} from './horizon.js';
 import {Obstacle} from './obstacle.js';
-import {CollisionBox, GAME_TYPE, spriteDefinitionByType} from './offline-sprite-definitions.js';
-import {Trex} from './trex.js';
+import {CollisionBox, GAME_TYPE, spriteDefinitionByType} from './offline_sprite_definitions.js';
+import {Status as TrexStatus, Trex} from './trex.js';
 import {getTimeStamp} from './utils.js';
 
 /**
@@ -309,15 +309,15 @@ Runner.prototype = {
       this.config[setting] = value;
 
       switch (setting) {
-        case 'GRAVITY':
-        case 'MIN_JUMP_HEIGHT':
-        case 'SPEED_DROP_COEFFICIENT':
+        case 'gravity':
+        case 'minJumpHeight':
+        case 'speedDropCoefficient':
           this.tRex.config[setting] = value;
           break;
-        case 'INITIAL_JUMP_VELOCITY':
+        case 'initialJumpVelocity':
           this.tRex.setJumpVelocity(value);
           break;
-        case 'SPEED':
+        case 'speed':
           this.setSpeed(/** @type {number} */ (value));
           break;
       }
@@ -351,10 +351,10 @@ Runner.prototype = {
    */
   loadImages() {
     let scale = '1x';
-    this.spriteDef = Runner.spriteDefinition.LDPI;
+    this.spriteDef = Runner.spriteDefinition.ldpi;
     if (IS_HIDPI) {
       scale = '2x';
-      this.spriteDef = Runner.spriteDefinition.HDPI;
+      this.spriteDef = Runner.spriteDefinition.hdpi;
     }
 
     Runner.imageSprite = /** @type {HTMLImageElement} */
@@ -500,10 +500,10 @@ Runner.prototype = {
 
     // Distance meter
     this.distanceMeter = new DistanceMeter(
-        this.canvas, this.spriteDef.TEXT_SPRITE, this.dimensions.width);
+        this.canvas, this.spriteDef.textSprite, this.dimensions.width);
 
     // Draw t-rex
-    this.tRex = new Trex(this.canvas, this.spriteDef.TREX);
+    this.tRex = new Trex(this.canvas, this.spriteDef.tRex);
 
     this.outerContainerEl.appendChild(this.containerEl);
     this.outerContainerEl.appendChild(this.slowSpeedCheckboxLabel);
@@ -603,7 +603,7 @@ Runner.prototype = {
 
       // CSS animation definition.
       const keyframes = '@-webkit-keyframes intro { ' +
-          'from { width:' + Trex.config.WIDTH + 'px }' +
+          'from { width:' + this.tRex.config.width + 'px }' +
           'to { width: ' + this.dimensions.width + 'px }' +
           '}';
       document.styleSheets[0].insertRule(keyframes, 0);
@@ -675,13 +675,13 @@ Runner.prototype = {
     Runner.spriteDefinition = spriteDefinitionByType[Runner.gameType];
 
     if (IS_HIDPI) {
-      this.spriteDef = Runner.spriteDefinition.HDPI;
+      this.spriteDef = Runner.spriteDefinition.hdpi;
     } else {
-      this.spriteDef = Runner.spriteDefinition.LDPI;
+      this.spriteDef = Runner.spriteDefinition.ldpi;
     }
 
     this.altGameModeActive = true;
-    this.tRex.enableAltGameMode(this.spriteDef.TREX);
+    this.tRex.enableAltGameMode(this.spriteDef.tRex);
     this.horizon.enableAltGameMode(this.spriteDef);
     if (Runner.audioCues) {
       this.generatedSoundFx.background();
@@ -751,7 +751,7 @@ Runner.prototype = {
       // For a11y, audio cues.
       if (Runner.audioCues && hasObstacles) {
         const jumpObstacle =
-            this.horizon.obstacles[0].typeConfig.type !== 'COLLECTABLE';
+            this.horizon.obstacles[0].typeConfig.type !== 'collectable';
 
         if (!this.horizon.obstacles[0].jumpAlerted) {
           const threshold = Runner.isMobileMouseInput ?
@@ -771,7 +771,7 @@ Runner.prototype = {
 
       // Activated alt game mode.
       if (Runner.isAltGameModeEnabled() && collision &&
-          this.horizon.obstacles[0].typeConfig.type === 'COLLECTABLE') {
+          this.horizon.obstacles[0].typeConfig.type === 'collectable') {
         this.horizon.removeFirstObstacle();
         this.tRex.setFlashing(true);
         collision = false;
@@ -1272,22 +1272,22 @@ Runner.prototype = {
     this.crashed = true;
     this.distanceMeter.achievement = false;
 
-    this.tRex.update(100, Trex.status.CRASHED);
+    this.tRex.update(100, TrexStatus.CRASHED);
 
     // Game over panel.
     if (!this.gameOverPanel) {
-      const origSpriteDef = IS_HIDPI ? spriteDefinitionByType.original.HDPI :
-                                       spriteDefinitionByType.original.LDPI;
+      const origSpriteDef = IS_HIDPI ? spriteDefinitionByType.original.hdpi :
+                                       spriteDefinitionByType.original.ldpi;
 
       if (this.canvas) {
         if (Runner.isAltGameModeEnabled) {
           this.gameOverPanel = new GameOverPanel(
-              this.canvas, origSpriteDef.TEXT_SPRITE, origSpriteDef.RESTART,
-              this.dimensions, origSpriteDef.ALT_GAME_END,
+              this.canvas, origSpriteDef.textSprite, origSpriteDef.restart,
+              this.dimensions, origSpriteDef.altGameEnd,
               this.altGameModeActive);
         } else {
           this.gameOverPanel = new GameOverPanel(
-              this.canvas, origSpriteDef.TEXT_SPRITE, origSpriteDef.RESTART,
+              this.canvas, origSpriteDef.textSprite, origSpriteDef.restart,
               this.dimensions);
         }
       }
@@ -1339,7 +1339,7 @@ Runner.prototype = {
     if (!this.crashed) {
       this.setPlayStatus(true);
       this.paused = false;
-      this.tRex.update(0, Trex.status.RUNNING);
+      this.tRex.update(0, TrexStatus.RUNNING);
       this.time = getTimeStamp();
       this.update();
       if (Runner.audioCues) {
@@ -1630,13 +1630,13 @@ function decodeBase64ToArrayBuffer(base64String) {
  * @return {Array<CollisionBox>|undefined}
  */
 function checkForCollision(obstacle, tRex, opt_canvasCtx) {
-  const obstacleBoxXPos = Runner.defaultDimensions.WIDTH + obstacle.xPos;
+  const obstacleBoxXPos = Runner.defaultDimensions.width + obstacle.xPos;
 
   // Adjustments are made to the bounding box as there is a 1 pixel white
   // border around the t-rex and obstacles.
   const tRexBox = new CollisionBox(
-      tRex.xPos + 1, tRex.yPos + 1, tRex.config.WIDTH - 2,
-      tRex.config.HEIGHT - 2);
+      tRex.xPos + 1, tRex.yPos + 1, tRex.config.width - 2,
+      tRex.config.height - 2);
 
   const obstacleBox = new CollisionBox(
       obstacle.xPos + 1, obstacle.yPos + 1,
@@ -1654,10 +1654,9 @@ function checkForCollision(obstacle, tRex, opt_canvasCtx) {
     let tRexCollisionBoxes = [];
 
     if (Runner.isAltGameModeEnabled()) {
-      tRexCollisionBoxes = Runner.spriteDefinition.TREX.COLLISION_BOXES;
+      tRexCollisionBoxes = Runner.spriteDefinition.tRex.collisionBoxes;
     } else {
-      tRexCollisionBoxes = tRex.ducking ? Trex.collisionBoxes.DUCKING :
-                                          Trex.collisionBoxes.RUNNING;
+      tRexCollisionBoxes = tRex.getCollisionBoxes();
     }
 
     // Detailed axis aligned box check.

@@ -104,6 +104,7 @@
 #include "third_party/blink/renderer/platform/weborigin/scheme_registry.h"
 #include "third_party/blink/renderer/platform/weborigin/security_origin.h"
 #include "third_party/blink/renderer/platform/weborigin/security_policy.h"
+#include "third_party/blink/renderer/platform/wtf/text/strcat.h"
 #include "third_party/blink/renderer/platform/wtf/text/string_builder.h"
 #include "third_party/blink/renderer/platform/wtf/text/wtf_string.h"
 #include "third_party/blink/renderer/platform/wtf/wtf.h"
@@ -376,7 +377,7 @@ Resource* PopHighestPriorityDecodableResource(
   for (Resource* resource : resources) {
     const ResourcePriority& priority = resource->PriorityFromObservers().first;
     if (priority.visibility != ResourcePriority::kVisible ||
-        !resource->HasNonDegenerateSizeForDecode()) {
+        !resource->IsAboveSpeculativeDecodeSizeThreshold()) {
       continue;
     }
     if (!result || CompareResourcePriorities(
@@ -820,8 +821,7 @@ ResourceFetcher::ResourceFetcher(const ResourceFetcherInit& init)
       context_lifecycle_notifier_(init.context_lifecycle_notifier),
       auto_load_images_(true),
       allow_stale_resources_(false),
-      image_fetched_(false),
-      speculative_decode_in_flight_(false) {
+      image_fetched_(false) {
   InstanceCounters::IncrementCounter(InstanceCounters::kResourceFetcherCounter);
 
   // Determine the number of images that should get a boosted priority and the
@@ -1261,6 +1261,8 @@ ResourceFetcher::UpdateRequestForTransparentPlaceholderImage(
       ResourceRequestBlockedReason::kCSP) {
     return ResourceRequestBlockedReason::kCSP;
   }
+  // Here we check for CSP but not for IntegrityPolicy, as IntegrityPolicy does
+  // not yet cover image destinations.
 
   return std::nullopt;
 }
@@ -1493,7 +1495,6 @@ Resource* ResourceFetcher::RequestResource(FetchParameters& params,
           resource->GetContentStatus() == ResourceStatus::kCached &&
           base::FeatureList::IsEnabled(features::kSpeculativeImageDecodes)) {
         speculative_decode_candidate_images_.insert(resource);
-        MaybeStartSpeculativeImageDecode();
       }
       break;
   }
@@ -2398,11 +2399,11 @@ void ResourceFetcher::WarnUnusedPreloads(
     ++unused_resource_count;
     unused_preloads.push_back(resource->Url());
     if (resource->IsLinkPreload()) {
-      String message =
-          "The resource " + resource->Url().GetString() + " was preloaded " +
-          "using link preload but not used within a few seconds from the " +
-          "window's load event. Please make sure it has an appropriate `as` " +
-          "value and it is preloaded intentionally.";
+      String message = WTF::StrCat(
+          {"The resource ", resource->Url().GetString(),
+           " was preloaded using link preload but not used within a few "
+           "seconds from the window's load event. Please make sure it has an "
+           "appropriate `as` value and it is preloaded intentionally."});
       console_logger_->AddConsoleMessage(
           mojom::blink::ConsoleMessageSource::kJavaScript,
           mojom::blink::ConsoleMessageLevel::kWarning, message);
@@ -2442,9 +2443,10 @@ void ResourceFetcher::WarnUnusedPreloads(
     // resource wouldn't be harmful. We need to plumb information from the
     // browser process to check whether the resource was already in the HTTP
     // cache.
-    String message = "The resource " + pair.key.GetString() +
-                     " was preloaded using link preload in Early Hints but not "
-                     "used within a few seconds from the window's load event.";
+    String message = WTF::StrCat(
+        {"The resource ", pair.key.GetString(),
+         " was preloaded using link preload in Early Hints but not "
+         "used within a few seconds from the window's load event."});
     console_logger_->AddConsoleMessage(
         mojom::blink::ConsoleMessageSource::kJavaScript,
         mojom::blink::ConsoleMessageLevel::kWarning, message);
@@ -2534,7 +2536,6 @@ void ResourceFetcher::HandleLoaderFinish(Resource* resource,
         resource->GetContentStatus() == ResourceStatus::kCached &&
         base::FeatureList::IsEnabled(features::kSpeculativeImageDecodes)) {
       speculative_decode_candidate_images_.insert(resource);
-      MaybeStartSpeculativeImageDecode();
     }
 
     // Since this resource came from the network stack we only schedule a stale
@@ -3215,10 +3216,10 @@ void ResourceFetcher::MaybeSaveResourceToStrongReference(Resource* resource) {
 
 void ResourceFetcher::MaybeStartSpeculativeImageDecode() {
   CHECK(base::FeatureList::IsEnabled(features::kSpeculativeImageDecodes) ||
-        !speculative_decode_in_flight_);
+        !Context().SpeculativeDecodeRequestInFlight());
   CHECK(base::FeatureList::IsEnabled(features::kSpeculativeImageDecodes) ||
         speculative_decode_candidate_images_.empty());
-  if (speculative_decode_in_flight_) {
+  if (Context().SpeculativeDecodeRequestInFlight()) {
     return;
   }
   // Find the highest priority image to decode.
@@ -3232,14 +3233,12 @@ void ResourceFetcher::MaybeStartSpeculativeImageDecode() {
             image_to_decode,
             WTF::BindOnce(&ResourceFetcher::SpeculativeImageDecodeFinished,
                           WrapWeakPersistent(this)))) {
-      speculative_decode_in_flight_ = true;
       break;
     }
   }
 }
 
 void ResourceFetcher::SpeculativeImageDecodeFinished() {
-  speculative_decode_in_flight_ = false;
   MaybeStartSpeculativeImageDecode();
 }
 
@@ -3549,7 +3548,7 @@ void ResourceFetcher::UpdateServiceWorkerSubresourceMetrics(
       metrics.matched_race_network_and_fetch_router_source_count++;
       break;
     case network::mojom::ServiceWorkerRouterSourceType::kRaceNetworkAndCache:
-      // TODO(crbug.com/370844790): implement race network and cache
+      metrics.matched_race_network_and_cache_router_source_count++;
       break;
   }
 }

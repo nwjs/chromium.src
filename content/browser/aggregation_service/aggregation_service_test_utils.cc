@@ -77,26 +77,24 @@ using AggregationServicePayload = AggregatableReport::AggregationServicePayload;
 testing::AssertionResult AggregatableReportsEqual(
     const AggregatableReport& expected,
     const AggregatableReport& actual) {
-  if (expected.payloads().size() != actual.payloads().size()) {
-    return testing::AssertionFailure()
-           << "Expected payloads size " << expected.payloads().size()
-           << ", actual: " << actual.payloads().size();
+  const std::optional<AggregationServicePayload>& expected_payload =
+      expected.payload();
+  const std::optional<AggregationServicePayload>& actual_payload =
+      actual.payload();
+
+  if (expected_payload.has_value() != actual_payload.has_value()) {
+    return testing::AssertionFailure() << "Expected payload nullness to match";
   }
 
-  for (size_t i = 0; i < expected.payloads().size(); ++i) {
-    const AggregationServicePayload& expected_payload = expected.payloads()[i];
-    const AggregationServicePayload& actual_payload = actual.payloads()[i];
-
-    if (expected_payload.payload != actual_payload.payload) {
-      return testing::AssertionFailure()
-             << "Expected payloads at payload index " << i << " to match";
+  if (expected_payload.has_value()) {
+    if (expected_payload->payload != actual_payload->payload) {
+      return testing::AssertionFailure() << "Expected payload to match";
     }
 
-    if (expected_payload.key_id != actual_payload.key_id) {
+    if (expected_payload->key_id != actual_payload->key_id) {
       return testing::AssertionFailure()
-             << "Expected key_id " << expected_payload.key_id
-             << " at payload index " << i
-             << ", actual: " << actual_payload.key_id;
+             << "Expected key_id " << expected_payload->key_id
+             << ", actual: " << actual_payload->key_id;
     }
   }
 
@@ -116,19 +114,10 @@ testing::AssertionResult AggregatableReportsEqual(
 testing::AssertionResult ReportRequestsEqual(
     const AggregatableReportRequest& expected,
     const AggregatableReportRequest& actual) {
-  if (expected.processing_urls().size() != actual.processing_urls().size()) {
+  if (expected.processing_url() != actual.processing_url()) {
     return testing::AssertionFailure()
-           << "Expected processing_urls size "
-           << expected.processing_urls().size()
-           << ", actual: " << actual.processing_urls().size();
-  }
-  for (size_t i = 0; i < expected.processing_urls().size(); ++i) {
-    if (expected.processing_urls()[i] != actual.processing_urls()[i]) {
-      return testing::AssertionFailure()
-             << "Expected processing_urls()[" << i << "] to be "
-             << expected.processing_urls()[i]
-             << ", actual: " << actual.processing_urls()[i];
-    }
+           << "Expected processing_url to be " << expected.processing_url()
+           << ", actual: " << actual.processing_url();
   }
 
   testing::AssertionResult payload_contents_equal = PayloadContentsEqual(
@@ -197,11 +186,6 @@ testing::AssertionResult PayloadContentsEqual(
              << expected.contributions[i].value
              << ", actual: " << actual.contributions[i].value;
     }
-  }
-  if (expected.aggregation_mode != actual.aggregation_mode) {
-    return testing::AssertionFailure()
-           << "Expected aggregation_mode " << expected.aggregation_mode
-           << ", actual: " << actual.aggregation_mode;
   }
 
   if (expected.aggregation_coordinator_origin !=
@@ -304,18 +288,16 @@ testing::Matcher<AggregatableReportRequest> ReportRequestIs(
 }
 
 AggregatableReportRequest CreateExampleRequest(
-    blink::mojom::AggregationServiceMode aggregation_mode,
     int failed_send_attempts,
     std::optional<url::Origin> aggregation_coordinator_origin,
     std::optional<AggregatableReportRequest::DelayType> delay_type) {
   return CreateExampleRequestWithReportTime(
-      /*report_time=*/base::Time::Now(), aggregation_mode, failed_send_attempts,
+      /*report_time=*/base::Time::Now(), failed_send_attempts,
       std::move(aggregation_coordinator_origin), std::move(delay_type));
 }
 
 AggregatableReportRequest CreateExampleRequestWithReportTime(
     base::Time report_time,
-    blink::mojom::AggregationServiceMode aggregation_mode,
     int failed_send_attempts,
     std::optional<url::Origin> aggregation_coordinator_origin,
     std::optional<AggregatableReportRequest::DelayType> delay_type) {
@@ -325,7 +307,7 @@ AggregatableReportRequest CreateExampleRequestWithReportTime(
                  {blink::mojom::AggregatableReportHistogramContribution(
                      /*bucket=*/123, /*value=*/456,
                      /*filtering_id=*/std::nullopt)},
-                 aggregation_mode, std::move(aggregation_coordinator_origin),
+                 std::move(aggregation_coordinator_origin),
                  /*max_contributions_allowed=*/20u,
                  /*filtering_id_max_bytes=*/1u),
              AggregatableReportSharedInfo(
@@ -347,7 +329,7 @@ AggregatableReportRequest CreateExampleRequestWithReportTime(
 AggregatableReportRequest CloneReportRequest(
     const AggregatableReportRequest& request) {
   return AggregatableReportRequest::CreateForTesting(
-             request.processing_urls(), request.payload_contents(),
+             request.processing_url(), request.payload_contents(),
              request.shared_info().Clone(), request.delay_type(),
              std::string(request.reporting_path()), request.debug_key(),
              request.additional_fields(), request.failed_send_attempts())
@@ -355,14 +337,7 @@ AggregatableReportRequest CloneReportRequest(
 }
 
 AggregatableReport CloneAggregatableReport(const AggregatableReport& report) {
-  std::vector<AggregationServicePayload> payloads;
-  for (const AggregationServicePayload& payload : report.payloads()) {
-    payloads.emplace_back(payload.payload, payload.key_id,
-                          payload.debug_cleartext_payload);
-  }
-
-  return AggregatableReport(std::move(payloads),
-                            std::string(report.shared_info()),
+  return AggregatableReport(report.payload(), std::string(report.shared_info()),
                             report.debug_key(), report.additional_fields(),
                             report.aggregation_coordinator_origin());
 }
@@ -539,17 +514,6 @@ std::ostream& operator<<(
   switch (operation) {
     case AggregationServicePayloadContents::Operation::kHistogram:
       return out << "kHistogram";
-  }
-}
-
-std::ostream& operator<<(
-    std::ostream& out,
-    blink::mojom::AggregationServiceMode aggregation_mode) {
-  switch (aggregation_mode) {
-    case blink::mojom::AggregationServiceMode::kTeeBased:
-      return out << "kTeeBased";
-    case blink::mojom::AggregationServiceMode::kExperimentalPoplar:
-      return out << "kExperimentalPoplar";
   }
 }
 

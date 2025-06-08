@@ -8,6 +8,7 @@
 #include <optional>
 
 #include "base/check.h"
+#include "chrome/common/actor/action_result.h"
 #include "chrome/common/actor/actor_logging.h"
 #include "chrome/common/url_constants.h"
 #include "chrome/renderer/actor/tool_utils.h"
@@ -34,23 +35,25 @@ SelectTool::SelectTool(mojom::SelectActionPtr action,
 SelectTool::~SelectTool() = default;
 
 void SelectTool::Execute(ToolFinishedCallback callback) {
-  if (!Validate()) {
-    std::move(callback).Run(false);
+  ValidatedResult validated_result = Validate();
+  if (!validated_result.has_value()) {
+    std::move(callback).Run(std::move(validated_result.error()));
     return;
   }
 
-  auto element = GetNodeFromId(frame_.get(), action_->target->get_dom_node_id())
-                     .To<WebSelectElement>();
-  auto value = WebString::FromUTF8(action_->value);
-  element.SetValue(value, /*send_events=*/true);
+  WebSelectElement select = validated_result.value().select;
+  WebString value = validated_result.value().option_value;
+  select.SetValue(value, /*send_events=*/true);
 
   // Check if the set value is now the current value in the <select>
-  if (element.Value() != value) {
-    std::move(callback).Run(false);
+  if (select.Value() != value) {
+    std::move(callback).Run(
+        MakeResult(mojom::ActionResultCode::kSelectUnexpectedValue,
+                   absl::StrFormat("ValueAfter [%s]", select.Value().Utf8())));
     return;
   }
 
-  std::move(callback).Run(true);
+  std::move(callback).Run(MakeOkResult());
 }
 
 std::string SelectTool::DebugString() const {
@@ -58,48 +61,57 @@ std::string SelectTool::DebugString() const {
                          ToDebugString(action_->target), action_->value);
 }
 
-bool SelectTool::Validate() const {
+SelectTool::ValidatedResult SelectTool::Validate() const {
   if (!frame_->GetWebFrame()->FrameWidget()) {
-    return false;
+    return base::unexpected(
+        MakeResult(mojom::ActionResultCode::kFrameWentAway));
   }
 
   mojom::ToolTargetPtr& target = action_->target;
 
   if (target->is_coordinate()) {
     NOTIMPLEMENTED() << "Coordinate-based target is not yet supported.";
-    return false;
+    return base::unexpected(MakeErrorResult());
   }
 
   int32_t dom_node_id = target->get_dom_node_id();
 
   WebNode node = GetNodeFromId(frame_.get(), dom_node_id);
   if (node.IsNull()) {
-    ACTOR_LOG() << "DOM Node not found for id: " << dom_node_id;
-    return false;
+    return base::unexpected(
+        MakeResult(mojom::ActionResultCode::kInvalidDomNodeId));
   }
 
   WebSelectElement select = node.DynamicTo<WebSelectElement>();
   if (!select) {
-    ACTOR_LOG() << "Target element is not a <select>: " << node;
-    return false;
+    return base::unexpected(
+        MakeResult(mojom::ActionResultCode::kSelectInvalidElement,
+                   absl::StrFormat("Element [%s]", base::ToString(node))));
   }
 
   if (!select.IsEnabled()) {
-    ACTOR_LOG() << "Target element is disabled.";
-    return false;
+    return base::unexpected(
+        MakeResult(mojom::ActionResultCode::kElementDisabled,
+                   absl::StrFormat("Element [%s]", base::ToString(select))));
   }
 
   WebString value(WebString::FromUTF8(action_->value));
   for (const auto& e : select.GetListItems()) {
     auto option = e.DynamicTo<WebOptionElement>();
-    if (option && option.Value() == value && option.IsEnabled()) {
-      return true;
+    if (option && option.Value() == value) {
+      if (!option.IsEnabled()) {
+        return base::unexpected(MakeResult(
+            mojom::ActionResultCode::kSelectOptionDisabled,
+            absl::StrFormat("SelectElement[%s] OptionElement [%s]",
+                            base::ToString(select), base::ToString(option))));
+      }
+      return TargetAndValue{select, value};
     }
   }
 
-  ACTOR_LOG() << "Requested option [" << action_->value
-              << "] is not available in target: " << select;
-  return false;
+  return base::unexpected(
+      MakeResult(mojom::ActionResultCode::kSelectNoSuchOption,
+                 absl::StrFormat("SelectElement[%s]", base::ToString(select))));
 }
 
 }  // namespace actor

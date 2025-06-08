@@ -775,7 +775,8 @@ class CONTENT_EXPORT RenderFrameHostImpl
       const std::optional<blink::FrameToken>& previous_frame_token,
       const std::optional<blink::FrameToken>& opener_frame_token,
       const std::optional<blink::FrameToken>& parent_frame_token,
-      const std::optional<blink::FrameToken>& previous_sibling_frame_token);
+      const std::optional<blink::FrameToken>& previous_sibling_frame_token,
+      const std::optional<base::UnguessableToken>& navigation_metrics_token);
 
   // Deletes the RenderFrame in the renderer process.
   // Postcondition: |IsPendingDeletion()| is true.
@@ -2668,6 +2669,7 @@ class CONTENT_EXPORT RenderFrameHostImpl
       std::vector<blink::mojom::DraggableRegionPtr> regions) override;
   void NotifyDocumentInteractive() override;
   void OnFirstContentfulPaint() override;
+  void SetStorageAccessApiStatus(net::StorageAccessApiStatus status) override;
 
   void ReportNoBinderForInterface(const std::string& error);
 
@@ -2862,6 +2864,8 @@ class CONTENT_EXPORT RenderFrameHostImpl
       mojo::PendingReceiver<blink::mojom::PeerConnectionTrackerHost> receiver);
   void EnableWebRtcEventLogOutput(int lid, int output_period_ms) override;
   void DisableWebRtcEventLogOutput(int lid) override;
+  void EnableWebRtcDataChannelLogOutput(int lid) override;
+  void DisableWebRtcDataChannelLogOutput(int lid) override;
   bool IsDocumentOnLoadCompletedInMainFrame() override;
   const std::vector<blink::mojom::FaviconURLPtr>& FaviconURLs() override;
 
@@ -3267,6 +3271,8 @@ class CONTENT_EXPORT RenderFrameHostImpl
   // See https://explainers-by-googlers.github.io/partitioned-popins/
   bool ShouldPartitionAsPopin() const override;
 
+  bool DoesDocumentHaveStorageAccess() override;
+
   void SimulateDiscardShutdownKeepAliveTimeoutForTesting();
 
   // Returns true if no frame ancestors of a sandboxed context are cross-site
@@ -3377,7 +3383,8 @@ class CONTENT_EXPORT RenderFrameHostImpl
   // in a NavigationController. See https://crbug.com/365039 for more details.
   virtual void SendBeforeUnload(bool is_reload,
                                 base::WeakPtr<RenderFrameHostImpl> impl,
-                                bool for_legacy);
+                                bool for_legacy,
+                                const bool is_renderer_initiated_navigation);
 
  private:
   friend class CommitNavigationPauser;
@@ -3960,12 +3967,10 @@ class CONTENT_EXPORT RenderFrameHostImpl
   // Validates whether we can commit |url| and |origin| for a navigation or a
   // document.open() URL update.
   // A return value of true means that the URL & origin can be committed.
-  bool ValidateURLAndOrigin(
-      const GURL& url,
-      const url::Origin& origin,
-      bool is_same_document_navigation,
-      NavigationRequest* navigation_request,
-      std::string origin_calculation_debug_info = std::string());
+  bool ValidateURLAndOrigin(const GURL& url,
+                            const url::Origin& origin,
+                            bool is_same_document_navigation,
+                            NavigationRequest* navigation_request);
 
   // The actual implementation of committing a navigation in the browser
   // process. Called by the DidCommitProvisionalLoad IPC handler.
@@ -4136,8 +4141,7 @@ class CONTENT_EXPORT RenderFrameHostImpl
   void LogCannotCommitUrlCrashKeys(const GURL& url,
                                    const url::Origin& origin,
                                    bool is_same_document_navigation,
-                                   NavigationRequest* navigation_request,
-                                   std::string& origin_calculation_debug_info);
+                                   NavigationRequest* navigation_request);
   void LogCannotCommitOriginCrashKeys(const GURL& url,
                                       const url::Origin& origin,
                                       const ProcessLock& process_lock,
@@ -4276,10 +4280,6 @@ class CONTENT_EXPORT RenderFrameHostImpl
   void ReportBlockingCrossPartitionBlobURL(
       const GURL& blocked_url,
       std::optional<blink::mojom::PartitioningBlobURLInfo> info);
-
-  // This runs when fetches to cross-partition, same-origin Blob URL checks for
-  // storage access
-  bool DoesDocumentHaveStorageAccess();
 
   // For frames and main thread worklets we use a navigation-associated
   // interface and bind `receiver` to a `BlobURLStore` instance, which
@@ -5526,6 +5526,12 @@ class CONTENT_EXPORT RenderFrameHostImpl
   // in the renderer process with a sequential value to guarantee that each
   // nonce returned is unique.
   base::Uuid base_auction_nonce_;
+
+  // The default group for crash reports is `default`. However, if
+  // `Reporting-Endpoints` response header specifies `crash-reporting`, crash
+  // reports will be grouped under `crash-reporting`.
+  // See for https://github.com/WICG/crash-reporting/issues/24 more details.
+  std::string crash_reporting_group_ = "default";
 
   base::OnceClosure on_process_before_unload_completed_for_testing_;
 

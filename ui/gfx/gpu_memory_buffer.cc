@@ -89,7 +89,7 @@ GpuMemoryBufferHandle::GpuMemoryBufferHandle(
     base::UnsafeSharedMemoryRegion region)
     : type(GpuMemoryBufferType::SHARED_MEMORY_BUFFER),
       region_(std::move(region)) {
-  CHECK(region_.IsValid(), base::NotFatalUntil::M138);
+  CHECK(region_.IsValid(), base::NotFatalUntil::M141);
 }
 
 #if BUILDFLAG(IS_WIN)
@@ -98,6 +98,13 @@ GpuMemoryBufferHandle::GpuMemoryBufferHandle(DXGIHandle handle)
       dxgi_handle_(std::move(handle)) {
   CHECK(dxgi_handle_.IsValid());
 }
+#endif
+
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_FUCHSIA)
+GpuMemoryBufferHandle::GpuMemoryBufferHandle(
+    NativePixmapHandle native_pixmap_handle)
+    : type(GpuMemoryBufferType::NATIVE_PIXMAP),
+      native_pixmap_handle_(std::move(native_pixmap_handle)) {}
 #endif
 
 #if BUILDFLAG(IS_ANDROID)
@@ -132,7 +139,7 @@ GpuMemoryBufferHandle GpuMemoryBufferHandle::Clone() const {
   handle.offset = offset;
   handle.stride = stride;
 #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_FUCHSIA)
-  handle.native_pixmap_handle = CloneHandleForIPC(native_pixmap_handle);
+  handle.native_pixmap_handle_ = CloneHandleForIPC(native_pixmap_handle_);
 #elif BUILDFLAG(IS_APPLE)
   handle.io_surface = io_surface;
 #elif BUILDFLAG(IS_WIN)

@@ -28,7 +28,7 @@
 
 namespace content {
 class NavigationHandle;
-class NavigationThrottle;
+class NavigationThrottleRegistry;
 class Page;
 class RenderFrameHost;
 }  // namespace content
@@ -178,9 +178,8 @@ class ContentSubresourceFilterThrottleManager
   // frame is activated.
   //
   // Note that there is currently no constraints on the ordering of throttles.
-  void MaybeAppendNavigationThrottles(
-      content::NavigationHandle* navigation_handle,
-      std::vector<std::unique_ptr<content::NavigationThrottle>>* throttles);
+  void MaybeCreateAndAddNavigationThrottles(
+      content::NavigationThrottleRegistry& registry);
 
   PageLoadStatistics* page_load_statistics() const { return statistics_.get(); }
 
@@ -269,12 +268,11 @@ class ContentSubresourceFilterThrottleManager
       AdTagCarriesAcrossProcesses);
   FRIEND_TEST_ALL_PREFIXES(ContentSubresourceFilterThrottleManagerTest,
                            FirstDisallowedLoadCalledOutOfOrder);
-  std::unique_ptr<SafeBrowsingChildNavigationThrottle>
-  MaybeCreateChildNavigationThrottle(
-      content::NavigationHandle* navigation_handle);
+  void MaybeCreateAndAddChildNavigationThrottle(
+      content::NavigationThrottleRegistry& registry);
   std::unique_ptr<ActivationStateComputingNavigationThrottle>
   MaybeCreateActivationStateComputingThrottle(
-      content::NavigationHandle* navigation_handle);
+      content::NavigationThrottleRegistry& registry);
 
   // Will return nullptr if the parent frame of this navigation is not
   // activated (and therefore has no subresource filter).

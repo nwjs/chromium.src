@@ -62,6 +62,7 @@
 #include "mojo/public/cpp/bindings/self_owned_receiver.h"
 #include "mojo/public/cpp/system/data_pipe_utils.h"
 #include "mojo/public/cpp/system/functions.h"
+#include "net/base/address_family.h"
 #include "net/base/cache_type.h"
 #include "net/base/features.h"
 #include "net/base/hash_value.h"
@@ -159,6 +160,7 @@
 #include "services/network/public/cpp/resolve_host_client_base.h"
 #include "services/network/public/cpp/resource_request.h"
 #include "services/network/public/mojom/clear_data_filter.mojom.h"
+#include "services/network/public/mojom/connection_change_observer_client.mojom.h"
 #include "services/network/public/mojom/cookie_manager.mojom.h"
 #include "services/network/public/mojom/fetch_api.mojom-shared.h"
 #include "services/network/public/mojom/host_resolver.mojom.h"
@@ -166,7 +168,6 @@
 #include "services/network/public/mojom/network_context.mojom.h"
 #include "services/network/public/mojom/network_service.mojom.h"
 #include "services/network/public/mojom/proxy_config.mojom.h"
-#include "services/network/public/mojom/reconnect_event_observer.mojom.h"
 #include "services/network/public/mojom/url_loader.mojom-shared.h"
 #include "services/network/public/mojom/url_loader_factory.mojom-forward.h"
 #include "services/network/test/fake_test_cert_verifier_params_factory.h"
@@ -1534,6 +1535,36 @@ TEST_F(NetworkContextTest, DefaultHttpNetworkSessionParams) {
   EXPECT_EQ(0, params.testing_fixed_https_port);
 }
 
+TEST_F(NetworkContextTest, QuicIdleConnectionTimeout) {
+  mojom::NetworkContextParamsPtr context_params =
+      CreateNetworkContextParamsForTesting();
+
+  const uint32_t kTestIdleTimeoutSeconds = 60;
+  context_params->quic_idle_connection_timeout_seconds =
+      kTestIdleTimeoutSeconds;
+
+  std::unique_ptr<NetworkContext> network_context =
+      CreateContextWithParams(std::move(context_params));
+
+  const net::QuicParams* quic_params =
+      network_context->url_request_context()->quic_context()->params();
+
+  // Verify that the idle_connection_timeout is set correctly.
+  EXPECT_EQ(base::Seconds(kTestIdleTimeoutSeconds),
+            quic_params->idle_connection_timeout);
+
+  // Test with no timeout specified (should use default).
+  mojom::NetworkContextParamsPtr default_context_params =
+      CreateNetworkContextParamsForTesting();
+  std::unique_ptr<NetworkContext> default_network_context =
+      CreateContextWithParams(std::move(default_context_params));
+
+  const net::QuicParams* default_quic_params =
+      default_network_context->url_request_context()->quic_context()->params();
+  // 30 seconds is the default.
+  EXPECT_EQ(base::Seconds(30), default_quic_params->idle_connection_timeout);
+}
+
 // Make sure that network_session_configurator is hooked up.
 TEST_F(NetworkContextTest, FixedHttpPort) {
   base::CommandLine::ForCurrentProcess()->AppendSwitchASCII(
@@ -2048,7 +2079,7 @@ TEST_F(NetworkContextTest, P2PHostResolution) {
   base::RunLoop run_loop;
   std::vector<net::IPAddress> results;
   socket_manager->GetHostAddress(
-      kHostname, false /* enable_mdns */,
+      kHostname, std::nullopt /* address family */, false /* enable_mdns */,
       base::BindLambdaForTesting(
           [&](const std::vector<net::IPAddress>& addresses) {
             EXPECT_EQ(std::vector<net::IPAddress>{ip_address}, addresses);
@@ -2135,8 +2166,9 @@ TEST_F(NetworkContextTest, P2PHostResolutionWithFamily) {
     base::RunLoop run_loop;
     std::vector<net::IPAddress> results;
     // Expect IPv4 address when family passed as AF_INET.
-    socket_manager->GetHostAddressWithFamily(
-        kIPv4Hostname, AF_INET, false /* enable_mdns */,
+    socket_manager->GetHostAddress(
+        kIPv4Hostname, net::AddressFamily::ADDRESS_FAMILY_IPV4,
+        false /* enable_mdns */,
         base::BindLambdaForTesting(
             [&](const std::vector<net::IPAddress>& addresses) {
               EXPECT_EQ(std::vector<net::IPAddress>{ipv4_address}, addresses);
@@ -2149,8 +2181,9 @@ TEST_F(NetworkContextTest, P2PHostResolutionWithFamily) {
     base::RunLoop run_loop;
     std::vector<net::IPAddress> results;
     // Expect IPv6 address when family passed as AF_INET6.
-    socket_manager->GetHostAddressWithFamily(
-        kIPv6Hostname, AF_INET6, false /* enable_mdns */,
+    socket_manager->GetHostAddress(
+        kIPv6Hostname, net::AddressFamily::ADDRESS_FAMILY_IPV6,
+        false /* enable_mdns */,
         base::BindLambdaForTesting(
             [&](const std::vector<net::IPAddress>& addresses) {
               EXPECT_EQ(std::vector<net::IPAddress>{ipv6_address}, addresses);

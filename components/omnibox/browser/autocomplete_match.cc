@@ -2,13 +2,13 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "components/omnibox/browser/autocomplete_match.h"
+
 #include "third_party/omnibox_proto/types.pb.h"
 #ifdef UNSAFE_BUFFERS_BUILD
 // TODO(crbug.com/390223051): Remove C-library calls to fix the errors.
 #pragma allow_unsafe_libc_calls
 #endif
-
-#include "components/omnibox/browser/autocomplete_match.h"
 
 #include <algorithm>
 #include <string>
@@ -32,6 +32,7 @@
 #include "base/time/time.h"
 #include "base/trace_event/memory_usage_estimator.h"
 #include "base/trace_event/trace_event.h"
+#include "build/branding_buildflags.h"
 #include "build/build_config.h"
 #include "components/history_embeddings/history_embeddings_features.h"
 #include "components/omnibox/browser/actions/omnibox_action.h"
@@ -55,6 +56,8 @@
 #include "third_party/omnibox_proto/answer_type.pb.h"
 #include "third_party/omnibox_proto/entity_info.pb.h"
 #include "third_party/omnibox_proto/groups.pb.h"
+#include "third_party/omnibox_proto/suggest_template_info.pb.h"
+#include "ui/base/device_form_factor.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/gfx/vector_icon_types.h"
 #include "url/third_party/mozilla/url_parse.h"
@@ -261,6 +264,7 @@ AutocompleteMatch::AutocompleteMatch(const AutocompleteMatch& match)
       suggestion_group_id(match.suggestion_group_id),
       swap_contents_and_description(match.swap_contents_and_description),
       answer_template(match.answer_template),
+      suggest_template(match.suggest_template),
       answer_type(match.answer_type),
       transition(match.transition),
       type(match.type),
@@ -285,6 +289,9 @@ AutocompleteMatch::AutocompleteMatch(const AutocompleteMatch& match)
           match.typed_search_suggestions_shown_in_session),
       typed_url_suggestions_shown_in_session(
           match.typed_url_suggestions_shown_in_session),
+      contextual_search_suggestions_shown_in_session(
+          match.contextual_search_suggestions_shown_in_session),
+      lens_action_shown_in_session(match.lens_action_shown_in_session),
       search_terms_args(
           match.search_terms_args
               ? new TemplateURLRef::SearchTermsArgs(*match.search_terms_args)
@@ -305,7 +312,8 @@ AutocompleteMatch::AutocompleteMatch(const AutocompleteMatch& match)
           match.history_embeddings_answer_header_text),
       history_embeddings_answer_header_loading(
           match.history_embeddings_answer_header_loading),
-      feedback_type(match.feedback_type) {}
+      feedback_type(match.feedback_type),
+      matching_tab_group_uuid(match.matching_tab_group_uuid) {}
 
 AutocompleteMatch::AutocompleteMatch(AutocompleteMatch&& match) noexcept {
   *this = std::move(match);
@@ -346,6 +354,7 @@ AutocompleteMatch& AutocompleteMatch::operator=(
   swap_contents_and_description =
       std::move(match.swap_contents_and_description);
   answer_template = std::move(match.answer_template);
+  suggest_template = std::move(match.suggest_template);
   answer_type = std::move(match.answer_type);
   transition = std::move(match.transition);
   type = std::move(match.type);
@@ -371,6 +380,9 @@ AutocompleteMatch& AutocompleteMatch::operator=(
       std::move(match.typed_search_suggestions_shown_in_session);
   typed_url_suggestions_shown_in_session =
       std::move(match.typed_url_suggestions_shown_in_session);
+  contextual_search_suggestions_shown_in_session =
+      std::move(match.contextual_search_suggestions_shown_in_session);
+  lens_action_shown_in_session = std::move(match.lens_action_shown_in_session);
   search_terms_args = std::move(match.search_terms_args);
   post_content = std::move(match.post_content);
   additional_info = std::move(match.additional_info);
@@ -387,6 +399,7 @@ AutocompleteMatch& AutocompleteMatch::operator=(
   history_embeddings_answer_header_loading =
       std::move(match.history_embeddings_answer_header_loading);
   feedback_type = std::move(match.feedback_type);
+  matching_tab_group_uuid = std::move(match.matching_tab_group_uuid);
 #if BUILDFLAG(IS_ANDROID)
   DestroyJavaObject();
   std::swap(java_match_, match.java_match_);
@@ -436,6 +449,7 @@ AutocompleteMatch& AutocompleteMatch::operator=(
   suggestion_group_id = match.suggestion_group_id;
   swap_contents_and_description = match.swap_contents_and_description;
   answer_template = match.answer_template;
+  suggest_template = match.suggest_template;
   answer_type = match.answer_type;
   transition = match.transition;
   type = match.type;
@@ -461,6 +475,9 @@ AutocompleteMatch& AutocompleteMatch::operator=(
       match.typed_search_suggestions_shown_in_session;
   typed_url_suggestions_shown_in_session =
       match.typed_url_suggestions_shown_in_session;
+  contextual_search_suggestions_shown_in_session =
+      match.contextual_search_suggestions_shown_in_session;
+  lens_action_shown_in_session = match.lens_action_shown_in_session;
   search_terms_args.reset(
       match.search_terms_args
           ? new TemplateURLRef::SearchTermsArgs(*match.search_terms_args)
@@ -482,6 +499,7 @@ AutocompleteMatch& AutocompleteMatch::operator=(
   history_embeddings_answer_header_loading =
       match.history_embeddings_answer_header_loading;
   feedback_type = match.feedback_type;
+  matching_tab_group_uuid = match.matching_tab_group_uuid;
 
 #if BUILDFLAG(IS_ANDROID)
   // In case the target element previously held a java object, release it.
@@ -522,6 +540,28 @@ const gfx::VectorIcon& AutocompleteMatch::AnswerTypeToAnswerIcon(
 const gfx::VectorIcon& AutocompleteMatch::GetVectorIcon(
     bool is_bookmark,
     const TemplateURL* turl) const {
+  if (suggest_template.has_value() && suggest_template->has_type_icon()) {
+    // Update this assertion and the switch below whenever values are added.
+    static_assert(omnibox::SuggestTemplateInfo::IconType_MAX ==
+                  omnibox::SuggestTemplateInfo::TRENDING);
+    switch (suggest_template->type_icon()) {
+      case omnibox::SuggestTemplateInfo::ICON_TYPE_UNSPECIFIED:
+        // When not specified, fall back on regular match icon logic below.
+        break;
+      case omnibox::SuggestTemplateInfo::HISTORY:
+        return vector_icons::kHistoryChromeRefreshIcon;
+      case omnibox::SuggestTemplateInfo::SEARCH_LOOP:
+        return vector_icons::kSearchChromeRefreshIcon;
+      case omnibox::SuggestTemplateInfo::SEARCH_LOOP_WITH_SPARKLE:
+        return omnibox::kSearchSparkIcon;
+      case omnibox::SuggestTemplateInfo::TRENDING:
+        return omnibox::kTrendingUpChromeRefreshIcon;
+      default:
+        // Out of range value defaults to search loupe.
+        return vector_icons::kSearchChromeRefreshIcon;
+    }
+  }
+
   // If the user bookmarks 'chrome://history/q=query', a/ corresponding answer
   // match shouldn't show the bookmark star.
   if (is_bookmark && type != Type::HISTORY_EMBEDDINGS_ANSWER)
@@ -547,7 +587,6 @@ const gfx::VectorIcon& AutocompleteMatch::GetVectorIcon(
     case Type::TILE_MOST_VISITED_SITE:
     case Type::OPEN_TAB:
     case Type::HISTORY_EMBEDDINGS:
-    case Type::FEATURED_ENTERPRISE_SEARCH:
       return omnibox::kPageChromeRefreshIcon;
 
     case Type::SEARCH_SUGGEST:
@@ -555,7 +594,7 @@ const gfx::VectorIcon& AutocompleteMatch::GetVectorIcon(
              : (IsContextualSearchSuggestion() &&
                 omnibox_feature_configs::ContextualSearch::Get()
                     .contextual_zero_suggest_lens_fulfillment)
-                 ? omnibox::kPageSparkIcon
+                 ? omnibox::kSubdirectoryArrowRightIcon
                  : vector_icons::kSearchChromeRefreshIcon;
 
     case Type::PEDAL:
@@ -658,6 +697,14 @@ const gfx::VectorIcon& AutocompleteMatch::GetVectorIcon(
         }
       }
       return omnibox::kProductChromeRefreshIcon;
+
+    case Type::FEATURED_ENTERPRISE_SEARCH:
+#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
+      if (turl && turl->CreatedByEnterpriseSearchAggregatorPolicy()) {
+        return vector_icons::kGoogleAgentspaceMonochromeLogoIcon;
+      }
+#endif
+      return omnibox::kPageChromeRefreshIcon;
 
     case Type::NUM_TYPES:
       NOTREACHED() << "Unexpected AutocompleteMatchType value: "
@@ -1580,6 +1627,21 @@ int AutocompleteMatch::GetSortingOrder() const {
   return 4;
 }
 
+bool AutocompleteMatch::HasCustomDescription() const {
+  if (ui::GetDeviceFormFactor() == ui::DEVICE_FORM_FACTOR_DESKTOP &&
+      type == AutocompleteMatchType::CALCULATOR) {
+    return true;
+  }
+  if (suggest_template.has_value() &&
+      !suggest_template->secondary_text().text().empty()) {
+    return true;
+  }
+  return type == AutocompleteMatchType::SEARCH_SUGGEST_ENTITY ||
+         type == AutocompleteMatchType::SEARCH_SUGGEST_PROFILE ||
+         type == AutocompleteMatchType::CLIPBOARD_TEXT ||
+         type == AutocompleteMatchType::CLIPBOARD_IMAGE;
+}
+
 bool AutocompleteMatch::IsMlSignalLoggingEligible() const {
   const auto& ml_config = OmniboxFieldTrial::GetMLConfig();
   if (answer_type != omnibox::ANSWER_TYPE_UNSPECIFIED) {
@@ -2267,6 +2329,10 @@ void AutocompleteMatch::WriteIntoTrace(perfetto::TracedValue context) const {
 
 OmniboxAction* AutocompleteMatch::GetActionAt(size_t index) const {
   return index >= actions.size() ? nullptr : actions[index].get();
+}
+
+bool AutocompleteMatch::HasTakeoverAction(OmniboxActionId id) const {
+  return takeover_action && takeover_action->ActionId() == id;
 }
 
 AutocompleteMatch AutocompleteMatch::CreateActionMatch(

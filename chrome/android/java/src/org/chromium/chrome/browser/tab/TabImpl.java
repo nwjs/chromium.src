@@ -52,6 +52,7 @@ import org.chromium.chrome.browser.app.ChromeActivity;
 import org.chromium.chrome.browser.compositor.CompositorViewHolder;
 import org.chromium.chrome.browser.content.ContentUtils;
 import org.chromium.chrome.browser.content.WebContentsFactory;
+import org.chromium.chrome.browser.flags.ActivityType;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.gesturenav.GestureNavigationUtils;
@@ -68,6 +69,7 @@ import org.chromium.chrome.browser.ui.native_page.FrozenNativePage;
 import org.chromium.chrome.browser.ui.native_page.NativePage;
 import org.chromium.chrome.browser.ui.native_page.NativePage.SmoothTransitionDelegate;
 import org.chromium.components.autofill.AutofillFeatures;
+import org.chromium.components.autofill.AutofillManagerWrapper;
 import org.chromium.components.autofill.AutofillProvider;
 import org.chromium.components.autofill.AutofillProviderUMA;
 import org.chromium.components.autofill.AutofillSelectionActionMenuDelegate;
@@ -175,7 +177,7 @@ class TabImpl implements Tab {
      * The {@link TabViewManager} associated with this Tab that is responsible for managing custom
      * views.
      */
-    private TabViewManagerImpl mTabViewManager;
+    private final TabViewManagerImpl mTabViewManager;
 
     /** A list of Tab observers.  These are used to broadcast Tab events to listeners. */
     @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
@@ -236,7 +238,7 @@ class TabImpl implements Tab {
     private TabDelegateFactory mDelegateFactory;
 
     /** Listens for views related to the tab to be attached or detached. */
-    private OnAttachStateChangeListener mAttachStateChangeListener;
+    private final OnAttachStateChangeListener mAttachStateChangeListener;
 
     /** Whether the tab can currently be interacted with. */
     private boolean mInteractableState;
@@ -260,6 +262,7 @@ class TabImpl implements Tab {
     private int mRootId;
     private @Nullable Token mTabGroupId;
     private boolean mTabHasSensitiveContent;
+    private boolean mIsPinned;
     private @TabUserAgent int mUserAgent = TabUserAgent.DEFAULT;
 
     /**
@@ -1284,6 +1287,7 @@ class TabImpl implements Tab {
         setTabGroupId(state.tabGroupId);
         setUserAgent(state.userAgent);
         setTabHasSensitiveContent(state.tabHasSensitiveContent);
+        setIsPinned(state.isPinned);
     }
 
     /**
@@ -2198,26 +2202,15 @@ class TabImpl implements Tab {
         }
         AutofillManager manager =
                 ContextUtils.getApplicationContext().getSystemService(AutofillManager.class);
-        if (manager == null) {
-            return;
-        }
-        if (!manager.isAutofillSupported()) {
+        if (!AutofillManagerWrapper.isAutofillSupported(manager)) {
             // If Android Autofill is not supported, the metric shouldn't be logged because it tells
             // about cases when 3P mode could be used, but it isn't used.
             return;
         }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            ComponentName componentName = null;
-            try {
-                componentName = manager.getAutofillServiceComponentName();
-            } catch (Exception e) {
-                // The exception is com.android.internal.util.SyncResultReceiver.TimeoutException,
-                // can't handle it because:
-                // - The exception isn't public in the Android API.
-                // - Different Android versions handle it differently.
-                // The generic Exception is used to catch various cases. (See: crbug.com/1186406)
-            }
+            ComponentName componentName =
+                    AutofillManagerWrapper.getAutofillServiceComponentName(manager);
             if (componentName != null) {
                 RecordHistogram.recordEnumeratedHistogram(
                         UMA_AUTOFILL_THIRD_PARTY_MODE_DISABLED_PROVIDER,
@@ -2247,6 +2240,24 @@ class TabImpl implements Tab {
     public boolean isCustomTab() {
         ChromeActivity activity = getActivity();
         return activity != null && activity.isCustomTab();
+    }
+
+    @Override
+    public boolean isTabInPWA() {
+        // TODO(crbug.com/417720713): replace deprecated getActivity with something else.
+        ChromeActivity activity = getActivity();
+        if (activity == null) return false;
+        @ActivityType int activityType = activity.getActivityType();
+        return activityType == ActivityType.WEB_APK
+                || activityType == ActivityType.TRUSTED_WEB_ACTIVITY;
+    }
+
+    @Override
+    public boolean isTabInBrowser() {
+        // TODO(crbug.com/417720713): replace deprecated getActivity with something else.
+        ChromeActivity activity = getActivity();
+        if (activity == null) return false;
+        return activity.getActivityType() == ActivityType.TABBED;
     }
 
     @Override
@@ -2573,6 +2584,20 @@ class TabImpl implements Tab {
         mTabHasSensitiveContent = contentIsSensitive;
         for (TabObserver observer : mObservers) {
             observer.onTabContentSensitivityChanged(this, contentIsSensitive);
+        }
+    }
+
+    @Override
+    public boolean getIsPinned() {
+        return mIsPinned;
+    }
+
+    @Override
+    public void setIsPinned(boolean isPinned) {
+        if (mIsPinned == isPinned || isDestroyed()) return;
+        mIsPinned = isPinned;
+        for (TabObserver observer : mObservers) {
+            observer.onTabPinnedStateChanged(this, isPinned);
         }
     }
 

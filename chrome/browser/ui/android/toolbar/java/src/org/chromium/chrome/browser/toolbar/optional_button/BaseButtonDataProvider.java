@@ -15,6 +15,7 @@ import androidx.annotation.StringRes;
 import org.chromium.base.FeatureList;
 import org.chromium.base.ObserverList;
 import org.chromium.base.supplier.Supplier;
+import org.chromium.build.annotations.Contract;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.tab.Tab;
@@ -29,7 +30,7 @@ import org.chromium.ui.modelutil.PropertyModel;
 @NullMarked
 public abstract class BaseButtonDataProvider implements ButtonDataProvider, OnClickListener {
     protected final ButtonDataImpl mButtonData;
-    protected final Supplier<Tab> mActiveTabSupplier;
+    protected final Supplier<@Nullable Tab> mActiveTabSupplier;
 
     private final ObserverList<ButtonDataObserver> mObservers = new ObserverList<>();
     private final @Nullable ModalDialogManager mModalDialogManager;
@@ -45,14 +46,17 @@ public abstract class BaseButtonDataProvider implements ButtonDataProvider, OnCl
      *     visible. Can be null to disable this behavior.
      * @param buttonDrawable Drawable for the button icon.
      * @param contentDescription String for the button's content description.
+     * @param actionChipLabelResId String for the button's action chip label, can be
+     *     Resources.ID_NULL is the button doesn't support action chip.
      * @param supportsTinting Whether the button's icon should be tinted.
      * @param iphCommandBuilder An IPH command builder instance to show when the button is
      *     displayed, can be null.
      * @param adaptiveButtonVariant Enum value of {@link AdaptiveToolbarButtonVariant}, used for
      *     metrics.
+     * @param tooltipTextResId String to show as a tooltip when the button is hovered over.
      */
     public BaseButtonDataProvider(
-            Supplier<Tab> activeTabSupplier,
+            Supplier<@Nullable Tab> activeTabSupplier,
             @Nullable ModalDialogManager modalDialogManager,
             Drawable buttonDrawable,
             String contentDescription,
@@ -60,8 +64,7 @@ public abstract class BaseButtonDataProvider implements ButtonDataProvider, OnCl
             boolean supportsTinting,
             @Nullable IphCommandBuilder iphCommandBuilder,
             @AdaptiveToolbarButtonVariant int adaptiveButtonVariant,
-            @StringRes int tooltipTextResId,
-            boolean showBackgroundHighlight) {
+            @StringRes int tooltipTextResId) {
         mActiveTabSupplier = activeTabSupplier;
         mModalDialogManager = modalDialogManager;
         if (mModalDialogManager != null) {
@@ -98,8 +101,7 @@ public abstract class BaseButtonDataProvider implements ButtonDataProvider, OnCl
                         /* iphCommandBuilder= */ iphCommandBuilder,
                         /* isEnabled= */ true,
                         adaptiveButtonVariant,
-                        tooltipTextResId,
-                        showBackgroundHighlight);
+                        tooltipTextResId);
     }
 
     /**
@@ -110,6 +112,7 @@ public abstract class BaseButtonDataProvider implements ButtonDataProvider, OnCl
      * @return whether the button should be shown for the current tab.
      */
     @CallSuper
+    @Contract("null -> false")
     protected boolean shouldShowButton(@Nullable Tab tab) {
         if (tab == null) return false;
 

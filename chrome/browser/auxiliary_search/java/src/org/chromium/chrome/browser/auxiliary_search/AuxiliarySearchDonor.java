@@ -49,8 +49,6 @@ import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.build.annotations.RequiresNonNull;
 import org.chromium.chrome.browser.auxiliary_search.AuxiliarySearchGroupProto.AuxiliarySearchEntry;
-import org.chromium.chrome.browser.auxiliary_search.schema.CustomTabWebPage;
-import org.chromium.chrome.browser.auxiliary_search.schema.TopSiteWebPage;
 import org.chromium.chrome.browser.preferences.ChromePreferenceKeys;
 import org.chromium.chrome.browser.preferences.ChromeSharedPreferences;
 import org.chromium.chrome.browser.tab.Tab;
@@ -113,12 +111,11 @@ public class AuxiliarySearchDonor {
     private @Nullable Callback<Boolean> mPendingCallback;
     private boolean mSharedTabsWithOsState;
     private @Nullable Boolean mIsDeviceCompatible;
-    private boolean mSupportMultiDataSource;
     private boolean mIsCreatedSessionAndInitForTesting;
 
     /** Static class that implements the initialization-on-demand holder idiom. */
     private static class LazyHolder {
-        static AuxiliarySearchDonor sInstance = new AuxiliarySearchDonor();
+        static final AuxiliarySearchDonor sInstance = new AuxiliarySearchDonor();
     }
 
     /** Returns the singleton instance of AuxiliarySearchDonor. */
@@ -129,10 +126,10 @@ public class AuxiliarySearchDonor {
     private AuxiliarySearchDonor() {
         mContext = ContextUtils.getApplicationContext();
         mNamespace = mContext.getPackageName();
-        mSkipSchemaCheck = AuxiliarySearchUtils.SKIP_SCHEMA_CHECK.getValue();
+        mSkipSchemaCheck =
+                AuxiliarySearchUtils.SKIP_SCHEMA_CHECK.getValue()
+                        || AuxiliarySearchUtils.MULTI_DATA_SOURCE_SKIP_SCHEMA_CHECK.getValue();
 
-        mSupportMultiDataSource =
-                AuxiliarySearchControllerFactory.getInstance().isMultiDataTypeEnabledOnDevice();
         mSharedTabsWithOsState = AuxiliarySearchUtils.isShareTabsWithOsEnabled();
         boolean shouldInit = mSharedTabsWithOsState || !isShareTabsWithOsEnabledKeyExist();
         if (shouldInit) {
@@ -215,7 +212,7 @@ public class AuxiliarySearchDonor {
 
         mIsSchemaSet =
                 ChromeSharedPreferences.getInstance()
-                        .readBoolean(getSchemaSetPreferenceKey(), false);
+                        .readBoolean(ChromePreferenceKeys.AUXILIARY_SEARCH_IS_SCHEMA_SET, false);
 
         if (!mIsDeviceCompatible) {
             if (mIsSchemaSet) {
@@ -264,7 +261,7 @@ public class AuxiliarySearchDonor {
             SetSchemaRequest.Builder requestBuilder =
                     new SetSchemaRequest.Builder()
                             .setForceOverride(true)
-                            .addDocumentClasses(getSupportedDocumentClasses());
+                            .addDocumentClasses(WebPage.class);
             AuxiliarySearchControllerFactory.getInstance()
                     .setSchemaTypeVisibilityForPackage(
                             (schemaClass, packageName, sha256Certificate) ->
@@ -278,18 +275,6 @@ public class AuxiliarySearchDonor {
             Log.i(TAG, "Failed to add document when building SetSchemaRequest.");
             return null;
         }
-    }
-
-    /** Returns a list of supported document classes. */
-    @VisibleForTesting
-    List<Class<?>> getSupportedDocumentClasses() {
-        List<Class<?>> documents = new ArrayList<>();
-        documents.add(WebPage.class);
-        if (!AuxiliarySearchUtils.USE_SCHEMA_V1.getValue() && mSupportMultiDataSource) {
-            documents.add(CustomTabWebPage.class);
-            documents.add(TopSiteWebPage.class);
-        }
-        return documents;
     }
 
     private void setDocumentClassVisibilityImpl(
@@ -313,22 +298,11 @@ public class AuxiliarySearchDonor {
         if (response == null || !response.getMigrationFailures().isEmpty()) return;
 
         mIsSchemaSet = true;
-        ChromeSharedPreferences.getInstance().writeBoolean(getSchemaSetPreferenceKey(), true);
+        ChromeSharedPreferences.getInstance()
+                .writeBoolean(ChromePreferenceKeys.AUXILIARY_SEARCH_IS_SCHEMA_SET, true);
         AuxiliarySearchUtils.setSchemaVersion(AuxiliarySearchUtils.CURRENT_SCHEMA_VERSION);
 
         handlePendingDonations();
-    }
-
-    @VisibleForTesting
-    String getSchemaSetPreferenceKey() {
-        // TODO(https://crbug.com/397457989): Removes here once the new schema is ready to use.
-        if (AuxiliarySearchUtils.USE_SCHEMA_V1.getValue()) {
-            return ChromePreferenceKeys.AUXILIARY_SEARCH_IS_SCHEMA_SET;
-        }
-
-        return mSupportMultiDataSource
-                ? ChromePreferenceKeys.AUXILIARY_SEARCH_IS_SCHEMA_V2_SET
-                : ChromePreferenceKeys.AUXILIARY_SEARCH_IS_SCHEMA_SET;
     }
 
     private void handlePendingDonations() {

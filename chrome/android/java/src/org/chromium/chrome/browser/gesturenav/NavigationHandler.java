@@ -103,7 +103,7 @@ class NavigationHandler implements TouchEventObserver {
     private final Handler mHandler = new Handler();
 
     private GestureDetector mDetector;
-    private View.OnAttachStateChangeListener mAttachStateListener;
+    private final View.OnAttachStateChangeListener mAttachStateListener;
     private final BackActionDelegate mBackActionDelegate;
     @Nullable private TabOnBackGestureHandler mTabOnBackGestureHandler;
     private Tab mTab;
@@ -111,7 +111,7 @@ class NavigationHandler implements TouchEventObserver {
 
     private @GestureState int mState;
 
-    private PropertyModel mModel;
+    private final PropertyModel mModel;
 
     // Total horizontal pull offset for a swipe gesture.
     private float mPullOffsetX;
@@ -123,7 +123,7 @@ class NavigationHandler implements TouchEventObserver {
     private int mIncorrectEdgeSwipeCount;
     private boolean mBackGestureForTabHistoryInProgress;
     private boolean mStartNavDuringOngoingGesture;
-    private TabObserver mTabObserver =
+    private final TabObserver mTabObserver =
             new EmptyTabObserver() {
                 @Override
                 public void onDidStartNavigationInPrimaryMainFrame(
@@ -264,25 +264,19 @@ class NavigationHandler implements TouchEventObserver {
         if (!isValidState()) return false;
 
         if (mTriggerUiCallSource != TriggerUiCallSource.NO_TRIGGER) {
-            assert false
-                    : "triggerUi has been already called. mInitiatingEdge: "
-                            + String.valueOf(mInitiatingEdge)
-                            + ". initiatingEdge passed to the function: "
-                            + String.valueOf(initiatingEdge)
-                            + ". Previous triggerUi call source: "
-                            + String.valueOf(mTriggerUiCallSource)
-                            + ". Current triggerUi call source: "
-                            + String.valueOf(triggerUiCallSource);
-            Log.i(
-                    NavigationHandler.class.getSimpleName(),
-                    "triggerUi has been already called. mInitiatingEdge: "
-                            + String.valueOf(mInitiatingEdge)
-                            + ". initiatingEdge passed to the function: "
-                            + String.valueOf(initiatingEdge)
-                            + ". Previous triggerUi call source: "
-                            + String.valueOf(mTriggerUiCallSource)
-                            + ". Current triggerUi call source: "
-                            + String.valueOf(triggerUiCallSource));
+            StringBuilder assertMsgBuilder = new StringBuilder(256);
+            assertMsgBuilder
+                    .append("triggerUi has been already called. mInitiatingEdge: ")
+                    .append(String.valueOf(mInitiatingEdge))
+                    .append(". initiatingEdge passed to the function: ")
+                    .append(String.valueOf(initiatingEdge))
+                    .append(". Previous triggerUi call source: ")
+                    .append(String.valueOf(mTriggerUiCallSource))
+                    .append(". Current triggerUi call source: ")
+                    .append(String.valueOf(triggerUiCallSource));
+
+            assert false : assertMsgBuilder.toString();
+            Log.i(NavigationHandler.class.getSimpleName(), assertMsgBuilder.toString());
         }
         mTriggerUiCallSource = triggerUiCallSource;
 

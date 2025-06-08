@@ -7,6 +7,7 @@
 #include "base/strings/escape.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/safe_browsing/download_protection/check_client_download_request.h"
+#include "chrome/browser/safe_browsing/download_protection/check_file_system_access_write_request.h"
 #include "chrome/browser/safe_browsing/download_protection/download_protection_util.h"
 #include "chrome/common/safe_browsing/download_type_util.h"
 #include "components/download/public/common/download_item.h"
@@ -14,6 +15,7 @@
 #include "components/safe_browsing/core/common/safe_browsing_prefs.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/download_item_utils.h"
+#include "content/public/browser/file_system_access_write_item.h"
 #include "google_apis/google_api_keys.h"
 #include "net/http/http_request_headers.h"
 #include "services/network/public/cpp/resource_request.h"
@@ -64,21 +66,39 @@ bool DownloadProtectionDelegateDesktop::ShouldCheckDownloadUrl(
   return IsSafeBrowsingEnabledForDownloadProfile(item);
 }
 
-bool DownloadProtectionDelegateDesktop::ShouldCheckClientDownload(
+bool DownloadProtectionDelegateDesktop::MayCheckClientDownload(
     download::DownloadItem* item) const {
-  return IsSafeBrowsingEnabledForDownloadProfile(item);
+  if (!IsSafeBrowsingEnabledForDownloadProfile(item)) {
+    return false;
+  }
+  return IsSupportedDownload(*item, item->GetTargetFilePath()) !=
+         MayCheckDownloadResult::kMayNotCheckDownload;
 }
 
-bool DownloadProtectionDelegateDesktop::IsSupportedDownload(
+bool DownloadProtectionDelegateDesktop::MayCheckFileSystemAccessWrite(
+    content::FileSystemAccessWriteItem* item) const {
+  Profile* profile = Profile::FromBrowserContext(item->browser_context);
+  if (!profile || !IsSafeBrowsingEnabled(*profile->GetPrefs())) {
+    return false;
+  }
+  DownloadCheckResultReason ignored_reason = REASON_MAX;
+  return CheckFileSystemAccessWriteRequest::IsSupportedDownload(
+             item->target_file_path, &ignored_reason) !=
+         MayCheckDownloadResult::kMayNotCheckDownload;
+}
+
+MayCheckDownloadResult DownloadProtectionDelegateDesktop::IsSupportedDownload(
     download::DownloadItem& item,
     const base::FilePath& target_path) const {
-  DownloadCheckResultReason ignored_reason = REASON_MAX;
   // TODO(nparker): Remove the CRX check here once can support
   // UNKNOWN types properly.  http://crbug.com/581044
+  if (download_type_util::GetDownloadType(target_path) ==
+      ClientDownloadRequest::CHROME_EXTENSION) {
+    return MayCheckDownloadResult::kMayNotCheckDownload;
+  }
+  DownloadCheckResultReason ignored_reason = REASON_MAX;
   return CheckClientDownloadRequest::IsSupportedDownload(item, target_path,
-                                                         &ignored_reason) &&
-         download_type_util::GetDownloadType(target_path) !=
-             ClientDownloadRequest::CHROME_EXTENSION;
+                                                         &ignored_reason);
 }
 
 void DownloadProtectionDelegateDesktop::FinalizeResourceRequest(

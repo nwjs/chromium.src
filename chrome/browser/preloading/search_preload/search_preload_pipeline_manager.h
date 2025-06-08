@@ -11,8 +11,10 @@
 #include "content/public/browser/web_contents_user_data.h"
 #include "url/gurl.h"
 
-class Profile;
 class AutocompleteResult;
+class Profile;
+class TemplateURLService;
+struct AutocompleteMatch;
 
 namespace content {
 class WebContents;
@@ -50,10 +52,25 @@ class SearchPreloadPipelineManager
   void OnAutocompleteResultChanged(Profile& profile,
                                    const AutocompleteResult& result);
 
+  // Called when a user is likely to navigate to the match.
+  //
+  // Returns true iff a new prefetch is triggered by this call. Note that it
+  // returns false if a prefetch for the same canonical URL has already
+  // triggered.
+  bool OnNavigationLikely(
+      Profile& profile,
+      const AutocompleteMatch& match,
+      omnibox::mojom::NavigationPredictor navigation_predictor);
+
  private:
   friend content::WebContentsUserData<SearchPreloadPipelineManager>;
   WEB_CONTENTS_USER_DATA_KEY_DECL();
   explicit SearchPreloadPipelineManager(content::WebContents* contents);
+
+  void OnAutocompleteResultChangedProcessOne(
+      Profile& profile,
+      TemplateURLService& template_url_service,
+      const AutocompleteMatch& match);
 
   // Manages pipeline per canonical URL.
   base::flat_map<GURL, std::unique_ptr<SearchPreloadPipeline>> pipelines_;

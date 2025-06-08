@@ -21,6 +21,7 @@
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/test/base/in_process_browser_test.h"
+#include "chrome/test/base/interactive_test_utils.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "components/heavy_ad_intervention/heavy_ad_features.h"
 #include "components/page_load_metrics/browser/ads_page_load_metrics_test_waiter.h"
@@ -150,6 +151,8 @@ class AdsPageLoadMetricsObserverBrowserTest
          subresource_filter::testing::CreateSuffixRule(
              "expensive_animation_frame.html*"),
          subresource_filter::testing::CreateSuffixRule("ad.html")});
+    // Ensure browser is active so that the expected dimensions are correct.
+    ui_test_utils::BrowserActivationWaiter(browser()).WaitForActivation();
   }
 
  private:
@@ -1695,15 +1698,6 @@ IN_PROC_BROWSER_TEST_P(AdsPageLoadMetricsObserverResourceBrowserTest,
   main_html_response->Send(std::string(1024, ' '));
   main_html_response->Done();
 
-  // Clipboard apis require that the calling context is focused.
-#if BUILDFLAG(IS_MAC)
-  content::HandleMissingKeyWindow();
-#endif
-  browser()->tab_strip_model()->GetActiveWebContents()->Focus();
-  views::test::WaitForWidgetActive(
-      BrowserView::GetBrowserViewForBrowser(browser())->GetWidget(),
-      /*active=*/true);
-
   ad_script_response->WaitForRequest();
   ad_script_response->Send(page_load_metrics::kHttpOkResponseHeader);
   // Get ad script to use a bunch of privacy sensitive features.
@@ -1711,8 +1705,6 @@ IN_PROC_BROWSER_TEST_P(AdsPageLoadMetricsObserverResourceBrowserTest,
         navigator.bluetooth.requestDevice().catch(e => {});
         navigator.geolocation.getCurrentPosition(() => {});
         navigator.mediaDevices.getUserMedia({video: true});
-        navigator.clipboard.readText().catch(() => {});
-        navigator.clipboard.writeText("foo").catch(() => {});
         navigator.mediaDevices.getDisplayMedia().catch(() => {});
         navigator.mediaDevices.getUserMedia({audio: true});
         navigator.serial.requestPort().catch(() => {});
@@ -1723,11 +1715,9 @@ IN_PROC_BROWSER_TEST_P(AdsPageLoadMetricsObserverResourceBrowserTest,
 
   waiter->AddMinimumNetworkBytesExpectation(5000);
 
-  std::array<network::mojom::PermissionsPolicyFeature, 9> features = {
+  std::vector<network::mojom::PermissionsPolicyFeature> features = {
       network::mojom::PermissionsPolicyFeature::kBluetooth,
       network::mojom::PermissionsPolicyFeature::kCamera,
-      network::mojom::PermissionsPolicyFeature::kClipboardRead,
-      network::mojom::PermissionsPolicyFeature::kClipboardWrite,
       network::mojom::PermissionsPolicyFeature::kDisplayCapture,
       network::mojom::PermissionsPolicyFeature::kGeolocation,
       network::mojom::PermissionsPolicyFeature::kMicrophone,
@@ -1748,11 +1738,11 @@ IN_PROC_BROWSER_TEST_P(AdsPageLoadMetricsObserverResourceBrowserTest,
   browser()->tab_strip_model()->CloseAllTabs();
 
   histogram_tester.ExpectTotalCount(
-      "Blink.UseCounter.PermissionsPolicy.PrivacySensitive.Enabled", 9);
+      "Blink.UseCounter.PermissionsPolicy.PrivacySensitive.Enabled", features.size());
 
   auto entries = ukm_recorder.GetEntriesByName(
       ukm::builders::Permissions_PrivacySensitive_UseCounter::kEntryName);
-  EXPECT_EQ(9u, entries.size());
+  EXPECT_EQ(features.size(), entries.size());
 }
 
 // Verify that per-resource metrics are recorded correctly.

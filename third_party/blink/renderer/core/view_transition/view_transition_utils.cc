@@ -291,4 +291,33 @@ bool ViewTransitionUtils::IsViewTransitionParticipantFromSupplement(
   return transition && transition->IsRepresentedViaPseudoElements(object);
 }
 
+ViewTransitionUtils::GetPropertyCSSValueScope::GetPropertyCSSValueScope(
+    Document& document,
+    PseudoId pseudo_id)
+    : document_(document), pseudo_id_(pseudo_id) {
+  if (!IsTransitionPseudoElement(pseudo_id_)) {
+    return;
+  }
+
+  if (auto* supplement = ViewTransitionSupplement::FromIfExists(document_)) {
+    supplement->WillEnterGetComputedStyleScope();
+  }
+}
+
+ViewTransitionUtils::GetPropertyCSSValueScope::~GetPropertyCSSValueScope() {
+  if (!IsTransitionPseudoElement(pseudo_id_)) {
+    return;
+  }
+
+  if (auto* supplement = ViewTransitionSupplement::FromIfExists(document_)) {
+    supplement->WillExitGetComputedStyleScope();
+  }
+}
+
+void ViewTransitionUtils::WillUpdateStyleAndLayoutTree(Document& document) {
+  if (auto* supplement = ViewTransitionSupplement::FromIfExists(document)) {
+    supplement->WillUpdateStyleAndLayoutTree();
+  }
+}
+
 }  // namespace blink

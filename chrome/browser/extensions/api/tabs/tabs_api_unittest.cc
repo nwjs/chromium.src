@@ -25,9 +25,6 @@
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_list.h"
 #include "chrome/browser/ui/tabs/saved_tab_groups/saved_tab_group_utils.h"
-#include "chrome/browser/ui/tabs/split_tab_collection.h"
-#include "chrome/browser/ui/tabs/split_tab_visual_data.h"
-#include "chrome/browser/ui/tabs/tab_group.h"
 #include "chrome/browser/ui/tabs/tab_group_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/ui_features.h"
@@ -39,6 +36,9 @@
 #include "components/saved_tab_groups/public/types.h"
 #include "components/sessions/content/session_tab_helper.h"
 #include "components/tab_groups/tab_group_id.h"
+#include "components/tabs/public/split_tab_collection.h"
+#include "components/tabs/public/split_tab_visual_data.h"
+#include "components/tabs/public/tab_group.h"
 #include "content/public/browser/navigation_entry.h"
 #include "content/public/test/navigation_simulator.h"
 #include "content/public/test/web_contents_tester.h"
@@ -225,7 +225,7 @@ TEST_F(TabsApiUnitTest, IsTabStripEditable) {
   }
 
   // Start logical drag.
-  browser_window()->SetIsTabStripEditable(false);
+  browser_window()->SetTabStripNotEditableForTesting();
   ASSERT_FALSE(browser_window()->IsTabStripEditable());
 
   // Succeed with updates that don't interact with the tab strip model.
@@ -574,11 +574,7 @@ TEST_F(TabsApiUnitTest, TabsUpdateSavedTabGroupTab) {
       {GetTabStripModel()->GetIndexOfWebContents(raw_contents)});
   tab_groups::TabGroupVisualData visual_data(
       u"Initial title", tab_groups::TabGroupColorId::kBlue);
-  browser()
-      ->tab_strip_model()
-      ->group_model()
-      ->GetTabGroup(group)
-      ->SetVisualData(visual_data);
+  browser()->tab_strip_model()->ChangeTabGroupVisuals(group, visual_data);
 
   EXPECT_TRUE(
       ExtensionTabUtil::TabIsInSavedTabGroup(raw_contents, GetTabStripModel()));
@@ -954,11 +950,7 @@ TEST_F(TabsApiUnitTest, TabsMoveSavedTabGroupTabAllowed) {
   tab_groups::TabGroupId group = GetTabStripModel()->AddToNewGroup({0, 1, 2});
   tab_groups::TabGroupVisualData visual_data(
       u"Initial title", tab_groups::TabGroupColorId::kBlue);
-  browser()
-      ->tab_strip_model()
-      ->group_model()
-      ->GetTabGroup(group)
-      ->SetVisualData(visual_data);
+  browser()->tab_strip_model()->ChangeTabGroupVisuals(group, visual_data);
 
   // Use the TabsUpdateFunction to navigate to chromium.org
   int tab_extension_id = sessions::SessionTabHelper::IdForTab(
@@ -1312,11 +1304,7 @@ TEST_F(TabsApiUnitTest, TabsUngroupSingleGroupForSavedTabGroup) {
   tab_groups::TabGroupId group = GetTabStripModel()->AddToNewGroup({0});
   tab_groups::TabGroupVisualData visual_data(
       u"Initial title", tab_groups::TabGroupColorId::kBlue);
-  browser()
-      ->tab_strip_model()
-      ->group_model()
-      ->GetTabGroup(group)
-      ->SetVisualData(visual_data);
+  browser()->tab_strip_model()->ChangeTabGroupVisuals(group, visual_data);
 
   auto function = base::MakeRefCounted<TabsUngroupFunction>();
   function->set_extension(extension);
@@ -1478,11 +1466,7 @@ TEST_F(TabsApiUnitTest, TabsGoForwardAndBackSavedTabGroupTab) {
       {GetTabStripModel()->GetIndexOfWebContents(web_contents)});
   tab_groups::TabGroupVisualData visual_data(
       u"Initial title", tab_groups::TabGroupColorId::kBlue);
-  browser()
-      ->tab_strip_model()
-      ->group_model()
-      ->GetTabGroup(group)
-      ->SetVisualData(visual_data);
+  browser()->tab_strip_model()->ChangeTabGroupVisuals(group, visual_data);
 
   {
     auto goback_function = base::MakeRefCounted<TabsGoBackFunction>();
@@ -1774,11 +1758,7 @@ TEST_F(TabsApiUnitTest, TabsDiscardSavedTabGroupTabNotAllowed) {
       {GetTabStripModel()->GetIndexOfWebContents(web_contents)});
   tab_groups::TabGroupVisualData visual_data(
       u"Initial title", tab_groups::TabGroupColorId::kBlue);
-  browser()
-      ->tab_strip_model()
-      ->group_model()
-      ->GetTabGroup(group)
-      ->SetVisualData(visual_data);
+  browser()->tab_strip_model()->ChangeTabGroupVisuals(group, visual_data);
 
   // The tab discard function should fail.
   auto function = base::MakeRefCounted<TabsDiscardFunction>();
@@ -1798,7 +1778,7 @@ TEST_F(TabsApiUnitTest, SplitTabsWithHighlightFunction) {
                                           /*foreground=*/true);
   }
   GetTabStripModel()->ActivateTabAt(0);
-  GetTabStripModel()->AddToNewSplit({1}, split_tabs::SplitTabLayout::kVertical);
+  GetTabStripModel()->AddToNewSplit({1}, split_tabs::SplitTabVisualData());
 
   // Run extension to highlight tabs
   auto extension = CreateTabsExtension();
@@ -1851,11 +1831,7 @@ TEST_F(TabsApiUnitTest,
       {GetTabStripModel()->GetIndexOfWebContents(web_contents)});
   tab_groups::TabGroupVisualData visual_data(
       u"Initial title", tab_groups::TabGroupColorId::kBlue);
-  browser()
-      ->tab_strip_model()
-      ->group_model()
-      ->GetTabGroup(group)
-      ->SetVisualData(visual_data);
+  browser()->tab_strip_model()->ChangeTabGroupVisuals(group, visual_data);
 
   // The tab discard function should not fail.
   auto function = base::MakeRefCounted<TabsDiscardFunction>();

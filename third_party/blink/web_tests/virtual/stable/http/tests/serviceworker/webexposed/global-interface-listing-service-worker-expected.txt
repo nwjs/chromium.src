@@ -172,6 +172,11 @@ interface CountQueuingStrategy
     getter highWaterMark
     getter size
     method constructor
+interface CreateMonitor : EventTarget
+    attribute @@toStringTag
+    getter ondownloadprogress
+    method constructor
+    setter ondownloadprogress
 interface CropTarget
     attribute @@toStringTag
     method constructor
@@ -1506,10 +1511,20 @@ interface PushSubscription
     method getKey
     method toJSON
     method unsubscribe
+interface PushSubscriptionChangeEvent : ExtendableEvent
+    attribute @@toStringTag
+    getter newSubscription
+    getter oldSubscription
+    method constructor
 interface PushSubscriptionOptions
     attribute @@toStringTag
     getter applicationServerKey
     getter userVisibleOnly
+    method constructor
+interface QuotaExceededError : DOMException
+    attribute @@toStringTag
+    getter quota
+    getter requested
     method constructor
 interface ReadableByteStreamController
     attribute @@toStringTag
@@ -1585,7 +1600,6 @@ interface Request
     getter referrer
     getter referrerPolicy
     getter signal
-    getter targetAddressSpace
     getter url
     method arrayBuffer
     method blob
@@ -3468,6 +3482,7 @@ namespace console
     getter onpaymentrequest
     getter onperiodicsync
     getter onpush
+    getter onpushsubscriptionchange
     getter onsync
     getter registration
     getter serviceWorker
@@ -3490,6 +3505,7 @@ namespace console
     setter onpaymentrequest
     setter onperiodicsync
     setter onpush
+    setter onpushsubscriptionchange
     setter onsync
 PASS Verify the interface of ServiceWorkerGlobalScope
 PASS successfullyParsed is true

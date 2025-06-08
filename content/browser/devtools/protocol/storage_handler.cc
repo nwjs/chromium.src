@@ -16,6 +16,7 @@
 
 #include "base/barrier_closure.h"
 #include "base/functional/bind.h"
+#include "base/functional/overloaded.h"
 #include "base/notreached.h"
 #include "base/scoped_observation.h"
 #include "base/strings/string_number_conversions.h"
@@ -53,6 +54,7 @@
 #include "content/browser/attribution_reporting/common_source_info.h"
 #include "content/browser/attribution_reporting/create_report_result.h"
 #include "content/browser/attribution_reporting/event_level_result.mojom.h"
+#include "content/browser/attribution_reporting/send_result.h"
 #include "content/browser/attribution_reporting/storable_source.h"
 #include "content/browser/attribution_reporting/store_source_result.mojom.h"
 #include "content/browser/devtools/protocol/browser_handler.h"
@@ -61,11 +63,13 @@
 #include "content/browser/devtools/protocol/network_handler.h"
 #include "content/browser/devtools/protocol/storage.h"
 #include "content/browser/interest_group/interest_group_manager_impl.h"
+#include "content/browser/renderer_host/render_frame_host_impl.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/render_process_host.h"
 #include "content/public/browser/storage_partition.h"
+#include "net/base/net_errors.h"
 #include "net/base/schemeful_site.h"
 #include "services/network/public/mojom/trust_tokens.mojom.h"
 #include "storage/browser/quota/quota_manager.h"
@@ -345,73 +349,6 @@ class StorageHandler::IndexedDBObserver
   mojo::Receiver<storage::mojom::IndexedDBObserver> receiver_;
 };
 
-// Observer that listens on the UI thread for shared storage notifications and
-// informs the StorageHandler on the UI thread for origins of interest.
-// Created and used exclusively on the UI thread.
-// TODO(crbug.com/401011862): Investigate whether a separate observer class is
-// still necessary, or whether `StorageHandler` could now implement
-// `content::SharedStorageRuntimeManager::SharedStorageObserverInterface`
-// directly.
-class StorageHandler::SharedStorageObserver
-    : content::SharedStorageRuntimeManager::SharedStorageObserverInterface {
- public:
-  explicit SharedStorageObserver(StorageHandler* owner_storage_handler)
-      : owner_(owner_storage_handler) {
-    DCHECK_CURRENTLY_ON(BrowserThread::UI);
-    auto* manager = owner_->GetSharedStorageRuntimeManager();
-    DCHECK(manager);
-    scoped_observation_.Observe(manager);
-  }
-
-  SharedStorageObserver(const SharedStorageObserver&) = delete;
-  SharedStorageObserver& operator=(const SharedStorageObserver&) = delete;
-
-  ~SharedStorageObserver() override { DCHECK_CURRENTLY_ON(BrowserThread::UI); }
-
-  // content::SharedStorageObserverInterface
-
-  // TODO(crbug.com/401011862): Update this and all other shared storage
-  // notifications to filter by frames, so that only the handlers in the
-  // relevant frame subtrees receive notifications.
-  void OnSharedStorageAccessed(
-      base::Time access_time,
-      blink::SharedStorageAccessScope scope,
-      AccessMethod method,
-      FrameTreeNodeId main_frame_id,
-      const std::string& owner_origin,
-      const SharedStorageEventParams& params) override {
-    DCHECK_CURRENTLY_ON(BrowserThread::UI);
-    owner_->NotifySharedStorageAccessed(access_time, scope, method,
-                                        main_frame_id, owner_origin, params);
-  }
-
-  void OnUrnUuidGenerated(const GURL& urn_uuid) override {}
-
-  void OnConfigPopulated(
-      const std::optional<FencedFrameConfig>& config) override {}
-
-  void OnWorkletOperationExecutionFinished(
-      base::Time finished_time,
-      base::TimeDelta execution_time,
-      AccessMethod method,
-      int operation_id,
-      int worklet_id,
-      std::optional<FrameTreeNodeId> main_frame_id,
-      const std::string& owner_origin) override {
-    DCHECK_CURRENTLY_ON(BrowserThread::UI);
-    owner_->NotifySharedStorageWorkletOperationExecutionFinished(
-        finished_time, execution_time, method, operation_id, worklet_id,
-        main_frame_id, owner_origin);
-  }
-
- private:
-  raw_ptr<StorageHandler> const owner_;
-  base::ScopedObservation<
-      content::SharedStorageRuntimeManager,
-      content::SharedStorageRuntimeManager::SharedStorageObserverInterface>
-      scoped_observation_{this};
-};
-
 class StorageHandler::QuotaManagerObserver
     : storage::mojom::QuotaManagerObserver {
  public:
@@ -514,7 +451,7 @@ Response StorageHandler::Disable() {
   indexed_db_observer_.reset();
   quota_override_handle_.reset();
   SetInterestGroupTracking(false);
-  shared_storage_observer_.reset();
+  SetSharedStorageTracking(false);
   quota_manager_observer_.reset();
   ResetAttributionReporting();
   return Response::Success();
@@ -1474,12 +1411,18 @@ void StorageHandler::ClearSharedStorageEntries(
 
 Response StorageHandler::SetSharedStorageTracking(bool enable) {
   if (enable) {
-    if (!GetSharedStorageRuntimeManager()) {
+    auto* manager = GetSharedStorageRuntimeManager();
+    if (!manager) {
       return Response::ServerError("Shared storage is disabled.");
     }
-    shared_storage_observer_ = std::make_unique<SharedStorageObserver>(this);
+    // Only enable tracking if this handler is associated with a main render
+    // frame host, and if tracking isn't already enabled.
+    if (frame_host_ && frame_host_->IsOutermostMainFrame() &&
+        !shared_storage_observation_.IsObserving()) {
+      shared_storage_observation_.Observe(manager);
+    }
   } else {
-    shared_storage_observer_.reset();
+    shared_storage_observation_.Reset();
   }
   return Response::Success();
 }
@@ -1512,34 +1455,78 @@ void StorageHandler::ResetSharedStorageBudget(
           std::move(callback)));
 }
 
+GlobalRenderFrameHostId StorageHandler::AssociatedFrameHostId() const {
+  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  return frame_host_ ? frame_host_->GetGlobalId() : GlobalRenderFrameHostId();
+}
+
+bool StorageHandler::ShouldReceiveAllSharedStorageReports() const {
+  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  return false;
+}
+
 namespace {
 
-std::string GetFrameTokenFromFrameTreeNodeId(FrameTreeNodeId frame_id) {
-  if (frame_id.is_null()) {
-    return std::string();
-  }
-  auto* frame_tree_node = FrameTreeNode::GloballyFindByID(frame_id);
-  return frame_tree_node ? frame_tree_node->current_frame_host()
-                               ->devtools_frame_token()
-                               .ToString()
-                         : std::string();
+std::string GetFrameTokenFromGlobalRenderFrameHostId(
+    GlobalRenderFrameHostId frame_id) {
+  auto* rfh = frame_id ? RenderFrameHostImpl::FromID(frame_id) : nullptr;
+  return rfh ? rfh->devtools_frame_token().ToString() : std::string();
+}
+
+const char* GetSharedStorageAccessMethodEnum(
+    SharedStorageRuntimeManager::SharedStorageObserverInterface::AccessMethod
+        method) {
+  using AccessMethod =
+      SharedStorageRuntimeManager::SharedStorageObserverInterface::AccessMethod;
+  switch (method) {
+    case AccessMethod::kAddModule:
+      return Storage::SharedStorageAccessMethodEnum::AddModule;
+    case AccessMethod::kCreateWorklet:
+      return Storage::SharedStorageAccessMethodEnum::CreateWorklet;
+    case AccessMethod::kSelectURL:
+      return Storage::SharedStorageAccessMethodEnum::SelectURL;
+    case AccessMethod::kRun:
+      return Storage::SharedStorageAccessMethodEnum::Run;
+    case AccessMethod::kBatchUpdate:
+      return Storage::SharedStorageAccessMethodEnum::BatchUpdate;
+    case AccessMethod::kSet:
+      return Storage::SharedStorageAccessMethodEnum::Set;
+    case AccessMethod::kAppend:
+      return Storage::SharedStorageAccessMethodEnum::Append;
+    case AccessMethod::kDelete:
+      return Storage::SharedStorageAccessMethodEnum::Delete;
+    case AccessMethod::kClear:
+      return Storage::SharedStorageAccessMethodEnum::Clear;
+    case AccessMethod::kGet:
+      return Storage::SharedStorageAccessMethodEnum::Get;
+    case AccessMethod::kKeys:
+      return Storage::SharedStorageAccessMethodEnum::Keys;
+    case AccessMethod::kValues:
+      return Storage::SharedStorageAccessMethodEnum::Values;
+    case AccessMethod::kEntries:
+      return Storage::SharedStorageAccessMethodEnum::Entries;
+    case AccessMethod::kLength:
+      return Storage::SharedStorageAccessMethodEnum::Length;
+    case AccessMethod::kRemainingBudget:
+      return Storage::SharedStorageAccessMethodEnum::RemainingBudget;
+  };
+  NOTREACHED();
 }
 
 }  // namespace
 
-void StorageHandler::NotifySharedStorageAccessed(
+void StorageHandler::OnSharedStorageAccessed(
     base::Time access_time,
     blink::SharedStorageAccessScope scope,
     SharedStorageRuntimeManager::SharedStorageObserverInterface::AccessMethod
         method,
-    FrameTreeNodeId main_frame_id,
+    GlobalRenderFrameHostId main_frame_id,
     const std::string& owner_origin,
     const SharedStorageEventParams& params) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
 
   using AccessScope = blink::SharedStorageAccessScope;
-  using AccessMethod =
-      SharedStorageRuntimeManager::SharedStorageObserverInterface::AccessMethod;
+
   std::string scope_enum;
   switch (scope) {
     case AccessScope::kWindow:
@@ -1557,55 +1544,6 @@ void StorageHandler::NotifySharedStorageAccessed(
       break;
   };
 
-  std::string method_enum;
-  switch (method) {
-    case AccessMethod::kAddModule:
-      method_enum = Storage::SharedStorageAccessMethodEnum::AddModule;
-      break;
-    case AccessMethod::kCreateWorklet:
-      method_enum = Storage::SharedStorageAccessMethodEnum::CreateWorklet;
-      break;
-    case AccessMethod::kSelectURL:
-      method_enum = Storage::SharedStorageAccessMethodEnum::SelectURL;
-      break;
-    case AccessMethod::kRun:
-      method_enum = Storage::SharedStorageAccessMethodEnum::Run;
-      break;
-    case AccessMethod::kBatchUpdate:
-      method_enum = Storage::SharedStorageAccessMethodEnum::BatchUpdate;
-      break;
-    case AccessMethod::kSet:
-      method_enum = Storage::SharedStorageAccessMethodEnum::Set;
-      break;
-    case AccessMethod::kAppend:
-      method_enum = Storage::SharedStorageAccessMethodEnum::Append;
-      break;
-    case AccessMethod::kDelete:
-      method_enum = Storage::SharedStorageAccessMethodEnum::Delete;
-      break;
-    case AccessMethod::kClear:
-      method_enum = Storage::SharedStorageAccessMethodEnum::Clear;
-      break;
-    case AccessMethod::kGet:
-      method_enum = Storage::SharedStorageAccessMethodEnum::Get;
-      break;
-    case AccessMethod::kKeys:
-      method_enum = Storage::SharedStorageAccessMethodEnum::Keys;
-      break;
-    case AccessMethod::kValues:
-      method_enum = Storage::SharedStorageAccessMethodEnum::Values;
-      break;
-    case AccessMethod::kEntries:
-      method_enum = Storage::SharedStorageAccessMethodEnum::Entries;
-      break;
-    case AccessMethod::kLength:
-      method_enum = Storage::SharedStorageAccessMethodEnum::Length;
-      break;
-    case AccessMethod::kRemainingBudget:
-      method_enum = Storage::SharedStorageAccessMethodEnum::RemainingBudget;
-      break;
-  };
-
   auto protocol_params =
       protocol::Storage::SharedStorageAccessParams::Create().Build();
 
@@ -1617,6 +1555,9 @@ void StorageHandler::NotifySharedStorageAccessed(
   }
   if (params.operation_name) {
     protocol_params->SetOperationName(*params.operation_name);
+  }
+  if (params.operation_id) {
+    protocol_params->SetOperationId(base::NumberToString(*params.operation_id));
   }
   if (params.keep_alive) {
     protocol_params->SetKeepAlive(*params.keep_alive);
@@ -1636,8 +1577,12 @@ void StorageHandler::NotifySharedStorageAccessed(
   if (params.ignore_if_present) {
     protocol_params->SetIgnoreIfPresent(*params.ignore_if_present);
   }
-  if (params.worklet_id) {
-    protocol_params->SetWorkletId(base::NumberToString(*params.worklet_id));
+  if (params.worklet_ordinal_id) {
+    protocol_params->SetWorkletOrdinal(*params.worklet_ordinal_id);
+  }
+  if (!params.worklet_devtools_token.is_empty()) {
+    protocol_params->SetWorkletTargetId(
+        params.worklet_devtools_token.ToString());
   }
   if (params.with_lock) {
     protocol_params->SetWithLock(*params.with_lock);
@@ -1704,27 +1649,35 @@ void StorageHandler::NotifySharedStorageAccessed(
   }
 
   frontend_->SharedStorageAccessed(
-      access_time.InSecondsFSinceUnixEpoch(), scope_enum, method_enum,
-      GetFrameTokenFromFrameTreeNodeId(main_frame_id), owner_origin,
+      access_time.InSecondsFSinceUnixEpoch(), scope_enum,
+      GetSharedStorageAccessMethodEnum(method),
+      GetFrameTokenFromGlobalRenderFrameHostId(main_frame_id), owner_origin,
       net::SchemefulSite(GURL(owner_origin)).Serialize(),
       std::move(protocol_params));
 }
 
-void StorageHandler::NotifySharedStorageWorkletOperationExecutionFinished(
+void StorageHandler::OnSharedStorageSelectUrlUrnUuidGenerated(
+    const GURL& urn_uuid) {}
+void StorageHandler::OnSharedStorageSelectUrlConfigPopulated(
+    const std::optional<FencedFrameConfig>& config) {}
+
+void StorageHandler::OnSharedStorageWorkletOperationExecutionFinished(
     base::Time finished_time,
     base::TimeDelta execution_time,
     SharedStorageRuntimeManager::SharedStorageObserverInterface::AccessMethod
         method,
     int operation_id,
-    int worklet_id,
-    std::optional<FrameTreeNodeId> main_frame_id,
+    int worklet_ordinal_id,
+    const base::UnguessableToken& worklet_devtools_token,
+    GlobalRenderFrameHostId main_frame_id,
     const std::string& owner_origin) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
 
-  // TODO(crbug.com/401011862): Add a new
-  // `sharedStorageWorkletOperationExecutionFinished` event to the DevTools
-  // Protocol. Call the generated code here to send an event notification to
-  // DevTools Frontend.
+  frontend_->SharedStorageWorkletOperationExecutionFinished(
+      finished_time.InSecondsFSinceUnixEpoch(), execution_time.InMicroseconds(),
+      GetSharedStorageAccessMethodEnum(method),
+      base::NumberToString(operation_id), worklet_devtools_token.ToString(),
+      GetFrameTokenFromGlobalRenderFrameHostId(main_frame_id), owner_origin);
 }
 
 DispatchResponse StorageHandler::SetStorageBucketTracking(
@@ -2094,24 +2047,10 @@ ToEventReportWindows(const attribution_reporting::EventReportWindows& windows) {
       .Build();
 }
 
-std::unique_ptr<Array<Storage::AttributionReportingTriggerSpec>> ToTriggerSpecs(
-    const attribution_reporting::TriggerSpecs& specs) {
-  auto array =
-      std::make_unique<Array<Storage::AttributionReportingTriggerSpec>>();
-
-  for (const auto& spec : specs.specs()) {
-    array->emplace_back(Storage::AttributionReportingTriggerSpec::Create()
-                            .SetTriggerData(std::make_unique<Array<double>>())
-                            .SetEventReportWindows(ToEventReportWindows(
-                                spec.event_report_windows()))
-                            .Build());
-  }
-
-  for (const auto& [trigger_data, spec_index] : specs.trigger_data_indices()) {
-    array->at(spec_index)->GetTriggerData()->push_back(trigger_data);
-  }
-
-  return array;
+std::unique_ptr<Array<double>> ToTriggerData(
+    const attribution_reporting::TriggerDataSet::TriggerData& trigger_data) {
+  return std::make_unique<Array<double>>(trigger_data.begin(),
+                                         trigger_data.end());
 }
 
 Storage::AttributionReportingTriggerDataMatching ToTriggerDataMatching(
@@ -2347,7 +2286,10 @@ void StorageHandler::OnSourceHandled(
           .SetAggregationKeys(
               ToAggregationKeysEntries(registration.aggregation_keys))
           .SetExpiry(registration.expiry.InSeconds())
-          .SetTriggerSpecs(ToTriggerSpecs(registration.trigger_specs))
+          .SetTriggerData(
+              ToTriggerData(registration.trigger_data.trigger_data()))
+          .SetEventReportWindows(
+              ToEventReportWindows(registration.event_report_windows))
           .SetAggregatableReportWindow(
               registration.aggregatable_report_window.InSeconds())
           .SetTriggerDataMatching(
@@ -2358,8 +2300,7 @@ void StorageHandler::OnSourceHandled(
               ToAggregatableDebugReportingConfig(
                   aggregatable_debug_reporting_config.budget(),
                   aggregatable_debug_reporting_config.config()))
-          .SetMaxEventLevelReports(
-              registration.trigger_specs.max_event_level_reports())
+          .SetMaxEventLevelReports(registration.max_event_level_reports)
           .SetNamedBudgets(
               ToNamedBudgetDefs(registration.aggregatable_named_budget_defs))
           .SetDebugReporting(registration.debug_reporting)
@@ -2441,6 +2382,44 @@ void StorageHandler::OnTriggerHandled(std::optional<uint64_t> cleared_debug_key,
   frontend_->AttributionReportingTriggerRegistered(
       std::move(out_trigger), ToEventLevelResult(result.event_level_status()),
       ToAggregatableResult(result.aggregatable_status()));
+}
+
+void StorageHandler::OnReportSent(const AttributionReport& report,
+                                  bool is_debug_report,
+                                  const SendResult& result) {
+  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+
+  std::optional<int> net_error;
+  std::optional<String> net_error_name;
+  std::optional<int> http_status_code;
+  Storage::AttributionReportingReportResult out_result = std::visit(
+      base::Overloaded{
+          [&](SendResult::Sent result) {
+            if (result.status >= 0) {
+              http_status_code = result.status;
+            } else {
+              net_error = result.status;
+              net_error_name = String(net::ErrorToShortString(result.status));
+            }
+            return Storage::AttributionReportingReportResultEnum::Sent;
+          },
+          [](SendResult::Dropped) {
+            return Storage::AttributionReportingReportResultEnum::Prohibited;
+          },
+          [](SendResult::Expired) {
+            return Storage::AttributionReportingReportResultEnum::Expired;
+          },
+          [](SendResult::AssemblyFailure) {
+            return Storage::AttributionReportingReportResultEnum::
+                FailedToAssemble;
+          },
+      },
+      result.result);
+
+  frontend_->AttributionReportingReportSent(
+      report.ReportURL(is_debug_report).spec(),
+      std::make_unique<base::Value::Dict>(report.ReportBody()), out_result,
+      net_error, std::move(net_error_name), http_status_code);
 }
 
 Response StorageHandler::SetAttributionReportingTracking(bool enable) {

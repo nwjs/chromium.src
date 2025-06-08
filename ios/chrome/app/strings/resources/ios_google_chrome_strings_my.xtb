@@ -47,6 +47,7 @@
 <translation id="1917964099031477364">ဤအကောင့်နှင့် သိမ်းမထားသော ဒေတာမှန်သမျှကို Chrome နှင့် ဤစက်ပေါ်ရှိ အခြား Google app များမှ ဖယ်ရှားပါမည်။</translation>
 <translation id="1919130412786645364">Chrome သို့ လက်မှတ်ထိုးဝင်ခွင့် ပေးပါ</translation>
 <translation id="1965935827552890526">ဖွင့်ထားသည့် အခြား Chrome ဝင်းဒိုးများတွင် သင်လုပ်နေသောအရာများကို အပြီးသတ်ပါ။</translation>
+<translation id="1966638102563776885">Chrome အကြံပြုချက်- မည်သည့်အက်ပ်တွင်မဆို သင်၏စကားဝှက်များကို ရယူနိုင်သည်</translation>
 <translation id="1973910962341002002">“<ph name="TEXT_OF_THE_SETTINGS_MENU_ITEM" />” ဆက်တင်များရှိ “Chrome” ခလုတ်ဖွင့်ပါ</translation>
 <translation id="1984705450038014246">သင်၏ Chrome ဒေတာ စင့်ခ်လုပ်ပါ</translation>
 <translation id="1987779152850321833">Chrome ကို အကောင်းဆုံးအသုံးချရန် အောက်ရှိ အကြံပြုထားသော လုပ်ဆောင်ချက်များကို အပြီးသတ်ပါ။</translation>
@@ -114,7 +115,6 @@
 <translation id="3655656110921623717">Chrome က မိုဘိုင်းဝဘ်ဆိုက်ကို အမြဲတောင်းမည်ဟု ဆိုလိုခြင်းဖြစ်သည်။</translation>
 <translation id="3740397331642243698">ထည့်သွင်းထားသော URL များကို Google Chrome ရုပ်ဖျက်မုဒ်တွင် ဖွင့်သည်။</translation>
 <translation id="3741995255368156336">‘Chrome ဖတ်ရန်စာရင်း‘ ကိုဖွင့်ရန်။</translation>
-<translation id="3808570423967020928">Chrome ကို သင်၏ ‘ပင်မစာမျက်နှာ ပုံသေအထိုင်နေရာ’ မှနေ၍ ပိုမြန်စွာ အသုံးပြုနိုင်သည်။</translation>
 <translation id="3827545470516145620">ဤစက်တွင် ပုံမှန် လုံခြုံရေးအကာအကွယ်ကို ရရှိပါမည်</translation>
 <translation id="384394811301901750">Google Chrome သည် သင့်ကင်မရာကို ယခုအသုံးပြု၍မရပါ</translation>
 <translation id="3863841106411295595">ထည့်သွင်းထားသော URL များကို Chrome ရှိ ဖတ်ရန် စာရင်းသို့ ထည့်ရန်။</translation>
@@ -138,6 +138,7 @@
 <translation id="4724297637870447613">Chrome ကို နေရာအနှံ့ သုံးခြင်း</translation>
 <translation id="4738647308035481133">Google Chrome စာမျက်နှာ</translation>
 <translation id="4742795653798179840">Chrome ဒေတာ ဖျက်ထားသည်</translation>
+<translation id="4749294594657945639">အခြားအက်ပ်များတွင် သိမ်းထားသော သင်၏စကားဝှက်များ အလွယ်တကူရယူရန် ‘အော်တိုဖြည့်’ အတွက် Chrome ကို ရွေးပါ။</translation>
 <translation id="4761869838909035636">‘Chrome လုံခြုံရေး စစ်ဆေးမှု’ လုပ်ဆောင်ရန်</translation>
 <translation id="4798859546468762093">ပုဂ္ဂိုလ်ရေးသီးသန့်ပြုလုပ်ခြင်းနှင့် အခြားတူးလ်များ ရယူရန် <ph name="FEATURE_NAME_1" /> နှင့် <ph name="FEATURE_NAME_2" /> တွင် Chrome ထည့်သွင်းပါ</translation>
 <translation id="4819268619367838612">အက်ပ်ပိုကောင်းမွန်စေရန် Chrome သည်အသုံးပြုမှုနှင့် ရပ်တန့်မှုဒေတာများကို Google သို့ ပို့သည်။ <ph name="BEGIN_LINK" />စီမံခန့်ခွဲရန်<ph name="END_LINK" /></translation>
@@ -233,7 +234,6 @@
 <translation id="6975725306479268850">‘အော်တိုဖြည့်’ အတွက် Chrome ကိုရွေးပါ</translation>
 <translation id="7056826488869329999">Chrome တွင် လုံခြုံရေး စစ်ဆေးမှု ဖွင့်ပြီးလုပ်ဆောင်ရန်။</translation>
 <translation id="7061455974939528301">Chrome သင်္ကေတကို နှိပ်ထားပြီး "ပင်မစာမျက်နှာ တည်းဖြတ်ရန်" ကိုနှိပ်ပါ</translation>
-<translation id="7065813315247345131">Chrome ကို ပုံသေအထိုင်သို့ ရွှေ့ခြင်း</translation>
 <translation id="7124339256045485976">Chrome ကို အပ်ဒိတ်ဖြစ်နေစေသည်</translation>
 <translation id="7145599899567697473">Chrome တွင် စကားဝှက်များကို သိမ်းပြီး အော်တိုဖြည့်ရန်</translation>
 <translation id="7161390184744336561">Google Chrome က ဟောင်းနေပါပြီ</translation>
@@ -317,10 +317,10 @@
 <translation id="8603022514504485810">Google Password Manager က စကားဝှက်အားလုံးကို စစ်ဆေး၍မရပါ။ မနက်ဖြန် ထပ်စမ်းကြည့်ပါ (သို့) <ph name="BEGIN_LINK" />သင်၏ Google Account ရှိ စကားဝှက်များကို စစ်ဆေးပါ။<ph name="END_LINK" /></translation>
 <translation id="8630122478628016441">“Chrome ကို ပိတ်သည့်အခါ ရုပ်ဖျက်တဘ်များကို လော့ခ်ချရန်” ဖွင့်ပါ။</translation>
 <translation id="8673726683583791503">Google Lens ဖြင့် ဈေးဝယ်ခြင်း</translation>
-<translation id="8727043961453758442">Chrome ကို အကောင်းဆုံးအသုံးချခြင်း</translation>
 <translation id="8765470054473112089">လိပ်စာဘား (သို့) ရှာဖွေစာလုံးဖြည့်ကွက်လပ်တွင် စာရိုက်သောအခါ ပိုမိုကောင်းမွန်သော အကြံပြုချက်များ ရယူရန်အတွက် Chrome သည် သင်ရိုက်ထည့်သောအရာကို သင့်မူလရှာဖွေရေးအင်ဂျင်သို့ ပို့သည်။ ၎င်းသည် ‘ရုပ်ဖျက်’ တွင် ပိတ်နေမည်။</translation>
 <translation id="8772179140489533211">Chrome သို့ လက်မှတ်ထိုးဝင်ရန် အတည်ပြုခြင်းစနစ်များ ပြသည်။</translation>
 <translation id="8788269841521769222">ဤစကားဝှက်ကို မှတ်ထားစရာ မလိုပါ။ ၎င်းကို <ph name="EMAIL" /> အတွက် ‘Google စကားဝှက်မန်နေဂျာ’ တွင် သိမ်းပါမည်</translation>
+<translation id="8796490717897731471"><ph name="EMAIL" />။ Chrome ကို စီမံခန့်ခွဲသည်။</translation>
 <translation id="880967149107462122">Chrome ဆက်တင်များသို့ သွားပါ</translation>
 <translation id="8842132678697187091">Google Lens ကို ဤနေရာတွင် ဖွင့်နိုင်သည်။</translation>
 <translation id="8850736900032787670">သင့်စိတ်ဝင်စားမှုများပေါ် အခြေခံ၍ ပုဂ္ဂိုလ်ရေးသီးသန့် အကြောင်းအရာများ ရယူရန် Chrome သို့ လက်မှတ်ထိုးဝင်ပါ။</translation>

@@ -21,10 +21,13 @@ group("resources") {
     "segmentation_internals:resources",
   ]
 
+  if (enable_extensions_core) {
+    public_deps += [ ":component_extension_resources" ]
+  }
+
   if (!is_android) {
     public_deps += [
       ":app_icon_resources",
-      ":component_extension_resources",
       ":dev_ui_paks",
       "about_sys:resources",
       "access_code_cast:resources",
@@ -46,6 +49,7 @@ group("resources") {
       "new_tab_page/untrusted:resources",
       "new_tab_page_instant:resources",
       "new_tab_page_third_party:resources",
+      "new_tab_shared:resources",
       "omnibox_popup:resources",
       "password_manager:resources",
       "privacy_sandbox:resources",
@@ -66,6 +70,7 @@ group("resources") {
       "suggest_internals:resources",
       "support_tool:resources",
       "tab_search:resources",
+      "tabs/tab_group_home:resources",
       "web_app_internals:resources",
       "webui_gallery:resources",
       "whats_new:resources",
@@ -86,7 +91,10 @@ group("resources") {
   }
 
   if (enable_extensions) {
-    public_deps += [ "accessibility:reading_mode_gdocs_extension_resources" ]
+    public_deps += [
+      "accessibility:reading_mode_gdocs_extension_resources",
+      "extensions_zero_state_promo:resources",
+    ]
   }
 
   if (is_mac) {
@@ -187,7 +195,7 @@ if (is_chromeos && enable_js_type_check) {
   }
 }
 
-if (!is_android) {
+if (enable_extensions_core) {
   grit("component_extension_resources") {
     source = "component_extension_resources.grd"
 
@@ -217,7 +225,9 @@ if (!is_android) {
     ]
     output_dir = "$root_gen_dir/chrome"
   }
+}
 
+if (!is_android) {
   grit("app_icon_resources") {
     source = "app_icon/app_icon_resources.grd"
     defines = chrome_grit_defines
@@ -312,6 +322,7 @@ group("dev_ui_resources") {
     ]
   } else {
     public_deps += [
+      "infobar_internals:resources",
       "media_router/internals:resources",
       "on_device_internals:resources",
       "user_education_internals:resources",
@@ -374,6 +385,7 @@ repack("dev_ui_paks") {
     ]
   } else {
     sources += [
+      "$root_gen_dir/chrome/infobar_internals_resources.pak",
       "$root_gen_dir/chrome/media_router_internals_resources.pak",
       "$root_gen_dir/chrome/on_device_internals_resources.pak",
       "$root_gen_dir/chrome/user_education_internals_resources.pak",

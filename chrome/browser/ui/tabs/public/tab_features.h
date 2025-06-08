@@ -14,17 +14,20 @@
 #include "chrome/common/buildflags.h"
 
 class ChromeAutofillAiClient;
+class FileSystemAccessPageActionController;
 class FromGWSNavigationAndKeepAliveRequestObserver;
+class IntentPickerViewPageActionController;
 class LensOverlayController;
 class LensSearchController;
+class MemorySaverChipTabHelper;
 class PinnedTranslateActionListener;
 class Profile;
+class PwaInstallPageActionController;
 class ReadAnythingSidePanelController;
 class SidePanelRegistry;
+class TabResourceUsageTabHelper;
+class TabUIHelper;
 class TranslatePageActionController;
-class IntentPickerViewPageActionController;
-class FileSystemAccessPageActionController;
-class PwaInstallPageActionController;
 
 namespace commerce {
 class CommerceUiTabHelper;
@@ -72,6 +75,7 @@ class PermissionIndicatorsTabData;
 
 namespace privacy_sandbox {
 class PrivacySandboxTabObserver;
+class PrivacySandboxIncognitoTabObserver;
 }  // namespace privacy_sandbox
 
 namespace metrics {
@@ -100,6 +104,7 @@ class CollaborationMessagingTabData;
 
 namespace tabs {
 
+class TabAlertController;
 class TabInterface;
 class TabDialogManager;
 
@@ -138,6 +143,13 @@ class TabFeatures {
     return customize_chrome_side_panel_controller_.get();
   }
 
+  // Note: Temporary until there is a more uniform way to swap out features for
+  // testing.
+  customize_chrome::SidePanelController*
+  SetCustomizeChromeSidePanelControllerForTesting(
+      std::unique_ptr<customize_chrome::SidePanelController>
+          customize_chrome_side_panel_controller);
+
   // This side-panel registry is tab-scoped. It is different from the browser
   // window scoped SidePanelRegistry.
   SidePanelRegistry* side_panel_registry() {
@@ -158,6 +170,11 @@ class TabFeatures {
 
   privacy_sandbox::PrivacySandboxTabObserver* privacy_sandbox_tab_observer() {
     return privacy_sandbox_tab_observer_.get();
+  }
+
+  privacy_sandbox::PrivacySandboxIncognitoTabObserver*
+  privacy_sandbox_incognito_tab_observer() {
+    return privacy_sandbox_incognito_tab_observer_.get();
   }
 
   metrics::DwaWebContentsObserver* dwa_web_contents_observer() {
@@ -208,6 +225,7 @@ class TabFeatures {
   }
 
   LensOverlayController* lens_overlay_controller();
+  const LensOverlayController* lens_overlay_controller() const;
 
   PwaInstallPageActionController* pwa_install_page_action_controller() {
     return pwa_install_page_action_controller_.get();
@@ -217,12 +235,34 @@ class TabFeatures {
     return inactive_window_mouse_event_controller_.get();
   }
 
+  TabResourceUsageTabHelper* resource_usage_helper() {
+    return resource_usage_helper_.get();
+  }
+
+  MemorySaverChipTabHelper* memory_saver_chip_helper() {
+    return memory_saver_chip_helper_.get();
+  }
+
+  TabUIHelper* tab_ui_helper() { return tab_ui_helper_.get(); }
+
+  // Note: Temporary until there is a more uniform way to swap out features for
+  // testing.
+  TabResourceUsageTabHelper* SetResourceUsageHelperForTesting(
+      std::unique_ptr<TabResourceUsageTabHelper> resource_usage_helper);
+
+  TabUIHelper* SetTabUIHelperForTesting(
+      std::unique_ptr<TabUIHelper> tab_ui_helper);
+
 #if BUILDFLAG(ENABLE_GLIC)
   glic::GlicPageContextEligibilityObserver*
   glic_page_context_eligibility_observer() {
     return glic_page_context_eligibility_observer_.get();
   }
 #endif
+
+  TabAlertController* tab_alert_controller() {
+    return tab_alert_controller_.get();
+  }
 
   // Called exactly once to initialize features.
   // Can be overridden in tests to initialize nothing.
@@ -278,6 +318,9 @@ class TabFeatures {
 
   std::unique_ptr<privacy_sandbox::PrivacySandboxTabObserver>
       privacy_sandbox_tab_observer_;
+
+  std::unique_ptr<privacy_sandbox::PrivacySandboxIncognitoTabObserver>
+      privacy_sandbox_incognito_tab_observer_;
 
   std::unique_ptr<metrics::DwaWebContentsObserver>
       dwa_web_contents_observer_;
@@ -351,6 +394,14 @@ class TabFeatures {
 
   std::unique_ptr<FromGWSNavigationAndKeepAliveRequestObserver>
       from_gws_navigation_and_keep_alive_request_observer_;
+
+  std::unique_ptr<TabResourceUsageTabHelper> resource_usage_helper_;
+
+  std::unique_ptr<MemorySaverChipTabHelper> memory_saver_chip_helper_;
+
+  std::unique_ptr<TabAlertController> tab_alert_controller_;
+
+  std::unique_ptr<TabUIHelper> tab_ui_helper_;
 
   // Must be the last member.
   base::WeakPtrFactory<TabFeatures> weak_factory_{this};

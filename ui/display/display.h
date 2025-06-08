@@ -291,7 +291,6 @@ class DISPLAY_EXPORT Display final {
   void set_label(const std::string& label) { label_ = label; }
 
   bool operator==(const Display& rhs) const;
-  bool operator!=(const Display& rhs) const { return !(*this == rhs); }
   static bool EqualExceptForHdrHeadroom(const Display& lhs, const Display& rhs);
 
  private:

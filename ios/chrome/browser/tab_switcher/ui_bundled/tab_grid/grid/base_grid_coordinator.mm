@@ -15,7 +15,6 @@
 #import "ios/chrome/browser/collaboration/model/ios_collaboration_controller_delegate.h"
 #import "ios/chrome/browser/feature_engagement/model/tracker_factory.h"
 #import "ios/chrome/browser/menu/ui_bundled/tab_context_menu_delegate.h"
-#import "ios/chrome/browser/saved_tab_groups/model/tab_group_service_factory.h"
 #import "ios/chrome/browser/shared/model/browser/browser.h"
 #import "ios/chrome/browser/shared/model/profile/profile_ios.h"
 #import "ios/chrome/browser/shared/model/web_state_list/tab_group.h"
@@ -112,8 +111,7 @@ using collaboration::CollaborationControllerDelegate;
     return NO;
   }
   GridItemIdentifier* groupIdentifier =
-      [GridItemIdentifier groupIdentifier:tabGroup
-                         withWebStateList:webStateList];
+      [GridItemIdentifier groupIdentifier:tabGroup];
   [self.gridViewController bringItemIntoView:groupIdentifier animated:animated];
   return YES;
 }
@@ -260,6 +258,7 @@ using collaboration::CollaborationControllerDelegate;
 
   [_tabGroupCoordinator stop];
   _tabGroupCoordinator = nil;
+  self.mediator.baseDelegate = nil;
 }
 
 - (void)showTabGroupCreationForTabs:
@@ -504,6 +503,7 @@ using collaboration::CollaborationControllerDelegate;
   _tabGroupCoordinator.modeHolder = self.modeHolder;
 
   [_tabGroupCoordinator start];
+  self.mediator.baseDelegate = _tabGroupCoordinator;
 }
 
 // Combines two arrays of inactive items into one. The `primaryInactiveItems`
@@ -590,9 +590,9 @@ using collaboration::CollaborationControllerDelegate;
 
   std::unique_ptr<IOSCollaborationControllerDelegate> delegate =
       std::make_unique<IOSCollaborationControllerDelegate>(
-          browser, self.baseViewController,
-          TabGroupServiceFactory::GetForProfile(browser->GetProfile()),
-          FlowType::kLeaveOrDelete);
+          browser,
+          CreateControllerDelegateParamsFromProfile(
+              self.profile, self.baseViewController, FlowType::kLeaveOrDelete));
   delegate->SetLeaveOrDeleteConfirmationCallback(std::move(completionCallback));
 
   collaboration::CollaborationServiceLeaveOrDeleteEntryPoint entryPoint =

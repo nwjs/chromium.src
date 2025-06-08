@@ -4848,6 +4848,23 @@ be describing additional metrics about the same event.
   </metric>
 </event>
 
+<event name="Blink.Preloading.ByLinkHeader">
+  <owner>tnak@chromium.org</owner>
+  <owner>chrome-loading@google.com</owner>
+  <summary>
+    Events taken when HTTP responses are received and they have Link headers.
+    Multiple events should be involved if one response contains multiple Link
+    headers. This event provides insights into potential information leakage
+    related to Link headers on subresources.
+  </summary>
+  <metric name="OriginStatusOnSubresource" enum="OriginStatusOnSubresource">
+    <summary>
+      Records the cross-origin usage related to Link headers on subresource
+      fetches. This is only recorded for subresource fetches.
+    </summary>
+  </metric>
+</event>
+
 <event name="Blink.Script.AsyncScripts" singular="True">
   <owner>dom@chromium.org</owner>
   <owner>chrome-loading@google.com</owner>
@@ -5756,6 +5773,143 @@ be describing additional metrics about the same event.
     <summary>
       The number of unique context domains have requested the topics. Rounded to
       the nearest exponential bucket (with a bucket ratio of 1.15).
+    </summary>
+  </metric>
+</event>
+
+<event name="BTM.ChainBegin" singular="True">
+  <owner>navtracking-team@google.com</owner>
+  <owner>dc-komics@google.com</owner>
+  <summary>
+    Emitted for the page visited at the beginning of a redirect chain (i.e. the
+    initial URL), when third-party cookies are disabled. The redirect chain is
+    used as a part of Bounce Tracking Mitigations (BTM).
+  </summary>
+  <metric name="ChainId">
+    <summary>
+      A randomly-generated 32-bit id to connect this event with the BTM.Redirect
+      and BTM.ChainEnd events emitted within the same redirect chain.
+    </summary>
+  </metric>
+  <metric name="InitialAndFinalSitesSame" enum="BooleanSameSite">
+    <summary>
+      True when the site before the redirect chain is the same as the site at
+      the end of the chain.
+    </summary>
+  </metric>
+</event>
+
+<event name="BTM.ChainEnd" singular="True">
+  <owner>navtracking-team@google.com</owner>
+  <owner>dc-komics@google.com</owner>
+  <summary>
+    Emitted for the page visited at the end of a redirect chain (i.e. the final
+    URL), when third-party cookies are disabled. The redirect chain is used as a
+    part of Bounce Tracking Mitigations (BTM).
+  </summary>
+  <metric name="ChainId">
+    <summary>
+      A randomly-generated 32-bit id to connect this event with the
+      BTM.ChainBegin and BTM.Redirect events emitted within the same redirect
+      chain.
+    </summary>
+  </metric>
+  <metric name="InitialAndFinalSitesSame" enum="BooleanSameSite">
+    <summary>
+      True when the site before the redirect chain is the same as the site at
+      the end of the chain.
+    </summary>
+  </metric>
+</event>
+
+<event name="BTM.Redirect" singular="True">
+  <owner>navtracking-team@google.com</owner>
+  <owner>dc-komics@google.com</owner>
+  <summary>
+    Emitted on every HTTP redirect or client-side bounce within a redirect
+    chain, when third-party cookies are disabled. A client-side bounce is a
+    non-user-initiated navigation starting soon after the previous navigation
+    committed.
+
+    The redirect chain is used as a part of Bounce Tracking Mitigations (BTM).
+  </summary>
+  <metric name="ChainId">
+    <summary>
+      A randomly-generated 32-bit id to connect this event with other
+      BTM.Redirect events and the BTM.ChainBegin/ChainEnd events emitted within
+      the same redirect chain.
+    </summary>
+  </metric>
+  <metric name="ClientBounceDelay">
+    <summary>
+      Populated for client redirects only. The time in seconds (capped at 10)
+      between the page committing and the redirect navigation starting. An int
+      in the range [0, 10].
+    </summary>
+  </metric>
+  <metric name="CookieAccessType" enum="CookieAccessType">
+    <summary>
+      Whether the redirect read cookies, wrote cookies, both, or neither.
+    </summary>
+  </metric>
+  <metric name="HasStickyActivation" enum="BooleanHasUserActivation">
+    <summary>
+      Populated for client redirects only. Whether the user interacted with the
+      page (See the HTML spec for a definition). This info is persisted within
+      BTM for a duration of `btm::kInteractionTtl`.
+    </summary>
+  </metric>
+  <metric name="InitialAndFinalSitesSame" enum="BooleanSameSite">
+    <summary>
+      True when the site before the redirect chain is the same as the site at
+      the end of the chain.
+    </summary>
+  </metric>
+  <metric name="IsPartialRedirectChain">
+    <summary>
+      True if the chain is missing the end URL. Any comparisons to the final
+      site are invalid for this redirect.
+    </summary>
+  </metric>
+  <metric name="RedirectAndFinalSiteSame" enum="BooleanSameSite">
+    <summary>
+      True when the redirect site is the same as the site at the end of the
+      redirect chain.
+    </summary>
+  </metric>
+  <metric name="RedirectAndInitialSiteSame" enum="BooleanSameSite">
+    <summary>
+      True when the redirect site is the same as the site before the redirect
+      chain.
+    </summary>
+  </metric>
+  <metric name="RedirectChainIndex">
+    <summary>
+      0-based index of this individual redirect within its chain.
+    </summary>
+  </metric>
+  <metric name="RedirectChainLength">
+    <summary>
+      The length of the overall redirect chain.
+    </summary>
+  </metric>
+  <metric name="RedirectType" enum="DIPSRedirectType">
+    <summary>
+      The type of the redirect: client or server.
+    </summary>
+  </metric>
+  <metric name="SiteEngagementLevel" enum="SiteEngagementLevel">
+    <summary>
+      The site engagement level of the redirect URL, at the time the redirect
+      took place.
+    </summary>
+  </metric>
+  <metric name="WebAuthnAssertionRequestSucceeded"
+      enum="BooleanWebAuthnAssertionRequestSucceeded">
+    <summary>
+      Populated for client redirects only. Whether the user triggered a
+      successful web authn assertion. This info is persisted within BTM for a
+      duration of `btm::kInteractionTtl`.
     </summary>
   </metric>
 </event>
@@ -7719,6 +7873,9 @@ be describing additional metrics about the same event.
   <owner>navtracking-team@google.com</owner>
   <owner>dc-komics@google.com</owner>
   <summary>
+    This metric has been superceded by the BTM.ChainBegin UKM and is no longer
+    emitted as of M138.
+
     Emitted after a redirect chain terminates, but for the page visited before
     the chain began -- the initial URL.
   </summary>
@@ -7741,6 +7898,9 @@ be describing additional metrics about the same event.
   <owner>navtracking-team@google.com</owner>
   <owner>dc-komics@google.com</owner>
   <summary>
+    This metric has been superceded by the BTM.ChainEnd UKM and is no longer
+    emitted as of M138.
+
     Emitted for the page visited at the end of a redirect chain -- the final
     URL.
   </summary>
@@ -7841,6 +8001,9 @@ be describing additional metrics about the same event.
   <owner>navtracking-team@google.com</owner>
   <owner>dc-komics@google.com</owner>
   <summary>
+    This metric has been superceded by the BTM.Redirect UKM and is no longer
+    emitted as of M138.
+
     Recorded on every HTTP redirect or client-side bounce, where a client-side
     bounce is a non-user-initiated navigation starting soon after the previous
     navigation committed.
@@ -9463,6 +9626,21 @@ be describing additional metrics about the same event.
   <metric name="Function" enum="GameControlsEditingListFunction">
     <summary>
       The functions on the editing list.
+    </summary>
+  </metric>
+</event>
+
+<event name="GameControls.PlayGameWithGameControls">
+  <owner>cuicuiruan@google.com</owner>
+  <owner>arc-gaming@google.com</owner>
+  <summary>
+    Log once whether the ARC game is played with Game Controls per game session.
+    If it is played with Game Controls, record true immediately. If it is never
+    played with Game Controls, record false when shutting down the game.
+  </summary>
+  <metric name="PlayedWith" enum="Boolean">
+    <summary>
+      Boolean indicating whether the ARC game is played with Game Controls.
     </summary>
   </metric>
 </event>
@@ -11292,20 +11470,6 @@ be describing additional metrics about the same event.
     The metric is reported once per page-load, and when the page closes (e.g.
     the user closes the tab, or navigates away to a different page).
   </summary>
-  <metric name="AboveThreshold">
-    <summary>
-      The number of fixed-duration sliding windows (as a percentage) where the
-      number of dropped frames are above a threshold. The specific threshold is
-      yet to be determined.
-    </summary>
-    <aggregation>
-      <history>
-        <statistics>
-          <quantiles type="std-percentiles"/>
-        </statistics>
-      </history>
-    </aggregation>
-  </metric>
   <metric name="Average">
     <summary>
       This is trivially computable by counting the total number of dropped
@@ -11341,98 +11505,6 @@ be describing additional metrics about the same event.
       </history>
     </aggregation>
   </metric>
-  <metric name="CompositorFocusedPercentile95">
-    <summary>
-      CompositorFocused metrics report the throughput of frames that include
-      compositor thread updates. The 95-th percentile dropped frames within a
-      fixed-duration sliding window (as a percentage). So out of all
-      PerecentDroppedFrames of sliding windows the 95th percentile will be
-      reported here.
-    </summary>
-    <aggregation>
-      <history>
-        <index fields="profile.country"/>
-        <index fields="profile.form_factor"/>
-        <index fields="profile.system_ram"/>
-        <statistics>
-          <quantiles type="std-percentiles"/>
-        </statistics>
-      </history>
-    </aggregation>
-  </metric>
-  <metric name="CompositorFocusedVariance">
-    <summary>
-      CompositorFocused metrics report the throughput of frames that include
-      compositor thread updates. The variance of percent dropped frames within a
-      fixed-duration sliding window. So out of all PerecentDroppedFrames of
-      sliding windows the variance will be reported here.
-    </summary>
-    <aggregation>
-      <history>
-        <index fields="profile.country"/>
-        <index fields="profile.form_factor"/>
-        <index fields="profile.system_ram"/>
-        <statistics>
-          <quantiles type="std-percentiles"/>
-        </statistics>
-      </history>
-    </aggregation>
-  </metric>
-  <metric name="MainFocusedMedian">
-    <summary>
-      MainFocused metrics report the throughput of frames that include main
-      thread updates. The median dropped frames within a fixed-duration sliding
-      window (as a percentage). So out of all PerecentDroppedFrames of sliding
-      windows the median will be reported here.
-    </summary>
-    <aggregation>
-      <history>
-        <index fields="profile.country"/>
-        <index fields="profile.form_factor"/>
-        <index fields="profile.system_ram"/>
-        <statistics>
-          <quantiles type="std-percentiles"/>
-        </statistics>
-      </history>
-    </aggregation>
-  </metric>
-  <metric name="MainFocusedPercentile95">
-    <summary>
-      MainFocused metrics report the throughput of frames that include main
-      thread updates. The 95-th percentile dropped frames within a
-      fixed-duration sliding window (as a percentage). So out of all
-      PerecentDroppedFrames of sliding windows the 95th percentile will be
-      reported here.
-    </summary>
-    <aggregation>
-      <history>
-        <index fields="profile.country"/>
-        <index fields="profile.form_factor"/>
-        <index fields="profile.system_ram"/>
-        <statistics>
-          <quantiles type="std-percentiles"/>
-        </statistics>
-      </history>
-    </aggregation>
-  </metric>
-  <metric name="MainFocusedVariance">
-    <summary>
-      MainFocused metrics report the throughput of frames that include main
-      thread updates. The variance of percent dropped frames within a
-      fixed-duration sliding window. So out of all PerecentDroppedFrames of
-      sliding windows the variance will be reported here.
-    </summary>
-    <aggregation>
-      <history>
-        <index fields="profile.country"/>
-        <index fields="profile.form_factor"/>
-        <index fields="profile.system_ram"/>
-        <statistics>
-          <quantiles type="std-percentiles"/>
-        </statistics>
-      </history>
-    </aggregation>
-  </metric>
   <metric name="Median">
     <summary>
       The median dropped frames within a fixed-duration sliding window (as a
@@ -11450,282 +11522,61 @@ be describing additional metrics about the same event.
       </history>
     </aggregation>
   </metric>
-  <metric name="Percentile95">
+</event>
+
+<event name="GroupSuggestionPromo.Suggestion">
+  <owner>yuezhanggg@chromium.org</owner>
+  <owner>ssid@chromium.org</owner>
+  <summary>
+    Collects information about member tabs that are in a tab group suggestion.
+    Recorded after a suggestion is shown and user has reacted to the suggestion.
+  </summary>
+  <metric name="GroupSuggestionID">
     <summary>
-      The 95-th percentile dropped frames within a fixed-duration sliding window
-      (as a percentage). So out of all PerecentDroppedFrames of sliding windows
-      the 95th percentile will be reported here.
+      An int ID corresponding to the suggestion. This will enable joining all
+      tabs of the suggestion together.
     </summary>
-    <aggregation>
-      <history>
-        <index fields="profile.country"/>
-        <index fields="profile.form_factor"/>
-        <index fields="profile.system_ram"/>
-        <statistics>
-          <quantiles type="std-percentiles"/>
-        </statistics>
-      </history>
-    </aggregation>
   </metric>
-  <metric name="ScrollFocusedMedian">
+  <metric name="GroupSuggestionType" enum="TabGroupSuggesiton.SuggestionType">
     <summary>
-      ScrollFocused metrics reports the throughput with highest priority on
-      scroll interactions. The median dropped frames within a fixed-duration
-      sliding window (as a percentage) with highest priority given to scroll
-      throughput. So out of all PerecentDroppedFrames of sliding windows the
-      median will be reported here.
+      Enum of the type of the suggestion. This is decided by the type of
+      heuristics used to trigger the suggestion.
     </summary>
-    <aggregation>
-      <history>
-        <index fields="profile.country"/>
-        <index fields="profile.form_factor"/>
-        <index fields="profile.system_ram"/>
-        <statistics>
-          <quantiles type="std-percentiles"/>
-        </statistics>
-      </history>
-    </aggregation>
   </metric>
-  <metric name="ScrollFocusedPercentile95">
+  <metric name="IsActiveTab" enum="Boolean">
     <summary>
-      ScrollFocused metrics reports the throughput with highest priority on
-      scroll interactions. The 95-th percentile dropped frames within a
-      fixed-duration sliding window (as a percentage). So out of all
-      PerecentDroppedFrames of sliding windows the 95th percentile will be
-      reported here.
+      Boolean indicating whether this source is the active tab for the trigger,
+      only recorded for 1 tab within all GroupSuggestionPromo.Suggestion events
+      recorded with the same GroupSuggestionID.
     </summary>
-    <aggregation>
-      <history>
-        <index fields="profile.country"/>
-        <index fields="profile.form_factor"/>
-        <index fields="profile.system_ram"/>
-        <statistics>
-          <quantiles type="std-percentiles"/>
-        </statistics>
-      </history>
-    </aggregation>
   </metric>
-  <metric name="ScrollFocusedVariance">
+  <metric name="RecentForegroundCount">
     <summary>
-      ScrollFocused metrics reports the throughput with highest priority on
-      scroll interactions. The variance of percent dropped frames within a
-      fixed-duration sliding window. So out of all PerecentDroppedFrames of
-      sliding windows the variance will be reported here.
+      Int recording the number of times that the tab has been foregrounded in a
+      predefined time window, currently 10 minutes.
     </summary>
-    <aggregation>
-      <history>
-        <index fields="profile.country"/>
-        <index fields="profile.form_factor"/>
-        <index fields="profile.system_ram"/>
-        <statistics>
-          <quantiles type="std-percentiles"/>
-        </statistics>
-      </history>
-    </aggregation>
   </metric>
-  <metric name="SmoothnessBad">
+  <metric name="SecondsSinceLastActive">
     <summary>
-      The percentage of sliding windows with bad smoothness, or a
-      PercentDroppedFrames of 12% to 25%.
+      Int recording the number of seconds since the tab was last active.
+      Exponentially bucketed using GetExponentialBucketMin with a spacing of 1.3
     </summary>
-    <aggregation>
-      <history>
-        <index fields="profile.country"/>
-        <index fields="profile.form_factor"/>
-        <index fields="profile.system_ram"/>
-        <statistics>
-          <quantiles type="std-percentiles"/>
-        </statistics>
-      </history>
-    </aggregation>
   </metric>
-  <metric name="SmoothnessGood">
+  <metric name="UserResponseType" enum="TabGroupSuggesiton.UserResponse">
     <summary>
-      The percentage of sliding windows with good smoothness, or a
-      PercentDroppedFrames of 3% to 6%.
+      Enum of the type of user response.
     </summary>
-    <aggregation>
-      <history>
-        <index fields="profile.country"/>
-        <index fields="profile.form_factor"/>
-        <index fields="profile.system_ram"/>
-        <statistics>
-          <quantiles type="std-percentiles"/>
-        </statistics>
-      </history>
-    </aggregation>
-  </metric>
-  <metric name="SmoothnessOkay">
-    <summary>
-      The percentage of sliding windows with okay smoothness, or a
-      PercentDroppedFrames of 6% to 12%.
-    </summary>
-    <aggregation>
-      <history>
-        <index fields="profile.country"/>
-        <index fields="profile.form_factor"/>
-        <index fields="profile.system_ram"/>
-        <statistics>
-          <quantiles type="std-percentiles"/>
-        </statistics>
-      </history>
-    </aggregation>
-  </metric>
-  <metric name="SmoothnessVeryBad25to50">
-    <summary>
-      The percentage of sliding windows with a subset of very bad smoothness, or
-      a PercentDroppedFrames of 25% to 50%.
-    </summary>
-    <aggregation>
-      <history>
-        <index fields="profile.country"/>
-        <index fields="profile.form_factor"/>
-        <index fields="profile.system_ram"/>
-        <statistics>
-          <quantiles type="std-percentiles"/>
-        </statistics>
-      </history>
-    </aggregation>
-  </metric>
-  <metric name="SmoothnessVeryBad50to75">
-    <summary>
-      The percentage of sliding windows with a subset of very bad smoothness, or
-      a PercentDroppedFrames of 50% to 75%.
-    </summary>
-    <aggregation>
-      <history>
-        <index fields="profile.country"/>
-        <index fields="profile.form_factor"/>
-        <index fields="profile.system_ram"/>
-        <statistics>
-          <quantiles type="std-percentiles"/>
-        </statistics>
-      </history>
-    </aggregation>
-  </metric>
-  <metric name="SmoothnessVeryBad75to100">
-    <summary>
-      The percentage of sliding windows with a subset of very bad smoothness, or
-      a PercentDroppedFrames of 75% to 100%.
-    </summary>
-    <aggregation>
-      <history>
-        <index fields="profile.country"/>
-        <index fields="profile.form_factor"/>
-        <index fields="profile.system_ram"/>
-        <statistics>
-          <quantiles type="std-percentiles"/>
-        </statistics>
-      </history>
-    </aggregation>
-  </metric>
-  <metric name="SmoothnessVeryGood">
-    <summary>
-      The percentage of sliding windows with very good smoothness, or a
-      PercentDroppedFrames of 0% to 3%.
-    </summary>
-    <aggregation>
-      <history>
-        <index fields="profile.country"/>
-        <index fields="profile.form_factor"/>
-        <index fields="profile.system_ram"/>
-        <statistics>
-          <quantiles type="std-percentiles"/>
-        </statistics>
-      </history>
-    </aggregation>
-  </metric>
-  <metric name="Variance">
-    <summary>
-      The variance of percent dropped frames within a fixed-duration sliding
-      window. So out of all PerecentDroppedFrames of sliding windows the
-      variance will be reported here.
-    </summary>
-    <aggregation>
-      <history>
-        <index fields="profile.country"/>
-        <index fields="profile.form_factor"/>
-        <index fields="profile.system_ram"/>
-        <statistics>
-          <quantiles type="std-percentiles"/>
-        </statistics>
-      </history>
-    </aggregation>
-  </metric>
-  <metric name="WorstCase">
-    <summary>
-      The maximum number of dropped frames (as a percentage) within a
-      fixed-duration sliding window. So out of all PerecentDroppedFrames of
-      sliding windows the max percentile will be reported here.
-    </summary>
-    <aggregation>
-      <history>
-        <index fields="profile.country"/>
-        <index fields="profile.form_factor"/>
-        <index fields="profile.system_ram"/>
-        <statistics>
-          <quantiles type="std-percentiles"/>
-        </statistics>
-      </history>
-    </aggregation>
-  </metric>
-  <metric name="WorstCaseAfter1Sec">
-    <summary>
-      The same as WorstCase metric, but only the sliding windows which starts 1
-      second after first contentful paint will be taken into account.
-    </summary>
-    <aggregation>
-      <history>
-        <index fields="profile.country"/>
-        <index fields="profile.form_factor"/>
-        <index fields="profile.system_ram"/>
-        <statistics>
-          <quantiles type="std-percentiles"/>
-        </statistics>
-      </history>
-    </aggregation>
-  </metric>
-  <metric name="WorstCaseAfter2Sec">
-    <summary>
-      The same as WorstCase metric, but only the sliding windows which starts 2
-      second after first contentful paint will be taken into account.
-    </summary>
-    <aggregation>
-      <history>
-        <index fields="profile.country"/>
-        <index fields="profile.form_factor"/>
-        <index fields="profile.system_ram"/>
-        <statistics>
-          <quantiles type="std-percentiles"/>
-        </statistics>
-      </history>
-    </aggregation>
-  </metric>
-  <metric name="WorstCaseAfter5Sec">
-    <summary>
-      The same as WorstCase metric, but only the sliding windows which starts 5
-      second after first contentful paint will be taken into account.
-    </summary>
-    <aggregation>
-      <history>
-        <index fields="profile.country"/>
-        <index fields="profile.form_factor"/>
-        <index fields="profile.system_ram"/>
-        <statistics>
-          <quantiles type="std-percentiles"/>
-        </statistics>
-      </history>
-    </aggregation>
   </metric>
 </event>
 
-<event name="HistoryApi">
+<event name="HistoryApi.AdvanceMethod">
   <owner>yaoxia@chromium.org</owner>
   <owner>shivanisha@chromium.org</owner>
   <summary>
-    Records usage of the window.history API, capturing details about the
-    operation type, user activation, and ad-related information. Recorded when
-    window.history API is used.
+    Records usage of `window.history` methods that advance the history position
+    (`pushState()`, `forward()`, and `go()` with positive values), capturing
+    details about user activation and ad-related information. Recorded when
+    these specific methods are invoked.
   </summary>
   <metric name="FromAd" enum="Boolean">
     <summary>
@@ -11739,12 +11590,6 @@ be describing additional metrics about the same event.
     <summary>
       Whether the invoking context has seen user activation.
       (https://mustaqahmed.github.io/user-activation-v2)
-    </summary>
-  </metric>
-  <metric name="IsHistoryModifyingOperation" enum="Boolean">
-    <summary>
-      Whether the operation modifies the history state (i.e., back(), forward(),
-      go(), pushState(), replaceState()).
     </summary>
   </metric>
 </event>
@@ -12992,6 +12837,32 @@ be describing additional metrics about the same event.
   <metric name="Omnibox">
     <summary>
       Time to first interaction when overlay invoked through the omnibox.
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric name="OmniboxContextualSuggestion">
+    <summary>
+      Time to first interaction when overlay invoked through the omnibox
+      contextual suggestion.
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric name="OmniboxPageAction">
+    <summary>
+      Time to first interaction when overlay invoked through the omnibox Lens
+      page action suggestion.
     </summary>
     <aggregation>
       <history>
@@ -19284,7 +19155,7 @@ be describing additional metrics about the same event.
     renderer process are allocated to all pages hosted in that process using the
     algorithm in performance_manager::ProcessMetricsDecorator. An event is
     collected for each open page every 2 minutes, which is the same frequency as
-    the PerformanceMonitor.AverageCPU8.* histograms.
+    the PerformanceMonitor.AverageCPU9.* histograms.
   </summary>
   <metric name="BackgroundState" enum="PageMeasurementBackgroundState">
     <summary>
@@ -19315,7 +19186,7 @@ be describing additional metrics about the same event.
     <summary>
       The estimated CPU usage of the page over the last 2 minutes, with 10,000
       as 100% usage of 1 full core. (The same scale as the
-      PerformanceMonitor.AverageCPU8.* histograms.)
+      PerformanceMonitor.AverageCPU9.* histograms.)
     </summary>
     <aggregation>
       <history>
@@ -19343,7 +19214,7 @@ be describing additional metrics about the same event.
     <summary>
       The sum of the estimated CPU usage of all pages over the last 2 minutes,
       with 10,000 as 100% usage of 1 full core. (The same scale as the
-      PerformanceMonitor.AverageCPU8.* histograms.) RecentCPUUsage can be
+      PerformanceMonitor.AverageCPU9.* histograms.) RecentCPUUsage can be
       compared to this to find how the page compares to other open tabs.
     </summary>
     <aggregation>
@@ -19781,6 +19652,13 @@ be describing additional metrics about the same event.
     <summary>
       A boolean signaling whether the URL is on the high confidence allowlist or
       not.
+    </summary>
+  </metric>
+  <metric name="SiteEngagementLevel">
+    <summary>
+      The site engagement level of the site when the user receives a
+      notification from them. Set to 0 even if the origin is not tracked by the
+      Site Engagement Service.
     </summary>
   </metric>
   <metric name="SuspiciousScore">
@@ -21249,14 +21127,15 @@ be describing additional metrics about the same event.
   </metric>
 </event>
 
-<event name="SafetyHub.DisruptiveNotificationRevocations.FalsePositive">
+<event
+    name="SafetyHub.DisruptiveNotificationRevocations.FalsePositiveInteraction">
   <owner>olesiamarukhnno@google.com</owner>
   <owner>antoniosartori@chromium.org</owner>
   <summary>
-    Recorded when an interactation was detected for a site that was previously
-    put in a potential revocation list for disruptive notification permissions
-    or for a site for which notification permission was revoked. The metrics
-    will be recorded on either page visit or a notification click.
+    Recorded when an user interaction was detected for a site that was
+    previously put in a potential revocation list for disruptive notification
+    permissions or for a site for which notification permission was revoked. The
+    metrics will be recorded on either page visit or a notification click.
   </summary>
   <metric name="DailyAverageVolume">
     <summary>
@@ -21282,8 +21161,68 @@ be describing additional metrics about the same event.
   </metric>
   <metric name="Reason" enum="DisruptiveNotificationFalsePositiveReason">
     <summary>
-      The reason why the revocation was deamed a false positive: either a web
+      The reason why the revocation was deemed a false positive: either a web
       site visit or a notification click.
+    </summary>
+  </metric>
+  <metric name="RevocationState" enum="DisruptiveNotificationRevocationState">
+    <summary>
+      The revocation state (either proposed or actually revoked).
+    </summary>
+  </metric>
+</event>
+
+<event
+    name="SafetyHub.DisruptiveNotificationRevocations.FalsePositiveRevocation">
+  <owner>olesiamarukhnno@google.com</owner>
+  <owner>antoniosartori@chromium.org</owner>
+  <summary>
+    Recorded when enough user interactations were detected to be deemed a false
+    positive revocation for a site that was previously put in a potential
+    revocation list for disruptive notification permissions or for a site for
+    which notification permission was revoked. The metrics will be recorded on
+    either page visit or a notification click. A site engagement score has to
+    increase by a minimum amount, set in feature params. A false positive
+    revocation can only be reported after a min cooldown period has passed, set
+    in feature params.
+  </summary>
+  <metric name="DailyAverageVolume">
+    <summary>
+      Average daily volume of notifications sent by the site, measured over the
+      last 7 days.
+    </summary>
+  </metric>
+  <metric name="DaysSinceRevocation">
+    <summary>
+      The number of days between the website was put in the potential revocation
+      list and the detected increase in site engagement.
+    </summary>
+  </metric>
+  <metric name="NewSiteEngagement">
+    <summary>
+      New site engagement after user interaction with the site.
+    </summary>
+  </metric>
+  <metric name="NotificationClickCount">
+    <summary>
+      The notification clicks count, observered while the site is in the
+      proposed revocation list.
+    </summary>
+  </metric>
+  <metric name="OldSiteEngagement">
+    <summary>
+      Site engagement score when the site marked for revocation.
+    </summary>
+  </metric>
+  <metric name="PageVisitCount">
+    <summary>
+      The page visits count, observered while the site is in the proposed
+      revocation list.
+    </summary>
+  </metric>
+  <metric name="RevocationState" enum="DisruptiveNotificationRevocationState">
+    <summary>
+      The revocation state (either proposed or actually revoked).
     </summary>
   </metric>
 </event>
@@ -21310,6 +21249,39 @@ be describing additional metrics about the same event.
   <metric name="SiteEngagement">
     <summary>
       Site engagement for the disruptive site.
+    </summary>
+  </metric>
+</event>
+
+<event name="SafetyHub.DisruptiveNotificationRevocations.UserRegrant">
+  <owner>olesiamarukhnno@google.com</owner>
+  <owner>antoniosartori@chromium.org</owner>
+  <summary>
+    Recorded when a user has granted a notification permission for a site where
+    notifications where revoked due to disruptive notifications. Recorded when
+    user is visiting a site and has allowed notification permission for a site
+    in the revoke list.
+  </summary>
+  <metric name="DailyAverageVolume">
+    <summary>
+      Average daily volume of notifications sent by the site, measured over the
+      last 7 days.
+    </summary>
+  </metric>
+  <metric name="DaysSinceRevocation">
+    <summary>
+      The number of days between the website was put in the potential revocation
+      list and the detected increase in site engagement.
+    </summary>
+  </metric>
+  <metric name="NewSiteEngagement">
+    <summary>
+      New site engagement after user interaction with the site.
+    </summary>
+  </metric>
+  <metric name="OldSiteEngagement">
+    <summary>
+      Site engagement score when the site marked for revocation.
     </summary>
   </metric>
 </event>
@@ -24111,6 +24083,13 @@ be describing additional metrics about the same event.
       Token and thus was granted cookie access.
     </summary>
   </metric>
+  <metric name="Source" enum="FirstPartyMetadataSource">
+    <summary>
+      The source of the metadata rule that grants this cookie access. This is
+      logged for every page load with third-party cookies allowed due to a
+      global metadata or heuristics rule.
+    </summary>
+  </metric>
 </event>
 
 <event name="Translate">
@@ -24143,7 +24122,7 @@ be describing additional metrics about the same event.
     instances where the user backgrounds then kills Chrome.
   </summary>
   <metric name="FinalSourceLanguage" semantic_type="ST_DEMOGRAPHIC_INFO"
-      enum="LocaleCodeISO639">
+      enum="LocaleCodeBCP47">
     <summary>
       The source language at the time the event is recorded. In most cases this
       will match the initial source language, but the user can change the source
@@ -24160,7 +24139,7 @@ be describing additional metrics about the same event.
     </summary>
   </metric>
   <metric name="FinalTargetLanguage" semantic_type="ST_DEMOGRAPHIC_INFO"
-      enum="LocaleCodeISO639">
+      enum="LocaleCodeBCP47">
     <summary>
       The target language at the time the event is recorded. In most cases this
       will match the initial target language, but the user can change the target
@@ -24180,7 +24159,7 @@ be describing additional metrics about the same event.
     </summary>
   </metric>
   <metric name="HTMLContentLanguage" semantic_type="ST_DEMOGRAPHIC_INFO"
-      enum="LocaleCodeISO639">
+      enum="LocaleCodeBCP47">
     <summary>
       The HTML language content attribute specified by the document. Note that
       the semantic_type attribute is included in order to remain consistent with
@@ -24188,7 +24167,7 @@ be describing additional metrics about the same event.
     </summary>
   </metric>
   <metric name="HTMLDocumentLanguage" semantic_type="ST_DEMOGRAPHIC_INFO"
-      enum="LocaleCodeISO639">
+      enum="LocaleCodeBCP47">
     <summary>
       The HTML language attribute specified by the document. Note that the
       semantic_type attribute is included in order to remain consistent with the
@@ -24196,7 +24175,7 @@ be describing additional metrics about the same event.
     </summary>
   </metric>
   <metric name="InitialSourceLanguage" semantic_type="ST_DEMOGRAPHIC_INFO"
-      enum="LocaleCodeISO639">
+      enum="LocaleCodeBCP47">
     <summary>
       The initial source language that Translate determines for the page. Note
       that the semantic_type attribute is included in order to remain consistent
@@ -24220,7 +24199,7 @@ be describing additional metrics about the same event.
     </summary>
   </metric>
   <metric name="InitialTargetLanguage" semantic_type="ST_DEMOGRAPHIC_INFO"
-      enum="LocaleCodeISO639">
+      enum="LocaleCodeBCP47">
     <summary>
       The initial target language that Translate thinks it should translate to.
       Note that the semantic_type attribute is included in order to remain
@@ -24234,7 +24213,7 @@ be describing additional metrics about the same event.
     </summary>
   </metric>
   <metric name="ModelDetectedLanguage" semantic_type="ST_DEMOGRAPHIC_INFO"
-      enum="LocaleCodeISO639">
+      enum="LocaleCodeBCP47">
     <summary>
       The language that was estimated by the language model based on the page's
       content. Note that the semantic_type attribute is included in order to
@@ -26952,10 +26931,8 @@ be describing additional metrics about the same event.
 </event>
 
 <event name="XR.WebXR.Session">
-  <owner>billorr@chromium.org</owner>
-  <owner>bialpio@chromium.org</owner>
+  <owner>alcooper@chromium.org</owner>
   <owner>xr-dev@chromium.org</owner>
-  <owner>cassew@google.com</owner>
   <summary>
     When session ends, records data for a WebXR / WebVR session.
   </summary>

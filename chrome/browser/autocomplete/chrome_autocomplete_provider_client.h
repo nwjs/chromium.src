@@ -101,6 +101,7 @@ class ChromeAutocompleteProviderClient : public AutocompleteProviderClient {
   bool SearchSuggestEnabled() const override;
   bool AllowDeletingBrowserHistory() const override;
   bool IsUrlDataCollectionActive() const override;
+  bool IsPersonalizedUrlDataCollectionActive() const override;
   bool IsAuthenticated() const override;
   bool IsSyncActive() const override;
   std::string ProfileUserName() const override;
@@ -121,6 +122,9 @@ class ChromeAutocompleteProviderClient : public AutocompleteProviderClient {
   bool IsSharingHubAvailable() const override;
   bool IsHistoryEmbeddingsEnabled() const override;
   bool IsHistoryEmbeddingsSettingVisible() const override;
+  bool IsLensEnabled() const override;
+  bool AreLensEntrypointsVisible() const override;
+  std::optional<bool> IsPagePaywalled() const override;
   base::CallbackListSubscription GetLensSuggestInputsWhenReady(
       LensOverlaySuggestInputsCallback callback) const override;
   base::WeakPtr<AutocompleteProviderClient> GetWeakPtr() override;
@@ -153,6 +157,8 @@ class ChromeAutocompleteProviderClient : public AutocompleteProviderClient {
   std::unique_ptr<OmniboxPedalProvider> pedal_provider_;
   std::unique_ptr<unified_consent::UrlKeyedDataCollectionConsentHelper>
       url_consent_helper_;
+  std::unique_ptr<unified_consent::UrlKeyedDataCollectionConsentHelper>
+      personalized_url_consent_helper_;
 #if BUILDFLAG(IS_ANDROID)
   TabMatcherAndroid tab_matcher_;
 #else

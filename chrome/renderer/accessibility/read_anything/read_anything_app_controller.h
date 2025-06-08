@@ -209,6 +209,7 @@ class ReadAnythingAppController
   void SendInstallVoicePackRequest(const std::string& language) const;
   void SendUninstallVoiceRequest(const std::string& language) const;
 
+  bool IsSpeechTreeInitialized();
   bool ShouldBold(ui::AXNodeID ax_node_id) const;
   bool IsOverline(ui::AXNodeID ax_node_id) const;
   bool IsLeafNode(ui::AXNodeID ax_node_id) const;
@@ -245,7 +246,7 @@ class ReadAnythingAppController
   std::vector<std::string> GetAllFonts() const;
   void OnScrolledToBottom();
   bool IsDocsLoadMoreButtonVisible() const;
-  void OnNoTextContent();
+  void OnNoTextContent(bool previouslyHadContent);
 
   // The language code that should be used to determine which voices are
   // supported for speech.
@@ -294,11 +295,6 @@ class ReadAnythingAppController
   // TODO(crbug.com/40927698): We should be able to use AXPosition in a way
   // where this isn't needed.
   void InitAXPositionWithNode(const ui::AXNodeID& starting_node_id);
-
-  // TODO(crbug.com/40927698): Random access to processed nodes might not always
-  // work (e.g. if we're switching granularities or jumping to a specific node),
-  // so we should implement a method of retrieving previous text from
-  // AXPosition.
 
   // Increments the processed_granularity_index_, updating ReadAloud's state of
   // the current granularity to refer to the next granularity. The current
@@ -349,7 +345,7 @@ class ReadAnythingAppController
   // However, this may be the same value as GetLanguageCodeForSpeech.
   const std::string& GetDefaultLanguageCodeForSpeech() const;
 
-  void Distill(bool for_training_data);
+  void Distill(bool for_training_data = false);
   void DrawSelection();
   void DrawEmptyState();
 

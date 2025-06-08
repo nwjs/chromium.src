@@ -16,6 +16,7 @@
 
 @interface ManagedProfileCreationMediator () <
     IdentityManagerObserverBridgeDelegate> {
+  BOOL _mergeBrowsingDataByDefault;
   BOOL _canShowBrowsingDataMigration;
   BOOL _browsingDataMigrationDisabledByPolicy;
   NSString* _gaiaID;
@@ -56,7 +57,8 @@
         !skipBrowsingDataMigration &&
         AreSeparateProfilesForManagedAccountsEnabled() &&
         !identityManager->HasPrimaryAccount(signin::ConsentLevel::kSignin);
-    _keepBrowsingDataSeparate = !mergeBrowsingDataByDefault;
+    _mergeBrowsingDataByDefault = mergeBrowsingDataByDefault;
+    _browsingDataSeparate = !mergeBrowsingDataByDefault;
     _browsingDataMigrationDisabledByPolicy =
         browsingDataMigrationDisabledByPolicy;
   }
@@ -72,7 +74,7 @@
 }
 
 - (void)setKeepBrowsingDataSeparate:(BOOL)keepSeparate {
-  _keepBrowsingDataSeparate = keepSeparate;
+  _browsingDataSeparate = keepSeparate;
   [self.consumer setKeepBrowsingDataSeparate:keepSeparate];
 }
 
@@ -81,17 +83,18 @@
     return;
   }
   _consumer = consumer;
+  _consumer.mergeBrowsingDataByDefault = _mergeBrowsingDataByDefault;
   _consumer.canShowBrowsingDataMigration = _canShowBrowsingDataMigration;
   _consumer.browsingDataMigrationDisabledByPolicy =
       _browsingDataMigrationDisabledByPolicy;
-  [_consumer setKeepBrowsingDataSeparate:self.keepBrowsingDataSeparate];
+  [_consumer setKeepBrowsingDataSeparate:self.browsingDataSeparate];
 }
 
 #pragma mark - BrowsingDataMigrationViewControllerDelegate
 
-- (void)updateShouldKeepBrowsingDataSeparate:(BOOL)keepBrowsingDataSeparate {
-  self.keepBrowsingDataSeparate = keepBrowsingDataSeparate;
-  [self.consumer setKeepBrowsingDataSeparate:self.keepBrowsingDataSeparate];
+- (void)updateShouldKeepBrowsingDataSeparate:(BOOL)browsingDataSeparate {
+  self.browsingDataSeparate = browsingDataSeparate;
+  [self.consumer setKeepBrowsingDataSeparate:self.browsingDataSeparate];
 }
 
 #pragma mark - IdentityManagerObserverBridgeDelegate

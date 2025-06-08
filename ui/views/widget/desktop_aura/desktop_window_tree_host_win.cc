@@ -164,15 +164,15 @@ aura::Window* DesktopWindowTreeHostWin::GetContentWindowForHWND(HWND hwnd) {
 void DesktopWindowTreeHostWin::StartTouchDrag(gfx::Point screen_point) {
   // Send a mouse down and mouse move before do drag drop runs its own event
   // loop. This is required for ::DoDragDrop to start the drag.
-  ui::SendMouseEvent(screen_point, MOUSEEVENTF_LEFTDOWN | MOUSEEVENTF_ABSOLUTE);
-  ui::SendMouseEvent(screen_point, MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE);
+  ui::SendMouseEvent(screen_point, MOUSEEVENTF_LEFTDOWN);
+  ui::SendMouseEvent(screen_point, MOUSEEVENTF_MOVE);
   in_touch_drag_ = true;
 }
 
 void DesktopWindowTreeHostWin::FinishTouchDrag(gfx::Point screen_point) {
   if (in_touch_drag_) {
     in_touch_drag_ = false;
-    ui::SendMouseEvent(screen_point, MOUSEEVENTF_LEFTUP | MOUSEEVENTF_ABSOLUTE);
+    ui::SendMouseEvent(screen_point, MOUSEEVENTF_LEFTUP);
   }
 }
 
@@ -206,26 +206,7 @@ void DesktopWindowTreeHostWin::Init(const Widget::InitParams& params) {
       display::win::GetScreenWin()->DIPToScreenRect(nullptr, params.bounds);
   message_handler_->Init(parent_hwnd, pixel_bounds);
 
-  // If the Redirection Surface is removed, there needs to be a replacement
-  // "background" of the Chromium window. Create a Windows.Ui.Composition
-  // backdrop and apply it to the window. If the frame is system drawn, it means
-  // that the window controls are rendered by Windows. In that case, they would
-  // be covered by the WUC backdrop, so only create the backdrop when frame mode
-  // is not `FrameMode::SYSTEM_DRAWN`.
-  if (((message_handler_->window_ex_style() & WS_EX_NOREDIRECTIONBITMAP) ==
-       WS_EX_NOREDIRECTIONBITMAP) &&
-      !message_handler_->is_translucent() &&
-      GetFrameMode() != FrameMode::SYSTEM_DRAWN) {
-    // Ensure that the hwnd has been created.
-    CHECK(GetHWND());
-
-    // Apply backdrop to the window.
-    wuc_backdrop_ = std::make_unique<gfx::WUCBackdrop>(GetHWND());
-
-    wuc_backdrop_->UpdateBackdropColor(
-        GetWidget()->GetColorProvider()->GetColor(ui::kColorFrameActive));
-  }
-
+  UpdateWUCBackdrop();
   CreateCompositor(params.force_software_compositing);
   OnAcceleratedWidgetAvailable();
   InitHost();
@@ -262,10 +243,7 @@ void DesktopWindowTreeHostWin::OnWidgetInitDone() {}
 
 void DesktopWindowTreeHostWin::OnWidgetThemeChanged(
     ui::ColorProviderKey::ColorMode color_mode) {
-  if (GetWidget() && wuc_backdrop_) {
-    wuc_backdrop_->UpdateBackdropColor(
-        GetWidget()->GetColorProvider()->GetColor(ui::kColorFrameActive));
-  }
+  UpdateWUCBackdrop();
 }
 
 std::unique_ptr<corewm::Tooltip> DesktopWindowTreeHostWin::CreateTooltip() {
@@ -1262,7 +1240,7 @@ void DesktopWindowTreeHostWin::HandleTouchEvent(ui::TouchEvent* event) {
     // Send equivalent mouse events, because Ole32 drag drop doesn't seem to
     // handle pointer events.
     if (event->type() == ui::EventType::kTouchMoved) {
-      ui::SendMouseEvent(screen_point, MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE);
+      ui::SendMouseEvent(screen_point, MOUSEEVENTF_MOVE);
     } else if (event->type() == ui::EventType::kTouchReleased) {
       FinishTouchDrag(screen_point);
     }
@@ -1523,6 +1501,36 @@ void DesktopWindowTreeHostWin::UpdateAllowScreenshots() {
   // are being explicitly not shown.
   SetWindowDisplayAffinity(GetHWND(),
                            allow_screenshots_ ? WDA_NONE : WDA_MONITOR);
+}
+
+void DesktopWindowTreeHostWin::UpdateWUCBackdrop() {
+  // If the Redirection Surface is removed, there needs to be a replacement
+  // "background" of the Chromium window. Create a Windows.Ui.Composition
+  // backdrop and apply it to the window. If the frame is system drawn, it means
+  // that the window controls are rendered by Windows. In that case, they would
+  // be covered by the WUC backdrop, so only create the backdrop when frame mode
+  // is not `FrameMode::SYSTEM_DRAWN`. If the backdrop already exists, we need
+  // to check whether to keep it before updating it.
+  if (GetFrameMode() == FrameMode::SYSTEM_DRAWN) {
+    wuc_backdrop_.reset();
+    return;
+  }
+
+  if (GetWidget() &&
+      ((message_handler_->window_ex_style() & WS_EX_NOREDIRECTIONBITMAP) ==
+       WS_EX_NOREDIRECTIONBITMAP) &&
+      !message_handler_->is_translucent()) {
+    // Ensure that the hwnd has been created.
+    CHECK(GetHWND());
+
+    // Apply backdrop to the window.
+    if (!wuc_backdrop_) {
+      wuc_backdrop_ = std::make_unique<gfx::WUCBackdrop>(GetHWND());
+    }
+
+    wuc_backdrop_->UpdateBackdropColor(
+        GetWidget()->GetColorProvider()->GetColor(ui::kColorFrameActive));
+  }
 }
 
 ////////////////////////////////////////////////////////////////////////////////

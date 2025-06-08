@@ -168,6 +168,30 @@ content_settings::ContentSettingConstraints GetConstraintFromInfo(
   return constraint;
 }
 
+bool IsUnusedPermissionRevocation(PermissionsRevocationType revocation_type) {
+  return revocation_type == PermissionsRevocationType::kUnusedPermissions ||
+         revocation_type == PermissionsRevocationType::
+                                kUnusedPermissionsAndAbusiveNotifications ||
+         revocation_type == PermissionsRevocationType::
+                                kUnusedPermissionsAndDisruptiveNotifications;
+}
+
+bool IsAbusiveNotificationPermissionRevocation(
+    PermissionsRevocationType revocation_type) {
+  return revocation_type ==
+             PermissionsRevocationType::kAbusiveNotificationPermissions ||
+         revocation_type == PermissionsRevocationType::
+                                kUnusedPermissionsAndAbusiveNotifications;
+}
+
+bool IsDisruptiveNotificationPermissionRevocation(
+    PermissionsRevocationType revocation_type) {
+  return revocation_type ==
+             PermissionsRevocationType::kDisruptiveNotificationPermissions ||
+         revocation_type == PermissionsRevocationType::
+                                kUnusedPermissionsAndDisruptiveNotifications;
+}
+
 }  // namespace
 
 // static
@@ -250,20 +274,19 @@ RevokedPermissionsService::RevokedPermissionsResult::Clone() const {
 }
 
 void RevokedPermissionsService::RevokedPermissionsResult::AddRevokedPermission(
-    const PermissionsData& permissions_data) {
+    PermissionsData permissions_data) {
   revoked_permissions_.push_back(std::move(permissions_data));
 }
 
-std::list<PermissionsData>
+const std::list<PermissionsData>&
 RevokedPermissionsService::RevokedPermissionsResult::GetRevokedPermissions() {
-  std::list<PermissionsData> result(revoked_permissions_);
-  return result;
+  return revoked_permissions_;
 }
 
 std::set<ContentSettingsPattern>
 RevokedPermissionsService::RevokedPermissionsResult::GetRevokedOrigins() const {
   std::set<ContentSettingsPattern> origins;
-  for (auto permission : revoked_permissions_) {
+  for (const auto& permission : revoked_permissions_) {
     origins.insert(permission.primary_pattern);
   }
   return origins;
@@ -273,7 +296,7 @@ base::Value::Dict
 RevokedPermissionsService::RevokedPermissionsResult::ToDictValue() const {
   base::Value::Dict result = BaseToDictValue();
   base::Value::List revoked_origins;
-  for (auto permission : revoked_permissions_) {
+  for (const auto& permission : revoked_permissions_) {
     revoked_origins.Append(permission.primary_pattern.ToString());
   }
   result.Set(kRevokedPermissionsResultKey, std::move(revoked_origins));
@@ -344,7 +367,7 @@ void RevokedPermissionsService::TabHelper::PrimaryPageChanged(
     content::Page& page) {
   Profile* profile =
       Profile::FromBrowserContext(web_contents()->GetBrowserContext());
-  DisruptiveNotificationPermissionsManager::CheckForFalsePositive(
+  DisruptiveNotificationPermissionsManager::MaybeReportFalsePositive(
       profile, page.GetMainDocument().GetLastCommittedURL(),
       DisruptiveNotificationPermissionsManager::FalsePositiveReason::kPageVisit,
       page.GetMainDocument().GetPageUkmSourceId());
@@ -406,7 +429,7 @@ RevokedPermissionsService::RevokedPermissionsService(
   }
 
   if (base::FeatureList::IsEnabled(
-          safe_browsing::kSafetyHubDisruptiveNotificationRevocation)) {
+          features::kSafetyHubDisruptiveNotificationRevocation)) {
     disruptive_notification_manager_ =
         std::make_unique<DisruptiveNotificationPermissionsManager>(
             hcsm(),
@@ -427,11 +450,20 @@ RevokedPermissionsService::RevokedPermissionsService(
 
   if (IsUnusedSiteAutoRevocationEnabled() ||
       IsAbusiveNotificationAutoRevocationEnabled()) {
-    StartRepeatedUpdates();
+    hcsm()->EnsureSettingsUpToDate(
+        base::BindOnce(&RevokedPermissionsService::MaybeStartRepeatedUpdates,
+                       weak_factory_.GetWeakPtr()));
   }
 }
 
 RevokedPermissionsService::~RevokedPermissionsService() = default;
+
+void RevokedPermissionsService::MaybeStartRepeatedUpdates() {
+  if (IsUnusedSiteAutoRevocationEnabled() ||
+      IsAbusiveNotificationAutoRevocationEnabled()) {
+    StartRepeatedUpdates();
+  }
+}
 
 std::unique_ptr<SafetyHubService::Result>
 RevokedPermissionsService::InitializeLatestResultImpl() {
@@ -625,7 +657,7 @@ void RevokedPermissionsService::UndoRegrantPermissionsForOrigin(
   // revoked settings if necessary.
   is_unused_site_revocation_running = false;
 
-  StorePermissionInRevokedPermissionSetting(
+  StorePermissionInUnusedSitePermissionSetting(
       unused_site_permission_types, permissions_data.chooser_permissions_data,
       permissions_data.constraints.Clone(), permissions_data.primary_pattern,
       ContentSettingsPattern::Wildcard());
@@ -833,8 +865,8 @@ RevokedPermissionsService::GetRevokedPermissions() {
       }
       permissions_data.revocation_type =
           PermissionsRevocationType::kUnusedPermissionsAndAbusiveNotifications;
-    } else if (safety_hub_util::IsUrlRevokedDisruptiveNotification(hcsm(),
-                                                                   url)) {
+    } else if (DisruptiveNotificationPermissionsManager::
+                   IsUrlRevokedDisruptiveNotification(hcsm(), url)) {
       // If the origin has a revoked disruptive notification, add
       // `NOTIFICATIONS` to the list of revoked permissions.
       CHECK(disruptive_notification_manager_);
@@ -1003,7 +1035,7 @@ void RevokedPermissionsService::RevokeUnusedPermissions() {
 
     // Store revoked permissions on HCSM.
     if (!revoked_permissions.empty()) {
-      StorePermissionInRevokedPermissionSetting(
+      StorePermissionInUnusedSitePermissionSetting(
           revoked_permissions, chooser_permissions_data, std::nullopt,
           primary_pattern, secondary_pattern);
     }
@@ -1029,18 +1061,36 @@ void RevokedPermissionsService::RevokeUnusedPermissions() {
   is_unused_site_revocation_running = false;
 }
 
-void RevokedPermissionsService::StorePermissionInRevokedPermissionSetting(
-    const PermissionsData& permissions_data) {
-  // The |secondary_pattern| for
-  // |ContentSettingsType::REVOKED_UNUSED_SITE_PERMISSIONS| is always wildcard.
-  StorePermissionInRevokedPermissionSetting(
-      permissions_data.permission_types,
-      permissions_data.chooser_permissions_data,
-      permissions_data.constraints.Clone(), permissions_data.primary_pattern,
-      ContentSettingsPattern::Wildcard());
+void RevokedPermissionsService::RestoreDeletedRevokedPermissionsList(
+    const std::vector<PermissionsData>& permissions_data_list) {
+  for (const auto& permissions_data : permissions_data_list) {
+    if (IsUnusedPermissionRevocation(permissions_data.revocation_type)) {
+      StorePermissionInUnusedSitePermissionSetting(
+          permissions_data.permission_types,
+          permissions_data.chooser_permissions_data,
+          permissions_data.constraints.Clone(),
+          permissions_data.primary_pattern, ContentSettingsPattern::Wildcard());
+    }
+
+    if (IsAbusiveNotificationAutoRevocationEnabled() &&
+        IsAbusiveNotificationPermissionRevocation(
+            permissions_data.revocation_type)) {
+      abusive_notification_manager_->RestoreDeletedRevokedPermission(
+          permissions_data.primary_pattern,
+          permissions_data.constraints.Clone());
+    }
+
+    if (disruptive_notification_manager_ &&
+        IsDisruptiveNotificationPermissionRevocation(
+            permissions_data.revocation_type)) {
+      disruptive_notification_manager_->RestoreDeletedRevokedPermission(
+          permissions_data.primary_pattern,
+          permissions_data.constraints.Clone());
+    }
+  }
 }
 
-void RevokedPermissionsService::StorePermissionInRevokedPermissionSetting(
+void RevokedPermissionsService::StorePermissionInUnusedSitePermissionSetting(
     const std::set<ContentSettingsType>& permissions,
     const base::Value::Dict& chooser_permissions_data,
     const std::optional<content_settings::ContentSettingConstraints> constraint,

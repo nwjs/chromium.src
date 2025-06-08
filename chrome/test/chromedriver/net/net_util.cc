@@ -91,7 +91,7 @@ class SyncUrlFetcher {
 
 NetAddress::NetAddress() : port_(-1) {}
 
-NetAddress::NetAddress(int port) : host_("localhost"), port_(port) {}
+NetAddress::NetAddress(int port) : host_("127.0.0.1"), port_(port) {}
 
 NetAddress::NetAddress(const std::string& host, int port)
     : host_(host), port_(port) {}

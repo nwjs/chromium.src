@@ -232,6 +232,10 @@ const char kDiskCacheDir[] = "disk-cache-dir";
 // Forces the maximum disk space to be used by the disk cache, in bytes.
 const char kDiskCacheSize[] = "disk-cache-size";
 
+// Do not de-elevate the browser on launch. Used after de-elevating to prevent
+// infinite loops.
+const char kDoNotDeElevateOnLaunch[] = "do-not-de-elevate";
+
 // Requests that a running browser process dump its collected histograms to a
 // given file. The file is overwritten if it exists.
 const char kDumpBrowserHistograms[] = "dump-browser-histograms";
@@ -277,6 +281,10 @@ const char kEnableNetBenchmarking[] = "enable-net-benchmarking";
 // content mode, powerful feature restrictions, etc.)
 const char kEnablePotentiallyAnnoyingSecurityFeatures[] =
     "enable-potentially-annoying-security-features";
+
+// Allows experimental ai extension APIs to be used in stable channel.
+// This disables chrome sign-in if set, regardless of channel.
+const char kExperimentalAiStableChannel[] = "experimental-ai-stable-channel";
 
 // Allows overriding the list of restricted ports by passing a comma-separated
 // list of port numbers.
@@ -509,7 +517,7 @@ const char kIgnoreProfileDirectoryIfNotExists[] =
 
 // Like kProfileDirectory, but selects the profile by email address. If the
 // email is not found in any existing profile, this switch has no effect. If
-// both kProfileDirectory and kProfileUserName are specified, kProfileDirectory
+// both kProfileDirectory and kProfileEmail are specified, kProfileDirectory
 // takes priority.
 const char kProfileEmail[] = "profile-email";
 

@@ -47,6 +47,7 @@ Vær opmærksom på følgende:
 <translation id="1917964099031477364">Denne konto og data, som ikke er gemt, fjernes fra Chrome og andre Google-apps på denne enhed.</translation>
 <translation id="1919130412786645364">Tillad login i Chrome</translation>
 <translation id="1965935827552890526">Gør det færdigt, du var i gang med i dit andet åbne Chrome-vindue.</translation>
+<translation id="1966638102563776885">Tip til Chrome: Få adgang til dine adgangskoder i enhver app</translation>
 <translation id="1973910962341002002">Aktivér "Chrome" i indstillingerne for "<ph name="TEXT_OF_THE_SETTINGS_MENU_ITEM" />"</translation>
 <translation id="1984705450038014246">Synkroniser dine Chrome-data</translation>
 <translation id="1987779152850321833">Udfør de foreslåede handlinger nedenfor for at få mest muligt ud af Chrome.</translation>
@@ -114,7 +115,6 @@ Prøv at vente et par minutter, før du logger ud. Hvis du logger ud nu, slettes
 <translation id="3655656110921623717">Det betyder, at Chrome anmoder om mobilwebsitet hver gang.</translation>
 <translation id="3740397331642243698">Åbner de angivne webadresser i Google Chrome i inkognito.</translation>
 <translation id="3741995255368156336">Åbner Chrome-læselisten.</translation>
-<translation id="3808570423967020928">Få hurtigere adgang til Chrome via docken på din startskærm.</translation>
 <translation id="3827545470516145620">Du får standardbeskyttelse på denne enhed</translation>
 <translation id="384394811301901750">Google Chrome kan ikke bruge dit kamera lige nu</translation>
 <translation id="3863841106411295595">Føjer de angivne webadresser til din læseliste i Chrome.</translation>
@@ -138,6 +138,7 @@ Prøv at vente et par minutter, før du logger ud. Hvis du logger ud nu, slettes
 <translation id="4724297637870447613">Brug Chrome overalt</translation>
 <translation id="4738647308035481133">Google Chrome-side</translation>
 <translation id="4742795653798179840">Chrome-dataene er slettet</translation>
+<translation id="4749294594657945639">For nemt at tilgå dine gemte adgangskoder i andre apps skal du vælge Chrome til autofyld.</translation>
 <translation id="4761869838909035636">Kør Chrome-sikkerhedstjekket</translation>
 <translation id="4798859546468762093">For at få personlig tilpasning og andre funktioner skal du medtage Chrome i <ph name="FEATURE_NAME_1" /> og <ph name="FEATURE_NAME_2" /></translation>
 <translation id="4819268619367838612">Chrome sender data om brug og nedbrud til Google for at hjælpe med at forbedre appen. <ph name="BEGIN_LINK" />Administrer<ph name="END_LINK" /></translation>
@@ -233,7 +234,6 @@ Du kan finde flere indstillinger, der bruger data til at forbedre din Chrome-opl
 <translation id="6975725306479268850">Vælg Chrome for Autofyld</translation>
 <translation id="7056826488869329999">Åbner og kører et sikkerhedstjek i Chrome.</translation>
 <translation id="7061455974939528301">Hold Chrome-ikonet nede, og klik på "Rediger hjemmeskærm"</translation>
-<translation id="7065813315247345131">Flyt Chrome til docken</translation>
 <translation id="7124339256045485976">Sørger for, at Chrome er opdateret</translation>
 <translation id="7145599899567697473">Gem og udfyld automatisk adgangskoder i Chrome</translation>
 <translation id="7161390184744336561">Google Chrome er forældet</translation>
@@ -317,10 +317,10 @@ Dine data blev krypteret med din adgangssætning <ph name="TIME" />. Angiv adgan
 <translation id="8603022514504485810">Google Adgangs­kode­admin­istrator kunne ikke tjekke alle adgangskoder. Prøv igen i morgen, eller <ph name="BEGIN_LINK" />tjek adgangskoder på din Google-konto<ph name="END_LINK" />.</translation>
 <translation id="8630122478628016441">Aktivér "Lås inkognitofaner, når du lukker Chrome".</translation>
 <translation id="8673726683583791503">Shop med Google Lens</translation>
-<translation id="8727043961453758442">Få mest muligt ud af Chrome</translation>
 <translation id="8765470054473112089">Når du indtaster noget i adresselinjen eller søgefeltet, sender Chrome det, du skriver, til din standardsøgemaskine for at få bedre forslag. Dette er deaktiveret i inkognitotilstand.</translation>
 <translation id="8772179140489533211">Viser anmodninger om at logge ind i Chrome.</translation>
 <translation id="8788269841521769222">Du behøver ikke at huske denne adgangskode. Den gemmes i Googles Adgangs­kode­admin­istrator for <ph name="EMAIL" /></translation>
+<translation id="8796490717897731471"><ph name="EMAIL" />. Chrome er administreret.</translation>
 <translation id="880967149107462122">Gå til Chrome-indstillinger</translation>
 <translation id="8842132678697187091">Du kan åbne Google Lens her.</translation>
 <translation id="8850736900032787670">Log ind i Chrome for at få personligt tilpasset indhold baseret på dine interesser.</translation>

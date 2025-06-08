@@ -141,7 +141,7 @@ libcxx_module_prefix = "$root_gen_dir/libcxx"
 assert(!(is_ios && libcxx_is_shared),
        "Can't build libc++ as a shared library on iOS.")
 
-if (libcxx_is_shared) {
+if (!is_debug && libcxx_is_shared) {
   libcxx_target_type = "shared_library"
 } else if (is_win) {
   libcxx_target_type = "source_set"

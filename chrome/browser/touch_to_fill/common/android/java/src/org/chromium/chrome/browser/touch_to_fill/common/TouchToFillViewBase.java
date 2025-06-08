@@ -41,7 +41,7 @@ public abstract class TouchToFillViewBase implements BottomSheetContent {
     private final RelativeLayout mContentView;
     private final DetailScreenScrollListener mScrollListener;
     private @Nullable Callback<Integer> mDismissHandler;
-    private RecyclerView mSheetItemListView;
+    private final RecyclerView mSheetItemListView;
 
     private final BottomSheetObserver mBottomSheetObserver =
             new EmptyBottomSheetObserver() {
@@ -335,11 +335,6 @@ public abstract class TouchToFillViewBase implements BottomSheetContent {
     public boolean skipHalfStateOnScrollingDown() {
         // Skip the half state if a service requesting touch exploration is enabled.
         return AccessibilityState.isTouchExplorationEnabled();
-    }
-
-    @Override
-    public int getPeekHeight() {
-        return BottomSheetContent.HeightMode.DISABLED;
     }
 
     @Override

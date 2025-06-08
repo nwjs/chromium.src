@@ -205,12 +205,11 @@ AutofillOfferManager* TestPaymentsAutofillClient::GetAutofillOfferManager() {
 
 bool TestPaymentsAutofillClient::ShowTouchToFillCreditCard(
     base::WeakPtr<TouchToFillDelegate> delegate,
-    base::span<const CreditCard> cards_to_suggest,
     base::span<const Suggestion> suggestions) {
   return false;
 }
 
-bool TestPaymentsAutofillClient::IsTabModalPopup() const {
+bool TestPaymentsAutofillClient::IsTabModalPopupDeprecated() const {
   return is_tab_model_popup_;
 }
 
@@ -241,6 +240,10 @@ bool TestPaymentsAutofillClient::GetMandatoryReauthOptInPromptWasShown() {
 
 bool TestPaymentsAutofillClient::GetMandatoryReauthOptInPromptWasReshown() {
   return mandatory_reauth_opt_in_prompt_was_reshown_;
+}
+
+bool TestPaymentsAutofillClient::IsRiskBasedAuthEffectivelyAvailable() const {
+  return true;
 }
 
 void TestPaymentsAutofillClient::set_virtual_card_enrollment_manager(

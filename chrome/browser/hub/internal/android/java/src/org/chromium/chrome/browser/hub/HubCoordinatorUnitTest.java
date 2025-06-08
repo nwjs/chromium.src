@@ -38,7 +38,9 @@ import org.chromium.base.supplier.LazyOneshotSupplier;
 import org.chromium.base.supplier.ObservableSupplierImpl;
 import org.chromium.base.supplier.OneshotSupplierImpl;
 import org.chromium.base.test.BaseRobolectricTestRule;
+import org.chromium.base.test.util.Features;
 import org.chromium.chrome.browser.feature_engagement.TrackerFactory;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.profiles.ProfileProvider;
 import org.chromium.chrome.browser.tab.Tab;
@@ -55,6 +57,12 @@ import java.util.Collection;
 
 /** Tests for {@link HubCoordinator}. */
 @RunWith(ParameterizedRobolectricTestRunner.class)
+// TODO(crbug.com/419289558): Re-enable color surface feature flags
+@Features.DisableFeatures({
+    ChromeFeatureList.ANDROID_SURFACE_COLOR_UPDATE,
+    ChromeFeatureList.GRID_TAB_SWITCHER_SURFACE_COLOR_UPDATE,
+    ChromeFeatureList.GRID_TAB_SWITCHER_UPDATE
+})
 public class HubCoordinatorUnitTest {
     // All the tests in this file will run twice, once for isXrDevice=true and once for
     // isXrDevice=false. Expect all the tests with the same results on XR devices too.
@@ -90,23 +98,24 @@ public class HubCoordinatorUnitTest {
     @Mock private Tracker mTracker;
     @Mock private SearchActivityClient mSearchActivityClient;
     @Mock private HubColorMixer mHubColorMixer;
-    private ObservableSupplierImpl<Boolean> mHubVisibilitySupplier = new ObservableSupplierImpl<>();
-    private ObservableSupplierImpl<Boolean> mTabSwitcherBackPressSupplier =
+    private final ObservableSupplierImpl<Boolean> mHubVisibilitySupplier =
             new ObservableSupplierImpl<>();
-    private ObservableSupplierImpl<Boolean> mIncognitoTabSwitcherBackPressSupplier =
+    private final ObservableSupplierImpl<Boolean> mTabSwitcherBackPressSupplier =
             new ObservableSupplierImpl<>();
-    private ObservableSupplierImpl<Tab> mTabSupplier = new ObservableSupplierImpl<>();
-    private ObservableSupplierImpl<Integer> mPreviousLayoutTypeSupplier =
+    private final ObservableSupplierImpl<Boolean> mIncognitoTabSwitcherBackPressSupplier =
             new ObservableSupplierImpl<>();
-    private ObservableSupplierImpl<DisplayButtonData> mReferenceButtonDataSupplier =
+    private final ObservableSupplierImpl<Tab> mTabSupplier = new ObservableSupplierImpl<>();
+    private final ObservableSupplierImpl<Integer> mPreviousLayoutTypeSupplier =
             new ObservableSupplierImpl<>();
-    private ObservableSupplierImpl<Boolean> mRegularHubSearchEnabledStateSupplier =
+    private final ObservableSupplierImpl<DisplayButtonData> mReferenceButtonDataSupplier =
             new ObservableSupplierImpl<>();
-    private ObservableSupplierImpl<Boolean> mIncognitoHubSearchEnabledStateSupplier =
+    private final ObservableSupplierImpl<Boolean> mRegularHubSearchEnabledStateSupplier =
             new ObservableSupplierImpl<>();
-    private OneshotSupplierImpl<ProfileProvider> mProfileProviderSupplier =
+    private final ObservableSupplierImpl<Boolean> mIncognitoHubSearchEnabledStateSupplier =
+            new ObservableSupplierImpl<>();
+    private final OneshotSupplierImpl<ProfileProvider> mProfileProviderSupplier =
             new OneshotSupplierImpl<>();
-    private ObservableSupplierImpl<EdgeToEdgeController> mEdgeToEdgeSupplier =
+    private final ObservableSupplierImpl<EdgeToEdgeController> mEdgeToEdgeSupplier =
             new ObservableSupplierImpl<>();
     private PaneManager mPaneManager;
     private FrameLayout mRootView;
@@ -193,7 +202,6 @@ public class HubCoordinatorUnitTest {
         assertFalse(mPreviousLayoutTypeSupplier.hasObservers());
         assertFalse(mIncognitoTabSwitcherBackPressSupplier.hasObservers());
         assertFalse(mTabSupplier.hasObservers());
-        XrUtils.resetXrDeviceForTesting();
     }
 
     @Test
@@ -266,6 +274,19 @@ public class HubCoordinatorUnitTest {
     }
 
     @Test
+    public void testBackNavigationBetweenPanesOnEscapeKeyPressNotTriggered() {
+        assertFalse(mHubCoordinator.getHandleBackPressChangedSupplier().get());
+
+        assertTrue(mPaneManager.focusPane(PaneId.INCOGNITO_TAB_SWITCHER));
+        assertEquals(mIncognitoTabSwitcherPane, mPaneManager.getFocusedPaneSupplier().get());
+        assertTrue(mHubCoordinator.getHandleBackPressChangedSupplier().get());
+
+        assertEquals(Boolean.FALSE, mHubCoordinator.handleEscPress());
+        assertEquals(mIncognitoTabSwitcherPane, mPaneManager.getFocusedPaneSupplier().get());
+        assertTrue(mHubCoordinator.getHandleBackPressChangedSupplier().get());
+    }
+
+    @Test
     public void testBackNavigationWithNullTab() {
         assertFalse(mHubCoordinator.getHandleBackPressChangedSupplier().get());
         assertEquals(BackPressResult.FAILURE, mHubCoordinator.handleBackPress());
@@ -279,6 +300,19 @@ public class HubCoordinatorUnitTest {
     }
 
     @Test
+    public void testBackNavigationWithNullTabOnEscapeKeyPress() {
+        assertFalse(mHubCoordinator.getHandleBackPressChangedSupplier().get());
+        assertEquals(Boolean.FALSE, mHubCoordinator.handleEscPress());
+
+        mTabSupplier.set(mTab);
+        assertTrue(mHubCoordinator.getHandleBackPressChangedSupplier().get());
+        mTabSupplier.set(null);
+
+        assertEquals(Boolean.FALSE, mHubCoordinator.handleEscPress());
+        verify(mHubLayoutController, never()).selectTabAndHideHubLayout(anyInt());
+    }
+
+    @Test
     public void testBackNavigationWithTab() {
         assertFalse(mHubCoordinator.getHandleBackPressChangedSupplier().get());
         assertEquals(BackPressResult.FAILURE, mHubCoordinator.handleBackPress());
@@ -287,6 +321,18 @@ public class HubCoordinatorUnitTest {
         assertTrue(mHubCoordinator.getHandleBackPressChangedSupplier().get());
 
         assertEquals(BackPressResult.SUCCESS, mHubCoordinator.handleBackPress());
+        verify(mHubLayoutController).selectTabAndHideHubLayout(eq(TAB_ID));
+    }
+
+    @Test
+    public void testBackNavigationWithTabOnEscapeKeyPress() {
+        assertFalse(mHubCoordinator.getHandleBackPressChangedSupplier().get());
+        assertEquals(Boolean.FALSE, mHubCoordinator.handleEscPress());
+
+        mTabSupplier.set(mTab);
+        assertTrue(mHubCoordinator.getHandleBackPressChangedSupplier().get());
+
+        assertEquals(Boolean.TRUE, mHubCoordinator.handleEscPress());
         verify(mHubLayoutController).selectTabAndHideHubLayout(eq(TAB_ID));
     }
 

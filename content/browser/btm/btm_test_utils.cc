@@ -6,6 +6,7 @@
 
 #include <string_view>
 
+#include "base/strings/stringprintf.h"
 #include "base/test/bind.h"
 #include "components/content_settings/core/common/content_settings.h"
 #include "components/content_settings/core/common/content_settings_pattern.h"
@@ -21,6 +22,7 @@
 #include "content/public/test/test_frame_navigation_observer.h"
 #include "content/public/test/test_utils.h"
 #include "net/base/schemeful_site.h"
+#include "net/cookies/cookie_setting_override.h"
 #include "net/cookies/site_for_cookies.h"
 #include "net/test/embedded_test_server/embedded_test_server.h"
 #include "testing/gmock/include/gmock/gmock.h"
@@ -406,9 +408,11 @@ bool TpcBlockingBrowserClient::IsFullCookieAccessAllowed(
     BrowserContext* browser_context,
     WebContents* web_contents,
     const GURL& url,
-    const blink::StorageKey& storage_key) {
+    const blink::StorageKey& storage_key,
+    net::CookieSettingOverrides overrides) {
   return IsFullCookieAccessAllowed(url, storage_key.ToNetSiteForCookies(),
-                                   storage_key.origin(), /*overrides=*/{});
+                                   storage_key.origin(), overrides,
+                                   storage_key.ToCookiePartitionKey());
 }
 
 void TpcBlockingBrowserClient::GrantCookieAccessDueToHeuristic(
@@ -432,6 +436,12 @@ void TpcBlockingBrowserClient::GrantCookieAccessDueToHeuristic(
   tpc_content_settings_.SetValue(primary_pattern, secondary_pattern,
                                  base::Value(CONTENT_SETTING_ALLOW),
                                  /*metadata=*/{});
+}
+
+bool TpcBlockingBrowserClient::AreThirdPartyCookiesGenerallyAllowed(
+    BrowserContext* browser_context,
+    WebContents* web_contents) {
+  return !block_3pcs_;
 }
 
 bool TpcBlockingBrowserClient::ShouldBtmDeleteInteractionRecords(

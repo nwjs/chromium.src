@@ -44,7 +44,6 @@ import androidx.core.content.ContextCompat;
 import androidx.core.content.res.ResourcesCompat;
 import androidx.core.widget.ImageViewCompat;
 
-import org.chromium.base.Callback;
 import org.chromium.base.MathUtils;
 import org.chromium.base.TimeUtils;
 import org.chromium.base.TraceEvent;
@@ -55,7 +54,6 @@ import org.chromium.build.annotations.MonotonicNonNull;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.NullUnmarked;
 import org.chromium.build.annotations.Nullable;
-import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.omnibox.LocationBar;
 import org.chromium.chrome.browser.omnibox.LocationBarCoordinator;
 import org.chromium.chrome.browser.omnibox.NewTabPageDelegate;
@@ -130,11 +128,9 @@ public class ToolbarPhone extends ToolbarLayout
                 @ViewDebug.IntToString(from = ENTERING_TAB_SWITCHER, to = "ENTERING_TAB_SWITCHER"),
                 @ViewDebug.IntToString(from = EXITING_TAB_SWITCHER, to = "EXITING_TAB_SWITCHER")
             })
-    private final Callback<Integer> mTabCountSupplierObserver;
-
     private @Nullable ObservableSupplier<Integer> mTabCountSupplier;
 
-    private @Nullable UserEducationHelper mUserEducationHelper;
+    private UserEducationHelper mUserEducationHelper;
     protected LocationBarCoordinator mLocationBar;
     private ObservableSupplier<Tracker> mTrackerSupplier;
 
@@ -238,8 +234,8 @@ public class ToolbarPhone extends ToolbarLayout
     private @Nullable PhoneCaptureStateToken mPhoneCaptureStateToken;
     private @Nullable ButtonData mButtonData;
 
-    private @ColorInt int mToolbarBackgroundColorForNtp;
-    private @ColorInt int mLocationBarBackgroundColorForNtp;
+    private final @ColorInt int mToolbarBackgroundColorForNtp;
+    private final @ColorInt int mLocationBarBackgroundColorForNtp;
 
     /** Used to specify the visual state of the toolbar. */
     @IntDef({
@@ -250,7 +246,7 @@ public class ToolbarPhone extends ToolbarLayout
         VisualState.NEW_TAB_SEARCH_ENGINE_NO_LOGO
     })
     @Retention(RetentionPolicy.SOURCE)
-    @interface VisualState {
+    public @interface VisualState {
         int NORMAL = 0;
         int INCOGNITO = 1;
         int BRAND_COLOR = 2;
@@ -281,6 +277,8 @@ public class ToolbarPhone extends ToolbarLayout
     // Added due to https://crbug.com/323888159 to mark the loading phase while navigating from NTP
     // to webpages.
     private boolean mIsInLoadingPhaseFromNtpToWebpage;
+
+    private final boolean mAlwaysShowDseIconOnNtp;
 
     // The following are some properties used during animation.  We use explicit property classes
     // to avoid the cost of reflection for each animation setup.
@@ -315,15 +313,11 @@ public class ToolbarPhone extends ToolbarLayout
         float LocationBarBackgroundColorAlphaForNtp =
                 ResourcesCompat.getFloat(
                         getResources(), R.dimen.home_surface_search_box_background_alpha);
-        // Explicitly checking the flag value since the default color value is colorPrimary tinted.
         mLocationBarBackgroundColorForNtp =
-                ChromeFeatureList.sAndroidSurfaceColorUpdate.isEnabled()
-                        ? SurfaceColorUpdateUtils.getOmniboxBackgroundColor(
-                                getContext(), /* isIncognito= */ false)
-                        : ColorUtils.setAlphaComponentWithFloat(
-                                SemanticColorUtils.getDefaultIconColorAccent1(context),
-                                LocationBarBackgroundColorAlphaForNtp);
-        mTabCountSupplierObserver = this::onTabCountChanged;
+                ColorUtils.setAlphaComponentWithFloat(
+                        SemanticColorUtils.getDefaultIconColorAccent1(context),
+                        LocationBarBackgroundColorAlphaForNtp);
+        mAlwaysShowDseIconOnNtp = OmniboxFeatures.sOmniboxMobileParityUpdate.isEnabled();
     }
 
     @Override
@@ -398,10 +392,6 @@ public class ToolbarPhone extends ToolbarLayout
             handler.removeCallbacksAndMessages(null);
         }
 
-        if (mTabCountSupplier != null) {
-            mTabCountSupplier.removeObserver(mTabCountSupplierObserver);
-        }
-
         getToolbarDataProvider().removeToolbarDataProviderObserver(this);
 
         super.destroy();
@@ -472,7 +462,12 @@ public class ToolbarPhone extends ToolbarLayout
      * @return The location bar color.
      */
     private @ColorInt int getLocationBarColorForToolbarColor(@ColorInt int toolbarColor) {
-        if (isLocationBarShownInGeneralNtp() || mIsInLoadingPhaseFromNtpToWebpage) {
+        // When AndroidSurfaceColorUpdate is enabled, use default location bar color when loading
+        // NTP to WebPage
+        boolean isInLoadingPhaseWithFlagDisabled =
+                mIsInLoadingPhaseFromNtpToWebpage
+                        && !SurfaceColorUpdateUtils.useNewToolbarSurfaceColor();
+        if (isLocationBarShownInGeneralNtp() || isInLoadingPhaseWithFlagDisabled) {
             return mLocationBarBackgroundColorForNtp;
         }
         return ThemeUtils.getTextBoxColorForToolbarBackgroundInNonNativePage(
@@ -1077,8 +1072,15 @@ public class ToolbarPhone extends ToolbarLayout
                             isLocationBarRtl,
                             locationBarBaseTranslationX,
                             isUrlFocusChangeInProgressWithScrollCompleted));
+            // A url expansion fraction < 1.0 fades and translates the DSE icon away from its final
+            // state. If the DSE icon is always visible on the NTP, it should stay at full alpha and
+            // in its final location rather than being affected by scroll offset.
+            float ntpUrlExpansionFraction =
+                    mAlwaysShowDseIconOnNtp && isLocationBarShownInNtp
+                            ? 1.0f
+                            : mNtpSearchBoxScrollFraction;
             mLocationBar.setUrlFocusChangeFraction(
-                    mNtpSearchBoxScrollFraction, mUrlFocusChangeFraction);
+                    ntpUrlExpansionFraction, mUrlFocusChangeFraction);
 
             // Only transition theme colors if in static tab mode that is not the NTP or while
             // focusing on the NTP. In NTP, toolbar and locationbar need to transite color only when
@@ -1376,8 +1378,7 @@ public class ToolbarPhone extends ToolbarLayout
         // Draw the tab stack button and associated text if necessary.
         if (getTabSwitcherButtonCoordinator() != null && mUrlExpansionFraction != 1f) {
             // Draw the tab stack button image.
-            getTabSwitcherButtonCoordinator()
-                    .drawTabSwitcherAnimationOverlay(mToolbarButtonsContainer, canvas, rgbAlpha);
+            getTabSwitcherButtonCoordinator().draw(mToolbarButtonsContainer, canvas);
         }
 
         // Draw the menu button if necessary.
@@ -1679,7 +1680,7 @@ public class ToolbarPhone extends ToolbarLayout
     }
 
     @Override
-    public void onHomeButtonUpdate(boolean homeButtonEnabled) {
+    public void onHomeButtonIsEnabledUpdate(boolean homeButtonEnabled) {
         mIsHomeButtonEnabled = homeButtonEnabled;
         updateButtonVisibility();
     }
@@ -1707,10 +1708,6 @@ public class ToolbarPhone extends ToolbarLayout
             @BrandedColorScheme int brandedColorScheme) {
         ImageViewCompat.setImageTintList(mHomeButton, tint);
 
-        if (getTabSwitcherButtonCoordinator() != null) {
-            getTabSwitcherButtonCoordinator().setBrandedColorScheme(brandedColorScheme);
-        }
-
         if (mOptionalButtonCoordinator != null) {
             mOptionalButtonCoordinator.setIconForegroundColor(tint);
         }
@@ -1719,11 +1716,6 @@ public class ToolbarPhone extends ToolbarLayout
         if (mLocationBar != null) mLocationBar.updateVisualsForState();
 
         if (mLayoutUpdater != null) mLayoutUpdater.run();
-    }
-
-    @Override
-    public ImageView getHomeButton() {
-        return mHomeButton;
     }
 
     @Override
@@ -2062,27 +2054,12 @@ public class ToolbarPhone extends ToolbarLayout
 
     @Override
     public void onIncognitoStateChanged() {
-        // Set the correct branded color scheme tinting for the {@link TabSwitcherDrawable} whenever
-        // the incognito state changes.
-        setTabSwitcherDrawableColorScheme();
         updateRippleBackground();
     }
 
     @Override
     public void setTabCountSupplier(ObservableSupplier<Integer> tabCountSupplier) {
         mTabCountSupplier = tabCountSupplier;
-        mTabCountSupplier.addObserver(mTabCountSupplierObserver);
-    }
-
-    private void onTabCountChanged(int numberOfTabs) {
-        setTabSwitcherDrawableColorScheme();
-    }
-
-    private void setTabSwitcherDrawableColorScheme() {
-        if (getTabSwitcherButtonCoordinator() != null) {
-            getTabSwitcherButtonCoordinator()
-                    .setBrandedColorScheme(mThemeColorProvider.getBrandedColorScheme());
-        }
     }
 
     @Override
@@ -2127,9 +2104,6 @@ public class ToolbarPhone extends ToolbarLayout
                         ? R.drawable.search_box_icon_background_baseline
                         : R.drawable.search_box_icon_background;
         mHomeButton.setBackgroundResource(toolbarIconRippleId);
-        getTabSwitcherButtonCoordinator()
-                .getContainerView()
-                .setBackgroundResource(toolbarIconRippleId);
         getMenuButtonCoordinator().updateButtonBackground(toolbarIconRippleId);
         mLocationBar.updateButtonBackground(omniboxIconRippleId);
     }

@@ -157,7 +157,8 @@ public class DownloadUtils {
                     && ChromeFeatureList.sAndroidNativePagesInNewTabDownloadsEnabled.getValue())
                     || tab == null || !tab.isInitialized()) {
                 // Open a new tab, which pops Chrome into the foreground.
-                ChromeAsyncTabLauncher delegate = new ChromeAsyncTabLauncher(false);
+                ChromeAsyncTabLauncher delegate = new ChromeAsyncTabLauncher(
+                        /* incognito= */ OtrProfileId.isOffTheRecord(otrProfileId));
                 delegate.launchNewTab(params, TabLaunchType.FROM_CHROME_UI, null);
             } else {
                 // Download Home shows up inside an existing tab, but only if the last Activity was
@@ -305,6 +306,10 @@ public class DownloadUtils {
         if (tab.isIncognito()
                 && !ChromeFeatureList.isEnabled(
                         ChromeFeatureList.ENABLE_SAVE_PACKAGE_FOR_OFF_THE_RECORD)) {
+            return false;
+        }
+
+        if (isDownloadRestrictedByPolicy(tab.getProfile().getOriginalProfile())) {
             return false;
         }
 

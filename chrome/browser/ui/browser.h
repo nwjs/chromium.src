@@ -68,7 +68,6 @@ class BackgroundContents;
 class BreadcrumbManagerBrowserAgent;
 class BrowserActions;
 class BrowserContentSettingBubbleModelDelegate;
-class BrowserInstantController;
 class BrowserSyncedWindowDelegate;
 class BrowserLocationBarModelDelegate;
 class BrowserLiveTabContext;
@@ -84,7 +83,6 @@ class ScopedKeepAlive;
 class ScopedProfileKeepAlive;
 class StatusBubble;
 class TabStripModelDelegate;
-class TabMenuModelDelegate;
 
 namespace tabs {
 class TabInterface;
@@ -107,6 +105,7 @@ class BrowserCommandController;
 }
 
 namespace content {
+struct DropData;
 class NavigationHandle;
 class SessionStorageNamespace;
 }  // namespace content
@@ -541,11 +540,6 @@ class Browser : public TabStripModelObserver,
     return tab_strip_model_delegate_.get();
   }
 
-  // Never nullptr.
-  TabMenuModelDelegate* tab_menu_model_delegate() const {
-    return tab_menu_model_delegate_.get();
-  }
-
   BrowserActions* browser_actions() const { return browser_actions_.get(); }
 
   chrome::BrowserCommandController* command_controller() {
@@ -569,9 +563,6 @@ class Browser : public TabStripModelObserver,
   BrowserLiveTabContext* live_tab_context() { return live_tab_context_.get(); }
   BrowserSyncedWindowDelegate* synced_window_delegate() {
     return synced_window_delegate_.get();
-  }
-  BrowserInstantController* instant_controller() {
-    return instant_controller_.get();
   }
   const web_app::AppBrowserController* app_controller() const {
     return app_controller_.get();
@@ -803,6 +794,7 @@ class Browser : public TabStripModelObserver,
                               tabs::TabInterface* tab,
                               int index) override;
   void TabStripEmpty() override;
+  void OnSplitTabChanged(const SplitTabChange& change) override;
 
   // Overridden from content::WebContentsDelegate:
   void ActivateContents(content::WebContents* contents) override;
@@ -818,6 +810,9 @@ class Browser : public TabStripModelObserver,
   void SetFocusToLocationBar() override;
   bool PreHandleMouseEvent(content::WebContents* source,
                            const blink::WebMouseEvent& event) override;
+  void PreHandleDragUpdate(const content::DropData& drop_data,
+                           const gfx::PointF& client_pt) override;
+  void PreHandleDragExit() override;
   content::KeyboardEventProcessingResult PreHandleKeyboardEvent(
       content::WebContents* source,
       const input::NativeWebKeyboardEvent& event) override;
@@ -918,7 +913,7 @@ class Browser : public TabStripModelObserver,
       const content::OpenURLParams& params,
       base::OnceCallback<void(content::NavigationHandle&)>
           navigation_handle_callback) override;
-  const SessionID& GetSessionID() override;
+  const SessionID& GetSessionID() const override;
   TabStripModel* GetTabStripModel() override;
   bool IsTabStripVisible() override;
   bool ShouldHideUIForFullscreen() const override;
@@ -949,13 +944,14 @@ class Browser : public TabStripModelObserver,
   web_app::AppBrowserController* GetAppBrowserController() override;
   std::vector<tabs::TabInterface*> GetAllTabInterfaces() override;
   Browser* GetBrowserForMigrationOnly() override;
-  bool IsTabModalPopup() const override;
+  void ActivateWindow() override;
+  bool IsTabModalPopupDeprecated() const override;
   bool CanShowCallToAction() const override;
   std::unique_ptr<ScopedWindowCallToAction> ShowCallToAction() override;
 
   // Called by BrowserView.
-  void set_is_tab_modal_popup(bool is_tab_modal_popup) {
-    is_tab_modal_popup_ = is_tab_modal_popup;
+  void set_is_tab_modal_popup_deprecated(bool is_tab_modal_popup_deprecated) {
+    is_tab_modal_popup_deprecated_ = is_tab_modal_popup_deprecated;
   }
 
   // Called by BrowserView on active change for the browser.
@@ -1033,6 +1029,9 @@ class Browser : public TabStripModelObserver,
 
     // Change is the result of a force show reason
     BOOKMARK_BAR_STATE_CHANGE_FORCE_SHOW,
+
+    // Change is the result of a split tab being created or removed.
+    BOOKMARK_BAR_STATE_CHANGE_SPLIT_TAB_CHANGE,
   };
 
   // Tracks whether a tabstrip call to action UI is showing.
@@ -1082,6 +1081,7 @@ class Browser : public TabStripModelObserver,
   bool ShouldFocusPageAfterCrash(content::WebContents* source) override;
   void ShowRepostFormWarningDialog(content::WebContents* source) override;
   bool IsWebContentsCreationOverridden(
+      content::RenderFrameHost* opener,
       content::SiteInstance* source_site_instance,
       content::mojom::WindowContainerType window_container_type,
       const GURL& opener_url,
@@ -1428,8 +1428,6 @@ class Browser : public TabStripModelObserver,
   std::unique_ptr<TabStripModelDelegate> const tab_strip_model_delegate_;
   std::unique_ptr<TabStripModel> const tab_strip_model_;
 
-  std::unique_ptr<TabMenuModelDelegate> const tab_menu_model_delegate_;
-
   // The application name that is also the name of the window to the shell.
   // This name should be set when:
   // 1) we launch an application via an application shortcut or extension API.
@@ -1526,8 +1524,6 @@ class Browser : public TabStripModelObserver,
   // Helper which implements the SyncedWindowDelegate interface.
   std::unique_ptr<BrowserSyncedWindowDelegate> synced_window_delegate_;
 
-  std::unique_ptr<BrowserInstantController> instant_controller_;
-
   // Helper which handles bookmark app specific browser configuration.
   // This must be initialized before |command_controller_| to ensure the correct
   // set of commands are enabled.
@@ -1597,9 +1593,11 @@ class Browser : public TabStripModelObserver,
   // shortly (after a PostTask).
   bool is_delete_scheduled_ = false;
 
+  // Do not use this. Instead, create a views::Widget and use helpers like
+  // TabDialogManager.
   // If true, the browser window was created as a tab modal pop-up. This is
-  // determined by the NavigateParams::is_tab_modal_popup.
-  bool is_tab_modal_popup_ = false;
+  // determined by the NavigateParams::is_tab_modal_popup_deprecated.
+  bool is_tab_modal_popup_deprecated_ = false;
 
 #if defined(USE_AURA)
   std::unique_ptr<OverscrollPrefManager> overscroll_pref_manager_;

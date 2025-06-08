@@ -80,7 +80,6 @@ bool IdentityDialogController::ShowAccountsDialog(
     content::RelyingPartyData rp_data,
     const std::vector<IdentityProviderDataPtr>& identity_provider_data,
     const std::vector<IdentityRequestAccountPtr>& accounts,
-    content::IdentityRequestAccount::SignInMode sign_in_mode,
     blink::mojom::RpMode rp_mode,
     const std::vector<IdentityRequestAccountPtr>& new_accounts,
     AccountSelectionCallback on_selected,
@@ -113,16 +112,16 @@ bool IdentityDialogController::ShowAccountsDialog(
         base::BindOnce(&IdentityDialogController::
                            OnRequestUiVolumeRecommendationResultReceived,
                        base::Unretained(this), rp_data, identity_provider_data,
-                       accounts, sign_in_mode, rp_mode, new_accounts));
+                       accounts, rp_mode, new_accounts));
     return true;
   }
 
-  return account_view_->Show(rp_data, identity_provider_data, accounts,
-                             sign_in_mode, rp_mode, new_accounts);
+  return account_view_->Show(rp_data, identity_provider_data, accounts, rp_mode,
+                             new_accounts);
 }
 
 bool IdentityDialogController::ShowFailureDialog(
-    const std::string& rp_for_display,
+    const content::RelyingPartyData& rp_data,
     const std::string& idp_for_display,
     blink::mojom::RpContext rp_context,
     blink::mojom::RpMode rp_mode,
@@ -139,12 +138,12 @@ bool IdentityDialogController::ShowFailureDialog(
   //   TODO: If the failure dialog is already being shown, notify user that
   //   sign-in attempt failed.
 
-  return account_view_->ShowFailureDialog(rp_for_display, idp_for_display,
-                                          rp_context, rp_mode, idp_metadata);
+  return account_view_->ShowFailureDialog(rp_data, idp_for_display, rp_context,
+                                          rp_mode, idp_metadata);
 }
 
 bool IdentityDialogController::ShowErrorDialog(
-    const std::string& rp_for_display,
+    const content::RelyingPartyData& rp_data,
     const std::string& idp_for_display,
     blink::mojom::RpContext rp_context,
     blink::mojom::RpMode rp_mode,
@@ -157,13 +156,12 @@ bool IdentityDialogController::ShowErrorDialog(
   if (!TrySetAccountView()) {
     return false;
   }
-  return account_view_->ShowErrorDialog(rp_for_display, idp_for_display,
-                                        rp_context, rp_mode, idp_metadata,
-                                        error);
+  return account_view_->ShowErrorDialog(rp_data, idp_for_display, rp_context,
+                                        rp_mode, idp_metadata, error);
 }
 
 bool IdentityDialogController::ShowLoadingDialog(
-    const std::string& rp_for_display,
+    const content::RelyingPartyData& rp_data,
     const std::string& idp_for_display,
     blink::mojom::RpContext rp_context,
     blink::mojom::RpMode rp_mode,
@@ -172,8 +170,24 @@ bool IdentityDialogController::ShowLoadingDialog(
   if (!TrySetAccountView()) {
     return false;
   }
-  return account_view_->ShowLoadingDialog(rp_for_display, idp_for_display,
-                                          rp_context, rp_mode);
+  return account_view_->ShowLoadingDialog(rp_data, idp_for_display, rp_context,
+                                          rp_mode);
+}
+
+bool IdentityDialogController::ShowVerifyingDialog(
+    const content::RelyingPartyData& rp_data,
+    const IdentityProviderDataPtr& idp_data,
+    const IdentityRequestAccountPtr& account,
+    Account::SignInMode sign_in_mode,
+    blink::mojom::RpMode rp_mode,
+    AccountsDisplayedCallback accounts_displayed_callback) {
+  on_accounts_displayed_ = std::move(accounts_displayed_callback);
+  rp_mode_ = rp_mode;
+  if (!TrySetAccountView()) {
+    return false;
+  }
+  return account_view_->ShowVerifyingDialog(rp_data, idp_data, account,
+                                            sign_in_mode, rp_mode);
 }
 
 void IdentityDialogController::OnLoginToIdP(const GURL& idp_config_url,
@@ -299,11 +313,10 @@ void IdentityDialogController::RequestIdPRegistrationPermision(
   permissions::PermissionRequestManager* permission_request_manager =
       permissions::PermissionRequestManager::FromWebContents(rp_web_contents_);
 
-  auto* request =
-      new IdentityProviderPermissionRequest(origin, std::move(callback));
-
   permission_request_manager->AddRequest(
-      rp_web_contents_->GetPrimaryMainFrame(), request);
+      rp_web_contents_->GetPrimaryMainFrame(),
+      std::make_unique<IdentityProviderPermissionRequest>(origin,
+                                                          std::move(callback)));
 }
 
 void IdentityDialogController::SetAccountSelectionViewForTesting(
@@ -384,7 +397,6 @@ void IdentityDialogController::OnRequestUiVolumeRecommendationResultReceived(
     const content::RelyingPartyData& rp_data,
     const std::vector<IdentityProviderDataPtr>& identity_provider_data,
     const std::vector<IdentityRequestAccountPtr>& accounts,
-    Account::SignInMode sign_in_mode,
     blink::mojom::RpMode rp_mode,
     const std::vector<IdentityRequestAccountPtr>& new_accounts,
     const segmentation_platform::ClassificationResult&
@@ -395,8 +407,8 @@ void IdentityDialogController::OnRequestUiVolumeRecommendationResultReceived(
   if (ui_volume_recommendation.status !=
           segmentation_platform::PredictionStatus::kSucceeded ||
       ui_volume_recommendation.ordered_labels[0] == "FedCmUserLoud") {
-    account_view_->Show(rp_data, identity_provider_data, accounts, sign_in_mode,
-                        rp_mode, new_accounts);
+    account_view_->Show(rp_data, identity_provider_data, accounts, rp_mode,
+                        new_accounts);
     return;
   }
 
@@ -406,7 +418,7 @@ void IdentityDialogController::OnRequestUiVolumeRecommendationResultReceived(
 }
 
 void IdentityDialogController::CollectTrainingData(UserAction user_action) {
-  if (!training_request_id_ || !segmentation_platform_service_) {
+  if (!training_request_id_.has_value() || !segmentation_platform_service_) {
     return;
   }
 

@@ -18,7 +18,7 @@ import org.chromium.content_public.browser.WebContents;
 @NullMarked
 public class CookieControlsBridge {
     private long mNativeCookieControlsBridge;
-    private CookieControlsObserver mObserver;
+    private final CookieControlsObserver mObserver;
 
     /**
      * Initializes a CookieControlsBridge instance.
@@ -101,14 +101,11 @@ public class CookieControlsBridge {
 
     @CalledByNative
     private void onStatusChanged(
-            boolean controlsVisible,
-            boolean protectionsOn,
+            @CookieControlsState int controlsState,
             @CookieControlsEnforcement int enforcement,
             @CookieBlocking3pcdStatus int blockingStatus,
             long expiration) {
-        // Old cookies API.
-        mObserver.onStatusChanged(
-                controlsVisible, protectionsOn, enforcement, blockingStatus, expiration);
+        mObserver.onStatusChanged(controlsState, enforcement, blockingStatus, expiration);
     }
 
     @CalledByNative

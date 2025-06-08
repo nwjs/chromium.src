@@ -10,6 +10,7 @@
 #include <string>
 #include <vector>
 
+#include "base/auto_reset.h"
 #include "base/containers/flat_set.h"
 #include "base/functional/callback.h"
 #include "base/functional/callback_helpers.h"
@@ -101,6 +102,13 @@ enum class ManifestIdParseResult {
 // DataTypeLocalChangeProcessor and WebAppDatabase (the storage).
 class WebAppSyncBridge : public syncer::DataTypeSyncBridge {
  public:
+  // Disable the logic that resumes pending sync installs, and fixes cases where
+  // os integration is missing but the app's install_state indicates OS
+  // integration should be present. Only intended for use in tests that need to
+  // check the app state before these operations are done.
+  static base::AutoReset<bool>
+  DisableResumeSyncInstallAndMissingOsIntegrationForTesting();
+
   explicit WebAppSyncBridge(WebAppRegistrarMutable* registrar);
   // Tests may inject mocks using this ctor.
   WebAppSyncBridge(
@@ -209,8 +217,10 @@ class WebAppSyncBridge : public syncer::DataTypeSyncBridge {
   std::unique_ptr<syncer::DataBatch> GetDataForCommit(
       StorageKeyList storage_keys) override;
   std::unique_ptr<syncer::DataBatch> GetAllDataForDebugging() override;
-  std::string GetClientTag(const syncer::EntityData& entity_data) override;
-  std::string GetStorageKey(const syncer::EntityData& entity_data) override;
+  std::string GetClientTag(
+      const syncer::EntityData& entity_data) const override;
+  std::string GetStorageKey(
+      const syncer::EntityData& entity_data) const override;
   bool IsEntityDataValid(const syncer::EntityData& entity_data) const override;
 
   // Signals that the sync system has received data from the server at some

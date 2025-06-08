@@ -5,6 +5,7 @@
 #ifndef CHROME_BROWSER_PRIVACY_SANDBOX_NOTICE_MOCKS_MOCK_NOTICE_CATALOG_H_
 #define CHROME_BROWSER_PRIVACY_SANDBOX_NOTICE_MOCKS_MOCK_NOTICE_CATALOG_H_
 
+#include "base/containers/span.h"
 #include "chrome/browser/privacy_sandbox/notice/notice_catalog.h"
 #include "testing/gmock/include/gmock/gmock.h"
 
@@ -15,11 +16,9 @@ class MockNoticeCatalog : public NoticeCatalog {
   MockNoticeCatalog();
   ~MockNoticeCatalog() override;
 
-  MOCK_METHOD(const std::vector<std::unique_ptr<NoticeApi>>&,
-              GetNoticeApis,
-              (),
-              (override));
-  MOCK_METHOD(const NoticeMap&, GetNoticeMap, (), (override));
+  MOCK_METHOD(base::span<NoticeApi*>, GetNoticeApis, (), (override));
+  MOCK_METHOD(base::span<Notice*>, GetNotices, (), (override));
+  MOCK_METHOD(Notice*, GetNotice, (NoticeId), (override));
 };
 
 }  // namespace privacy_sandbox

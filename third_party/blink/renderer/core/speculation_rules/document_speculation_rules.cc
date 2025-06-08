@@ -8,7 +8,6 @@
 
 #include "base/containers/contains.h"
 #include "base/metrics/histogram_functions.h"
-#include "base/not_fatal_until.h"
 #include "base/numerics/safe_conversions.h"
 #include "base/state_transitions.h"
 #include "third_party/blink/public/common/features.h"
@@ -330,8 +329,7 @@ void DocumentSpeculationRules::AddRuleSet(SpeculationRuleSet* rule_set) {
 
 void DocumentSpeculationRules::RemoveRuleSet(SpeculationRuleSet* rule_set) {
   auto removed = std::ranges::remove(rule_sets_, rule_set);
-  CHECK(!removed.empty(), base::NotFatalUntil::M130)
-      << "rule set was removed without existing";
+  CHECK(!removed.empty()) << "rule set was removed without existing";
   rule_sets_.erase(removed.begin(), removed.end());
   if (rule_set->has_document_rule()) {
     InvalidateAllLinks();
@@ -663,23 +661,19 @@ void DocumentSpeculationRules::UpdateSpeculationCandidates() {
               action == mojom::blink::SpeculationAction::kPrefetch);
 
         Vector<WTF::String> tags;
-        if (RuntimeEnabledFeatures::SpeculationRulesTagEnabled(
-                document.domWindow())) {
-          if (rule->rule_tag()) {
-            tags.push_back(rule->rule_tag());
-          }
-          if (rule->ruleset_tag()) {
-            tags.push_back(rule->ruleset_tag());
-          }
-
-          // Put the default value.
-          if (tags.empty()) {
-            tags.push_back(g_null_atom);
-          } else {
-            // Record that the valid tag is specified by the page.
-            UseCounter::Count(GetSupplementable(),
-                              WebFeature::kSpeculationRulesTags);
-          }
+        if (rule->rule_tag()) {
+          tags.push_back(rule->rule_tag());
+        }
+        if (rule->ruleset_tag()) {
+          tags.push_back(rule->ruleset_tag());
+        }
+        // Put the default value.
+        if (tags.empty()) {
+          tags.push_back(g_null_atom);
+        } else {
+          // Record that the valid tag is specified by the page.
+          UseCounter::Count(GetSupplementable(),
+                            WebFeature::kSpeculationRulesTags);
         }
 
         candidates.push_back(MakeGarbageCollected<SpeculationCandidate>(
@@ -959,7 +953,7 @@ void DocumentSpeculationRules::RemoveLink(HTMLAnchorElementBase* link) {
     return;
   }
   auto it = pending_links_.find(link);
-  CHECK(it != pending_links_.end(), base::NotFatalUntil::M130);
+  CHECK(it != pending_links_.end());
   pending_links_.erase(it);
 }
 

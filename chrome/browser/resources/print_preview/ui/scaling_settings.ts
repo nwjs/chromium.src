@@ -13,10 +13,10 @@ import type {PropertyValues} from 'chrome://resources/lit/v3_0/lit.rollup.js';
 import type {Settings} from '../data/model.js';
 import {ScalingType} from '../data/scaling.js';
 
-import {getCss as getPrintPreviewSharedCss} from './print_preview_shared_lit.css.js';
+import {getCss as getPrintPreviewSharedCss} from './print_preview_shared.css.js';
 import {getHtml} from './scaling_settings.html.js';
-import {SelectMixinLit} from './select_mixin_lit.js';
-import {SettingsMixinLit} from './settings_mixin_lit.js';
+import {SelectMixin} from './select_mixin.js';
+import {SettingsMixin} from './settings_mixin.js';
 
 /*
  * Fit to page and fit to paper options will only be displayed for PDF
@@ -25,7 +25,7 @@ import {SettingsMixinLit} from './settings_mixin_lit.js';
  */
 
 const PrintPreviewScalingSettingsElementBase =
-    SettingsMixinLit(SelectMixinLit(CrLitElement));
+    SettingsMixin(SelectMixin(CrLitElement));
 
 export class PrintPreviewScalingSettingsElement extends
     PrintPreviewScalingSettingsElementBase {
@@ -58,15 +58,15 @@ export class PrintPreviewScalingSettingsElement extends
     };
   }
 
-  accessor disabled: boolean;
-  accessor isPdf: boolean;
-  protected accessor currentValue_: string;
-  protected accessor customSelected_: boolean;
+  accessor disabled: boolean = false;
+  accessor isPdf: boolean = false;
+  protected accessor currentValue_: string = '';
+  protected accessor customSelected_: boolean = false;
   protected accessor dropdownDisabled_: boolean = false;
-  protected accessor inputValid_: boolean;
-  private accessor settingKey_: keyof Settings;
-  private accessor scalingTypeValue_: ScalingType;
-  private accessor scalingTypePdfValue_: ScalingType;
+  protected accessor inputValid_: boolean = false;
+  private accessor settingKey_: keyof Settings = 'scalingType';
+  private accessor scalingTypeValue_: ScalingType = ScalingType.DEFAULT;
+  private accessor scalingTypePdfValue_: ScalingType = ScalingType.DEFAULT;
 
   private lastValidScaling_: string = '';
 
@@ -203,10 +203,6 @@ export class PrintPreviewScalingSettingsElement extends
     }
   }
 
-  private onDisabledChanged_() {
-    this.dropdownDisabled_ = this.disabled && this.inputValid_;
-  }
-
   /**
    * @return Whether the input should be disabled.
    */
@@ -238,6 +234,10 @@ export class PrintPreviewScalingSettingsElement extends
 
   protected onInputValidChanged_(e: CustomEvent<{value: boolean}>) {
     this.inputValid_ = e.detail.value;
+  }
+
+  protected isSelected_(value: ScalingType): boolean {
+    return this.selectedValue === value.toString();
   }
 }
 

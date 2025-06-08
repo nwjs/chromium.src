@@ -19,6 +19,7 @@
 #include "base/metrics/user_metrics.h"
 #include "base/numerics/safe_conversions.h"
 #include "base/strings/strcat.h"
+#include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
 #include "base/strings/utf_offset_string_conversions.h"
 #include "base/strings/utf_string_conversion_utils.h"
@@ -475,6 +476,8 @@ std::optional<mojom::NamedDomKey> NamedDomKeyToMojom(
       return mojom::NamedDomKey::kAudioVolumeDown;
     case ui::DomKey::AUDIO_VOLUME_UP:
       return mojom::NamedDomKey::kAudioVolumeUp;
+    case ui::DomKey::NUM_LOCK:
+      return mojom::NamedDomKey::kNumLock;
     default:
       return std::nullopt;
   }

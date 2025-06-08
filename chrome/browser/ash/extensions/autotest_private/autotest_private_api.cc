@@ -177,7 +177,6 @@
 #include "chromeos/ash/experiences/arc/session/arc_bridge_service.h"
 #include "chromeos/ash/experiences/arc/session/arc_service_manager.h"
 #include "chromeos/ash/experiences/arc/system_ui/arc_system_ui_bridge.h"
-#include "chromeos/ash/services/assistant/assistant_manager_service_impl.h"
 #include "chromeos/ash/services/assistant/public/cpp/assistant_prefs.h"
 #include "chromeos/ash/services/assistant/public/cpp/assistant_service.h"
 #include "chromeos/components/quick_answers/public/cpp/quick_answers_prefs.h"
@@ -3255,15 +3254,6 @@ AutotestPrivateEnableAssistantAndWaitForReadyFunction::Run() {
     return RespondNow(Error("Assistant is already enabled."));
   }
 
-  // We can set this callback only when assistant status is NOT_READY. We should
-  // call this before we try to enable Assistant to avoid causing some timing
-  // issue.
-  ash::assistant::AssistantManagerServiceImpl::
-      SetInitializedInternalCallbackForTesting(base::BindOnce(
-          &AutotestPrivateEnableAssistantAndWaitForReadyFunction::
-              OnInitializedInternal,
-          this));
-
   Profile* profile = Profile::FromBrowserContext(browser_context());
   const std::string& err_msg = SetAllowedPref(
       profile, ash::assistant::prefs::kAssistantEnabled, base::Value(true));
@@ -4830,7 +4820,9 @@ class AutotestPrivateInstallPWAForCurrentURLFunction::PWAInstallManagerObserver
 };
 
 AutotestPrivateInstallPWAForCurrentURLFunction::
-    AutotestPrivateInstallPWAForCurrentURLFunction() = default;
+    AutotestPrivateInstallPWAForCurrentURLFunction()
+    : auto_accept_pwa_install_confirmation_(
+          web_app::SetAutoAcceptPWAInstallConfirmationForTesting()) {}
 AutotestPrivateInstallPWAForCurrentURLFunction::
     ~AutotestPrivateInstallPWAForCurrentURLFunction() = default;
 
@@ -4879,7 +4871,6 @@ void AutotestPrivateInstallPWAForCurrentURLFunction::PWALoaded() {
       base::BindOnce(
           &AutotestPrivateInstallPWAForCurrentURLFunction::PWAInstalled, this));
 
-  web_app::SetAutoAcceptPWAInstallConfirmationForTesting(true);
   if (!chrome::ExecuteCommand(browser, IDC_INSTALL_PWA)) {
     return Respond(Error("Failed to execute INSTALL_PWA command"));
   }
@@ -4887,13 +4878,11 @@ void AutotestPrivateInstallPWAForCurrentURLFunction::PWALoaded() {
 
 void AutotestPrivateInstallPWAForCurrentURLFunction::PWAInstalled(
     const webapps::AppId& app_id) {
-  web_app::SetAutoAcceptPWAInstallConfirmationForTesting(false);
   Respond(WithArguments(app_id));
   timeout_timer_.Stop();
 }
 
 void AutotestPrivateInstallPWAForCurrentURLFunction::PWATimeout() {
-  web_app::SetAutoAcceptPWAInstallConfirmationForTesting(false);
   Respond(Error("Install PWA timed out"));
 }
 

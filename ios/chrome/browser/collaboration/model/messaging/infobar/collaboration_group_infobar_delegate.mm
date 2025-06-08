@@ -226,14 +226,24 @@ void CollaborationGroupInfoBarDelegate::InfoBarDismissed() {
 
 id<ShareKitAvatarPrimitive>
 CollaborationGroupInfoBarDelegate::GetAvatarPrimitive() {
-  // Only return an avatar primitive if there is one affected user.
-  if (instant_message_.attributions.size() != 1 ||
-      !instant_message_.attributions.front().triggering_user.has_value()) {
+  const auto& attributions = instant_message_.attributions;
+  if (attributions.size() != 1) {
+    // No avatar primitive if not exactly one affected user.
     return nil;
   }
 
-  data_sharing::GroupMember user =
-      instant_message_.attributions.front().triggering_user.value();
+  const auto& attribution = attributions.front();
+  const auto& opt_user = instant_message_.collaboration_event ==
+                                 CollaborationEvent::COLLABORATION_MEMBER_ADDED
+                             ? attribution.affected_user
+                             : attribution.triggering_user;
+
+  if (!opt_user) {
+    // No avatar primitive if no user.
+    return nil;
+  }
+
+  data_sharing::GroupMember user = opt_user.value();
   ShareKitService* share_kit_service =
       ShareKitServiceFactory::GetForProfile(profile_);
 

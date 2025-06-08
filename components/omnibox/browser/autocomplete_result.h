@@ -14,6 +14,7 @@
 
 #include "base/gtest_prod_util.h"
 #include "build/build_config.h"
+#include "components/omnibox/browser/actions/omnibox_action.h"
 #include "components/omnibox/browser/autocomplete_match.h"
 #include "components/omnibox/browser/match_compare.h"
 #include "components/omnibox/browser/omnibox_metrics_provider.h"
@@ -31,7 +32,6 @@ class AutocompleteInput;
 class AutocompleteProvider;
 class AutocompleteProviderClient;
 class OmniboxTriggeredFeatureService;
-class PrefService;
 class TemplateURLService;
 
 // All matches from all providers for a particular query.  This also tracks
@@ -123,6 +123,9 @@ class AutocompleteResult {
   void SortAndCull(const AutocompleteInput& input,
                    TemplateURLService* template_url_service,
                    OmniboxTriggeredFeatureService* triggered_feature_service,
+                   bool is_lens_active,
+                   bool can_show_contextual_suggestions,
+                   bool mia_enabled,
                    std::optional<AutocompleteMatch> default_match_to_preserve =
                        std::nullopt);
 
@@ -276,6 +279,11 @@ class AutocompleteResult {
     session_.gws_event_id_hashes_.clear();
   }
 
+  std::pair<bool, bool> contextual_suggestions_shown_in_session() {
+    return {session_.contextual_search_suggestions_shown_in_session_,
+            session_.lens_action_shown_in_session_};
+  }
+
   std::pair<bool, bool> suggestions_shown_in_session(bool is_zero_suggest) {
     if (is_zero_suggest) {
       return {session_.zero_prefix_search_suggestions_shown_in_session_,
@@ -303,6 +311,19 @@ class AutocompleteResult {
         session_.typed_search_suggestions_shown_in_session_ = true;
       } else {
         session_.typed_url_suggestions_shown_in_session_ = true;
+      }
+    }
+
+    if (match.takeover_action) {
+      switch (match.takeover_action->ActionId()) {
+        case OmniboxActionId::CONTEXTUAL_SEARCH_FULFILLMENT:
+          session_.contextual_search_suggestions_shown_in_session_ = true;
+          break;
+        case OmniboxActionId::CONTEXTUAL_SEARCH_OPEN_LENS:
+          session_.lens_action_shown_in_session_ = true;
+          break;
+        default:
+          break;
       }
     }
   }
@@ -343,24 +364,6 @@ class AutocompleteResult {
   // |suggestion_groups_map_|.
   std::u16string GetHeaderForSuggestionGroup(
       omnibox::GroupId suggestion_group_id) const;
-
-  // Returns whether or not |suggestion_group_id| should be collapsed in the UI.
-  // This method takes into account both the user's stored prefs as well as
-  // the server-provided visibility hint for |suggestion_group_id|.
-  // Returns false if |suggestion_group_id| is not found in
-  // |suggestion_groups_map_| or if the suggestion group does not contain the
-  // original server provided group ID.
-  bool IsSuggestionGroupHidden(const PrefService* prefs,
-                               omnibox::GroupId suggestion_group_id) const;
-
-  // Sets the UI collapsed/expanded state of the |suggestion_group_id| in the
-  // user's stored prefs based on the value of |hidden|.
-  // Returns early if |suggestion_group_id| is not found in
-  // |suggestion_groups_map_| or if the suggestion group does not contains the
-  // original server provided group ID.
-  void SetSuggestionGroupHidden(PrefService* prefs,
-                                omnibox::GroupId suggestion_group_id,
-                                bool hidden) const;
 
   // Returns the section associated with |suggestion_group_id|.
   // Returns omnibox::SECTION_DEFAULT if |suggestion_group_id| is not found in
@@ -451,6 +454,14 @@ class AutocompleteResult {
     // metrics logging code emits the proper values.
     bool typed_search_suggestions_shown_in_session_ = false;
     bool typed_url_suggestions_shown_in_session_ = false;
+
+    // Whether at least one contextual search suggestion was shown in the
+    // session.
+    bool contextual_search_suggestions_shown_in_session_ = false;
+
+    // Whether the "Ask Google Lens about this page" action was shown at least
+    // once in the session.
+    bool lens_action_shown_in_session_ = false;
   };
 
   // Swaps this result set - i.e., `matches_` and `suggestion_groups_map_` -

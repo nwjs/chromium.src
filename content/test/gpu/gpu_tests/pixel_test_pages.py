@@ -6,24 +6,23 @@
 # pylint: disable=too-many-lines
 
 from collections.abc import Callable
+from datetime import date
+from enum import Enum
 import json
 import logging
 import os
 import posixpath
 import time
 
-from enum import Enum
+from telemetry.internal.browser import browser as browser_module
 
+import gpu_path_util
 from gpu_tests import common_browser_args as cba
 from gpu_tests import crop_actions as ca
 from gpu_tests import overlay_support
 from gpu_tests import skia_gold_heartbeat_integration_test_base as sghitb
 from gpu_tests import skia_gold_matching_algorithms as algo
 from gpu_tests.util import websocket_server as wss
-
-import gpu_path_util
-
-from telemetry.internal.browser import browser as browser_module
 
 CRASH_TYPE_BROWSER = 'browser'
 CRASH_TYPE_GPU = 'gpu-process'
@@ -55,6 +54,14 @@ ROUNDING_ERROR_ALGO = algo.FuzzyMatchingAlgorithm(
     max_different_pixels=100000000, pixel_per_channel_delta_threshold=1)
 
 BrowserArgType = list[str]
+
+
+def DoNotCaptureFullScreenshot(_) -> bool:
+  return False
+
+
+def DoNotRequireFullscreenOsScreenshot() -> bool:
+  return False
 
 
 class PixelTestPage(sghitb.SkiaGoldHeartbeatTestCase):
@@ -103,14 +110,15 @@ class PixelTestPage(sghitb.SkiaGoldHeartbeatTestCase):
     # that is more representative of what is shown to a user, but some tests
     # require capturing the entire web contents for some reason.
     if should_capture_full_screenshot_func is None:
-      should_capture_full_screenshot_func = lambda _: False
+      should_capture_full_screenshot_func = DoNotCaptureFullScreenshot
     self.ShouldCaptureFullScreenshot = should_capture_full_screenshot_func
     # Some tests may require to capture a full OS screenshot to exercise
     # end-to-end integration. That is, such browsers as LaCros do delegated
     # compositing and they are interested in comparing the result produced
     # by the OS compositor rather than Chromium's one.
     if requires_fullscreen_os_screenshot_func is None:
-      requires_fullscreen_os_screenshot_func = lambda: False
+      requires_fullscreen_os_screenshot_func = (
+          DoNotRequireFullscreenOsScreenshot)
     self.RequiresFullScreenOSScreenshot = requires_fullscreen_os_screenshot_func
 
 # pytype: disable=signature-mismatch
@@ -1750,4 +1758,41 @@ class PixelTestPages():
             base_name + '_VP8_1Frame',
             crop_action=ca.NoOpCropAction(),
         ),
+    ]
+
+  @staticmethod
+  def MeetEffectsPages(base_name: str) -> list[PixelTestPage]:
+    video_path = os.path.join(gpu_path_util.MEET_EFFECTS_VIDEO_DIR,
+                              'effects-normal-light.y4m')
+    video_args = [
+        '--auto-accept-camera-and-microphone-capture',
+        '--use-fake-device-for-media-stream',
+        f'--use-file-for-fake-video-capture={video_path}'
+    ]
+    # The video is rather large on the page, which can cause a horizontal
+    # scrollbar to appear along the bottom. So, crop that first.
+    standard_crop = ca.NonWhiteContentCropAction(
+        ca.FixedRectCropAction(0, 60, None, -20))
+    # Run the tests on CI for a while to see how stable they are with
+    # fuzzy matching enabled.
+    grace_period_end = date(2025, 7, 1)
+    return [
+        PixelTestPage('meet_effects/meet-gpu-tests/index.html?effectId=359',
+                      f'{base_name}_MeetEffectsCatOnHead',
+                      crop_action=standard_crop,
+                      browser_args=video_args,
+                      matching_algorithm=ROUNDING_ERROR_ALGO,
+                      grace_period_end=grace_period_end),
+        PixelTestPage('meet_effects/meet-gpu-tests/index.html?effectId=539',
+                      f'{base_name}_MeetEffectsRainbowWig',
+                      crop_action=standard_crop,
+                      browser_args=video_args,
+                      matching_algorithm=ROUNDING_ERROR_ALGO,
+                      grace_period_end=grace_period_end),
+        PixelTestPage('meet_effects/meet-gpu-tests/index.html?effectId=530',
+                      f'{base_name}_MeetEffectsTruckerHat',
+                      crop_action=standard_crop,
+                      browser_args=video_args,
+                      matching_algorithm=ROUNDING_ERROR_ALGO,
+                      grace_period_end=grace_period_end),
     ]

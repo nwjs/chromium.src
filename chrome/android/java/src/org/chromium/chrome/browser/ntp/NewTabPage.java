@@ -41,6 +41,8 @@ import org.chromium.base.supplier.ObservableSupplier;
 import org.chromium.base.supplier.ObservableSupplierImpl;
 import org.chromium.base.supplier.OneshotSupplier;
 import org.chromium.base.supplier.Supplier;
+import org.chromium.base.task.PostTask;
+import org.chromium.base.task.TaskTraits;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.app.feed.FeedActionDelegateImpl;
 import org.chromium.chrome.browser.back_press.BackPressMetrics;
@@ -68,6 +70,7 @@ import org.chromium.chrome.browser.magic_stack.ModuleDelegateHost;
 import org.chromium.chrome.browser.magic_stack.ModuleRegistry;
 import org.chromium.chrome.browser.metrics.StartupMetricsTracker;
 import org.chromium.chrome.browser.native_page.ContextMenuManager;
+import org.chromium.chrome.browser.ntp_customization.NtpCustomizationCoordinator;
 import org.chromium.chrome.browser.omnibox.OmniboxFocusReason;
 import org.chromium.chrome.browser.omnibox.OmniboxStub;
 import org.chromium.chrome.browser.omnibox.voice.VoiceRecognitionHandler;
@@ -182,7 +185,8 @@ public class NewTabPage
     private ViewGroup mSingleTabCardContainer;
     @Nullable private HomeModulesCoordinator mHomeModulesCoordinator;
     @Nullable private ViewGroup mHomeModulesContainer;
-    private ObservableSupplierImpl<Tab> mMostRecentTabSupplier = new ObservableSupplierImpl<>();
+    private final ObservableSupplierImpl<Tab> mMostRecentTabSupplier =
+            new ObservableSupplierImpl<>();
     @Nullable private Point mContextMenuStartPosition;
 
     private final Activity mActivity;
@@ -194,13 +198,13 @@ public class NewTabPage
     @Nullable private SearchResumptionModuleCoordinator mSearchResumptionModuleCoordinator;
     private NtpSmoothTransitionDelegate mSmoothTransitionDelegate;
 
-    private CallbackController mCallbackController = new CallbackController();
+    private final CallbackController mCallbackController = new CallbackController();
 
     @VisibleForTesting
     public static class NtpSmoothTransitionDelegate implements SmoothTransitionDelegate {
         private static final int SMOOTH_TRANSITION_DURATION_MS = 100;
 
-        private View mView;
+        private final View mView;
         private Animator mAnimator;
         private ObservableSupplier<Integer> mRestoringState;
         private boolean mAnimatorStarted;
@@ -655,6 +659,7 @@ public class NewTabPage
                 mIsTablet,
                 mTabStripHeightSupplier);
 
+        mNewTabPageLayout.updateSearchBoxHintText();
         initializeHomeModules();
 
         TraceEvent.end(TAG);
@@ -844,6 +849,8 @@ public class NewTabPage
 
     private void onSearchEngineUpdated() {
         updateSearchProviderHasLogo();
+
+        PostTask.postTask(TaskTraits.UI_DEFAULT, mNewTabPageLayout::updateSearchBoxHintText);
         setSearchProviderInfoOnView(
                 mSearchProviderHasLogo, mTemplateUrlService.isDefaultSearchEngineGoogle());
         // TODO(crbug.com/40226731): Remove this call when the Feed position experiment is
@@ -852,8 +859,8 @@ public class NewTabPage
     }
 
     /**
-     * Set the search provider info on the main child view, so that it can change layouts if
-     * needed.
+     * Set the search provider info on the main child view, so that it can change layouts if needed.
+     *
      * @param hasLogo Whether the search provider has a logo.
      * @param isGoogle Whether the search provider is Google.
      */
@@ -1381,7 +1388,16 @@ public class NewTabPage
 
     @Override
     public void customizeSettings() {
-        HomeModulesConfigManager.getInstance().onMenuClick(mContext);
+        if (ChromeFeatureList.isEnabled(ChromeFeatureList.NEW_TAB_PAGE_CUSTOMIZATION)) {
+            new NtpCustomizationCoordinator(
+                            mContext,
+                            mBottomSheetController,
+                            mTab::getProfile,
+                            NtpCustomizationCoordinator.BottomSheetType.NTP_CARDS)
+                    .showBottomSheet();
+        } else {
+            HomeModulesConfigManager.getInstance().onMenuClick(mContext);
+        }
     }
 
     @Override

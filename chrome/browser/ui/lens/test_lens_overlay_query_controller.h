@@ -11,16 +11,17 @@
 
 namespace lens {
 
-class FakeEndpointFetcher : public EndpointFetcher {
+class FakeEndpointFetcher : public endpoint_fetcher::EndpointFetcher {
  public:
-  explicit FakeEndpointFetcher(EndpointResponse response);
-  void PerformRequest(EndpointFetcherCallback endpoint_fetcher_callback,
-                      const char* key) override;
+  explicit FakeEndpointFetcher(endpoint_fetcher::EndpointResponse response);
+  void PerformRequest(
+      endpoint_fetcher::EndpointFetcherCallback endpoint_fetcher_callback,
+      const char* key) override;
 
   bool disable_responding_ = false;
 
  private:
-  EndpointResponse response_;
+  endpoint_fetcher::EndpointResponse response_;
 };
 
 // Helper for testing features that use the LensOverlayQueryController.
@@ -193,8 +194,8 @@ class TestLensOverlayQueryController : public LensOverlayQueryController {
     return it == latency_gen_204_counter_.end() ? 0 : it->second;
   }
 
-  const std::optional<lens::LensOverlayRequestId>& last_latency_gen204_request_id()
-      const {
+  const std::optional<lens::LensOverlayRequestId>&
+  last_latency_gen204_request_id() const {
     return last_latency_gen204_request_id_;
   }
 
@@ -229,17 +230,20 @@ class TestLensOverlayQueryController : public LensOverlayQueryController {
       base::TimeTicks invocation_time) override;
 
   void SendRegionSearch(
+      base::Time query_start_time,
       lens::mojom::CenterRotatedBoxPtr region,
       lens::LensOverlaySelectionType selection_type,
       std::map<std::string, std::string> additional_search_query_params,
       std::optional<SkBitmap> region_bytes) override;
 
-  void SendTextOnlyQuery(const std::string& query_text,
+  void SendTextOnlyQuery(base::Time query_start_time,
+                         const std::string& query_text,
                          lens::LensOverlaySelectionType lens_selection_type,
                          std::map<std::string, std::string>
                              additional_search_query_params) override;
 
   void SendMultimodalRequest(
+      base::Time query_start_time,
       lens::mojom::CenterRotatedBoxPtr region,
       const std::string& query_text,
       lens::LensOverlaySelectionType multimodal_selection_type,
@@ -247,6 +251,7 @@ class TestLensOverlayQueryController : public LensOverlayQueryController {
       std::optional<SkBitmap> region_bitmap) override;
 
   void SendContextualTextQuery(
+      base::Time query_start_time,
       const std::string& query_text,
       lens::LensOverlaySelectionType lens_selection_type,
       std::map<std::string, std::string> additional_search_query_params)
@@ -256,14 +261,14 @@ class TestLensOverlayQueryController : public LensOverlayQueryController {
   void ResetTestingState();
 
  protected:
-  std::unique_ptr<EndpointFetcher> CreateEndpointFetcher(
+  std::unique_ptr<endpoint_fetcher::EndpointFetcher> CreateEndpointFetcher(
       std::string request_string,
       const GURL& fetch_url,
-      const HttpMethod& http_method,
-      const base::TimeDelta& timeout,
+      endpoint_fetcher::HttpMethod http_method,
+      base::TimeDelta timeout,
       const std::vector<std::string>& request_headers,
       const std::vector<std::string>& cors_exempt_headers,
-      const UploadProgressCallback upload_progress_callback) override;
+      UploadProgressCallback upload_progress_callback) override;
 
   void SendLatencyGen204IfEnabled(
       lens::LensOverlayGen204Controller::LatencyType latency_type,

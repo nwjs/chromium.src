@@ -21,29 +21,6 @@ namespace privacy_sandbox {
 enum class SurfaceType;
 class NoticeCatalog;
 
-// Startup states. These values are persisted to logs. Entries should not be
-// renumbered and numeric values should never be reused.
-// LINT.IfChange(NoticeStartupState)
-enum class NoticeStartupState {
-  // Incorrect or unknown states, for example if the notice hasn't been shown
-  // but an action is set.
-  kUnknownState = 0,
-  // Prompt/notice not shown.
-  kPromptNotShown = 1,
-  // Notice action flow completed.
-  kFlowCompleted = 2,
-  // Notice action flow completed with action opt in.
-  kFlowCompletedWithOptIn = 3,
-  // Notice action flow completed with action opt out.
-  kFlowCompletedWithOptOut = 4,
-  // Prompt/notice still waiting for action.
-  kPromptWaiting = 5,
-  // kPromptOtherAction = 6,  // no longer used
-  // kTimedOut = 7,  // no longer used,
-  kMaxValue = kPromptWaiting,
-};
-// LINT.ThenChange(//tools/metrics/histograms/enums.xml:PrivacySandboxNoticeStartupState)
-
 // TODO(crbug.com/392088228): Remove this once all values are migrated and
 // histograms are migrated to use UA. This is deprecated and should only be used
 // for histograms.
@@ -74,7 +51,7 @@ enum class NoticeActionTaken {
   kTimedOut = 9,
   kMaxValue = kTimedOut,
 };
-// LINT.ThenChange(//tools/metrics/histograms/enums.xml:PrivacySandboxNoticeAction)
+// LINT.ThenChange(//tools/metrics/histograms/metadata/privacy/enums.xml:PrivacySandboxNoticeAction)
 
 // Different notice action outcomes. These values are persisted to logs. Entries
 // should not be renumbered and numeric values should never be reused.
@@ -88,7 +65,7 @@ enum class NoticeActionBehavior {
   kDuplicateActionTaken = 2,
   kMaxValue = kDuplicateActionTaken,
 };
-// LINT.ThenChange(//tools/metrics/histograms/enums.xml:PrivacySandboxNoticeActionBehavior)
+// LINT.ThenChange(//tools/metrics/histograms/metadata/privacy/enums.xml:PrivacySandboxNoticeActionBehavior)
 
 struct NoticeEventTimestampPair {
   bool operator==(const NoticeEventTimestampPair& other) const = default;
@@ -128,24 +105,18 @@ struct V1MigrationData {
       base::JSONValueConverter<V1MigrationData>* converter);
 };
 
-std::optional<base::Time> GetNoticeFirstShownFromEvents(
-    const NoticeStorageData& notice_data);
+std::string GetNoticeActionStringFromEvent(
+    notice::mojom::PrivacySandboxNoticeEvent event);
 
-std::optional<base::Time> GetNoticeLastShownFromEvents(
-    const NoticeStorageData& notice_data);
-
-std::optional<NoticeEventTimestampPair>
-GetNoticeActionTakenForFirstShownFromEvents(
-    const NoticeStorageData& notice_data);
+std::optional<notice::mojom::PrivacySandboxNoticeEvent> NoticeActionToEvent(
+    NoticeActionTaken action);
 
 class NoticeStorage {
  public:
   virtual ~NoticeStorage();
 
   // Reads PrivacySandbox notice & consent prefs. Returns std::nullopt if all
-  // prefs aren't set. If an event is tracked but the event timestamp is
-  // missing, return base::Time(). If an event timestamp is tracked but the
-  // event itself is missing, return PrivacySandboxNoticeEvent::kUnknownAction.
+  // prefs aren't set.
   virtual std::optional<NoticeStorageData> ReadNoticeData(
       std::string_view notice) const = 0;
 
@@ -163,6 +134,9 @@ class PrivacySandboxNoticeStorage : public NoticeStorage {
   PrivacySandboxNoticeStorage(PrefService* pref_service,
                               NoticeCatalog* catalog);
   ~PrivacySandboxNoticeStorage() override;
+  PrivacySandboxNoticeStorage(const PrivacySandboxNoticeStorage&) = delete;
+  PrivacySandboxNoticeStorage& operator=(const PrivacySandboxNoticeStorage&) =
+      delete;
 
   static void RegisterProfilePrefs(PrefRegistrySimple* registry);
 
@@ -185,30 +159,7 @@ class PrivacySandboxNoticeStorage : public NoticeStorage {
   // Migrates fields in the notice data v1 schema to the notice data v2 schema.
   static NoticeStorageData ToV2Schema(const V1MigrationData& data_v1);
 
-  // Converts the schema v1 NoticeActionTaken to the schema v2
-  // PrivacySandboxNoticeEvent.
-  static std::optional<notice::mojom::PrivacySandboxNoticeEvent>
-  NoticeActionToNoticeEvent(NoticeActionTaken action);
-
-  // Gets the string used for histogram naming from PrivacySandboxNoticeEvent.
-  static std::string GetNoticeActionStringFromEvent(
-      notice::mojom::PrivacySandboxNoticeEvent event);
-
-  PrivacySandboxNoticeStorage(const PrivacySandboxNoticeStorage&) = delete;
-  PrivacySandboxNoticeStorage& operator=(const PrivacySandboxNoticeStorage&) =
-      delete;
-
  private:
-  // Sets the pref and histogram controlling the action taken on the notice.
-  void SetNoticeActionTaken(
-      std::string_view notice,
-      notice::mojom::PrivacySandboxNoticeEvent notice_action_taken,
-      base::Time notice_action_taken_time);
-
-  // Updates the pref and histogram controlling whether the notice has been
-  // shown.
-  void SetNoticeShown(std::string_view notice, base::Time notice_shown_time);
-
   raw_ptr<PrefService> pref_service_;
   raw_ptr<NoticeCatalog> catalog_;
 };

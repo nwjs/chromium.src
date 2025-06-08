@@ -54,7 +54,7 @@ BASE_FEATURE(kClientSideDetectionAcceptHCAllowlist,
 
 BASE_FEATURE(kClientSideDetectionBrandAndIntentForScamDetection,
              "ClientSideDetectionBrandAndIntentForScamDetection",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kClientSideDetectionDebuggingMetadataCache,
              "ClientSideDetectionDebuggingMetadataCache",
@@ -98,7 +98,7 @@ BASE_FEATURE(kClientSideDetectionShowLlamaScamVerdictWarning,
 
 BASE_FEATURE(kClientSideDetectionShowScamVerdictWarning,
              "ClientSideDetectionShowScamVerdictWarning",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kClientSideDetectionVibrationApi,
              "ClientSideDetectionVibrationApi",
@@ -279,10 +279,6 @@ constexpr base::FeatureParam<int>
         "OnDeviceNotificationContentDetectionModelAllowlistSamplingRate",
         /*default_value=*/0};
 
-BASE_FEATURE(kPasswordLeakToggleMove,
-             "PasswordLeakToggleMove",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 BASE_FEATURE(kRedWarningSurvey,
              "RedWarningSurvey",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -328,68 +324,24 @@ BASE_FEATURE(kSafetyHubAbusiveNotificationRevocation,
              "SafetyHubAbusiveNotificationRevocation",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(kSafetyHubDisruptiveNotificationRevocation,
-             "SafetyHubDisruptiveNotificationRevocation",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
-constexpr base::FeatureParam<bool>
-    kSafetyHubDisruptiveNotificationRevocationShadowRun{
-        &kSafetyHubDisruptiveNotificationRevocation,
-        /*name=*/"shadow_run", /*default_value=*/true};
-
-constexpr base::FeatureParam<int>
-    kSafetyHubDisruptiveNotificationRevocationMinNotificationCount{
-        &kSafetyHubDisruptiveNotificationRevocation,
-        /*name=*/"min_notification_count", /*default_value=*/3};
-
-constexpr base::FeatureParam<double>
-    kSafetyHubDisruptiveNotificationRevocationMaxEngagementScore{
-        &kSafetyHubDisruptiveNotificationRevocation,
-        /*name=*/"max_engagement_score", /*default_value=*/0.0};
-
-constexpr base::FeatureParam<int>
-    kSafetyHubDisruptiveNotificationRevocationNotificationTimeoutSeconds{
-        &kSafetyHubDisruptiveNotificationRevocation,
-        /*name=*/"notification_timeout_seconds",
-        /*default_value=*/7 * 24 * 3600};
-
-constexpr base::FeatureParam<int>
-    kSafetyHubDisruptiveNotificationRevocationMinFalsePositiveCooldown{
-        &kSafetyHubDisruptiveNotificationRevocation,
-        /*name=*/"min_false_positive_cooldown", /*default_value=*/0};
-
-constexpr base::FeatureParam<int>
-    kSafetyHubDisruptiveNotificationRevocationMaxFalsePositivePeriod{
-        &kSafetyHubDisruptiveNotificationRevocation,
-        /*name=*/"max_false_positive_period", /*default_value=*/14};
-
-// TODO(crbug.com/406472515): Site engagement score increase on navigation
-// happens at the same time as us detecting the navigation. If the score delta
-// is 0, the initial navigation won't trigger marking the site as false
-// positive.
-constexpr base::FeatureParam<double>
-    kSafetyHubDisruptiveNotificationRevocationMinSiteEngagementScoreDelta{
-        &kSafetyHubDisruptiveNotificationRevocation,
-        /*name=*/"min_engagement_score_delta", /*default_value=*/0.0};
-
-constexpr base::FeatureParam<int>
-    kSafetyHubDisruptiveNotificationRevocationUserRegrantWaitingPeriod{
-        &kSafetyHubDisruptiveNotificationRevocation,
-        /*name=*/"user_regrant_waiting_period", /*default_value=*/7};
-
 BASE_FEATURE(kSavePasswordHashFromProfilePicker,
              "SavePasswordHashFromProfilePicker",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kShowWarningsForSuspiciousNotifications,
              "ShowWarningsForSuspiciousNotifications",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+#if BUILDFLAG(IS_ANDROID)
+             base::FEATURE_ENABLED_BY_DEFAULT
+#else
+             base::FEATURE_DISABLED_BY_DEFAULT
+#endif
+);
 
 constexpr base::FeatureParam<int>
     kShowWarningsForSuspiciousNotificationsScoreThreshold{
         &kShowWarningsForSuspiciousNotifications,
         "ShowWarningsForSuspiciousNotificationsScoreThreshold",
-        /*default_value=*/100};
+        /*default_value=*/90};
 
 constexpr base::FeatureParam<bool>
     kShowWarningsForSuspiciousNotificationsShouldSwapButtons{

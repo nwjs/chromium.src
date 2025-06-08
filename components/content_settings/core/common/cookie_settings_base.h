@@ -180,6 +180,24 @@ class CookieSettingsBase {
   static ThirdPartyCookieAllowMechanism TpcdMetadataSourceToAllowMechanism(
       const mojom::TpcdMetadataRuleSource& source);
 
+  // MetadataSourceType exposes 3PCD metadata rule sources in UKM. It should
+  // match FirstPartyMetadataSource in tools/metrics/histograms/enums.xml.
+  // These values are persisted to logs. Entries should not be renumbered and
+  // numeric values should never be reused.
+  enum class MetadataSourceType {
+    None = 0,
+    FirstPartyDt = 1,
+    ThirdPartyDt = 2,
+    CriticalSector = 3,
+    CriticalSectorTld = 4,
+    Cuj = 5,
+    OtherMetadata = 6,
+    Heuristics = 7,
+  };
+
+  static MetadataSourceType AllowMechanismToMetadataSourceType(
+      const ThirdPartyCookieAllowMechanism& allow_mechanism);
+
   class CookieSettingWithMetadata {
    public:
     CookieSettingWithMetadata() = default;
@@ -284,15 +302,6 @@ class CookieSettingsBase {
       base::optional_ref<const net::CookiePartitionKey> cookie_partition_key,
       CookieSettingWithMetadata* cookie_settings = nullptr) const;
 
-  // TODO(https://crbug.com/399826579): Remove this overload and migrate all
-  // callsites to signature above
-  bool IsFullCookieAccessAllowed(
-      const GURL& url,
-      const net::SiteForCookies& site_for_cookies,
-      base::optional_ref<const url::Origin> top_frame_origin,
-      net::CookieSettingOverrides overrides,
-      CookieSettingWithMetadata* cookie_settings = nullptr) const;
-
   // Returns true if the cookie set by a page identified by |url| should be
   // session only. Querying this only makes sense if |IsFullCookieAccessAllowed|
   // has returned true.
@@ -387,18 +396,6 @@ class CookieSettingsBase {
   // Determines whether |setting| is a valid content setting for legacy cookie
   // access.
   static bool IsValidSettingForLegacyAccess(ContentSetting setting);
-
-  // Returns a set of overrides that includes Storage Access API and Top-Level
-  // Storage Access API overrides iff the config booleans indicate that Storage
-  // Access API and Top-Level Storage Access API should unlock access to DOM
-  // storage.
-  net::CookieSettingOverrides SettingOverridesForStorage() const;
-
-  // Controls whether Storage Access API grants allow access to unpartitioned
-  // *storage*, in addition to unpartitioned cookies. This is static so that all
-  // instances behave consistently.
-  static void SetStorageAccessAPIGrantsUnpartitionedStorageForTesting(
-      bool grants);
 
   // Returns an indication of whether the context given by `url`,
   // `top_frame_origin`, and `site_for_cookies` has storage access,
@@ -575,9 +572,6 @@ class CookieSettingsBase {
   // Returns whether |scheme| is always allowed to access 3p cookies.
   virtual bool IsThirdPartyCookiesAllowedScheme(
       const std::string& scheme) const = 0;
-
-  static bool storage_access_api_grants_unpartitioned_storage_;
-  const bool is_storage_partitioned_;
 };
 
 }  // namespace content_settings

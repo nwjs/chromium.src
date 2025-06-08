@@ -67,7 +67,7 @@ class NativeAppWindowViews : public extensions::NativeAppWindow,
 
   void layout_() { LayoutImmediately(); }
  protected:
-  // Initializes |widget_| for |app_window|.
+  // Initializes `widget_` for `app_window`.
   virtual void InitializeWindow(
       extensions::AppWindow* app_window,
       const extensions::AppWindow::CreateParams& create_params);

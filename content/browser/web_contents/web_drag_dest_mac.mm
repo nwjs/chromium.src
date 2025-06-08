@@ -274,6 +274,8 @@ void DropCompletionCallback(WebDragDest* drag_dest,
   if (_webContents->ShouldIgnoreInputEvents())
     return;
 
+  _webContents->PreHandleDragExit();
+
   if (!_dropDataFiltered || !_dropDataUnfiltered)
     return;
 
@@ -299,12 +301,18 @@ void DropCompletionCallback(WebDragDest* drag_dest,
   if (_webContents->ShouldIgnoreInputEvents())
     return NSDragOperationNone;
 
-  if (!_dropDataFiltered || !_dropDataUnfiltered)
-    return NSDragOperationNone;
-
   if (_canceled) {
     // TODO(ekaramad,paulmeyer): We probably shouldn't be checking for
     // |canceled_| twice in this method.
+    return NSDragOperationNone;
+  }
+
+  if (_dropDataUnfiltered) {
+    _webContents->PreHandleDragUpdate(*_dropDataUnfiltered,
+                                      info->location_in_view);
+  }
+
+  if (!_dropDataFiltered || !_dropDataUnfiltered) {
     return NSDragOperationNone;
   }
 

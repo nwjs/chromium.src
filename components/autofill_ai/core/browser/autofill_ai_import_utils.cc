@@ -71,8 +71,7 @@ ValueAndFormatString GetValueAndFormatString(const AutofillField& field) {
   auto get_value = [&](DatePartRange range) {
     // TODO(crbug.com/415805985): Consider adding a heuristic to decide what
     // value to extract for date select options (value vs label vs index).
-    const std::u16string& value =
-        field.value(autofill::ValueSemantics::kCurrent);
+    const std::u16string& value = field.value();
     uint32_t index = 0;
     while (index < range.options.size() &&
            value != range.options[index].value) {

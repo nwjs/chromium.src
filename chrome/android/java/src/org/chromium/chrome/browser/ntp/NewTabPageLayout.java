@@ -16,10 +16,13 @@ import android.view.DragEvent;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
+import android.widget.TextView;
 
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
+import androidx.core.widget.ImageViewCompat;
 
 import org.chromium.base.Callback;
 import org.chromium.base.CallbackController;
@@ -40,6 +43,7 @@ import org.chromium.chrome.browser.logo.LogoView;
 import org.chromium.chrome.browser.multiwindow.MultiWindowUtils;
 import org.chromium.chrome.browser.ntp.NewTabPage.OnSearchBoxScrollListener;
 import org.chromium.chrome.browser.ntp.search.SearchBoxCoordinator;
+import org.chromium.chrome.browser.omnibox.SearchEngineUtils;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.suggestions.tile.MostVisitedTilesCoordinator;
 import org.chromium.chrome.browser.suggestions.tile.TileGroup;
@@ -121,7 +125,7 @@ public class NewTabPageLayout extends LinearLayout {
 
     private FeedSurfaceScrollDelegate mScrollDelegate;
 
-    private int mTileViewWidth;
+    private final int mTileViewWidth;
     private Integer mInitialTileNum;
     private Boolean mIsMvtAllFilledLandscape;
     private Boolean mIsMvtAllFilledPortrait;
@@ -134,6 +138,7 @@ public class NewTabPageLayout extends LinearLayout {
     // This variable is only valid when the NTP surface is in tablet mode.
     private boolean mIsInMultiWindowModeOnTablet;
     private View mFakeSearchBoxLayout;
+    private TextView mFakeSearchBoxEditText;
     private Callback<Logo> mOnLogoAvailableCallback;
 
     /** Constructor for inflating from XML. */
@@ -165,6 +170,7 @@ public class NewTabPageLayout extends LinearLayout {
 
         mMiddleSpacer = findViewById(R.id.ntp_middle_spacer);
         mFakeSearchBoxLayout = findViewById(R.id.search_box);
+        mFakeSearchBoxEditText = findViewById(R.id.search_box_text);
         insertSiteSectionView();
 
         Log.i(TAG, "NewTabPageLayout.onFinishInflate after insertSiteSectionView");
@@ -241,6 +247,20 @@ public class NewTabPageLayout extends LinearLayout {
                         ? getResources()
                                 .getDimensionPixelSize(R.dimen.ntp_search_box_transition_end_offset)
                         : 0;
+
+        if (OmniboxFeatures.sOmniboxMobileParityUpdate.isEnabled()) {
+            var fakeboxView = findViewById(R.id.search_box);
+            var dseIconView = (ImageView) fakeboxView.findViewById(R.id.search_box_engine_icon);
+            dseIconView.setVisibility(VISIBLE);
+            ImageViewCompat.setImageTintList(dseIconView, null);
+            fakeboxView.setPaddingRelative(
+                    getResources()
+                            .getDimensionPixelSize(
+                                    R.dimen.fake_search_box_start_padding_with_dse_logo),
+                    fakeboxView.getPaddingTop(),
+                    fakeboxView.getPaddingEnd(),
+                    fakeboxView.getPaddingBottom());
+        }
 
         updateSearchBoxWidth();
         initializeLogoCoordinator(searchProviderHasLogo, searchProviderIsGoogle);
@@ -1007,5 +1027,11 @@ public class NewTabPageLayout extends LinearLayout {
     public static boolean isInNarrowWindowOnTablet(boolean isTablet, UiConfig uiConfig) {
         return isTablet
                 && uiConfig.getCurrentDisplayStyle().horizontal < HorizontalDisplayStyle.WIDE;
+    }
+
+    /** Update text hint to capture the Search Engine name. */
+    /* package */ void updateSearchBoxHintText() {
+        mFakeSearchBoxEditText.setHint(
+                SearchEngineUtils.getForProfile(mProfile).getSearchBoxHintText());
     }
 }

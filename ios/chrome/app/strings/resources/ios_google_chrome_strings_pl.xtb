@@ -47,6 +47,7 @@ Pamiętaj, że:
 <translation id="1917964099031477364">To konto razem z wszelkimi niezapisanymi danymi zostanie usunięte z Chrome i innych aplikacji Google na tym urządzeniu.</translation>
 <translation id="1919130412786645364">Zezwalaj na logowanie się w Chrome</translation>
 <translation id="1965935827552890526">Dokończ czynności rozpoczęte w innym otwartym oknie Chrome.</translation>
+<translation id="1966638102563776885">Wskazówka dotycząca Chrome: korzystaj z haseł w dowolnej aplikacji</translation>
 <translation id="1973910962341002002">W ustawieniach „<ph name="TEXT_OF_THE_SETTINGS_MENU_ITEM" />” włącz opcję „Chrome”</translation>
 <translation id="1984705450038014246">Synchronizuj dane Chrome</translation>
 <translation id="1987779152850321833">Wykonaj te sugerowane działania, aby w pełni wykorzystać możliwości Chrome.</translation>
@@ -114,7 +115,6 @@ Odczekaj kilka minut, zanim się wylogujesz. Jeśli wylogujesz się teraz, te da
 <translation id="3655656110921623717">Oznacza to, że Chrome będzie za każdym razem wyświetlać witrynę mobilną.</translation>
 <translation id="3740397331642243698">Otwiera wpisane adresy URL w Google Chrome w trybie incognito.</translation>
 <translation id="3741995255368156336">Otwiera listę Do przeczytania w Chrome.</translation>
-<translation id="3808570423967020928">Otwieraj Chrome szybciej z Docka na ekranie głównym.</translation>
 <translation id="3827545470516145620">Na tym urządzeniu korzystasz ze standardowej ochrony</translation>
 <translation id="384394811301901750">Google Chrome nie może teraz użyć aparatu</translation>
 <translation id="3863841106411295595">Dodaje wpisane adresy URL do listy Do przeczytania w Chrome.</translation>
@@ -138,6 +138,7 @@ Odczekaj kilka minut, zanim się wylogujesz. Jeśli wylogujesz się teraz, te da
 <translation id="4724297637870447613">Korzystaj z Chrome w dowolnym miejscu</translation>
 <translation id="4738647308035481133">Strona Google Chrome</translation>
 <translation id="4742795653798179840">Usunięte dane Chrome</translation>
+<translation id="4749294594657945639">Aby mieć łatwy dostęp do zapisanych haseł w innych aplikacjach, użyj autouzupełniania w Chrome.</translation>
 <translation id="4761869838909035636">Uruchom kontrolę zabezpieczeń Chrome</translation>
 <translation id="4798859546468762093">Aby korzystać z personalizacji i innych funkcji, uwzględnij Chrome w funkcjach: <ph name="FEATURE_NAME_1" /> i <ph name="FEATURE_NAME_2" /></translation>
 <translation id="4819268619367838612">Aby pomóc nam ulepszać aplikację, Chrome wysyła do Google dane o użytkowaniu i awariach. <ph name="BEGIN_LINK" />Zarządzaj<ph name="END_LINK" /></translation>
@@ -233,7 +234,6 @@ W <ph name="BEGIN_LINK" />usługach Google<ph name="END_LINK" /> znajdziesz wi�
 <translation id="6975725306479268850">Wybieranie Chrome do autouzupełniania</translation>
 <translation id="7056826488869329999">Otwiera i uruchamia kontrolę zabezpieczeń w Chrome.</translation>
 <translation id="7061455974939528301">Naciśnij i przytrzymaj ikonę Chrome i kliknij „Edytuj ekran główny”</translation>
-<translation id="7065813315247345131">Przenieś Chrome do Docka</translation>
 <translation id="7124339256045485976">Zawsze używaj aktualnej wersji Chrome</translation>
 <translation id="7145599899567697473">Zapisuj i automatycznie uzupełniaj hasła w Chrome</translation>
 <translation id="7161390184744336561">Masz nieaktualną wersję Google Chrome</translation>
@@ -317,10 +317,10 @@ Dane zostały zaszyfrowane za pomocą hasła wielowyrazowego <ph name="TIME" />.
 <translation id="8603022514504485810">Menedżerowi haseł Google nie udało się sprawdzić wszystkich haseł. Spróbuj ponownie jutro lub <ph name="BEGIN_LINK" />sprawdź hasła na koncie Google<ph name="END_LINK" />.</translation>
 <translation id="8630122478628016441">Włącz opcję „Po zamknięciu Chrome blokuj karty incognito”.</translation>
 <translation id="8673726683583791503">Kupuj za pomocą Obiektywu Google</translation>
-<translation id="8727043961453758442">W pełni wykorzystuj potencjał Chrome</translation>
 <translation id="8765470054473112089">Gdy piszesz na pasku adresu lub w polu wyszukiwania, Chrome wysyła to, co piszesz, do domyślnej wyszukiwarki, aby podawać Ci lepsze sugestie. Ta funkcja jest wyłączona w trybie incognito.</translation>
 <translation id="8772179140489533211">Pokazuj prośby o zalogowanie się w Chrome.</translation>
 <translation id="8788269841521769222">Nie musisz go zapamiętywać. Menedżer haseł Google zapisze je na koncie <ph name="EMAIL" /></translation>
+<translation id="8796490717897731471"><ph name="EMAIL" />. Przeglądarka Chrome jest zarządzana.</translation>
 <translation id="880967149107462122">Otwórz ustawienia Chrome</translation>
 <translation id="8842132678697187091">Tutaj możesz otworzyć Obiektyw Google</translation>
 <translation id="8850736900032787670">Aby otrzymywać spersonalizowane treści na podstawie swoich zainteresowań, zaloguj się w Chrome.</translation>

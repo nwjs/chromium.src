@@ -44,16 +44,10 @@ constexpr base::TimeDelta kRecencyTabTimeLimit = base::Seconds(600);
 // Number of switches to the tab to group with the current tab.
 constexpr int kMinSwitchesToGroup = 2;
 
-UrlGroupingSuggestionId::Generator g_id_generator;
+// history_clusters::Config::content_visibility_threshold
+constexpr float kVisibilityScoreThreshold = 0.7;
 
-const char* GetNameForInput(URLVisitAggregateRankingModelInputSignals signal) {
-  for (const auto& field : kSuggestionsPredictionSchema) {
-    if (field.signal == signal) {
-      return field.name;
-    }
-  }
-  return nullptr;
-}
+UrlGroupingSuggestionId::Generator g_id_generator;
 
 // A heuristic that find the recently opened tabs and groups them.
 class RecentlyOpenedHeuristic : public GroupingHeuristics::Heuristic {
@@ -265,6 +259,54 @@ void SetSuggestionText(GroupSuggestion& suggestion) {
   }
 }
 
+// Returns true if the group is visible.
+bool IsGroupVisible(const GroupSuggestion& suggestion,
+                    const std::vector<URLVisitAggregate>& candidates) {
+  if (!features::kGroupSuggestionEnableVisibilityCheck.Get()) {
+    return true;
+  }
+  std::map<int, bool> suggestion_tabs_visibility;
+  for (const auto& candidate : candidates) {
+    auto tab_it = candidate.fetcher_data_map.find(Fetcher::kTabModel);
+    if (tab_it == candidate.fetcher_data_map.end()) {
+      continue;
+    }
+    const auto& tab_data =
+        std::get_if<URLVisitAggregate::TabData>(&tab_it->second);
+    if (!tab_data) {
+      continue;
+    }
+
+    int tab_id = tab_data->last_active_tab.id;
+    if (!base::Contains(suggestion.tab_ids, tab_id)) {
+      continue;
+    }
+
+    const auto& history_it = candidate.fetcher_data_map.find(Fetcher::kHistory);
+    if (history_it != candidate.fetcher_data_map.end()) {
+      const auto* history =
+          std::get_if<URLVisitAggregate::HistoryData>(&history_it->second);
+      if (history) {
+        suggestion_tabs_visibility[tab_id] =
+            history->last_visited.content_annotations.model_annotations
+                .visibility_score > kVisibilityScoreThreshold;
+      }
+    }
+  }
+
+  // Return false if all tabs in the suggestion do not have a score, or if any
+  // tab is not visible.
+  if (suggestion_tabs_visibility.empty()) {
+    return false;
+  }
+  for (const auto& [tab_id, is_visible] : suggestion_tabs_visibility) {
+    if (!is_visible) {
+      return false;
+    }
+  }
+  return true;
+}
+
 std::optional<GroupSuggestion> GetSuggestionFromHeuristicResult(
     const std::vector<URLVisitAggregate>& candidates,
     GroupSuggestion::SuggestionReason reason,
@@ -323,6 +365,16 @@ std::optional<GroupSuggestion> GetSuggestionFromHeuristicResult(
   if (suggestion.tab_ids.size() < min_tabs) {
     return std::nullopt;
   }
+
+  if (!IsGroupVisible(suggestion, candidates)) {
+    VLOG(1) << "Suggestion discarded due to visibility";
+    base::UmaHistogramEnumeration(
+        "GroupSuggestionsService.SuggestionThrottledReason",
+        TabGroupSuggestionThrottleReason::kGroupNotVisible);
+
+    return std::nullopt;
+  }
+
   suggestion.suggestion_id = g_id_generator.GenerateNextId();
   SetSuggestionText(suggestion);
   return suggestion;
@@ -353,6 +405,14 @@ std::optional<GroupSuggestions> GetAllGroupSuggestions(
 
 }  // namespace
 
+GroupingHeuristics::SuggestionsResult::SuggestionsResult() = default;
+GroupingHeuristics::SuggestionsResult::~SuggestionsResult() = default;
+GroupingHeuristics::SuggestionsResult::SuggestionsResult(
+    GroupingHeuristics::SuggestionsResult&&) = default;
+GroupingHeuristics::SuggestionsResult&
+GroupingHeuristics::SuggestionsResult::operator=(
+    GroupingHeuristics::SuggestionsResult&& suggestion_result) = default;
+
 GroupingHeuristics::GroupingHeuristics() {
   if (features::kGroupSuggestionEnableRecentlyOpened.Get()) {
     heuristics_.emplace(GroupSuggestion::SuggestionReason::kRecentlyOpened,
@@ -376,7 +436,7 @@ GroupingHeuristics::~GroupingHeuristics() = default;
 
 void GroupingHeuristics::GetSuggestions(
     std::vector<URLVisitAggregate> candidates,
-    GroupingHeuristics::SuggestionsCallback callback) {
+    GroupingHeuristics::SuggestionResultCallback callback) {
   GetSuggestions(std::move(candidates),
                  {GroupSuggestion::SuggestionReason::kSwitchedBetween,
                   GroupSuggestion::SuggestionReason::kSimilarSource,
@@ -388,9 +448,10 @@ void GroupingHeuristics::GetSuggestions(
 void GroupingHeuristics::GetSuggestions(
     std::vector<URLVisitAggregate> candidates,
     const std::vector<GroupSuggestion::SuggestionReason>& heuristics_priority,
-    SuggestionsCallback callback) {
+    SuggestionResultCallback callback) {
+  SuggestionsResult result;
   if (candidates.empty()) {
-    std::move(callback).Run(std::nullopt);
+    std::move(callback).Run(std::move(result));
     return;
   }
 
@@ -407,9 +468,10 @@ void GroupingHeuristics::GetSuggestions(
     auto& heuristic = heuristics_[type];
     heuristic_results.emplace(heuristic->reason(), heuristic->Run(signals));
   }
-
-  std::move(callback).Run(GetAllGroupSuggestions(
-      candidates, heuristics_priority, heuristic_results));
+  result.suggestions = GetAllGroupSuggestions(candidates, heuristics_priority,
+                                              heuristic_results);
+  result.inputs = signals;
+  std::move(callback).Run(std::move(result));
 }
 
 }  // namespace visited_url_ranking

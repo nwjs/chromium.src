@@ -19,7 +19,6 @@
 #include "base/logging.h"
 #include "base/memory/raw_ptr.h"
 #include "base/metrics/histogram_macros.h"
-#include "base/not_fatal_until.h"
 #include "base/notreached.h"
 #include "base/numerics/safe_conversions.h"
 #include "base/strings/stringprintf.h"
@@ -596,7 +595,7 @@ void Surface::SetSubSurfacePosition(Surface* sub_surface,
   if (sub_surface->is_augmented()) {
     auto* render_layer = sub_surface;
     auto it = FindListEntry(render_layers_, render_layer);
-    CHECK(it != render_layers_.end(), base::NotFatalUntil::M130);
+    CHECK(it != render_layers_.end());
     if (it->second == position) {
       return;
     }
@@ -608,7 +607,7 @@ void Surface::SetSubSurfacePosition(Surface* sub_surface,
                sub_surface->AsTracedValue(), "position", position.ToString());
 
   auto it = FindListEntry(pending_sub_surfaces_, sub_surface);
-  CHECK(it != pending_sub_surfaces_.end(), base::NotFatalUntil::M130);
+  CHECK(it != pending_sub_surfaces_.end());
   if (it->second == position) {
     return;
   }
@@ -1815,8 +1814,7 @@ void Surface::AppendContentsToFrame(const gfx::PointF& parent_to_root_px,
       texture_quad->SetNew(
           quad_state, quad_rect, quad_rect,
           /* needs_blending=*/!are_contents_opaque, current_resource_.id,
-          /* premultiplied*/ true, uv_crop.origin(), uv_crop.bottom_right(),
-          background_color,
+          uv_crop.origin(), uv_crop.bottom_right(), background_color,
           /* nearest*/ false, state_.basic_state.only_visible_on_secure_output,
           gfx::ProtectedVideoType::kClear);
 

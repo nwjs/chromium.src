@@ -9,6 +9,7 @@
 #include "base/debug/alias.h"
 #include "base/logging.h"
 #include "base/strings/strcat.h"
+#include "base/strings/stringprintf.h"
 #include "components/viz/service/gl/exit_code.h"
 #include "mojo/public/cpp/system/platform_handle.h"
 #include "skia/ext/platform_canvas.h"
@@ -52,7 +53,7 @@ SoftwareOutputDeviceWinSwapChain::SoftwareOutputDeviceWinSwapChain(
     HWND& child_hwnd,
     OutputDeviceBacking* output_backing)
     : SoftwareOutputDeviceWinBase(hwnd), output_backing_(output_backing) {
-  child_window_.Initialize(/*remove_redirection_bitmap=*/true);
+  child_window_.Initialize();
   child_hwnd = child_window_.window();
   output_backing_->RegisterClient(this);
 }
@@ -68,13 +69,19 @@ SoftwareOutputDeviceWinSwapChain::~SoftwareOutputDeviceWinSwapChain() {
   }
 }
 
+bool SoftwareOutputDeviceWinSwapChain::UpdateWindowSize(
+    const gfx::Size& viewport_pixel_size) {
+  // Update the size of the child window.
+  return SetWindowPos(child_window_.window(), nullptr, 0, 0,
+                      viewport_pixel_size.width(), viewport_pixel_size.height(),
+                      SWP_NOMOVE | SWP_NOACTIVATE | SWP_NOCOPYBITS |
+                          SWP_NOOWNERZORDER | SWP_NOZORDER);
+}
+
 bool SoftwareOutputDeviceWinSwapChain::ResizeDelegated(
     const gfx::Size& viewport_pixel_size) {
   // Update window size.
-  if (!SetWindowPos(child_window_.window(), nullptr, 0, 0,
-                    viewport_pixel_size.width(), viewport_pixel_size.height(),
-                    SWP_NOMOVE | SWP_NOACTIVATE | SWP_NOCOPYBITS |
-                        SWP_NOOWNERZORDER | SWP_NOZORDER)) {
+  if (!UpdateWindowSize(viewport_pixel_size)) {
     return false;
   }
 

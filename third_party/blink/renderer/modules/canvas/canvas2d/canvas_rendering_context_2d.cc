@@ -61,8 +61,7 @@
 #include "third_party/blink/renderer/core/frame/local_frame.h"
 
 #include "third_party/blink/public/platform/task_type.h"
-#include "third_party/blink/renderer/bindings/modules/v8/v8_typedefs.h"
-#include "third_party/blink/renderer/bindings/modules/v8/v8_union_canvasrenderingcontext2d_gpucanvascontext_imagebitmaprenderingcontext_webgl2renderingcontext_webglrenderingcontext.h"
+#include "third_party/blink/renderer/bindings/modules/v8/v8_union_rendering_context.h"
 #include "third_party/blink/renderer/core/accessibility/ax_object_cache.h"
 #include "third_party/blink/renderer/core/css/css_property_names.h"
 #include "third_party/blink/renderer/core/css/css_property_value_set.h"
@@ -82,6 +81,7 @@
 #include "third_party/blink/renderer/core/layout/layout_box_model_object.h"
 #include "third_party/blink/renderer/core/layout/layout_theme.h"
 #include "third_party/blink/renderer/core/layout/map_coordinates_flags.h"
+#include "third_party/blink/renderer/core/paint/cull_rect_updater.h"
 #include "third_party/blink/renderer/core/paint/paint_layer_painter.h"
 #include "third_party/blink/renderer/core/scroll/scroll_alignment.h"
 #include "third_party/blink/renderer/core/scroll/scroll_into_view_util.h"
@@ -661,7 +661,7 @@ scoped_refptr<StaticBitmapImage> blink::CanvasRenderingContext2D::GetImage(
         canvas()->GetHibernationHandler()->GetImage());
   }
 
-  if (!Host()->IsResourceValid()) {
+  if (!canvas()->IsResourceValid()) {
     return nullptr;
   }
   // GetOrCreateResourceProvider needs to be called before FlushRecording, to
@@ -688,73 +688,85 @@ ImageData* CanvasRenderingContext2D::getImageDataInternal(
       sx, sy, sw, sh, image_data_settings, exception_state);
 }
 
-bool CanvasRenderingContext2D::HasPlacedElements() const {
-  return !placed_elements_.empty();
+void CanvasRenderingContext2D::drawElement(Element* element,
+                                           double x,
+                                           double y,
+                                           ExceptionState& exception_state) {
+  DrawElementInternal(element, x, y, std::nullopt, std::nullopt,
+                      exception_state);
 }
 
-void CanvasRenderingContext2D::PaintPlacedElements() {
-  bool placed_elements_need_repainting = false;
-  for (auto deferred_paint_record : placed_elements_.Values()) {
-    if (deferred_paint_record->IsDirty()) {
-      placed_elements_need_repainting = true;
-      break;
-    }
-  }
+void CanvasRenderingContext2D::drawElement(Element* element,
+                                           double x,
+                                           double y,
+                                           double dwidth,
+                                           double dheight,
+                                           ExceptionState& exception_state) {
+  DrawElementInternal(element, x, y, dwidth, dheight, exception_state);
+}
 
-  if (!placed_elements_need_repainting) {
+void CanvasRenderingContext2D::DrawElementInternal(
+    Element* element,
+    double x,
+    double y,
+    std::optional<double> dwidth,
+    std::optional<double> dheight,
+    ExceptionState& exception_state) {
+  CHECK(RuntimeEnabledFeatures::CanvasDrawElementEnabled());
+
+  HTMLCanvasElement* canvas_element = HostAsHTMLCanvasElement();
+  DCHECK(canvas_element);
+  canvas_element->GetDocument().View()->UpdateAllLifecyclePhasesExceptPaint(
+      DocumentUpdateReason::kCanvasDrawElement);
+
+  if (!IsDrawElementEligible(element, exception_state)) {
     return;
   }
 
-  DCHECK_EQ(canvas()->GetDocument().Lifecycle().GetState(),
-            DocumentLifecycle::LifecycleState::kInPaint);
+  // TODO(crbug.com/380277045): Taint for cross-origin and PII content.
+  // SetOriginTaintedByContent();
 
-  for (auto& [element, deferred_paint_image] : placed_elements_) {
-    if (!element->GetLayoutBox() || element->parentElement() != canvas()) {
-      // The element is no longer visible or has been reparented.
-      deferred_paint_image->Clear();
-      continue;
-    }
+  PaintRecordBuilder builder;
+  LayoutBox* layout_box = element->GetLayoutBox();
+  // All drawn elements should have their own stacking contexts.
+  CHECK(layout_box->HasLayer());
+  CHECK(layout_box->IsStacked());
+  PaintLayer* layer = layout_box->EnclosingLayer();
 
-    if (!deferred_paint_image->IsDirty()) {
-      continue;
-    }
+  auto box_rect = gfx::Rect(ToCeiledSize(layer->GetLayoutBox()->Size()));
+  // TODO(https://issues.chromium.org/379143301): Figure out the actual painted
+  // rect of the element plus its descendants, and use that instead of the
+  // box's size.
+  OverriddenCullRectScope cull_rect_scope(*layer, CullRect(box_rect),
+                                          /*disable_expansion*/ true);
 
-    PaintRecordBuilder builder;
-    LayoutBox* layout_box = element->GetLayoutBox();
-    // All placed elements should have their own stacking contexts.
-    CHECK(layout_box->HasLayer());
-    CHECK(layout_box->IsStacked());
-    PaintLayer* layer = layout_box->EnclosingLayer();
+  PaintLayerPainter paint_layer_painter = PaintLayerPainter(*layer);
+  paint_layer_painter.Paint(builder.Context(), PaintFlag::kPlacedElement);
 
-    PaintLayerPainter paint_layer_painter = PaintLayerPainter(*layer);
-    paint_layer_painter.Paint(builder.Context(), PaintFlag::kPlacedElement);
+  PropertyTreeState property_tree_state = layer->GetLayoutObject()
+                                              .FirstFragment()
+                                              .LocalBorderBoxProperties()
+                                              .Unalias();
 
-    PropertyTreeState property_tree_state = layer->GetLayoutObject()
-                                                .FirstFragment()
-                                                .LocalBorderBoxProperties()
-                                                .Unalias();
+  cc::PaintRecord paint_record = builder.EndRecording(property_tree_state);
 
-    cc::PaintRecord placed_element_picture =
-        builder.EndRecording(property_tree_state);
+  WillDraw(SkIRect::MakeXYWH(0, 0, Width(), Height()),
+           CanvasPerformanceMonitor::DrawType::kOther);
 
-    cc::RecordPaintCanvas canvas;
-    canvas.drawPicture(placed_element_picture);
-
-    // TODO(https://issues.chromium.org/379143302): Take the border box bounds
-    // of the layout object by walking over the paint chunks to compute the
-    // painted size.
-    deferred_paint_image->SetPaintRecord(
-        placed_element_picture, gfx::SizeF(layer->GetLayoutBox()->Size()));
-    deferred_paint_image->SetIsDirty(false);
-  }
-}
-
-void CanvasRenderingContext2D::MarkPlacedElementDirty(Element* placedElement) {
-  if (!placed_elements_.Contains(placedElement)) {
-    return;
+  cc::PaintCanvas* canvas = GetOrCreatePaintCanvas();
+  canvas->save();
+  canvas->translate(x, y);
+  if (dwidth && dheight) {
+    canvas->scale(*dwidth / box_rect.width(), *dheight / box_rect.height());
   }
 
-  placed_elements_.at(placedElement)->SetIsDirty(true);
+  canvas->clipRect(SkRect::MakeWH(box_rect.width(), box_rect.height()));
+  canvas->drawPicture(
+      paint_record,
+      // use a save at the beginning of the record to keep transforms local:
+      true);
+
+  canvas->restore();
 }
 
 void CanvasRenderingContext2D::FinalizeFrame(FlushReason reason) {
@@ -774,7 +786,7 @@ void CanvasRenderingContext2D::FinalizeFrame(FlushReason reason) {
     }
   }
 
-  CanvasRenderingContextHost* host = Host();
+  HTMLCanvasElement* host = canvas();
   CHECK(host);
 
   host->FlushRecording(reason);

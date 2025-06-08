@@ -101,11 +101,16 @@ class AX_BASE_EXPORT AXMode {
   // interactions from accessibility tools.
   static constexpr uint32_t kFromPlatform = 1 << 10;
 
+  // The accessibility tree will contain content and properties only needed by
+  // actual screen readers. This mode is only present when a known screen reader
+  // is detected, e.g. ChromeVox, Talkback, JAWS, NVDA, Narrator, etc.
+  static constexpr uint32_t kScreenReader = 1 << 11;
+
   // Update this to include the last supported mode flag. If you add
   // another, be sure to update the stream insertion operator for
   // logging and debugging, as well as AccessibilityModeFlagEnum (and
   // related metrics callsites, see: |ModeFlagHistogramValue|).
-  static constexpr uint32_t kLastModeFlag = 1 << 10;
+  static constexpr uint32_t kLastModeFlag = 1 << 11;
   // LINT.ThenChange(//chrome/browser/metrics/accessibility_state_provider.cc,//chrome/browser/performance_manager/metrics/metrics_provider_common.cc,//chrome/browser/resources/accessibility/accessibility.ts,//tools/metrics/histograms/enums.xml,//ui/accessibility/ax_mode_histogram_logger.cc)
 
   constexpr AXMode() : flags_(kNone), filter_flags_(kNone) {}
@@ -146,6 +151,8 @@ class AX_BASE_EXPORT AXMode {
 
   std::string ToString() const;
 
+  friend constexpr bool operator==(const AXMode&, const AXMode&) = default;
+
   // IMPORTANT!
   // These values are written to logs.  Do not renumber or delete
   // existing items; add new entries to the end of the list.
@@ -153,7 +160,7 @@ class AX_BASE_EXPORT AXMode {
     UMA_AX_MODE_NATIVE_APIS = 0,
     UMA_AX_MODE_WEB_CONTENTS = 1,
     UMA_AX_MODE_INLINE_TEXT_BOXES = 2,
-    UMA_AX_MODE_SCREEN_READER = 3,
+    UMA_AX_MODE_EXTENDED_PROPERTIES = 3,
     UMA_AX_MODE_HTML = 4,
     UMA_AX_MODE_HTML_METADATA = 5,
     UMA_AX_MODE_LABEL_IMAGES = 6,
@@ -161,6 +168,7 @@ class AX_BASE_EXPORT AXMode {
     UMA_AX_MODE_PDF_OCR = 8,
     UMA_AX_MODE_ANNOTATE_MAIN_NODE = 9,
     UMA_AX_MODE_FROM_PLATFORM = 10,
+    UMA_AX_MODE_SCREEN_READER = 11,
 
     // This must always be the last enum. It's okay for its value to
     // increase, but none of the other enum values may change.
@@ -212,14 +220,6 @@ class AX_BASE_EXPORT AXMode {
   uint32_t filter_flags_ = 0U;
 };
 
-constexpr bool operator==(const AXMode& lhs, const AXMode& rhs) {
-  return lhs.flags() == rhs.flags() && lhs.filter_flags() == rhs.filter_flags();
-}
-
-constexpr bool operator!=(const AXMode& lhs, const AXMode& rhs) {
-  return lhs.flags() != rhs.flags() || lhs.filter_flags() != rhs.filter_flags();
-}
-
 constexpr AXMode operator|(const AXMode& lhs, const AXMode& rhs) {
   return {lhs.flags() | rhs.flags(), lhs.filter_flags() | rhs.filter_flags()};
 }
@@ -245,6 +245,21 @@ inline constexpr AXMode kAXModeComplete(AXMode::kNativeAPIs |
                                         AXMode::kWebContents |
                                         AXMode::kInlineTextBoxes |
                                         AXMode::kExtendedProperties);
+
+// Used for DOM Inspector.
+// TODO(accessibility) Inspector should not need kInlineTextBoxes.
+inline constexpr AXMode kAXModeInspector(AXMode::kWebContents |
+                                         AXMode::kInlineTextBoxes |
+                                         AXMode::kExtendedProperties |
+                                         AXMode::kScreenReader);
+
+// The default for tests is to include kScreenReader mode, ensuring that the
+// entire tree is built, rather than the default for API consumers, which
+// assumes there is no screen reader present, enabling optimizations such as
+// removal of AXNodes that are not currently relevant.
+inline constexpr AXMode kAXModeDefaultForTests(
+    AXMode::kNativeAPIs | AXMode::kWebContents | AXMode::kInlineTextBoxes |
+    AXMode::kExtendedProperties | AXMode::kHTML | AXMode::kScreenReader);
 
 // Used when tools that only need autofill functionality are present.
 inline constexpr AXMode kAXModeFormControls(AXMode::kNativeAPIs |

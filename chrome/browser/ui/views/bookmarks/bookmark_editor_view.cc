@@ -30,6 +30,7 @@
 #include "components/bookmarks/common/bookmark_metrics.h"
 #include "components/constrained_window/constrained_window_views.h"
 #include "components/history/core/browser/history_service.h"
+#include "components/signin/public/base/signin_switches.h"
 #include "components/strings/grit/components_strings.h"
 #include "components/url_formatter/url_fixer.h"
 #include "components/user_prefs/user_prefs.h"
@@ -277,6 +278,11 @@ void BookmarkEditorView::ShowContextMenuForViewImpl(
                                   source_type);
 }
 
+bool BookmarkEditorView::IsNewFolderButtonEnabledForTesting() const {
+  CHECK(new_folder_button_);
+  return new_folder_button_->GetEnabled();
+}
+
 void BookmarkEditorView::BookmarkNodeMoved(const BookmarkNode* old_parent,
                                            size_t old_index,
                                            const BookmarkNode* new_parent,
@@ -315,6 +321,14 @@ void BookmarkEditorView::BookmarkNodeRemoved(const BookmarkNode* parent,
     // A node, or its parent was removed. Close the dialog.
     GetWidget()->Close();
   } else {
+    Reset();
+  }
+}
+
+void BookmarkEditorView::BookmarkNodeChanged(
+    const bookmarks::BookmarkNode* node) {
+  // Only reset for folders, since bookmarks (urls) are not shown in the dialog.
+  if (node->is_folder()) {
     Reset();
   }
 }
@@ -483,13 +497,19 @@ void BookmarkEditorView::AddLabels() {
 }
 
 void BookmarkEditorView::ExpandAndSelect() {
-  BookmarkExpandedStateTracker::Nodes expanded_nodes =
-      expanded_state_tracker_->GetExpandedNodes();
-  for (const BookmarkNode* node : expanded_nodes) {
-    EditorNode* editor_node =
-        FindNodeWithID(tree_model_->GetRoot(), node->id());
-    if (editor_node) {
-      tree_view_->Expand(editor_node);
+  // Only expand tracked nodes if the feature flag is disabled. With the flag
+  // enabled, only the nodes leading up to the selected node's parent should be
+  // expanded.
+  if (!base::FeatureList::IsEnabled(
+          switches::kSyncEnableBookmarksInTransportMode)) {
+    BookmarkExpandedStateTracker::Nodes expanded_nodes =
+        expanded_state_tracker_->GetExpandedNodes();
+    for (const BookmarkNode* node : expanded_nodes) {
+      EditorNode* editor_node =
+          FindNodeWithID(tree_model_->GetRoot(), node->id());
+      if (editor_node) {
+        tree_view_->Expand(editor_node);
+      }
     }
   }
 
@@ -501,9 +521,16 @@ void BookmarkEditorView::ExpandAndSelect() {
   EditorNode* b_node =
       FindNodeWithID(tree_model_->GetRoot(), folder_id_to_select);
   if (!b_node) {
-    b_node = tree_model_->GetRoot()->children().front().get();  // Bookmark bar.
+    // Default to the bookmark bar folder.
+    bool has_title_node =
+        tree_model_->GetRoot()->children().front()->value.type ==
+        EditorNodeData::Type::kTitle;
+    b_node = FindNodeWithID(tree_model_->GetRoot(),
+                            has_title_node
+                                ? bb_model_->account_bookmark_bar_node()->id()
+                                : bb_model_->bookmark_bar_node()->id());
+    CHECK(b_node);
   }
-
   tree_view_->SetSelectedNode(b_node);
 }
 

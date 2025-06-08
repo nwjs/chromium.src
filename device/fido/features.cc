@@ -13,6 +13,8 @@ namespace {
 constexpr int kDefaultMaxRequests = 10;
 // Default time window (in seconds) for the immediate request rate limit.
 constexpr int kDefaultWindowSeconds = 60;
+// Default timeout for immediate mediation requests (in milliseconds).
+constexpr int kDefaultImmediateMediationTimeoutMs = 500;
 
 }  // namespace
 
@@ -175,10 +177,11 @@ BASE_FEATURE(kWebAuthnSignalApiHidePasskeys,
              "WebAuthenticationSignalApiHidePasskeys",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-// Enables rate limiting of immediate requests based on eTLD+1.
+// Enabled by default as part of the WebAuthenticationImmediateGet feature. Do
+// not remove before WebAuthenticationImmediateGet is removed.
 BASE_FEATURE(kWebAuthnImmediateRequestRateLimit,
              "WebAuthnImmediateRequestRateLimit",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE_PARAM(int,
                    kWebAuthnImmediateRequestRateLimitMaxRequests,
@@ -192,9 +195,26 @@ BASE_FEATURE_PARAM(int,
                    "window_seconds",
                    kDefaultWindowSeconds);
 
-// Not yet enabled by default.
+// Enabled by default on Desktop for the Origin Trial. Do not remove until the
+// Origin Trial expires.
 BASE_FEATURE(kWebAuthnImmediateGet,
              "WebAuthenticationImmediateGet",
+#if BUILDFLAG(IS_ANDROID)
              base::FEATURE_DISABLED_BY_DEFAULT);
+#else
+             base::FEATURE_ENABLED_BY_DEFAULT);
+#endif  // BUILDFLAG(IS_ANDROID)
+
+BASE_FEATURE_PARAM(int,
+                   kWebAuthnImmediateMediationTimeoutMilliseconds,
+                   &kWebAuthnImmediateGet,
+                   "timeout_ms",
+                   kDefaultImmediateMediationTimeoutMs);
+
+// Enabled by default. Remove the flag and the logic (as if the flag is in
+// disabled state) when the WebAuthenticationImmediateGet origin trial is over.
+BASE_FEATURE(kWebAuthnImmediateGetAutoselect,
+             "WebAuthenticationImmediateGetAutoselect",
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 }  // namespace device

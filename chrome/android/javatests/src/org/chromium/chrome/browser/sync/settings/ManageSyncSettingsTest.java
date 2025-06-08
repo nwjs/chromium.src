@@ -457,7 +457,6 @@ public class ManageSyncSettingsTest {
 
         mSyncTestRule.setUpAccountAndSignInForTesting();
         SyncTestUtil.waitForSyncTransportActive();
-        mSyncTestRule.getSyncService();
 
         ManageSyncSettings fragment = startManageSyncPreferences();
 
@@ -669,7 +668,6 @@ public class ManageSyncSettingsTest {
 
     @Test
     @LargeTest
-    @EnableFeatures({ChromeFeatureList.ENABLE_BATCH_UPLOAD_FROM_SETTINGS})
     public void testSigninSettingsBatchUploadCardVisibilityWhenSyncIsConfiguring()
             throws Exception {
         setupMockSyncService(BiometricStatus.ONLY_LSKF_AVAILABLE, TransportState.CONFIGURING);
@@ -817,7 +815,6 @@ public class ManageSyncSettingsTest {
     @Test
     @LargeTest
     @Feature({"Sync", "RenderTest"})
-    @EnableFeatures({ChromeFeatureList.ENABLE_BATCH_UPLOAD_FROM_SETTINGS})
     public void testSigninSettingsBatchUploadEntryDescriptionPassword() throws Exception {
         setupMockSyncService();
         doAnswer(
@@ -856,7 +853,6 @@ public class ManageSyncSettingsTest {
     @Test
     @LargeTest
     @Feature({"Sync", "RenderTest"})
-    @EnableFeatures({ChromeFeatureList.ENABLE_BATCH_UPLOAD_FROM_SETTINGS})
     public void testSigninSettingsBatchUploadEntryDescriptionOther() throws Exception {
         setupMockSyncService();
         doAnswer(
@@ -895,7 +891,6 @@ public class ManageSyncSettingsTest {
     @Test
     @LargeTest
     @Feature({"Sync", "RenderTest"})
-    @EnableFeatures({ChromeFeatureList.ENABLE_BATCH_UPLOAD_FROM_SETTINGS})
     public void testSigninSettingsBatchUploadEntryDescriptionPasswordAndOther() throws Exception {
         setupMockSyncService();
         doAnswer(
@@ -934,7 +929,6 @@ public class ManageSyncSettingsTest {
     @Test
     @LargeTest
     @Feature({"Sync", "RenderTest"})
-    @EnableFeatures({ChromeFeatureList.ENABLE_BATCH_UPLOAD_FROM_SETTINGS})
     public void testSigninSettingsBatchUploadDialogShouldShowPasswordsToggle() throws Exception {
         setupMockSyncService();
         doAnswer(
@@ -982,7 +976,6 @@ public class ManageSyncSettingsTest {
     @Test
     @LargeTest
     @Feature({"Sync", "RenderTest"})
-    @EnableFeatures({ChromeFeatureList.ENABLE_BATCH_UPLOAD_FROM_SETTINGS})
     public void testSigninSettingsBatchUploadDialogShouldShowBookmarksAndReadingListToggles()
             throws Exception {
         setupMockSyncService();
@@ -1031,7 +1024,6 @@ public class ManageSyncSettingsTest {
     @Test
     @LargeTest
     @Feature({"Sync", "RenderTest"})
-    @EnableFeatures({ChromeFeatureList.ENABLE_BATCH_UPLOAD_FROM_SETTINGS})
     public void testSigninSettingsBatchUploadDialogShouldShowAllToggles() throws Exception {
         setupMockSyncService();
         doAnswer(
@@ -1079,7 +1071,6 @@ public class ManageSyncSettingsTest {
     @Test
     @LargeTest
     @Feature({"Sync"})
-    @EnableFeatures({ChromeFeatureList.ENABLE_BATCH_UPLOAD_FROM_SETTINGS})
     public void
             testSigninSettingsBatchUploadEntryDescriptionForPasswordsNotRequestedWhenAuthUnavailable()
                     throws Exception {
@@ -1265,6 +1256,63 @@ public class ManageSyncSettingsTest {
         // Focus on the first element that can receive focus in the settings page.
         onView(withId(R.id.recycler_view)).perform(pressKey(KeyEvent.KEYCODE_DPAD_DOWN));
         onView(withId(R.id.signin_settings_card_button)).check(matches(hasFocus()));
+    }
+
+    @Test
+    @SmallTest
+    public void testFirstTextViewInPassphraseDialogNotReceivingFocus() {
+        mSyncTestRule.getFakeServerHelper().setCustomPassphraseNigori("passphrase");
+
+        mSyncTestRule.setUpAccountAndSignInForTesting();
+        SyncTestUtil.waitForSyncTransportActive();
+
+        CriteriaHelper.pollUiThread(
+                () -> mSyncTestRule.getSyncService().isPassphraseRequiredForPreferredDataTypes());
+
+        startManageSyncPreferences();
+        ViewUtils.waitForVisibleView(withId(R.id.signin_settings_card));
+
+        // Mimic the user tapping on the error card's button.
+        onView(withId(R.id.signin_settings_card_button)).perform(click());
+
+        // Passphrase dialog should open.
+        final PassphraseDialogFragment passphraseFragment =
+                ActivityTestUtils.waitForFragment(
+                        mSettingsActivity, ManageSyncSettings.FRAGMENT_ENTER_PASSPHRASE);
+        Assert.assertTrue(passphraseFragment.isAdded());
+
+        // Focus on the first element that can receive focus in the passphrase dialog.
+        onView(withText(R.string.sync_enter_passphrase_title))
+                .perform(pressKey(KeyEvent.KEYCODE_DPAD_LEFT));
+        onView(withId(R.id.passphrase)).check(matches(hasFocus()));
+    }
+
+    @Test
+    @LargeTest
+    public void testWrongPassphraseShowsIncorrectPassphraseError() throws Exception {
+        mSyncTestRule.getFakeServerHelper().setCustomPassphraseNigori("passphrase");
+
+        mSyncTestRule.setUpAccountAndSignInForTesting();
+        SyncTestUtil.waitForSyncTransportActive();
+
+        CriteriaHelper.pollUiThread(
+                () -> mSyncTestRule.getSyncService().isPassphraseRequiredForPreferredDataTypes());
+
+        startManageSyncPreferences();
+        ViewUtils.waitForVisibleView(withId(R.id.signin_settings_card));
+
+        // Mimic the user tapping on the error card's button.
+        onView(withId(R.id.signin_settings_card_button)).perform(click());
+
+        // Passphrase dialog should open.
+        final PassphraseDialogFragment passphraseFragment =
+                ActivityTestUtils.waitForFragment(
+                        mSettingsActivity, ManageSyncSettings.FRAGMENT_ENTER_PASSPHRASE);
+        Assert.assertTrue(passphraseFragment.isAdded());
+
+        // Mimic the user tapping on the positive(submit) button with an empty(wrong) passphrase.
+        onView(withText(R.string.submit)).perform(click());
+        onView(withId(R.id.verifying)).check(matches(withText(R.string.sync_passphrase_incorrect)));
     }
 
     // TODO(crbug.com/330438265): Extend this test for the identity error card.

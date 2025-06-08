@@ -166,7 +166,7 @@ class AppRestartDialog;
 }
 
 namespace enterprise_connectors {
-class ContentAnalysisDialog;
+class ContentAnalysisDialogController;
 class ContentAnalysisDialogBehaviorBrowserTest;
 }  // namespace enterprise_connectors
 
@@ -363,6 +363,13 @@ class VIEWS_EXPORT WidgetDelegate {
     // The widget's title, if any.
     // TODO(ellyjones): Should it be illegal to have show_title && !title?
     std::u16string title;
+
+    // If set to true, force using desktop widget (DesktopNativeWidgetAura).
+    // Otherwise, widget type is determined automatically.
+    // This is used for child widgets on Desktop Aura (i.e. Windows and Linux)
+    // when they need to be rendered beyond their parent window's boundary.
+    // This setting has no effect on other platforms (e.g. ChromeOS or macOS).
+    bool use_desktop_widget_override = false;
   };
 
   class OwnedByWidgetPassKey {
@@ -430,7 +437,7 @@ class VIEWS_EXPORT WidgetDelegate {
     friend class ::constrained_window::BrowserModalHelper;
     friend class ::content::ShellPlatformDelegate;
     friend class ::crostini::AppRestartDialog;
-    friend class ::enterprise_connectors::ContentAnalysisDialog;
+    friend class ::enterprise_connectors::ContentAnalysisDialogController;
     friend class ::enterprise_connectors::
         ContentAnalysisDialogBehaviorBrowserTest;
     friend class ::exo::ShellSurfaceBase;
@@ -821,6 +828,13 @@ class VIEWS_EXPORT WidgetDelegate {
 
   void set_internal_name(std::string name) { params_.internal_name = name; }
   std::string internal_name() const { return params_.internal_name; }
+
+  void set_use_desktop_widget_override(bool use_desktop_widget_override) {
+    params_.use_desktop_widget_override = use_desktop_widget_override;
+  }
+  bool use_desktop_widget_override() {
+    return params_.use_desktop_widget_override;
+  }
 
   bool has_desired_bounds_delegate() const {
     return static_cast<bool>(params_.desired_bounds_delegate);

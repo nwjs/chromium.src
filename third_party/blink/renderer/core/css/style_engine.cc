@@ -801,11 +801,13 @@ void StyleEngine::UpdateCounters() {
   GetDocument().ScheduleLayoutTreeUpdateIfNeeded();
 }
 
+namespace {
+
 // Recursively look for potential LayoutCounters to update,
 // since in case of ::marker they can be deep child of original
 // pseudo element's layout object.
-void StyleEngine::UpdateLayoutCounters(const LayoutObject& layout_object,
-                                       CountersAttachmentContext& context) {
+void UpdateLayoutCounters(const LayoutObject& layout_object,
+                          CountersAttachmentContext& context) {
   // Check out the parameter list ^^^
   for (LayoutObject* child = layout_object.NextInPreOrder(&layout_object);
        child; child = child->NextInPreOrder(&layout_object)) {
@@ -817,6 +819,21 @@ void StyleEngine::UpdateLayoutCounters(const LayoutObject& layout_object,
     }
   }
 }
+
+// Look at the content data of `layout_object` for potential counter() or
+// counters() in alt text and update them.
+void UpdateAltCounters(const StyleEngine& style_engine,
+                       LayoutObject& layout_object,
+                       CountersAttachmentContext& context) {
+  for (ContentData* content = layout_object.StyleRef().GetContentData();
+       content; content = content->Next()) {
+    if (auto* alt_counter_data = DynamicTo<AltCounterContentData>(content)) {
+      alt_counter_data->UpdateText(context, style_engine, layout_object);
+    }
+  }
+}
+
+}  // namespace
 
 void StyleEngine::UpdateCounters(const Element& element,
                                  CountersAttachmentContext& context) {
@@ -838,6 +855,7 @@ void StyleEngine::UpdateCounters(const Element& element,
     }
     if (element.GetComputedStyle() &&
         !element.GetComputedStyle()->ContentBehavesAsNormal()) {
+      UpdateAltCounters(*this, *layout_object, context);
       UpdateLayoutCounters(*layout_object, context);
     }
   }
@@ -2936,6 +2954,16 @@ void StyleEngine::ApplyUserRuleSetChanges(
     MarkPositionTryStylesDirty(changed_rule_sets);
   }
 
+  if (changed_rule_flags & kFunctionRules) {
+    resolver_->InvalidateMatchedPropertiesCache();
+    user_function_rule_map_.clear();
+    for (const auto& [_, rule_set] : new_style_sheets) {
+      AddNameDefiningRules<StyleRuleFunction>(rule_set->FunctionRules(),
+                                              user_cascade_layer_map_,
+                                              /*out=*/user_function_rule_map_);
+    }
+  }
+
   for (RuleSet* rule_set : changed_rule_sets) {
     rule_set->CompactRulesIfNeeded();
   }
@@ -3113,8 +3141,8 @@ void StyleEngine::LoadVisionDeficiencyFilter() {
     vision_deficiency_filter_ = nullptr;
   } else {
     AtomicString url = CreateVisionDeficiencyFilterUrl(vision_deficiency_);
-    cssvalue::CSSURIValue* css_uri_value =
-        MakeGarbageCollected<cssvalue::CSSURIValue>(CSSUrlData(url));
+    auto* css_uri_value = MakeGarbageCollected<cssvalue::CSSURIValue>(
+        *MakeGarbageCollected<CSSUrlData>(url));
     SVGResource* svg_resource = css_uri_value->EnsureResourceReference();
     // Note: The fact that we're using data: URLs here is an
     // implementation detail. Emulating vision deficiencies should still
@@ -3388,9 +3416,6 @@ bool StyleEngine::UserKeyframeStyleShouldOverride(
 }
 
 void StyleEngine::AddViewTransitionRules(const ActiveStyleSheetVector& sheets) {
-  if (!RuntimeEnabledFeatures::ViewTransitionOnNavigationEnabled()) {
-    return;
-  }
   view_transition_rule_.Clear();
 
   for (const ActiveStyleSheet& active_sheet : sheets) {
@@ -3568,7 +3593,7 @@ bool ContainerStyleChangesAllowed(Element& container,
   }
   if (!new_layout_style || !old_element_style) {
     // Container may not have a LayoutObject when called from
-    // UpdateStyleForNonEligibleContainer(), but then make sure the style is
+    // UpdateStyleForNonEligibleSizeContainer(), but then make sure the style is
     // null for both cases.
     return new_layout_style == old_element_style;
   }
@@ -3619,7 +3644,7 @@ void StyleEngine::RecalcStyleForContainer(Element& container,
 #endif  // DCHECK_IS_ON()
 }
 
-void StyleEngine::UpdateStyleForNonEligibleContainer(Element& container) {
+void StyleEngine::UpdateStyleForNonEligibleSizeContainer(Element& container) {
   DCHECK(InRebuildLayoutTree());
   // This method is called from AttachLayoutTree() when we skipped style recalc
   // for descendants of a size query container but figured that the LayoutObject
@@ -3659,7 +3684,20 @@ void StyleEngine::UpdateStyleForNonEligibleContainer(Element& container) {
   RecalcStyleForContainer(container, change);
 }
 
-void StyleEngine::UpdateStyleAndLayoutTreeForContainer(
+void StyleEngine::PostInterleavedRecalcUpdate(
+    const Element& interleaving_root) {
+  // Update quotes only if there are any scopes marked dirty.
+  if (StyleContainmentScopeTree* tree = GetStyleContainmentScopeTree()) {
+    tree->UpdateQuotes();
+  }
+  GetDocument().GetLayoutView()->UpdateCountersAfterStyleChange(
+      interleaving_root.GetLayoutObject());
+  GetDocument().InvalidatePendingSVGResources();
+  GetDocument().UpdateScrollMarkerGroupRelations();
+  GetDocument().UpdateScrollMarkerGroupToScrollableAreasMap();
+}
+
+void StyleEngine::UpdateStyleAndLayoutTreeForSizeContainer(
     Element& container,
     const LogicalSize& logical_size,
     LogicalAxes contained_axes) {
@@ -3746,10 +3784,6 @@ void StyleEngine::UpdateStyleAndLayoutTreeForContainer(
     RebuildLayoutTree(&container);
   }
 
-  // Update quotes only if there are any scopes marked dirty.
-  if (StyleContainmentScopeTree* tree = GetStyleContainmentScopeTree()) {
-    tree->UpdateQuotes();
-  }
   if (container == GetDocument().documentElement()) {
     // If the container is the root element, there may be body styles which have
     // changed as a result of the new container query evaluation, and if
@@ -3757,32 +3791,35 @@ void StyleEngine::UpdateStyleAndLayoutTreeForContainer(
     // styles.
     GetStyleResolver().PropagateStyleToViewport();
   }
-  GetDocument().GetLayoutView()->UpdateCountersAfterStyleChange(
-      container.GetLayoutObject());
-  GetDocument().InvalidatePendingSVGResources();
-  GetDocument().UpdateScrollMarkerGroupRelations();
-  GetDocument().UpdateScrollMarkerGroupToScrollableAreasMap();
+
+  PostInterleavedRecalcUpdate(container);
 }
 
-void StyleEngine::UpdateStyleForOutOfFlow(Element& element,
-                                          const CSSPropertyValueSet* try_set,
-                                          const TryTacticList& tactic_list,
-                                          AnchorEvaluator* anchor_evaluator) {
+void StyleEngine::UpdateStyleAndLayoutTreeForOutOfFlow(
+    Element& element,
+    std::optional<wtf_size_t> try_fallback_index,
+    const CSSPropertyValueSet* try_set,
+    const TryTacticList& tactic_list,
+    AnchorEvaluator* anchor_evaluator) {
   const CSSPropertyValueSet* try_tactics_set =
       try_value_flips_.FlipSet(tactic_list);
 
   base::AutoReset<bool> pt_recalc(&in_position_try_style_recalc_, true);
 
+  NthIndexCache nth_index_cache(GetDocument());
   UpdateViewportSize();
 
   StyleRecalcContext style_recalc_context =
       StyleRecalcContext::FromAncestors(element);
-  style_recalc_context.is_interleaved_oof = true;
   style_recalc_context.anchor_evaluator = anchor_evaluator;
   style_recalc_context.try_set = try_set;
   style_recalc_context.try_tactics_set = try_tactics_set;
 
   StyleRecalcChange change = StyleRecalcChange().ForceRecalcChildren();
+  if (ContainerQueryEvaluator* evaluator =
+          element.GetContainerQueryEvaluator()) {
+    change = evaluator->ApplyAnchoredChanges(change, try_fallback_index);
+  }
 
   if (auto* pseudo_element = DynamicTo<PseudoElement>(element)) {
     RecalcPositionTryStyleForPseudoElement(*pseudo_element, change,
@@ -3792,6 +3829,21 @@ void StyleEngine::UpdateStyleForOutOfFlow(Element& element,
     style_recalc_root_.Update(nullptr, &element);
     RecalcStyle(change, style_recalc_context);
   }
+  if (NeedsLayoutTreeRebuild()) {
+    if (layout_tree_rebuild_root_.GetRootNode()->IsDocumentNode()) {
+      // Avoid traversing from outside the OOF root. We know none of the
+      // elements outside the subtree should be marked dirty in this pass, but
+      // we may have fallen back to the document root.
+      layout_tree_rebuild_root_.Clear();
+      layout_tree_rebuild_root_.Update(nullptr, &element);
+    } else {
+      DCHECK(FlatTreeTraversal::ContainsIncludingPseudoElement(
+          element, *layout_tree_rebuild_root_.GetRootNode()));
+    }
+    RebuildLayoutTree(&element);
+  }
+
+  PostInterleavedRecalcUpdate(element);
 }
 
 StyleRulePositionTry* StyleEngine::GetPositionTryRule(
@@ -4193,7 +4245,7 @@ bool StyleEngine::MarkReattachAllowed() const {
 }
 
 bool StyleEngine::MarkStyleDirtyAllowed() const {
-  if (GetDocument().InStyleRecalc() || InContainerQueryStyleRecalc()) {
+  if (GetDocument().InStyleRecalc() || InInterleavedStyleRecalc()) {
     return allow_mark_style_dirty_from_recalc_;
   }
   return !InRebuildLayoutTree();
@@ -4508,7 +4560,11 @@ StyleEngine::FindFunctionAcrossScopes(const AtomicString& name,
       }
     }
   }
-  // TODO(crbug.com/398554840): User origin.
+  // User origin.
+  auto iter = user_function_rule_map_.find(AtomicString(name));
+  if (iter != user_function_rule_map_.end()) {
+    return {iter->value.Get(), nullptr};
+  }
   return {nullptr, nullptr};
 }
 
@@ -4521,6 +4577,7 @@ void StyleEngine::Trace(Visitor* visitor) const {
   visitor->Trace(font_palette_values_rule_map_);
   visitor->Trace(user_counter_style_map_);
   visitor->Trace(user_cascade_layer_map_);
+  visitor->Trace(user_function_rule_map_);
   visitor->Trace(environment_variables_);
   visitor->Trace(initial_data_);
   visitor->Trace(inspector_style_sheet_list_);

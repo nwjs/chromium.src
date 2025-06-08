@@ -165,6 +165,12 @@ class ExtensionBrowserTest : public PlatformBrowserTest,
       const base::FilePath& path,
       std::optional<int> expected_change);
 
+  // Same as InstallExtensionFromWebstore(), but sets the install as triggered
+  // by user download.
+  const Extension* InstallExtensionFromWebstoreTriggeredByUserDownload(
+      const base::FilePath& path,
+      std::optional<int> expected_change);
+
   const Extension* InstallExtensionWithUIAutoConfirm(
       const base::FilePath& path,
       std::optional<int> expected_change);
@@ -222,7 +228,7 @@ class ExtensionBrowserTest : public PlatformBrowserTest,
       const base::FilePath& dir_path,
       int extra_run_flags = ExtensionCreator::kNoRunFlags);
 
-  // Pack the extension in `dir_path` into a crx file at |crx_path|, using the
+  // Pack the extension in `dir_path` into a crx file at `crx_path`, using the
   // key `pem_path`. If `pem_path` does not exist, create a new key at
   // `pem_out_path`.
   // Return the path to the crx file, or an empty FilePath if there were errors.
@@ -237,6 +243,9 @@ class ExtensionBrowserTest : public PlatformBrowserTest,
   // navigation finishes. Returns true on success.
   [[nodiscard]] bool NavigateToURL(const GURL& url);
 
+  // Puts the current tab title in |title|. Returns true on success.
+  bool GetCurrentTabTitle(std::u16string* title);
+
   // Opens `url` in an incognito browser window with the incognito profile of
   // `profile`, blocking until the navigation finishes. Returns the WebContents
   // for `url`.
@@ -248,7 +257,7 @@ class ExtensionBrowserTest : public PlatformBrowserTest,
 
   // Simulates a page calling window.open on an URL and waits for the
   // navigation.
-  // |should_succeed| indicates whether the navigation should succeed, in which
+  // `should_succeed` indicates whether the navigation should succeed, in which
   // case the last committed url should match the passed url and the page should
   // not be an error or interstitial page.
   void OpenWindow(content::WebContents* contents,
@@ -297,11 +306,11 @@ class ExtensionBrowserTest : public PlatformBrowserTest,
       browsertest_util::ScriptUserActivation script_user_activation =
           browsertest_util::ScriptUserActivation::kDontActivate);
 
-  // Waits until |script| calls "window.domAutomationController.send(result)",
-  // where |result| is a string, and returns |result|. Fails the test and
-  // returns an empty base::Value if |extension_id| isn't installed in test's
+  // Waits until `script` calls "window.domAutomationController.send(result)",
+  // where `result` is a string, and returns `result`. Fails the test and
+  // returns an empty base::Value if `extension_id` isn't installed in test's
   // profile or doesn't have a background page, or if executing the script
-  // fails. The argument |script_user_activation| determines if the script
+  // fails. The argument `script_user_activation` determines if the script
   // should be executed after a user activation.
   std::string ExecuteScriptInBackgroundPageDeprecated(
       const extensions::ExtensionId& extension_id,
@@ -389,7 +398,8 @@ class ExtensionBrowserTest : public PlatformBrowserTest,
       content::WebContents* active_web_contents,
       Extension::InitFromValueFlags creation_flags,
       bool wait_for_idle,
-      bool grant_permissions);
+      bool grant_permissions,
+      bool was_triggered_by_user_download);
 
   ExtensionBrowserTestPlatformDelegate platform_delegate_;
 

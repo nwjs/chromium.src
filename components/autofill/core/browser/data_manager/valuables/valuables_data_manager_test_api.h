@@ -25,6 +25,12 @@ class ValuablesDataManagerTestApi {
         std::move(loyalty_card));
   }
 
+  void SetLoyaltyCards(const std::vector<LoyaltyCard>& loyalty_cards) {
+    valuables_data_manager_->loyalty_cards_ = loyalty_cards;
+  }
+
+  void ClearLoyaltyCards() { valuables_data_manager_->loyalty_cards_.clear(); }
+
   void NotifyObservers() { valuables_data_manager_->NotifyObservers(); }
 
  private:

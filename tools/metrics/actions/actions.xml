@@ -12371,6 +12371,15 @@ should be able to be added at any place in this file.
   </description>
 </action>
 
+<action name="Glic.FocusHotKey">
+  <owner>andreaxg@google.com</owner>
+  <owner>erikchen@chromium.org</owner>
+  <description>
+    Logged if the user uses the focus hotkey while glic is open. Triggered by
+    hotkey presses captured in Chrome as well as in the glic window.
+  </description>
+</action>
+
 <action name="Glic.Fre.Accept">
   <owner>iwells@google.com</owner>
   <owner>erikchen@chromium.org</owner>
@@ -12422,6 +12431,22 @@ should be able to be added at any place in this file.
   <owner>erikchen@chromium.org</owner>
   <description>
     Logged anytime glic is pinned to the tabstrip, regardless of source.
+  </description>
+</action>
+
+<action name="Glic.Settings.ClosedCaptions.Disabled">
+  <owner>sanaakbani@google.com</owner>
+  <owner>iwells@chromium.org</owner>
+  <description>
+    Logged if the user disables closed captions in glic settings.
+  </description>
+</action>
+
+<action name="Glic.Settings.ClosedCaptions.Enabled">
+  <owner>sanaakbani@google.com</owner>
+  <owner>iwells@chromium.org</owner>
+  <description>
+    Logged if the user enables closed captions in glic settings.
   </description>
 </action>
 
@@ -12478,6 +12503,20 @@ should be able to be added at any place in this file.
   <owner>erikchen@chromium.org</owner>
   <description>
     Logged anytime glic is unpinned from the tabstrip, regardless of source.
+  </description>
+</action>
+
+<action name="GlicClosedCaptioningDisabled">
+  <owner>birnie@google.com</owner>
+  <description>
+    Logged when the user disables closed captioning in glic.
+  </description>
+</action>
+
+<action name="GlicClosedCaptioningEnabled">
+  <owner>birnie@google.com</owner>
+  <description>
+    Logged when the user enables closed captioning in glic.
   </description>
 </action>
 
@@ -13054,6 +13093,15 @@ should be able to be added at any place in this file.
   <owner>rlp@chromium.org</owner>
   <owner>somast@chromium.org</owner>
   <description>User triggered the hotword by saying 'Ok Google'.</description>
+</action>
+
+<action name="HttpsOnlyModeInterstitial.OpenAdvancedProtectionSettings">
+  <owner>pkotwicz@chromium.org</owner>
+  <owner>chrome-counter-abuse-alerts@google.com</owner>
+  <description>
+    User exits HTTPS-only-mode-interstitial by clicking open-advanced-protection
+    link on the interstitial.
+  </description>
 </action>
 
 <action name="HubSearch.KeyboardEnterPressed">
@@ -24792,6 +24840,16 @@ should be able to be added at any place in this file.
   </description>
 </action>
 
+<action name="MobileNewTabPageNtpCustomization">
+  <owner>hanxi@chromium.org</owner>
+  <owner>jianli@chromium.org</owner>
+  <owner>yanlinghu@google.com</owner>
+  <owner>clank-start@google.com</owner>
+  <description>
+    User pressed the NTP customization button in the new tab page.
+  </description>
+</action>
+
 <action name="MobileNTP.Interests.Click">
   <owner>knn@chromium.org</owner>
   <description>
@@ -25305,11 +25363,109 @@ should be able to be added at any place in this file.
   </description>
 </action>
 
-<action name="MobilePasswordBreachOpenPasswordManager">
+<action name="MobilePasswordBreachOpenPasswordCheckup">
   <owner>noemies@google.com</owner>
   <description>
-    Reported when user opens the Password Manager page from the password breach
+    Reported when user opens the Password Checkup page from the password breach
     view. iOS only.
+  </description>
+</action>
+
+<action name="MobilePasswordCheckupCoordinatorCheckStateCanceled"
+    not_user_triggered="true">
+  <owner>noemies@google.com</owner>
+  <description>
+    Reported to track the canceled state of the password check upon opening
+    Password Issues from the Password Checkup homepage. iOS only.
+    TODO(crbug.com/409680593): This user action was added to investigate a
+    crash. Remove when done with the investigation.
+  </description>
+</action>
+
+<action name="MobilePasswordCheckupCoordinatorCheckStateIdle"
+    not_user_triggered="true">
+  <owner>noemies@google.com</owner>
+  <description>
+    Reported to track the idle state of the password check upon opening Password
+    Issues from the Password Checkup homepage. iOS only.
+    TODO(crbug.com/409680593): This user action was added to investigate a
+    crash. Remove when done with the investigation.
+  </description>
+</action>
+
+<action name="MobilePasswordCheckupCoordinatorCheckStateNoPasswords"
+    not_user_triggered="true">
+  <owner>noemies@google.com</owner>
+  <description>
+    Reported to track the no passwords state of the password check upon opening
+    Password Issues from the Password Checkup homepage. iOS only.
+    TODO(crbug.com/409680593): This user action was added to investigate a
+    crash. Remove when done with the investigation.
+  </description>
+</action>
+
+<action name="MobilePasswordCheckupCoordinatorCheckStateOffline"
+    not_user_triggered="true">
+  <owner>noemies@google.com</owner>
+  <description>
+    Reported to track the offline state of the password check upon opening
+    Password Issues from the Password Checkup homepage. iOS only.
+    TODO(crbug.com/409680593): This user action was added to investigate a
+    crash. Remove when done with the investigation.
+  </description>
+</action>
+
+<action name="MobilePasswordCheckupCoordinatorCheckStateOther"
+    not_user_triggered="true">
+  <owner>noemies@google.com</owner>
+  <description>
+    Reported to track the other state of the password check upon opening
+    Password Issues from the Password Checkup homepage. iOS only.
+    TODO(crbug.com/409680593): This user action was added to investigate a
+    crash. Remove when done with the investigation.
+  </description>
+</action>
+
+<action name="MobilePasswordCheckupCoordinatorCheckStateQuotaLimit"
+    not_user_triggered="true">
+  <owner>noemies@google.com</owner>
+  <description>
+    Reported to track the quota limit state of the password check upon opening
+    Password Issues from the Password Checkup homepage. iOS only.
+    TODO(crbug.com/409680593): This user action was added to investigate a
+    crash. Remove when done with the investigation.
+  </description>
+</action>
+
+<action name="MobilePasswordCheckupCoordinatorCheckStateRunning"
+    not_user_triggered="true">
+  <owner>noemies@google.com</owner>
+  <description>
+    Reported to track the running state of the password check upon opening
+    Password Issues from the Password Checkup homepage. iOS only.
+    TODO(crbug.com/409680593): This user action was added to investigate a
+    crash. Remove when done with the investigation.
+  </description>
+</action>
+
+<action name="MobilePasswordCheckupCoordinatorCheckStateSignedOut"
+    not_user_triggered="true">
+  <owner>noemies@google.com</owner>
+  <description>
+    Reported to track the signed out state of the password check upon opening
+    Password Issues from the Password Checkup homepage. iOS only.
+    TODO(crbug.com/409680593): This user action was added to investigate a
+    crash. Remove when done with the investigation.
+  </description>
+</action>
+
+<action name="MobilePasswordCheckupCoordinatorShowReauth"
+    not_user_triggered="true">
+  <owner>noemies@google.com</owner>
+  <description>
+    Reported when reauth is requested as a result of entering the Password
+    Checkup homepage. iOS only. TODO(crbug.com/409680593): This user action was
+    added to investigate a crash. Remove when done with the investigation.
   </description>
 </action>
 
@@ -25374,6 +25530,15 @@ should be able to be added at any place in this file.
   </description>
 </action>
 
+<action name="MobilePasswordIssuesCoordinatorStart" not_user_triggered="true">
+  <owner>noemies@google.com</owner>
+  <description>
+    Reported when the PasswordIssuesCoordinator is started. iOS only.
+    TODO(crbug.com/409680593): This user action was added to investigate a
+    crash. Remove when done with the investigation.
+  </description>
+</action>
+
 <action name="MobilePasswordIssuesOpenPasswordDetails">
   <owner>noemies@google.com</owner>
   <description>
@@ -25401,6 +25566,24 @@ should be able to be added at any place in this file.
   <owner>noemies@google.com</owner>
   <description>
     Reported when Password Issues Settings UI was dismissed. iOS only.
+  </description>
+</action>
+
+<action name="MobilePasswordIssuesViewDidAppear" not_user_triggered="true">
+  <owner>noemies@google.com</owner>
+  <description>
+    Reported when the PasswordIssuesTableViewController view has appeared. iOS
+    only. TODO(crbug.com/409680593): This user action was added to investigate a
+    crash. Remove when done with the investigation.
+  </description>
+</action>
+
+<action name="MobilePasswordIssuesViewDidLoad" not_user_triggered="true">
+  <owner>noemies@google.com</owner>
+  <description>
+    Reported when the PasswordIssuesTableViewController view has loaded. iOS
+    only. TODO(crbug.com/409680593): This user action was added to investigate a
+    crash. Remove when done with the investigation.
   </description>
 </action>
 
@@ -25699,6 +25882,24 @@ should be able to be added at any place in this file.
 
     This user action is of special interest to the chrome-analysis-team@. Do not
     change its semantics or retire it without talking to them first.
+  </description>
+</action>
+
+<action name="MobileReauthFailed">
+  <owner>noemies@google.com</owner>
+  <description>
+    Reported when reauthentication failed. iOS only. TODO(crbug.com/409680593):
+    This user action was added to investigate a crash. Remove when done with the
+    investigation.
+  </description>
+</action>
+
+<action name="MobileReauthSuccessful">
+  <owner>noemies@google.com</owner>
+  <description>
+    Reported when reauthentication succeeded. iOS only.
+    TODO(crbug.com/409680593): This user action was added to investigate a
+    crash. Remove when done with the investigation.
   </description>
 </action>
 
@@ -27317,6 +27518,30 @@ should be able to be added at any place in this file.
   <description>Please enter the description of this user action.</description>
 </action>
 
+<action name="MobileToolbarBackInNewBackgroundTab">
+  <owner>jhimawan@google.com</owner>
+  <owner>clank-large-form-factors@google.com</owner>
+  <description>
+    The user navigated back, opening the page in a background tab.
+  </description>
+</action>
+
+<action name="MobileToolbarBackInNewForegroundTab">
+  <owner>jhimawan@google.com</owner>
+  <owner>clank-large-form-factors@google.com</owner>
+  <description>
+    The user navigated back, opening the page in a foreground tab.
+  </description>
+</action>
+
+<action name="MobileToolbarBackInNewForegroundWindow">
+  <owner>jhimawan@google.com</owner>
+  <owner>clank-large-form-factors@google.com</owner>
+  <description>
+    The user navigated back, opening the page in a foreground window.
+  </description>
+</action>
+
 <action name="MobileToolbarCloseAllIncognitoTabsButtonTap">
   <owner>mdjones@chromium.org</owner>
   <owner>clank-app-team@google.com</owner>
@@ -27362,6 +27587,30 @@ should be able to be added at any place in this file.
 <action name="MobileToolbarForward">
   <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
   <description>Please enter the description of this user action.</description>
+</action>
+
+<action name="MobileToolbarForwardInNewBackgroundTab">
+  <owner>jhimawan@google.com</owner>
+  <owner>clank-large-form-factors@google.com</owner>
+  <description>
+    The user navigated forward, opening the page in a background tab.
+  </description>
+</action>
+
+<action name="MobileToolbarForwardInNewForegroundTab">
+  <owner>jhimawan@google.com</owner>
+  <owner>clank-large-form-factors@google.com</owner>
+  <description>
+    The user navigated forward, opening the page in a foreground tab.
+  </description>
+</action>
+
+<action name="MobileToolbarForwardInNewForegroundWindow">
+  <owner>jhimawan@google.com</owner>
+  <owner>clank-large-form-factors@google.com</owner>
+  <description>
+    The user navigated forward, opening the page in a foreground window.
+  </description>
 </action>
 
 <action name="MobileToolbarIdentityDiscTap">
@@ -27602,11 +27851,72 @@ should be able to be added at any place in this file.
   </description>
 </action>
 
+<action name="MobileToolbarTabGroupMenu.DeleteSharedGroup">
+  <owner>zheliooo@google.com</owner>
+  <owner>clank-large-form-factors@google.com</owner>
+  <description>
+    User deleted a shared tab group via tab group menu on tab strip on Android.
+  </description>
+</action>
+
+<action name="MobileToolbarTabGroupMenu.LeaveSharedGroup">
+  <owner>zheliooo@google.com</owner>
+  <owner>clank-large-form-factors@google.com</owner>
+  <description>
+    User left a shared tab group via tab group menu on tab strip on Android.
+  </description>
+</action>
+
+<action name="MobileToolbarTabGroupMenu.ManageSharing">
+  <owner>zheliooo@google.com</owner>
+  <owner>clank-large-form-factors@google.com</owner>
+  <description>
+    User managed a shared tab group via tab group menu on tab strip on Android.
+  </description>
+</action>
+
+<action name="MobileToolbarTabGroupMenu.MoveGroupToAnotherWindow">
+  <owner>nemco@google.com</owner>
+  <owner>zheliooo@google.com</owner>
+  <owner>clank-large-form-factors@google.com</owner>
+  <description>
+    User moved the tab group to a another existing window via tab group menu on
+    tab strip on Android.
+  </description>
+</action>
+
+<action name="MobileToolbarTabGroupMenu.MoveGroupToNewWindow">
+  <owner>nemco@google.com</owner>
+  <owner>zheliooo@google.com</owner>
+  <owner>clank-large-form-factors@google.com</owner>
+  <description>
+    User moved the tab group to a new window via tab group menu on tab strip on
+    Android.
+  </description>
+</action>
+
 <action name="MobileToolbarTabGroupMenu.NewTabInGroup">
   <owner>zheliooo@google.com</owner>
   <owner>clank-large-form-factors@google.com</owner>
   <description>
     User opened new tab in tab group via tab group menu on tab strip on Android.
+  </description>
+</action>
+
+<action name="MobileToolbarTabGroupMenu.RecentActivity">
+  <owner>zheliooo@google.com</owner>
+  <owner>clank-large-form-factors@google.com</owner>
+  <description>
+    User viewed recent shared tab group activity via tab group menu on tab strip
+    on Android.
+  </description>
+</action>
+
+<action name="MobileToolbarTabGroupMenu.ShareGroup">
+  <owner>zheliooo@google.com</owner>
+  <owner>clank-large-form-factors@google.com</owner>
+  <description>
+    User shared a tab group via tab group menu on tab strip on Android.
   </description>
 </action>
 
@@ -27694,6 +28004,14 @@ should be able to be added at any place in this file.
   <description>
     User shared the URL open in a tab, via the tab context menu on tab strip on
     Android.
+  </description>
+</action>
+
+<action name="MobileToolbarTabMenu.Shown">
+  <owner>jhimawan@google.com</owner>
+  <owner>clank-large-form-factors@google.com</owner>
+  <description>
+    User opened the tab context menu via long-press on tab strip on Android.
   </description>
 </action>
 
@@ -28112,6 +28430,7 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="MostVisited_AddItem">
+  <obsolete>Replaced by Suggestions.Button.AddItem.</obsolete>
   <owner>ckitagawa@chromium.org</owner>
   <owner>huangs@chromium.org</owner>
   <description>Open a modal dialog to add a custom item.</description>
@@ -30558,7 +30877,6 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="Options_EasyUnlockRequireProximity_Disable">
-  <owner>isherman@chromium.org</owner>
   <owner>tengs@chromium.org</owner>
   <description>
     The user disabled the option to require their phone to be in very close
@@ -30568,7 +30886,6 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="Options_EasyUnlockRequireProximity_Enable">
-  <owner>isherman@chromium.org</owner>
   <owner>tengs@chromium.org</owner>
   <description>
     The user enabled the option to require their phone to be in very close
@@ -35738,6 +36055,10 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="Settings.IpProtection.OpenedFromPrivacyPage">
+  <obsolete>
+    Deprecated 04/2025. The IP Protection page has been redesigned and no longer
+    opens from the privacy page.
+  </obsolete>
   <owner>dembski@google.com</owner>
   <owner>koilos@google.com</owner>
   <description>
@@ -36985,6 +37306,10 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="Settings.TrackingProtection.OpenedFromPrivacyPage">
+  <obsolete>
+    Deprecated 04/2025. The Tracking Protection page was deprecated and removed
+    in Q4 2024.
+  </obsolete>
   <owner>alvingo@google.com</owner>
   <owner>koilos@google.com</owner>
   <description>
@@ -38449,6 +38774,46 @@ should be able to be added at any place in this file.
   <description>
     Recorded when the user notes side panel entry is unpinned via the pin button
     in the side panel header.
+  </description>
+</action>
+
+<action name="SidePanel_Bookmarks_ContextMenu_OpenAll">
+  <owner>dpenning@chromium.org</owner>
+  <description>
+    Recorded when the bookmarks context menu is used in the SidePanel for
+    &quot;open all&quot;
+  </description>
+</action>
+
+<action name="SidePanel_Bookmarks_ContextMenu_OpenAllIncognito">
+  <owner>dpenning@chromium.org</owner>
+  <description>
+    Recorded when the bookmarks context menu is used in the SidePanel for
+    &quot;open all incognito&quot;
+  </description>
+</action>
+
+<action name="SidePanel_Bookmarks_ContextMenu_OpenAllInNewTabGroup">
+  <owner>dpenning@chromium.org</owner>
+  <description>
+    Recorded when the bookmarks context menu is used in the SidePanel for
+    &quot;open all in new tab group&quot;
+  </description>
+</action>
+
+<action name="SidePanel_Bookmarks_ContextMenu_OpenAllInNewWindow">
+  <owner>dpenning@chromium.org</owner>
+  <description>
+    Recorded when the bookmarks context menu is used in the SidePanel for
+    &quot;open all in new window&quot;
+  </description>
+</action>
+
+<action name="SidePanel_Bookmarks_ContextMenu_OpenSplitView">
+  <owner>dpenning@chromium.org</owner>
+  <description>
+    Recorded when the bookmarks context menu is used in the SidePanel for
+    &quot;open split view&quot;
   </description>
 </action>
 
@@ -39991,6 +40356,24 @@ should be able to be added at any place in this file.
   </description>
 </action>
 
+<action name="Signin_Signin_FromNonModalSigninBookmarkPromo">
+  <owner>kanouche@google.com</owner>
+  <owner>bling-mony-pod@google.com</owner>
+  <description>
+    Recorded on sign in start from access point
+    signin_metrics::AccessPoint::kNonModalSigninBookmarkPromo.
+  </description>
+</action>
+
+<action name="Signin_Signin_FromNonModalSigninPasswordPromo">
+  <owner>kanouche@google.com</owner>
+  <owner>bling-mony-pod@google.com</owner>
+  <description>
+    Recorded on sign in start from access point
+    signin_metrics::AccessPoint::kNonModalSigninPasswordPromo.
+  </description>
+</action>
+
 <action name="Signin_Signin_FromNotificationsOptInScreenContentToggle">
   <owner>hiramahmood@google.com</owner>
   <owner>scottyoder@google.com</owner>
@@ -40077,6 +40460,7 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="Signin_Signin_FromPasswordMigrationWarning">
+  <obsolete>Removed 04/2025.</obsolete>
   <owner>ioanap@chromium.org</owner>
   <owner>izuzic@google.com</owner>
   <owner>chrome-signin-team@chromium.org</owner>
@@ -40088,6 +40472,7 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="Signin_Signin_FromPasswordMigrationWarningAndroid">
+  <obsolete>Removed 04/2025.</obsolete>
   <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
   <description>Please enter the description of the metric.</description>
 </action>
@@ -42670,6 +43055,15 @@ should be able to be added at any place in this file.
   </description>
 </action>
 
+<action name="Suggestions.Button.AddItem">
+  <owner>ckitagawa@chromium.org</owner>
+  <owner>huangs@chromium.org</owner>
+  <description>
+    Android: Recorded when user clicks the &quot;Add new&quot; button to open
+    the &quot;Add shortcut&quot; dialog (disregarding what happens thereafter).
+  </description>
+</action>
+
 <action name="Suggestions.Card.ActionTapped">
   <obsolete>Removed with removal of Zine code in April 2020.</obsolete>
   <owner>finkm@chromium.org</owner>
@@ -42781,6 +43175,16 @@ should be able to be added at any place in this file.
   </description>
 </action>
 
+<action name="Suggestions.Drag.ReorderItem">
+  <owner>ckitagawa@chromium.org</owner>
+  <owner>huangs@chromium.org</owner>
+  <description>
+    Android: Recorded user using drag-and-drop to rearrange Custom Tiles in the
+    Most Visited Tiles area on the NTP, disregarding cancelled actions
+    (including dragging tile back to its original position).
+  </description>
+</action>
+
 <action name="Suggestions.ExpandableHeader.Collapsed">
   <owner>twellington@chromium.org</owner>
   <owner>clank-app-team@google.com</owner>
@@ -42825,6 +43229,15 @@ should be able to be added at any place in this file.
   <owner>finkm@chromium.org</owner>
   <owner>dgn@chromium.org</owner>
   <description>User removed a suggested site.</description>
+</action>
+
+<action name="Suggestions.SnackBar.UndoUnpinItem">
+  <owner>ckitagawa@chromium.org</owner>
+  <owner>huangs@chromium.org</owner>
+  <description>
+    Android: Recorded when user clicks the &quot;Undo&quot; link in the
+    &quot;Item removed&quot; SnackBar that appears on unpinning a Custom Tile.
+  </description>
 </action>
 
 <action name="Suggestions.SurfaceFullyVisible">
@@ -43267,6 +43680,16 @@ should be able to be added at any place in this file.
   <description>
     The user navigated backward in the tab's history using the system back
     button.
+  </description>
+</action>
+
+<action name="Tab.PinnedTabToastClosedAfterConfirmation">
+  <owner>dljames@google.com</owner>
+  <owner>chrome-desktop-ui@google.com</owner>
+  <description>
+    On desktop, triggered when a user invokes the keyboard shortcut to close a
+    tab on a single selected pinned tab after the confirmation toast has been
+    displayed.
   </description>
 </action>
 
@@ -44561,6 +44984,14 @@ should be able to be added at any place in this file.
   <description>
     Recorded when an archived tab is deleted. This happens when the tab's last
     archived time exceeds the limit for auto-deletion.
+  </description>
+</action>
+
+<action name="Tabs.ArchivedTabAutoDeletePromo">
+  <owner>hitarthkothari@google.com</owner>
+  <owner>clank-tab-dev@google.com</owner>
+  <description>
+    Recorded when the user opts in/out of auto delete through the promo.
   </description>
 </action>
 
@@ -48127,6 +48558,14 @@ should be able to be added at any place in this file.
   </description>
 </action>
 
+<action name="WrenchMenu_Bookmarks_ContextMenu_OpenAllInNewTabGroup">
+  <owner>dpenning@chromium.org</owner>
+  <description>
+    Recorded when the bookmarks context menu is used in the Wrench menu for
+    &quot;open split view&quot;
+  </description>
+</action>
+
 <action name="WrenchMenu_Bookmarks_ContextMenu_OpenAllInNewWindow">
   <owner>dfried@chromium.org</owner>
   <owner>chrome-analysis-team@google.com</owner>
@@ -48137,6 +48576,14 @@ should be able to be added at any place in this file.
 
     This user action is of special interest to the chrome-analysis-team@. Do not
     change its semantics or retire it without talking to them first.
+  </description>
+</action>
+
+<action name="WrenchMenu_Bookmarks_ContextMenu_OpenSplitView">
+  <owner>dpenning@chromium.org</owner>
+  <description>
+    Recorded when the bookmarks context menu is used in the Wrench menu for
+    &quot;open split view&quot;
   </description>
 </action>
 
@@ -48193,7 +48640,8 @@ should be able to be added at any place in this file.
     The code that caused the issue this action was meant to track is no longer
     present.
   </obsolete>
-  <owner>bialpio@chromium.org</owner>
+  <owner>alcooper@chromium.org</owner>
+  <owner>xr-dev@chromium.org</owner>
   <description>
     Raised when XR service was unable to obtain necessary component. The action
     is not directly raised by the user's behavior as it should only be logged
@@ -48235,6 +48683,8 @@ should be able to be added at any place in this file.
   <suffix name="GeminiSiteSearchShortcut" label="Gemini Site Search Shortcut"/>
   <suffix name="GenerativeThemes" label="Generative Themes"/>
   <suffix name="GenerativeTheming" label="Generative Theming"/>
+  <suffix name="GlicIntro" label="Glic Intro"/>
+  <suffix name="GlicLearnMore" label="Glic Learn More"/>
   <suffix name="GoogleLens" label="Google Lens"/>
   <suffix name="Googlepayreauth" label="Google Pay Re-auth"/>
   <suffix name="HelpMeWrite" label="Help Me Write"/>
@@ -48452,6 +48902,8 @@ should be able to be added at any place in this file.
   <suffix name="ExtensionsMenu" label="For Extensions menu opening."/>
   <suffix name="ExtensionsRequestAccessButton"
       label="For Extensions request access button feature."/>
+  <suffix name="ExtensionsZeroStatePromo"
+      label="For promoting extensions to users with no extensions."/>
   <suffix name="FeatureNotificationGuideDefaultBrowserNotificationShown"
       label="For feature notification guide default browser notification
              feature. (obsolete)"/>
@@ -48543,6 +48995,7 @@ should be able to be added at any place in this file.
       label="For iOSFeedSwipeAnimatedFeature feature"/>
   <suffix name="iOSFeedSwipeStaticFeature"
       label="For iOSFeedSwipeStaticFeature feature"/>
+  <suffix name="IOSGLICPromoFeature" label="For IOSGLICPromoFeature feature"/>
   <suffix name="iOSHistoryOnOverflowMenuFeature"
       label="For iOSHistoryOnOverflowMenuFeature feature"/>
   <suffix name="iOSInlineEnhancedSafeBrowsingPromoFeature"
@@ -48702,6 +49155,8 @@ should be able to be added at any place in this file.
   <suffix name="ReadAloudAppMenuFeature" label="For ReadAloudAppMenu feature."/>
   <suffix name="ReadAloudExpandedPlayerFeature"
       label="For ReadAloud expanded player feature."/>
+  <suffix name="ReadAloudPlaybackModeFeature"
+      label="For ReadAloud playback mode feature."/>
   <suffix name="ReadingListDiscovery"
       label="For ReadingListDiscoveryFeature feature."/>
   <suffix name="ReadingListEntryPoint"
@@ -48887,7 +49342,6 @@ should be able to be added at any place in this file.
   <suffix name="WebFeedPostFollowDialogWithUIUpdate"
       label="For Web Feed successful follow operations after the UI update."/>
   <suffix name="WebUiHelpBubbleTest" label="For WebUiHelpBubbleTest feature."/>
-  <suffix name="WebUITabStrip" label="For the WebUI tab strip."/>
   <suffix name="WhatsNewUpdated" label="For what's new updated content."/>
   <affected-action name="InProductHelp.NotifyEvent.IPH"/>
   <affected-action name="InProductHelp.NotifyUsedEvent.IPH"/>
@@ -49643,6 +50097,14 @@ should be able to be added at any place in this file.
       label="Recorded when the 'Share' option in the context menu is
              selected."/>
   <affected-action name="TabSwitcher.ContextMenu"/>
+</action-suffix>
+
+<action-suffix separator="." ordering="suffix">
+  <suffix name="No"
+      label="Recorded when user opts out of auto delete through the promo."/>
+  <suffix name="Yes"
+      label="Recorded when user opts into auto delete through the promo."/>
+  <affected-action name="Tabs.ArchivedTabAutoDeletePromo"/>
 </action-suffix>
 
 </actions>

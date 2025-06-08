@@ -29,6 +29,7 @@
 #import "components/feed/core/v2/public/ios/pref_names.h"
 #import "components/handoff/handoff_manager.h"
 #import "components/history/core/common/pref_names.h"
+#import "components/image_fetcher/core/cache/image_cache.h"
 #import "components/invalidation/impl/fcm_invalidation_service.h"
 #import "components/invalidation/impl/invalidator_registrar_with_memory.h"
 #import "components/invalidation/impl/per_user_topic_subscription_manager.h"
@@ -40,6 +41,7 @@
 #import "components/network_time/network_time_tracker.h"
 #import "components/ntp_tiles/most_visited_sites.h"
 #import "components/ntp_tiles/popular_sites_impl.h"
+#import "components/omnibox/browser/omnibox_prefs.h"
 #import "components/omnibox/browser/zero_suggest_provider.h"
 #import "components/optimization_guide/core/model_execution/model_execution_prefs.h"
 #import "components/optimization_guide/core/optimization_guide_prefs.h"
@@ -100,6 +102,7 @@
 #import "ios/chrome/browser/download/model/auto_deletion/auto_deletion_service.h"
 #import "ios/chrome/browser/drive/model/drive_policy.h"
 #import "ios/chrome/browser/first_run/model/first_run.h"
+#import "ios/chrome/browser/first_run/ui_bundled/welcome_back/model/welcome_back_prefs.h"
 #import "ios/chrome/browser/incognito_reauth/ui_bundled/incognito_reauth_scene_agent.h"
 #import "ios/chrome/browser/memory/model/memory_debugger_manager.h"
 #import "ios/chrome/browser/metrics/model/constants.h"
@@ -188,6 +191,18 @@ inline constexpr char kMixedContentAutoupgradeEnabled[] =
 
 // Deprecated 04/2025.
 inline constexpr char kAutologinEnabled[] = "autologin.enabled";
+
+// Deprecated 04/2025.
+inline constexpr char kSuggestionGroupVisibility[] =
+    "omnibox.suggestionGroupVisibility";
+
+// Deprecated 05/2025.
+inline constexpr char kSyncCacheGuid[] = "sync.cache_guid";
+inline constexpr char kSyncBirthday[] = "sync.birthday";
+inline constexpr char kSyncBagOfChips[] = "sync.bag_of_chips";
+inline constexpr char kSyncLastSyncedTime[] = "sync.last_synced_time";
+inline constexpr char kSyncLastPollTime[] = "sync.last_poll_time";
+inline constexpr char kSyncPollInterval[] = "sync.short_poll_interval";
 
 // Migrates a boolean pref from source to target PrefService.
 void MigrateBooleanPref(std::string_view pref_name,
@@ -418,6 +433,7 @@ void RegisterLocalStatePrefs(PrefRegistrySimple* registry) {
   TipsNotificationClient::RegisterLocalStatePrefs(registry);
   auto_deletion::AutoDeletionService::RegisterLocalStatePrefs(registry);
   push_notification_prefs::RegisterLocalStatePrefs(registry);
+  RegisterWelcomeBackLocalStatePrefs(registry);
 
 #if !BUILDFLAG(IS_IOS_MACCATALYST)
   default_status::RegisterDefaultStatusPrefs(registry);
@@ -487,6 +503,8 @@ void RegisterLocalStatePrefs(PrefRegistrySimple* registry) {
 
   registry->RegisterIntegerPref(
       prefs::kIosCredentialProviderPromoLastActionTaken, -1);
+  registry->RegisterTimePref(prefs::kIosCredentialProviderPromoDisplayTime,
+                             base::Time());
 
   registry->RegisterBooleanPref(prefs::kIosCredentialProviderPromoStopPromo,
                                 false);
@@ -498,6 +516,9 @@ void RegisterLocalStatePrefs(PrefRegistrySimple* registry) {
 
   registry->RegisterBooleanPref(prefs::kIosCredentialProviderPromoPolicyEnabled,
                                 true);
+
+  registry->RegisterTimePref(prefs::kIosSuccessfulLoginWithExistingPassword,
+                             base::Time());
 
   registry->RegisterTimePref(prefs::kIosDefaultBrowserBlueDotPromoFirstDisplay,
                              base::Time());
@@ -590,6 +611,10 @@ void RegisterLocalStatePrefs(PrefRegistrySimple* registry) {
 
   registry->RegisterBooleanPref(prefs::kHasSwitchedAccountsViaWebFlow, false);
 
+  // Prefs used to force multi-profile migration.
+  registry->RegisterTimePref(
+      prefs::kWaitingForMultiProfileForcedMigrationTimestamp, base::Time());
+
   // Deprecated 07/2024 (migrated to profile prefs).
   registry->RegisterTimePref(prefs::kTabPickupLastDisplayedTime, base::Time());
   registry->RegisterStringPref(prefs::kTabPickupLastDisplayedURL,
@@ -666,6 +691,7 @@ void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry) {
   HostContentSettingsMap::RegisterProfilePrefs(registry);
   invalidation::InvalidatorRegistrarWithMemory::RegisterProfilePrefs(registry);
   invalidation::PerUserTopicSubscriptionManager::RegisterProfilePrefs(registry);
+  image_fetcher::ImageCache::RegisterProfilePrefs(registry);
   language::LanguagePrefs::RegisterProfilePrefs(registry);
   metrics::RegisterDemographicsProfilePrefs(registry);
   ntp_tiles::MostVisitedSites::RegisterProfilePrefs(registry);
@@ -999,8 +1025,12 @@ void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry) {
   registry->RegisterBooleanPref(prefs::kProvisionalNotificationsAllowedByPolicy,
                                 true);
 
+  registry->RegisterBooleanPref(prefs::kIOSGLICConsent, false);
+
   registry->RegisterTimePref(prefs::kIosSyncInfobarErrorLastDismissedTimestamp,
                              base::Time());
+
+  registry->RegisterIntegerPref(omnibox::kAIModeSearchSuggestSettings, 0);
 
   // Deprecated 09/2024 (migrated to localState prefs).
   registry->RegisterBooleanPref(prefs::kIncognitoInterstitialEnabled, false);
@@ -1045,6 +1075,17 @@ void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry) {
 
   // Deprecated 04/2025.
   registry->RegisterBooleanPref(kAutologinEnabled, false);
+
+  // Deprecated 04/2025.
+  registry->RegisterDictionaryPref(kSuggestionGroupVisibility);
+
+  // Deprecated 05/2025.
+  registry->RegisterStringPref(kSyncCacheGuid, std::string());
+  registry->RegisterStringPref(kSyncBirthday, std::string());
+  registry->RegisterStringPref(kSyncBagOfChips, std::string());
+  registry->RegisterTimePref(kSyncLastSyncedTime, base::Time());
+  registry->RegisterTimePref(kSyncLastPollTime, base::Time());
+  registry->RegisterTimeDeltaPref(kSyncPollInterval, base::TimeDelta());
 }
 
 // This method should be periodically pruned of year+ old migrations.
@@ -1243,6 +1284,17 @@ void MigrateObsoleteProfilePrefs(PrefService* prefs) {
 
   // Added 04/2025.
   prefs->ClearPref(kAutologinEnabled);
+
+  // Added 04/2025.
+  prefs->ClearPref(kSuggestionGroupVisibility);
+
+  // Added 05/2025.
+  prefs->ClearPref(kSyncCacheGuid);
+  prefs->ClearPref(kSyncBirthday);
+  prefs->ClearPref(kSyncBagOfChips);
+  prefs->ClearPref(kSyncLastSyncedTime);
+  prefs->ClearPref(kSyncLastPollTime);
+  prefs->ClearPref(kSyncPollInterval);
 }
 
 void MigrateObsoleteUserDefault() {

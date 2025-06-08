@@ -21,12 +21,14 @@
 #include "base/synchronization/lock.h"
 #include "base/synchronization/waitable_event.h"
 #include "base/task/single_thread_task_runner.h"
+#include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/task_environment.h"
 #include "base/test/test_timeouts.h"
 #include "base/time/time.h"
 #include "build/build_config.h"
 #include "media/audio/android/aaudio_stream_wrapper.h"
+#include "media/audio/android/audio_device_type.h"
 #include "media/audio/android/audio_manager_android.h"
 #include "media/audio/audio_device_description.h"
 #include "media/audio/audio_device_info_accessor_for_tests.h"
@@ -46,6 +48,7 @@ using ::testing::_;
 using ::testing::AtLeast;
 using ::testing::DoAll;
 using ::testing::Invoke;
+using ::testing::NiceMock;
 using ::testing::NotNull;
 using ::testing::Return;
 
@@ -163,12 +166,19 @@ std::ostream& operator<<(std::ostream& os, const AudioParameters& params) {
   return os;
 }
 
-enum class AudioApi { AAudio, OpenSLES };
+enum class AudioApi {
+  AAudioWithPerStreamDeviceSelection,
+  AAudioWithCommunicationDevices,
+  OpenSLES
+};
 
 std::ostream& operator<<(std::ostream& os, const AudioApi& audio_api) {
   switch (audio_api) {
-    case AudioApi::AAudio:
-      os << "AAudio";
+    case AudioApi::AAudioWithPerStreamDeviceSelection:
+      os << "AAudioWithPerStreamDeviceSelection";
+      break;
+    case AudioApi::AAudioWithCommunicationDevices:
+      os << "AAudioWithCommunicationDevices";
       break;
     case AudioApi::OpenSLES:
       os << "OpenSLES";
@@ -488,22 +498,37 @@ class AudioAndroidOutputTest : public testing::TestWithParam<AudioApi> {
   }
 
   void InitFeatures(AudioApi audio_api) {
-    const std::vector<base::test::FeatureRef> aaudio_features = {
-        features::kUseAAudioDriver, features::kUseAAudioInput};
+    bool enable_aaudio = false;
+    bool enable_aaudio_per_stream_device_selection = false;
     switch (audio_api) {
-      case AudioApi::AAudio:
-        if (!__builtin_available(android AAUDIO_MIN_API, *)) {
-          GTEST_SKIP() << "AAudio is not available.";
-        }
-        feature_list_.InitWithFeatures(aaudio_features, {});
+      case AudioApi::AAudioWithPerStreamDeviceSelection:
+        enable_aaudio = true;
+        enable_aaudio_per_stream_device_selection = true;
+        break;
+      case AudioApi::AAudioWithCommunicationDevices:
+        enable_aaudio = true;
         break;
       case AudioApi::OpenSLES:
-#if !BUILDFLAG(USE_OPENSLES)
-        GTEST_SKIP() << "OpenSLES is disabled.";
-#endif
-        feature_list_.InitWithFeatures({}, aaudio_features);
         break;
     }
+
+    if (enable_aaudio) {
+      if (!__builtin_available(android AAUDIO_MIN_API, *)) {
+        GTEST_SKIP() << "AAudio is not available.";
+      }
+    } else {
+      // Use OpenSL ES fallback
+#if !BUILDFLAG(USE_OPENSLES)
+      GTEST_SKIP() << "OpenSLES is not available.";
+#endif
+    }
+
+    base::flat_map<base::test::FeatureRef, bool> feature_states(
+        {{features::kUseAAudioDriver, enable_aaudio},
+         {features::kUseAAudioInput, enable_aaudio},
+         {features::kAAudioPerStreamDeviceSelection,
+          enable_aaudio_per_stream_device_selection}});
+    feature_list_.InitWithFeatureStates(feature_states);
   }
 
   // Synchronously runs the provided callback/closure on the audio thread.
@@ -551,14 +576,21 @@ class AudioAndroidOutputTest : public testing::TestWithParam<AudioApi> {
     return devices;
   }
 
-  void MakeAudioOutputStreamOnAudioThread(const AudioParameters& params) {
+  void MakeAudioOutputStreamOnAudioThread(
+      const AudioParameters& params,
+      const std::string& device_id = AudioDeviceDescription::kDefaultDeviceId) {
     RunOnAudioThread(base::BindOnce(&AudioAndroidOutputTest::MakeOutputStream,
-                                    base::Unretained(this), params));
+                                    base::Unretained(this), params, device_id));
   }
 
   void CloseAudioOutputStreamOnAudioThread(raw_ptr<AudioOutputStream> stream) {
     RunOnAudioThread(
         base::BindOnce(&AudioOutputStream::Close, base::Unretained(stream)));
+  }
+
+  void OpenAudioOutputStreamOnAudioThread() {
+    RunOnAudioThread(
+        base::BindOnce(&AudioAndroidOutputTest::Open, base::Unretained(this)));
   }
 
   void OpenAndCloseAudioOutputStreamOnAudioThread() {
@@ -623,23 +655,35 @@ class AudioAndroidOutputTest : public testing::TestWithParam<AudioApi> {
               2 * expected_time_between_callbacks_ms);
   }
 
-  void MakeOutputStream(const AudioParameters& params) {
+  std::optional<AudioDeviceDescription> GetFirstNonDefaultOutputDevice() {
+    AudioDeviceDescriptions devices =
+        GetAudioOutputDeviceDescriptionsOnAudioThread();
+    return GetFirstNonDefaultDeviceFromDescriptions(devices);
+  }
+
+  void MakeOutputStream(const AudioParameters& params,
+                        const std::string& device_id) {
     DCHECK(audio_manager()->GetTaskRunner()->BelongsToCurrentThread());
     audio_output_stream_ = audio_manager()->MakeAudioOutputStream(
-        params, std::string(), AudioManager::LogCallback());
+        params, device_id, AudioManager::LogCallback());
     EXPECT_TRUE(audio_output_stream_);
+  }
+
+  void Open() {
+    DCHECK(audio_manager()->GetTaskRunner()->BelongsToCurrentThread());
+    EXPECT_TRUE(audio_output_stream_->Open());
   }
 
   void OpenAndClose() {
     DCHECK(audio_manager()->GetTaskRunner()->BelongsToCurrentThread());
-    EXPECT_TRUE(audio_output_stream_->Open());
+    Open();
     audio_output_stream_->Close();
     audio_output_stream_ = nullptr;
   }
 
   void OpenAndStart(AudioOutputStream::AudioSourceCallback* source) {
     DCHECK(audio_manager()->GetTaskRunner()->BelongsToCurrentThread());
-    EXPECT_TRUE(audio_output_stream_->Open());
+    Open();
     audio_output_stream_->Start(source);
   }
 
@@ -648,6 +692,17 @@ class AudioAndroidOutputTest : public testing::TestWithParam<AudioApi> {
     audio_output_stream_->Stop();
     audio_output_stream_->Close();
     audio_output_stream_ = nullptr;
+  }
+
+  std::optional<AudioDeviceDescription>
+  GetFirstNonDefaultDeviceFromDescriptions(
+      const AudioDeviceDescriptions& devices) {
+    for (AudioDeviceDescription device : devices) {
+      if (!AudioDeviceDescription::IsDefaultDevice(device.unique_id)) {
+        return device;
+      }
+    }
+    return std::nullopt;
   }
 
   base::test::ScopedFeatureList feature_list_;
@@ -686,14 +741,21 @@ class AudioAndroidInputTest : public AudioAndroidOutputTest {
     return devices;
   }
 
-  void MakeAudioInputStreamOnAudioThread(const AudioParameters& params) {
+  void MakeAudioInputStreamOnAudioThread(
+      const AudioParameters& params,
+      const std::string& device_id = AudioDeviceDescription::kDefaultDeviceId) {
     RunOnAudioThread(base::BindOnce(&AudioAndroidInputTest::MakeInputStream,
-                                    base::Unretained(this), params));
+                                    base::Unretained(this), params, device_id));
   }
 
   void CloseAudioInputStreamOnAudioThread(raw_ptr<AudioInputStream> stream) {
     RunOnAudioThread(
         base::BindOnce(&AudioInputStream::Close, base::Unretained(stream)));
+  }
+
+  void OpenAudioInputStreamOnAudioThread() {
+    RunOnAudioThread(
+        base::BindOnce(&AudioAndroidInputTest::Open, base::Unretained(this)));
   }
 
   void OpenAndCloseAudioInputStreamOnAudioThread() {
@@ -759,26 +821,36 @@ class AudioAndroidInputTest : public AudioAndroidOutputTest {
             AudioDeviceDescription::kDefaultDeviceId);
   }
 
-  void MakeInputStream(const AudioParameters& params) {
+  std::optional<AudioDeviceDescription> GetFirstNonDefaultInputDevice() {
+    AudioDeviceDescriptions devices =
+        GetAudioInputDeviceDescriptionsOnAudioThread();
+    return GetFirstNonDefaultDeviceFromDescriptions(devices);
+  }
+
+  void MakeInputStream(const AudioParameters& params,
+                       const std::string& device_id) {
     DCHECK(audio_manager()->GetTaskRunner()->BelongsToCurrentThread());
     audio_input_stream_ = audio_manager()->MakeAudioInputStream(
-        params, AudioDeviceDescription::kDefaultDeviceId,
-        AudioManager::LogCallback());
+        params, device_id, AudioManager::LogCallback());
     EXPECT_TRUE(audio_input_stream_);
+  }
+
+  void Open() {
+    DCHECK(audio_manager()->GetTaskRunner()->BelongsToCurrentThread());
+    EXPECT_EQ(audio_input_stream_->Open(),
+              AudioInputStream::OpenOutcome::kSuccess);
   }
 
   void OpenAndClose() {
     DCHECK(audio_manager()->GetTaskRunner()->BelongsToCurrentThread());
-    EXPECT_EQ(audio_input_stream_->Open(),
-              AudioInputStream::OpenOutcome::kSuccess);
+    Open();
     audio_input_stream_->Close();
     audio_input_stream_ = nullptr;
   }
 
   void OpenAndStart(AudioInputStream::AudioInputCallback* sink) {
     DCHECK(audio_manager()->GetTaskRunner()->BelongsToCurrentThread());
-    EXPECT_EQ(audio_input_stream_->Open(),
-              AudioInputStream::OpenOutcome::kSuccess);
+    Open();
     audio_input_stream_->Start(sink);
   }
 
@@ -792,6 +864,9 @@ class AudioAndroidInputTest : public AudioAndroidOutputTest {
   raw_ptr<AudioInputStream> audio_input_stream_;
   AudioParameters audio_input_parameters_;
 };
+
+// TODO(crbug.com/417671787): Add test doubles for the device list fetch path
+// and enhance and expand device list-dependent tests.
 
 // Get the default audio input parameters.
 TEST_F(AudioAndroidInputTest, GetDefaultInputStreamParameters) {
@@ -828,6 +903,19 @@ TEST_P(AudioAndroidInputTest, CreateAndCloseInputStream) {
   CloseAudioInputStreamOnAudioThread(audio_input_stream_);
 }
 
+// Ensure that an input stream with a non-default device can be created and
+// closed.
+TEST_P(AudioAndroidInputTest, CreateAndCloseInputStreamWithDevice) {
+  std::optional<AudioDeviceDescription> device =
+      GetFirstNonDefaultInputDevice();
+  if (!device.has_value()) {
+    GTEST_SKIP() << "Missing non-default input device.";
+  }
+  AudioParameters params = GetDefaultInputStreamParametersOnAudioThread();
+  MakeAudioInputStreamOnAudioThread(params, device->unique_id);
+  CloseAudioInputStreamOnAudioThread(audio_input_stream_);
+}
+
 // Ensure that a default output stream can be created and closed.
 // TODO(henrika): should we also verify that this API changes the audio mode
 // to communication mode, and calls RegisterHeadsetReceiver, the first time
@@ -838,6 +926,20 @@ TEST_P(AudioAndroidOutputTest, CreateAndCloseOutputStream) {
   CloseAudioOutputStreamOnAudioThread(audio_output_stream_);
 }
 
+// Ensure that an output stream with a non-default device can be created and
+// closed. This test is only relevant for AAudioWithPerStreamDeviceSelection.
+TEST_F(AudioAndroidOutputTest, CreateAndCloseOutputStreamWithDevice) {
+  InitFeatures(AudioApi::AAudioWithPerStreamDeviceSelection);
+  std::optional<AudioDeviceDescription> device =
+      GetFirstNonDefaultOutputDevice();
+  if (!device.has_value()) {
+    GTEST_SKIP() << "Missing non-default output device.";
+  }
+  AudioParameters params = GetDefaultOutputStreamParametersOnAudioThread();
+  MakeAudioOutputStreamOnAudioThread(params, device->unique_id);
+  CloseAudioOutputStreamOnAudioThread(audio_output_stream_);
+}
+
 // Ensure that a default input stream can be opened and closed.
 TEST_P(AudioAndroidInputTest, OpenAndCloseInputStream) {
   AudioParameters params = GetDefaultInputStreamParametersOnAudioThread();
@@ -845,11 +947,99 @@ TEST_P(AudioAndroidInputTest, OpenAndCloseInputStream) {
   OpenAndCloseAudioInputStreamOnAudioThread();
 }
 
+// Ensure that an input stream with a non-default device can be opened and
+// closed, emitting a histogram value for successfully setting the
+// device ID if AAudioWithPerStreamDeviceSelection is enabled.
+TEST_P(AudioAndroidInputTest, OpenAndCloseInputStreamWithDevice) {
+  std::optional<AudioDeviceDescription> device =
+      GetFirstNonDefaultInputDevice();
+  if (!device.has_value()) {
+    GTEST_SKIP() << "Missing non-default input device.";
+  }
+  AudioParameters params = GetDefaultInputStreamParametersOnAudioThread();
+  MakeAudioInputStreamOnAudioThread(params, device->unique_id);
+
+  base::HistogramTester histogram_tester;
+  OpenAudioInputStreamOnAudioThread();
+
+  if (GetParam() == AudioApi::AAudioWithPerStreamDeviceSelection) {
+    constexpr std::string_view kHistogramPrefix =
+        "Media.Audio.Android.AAudioSetDeviceId.Input.";
+    const std::string kSuccessHistogram =
+        base::StrCat({kHistogramPrefix, "Success"});
+    const std::string kFailureHistogram =
+        base::StrCat({kHistogramPrefix, "Failure"});
+    // Emitted a success with a known device type.
+    histogram_tester.ExpectTotalCount(kSuccessHistogram, 1);
+    histogram_tester.ExpectBucketCount(kSuccessHistogram,
+                                       android::AudioDeviceType::kUnknown, 0);
+    histogram_tester.ExpectTotalCount(kFailureHistogram, 0);
+  }
+
+  CloseAudioInputStreamOnAudioThread(audio_input_stream_);
+}
+
 // Ensure that a default output stream can be opened and closed.
 TEST_P(AudioAndroidOutputTest, OpenAndCloseOutputStream) {
   AudioParameters params = GetDefaultOutputStreamParametersOnAudioThread();
   MakeAudioOutputStreamOnAudioThread(params);
   OpenAndCloseAudioOutputStreamOnAudioThread();
+}
+
+// Ensure that an output stream with a non-default device can be successfully
+// opened and closed, emitting a histogram value for successfully setting the
+// device ID. This test is only relevant for AAudioWithPerStreamDeviceSelection.
+TEST_F(AudioAndroidOutputTest, OpenAndCloseOutputStreamWithDevice) {
+  InitFeatures(AudioApi::AAudioWithPerStreamDeviceSelection);
+  std::optional<AudioDeviceDescription> device =
+      GetFirstNonDefaultOutputDevice();
+  if (!device.has_value()) {
+    GTEST_SKIP() << "Missing non-default output device.";
+  }
+  AudioParameters params = GetDefaultOutputStreamParametersOnAudioThread();
+  MakeAudioOutputStreamOnAudioThread(params, device->unique_id);
+
+  base::HistogramTester histogram_tester;
+  OpenAudioOutputStreamOnAudioThread();
+
+  constexpr std::string_view kHistogramPrefix =
+      "Media.Audio.Android.AAudioSetDeviceId.Output.";
+  const std::string kSuccessHistogram =
+      base::StrCat({kHistogramPrefix, "Success"});
+  const std::string kFailureHistogram =
+      base::StrCat({kHistogramPrefix, "Failure"});
+  // Emitted a success with a known device type.
+  histogram_tester.ExpectTotalCount(kSuccessHistogram, 1);
+  histogram_tester.ExpectBucketCount(kSuccessHistogram,
+                                     android::AudioDeviceType::kUnknown, 0);
+  histogram_tester.ExpectTotalCount(base::StrCat({kHistogramPrefix, "Failure"}),
+                                    0);
+
+  CloseAudioOutputStreamOnAudioThread(audio_output_stream_);
+}
+
+// Ensure that a default input stream can be opened, started, and closed without
+// explicitly being stopped.
+TEST_P(AudioAndroidInputTest, OpenStartAndCloseInputStream) {
+  NiceMock<MockAudioInputCallback> callback;
+  EXPECT_CALL(callback, OnError()).Times(0);
+
+  AudioParameters params = GetDefaultInputStreamParametersOnAudioThread();
+  MakeAudioInputStreamOnAudioThread(params);
+  OpenAndStartAudioInputStreamOnAudioThread(&callback);
+  CloseAudioInputStreamOnAudioThread(audio_input_stream_);
+}
+
+// Ensure that a default output stream can be opened, started, and closed
+// without explicitly being stopped.
+TEST_P(AudioAndroidOutputTest, OpenStartAndCloseOutputStream) {
+  NiceMock<MockAudioSourceCallback> callback;
+  EXPECT_CALL(callback, OnError(_)).Times(0);
+
+  AudioParameters params = GetDefaultOutputStreamParametersOnAudioThread();
+  MakeAudioOutputStreamOnAudioThread(params);
+  OpenAndStartAudioOutputStreamOnAudioThread(&callback);
+  CloseAudioOutputStreamOnAudioThread(audio_output_stream_);
 }
 
 // Start input streaming using default input parameters and ensure that the
@@ -990,14 +1180,20 @@ TEST_P(AudioAndroidInputTest,
   StopAndCloseAudioInputStreamOnAudioThread();
 }
 
-INSTANTIATE_TEST_SUITE_P(,
-                         AudioAndroidOutputTest,
-                         testing::Values(AudioApi::AAudio, AudioApi::OpenSLES),
-                         testing::PrintToStringParamName());
+INSTANTIATE_TEST_SUITE_P(
+    ,
+    AudioAndroidOutputTest,
+    testing::Values(AudioApi::AAudioWithPerStreamDeviceSelection,
+                    AudioApi::AAudioWithCommunicationDevices,
+                    AudioApi::OpenSLES),
+    testing::PrintToStringParamName());
 
-INSTANTIATE_TEST_SUITE_P(,
-                         AudioAndroidInputTest,
-                         testing::Values(AudioApi::AAudio, AudioApi::OpenSLES),
-                         testing::PrintToStringParamName());
+INSTANTIATE_TEST_SUITE_P(
+    ,
+    AudioAndroidInputTest,
+    testing::Values(AudioApi::AAudioWithPerStreamDeviceSelection,
+                    AudioApi::AAudioWithCommunicationDevices,
+                    AudioApi::OpenSLES),
+    testing::PrintToStringParamName());
 
 }  // namespace media

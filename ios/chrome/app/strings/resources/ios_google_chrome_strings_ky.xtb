@@ -47,6 +47,7 @@
 <translation id="1917964099031477364">Бул аккаунт жана башка сакталбаган маалымат Chrome'дон жана ушул түзмөктөгү башка Google колдонмолорунан өчүрүлөт.</translation>
 <translation id="1919130412786645364">Chrome'го кирүүгө уруксат берүү</translation>
 <translation id="1965935827552890526">Жасап жаткан нерсени Chrome'дун ачык терезесинде улантыңыз.</translation>
+<translation id="1966638102563776885">Chrome кеңеши: Сырсөздөрдү каалаган колдонмодо териңиз</translation>
 <translation id="1973910962341002002">"<ph name="TEXT_OF_THE_SETTINGS_MENU_ITEM" />" параметрлеринен "Chrome'ду" өчүрүү/күйгүзүү</translation>
 <translation id="1984705450038014246">Chrome дайындарын шайкештирүү</translation>
 <translation id="1987779152850321833">Chrome'дун бардык мүмкүнчүлүктөрүн пайдалануу үчүн төмөндө сунушталган аракеттерди аткарыңыз.</translation>
@@ -114,7 +115,6 @@
 <translation id="3655656110921623717">Chrome'ду ар дайым мобилдик түзмөктө ачуу керек болот.</translation>
 <translation id="3740397331642243698">Киргизилген URL даректерин Google Chrome'до Жашыруун режимде ачат.</translation>
 <translation id="3741995255368156336">Chrome'догу окуу тизмеси ачылат.</translation>
-<translation id="3808570423967020928">Chrome'го башкы экрандагы док панелден тез өтөсүз.</translation>
 <translation id="3827545470516145620">Бул түзмөктө стандартуу коопсуздук тутумун колдонуп жатасыз</translation>
 <translation id="384394811301901750">Google Chrome камераны иштете албайт</translation>
 <translation id="3863841106411295595">Киргизилген URL даректерин Chrome'догу окуу тизмеңизге кошот.</translation>
@@ -138,6 +138,7 @@
 <translation id="4724297637870447613">Бүт жерде Chrome колдонуңуз</translation>
 <translation id="4738647308035481133">Google Chrome барагы</translation>
 <translation id="4742795653798179840">Chrome'догу маалымат өчүрүлдү</translation>
+<translation id="4749294594657945639">Башка колдонмолордо сакталган сырсөздөрдү оңой терүү максатында автотолтуруу үчүн Chrome'ду тандаңыз.</translation>
 <translation id="4761869838909035636">Chrome'дун коопсуздугун текшерүү</translation>
 <translation id="4798859546468762093">Жекелештирүүнү жана башка функцияларды пайдалануу үчүн Chrome'ду <ph name="FEATURE_NAME_1" /> жана <ph name="FEATURE_NAME_2" /> функцияларына кошуңуз</translation>
 <translation id="4819268619367838612">Колдонмону жакшыртууга жардам берүү үчүн Chrome колдонулушу жана ката тууралуу маалыматты Google'га жөнөтөт. <ph name="BEGIN_LINK" />Башкаруу<ph name="END_LINK" /></translation>
@@ -233,7 +234,6 @@ Chrome'дун ишин жакшыртуу үчүн маалыматтарды к
 <translation id="6975725306479268850">Автотолтуруу үчүн Chrome'ду тандаңыз</translation>
 <translation id="7056826488869329999">Chrome'до Коопсуздукту текшерүүнү ачып, иштетет.</translation>
 <translation id="7061455974939528301">Chrome сүрөтчөсүн коё бербей басып туруп, "Башкы экранды түзөтүүнү" чыкылдатыңыз</translation>
-<translation id="7065813315247345131">Chrome'ду Dock панелине жылдырыңыз</translation>
 <translation id="7124339256045485976">Chrome'ду жаңыртып турат</translation>
 <translation id="7145599899567697473">Chrome'до сырсөздөрдү сактоо жана автотолтуруу</translation>
 <translation id="7161390184744336561">Google Chrome эскирип калган</translation>
@@ -317,10 +317,10 @@ Chrome'дун ишин жакшыртуу үчүн маалыматтарды к
 <translation id="8603022514504485810">Сырсөздөрдү башкаргыч бардык сырсөздөрдү текшере алган жок. Эртең кайталап көрүңүз же <ph name="BEGIN_LINK" />Google аккаунтуңуздагы сырсөздөрдү текшериңиз.<ph name="END_LINK" /></translation>
 <translation id="8630122478628016441">"Chrome жабылганда, жашыруун өтмөктөрдү кулпулоо" параметрин күйгүзүү.</translation>
 <translation id="8673726683583791503">Google Lens аркылуу соода кылыңыз</translation>
-<translation id="8727043961453758442">Chrome'дун бардык мүмкүнчүлүктөрүн колдонуңуз</translation>
 <translation id="8765470054473112089">Дарек тилкесине же издөө кутучасына жазганыңызда, Chrome сизге жакшыраак сунуштарды көрсөтүү максатында сурамды демейки издөө каражатына жөнөтөт. Бул параметр Жашыруун режимде өчүк болот.</translation>
 <translation id="8772179140489533211">Chrome'го кирүү үчүн билдирмелерди көрсөтөт.</translation>
 <translation id="8788269841521769222">Бул сырсөздү эстеп калуунун кереги жок. Ал <ph name="EMAIL" /> аккаунту үчүн Google'дун Сырсөздөрдү башкаргычына сакталат</translation>
+<translation id="8796490717897731471"><ph name="EMAIL" />. Chrome башкарылат.</translation>
 <translation id="880967149107462122">Chrome параметрлерине өтүү</translation>
 <translation id="8842132678697187091">Google Lens'ти бул жерден ачсаңыз болот.</translation>
 <translation id="8850736900032787670">Кызыккан нерселериңиздин негизинде жекелештирилген контентти көрүү үчүн Chrome'го кириңиз.</translation>

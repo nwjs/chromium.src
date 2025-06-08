@@ -93,6 +93,7 @@ import java.lang.annotation.RetentionPolicy;
     FeatureConstants.PAGE_ZOOM_FEATURE,
     FeatureConstants.READ_ALOUD_APP_MENU_FEATURE,
     FeatureConstants.READ_ALOUD_EXPANDED_PLAYER_FEATURE,
+    FeatureConstants.READ_ALOUD_PLAYBACK_MODE_FEATURE,
     FeatureConstants.READ_LATER_APP_MENU_BOOKMARK_THIS_PAGE_FEATURE,
     FeatureConstants.READ_LATER_APP_MENU_BOOKMARKS_FEATURE,
     FeatureConstants.READ_LATER_BOTTOM_SHEET_FEATURE,
@@ -199,6 +200,7 @@ public @interface FeatureConstants {
     String TRANSLATE_MENU_BUTTON_FEATURE = "IPH_TranslateMenuButton";
     String READ_ALOUD_APP_MENU_FEATURE = "IPH_ReadAloudAppMenuFeature";
     String READ_ALOUD_EXPANDED_PLAYER_FEATURE = "IPH_ReadAloudExpandedPlayerFeature";
+    String READ_ALOUD_PLAYBACK_MODE_FEATURE = "IPH_ReadAloudPlaybackModeFeature";
 
     String READ_LATER_CONTEXT_MENU_FEATURE = "IPH_ReadLaterContextMenu";
     String READ_LATER_APP_MENU_BOOKMARK_THIS_PAGE_FEATURE = "IPH_ReadLaterAppMenuBookmarkThisPage";
@@ -401,4 +403,7 @@ public @interface FeatureConstants {
 
     /** An IPH feature to inform users about the pdf download option in the app menu. */
     String IPH_PDF_PAGE_DOWNLOAD = "IPH_PdfPageDownload";
+
+    /** An IPH feature to inform users about the tab switcher feature on an XR device. */
+    String IPH_TAB_SWITCHER_XR = "IPH_TabSwitcherXR";
 }

@@ -106,6 +106,11 @@ BASE_FEATURE(kEssentialSearch,
              "EssentialSearch",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
+// Feature flag used to enable external display event telemetry.
+BASE_FEATURE(kExternalDisplayEventTelemetry,
+             "ExternalDisplayEventTelemetry",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // Feature flag used to gate preinstallation of the Gemini app.
 BASE_FEATURE(kGeminiAppPreinstall,
              "GeminiAppPreinstall",
@@ -120,6 +125,11 @@ BASE_FEATURE(kKioskHeartbeatsViaERP,
 BASE_FEATURE(kMagicBoostRevamp,
              "MagicBoostRevamp",
              base::FEATURE_ENABLED_BY_DEFAULT);
+
+// Enables the new Magic Boost Consent Flow For Quick Answers.
+BASE_FEATURE(kMagicBoostRevampForQuickAnswers,
+             "MagicBoostRevampForQuickAnswers",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Controls enabling / disabling the mahi feature.
 BASE_FEATURE(kMahi, "Mahi", base::FEATURE_ENABLED_BY_DEFAULT);
@@ -313,7 +323,13 @@ const base::FeatureParam<std::string> kMicrosoft365ScopeExtensionsDomains{
 
     // The OneDrive Business domain (for the extension to match
     // https://<customer>-my.sharepoint.com).
-    "https://sharepoint.com"};
+    "https://sharepoint.com,"
+
+    // The new branding for Microsoft 365 web apps. Word, PowerPoint and Excel
+    // can be accessed under https://word.cloud.microsoft/,
+    // https://powerpoint.cloud.microsoft/ and https://excel.cloud.microsoft/
+    // respectively.
+    "https://cloud.microsoft"};
 
 // Controls whether the PWA manifest on Microsoft 365 Urls should be overridden
 // with a static PWA manifest id.
@@ -357,7 +373,7 @@ BASE_FEATURE(kFileSystemProviderContentCache,
 // in user sessions.
 BASE_FEATURE(kSystemFeaturesDisableListHidden,
              "SystemFeaturesDisableListHidden",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables pinning the NotebookLM preinstalled app to the shelf.
 BASE_FEATURE(kNotebookLmAppShelfPin,
@@ -443,6 +459,10 @@ bool IsGeminiAppPreinstallEnabled() {
 
 bool IsMagicBoostRevampEnabled() {
   return base::FeatureList::IsEnabled(kMagicBoostRevamp);
+}
+
+bool IsMagicBoostRevampForQuickAnswersEnabled() {
+  return base::FeatureList::IsEnabled(kMagicBoostRevampForQuickAnswers);
 }
 
 bool IsMahiEnabled() {

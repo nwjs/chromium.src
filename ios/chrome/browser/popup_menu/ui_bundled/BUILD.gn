@@ -47,6 +47,7 @@ source_set("ui_bundled") {
     "//ios/chrome/browser/follow/model:enums",
     "//ios/chrome/browser/follow/model:tab_helper",
     "//ios/chrome/browser/follow/model:utils",
+    "//ios/chrome/browser/intelligence/features",
     "//ios/chrome/browser/lens/ui_bundled:lens_entrypoint",
     "//ios/chrome/browser/lens_overlay/coordinator:lens_overlay_availability",
     "//ios/chrome/browser/ntp/shared/metrics",
@@ -189,7 +190,7 @@ source_set("unit_tests") {
     "//testing/gmock",
     "//testing/gtest",
     "//third_party/ocmock",
-    "//ui/base:base",
+    "//ui/base",
   ]
 }
 
@@ -217,7 +218,7 @@ source_set("eg2_tests") {
     "//ios/testing/earl_grey:eg_test_support+eg2",
     "//ios/web/common:features",
     "//ios/web/common:user_agent",
-    "//ios/web/public/test/http_server:http_server",
+    "//ios/web/public/test/http_server",
     "//net",
     "//ui/base",
   ]

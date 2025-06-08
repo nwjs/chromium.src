@@ -15,6 +15,7 @@
 #include "base/memory/scoped_refptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/metrics/histogram_functions.h"
+#include "base/metrics/metrics_hashes.h"
 #include "base/notreached.h"
 #include "base/strings/strcat.h"
 #include "base/task/thread_pool.h"
@@ -125,6 +126,12 @@ void LogEligibilityReason(ModelBasedCapabilityKey feature,
       reason);
 }
 
+void RecordOnDeviceLoadModelResult(
+    on_device_model::mojom::LoadModelResult result) {
+  base::UmaHistogramEnumeration(
+      "OptimizationGuide.ModelExecution.OnDeviceBaseModelLoadResult", result);
+}
+
 }  // namespace
 
 OnDeviceModelServiceController::OnDeviceModelServiceController(
@@ -205,20 +212,6 @@ OnDeviceModelServiceController::CreateSession(
 
   return std::make_unique<SessionImpl>(
       feature, std::move(opts), std::move(execute_remote_fn), config_params);
-}
-
-// static
-void OnDeviceModelServiceController::GetEstimatedPerformanceClass(
-    scoped_refptr<OnDeviceModelServiceController> controller,
-    base::OnceCallback<void(OnDeviceModelPerformanceClass)> callback) {
-  auto* raw_controller = controller.get();
-  raw_controller->service_client_.Get()->GetEstimatedPerformanceClass(
-      base::BindOnce(&ConvertToOnDeviceModelPerformanceClass)
-          .Then(mojo::WrapCallbackWithDefaultInvokeIfNotRun(
-              std::move(callback),
-              OnDeviceModelPerformanceClass::kServiceCrash))
-          .Then(base::OnceClosure(
-              base::DoNothingWithBoundArgs(std::move(controller)))));
 }
 
 void OnDeviceModelServiceController::SetLanguageDetectionModel(
@@ -420,6 +413,14 @@ void OnDeviceModelServiceController::UpdateSolutionProvider(
 void OnDeviceModelServiceController::Subscribe(
     mojom::ModelSubscriptionOptionsPtr opts,
     mojo::PendingRemote<mojom::ModelSubscriber> subscriber) {
+  EnsurePerformanceClassAvailable(base::BindOnce(
+      &OnDeviceModelServiceController::SubscribeInternal,
+      weak_ptr_factory_.GetWeakPtr(), std::move(opts), std::move(subscriber)));
+}
+
+void OnDeviceModelServiceController::SubscribeInternal(
+    mojom::ModelSubscriptionOptionsPtr opts,
+    mojo::PendingRemote<mojom::ModelSubscriber> subscriber) {
   auto feature = ToModelBasedCapabilityKey(opts->id);
   if (opts->mark_used && on_device_component_state_manager_) {
     on_device_component_state_manager_->OnDeviceEligibleFeatureUsed(feature);
@@ -502,6 +503,9 @@ OnDeviceModelServiceController::BaseModelController::GetOrCreateRemote() {
                  receiver,
              on_device_model::ModelAssets assets) {
             if (!self || !self->controller_->service_client_.is_bound()) {
+              if (self) {
+                self->controller_->service_client_.RemovePendingUsage();
+              }
               CloseFilesInBackground(std::move(assets));
               return;
             }
@@ -516,6 +520,9 @@ OnDeviceModelServiceController::BaseModelController::GetOrCreateRemote() {
   remote_.reset_on_idle_timeout(has_direct_use_
                                     ? features::GetOnDeviceModelIdleTimeout()
                                     : base::TimeDelta());
+  base::UmaHistogramSparse(
+      "OptimizationGuide.ModelExecution.OnDeviceBaseModelLoadVersion",
+      base::HashMetricName(model_metadata_->version()));
   return remote_;
 }
 
@@ -523,6 +530,13 @@ on_device_model::ModelAssetPaths
 OnDeviceModelServiceController::BaseModelController::PopulateModelPaths() {
   on_device_model::ModelAssetPaths model_paths;
   model_paths.weights = model_metadata_->model_path().Append(kWeightsFile);
+
+  // TODO(crbug.com/400998489): Cache files are experimental for now.
+  if (features::ForceCpuBackendForOnDeviceModel()) {
+    model_paths.cache =
+        model_metadata_->model_path().Append(kExperimentalCacheFile);
+  }
+
   return model_paths;
 }
 
@@ -543,7 +557,7 @@ void OnDeviceModelServiceController::BaseModelController::OnModelAssetsLoaded(
   }
   controller_->service_client_.Get()->LoadModel(
       std::move(params), std::move(model),
-      base::DoNothingAs<void(on_device_model::mojom::LoadModelResult)>());
+      base::BindOnce(&RecordOnDeviceLoadModelResult));
   controller_->service_client_.RemovePendingUsage();
 }
 
@@ -669,7 +683,8 @@ OnDeviceModelServiceController::Solution::operator=(Solution&&) = default;
 
 bool OnDeviceModelServiceController::Solution::IsValid() {
   return model_controller_ &&
-         (adapter_->CanSkipTextSafety() || safety_checker_->client());
+         (!features::ShouldUseTextSafetyClassifierModel() ||
+          adapter_->CanSkipTextSafety() || safety_checker_->client());
 }
 
 // Creates a config describing this solution;
@@ -708,6 +723,57 @@ void OnDeviceModelServiceController::Solution::CreateTextSafetySession(
 
 void OnDeviceModelServiceController::Solution::ReportHealthyCompletion() {
   controller_->access_controller_->OnResponseCompleted();
+}
+
+void OnDeviceModelServiceController::EnsurePerformanceClassAvailable(
+    base::OnceClosure complete) {
+  if (!on_device_component_state_manager_ ||
+      !on_device_component_state_manager_->NeedsPerformanceClassUpdate()) {
+    std::move(complete).Run();
+    return;
+  }
+
+  if (performance_class_state_ == PerformanceClassState::kComplete) {
+    std::move(complete).Run();
+    return;
+  }
+
+  // Use unsafe because cancellation isn't needed.
+  performance_class_callbacks_.AddUnsafe(std::move(complete));
+
+  if (performance_class_state_ == PerformanceClassState::kComputing) {
+    return;
+  }
+
+  performance_class_state_ = PerformanceClassState::kComputing;
+  service_client_.Get()->GetEstimatedPerformanceClass(
+      base::BindOnce(&ConvertToOnDeviceModelPerformanceClass)
+          .Then(mojo::WrapCallbackWithDefaultInvokeIfNotRun(
+              base::BindOnce(
+                  &OnDeviceModelServiceController::PerformanceClassUpdated,
+                  base::RetainedRef(this)),
+              OnDeviceModelPerformanceClass::kServiceCrash)));
+}
+
+void OnDeviceModelServiceController::PerformanceClassUpdated(
+    OnDeviceModelPerformanceClass perf_class) {
+  base::UmaHistogramEnumeration(
+      "OptimizationGuide.ModelExecution.OnDeviceModelPerformanceClass",
+      perf_class);
+  RegisterPerformanceClassSyntheticTrial(perf_class);
+
+  auto complete = base::BindOnce(
+      [](scoped_refptr<OnDeviceModelServiceController> controller) {
+        controller->performance_class_state_ = PerformanceClassState::kComplete;
+        controller->performance_class_callbacks_.Notify();
+      },
+      base::RetainedRef(this));
+  if (on_device_component_state_manager_) {
+    on_device_component_state_manager_->DevicePerformanceClassChanged(
+        std::move(complete), perf_class);
+  } else {
+    std::move(complete).Run();
+  }
 }
 
 }  // namespace optimization_guide

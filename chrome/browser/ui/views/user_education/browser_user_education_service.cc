@@ -96,6 +96,7 @@
 #include "components/user_education/webui/help_bubble_handler.h"
 #include "components/user_education/webui/help_bubble_webui.h"
 #include "components/vector_icons/vector_icons.h"
+#include "extensions/common/extension_urls.h"
 #include "ui/base/interaction/element_identifier.h"
 #include "ui/base/interaction/element_tracker.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -119,6 +120,10 @@
 #if BUILDFLAG(ENABLE_GLIC)
 #include "chrome/browser/glic/resources/grit/glic_browser_resources.h"
 #endif  // BUILDFLAG(ENABLE_GLIC)
+
+#if BUILDFLAG(ENABLE_EXTENSIONS)
+#include "chrome/browser/ui/webui/extensions_zero_state_promo/zero_state_promo_ui.h"
+#endif  // BUILDFLAG(ENABLE_EXTENSIONS)
 
 namespace {
 
@@ -609,6 +614,47 @@ void MaybeRegisterChromeFeaturePromos(
           .SetMetadata(117, "emiliapaz@chromium.org",
                        "Triggered when an extension "
                        "requests access permission.")));
+
+  // kIPHExtensionsZeroStatePromoFeature
+  user_education::Metadata kIPHExtensionsZeroStatePromoFeatureMetaData =
+      user_education::Metadata(
+          140, "uwyiming@google.com",
+          "Triggered when a user has no extensions installed.");
+  switch (feature_engagement::kIPHExtensionsZeroStatePromoVariantParam.Get()) {
+    case feature_engagement::kCustomActionIph:
+      registry.RegisterFeature(std::move(
+          user_education::FeaturePromoSpecification::CreateForCustomAction(
+              feature_engagement::kIPHExtensionsZeroStatePromoFeature,
+              kToolbarAppMenuButtonElementId,
+              IDS_EXTENSIONS_ZERO_STATE_PROMO_CUSTOM_ACTION_IPH_DESCRIPTION,
+              IDS_EXTENSIONS_ZERO_STATE_PROMO_CUSTOM_ACTION_IPH_ACCEPT,
+              CreateNavigationAction(extension_urls::GetWebstoreLaunchURL()))
+              .SetCustomActionIsDefault(true)
+              .SetBubbleTitleText(IDS_EXTENSIONS_ZERO_STATE_PROMO_IPH_TITLE)
+              .SetMetadata(
+                  std::move(kIPHExtensionsZeroStatePromoFeatureMetaData))
+              .SetHighlightedMenuItem(
+                  ExtensionsMenuModel::kVisitChromeWebStoreMenuItem)));
+      break;
+    case feature_engagement::kCustomUiChipIph:
+    case feature_engagement::kCustomUIPlainLinkIph:
+      registry.RegisterFeature(std::move(
+          user_education::FeaturePromoSpecification::CreateForCustomUi(
+              feature_engagement::kIPHExtensionsZeroStatePromoFeature,
+              kToolbarAppMenuButtonElementId,
+              MakeCustomWebUIHelpBubbleFactoryCallback<
+                  extensions::ZeroStatePromoController>(
+                  GURL(chrome::kChromeUIExtensionsZeroStatePromoURL)),
+              // No op. The individual buttons on the custom UI will perform the
+              // actual actions.
+              base::DoNothing())
+              .SetMetadata(
+                  std::move(kIPHExtensionsZeroStatePromoFeatureMetaData))
+              .SetBubbleArrow(HelpBubbleArrow::kTopRight)
+              .SetHighlightedMenuItem(
+                  ExtensionsMenuModel::kVisitChromeWebStoreMenuItem)));
+      break;
+  }
 #endif
 
   // kIPHLiveCaptionFeature:
@@ -634,6 +680,9 @@ void MaybeRegisterChromeFeaturePromos(
           IDS_GLIC_PROMO_BODY)
           .SetBubbleArrow(HelpBubbleArrow::kTopRight)
           .SetBubbleTitleText(IDS_GLIC_PROMO_TITLE)
+          // Since this can appear randomly, we do not want to steal focus from
+          // the user; see https://crbug.com/418579754
+          .OverrideFocusOnShow(false)
           .SetMetadata(
               133, "dfried@chromium.org",
               "Attempts to trigger when the user is on a supported page.")));
@@ -1067,38 +1116,17 @@ void MaybeRegisterChromeFeaturePromos(
 
   // kIPHTabSearchToolbarButtonFeature:
   registry.RegisterFeature(std::move(
-      FeaturePromoSpecification::CreateForCustomAction(
+      FeaturePromoSpecification::CreateForToastPromo(
           feature_engagement::kIPHTabSearchToolbarButtonFeature,
           kTabSearchButtonElementId, IDS_TAB_SEARCH_TOOLBAR_BUTTON_PROMO_BODY,
-          IDS_TAB_SEARCH_TOOLBAR_BUTTON_PROMO_ACTION,
-          base::BindRepeating(
-              [](ui::ElementContext context,
-                 user_education::FeaturePromoHandle promo_handle) {
-                auto* browser =
-                    chrome::FindBrowserWithUiElementContext(context);
-                if (browser) {
-                  PinnedToolbarActionsModel::Get(browser->profile())
-                      ->UpdatePinnedState(kActionTabSearch, false);
-                }
-              }))
+          IDS_TAB_SEARCH_TOOLBAR_BUTTON_PROMO_BODY,
+          FeaturePromoSpecification::AcceleratorInfo())
           .SetBubbleArrow(user_education::HelpBubbleArrow::kTopRight)
           .SetBubbleIcon(kLightbulbOutlineIcon)
           .SetBubbleTitleText(IDS_TAB_SEARCH_TOOLBAR_BUTTON_PROMO_TITLE)
           .SetMetadata(136, "emshack@chromium.org",
                        "Triggered when the tab search button has been moved "
-                       "into the toolbar.")
-          .SetPromoSubtype(
-              FeaturePromoSpecification::PromoSubtype::kActionableAlert)));
-
-#if BUILDFLAG(ENABLE_WEBUI_TAB_STRIP)
-  // kIPHWebUITabStripFeature:
-  registry.RegisterFeature(std::move(
-      FeaturePromoSpecification::CreateForLegacyPromo(
-          &feature_engagement::kIPHWebUITabStripFeature,
-          kToolbarTabCounterButtonElementId, IDS_WEBUI_TAB_STRIP_PROMO)
-          .SetMetadata(81, "dpenning@chromium.org",
-                       "Triggered when touch mode changed.")));
-#endif  // BUILDFLAG(ENABLE_WEBUI_TAB_STRIP)
+                       "into the toolbar.")));
 
   // kIPHDesktopSharedHighlightingFeature:
   registry.RegisterFeature(
@@ -1753,6 +1781,12 @@ void MaybeRegisterChromeNewBadges(user_education::NewBadgeRegistry& registry) {
           141, "emshack@chromium.org",
           "Shown in the tab context menu when the user enters or exits split "
           "view.")));
+
+  registry.RegisterFeature(user_education::NewBadgeSpecification(
+      features::kSideBySideLinkMenuNewBadge,
+      user_education::Metadata(141, "emshack@chromium.org",
+                               "Shown in the link context menu to open the "
+                               "link in a new split tab.")));
 }
 
 std::unique_ptr<user_education::FeaturePromoControllerCommon>

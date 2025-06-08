@@ -273,12 +273,13 @@ class BrowserWindow : public ui::BaseWindow,
   virtual void SetStarredState(bool is_starred) = 0;
 
   // Checks if the browser popup is a tab modal popup.
-  virtual bool IsTabModalPopup() const = 0;
+  virtual bool IsTabModalPopupDeprecated() const = 0;
 
   // Sets whether the browser popup is a tab modal popup. Tab modal popups, used
   // by autofill features, intentionally disable save card prompts because they
   // are not intended for saving new card details.
-  virtual void SetIsTabModalPopup(bool is_tab_modal_popup) = 0;
+  virtual void SetIsTabModalPopupDeprecated(
+      bool is_tab_modal_popup_deprecated) = 0;
 
   // Called when the active tab changes.  Subclasses which implement
   // TabStripModelObserver should implement this instead of ActiveTabChanged();
@@ -409,6 +410,9 @@ class BrowserWindow : public ui::BaseWindow,
 
   // Returns whether the tab strip is editable (for extensions).
   virtual bool IsTabStripEditable() const = 0;
+
+  // Forces the tab strip into a not editable state for testing.
+  virtual void SetTabStripNotEditableForTesting() = 0;
 
   // Returns whether the toolbar is available or not. It's called "Visible()"
   // to follow the name convention. But it does not indicate the visibility of
@@ -545,7 +549,12 @@ class BrowserWindow : public ui::BaseWindow,
   // Allows the BrowserWindow object to handle the specified mouse event
   // before sending it to the renderer.
   virtual bool PreHandleMouseEvent(const blink::WebMouseEvent& event) = 0;
-
+  // Allows the BrowserWindow object to handle a mouse drag update
+  // before sending it to the renderer.
+  // `point` is relative to the content view.
+  virtual void PreHandleDragUpdate(const content::DropData& drop_data,
+                                   const gfx::PointF& point) = 0;
+  virtual void PreHandleDragExit() = 0;
   // Allows the BrowserWindow object to handle the specified keyboard event
   // before sending it to the renderer.
   virtual content::KeyboardEventProcessingResult PreHandleKeyboardEvent(

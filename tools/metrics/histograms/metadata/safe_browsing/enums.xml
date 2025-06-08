@@ -171,6 +171,8 @@ chromium-metrics-reviews@google.com.
   <int value="2" label="EMPTY_REPORT"/>
 </enum>
 
+<!-- LINT.IfChange(ClientSafeBrowsingReportType) -->
+
 <enum name="ClientSafeBrowsingReportType">
   <int value="0" label="Unknown"/>
   <int value="1" label="URL phishing"/>
@@ -195,7 +197,11 @@ chromium-metrics-reviews@google.com.
   <int value="24" label="Abusive notification permission accepted"/>
   <int value="25" label="dangerous download auto deleted"/>
   <int value="26" label="dangerous download canceled on profile closure"/>
+  <int value="27" label="URL real-time and hash real-time discrepancy"/>
+  <int value="28" label="External app redirect"/>
 </enum>
+
+<!-- LINT.ThenChange(//components/safe_browsing/core/common/proto/csd.proto:ClientSafeBrowsingReportType) -->
 
 <enum name="DisplayPersistentNotificationEvents">
   <int value="0" label="Request to display persistent notification"/>
@@ -697,6 +703,9 @@ chromium-metrics-reviews@google.com.
   <int value="2" label="UNSUBSCRIBE"/>
   <int value="3" label="ALWAYS_ALLOW"/>
   <int value="4" label="DISMISS"/>
+  <int value="5" label="REPORT_AS_SAFE"/>
+  <int value="6" label="REPORT_WARNED_NOTIFICATION_AS_SPAM"/>
+  <int value="7" label="REPORT_UNWARNED_NOTIFICATION_AS_SPAM"/>
 </enum>
 
 <enum name="SuspiciousSiteTriggerEvent">
@@ -736,6 +745,7 @@ chromium-metrics-reviews@google.com.
   <int value="1" label="AcceptedOk"/>
   <int value="2" label="AcceptedTurnOn"/>
   <int value="3" label="Dismissed"/>
+  <int value="4" label="AcceptedFailed"/>
 </enum>
 
 <!-- LINT.ThenChange(//chrome/browser/safe_browsing/tailored_security/consented_message_android.cc:SyncedEsbOutcome) -->

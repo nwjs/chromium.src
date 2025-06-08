@@ -41,6 +41,7 @@ import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.toolbar.R;
 import org.chromium.chrome.browser.toolbar.adaptive.AdaptiveToolbarStatePredictor.UiState;
 import org.chromium.chrome.browser.toolbar.adaptive.settings.AdaptiveToolbarSettingsFragment;
+import org.chromium.chrome.browser.toolbar.optional_button.BaseButtonDataProvider;
 import org.chromium.chrome.browser.toolbar.optional_button.ButtonData;
 import org.chromium.chrome.browser.toolbar.optional_button.ButtonData.ButtonSpec;
 import org.chromium.chrome.browser.toolbar.optional_button.ButtonDataImpl;
@@ -64,11 +65,11 @@ public class AdaptiveToolbarButtonController
                 ConfigurationChangedObserver {
 
     private final Context mContext;
-    private ObserverList<ButtonDataObserver> mObservers = new ObserverList<>();
+    private final ObserverList<ButtonDataObserver> mObservers = new ObserverList<>();
     private @Nullable ButtonDataProvider mSingleProvider;
 
     // Maps from {@link AdaptiveToolbarButtonVariant} to {@link ButtonDataProvider}.
-    private Map<Integer, ButtonDataProvider> mButtonDataProviderMap = new HashMap<>();
+    private final Map<Integer, ButtonDataProvider> mButtonDataProviderMap = new HashMap<>();
 
     /**
      * {@link ButtonData} instance returned by {@link AdaptiveToolbarButtonController#get(Tab)}
@@ -178,6 +179,20 @@ public class AdaptiveToolbarButtonController
         mButtonDataProviderMap.put(variant, buttonProvider);
     }
 
+    /**
+     * Invoke Price Insights UI. TODO(crbug.com/391931899): Consider making this method generic to
+     * support other button variants.
+     */
+    public void runPriceInsightsAction() {
+        var buttonDataProvider =
+                mButtonDataProviderMap.get(AdaptiveToolbarButtonVariant.PRICE_INSIGHTS);
+        if (buttonDataProvider instanceof BaseButtonDataProvider toolbarButtonProvider) {
+            toolbarButtonProvider.onClick(new View(mContext)); // Param is not used.
+        } else {
+            assert false : "PriceInsightButtonController must inherit BaseButtonDataProvider!";
+        }
+    }
+
     @Override
     // Suppress to observe SharedPreferences, which is discouraged; use another messaging channel
     // instead.
@@ -262,8 +277,8 @@ public class AdaptiveToolbarButtonController
                             receivedButtonSpec.getButtonVariant(),
                             receivedButtonSpec.getActionChipLabelResId(),
                             receivedButtonSpec.getHoverTooltipTextId(),
-                            receivedButtonSpec.shouldShowBackgroundHighlight(),
-                            receivedButtonSpec.hasErrorBadge()));
+                            receivedButtonSpec.hasErrorBadge(),
+                            receivedButtonSpec.isChecked()));
         }
         return mButtonData;
     }
@@ -359,7 +374,7 @@ public class AdaptiveToolbarButtonController
      *
      * @param tabSupplier Supplier of current tab.
      */
-    public void initializePageLoadMetricsRecorder(ObservableSupplier<Tab> tabSupplier) {
+    public void initializePageLoadMetricsRecorder(ObservableSupplier<@Nullable Tab> tabSupplier) {
         if (mPageLoadMetricsRecorder != null) return;
         mPageLoadMetricsRecorder =
                 new CurrentTabObserver(

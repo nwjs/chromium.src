@@ -20,6 +20,7 @@
 #include "chrome/browser/ui/tabs/organization/tab_organization_service_factory.h"
 #include "chrome/browser/ui/tabs/organization/tab_organization_session.h"
 #include "chrome/browser/ui/tabs/tab_strip_model_observer.h"
+#include "chrome/browser/ui/tabs/tab_strip_model_test_utils.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/web_applications/test/web_app_browsertest_util.h"
 #include "chrome/browser/web_applications/test/os_integration_test_override_impl.h"
@@ -34,6 +35,8 @@
 #include "components/policy/policy_constants.h"
 #include "components/saved_tab_groups/public/features.h"
 #include "components/tab_groups/tab_group_id.h"
+#include "components/tabs/public/split_tab_visual_data.h"
+#include "components/tabs/public/tab_interface.h"
 #include "components/webapps/common/web_app_id.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/test/browser_test.h"
@@ -185,6 +188,26 @@ class TabStripModelBrowserTest : public InProcessBrowserTest,
     for (int i = 0; i < num_tabs; i++) {
       chrome::AddTabAt(browser(), GURL(url::kAboutBlankURL), 1, false);
     }
+  }
+
+  void PrepareTabs(int num_tabs) {
+    for (int i = 0; i < num_tabs; i++) {
+      if (!browser()->tab_strip_model()->ContainsIndex(i)) {
+        chrome::AddTabAt(browser(), GURL(url::kAboutBlankURL), i, false);
+      }
+      SetID(browser()->tab_strip_model()->GetWebContentsAt(i), i);
+    }
+    EXPECT_EQ(num_tabs, browser()->tab_strip_model()->count());
+  }
+
+  void PrepareTabstripForSelectionTest(TabStripModel* model,
+                                       int tab_count,
+                                       int pinned_count,
+                                       const std::vector<int> selected_tabs) {
+    ::PrepareTabstripForSelectionTest(
+        base::BindOnce(&TabStripModelBrowserTest::PrepareTabs,
+                       base::Unretained(this)),
+        model, tab_count, pinned_count, selected_tabs);
   }
 
   base::test::ScopedFeatureList feature_list_;
@@ -341,32 +364,87 @@ IN_PROC_BROWSER_TEST_F(TabStripModelBrowserTest, CommandAddToSplit) {
   EXPECT_FALSE(tab_strip_model->GetTabAtIndex(4)->IsSplit());
 }
 
-IN_PROC_BROWSER_TEST_F(TabStripModelBrowserTest, CommandRemoveSplit) {
-  AddTabs(3);
+IN_PROC_BROWSER_TEST_F(TabStripModelBrowserTest, CommandSwapWithActiveSplit) {
   TabStripModel* const tab_strip_model = browser()->tab_strip_model();
-  EXPECT_EQ(tab_strip_model->count(), 4);
+  AddTabs(3);
+  tab_strip_model->ActivateTabAt(0);
+  tab_strip_model->AddToNewSplit({1}, split_tabs::SplitTabVisualData());
+
+  EXPECT_TRUE(tab_strip_model->IsContextMenuCommandEnabled(
+      2, TabStripModel::CommandSwapWithActiveSplit));
+
+  tabs::TabInterface* tab_outside_split = tab_strip_model->GetTabAtIndex(2);
+
+  tab_strip_model->ExecuteContextMenuCommand(
+      2, TabStripModel::CommandSwapWithActiveSplit);
+
+  EXPECT_TRUE(tab_strip_model->GetTabAtIndex(0)->IsSplit());
+  EXPECT_TRUE(tab_strip_model->GetTabAtIndex(1)->IsSplit());
+  EXPECT_EQ(tab_outside_split, tab_strip_model->GetTabAtIndex(0));
+}
+
+// Calling duplicate on a tab that isn't selected doesn't affect selected tabs.
+IN_PROC_BROWSER_TEST_F(TabStripModelBrowserTest, CommandDuplicate) {
+  TabStripModel* const tab_strip_model = browser()->tab_strip_model();
+
+  ASSERT_NO_FATAL_FAILURE(
+      PrepareTabstripForSelectionTest(tab_strip_model, 3, 1, {0, 1}));
+  ASSERT_EQ("0p 1 2", GetTabStripStateString(tab_strip_model));
+
+  EXPECT_TRUE(tab_strip_model->IsContextMenuCommandEnabled(
+      2, TabStripModel::CommandDuplicate));
+  tab_strip_model->ExecuteContextMenuCommand(2,
+                                             TabStripModel::CommandDuplicate);
+  // Should have duplicated tab 2.
+  EXPECT_EQ("0p 1 2 -1", GetTabStripStateString(tab_strip_model));
+}
+
+// Calling duplicate on a split that isn't selected doesn't affect selected
+// tabs.
+IN_PROC_BROWSER_TEST_F(TabStripModelBrowserTest, CommandDuplicateSplit) {
+  TabStripModel* const tab_strip_model = browser()->tab_strip_model();
+
+  ASSERT_NO_FATAL_FAILURE(
+      PrepareTabstripForSelectionTest(tab_strip_model, 4, 1, {2}));
+  tab_strip_model->AddToNewSplit({3}, split_tabs::SplitTabVisualData());
+  ASSERT_EQ("0p 1 2s 3s", GetTabStripStateString(tab_strip_model));
   tab_strip_model->ActivateTabAt(1);
 
   EXPECT_TRUE(tab_strip_model->IsContextMenuCommandEnabled(
-      3, TabStripModel::CommandAddToSplit));
-  tab_strip_model->ExecuteContextMenuCommand(3,
-                                             TabStripModel::CommandAddToSplit);
+      2, TabStripModel::CommandDuplicate));
+  tab_strip_model->ExecuteContextMenuCommand(2,
+                                             TabStripModel::CommandDuplicate);
+  // Should have duplicated split with tabs 2 and 3.
+  EXPECT_EQ("0p 1 2s 3s -1s -1s", GetTabStripStateString(tab_strip_model));
+}
 
-  EXPECT_FALSE(tab_strip_model->GetTabAtIndex(0)->IsSplit());
-  EXPECT_TRUE(tab_strip_model->GetTabAtIndex(1)->IsSplit());
-  EXPECT_TRUE(tab_strip_model->GetTabAtIndex(2)->IsSplit());
-  EXPECT_FALSE(tab_strip_model->GetTabAtIndex(3)->IsSplit());
+// Calling duplicate on a tab that is selected affects all the selected tabs.
+IN_PROC_BROWSER_TEST_F(TabStripModelBrowserTest, CommandDuplicateSelected) {
+  TabStripModel* const tab_strip_model = browser()->tab_strip_model();
+
+  ASSERT_NO_FATAL_FAILURE(
+      PrepareTabstripForSelectionTest(tab_strip_model, 12, 6, {2}));
+  tab_strip_model->AddToNewSplit({3}, split_tabs::SplitTabVisualData());
+  tab_strip_model->ActivateTabAt(4);
+  tab_strip_model->AddToNewSplit({5}, split_tabs::SplitTabVisualData());
+  tab_strip_model->ActivateTabAt(8);
+  tab_strip_model->AddToNewSplit({9}, split_tabs::SplitTabVisualData());
+  tab_strip_model->ActivateTabAt(10);
+  tab_strip_model->AddToNewSplit({11}, split_tabs::SplitTabVisualData());
+  ASSERT_EQ("0p 1p 2ps 3ps 4ps 5ps 6 7 8s 9s 10s 11s",
+            GetTabStripStateString(tab_strip_model));
+  tab_strip_model->ActivateTabAt(1);
+  tab_strip_model->SelectTabAt(4);
+  tab_strip_model->SelectTabAt(5);
+  tab_strip_model->SelectTabAt(7);
+  tab_strip_model->SelectTabAt(10);
+  tab_strip_model->SelectTabAt(11);
 
   EXPECT_TRUE(tab_strip_model->IsContextMenuCommandEnabled(
-      1, TabStripModel::CommandRemoveSplit));
-  EXPECT_TRUE(tab_strip_model->IsContextMenuCommandEnabled(
-      3, TabStripModel::CommandRemoveSplit));
+      1, TabStripModel::CommandDuplicate));
   tab_strip_model->ExecuteContextMenuCommand(1,
-                                             TabStripModel::CommandRemoveSplit);
-
-  // The two tabs in the split will now be unsplit retaining their indexes.
-  EXPECT_FALSE(tab_strip_model->GetTabAtIndex(0)->IsSplit());
-  EXPECT_FALSE(tab_strip_model->GetTabAtIndex(1)->IsSplit());
-  EXPECT_FALSE(tab_strip_model->GetTabAtIndex(2)->IsSplit());
-  EXPECT_FALSE(tab_strip_model->GetTabAtIndex(3)->IsSplit());
+                                             TabStripModel::CommandDuplicate);
+  // Should have duplicated tabs 1, 4, 5, 7, 10, and 11.
+  EXPECT_EQ("0p 1p -1p 2ps 3ps 4ps 5ps -1ps -1ps 6 7 -1 8s 9s 10s 11s -1s -1s",
+            GetTabStripStateString(tab_strip_model));
 }

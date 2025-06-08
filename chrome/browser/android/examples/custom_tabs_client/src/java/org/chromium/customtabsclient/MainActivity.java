@@ -239,11 +239,11 @@ public class MainActivity extends AppCompatActivity
     }
 
     /** Once per second, asks the framework for the process importance, and logs any change. */
-    private Runnable mLogImportance =
+    private final Runnable mLogImportance =
             new Runnable() {
                 private int mPreviousImportance = -1;
                 private boolean mPreviousServiceInUse;
-                private Handler mHandler = new Handler(Looper.getMainLooper());
+                private final Handler mHandler = new Handler(Looper.getMainLooper());
 
                 @Override
                 public void run() {
@@ -967,9 +967,12 @@ public class MainActivity extends AppCompatActivity
             editor.putBoolean(
                     SHARED_PREF_ENGAGEMENT_SIGNALS_BUTTON, mEngagementSignalsButton.isEnabled());
             editor.putBoolean(SHARED_PREF_SEARCH_IN_CCT, mSearchInCctCheckbox.isChecked());
-            editor.putBoolean(
-                    SHARED_PREF_OPEN_IN_BROWSER_BUTTON, mOpenInBrowserButtonCheckbox.isChecked());
-            editor.putBoolean(SHARED_PREF_EPHEMERAL_BROWSING, mEphemeralCctCheckbox.isChecked());
+            editor.putInt(
+                    SHARED_PREF_OPEN_IN_BROWSER_BUTTON,
+                    mOpenInBrowserButtonCheckbox.isChecked() ? CHECKED : UNCHECKED);
+            editor.putInt(
+                    SHARED_PREF_EPHEMERAL_BROWSING,
+                    mEphemeralCctCheckbox.isChecked() ? CHECKED : UNCHECKED);
             editor.apply();
         }
         super.onDestroy();

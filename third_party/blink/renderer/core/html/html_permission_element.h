@@ -18,6 +18,7 @@
 #include "third_party/blink/renderer/core/frame/cached_permission_status.h"
 #include "third_party/blink/renderer/core/frame/local_frame_view.h"
 #include "third_party/blink/renderer/core/html/html_element.h"
+#include "third_party/blink/renderer/core/html/html_permission_icon_element.h"
 #include "third_party/blink/renderer/core/intersection_observer/intersection_observer.h"
 #include "third_party/blink/renderer/core/scroll/scroll_snapshot_client.h"
 #include "third_party/blink/renderer/platform/heap/collection_support/heap_vector.h"
@@ -86,6 +87,7 @@ class CORE_EXPORT HTMLPermissionElement final
 
   bool HasInvalidStyle() const;
   bool IsOccluded() const;
+  bool IsRenderered() const;
   bool granted() const { return PermissionsGranted(); }
 
   // Given an input type, return permissions list. This method is for testing
@@ -136,6 +138,8 @@ class CORE_EXPORT HTMLPermissionElement final
                            FontSizeCanDisableElement);
   FRIEND_TEST_ALL_PREFIXES(HTMLPermissionElementSimTest,
                            MovePEPCToAnotherDocument);
+  FRIEND_TEST_ALL_PREFIXES(HTMLPermissionElementSimTest,
+                           RegisterAfterBeingVisible);
   FRIEND_TEST_ALL_PREFIXES(HTMLPermissionElementLayoutChangeTest,
                            InvalidatePEPCAfterMove);
   FRIEND_TEST_ALL_PREFIXES(HTMLPermissionElementLayoutChangeTest,
@@ -209,8 +213,9 @@ class CORE_EXPORT HTMLPermissionElement final
     kLowConstrastColorAndBackgroundColor = 1,
     kTooSmallFontSize = 3,
     kTooLargeFontSize = 4,
+    kInvalidDisplayProperty = 5,
 
-    kMaxValue = kTooLargeFontSize,
+    kMaxValue = kInvalidDisplayProperty,
   };
   // LINT.ThenChange(//tools/metrics/histograms/metadata/blink/enums.xml:PermissionElementInvalidStyleReason)
 
@@ -308,6 +313,9 @@ class CORE_EXPORT HTMLPermissionElement final
   // otherwise, return true and might trigger registration IPC call to browser
   // process.
   bool MaybeRegisterPageEmbeddedPermissionControl();
+
+  // Ensure we reset the PEPC IPC endpoint.
+  void EnsureUnregisterPageEmbeddedPermissionControl();
 
   // blink::Element implements
   void AttributeChanged(const AttributeModificationParams& params) override;
@@ -520,12 +528,15 @@ class CORE_EXPORT HTMLPermissionElement final
 
   bool is_registered_in_browser_process_ = false;
 
+  bool is_cache_registered_ = false;
+
   // Holds reasons for which clicking is currently disabled (if any). Each
   // entry will have an expiration time associated with it, which can be
   // |base::TimeTicks::Max()| if it's indefinite.
   HashMap<DisableReason, base::TimeTicks> clicking_disabled_reasons_;
 
   Member<HTMLSpanElement> permission_text_span_;
+  Member<HTMLPermissionIconElement> permission_internal_icon_;
   Member<IntersectionObserver> intersection_observer_;
 
   // Keeps track of the time a request was created.

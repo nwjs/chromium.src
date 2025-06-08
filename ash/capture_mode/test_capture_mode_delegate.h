@@ -67,9 +67,6 @@ class TestCaptureModeDelegate : public CaptureModeDelegate {
     policy_capture_path_ = policy_capture_path;
   }
   int num_capture_image_attempts() const { return num_capture_image_attempts_; }
-  int num_multimodal_search_requests() const {
-    return num_multimodal_search_requests_;
-  }
   void set_lens_detected_text(std::string text) {
     lens_detected_text_ = std::move(text);
   }
@@ -107,6 +104,7 @@ class TestCaptureModeDelegate : public CaptureModeDelegate {
   void OpenScreenshotInImageEditor(const base::FilePath& file_path) override;
   bool Uses24HourFormat() const override;
   void CheckCaptureModeInitRestrictionByDlp(
+      bool shutting_down,
       OnCaptureModeDlpRestrictionChecked callback) override;
   void CheckCaptureOperationRestrictionByDlp(
       const aura::Window* window,
@@ -166,14 +164,6 @@ class TestCaptureModeDelegate : public CaptureModeDelegate {
       ash::OnSearchUrlFetchedCallback search_callback,
       ash::OnTextDetectionComplete text_callback,
       base::OnceCallback<void()> error_callback) override;
-  void SendRegionSearch(const SkBitmap& image,
-                        const gfx::Rect& region,
-                        ash::OnSearchUrlFetchedCallback search_callback,
-                        ash::OnTextDetectionComplete text_callback) override;
-  void SendMultimodalSearch(const SkBitmap& image,
-                            const gfx::Rect& region,
-                            const std::string& text,
-                            ash::OnSearchUrlFetchedCallback callback) override;
   MOCK_METHOD(bool, IsNetworkConnectionOffline, (), (const, override));
   void DeleteRemoteFile(const base::FilePath& path,
                         base::OnceCallback<void(bool)> callback) override;
@@ -195,7 +185,6 @@ class TestCaptureModeDelegate : public CaptureModeDelegate {
   // Counter to track number of times `OnCaptureImageAttempted()` is called, for
   // testing purposes.
   int num_capture_image_attempts_ = 0;
-  int num_multimodal_search_requests_ = 0;
   base::ScopedTempDir fake_drive_fs_mount_path_;
   base::ScopedTempDir fake_android_files_path_;
   base::ScopedTempDir fake_linux_files_path_;

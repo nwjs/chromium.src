@@ -47,6 +47,7 @@ Huomioitavaa:
 <translation id="1917964099031477364">Tämä tili ja kaikki tallentamaton data poistetaan Chromesta ja muista Google-sovelluksista tällä laitteella.</translation>
 <translation id="1919130412786645364">Salli Chrome-kirjautuminen</translation>
 <translation id="1965935827552890526">Siirry toiseen avoimeen Chrome-ikkunaan ja viimeistele aloittamasi.</translation>
+<translation id="1966638102563776885">Chrome-vinkki: Käytä salasanoja missä tahansa sovelluksessa</translation>
 <translation id="1973910962341002002">Laita "Chrome" päälle asetuksista (<ph name="TEXT_OF_THE_SETTINGS_MENU_ITEM" />)</translation>
 <translation id="1984705450038014246">Chrome-datan synkronointi</translation>
 <translation id="1987779152850321833">Näillä ehdotuksilla saat Chromesta mahdollisimman paljon irti.</translation>
@@ -114,7 +115,6 @@ Odota muutama minuutti ennen uloskirjautumista. Jos kirjaudut ulos nyt, tämä d
 <translation id="3655656110921623717">Tämä tarkoittaa, että Chrome pyytää aina mobiilisivustoa.</translation>
 <translation id="3740397331642243698">Avaa syötetyt URL-osoitteet Google Chromen incognito-tilassa.</translation>
 <translation id="3741995255368156336">Avaa Chromen lukulistan.</translation>
-<translation id="3808570423967020928">Käytä Chromea nopeammin aloitusnäytön alapalkista.</translation>
 <translation id="3827545470516145620">Tällä laitteella on perustason suojaus</translation>
 <translation id="384394811301901750">Google Chrome ei voi käyttää kameraa tällä hetkellä.</translation>
 <translation id="3863841106411295595">Lisää URL-osoitteet Chromen lukulistalle.</translation>
@@ -138,6 +138,7 @@ Odota muutama minuutti ennen uloskirjautumista. Jos kirjaudut ulos nyt, tämä d
 <translation id="4724297637870447613">Käytä Chromea missä tahansa</translation>
 <translation id="4738647308035481133">Google Chrome ‑sivu</translation>
 <translation id="4742795653798179840">Chrome-data poistettu</translation>
+<translation id="4749294594657945639">Löydät muiden sovellusten tallennetut salasanat helposti käyttämällä Chromea automaattiseen täyttöön.</translation>
 <translation id="4761869838909035636">Tee Chromen turvatarkistus</translation>
 <translation id="4798859546468762093">Voit käyttää personointia ja muita ominaisuuksia, kun lisäät Chromen näihin: <ph name="FEATURE_NAME_1" /> ja <ph name="FEATURE_NAME_2" /></translation>
 <translation id="4819268619367838612">Chrome lähettää käyttö- ja kaatumisdataa Googlelle sovelluksen kehittämiseksi. <ph name="BEGIN_LINK" />Muokkaa<ph name="END_LINK" /></translation>
@@ -233,7 +234,6 @@ Siirry <ph name="BEGIN_LINK" />Googlen palveluihin<ph name="END_LINK" />, jos ha
 <translation id="6975725306479268850">Chromen valinta automaattiseen täyttöön</translation>
 <translation id="7056826488869329999">Avaa ja suorittaa turvatarkistuksen Chromessa.</translation>
 <translation id="7061455974939528301">Paina Chrome-kuvaketta pitkään ja klikkaa "Muokkaa aloitusnäyttöä"</translation>
-<translation id="7065813315247345131">Siirrä Chrome alapalkkiin</translation>
 <translation id="7124339256045485976">Pidä Chrome ajan tasalla</translation>
 <translation id="7145599899567697473">Tallenna ja täytä salasanoja automaattisesti Chromessa</translation>
 <translation id="7161390184744336561">Google Chrome on vanhentunut</translation>
@@ -317,10 +317,10 @@ Datasi salataan tunnuslauseella <ph name="TIME" />. Lisää se, niin voit käytt
 <translation id="8603022514504485810">Google Salasanat ei voinut tarkistaa kaikkia salasanoja. Yritä uudelleen huomenna tai <ph name="BEGIN_LINK" />tarkista salasanat Google-tililtä<ph name="END_LINK" />.</translation>
 <translation id="8630122478628016441">Laita päälle "Lukitse incognito-välilehdet, kun suljet Chromen".</translation>
 <translation id="8673726683583791503">Osta Google Lensin avulla</translation>
-<translation id="8727043961453758442">Näin saat kaiken irti Chromesta</translation>
 <translation id="8765470054473112089">Kun kirjoitat osoitepalkkiin tai hakukenttään, Chrome lähettää kirjoittamasi tekstin oletushakukoneellesi, niin saat parempia ehdotuksia. Tämä on poissa päältä incognito-tilassa.</translation>
 <translation id="8772179140489533211">Näytä kehotteet kirjautua Chromeen.</translation>
 <translation id="8788269841521769222">Sinun ei tarvitse muistaa tätä salasanaa. Se tallennetaan Googlen Salasanojen ylläpitoon sähköpostiosoitteella <ph name="EMAIL" /></translation>
+<translation id="8796490717897731471"><ph name="EMAIL" />. Chrome on hallinnoitu</translation>
 <translation id="880967149107462122">Siirry Chromen asetuksiin</translation>
 <translation id="8842132678697187091">Voit avata Google Lensin täältä.</translation>
 <translation id="8850736900032787670">Jos haluat saada kiinnostuksen kohteisiisi perustuvaa personoitua sisältöä, kirjaudu Chromeen.</translation>

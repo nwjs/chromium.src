@@ -183,7 +183,6 @@ export class DestinationStore extends EventTarget {
    * Kiosk mode or when PDF printing is disallowed by policy.
    */
   private pdfPrinterEnabled_: boolean = false;
-  private isInNWPrintMode_: boolean = false;
 
   private recentDestinationKeys_: string[] = [];
 
@@ -323,7 +322,6 @@ export class DestinationStore extends EventTarget {
     }
 
     this.pdfPrinterEnabled_ = !pdfPrinterDisabled;
-    this.isInNWPrintMode_ = isInNWPrintMode;
     this.createLocalPdfPrintDestination_();
 
     // Nothing recent, no system default ==> try to get a fallback printer as
@@ -566,7 +564,7 @@ export class DestinationStore extends EventTarget {
     // Try selecting the first destination if there is at least one
     // destination already loaded.
     if (this.destinations_.length > 0) {
-      this.selectDestination(this.destinations_[0]);
+      this.selectDestination(this.destinations_[0]!);
       return true;
     }
 

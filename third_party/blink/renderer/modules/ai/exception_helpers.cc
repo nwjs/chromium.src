@@ -6,14 +6,18 @@
 
 #include "base/debug/dump_without_crashing.h"
 #include "base/notreached.h"
+#include "third_party/blink/public/mojom/ai/ai_common.mojom-blink.h"
 #include "third_party/blink/public/mojom/ai/ai_manager.mojom-blink-forward.h"
 #include "third_party/blink/public/mojom/ai/ai_manager.mojom-shared.h"
+#include "third_party/blink/renderer/bindings/core/v8/v8_quota_exceeded_error_options.h"
 #include "third_party/blink/renderer/core/dom/dom_exception.h"
+#include "third_party/blink/renderer/core/dom/quota_exceeded_error.h"
 #include "third_party/blink/renderer/core/execution_context/execution_context.h"
 #include "third_party/blink/renderer/core/frame/local_dom_window.h"
 #include "third_party/blink/renderer/platform/bindings/exception_code.h"
 #include "third_party/blink/renderer/platform/bindings/exception_state.h"
 #include "third_party/blink/renderer/platform/bindings/script_state.h"
+#include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "third_party/blink/renderer/platform/wtf/casting.h"
 
 namespace blink {
@@ -68,10 +72,11 @@ const char kExceptionMessageUnsupportedLanguages[] =
 const char kExceptionMessageInvalidResponseJsonSchema[] =
     "Response json schema is invalid - it should be an object that can be "
     "stringified into a JSON string.";
-const char kExceptionMessageCrossOriginAccess[] =
-    "Access denied from cross-origin iframes.";
 const char kExceptionMessagePermissionPolicy[] =
     "Access denied because the Permission Policy is not enabled.";
+const char kExceptionMessageUserActivationRequired[] =
+    "Requires a user gesture when availability is \"downloading\" or "
+    "\"downloadable\".";
 
 void ThrowInvalidContextException(ExceptionState& exception_state) {
   exception_state.ThrowDOMException(DOMExceptionCode::kInvalidStateError,
@@ -103,6 +108,12 @@ DOMException* CreateInternalErrorException() {
   return DOMException::Create(
       kExceptionMessageServiceUnavailable,
       DOMException::GetErrorName(DOMExceptionCode::kOperationError));
+}
+
+DOMException* CreateSessionDestroyedException() {
+  return DOMException::Create(
+      kExceptionMessageSessionDestroyed,
+      DOMException::GetErrorName(DOMExceptionCode::kInvalidStateError));
 }
 
 bool HandleAbortSignal(AbortSignal* signal,
@@ -183,7 +194,8 @@ DOMException* CreateUnknown(const char* error) {
 }  // namespace
 
 DOMException* ConvertModelStreamingResponseErrorToDOMException(
-    ModelStreamingResponseStatus error) {
+    ModelStreamingResponseStatus error,
+    mojom::blink::QuotaErrorInfoPtr quota_error_info) {
   switch (error) {
     case ModelStreamingResponseStatus::kErrorUnknown:
       base::debug::DumpWithoutCrashing();
@@ -229,6 +241,14 @@ DOMException* ConvertModelStreamingResponseErrorToDOMException(
           kExceptionMessageSessionDestroyed,
           DOMException::GetErrorName(DOMExceptionCode::kInvalidStateError));
     case ModelStreamingResponseStatus::kErrorInputTooLarge:
+      if (RuntimeEnabledFeatures::QuotaExceededErrorUpdateEnabled()) {
+        CHECK(quota_error_info);
+        auto* options = MakeGarbageCollected<QuotaExceededErrorOptions>();
+        options->setQuota(static_cast<double>(quota_error_info->quota));
+        options->setRequested(static_cast<double>(quota_error_info->requested));
+        return QuotaExceededError::Create(kExceptionMessageInputTooLarge,
+                                          std::move(options));
+      }
       return DOMException::Create(
           kExceptionMessageInputTooLarge,
           DOMException::GetErrorName(DOMExceptionCode::kQuotaExceededError));

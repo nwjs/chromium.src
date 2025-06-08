@@ -38,6 +38,7 @@
 #include "ui/compositor/layer.h"
 #include "ui/compositor/layer_animation_element.h"
 #include "ui/compositor/layer_animator.h"
+#include "ui/compositor/layer_type.h"
 #include "ui/display/screen.h"
 #include "ui/gfx/color_palette.h"
 #include "ui/gfx/color_utils.h"
@@ -397,21 +398,6 @@ class BubbleDialogDelegate::BubbleWidgetObserver : public WidgetObserver {
       this};
 };
 
-class BubbleDialogDelegate::ThemeObserver : public ViewObserver {
- public:
-  explicit ThemeObserver(BubbleDialogDelegate* delegate) : delegate_(delegate) {
-    observation_.Observe(delegate->GetContentsView());
-  }
-
-  void OnViewThemeChanged(views::View* view) override {
-    delegate_->UpdateColorsFromTheme();
-  }
-
- private:
-  const raw_ptr<BubbleDialogDelegate> delegate_;
-  base::ScopedObservation<View, ViewObserver> observation_{this};
-};
-
 class BubbleDialogDelegateView::CloseOnDeactivatePin::Pins {
  public:
   Pins() = default;
@@ -475,11 +461,9 @@ BubbleDialogDelegate::BubbleDialogDelegate(View* anchor_view,
 
   RegisterWidgetInitializedCallback(base::BindOnce(
       [](BubbleDialogDelegate* bubble_delegate) {
-        bubble_delegate->theme_observer_ =
-            std::make_unique<ThemeObserver>(bubble_delegate);
         // Call the theme callback to make sure the initial theme is picked up
         // by the BubbleDialogDelegate.
-        bubble_delegate->UpdateColorsFromTheme();
+        bubble_delegate->UpdateFrameColor();
       },
       this));
 
@@ -590,7 +574,7 @@ BubbleDialogDelegate::CreateNonClientFrameView(Widget* widget) {
   border->SetColor(background_color());
 
   if (GetParams().round_corners) {
-    border->SetCornerRadius(GetCornerRadius());
+    border->set_rounded_corners(gfx::RoundedCornersF(GetCornerRadius()));
   }
 
   frame->SetBubbleBorder(std::move(border));
@@ -599,16 +583,15 @@ BubbleDialogDelegate::CreateNonClientFrameView(Widget* widget) {
 
 ClientView* BubbleDialogDelegate::CreateClientView(Widget* widget) {
   client_view_ = DialogDelegate::CreateClientView(widget);
-  // In order for the |client_view|'s content view hierarchy to respect its
+
+  // In order for the `client_view`'s content view hierarchy to respect its
   // rounded corner clip we must paint the client view to a layer. This is
   // necessary because layers do not respect the clip of a non-layer backed
   // parent.
-  if (paint_client_to_layer_) {
-    client_view_->SetPaintToLayer();
-    client_view_->layer()->SetRoundedCornerRadius(
-        gfx::RoundedCornersF(GetCornerRadius()));
-    client_view_->layer()->SetIsFastRoundedCorner(true);
-  }
+  client_view_->SetPaintToLayer();
+  client_view_->layer()->SetRoundedCornerRadius(
+      gfx::RoundedCornersF(GetCornerRadius()));
+  client_view_->layer()->SetIsFastRoundedCorner(true);
 
   return client_view_;
 }
@@ -727,6 +710,17 @@ void BubbleDialogDelegate::SetHighlightedButton(Button* highlighted_button) {
   }
 }
 
+void BubbleDialogDelegate::SetBackgroundColor(ui::ColorVariant color) {
+  if (color_ == color) {
+    return;
+  }
+
+  color_ = color;
+  if (GetWidget()) {
+    UpdateFrameColor();
+  }
+}
+
 void BubbleDialogDelegate::SetArrow(BubbleBorder::Arrow arrow) {
   SetArrowWithoutResizing(arrow);
   // If SetArrow() is called before CreateWidget(), there's no need to update
@@ -792,11 +786,6 @@ gfx::Rect BubbleDialogDelegate::GetAnchorRect() const {
 
 ui::LayerType BubbleDialogDelegate::GetLayerType() const {
   return ui::LAYER_TEXTURED;
-}
-
-void BubbleDialogDelegate::SetPaintClientToLayer(bool paint_client_to_layer) {
-  DCHECK(!client_view_);
-  paint_client_to_layer_ = paint_client_to_layer;
 }
 
 void BubbleDialogDelegate::UseCompactMargins() {
@@ -1133,7 +1122,7 @@ void BubbleDialogDelegate::SetSubtitleAllowCharacterBreak(bool allow) {
   }
 }
 
-void BubbleDialogDelegate::UpdateColorsFromTheme() {
+void BubbleDialogDelegate::UpdateFrameColor() {
   View* const contents_view = GetContentsView();
   DCHECK(contents_view);
 

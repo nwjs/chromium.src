@@ -26,7 +26,6 @@
 #include "base/metrics/histogram_macros.h"
 #include "base/metrics/user_metrics.h"
 #include "base/no_destructor.h"
-#include "base/not_fatal_until.h"
 #include "base/strings/escape.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_split.h"
@@ -808,7 +807,7 @@ DevToolsUIBindings::~DevToolsUIBindings() {
   DevToolsUIBindingsList& instances =
       DevToolsUIBindings::GetDevToolsUIBindings();
   auto it = std::ranges::find(instances, this);
-  CHECK(it != instances.end(), base::NotFatalUntil::M130);
+  CHECK(it != instances.end());
   instances.erase(it);
 }
 
@@ -1721,8 +1720,9 @@ void DevToolsUIBindings::GetHostConfig(DispatchCallback callback) {
                         features::kDevToolsFreestylerPatching.Get());
     freestyler_dict.Set("multimodal",
                         features::kDevToolsFreestylerMultimodal.Get());
-    freestyler_dict.Set("multimodalUploadInput",
-                        features::kDevToolsFreestylerMultimodalUploadInput.Get());
+    freestyler_dict.Set(
+        "multimodalUploadInput",
+        features::kDevToolsFreestylerMultimodalUploadInput.Get());
     freestyler_dict.Set("functionCalling",
                         features::kDevToolsFreestylerFunctionCalling.Get());
     response_dict.Set("devToolsFreestyler", std::move(freestyler_dict));
@@ -1883,6 +1883,12 @@ void DevToolsUIBindings::GetHostConfig(DispatchCallback callback) {
   response_dict.Set("devToolsAiGeneratedTimelineLabels",
                     std::move(ai_generated_timeline_labels_dict));
 
+  base::Value::Dict flexible_layout_dict;
+  flexible_layout_dict.Set(
+      "verticalDrawerEnabled",
+      base::FeatureList::IsEnabled(::features::kDevToolsVerticalDrawer));
+  response_dict.Set("devToolsFlexibleLayout", std::move(flexible_layout_dict));
+
   base::Value response = base::Value(std::move(response_dict));
   std::move(callback).Run(&response);
 }
@@ -2011,10 +2017,33 @@ bool DevToolsUIBindings::MaybeStartLogging() {
     session_id_for_logging_ = base::UnguessableToken::Create();
     session_start_time_ = base::TimeTicks::Now();
     base::Value::Dict sync_info = GetSyncInformationForProfile(profile_);
+    int64_t session_tags = 0;
     bool is_signed_in = sync_info.FindBool("isSyncActive").value_or(false) &&
                         !sync_info.FindBool("isSyncPaused").value_or(false);
+    if (is_signed_in) {
+      session_tags |= SessionTags::kUserSignedIn;
+    }
+    int gen_ai_settings =
+        profile_->GetPrefs()->GetInteger(prefs::kDevToolsGenAiSettings);
+    if (gen_ai_settings ==
+        static_cast<int>(DevToolsGenAiEnterprisePolicyValue::kDisable)) {
+      session_tags |= SessionTags::kDevToolsGetAiEnterprisePolicyDisabled;
+    }
+    if (gen_ai_settings ==
+        static_cast<int>(
+            DevToolsGenAiEnterprisePolicyValue::kAllowWithoutLogging)) {
+      session_tags |=
+          SessionTags::kDevToolsGetAiEnterprisePolicyAllowWithoutLogging;
+    }
+    bool remote_debugging_enabled =
+        g_browser_process->local_state()->GetBoolean(
+            prefs::kDevToolsRemoteDebuggingAllowed);
+    if (!remote_debugging_enabled) {
+      session_tags |= SessionTags::kDevToolsRemoteDebuggingDisabled;
+    }
     metrics::structured::StructuredMetricsClient::Record(
         metrics::structured::events::v2::dev_tools::SessionStart()
+            .SetTags(session_tags)
             .SetTrigger(delegate_->GetOpenedByForLogging())
             .SetDockSide(delegate_->GetDockStateForLogging())
             .SetSessionId(session_id_for_logging_.GetLowForSerialization())
@@ -2132,6 +2161,18 @@ void DevToolsUIBindings::RecordSettingAccess(const SettingAccessEvent& event) {
           .SetName(event.name)
           .SetNumericValue(event.numeric_value)
           .SetStringValue(event.string_value)
+          .SetTimeSinceSessionStart(GetTimeSinceSessionStart().InMilliseconds())
+          .SetSessionId(session_id_for_logging_.GetLowForSerialization()));
+}
+
+void DevToolsUIBindings::RecordFunctionCall(const FunctionCallEvent& event) {
+  if (!MaybeStartLogging()) {
+    return;
+  }
+  metrics::structured::StructuredMetricsClient::Record(
+      metrics::structured::events::v2::dev_tools::FunctionCall()
+          .SetName(event.name)
+          .SetContext(event.context)
           .SetTimeSinceSessionStart(GetTimeSinceSessionStart().InMilliseconds())
           .SetSessionId(session_id_for_logging_.GetLowForSerialization()));
 }

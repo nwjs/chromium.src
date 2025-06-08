@@ -11,10 +11,12 @@
 #include "chrome/browser/lens/core/mojom/lens_side_panel.mojom.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/lens/lens_help_menu_utils.h"
 #include "chrome/browser/ui/lens/lens_overlay_controller.h"
 #include "chrome/browser/ui/lens/lens_overlay_side_panel_web_view.h"
 #include "chrome/browser/ui/lens/lens_overlay_url_builder.h"
 #include "chrome/browser/ui/lens/lens_search_controller.h"
+#include "chrome/browser/ui/lens/lens_searchbox_controller.h"
 #include "chrome/browser/ui/lens/page_content_type_conversions.h"
 #include "chrome/browser/ui/tabs/public/tab_features.h"
 #include "chrome/browser/ui/views/side_panel/side_panel_content_proxy.h"
@@ -46,6 +48,7 @@
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/base/models/image_model.h"
 #include "ui/base/page_transition_types.h"
+#include "ui/base/window_open_disposition_utils.h"
 #include "ui/menus/simple_menu_model.h"
 #include "ui/views/vector_icons.h"
 #include "ui/views/view_class_properties.h"
@@ -138,8 +141,11 @@ LensOverlaySidePanelCoordinator::~LensOverlaySidePanelCoordinator() {
   }
 }
 
-std::unique_ptr<SidePanelInUse>
-LensOverlaySidePanelCoordinator::RegisterEntryAndShow() {
+void LensOverlaySidePanelCoordinator::RegisterEntryAndShow() {
+  if (state_ != State::kOff) {
+    // Exit early if the side panel is already registered or opening.
+    return;
+  }
   state_ = State::kOpeningSidePanel;
   RegisterEntry();
   GetSidePanelUI(GetLensOverlayController())
@@ -155,8 +161,6 @@ LensOverlaySidePanelCoordinator::RegisterEntryAndShow() {
                                 ->GetFeatures()
                                 .side_panel_coordinator();
   CHECK(side_panel_coordinator_);
-
-  return std::make_unique<SidePanelInUseImpl>(this);
 }
 
 void LensOverlaySidePanelCoordinator::RecordAndShowSidePanelErrorPage() {
@@ -175,7 +179,7 @@ void LensOverlaySidePanelCoordinator::SetSidePanelNewTabUrl(const GURL& url) {
 void LensOverlaySidePanelCoordinator::OnEntryWillHide(
     SidePanelEntry* entry,
     SidePanelEntryHideReason reason) {
-  GetLensOverlayController()->OnSidePanelWillHide(reason);
+  GetLensSearchController()->OnSidePanelWillHide(reason);
 }
 
 void LensOverlaySidePanelCoordinator::OnEntryHidden(SidePanelEntry* entry) {
@@ -185,14 +189,14 @@ void LensOverlaySidePanelCoordinator::OnEntryHidden(SidePanelEntry* entry) {
   //   (2) The user clicked the 'x' button while the overlay is showing.
   //   (3) The side panel naturally went away after a tab switch.
   // Forward to LensOverlayController to have it disambiguate.
-  GetLensOverlayController()->OnSidePanelHidden();
+  GetLensSearchController()->OnSidePanelHidden();
 }
 
 void LensOverlaySidePanelCoordinator::WebViewClosing() {
   // This is called from the destructor of the WebView. Synchronously clear all
   // state associated with the WebView.
   if (side_panel_web_view_) {
-    GetLensOverlayController()->ResetSidePanelSearchboxHandler();
+    GetLensSearchboxController()->ResetSidePanelSearchboxHandler();
     side_panel_web_view_ = nullptr;
   }
 }
@@ -276,15 +280,16 @@ void LensOverlaySidePanelCoordinator::NotifyNewQueryLoaded(std::string query,
   if (lens_mode.empty()) {
     GetLensOverlayController()->SetAdditionalSearchQueryParams(
         /*additional_search_query_params=*/{});
-    GetLensOverlayController()->SetSearchboxThumbnail("");
+    GetLensSearchboxController()->SetSearchboxThumbnail("");
     GetLensOverlayController()->ClearAllSelections();
-    GetLensOverlayController()->SetSearchboxThumbnail(std::string());
+    GetLensSearchboxController()->SetSearchboxThumbnail(std::string());
   }
 
   // Grab the current state of the overlay and use it to update populate the
   // query stack and currently loaded query.
   lens::SearchQuery search_query(query, search_url);
   GetLensOverlayController()->AddOverlayStateToSearchQuery(search_query);
+  GetLensSearchboxController()->AddSearchboxStateToSearchQuery(search_query);
 
   // Add what was the currently loaded search query to the query stack,
   // if it is present.
@@ -299,12 +304,13 @@ void LensOverlaySidePanelCoordinator::NotifyNewQueryLoaded(std::string query,
   initialization_data_->currently_loaded_search_query_ = search_query;
 
   // Update searchbox and selection state to match the new query.
-  GetLensOverlayController()->SetSearchboxInputText(query);
+  GetLensSearchboxController()->SetSearchboxInputText(query);
 }
 void LensOverlaySidePanelCoordinator::PopAndLoadQueryFromHistory() {
   if (initialization_data_->search_query_history_stack_.empty()) {
     return;
   }
+  base::Time query_start_time = base::Time::Now();
 
   // Get the query that should be loaded in the results frame and then pop it
   // from the list.
@@ -337,8 +343,8 @@ void LensOverlaySidePanelCoordinator::PopAndLoadQueryFromHistory() {
   }
   GetLensOverlayController()->SetAdditionalSearchQueryParams(
       query.additional_search_query_params_);
-  GetLensOverlayController()->SetSearchboxInputText(query.search_query_text_);
-  GetLensOverlayController()->SetSearchboxThumbnail(
+  GetLensSearchboxController()->SetSearchboxInputText(query.search_query_text_);
+  GetLensSearchboxController()->SetSearchboxThumbnail(
       query.selected_region_thumbnail_uri_);
 
   const bool is_contextual_query =
@@ -371,15 +377,16 @@ void LensOverlaySidePanelCoordinator::PopAndLoadQueryFromHistory() {
     // If the query also has text, we should send it as a multimodal query.
     if (query.search_query_text_.empty()) {
       GetLensOverlayController()->IssueLensRequest(
-          query.selected_region_->Clone(), query.lens_selection_type_,
-          selected_region_bitmap);
+          query_start_time, query.selected_region_->Clone(),
+          query.lens_selection_type_, selected_region_bitmap);
     } else {
       // TODO(crbug.com/404941800): It might be better to send the multimodal
       // request directly to the query controller once the query controller is
       // owned by the search controller.
       GetLensOverlayController()->IssueMultimodalRequest(
-          query.selected_region_->Clone(), query.search_query_text_,
-          query.lens_selection_type_, selected_region_bitmap);
+          query_start_time, query.selected_region_->Clone(),
+          query.search_query_text_, query.lens_selection_type_,
+          selected_region_bitmap);
     }
     return;
   }
@@ -391,7 +398,7 @@ void LensOverlaySidePanelCoordinator::PopAndLoadQueryFromHistory() {
     // request directly to the query controller once the query controller is
     // owned by the search controller.
     GetLensOverlayController()->IssueContextualTextRequest(
-        query.search_query_text_, query.lens_selection_type_);
+        query_start_time, query.search_query_text_, query.lens_selection_type_);
     return;
   }
 
@@ -406,7 +413,48 @@ void LensOverlaySidePanelCoordinator::PopAndLoadQueryFromHistory() {
 
 void LensOverlaySidePanelCoordinator::GetIsContextualSearchbox(
     GetIsContextualSearchboxCallback callback) {
-  GetLensOverlayController()->GetIsContextualSearchbox(std::move(callback));
+  GetLensSearchboxController()->GetIsContextualSearchbox(std::move(callback));
+}
+
+void LensOverlaySidePanelCoordinator::RequestSendFeedback() {
+  FeedbackRequestedByEvent(lens_search_controller_->GetTabInterface(),
+                           ui::EF_NONE);
+}
+
+void LensOverlaySidePanelCoordinator::OnScrollToMessage(
+    const std::vector<std::string>& text_fragments,
+    uint32_t pdf_page_number) {
+  if (!latest_page_url_with_response_.SchemeIsFile() ||
+      !latest_page_url_with_response_.is_valid()) {
+    return;
+  }
+
+  const auto& latest_page_url_with_viewport_params =
+      AddPDFScrollToParametersToUrl(latest_page_url_with_response_,
+                                    text_fragments, pdf_page_number);
+#if BUILDFLAG(ENABLE_PDF)
+  content::WebContents* web_contents =
+      lens_search_controller_->GetTabInterface()->GetContents();
+
+  // If a PDFDocumentHelper is found attached to the current web contents,
+  // that means that the PDF viewer is currently loaded in it.
+  auto* pdf_helper =
+      pdf::PDFDocumentHelper::MaybeGetForWebContents(web_contents);
+  if (pdf_helper) {
+    if (ShouldHandlePDFViewportChange(latest_page_url_with_viewport_params)) {
+      pdf_extension_util::DispatchShouldUpdateViewportEvent(
+          web_contents->GetPrimaryMainFrame(),
+          latest_page_url_with_viewport_params);
+      return;
+    }
+  }
+#endif  // BUILDFLAG(ENABLE_PDF)
+
+  // Open it in a new tab if the URL is no longer on the main tab.
+  lens_search_controller_->GetTabInterface()
+      ->GetBrowserWindowInterface()
+      ->OpenGURL(latest_page_url_with_viewport_params,
+                 WindowOpenDisposition::NEW_FOREGROUND_TAB);
 }
 
 void LensOverlaySidePanelCoordinator::ExecuteCommand(int command_id,
@@ -415,19 +463,22 @@ void LensOverlaySidePanelCoordinator::ExecuteCommand(int command_id,
     case COMMAND_MY_ACTIVITY: {
       lens::RecordSidePanelMenuOptionSelected(
           lens::LensOverlaySidePanelMenuOption::kMyActivity);
-      GetLensOverlayController()->ActivityRequestedByEvent(event_flags);
+      ActivityRequestedByEvent(lens_search_controller_->GetTabInterface(),
+                               event_flags);
       break;
     }
     case COMMAND_LEARN_MORE: {
       lens::RecordSidePanelMenuOptionSelected(
           lens::LensOverlaySidePanelMenuOption::kLearnMore);
-      GetLensOverlayController()->InfoRequestedByEvent(event_flags);
+      InfoRequestedByEvent(lens_search_controller_->GetTabInterface(),
+                           event_flags);
       break;
     }
     case COMMAND_SEND_FEEDBACK: {
       lens::RecordSidePanelMenuOptionSelected(
           lens::LensOverlaySidePanelMenuOption::kSendFeedback);
-      GetLensOverlayController()->FeedbackRequestedByEvent(event_flags);
+      FeedbackRequestedByEvent(lens_search_controller_->GetTabInterface(),
+                               event_flags);
       break;
     }
     default: {
@@ -461,10 +512,21 @@ bool LensOverlaySidePanelCoordinator::IsShowingProtectedErrorPage() {
              mojom::SidePanelResultStatus::kErrorPageShownProtected;
 }
 
+void LensOverlaySidePanelCoordinator::SetLatestPageUrlWithResponse(
+    const GURL& url) {
+  latest_page_url_with_response_ = url;
+}
+
 void LensOverlaySidePanelCoordinator::BindSidePanel(
     mojo::PendingReceiver<lens::mojom::LensSidePanelPageHandler> receiver,
     mojo::PendingRemote<lens::mojom::LensSidePanelPage> page) {
-  CHECK(state_ == State::kOpeningSidePanel);
+  // Ideally, this should be a CHECK, but if the user just navigates to the
+  // WebUI link directly, then this will be called without
+  // RegisterEntryAndShow() being called. If that is the case, ignore this call.
+  // More info at crbug.com/417119042.
+  if (state_ != State::kOpeningSidePanel) {
+    return;
+  }
 
   side_panel_receiver_.Bind(std::move(receiver));
   side_panel_page_.Bind(std::move(page));
@@ -579,21 +641,6 @@ LensOverlaySidePanelCoordinator::SidePanelInitializationData::
     SidePanelInitializationData() = default;
 LensOverlaySidePanelCoordinator::SidePanelInitializationData::
     ~SidePanelInitializationData() = default;
-
-LensOverlaySidePanelCoordinator::SidePanelInUseImpl::SidePanelInUseImpl(
-    LensOverlaySidePanelCoordinator* coordinator)
-    : coordinator_(coordinator->weak_ptr_factory_.GetWeakPtr()) {
-  coordinator_->side_panel_in_use_count_++;
-}
-
-LensOverlaySidePanelCoordinator::SidePanelInUseImpl::~SidePanelInUseImpl() {
-  if (coordinator_) {
-    coordinator_->side_panel_in_use_count_--;
-    if (coordinator_->side_panel_in_use_count_ == 0) {
-      coordinator_->DeregisterEntryAndCleanup();
-    }
-  }
-}
 
 void LensOverlaySidePanelCoordinator::DeregisterEntryAndCleanup() {
   auto* registry = lens_search_controller_->GetTabInterface()
@@ -900,14 +947,14 @@ void LensOverlaySidePanelCoordinator::RegisterEntry() {
   if (!registry->GetEntryForKey(
           SidePanelEntry::Key(SidePanelEntry::Id::kLensOverlayResults))) {
     auto entry = std::make_unique<SidePanelEntry>(
-        SidePanelEntry::Id::kLensOverlayResults,
+        SidePanelEntry::Key(SidePanelEntry::Id::kLensOverlayResults),
         base::BindRepeating(
             &LensOverlaySidePanelCoordinator::CreateLensOverlayResultsView,
             base::Unretained(this)),
         base::BindRepeating(
             &LensOverlaySidePanelCoordinator::GetOpenInNewTabUrl,
             base::Unretained(this)),
-        GetMoreInfoCallback());
+        GetMoreInfoCallback(), SidePanelEntry::kSidePanelDefaultContentWidth);
     entry->SetProperty(kShouldShowTitleInSidePanelHeaderKey, false);
     registry->Register(std::move(entry));
 

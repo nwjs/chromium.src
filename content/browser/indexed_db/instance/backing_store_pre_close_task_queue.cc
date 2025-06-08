@@ -13,11 +13,9 @@
 #include "base/functional/bind.h"
 #include "base/functional/callback_forward.h"
 #include "base/location.h"
-#include "base/metrics/histogram_macros_local.h"
 #include "base/task/sequenced_task_runner.h"
 #include "content/browser/indexed_db/status.h"
 #include "third_party/blink/public/common/indexeddb/indexeddb_metadata.h"
-#include "third_party/leveldatabase/env_chromium.h"
 
 using blink::IndexedDBDatabaseMetadata;
 
@@ -33,7 +31,8 @@ bool BackingStorePreCloseTaskQueue::PreCloseTask::RequiresMetadata() const {
 }
 
 void BackingStorePreCloseTaskQueue::PreCloseTask::SetMetadata(
-    const std::vector<blink::IndexedDBDatabaseMetadata>* metadata) {}
+    const std::vector<std::unique_ptr<blink::IndexedDBDatabaseMetadata>>*
+        metadata) {}
 
 BackingStorePreCloseTaskQueue::BackingStorePreCloseTaskQueue(
     std::list<std::unique_ptr<BackingStorePreCloseTaskQueue::PreCloseTask>>
@@ -102,10 +101,6 @@ void BackingStorePreCloseTaskQueue::StopForMetadataError(const Status& status) {
     return;
   }
 
-  LOCAL_HISTOGRAM_ENUMERATION(
-      "WebCore.IndexedDB.BackingStorePreCloseTaskList.MetadataError",
-      leveldb_env::GetLevelDBStatusUMAValue(status.leveldb_status()),
-      leveldb_env::LEVELDB_STATUS_MAX);
   while (!tasks_.empty()) {
     tasks_.pop_front();
   }

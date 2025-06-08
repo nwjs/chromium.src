@@ -26,6 +26,7 @@
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
 #import "ios/chrome/browser/shared/model/browser/browser.h"
 #import "ios/chrome/browser/shared/model/prefs/pref_names.h"
+#import "ios/chrome/browser/shared/model/profile/features.h"
 #import "ios/chrome/browser/shared/model/profile/profile_ios.h"
 #import "ios/chrome/browser/shared/public/commands/application_commands.h"
 #import "ios/chrome/browser/shared/public/commands/command_dispatcher.h"
@@ -137,19 +138,17 @@ SafetyCheckNotificationClient::SafetyCheckNotificationClient(
                              PushNotificationClientScope::kPerProfile),
       task_runner_(task_runner) {
   CHECK(task_runner);
-  CHECK(!IsIOSMultiProfilePushNotificationHandlingEnabled());
+  CHECK(!IsMultiProfilePushNotificationHandlingEnabled());
 }
 
 SafetyCheckNotificationClient::SafetyCheckNotificationClient(
     ProfileIOS* profile,
     const scoped_refptr<base::SequencedTaskRunner> task_runner)
-    : PushNotificationClient(PushNotificationClientId::kSafetyCheck,
-                             PushNotificationClientScope::kPerProfile),
-      profile_(profile),
+    : PushNotificationClient(PushNotificationClientId::kSafetyCheck, profile),
       task_runner_(task_runner) {
-  CHECK(profile_);
+  CHECK(profile);
   CHECK(task_runner);
-  CHECK(IsIOSMultiProfilePushNotificationHandlingEnabled());
+  CHECK(IsMultiProfilePushNotificationHandlingEnabled());
 }
 
 SafetyCheckNotificationClient::~SafetyCheckNotificationClient() = default;
@@ -349,20 +348,6 @@ void SafetyCheckNotificationClient::GetPendingRequests(
       getPendingNotificationRequestsWithCompletionHandler:callback];
 }
 
-Browser* SafetyCheckNotificationClient::GetActiveForegroundBrowser() {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-
-  if (IsIOSMultiProfilePushNotificationHandlingEnabled()) {
-    // When multi-Profile handling is enabled, `profile_` should be set.
-    // This invariant is checked in the constructor used for this mode.
-    CHECK(profile_);
-
-    return GetSceneLevelForegroundActiveBrowserForProfile(profile_);
-  } else {
-    return GetSceneLevelForegroundActiveBrowser();
-  }
-}
-
 bool SafetyCheckNotificationClient::IsPermitted() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 
@@ -458,10 +443,13 @@ void SafetyCheckNotificationClient::ScheduleSafetyCheckNotifications(
         prefs::kIosSafetyCheckNotificationsLastSent,
         static_cast<int>(SafetyCheckNotificationType::kPasswords));
 
-    if (IsIOSMultiProfilePushNotificationHandlingEnabled() && profile_) {
-      ScheduleProfileNotification(
-          password_request.value(), std::move(schedule_completion_callback),
-          profile_->GetOriginalProfile()->GetProfileName());
+    if (IsMultiProfilePushNotificationHandlingEnabled()) {
+      ProfileIOS* current_profile = GetProfile();
+      CHECK(current_profile);
+
+      ScheduleProfileNotification(password_request.value(),
+                                  std::move(schedule_completion_callback),
+                                  current_profile->GetProfileName());
     } else {
       UNNotificationRequest* notification_request =
           CreateNotificationRequestFromScheduledRequest(
@@ -493,11 +481,13 @@ void SafetyCheckNotificationClient::ScheduleSafetyCheckNotifications(
         prefs::kIosSafetyCheckNotificationsLastSent,
         static_cast<int>(SafetyCheckNotificationType::kSafeBrowsing));
 
-    if (IsIOSMultiProfilePushNotificationHandlingEnabled() && profile_) {
-      ScheduleProfileNotification(
-          safe_browsing_request.value(),
-          std::move(schedule_completion_callback),
-          profile_->GetOriginalProfile()->GetProfileName());
+    if (IsMultiProfilePushNotificationHandlingEnabled()) {
+      ProfileIOS* current_profile = GetProfile();
+      CHECK(current_profile);
+
+      ScheduleProfileNotification(safe_browsing_request.value(),
+                                  std::move(schedule_completion_callback),
+                                  current_profile->GetProfileName());
     } else {
       UNNotificationRequest* notification_request =
           CreateNotificationRequestFromScheduledRequest(
@@ -551,13 +541,15 @@ void SafetyCheckNotificationClient::ClearAndRescheduleSafetyCheckNotifications(
   if ([interacted_notification_metadata_ count]) {
     Browser* browser = GetActiveForegroundBrowser();
 
+    auto showUICallback = base::CallbackToBlock(base::BindOnce(
+        &SafetyCheckNotificationClient::ShowUIForNotificationMetadata,
+        weak_ptr_factory_.GetWeakPtr(), interacted_notification_metadata_,
+        browser->AsWeakPtr()));
+
     if (browser) {
       [HandlerForProtocol(browser->GetCommandDispatcher(), ApplicationCommands)
-          prepareToPresentModal:
-              base::CallbackToBlock(base::BindOnce(
-                  &SafetyCheckNotificationClient::ShowUIForNotificationMetadata,
-                  weak_ptr_factory_.GetWeakPtr(),
-                  interacted_notification_metadata_, browser->AsWeakPtr()))];
+          prepareToPresentModalWithSnackbarDismissal:NO
+                                          completion:showUICallback];
     }
   }
 

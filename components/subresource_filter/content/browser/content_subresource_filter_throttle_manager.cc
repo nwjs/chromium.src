@@ -14,7 +14,6 @@
 #include "base/functional/bind.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
-#include "base/not_fatal_until.h"
 #include "base/strings/stringprintf.h"
 #include "base/trace_event/trace_event.h"
 #include "base/trace_event/traced_value.h"
@@ -40,6 +39,7 @@
 #include "content/public/browser/global_routing_id.h"
 #include "content/public/browser/navigation_handle.h"
 #include "content/public/browser/navigation_throttle.h"
+#include "content/public/browser/navigation_throttle_registry.h"
 #include "content/public/browser/page.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/render_process_host.h"
@@ -75,8 +75,7 @@ ContentSubresourceFilterThrottleManager::CreateForNewPage(
     VerifiedRulesetDealer::Handle* dealer_handle,
     ContentSubresourceFilterWebContentsHelper& web_contents_helper,
     content::NavigationHandle& initiating_navigation_handle) {
-  CHECK(IsInSubresourceFilterRoot(&initiating_navigation_handle),
-        base::NotFatalUntil::M129);
+  CHECK(IsInSubresourceFilterRoot(&initiating_navigation_handle));
 
   if (!base::FeatureList::IsEnabled(kSafeBrowsingSubresourceFilter)) {
     return nullptr;
@@ -330,8 +329,7 @@ void ContentSubresourceFilterThrottleManager::DidFinishInFrameNavigation(
           filter->activation_state(), kSafeBrowsingRulesetConfig.uma_tag);
       if (filter->activation_state().enable_logging) {
         CHECK(filter->activation_state().activation_level !=
-                  mojom::ActivationLevel::kDisabled,
-              base::NotFatalUntil::M129);
+              mojom::ActivationLevel::kDisabled);
         frame_host->AddMessageToConsole(
             blink::mojom::ConsoleMessageLevel::kWarning,
             kActivationConsoleMessage);
@@ -353,8 +351,8 @@ ContentSubresourceFilterThrottleManager::FilterForFinishedNavigation(
     ActivationStateComputingNavigationThrottle* throttle,
     content::RenderFrameHost* frame_host,
     bool& did_inherit_opener_activation) {
-  CHECK(navigation_handle, base::NotFatalUntil::M129);
-  CHECK(frame_host, base::NotFatalUntil::M129);
+  CHECK(navigation_handle);
+  CHECK(frame_host);
 
   std::unique_ptr<AsyncDocumentSubresourceFilter> filter;
   std::optional<mojom::ActivationState> activation_to_inherit;
@@ -383,8 +381,7 @@ ContentSubresourceFilterThrottleManager::FilterForFinishedNavigation(
     // navigation redirects from a URL handled by the network stack to
     // about:blank, a filter can already exist here. We replace it to match
     // behavior for other about:blank frames.
-    CHECK(!filter || navigation_handle->GetRedirectChain().size() != 1,
-          base::NotFatalUntil::M129);
+    CHECK(!filter || navigation_handle->GetRedirectChain().size() != 1);
     activation_to_inherit =
         GetFrameActivationState(navigation_handle->GetParentFrame());
   }
@@ -392,7 +389,7 @@ ContentSubresourceFilterThrottleManager::FilterForFinishedNavigation(
   if (activation_to_inherit.has_value() &&
       activation_to_inherit->activation_level !=
           mojom::ActivationLevel::kDisabled) {
-    CHECK(dealer_handle_, base::NotFatalUntil::M129);
+    CHECK(dealer_handle_);
 
     // This constructs the filter in a way that allows it to be immediately
     // used. See the AsyncDocumentSubresourceFilter constructor for details.
@@ -427,8 +424,7 @@ void ContentSubresourceFilterThrottleManager::
         content::NavigationHandle* navigation_handle,
         const mojom::ActivationLevel& activation_level,
         bool did_inherit_opener_activation) {
-  CHECK(IsInSubresourceFilterRoot(navigation_handle),
-        base::NotFatalUntil::M129);
+  CHECK(IsInSubresourceFilterRoot(navigation_handle));
 
   UMA_HISTOGRAM_ENUMERATION("SubresourceFilter.PageLoad.ActivationState",
                             activation_level);
@@ -449,8 +445,8 @@ void ContentSubresourceFilterThrottleManager::DidFinishLoad(
 }
 
 void ContentSubresourceFilterThrottleManager::DidBecomePrimaryPage() {
-  CHECK(page_, base::NotFatalUntil::M129);
-  CHECK(page_->IsPrimary(), base::NotFatalUntil::M129);
+  CHECK(page_);
+  CHECK(page_->IsPrimary());
   // If we tried to notify while non-primary, we didn't show UI so do that now
   // that the page became primary. This also leads to reattempting notification
   // if a page transitioned from primary to non-primary and back (BFCache).
@@ -461,8 +457,8 @@ void ContentSubresourceFilterThrottleManager::DidBecomePrimaryPage() {
 
 void ContentSubresourceFilterThrottleManager::OnPageCreated(
     content::Page& page) {
-  CHECK(!page.GetMainDocument().IsFencedFrameRoot(), base::NotFatalUntil::M129);
-  CHECK(!page_, base::NotFatalUntil::M129);
+  CHECK(!page.GetMainDocument().IsFencedFrameRoot());
+  CHECK(!page_);
   page_ = &page;
   profile_interaction_manager_->DidCreatePage(*page_);
 }
@@ -474,9 +470,8 @@ void ContentSubresourceFilterThrottleManager::OnPageCreated(
 void ContentSubresourceFilterThrottleManager::OnPageActivationComputed(
     content::NavigationHandle* navigation_handle,
     const mojom::ActivationState& activation_state) {
-  CHECK(IsInSubresourceFilterRoot(navigation_handle),
-        base::NotFatalUntil::M129);
-  CHECK(!navigation_handle->HasCommitted(), base::NotFatalUntil::M129);
+  CHECK(IsInSubresourceFilterRoot(navigation_handle));
+  CHECK(!navigation_handle->HasCommitted());
 
   auto it =
       ongoing_activation_throttles_.find(navigation_handle->GetNavigationId());
@@ -504,8 +499,7 @@ void ContentSubresourceFilterThrottleManager::OnPageActivationComputed(
 void ContentSubresourceFilterThrottleManager::OnChildFrameNavigationEvaluated(
     content::NavigationHandle* navigation_handle,
     LoadPolicy load_policy) {
-  CHECK(!IsInSubresourceFilterRoot(navigation_handle),
-        base::NotFatalUntil::M129);
+  CHECK(!IsInSubresourceFilterRoot(navigation_handle));
   if (!navigation_handle->GetParentFrameOrOuterDocument()) {
     return;
   }
@@ -528,35 +522,30 @@ void ContentSubresourceFilterThrottleManager::OnChildFrameNavigationEvaluated(
       InterpretLoadPolicyAsEvidence(load_policy));
 }
 
-void ContentSubresourceFilterThrottleManager::MaybeAppendNavigationThrottles(
-    content::NavigationHandle* navigation_handle,
-    std::vector<std::unique_ptr<content::NavigationThrottle>>* throttles) {
-  CHECK(!navigation_handle->IsSameDocument(), base::NotFatalUntil::M129);
-  CHECK(!ShouldInheritActivation(navigation_handle->GetURL()),
-        base::NotFatalUntil::M129);
+void ContentSubresourceFilterThrottleManager::
+    MaybeCreateAndAddNavigationThrottles(
+        content::NavigationThrottleRegistry& registry) {
+  content::NavigationHandle& navigation_handle = registry.GetNavigationHandle();
+  CHECK(!navigation_handle.IsSameDocument());
+  CHECK(!ShouldInheritActivation(navigation_handle.GetURL()));
 
-  if (IsInSubresourceFilterRoot(navigation_handle) && database_manager_) {
-    throttles->push_back(std::make_unique<SafeBrowsingPageActivationThrottle>(
-        navigation_handle, profile_interaction_manager_.get(),
-        database_manager_));
+  if (IsInSubresourceFilterRoot(&navigation_handle) && database_manager_) {
+    registry.AddThrottle(std::make_unique<SafeBrowsingPageActivationThrottle>(
+        registry, profile_interaction_manager_.get(), database_manager_));
   }
 
   if (!dealer_handle_) {
     return;
   }
-  if (auto filtering_throttle =
-          MaybeCreateChildNavigationThrottle(navigation_handle)) {
-    throttles->push_back(std::move(filtering_throttle));
-  }
+  MaybeCreateAndAddChildNavigationThrottle(registry);
 
   CHECK(!base::Contains(ongoing_activation_throttles_,
-                        navigation_handle->GetNavigationId()),
-        base::NotFatalUntil::M129);
+                        navigation_handle.GetNavigationId()));
   if (auto activation_throttle =
-          MaybeCreateActivationStateComputingThrottle(navigation_handle)) {
-    ongoing_activation_throttles_[navigation_handle->GetNavigationId()] =
+          MaybeCreateActivationStateComputingThrottle(registry)) {
+    ongoing_activation_throttles_[navigation_handle.GetNavigationId()] =
         activation_throttle.get();
-    throttles->push_back(std::move(activation_throttle));
+    registry.AddThrottle(std::move(activation_throttle));
   }
 }
 
@@ -585,8 +574,8 @@ ContentSubresourceFilterThrottleManager::LoadPolicyForLastCommittedNavigation(
 }
 
 void ContentSubresourceFilterThrottleManager::OnReloadRequested() {
-  CHECK(page_, base::NotFatalUntil::M129);
-  CHECK(page_->IsPrimary(), base::NotFatalUntil::M129);
+  CHECK(page_);
+  CHECK(page_->IsPrimary());
   profile_interaction_manager_->OnReloadRequested();
 }
 
@@ -603,34 +592,36 @@ void ContentSubresourceFilterThrottleManager::LogAction(
   UMA_HISTOGRAM_ENUMERATION("SubresourceFilter.Actions2", action);
 }
 
-std::unique_ptr<SafeBrowsingChildNavigationThrottle>
-ContentSubresourceFilterThrottleManager::MaybeCreateChildNavigationThrottle(
-    content::NavigationHandle* navigation_handle) {
-  if (IsInSubresourceFilterRoot(navigation_handle)) {
-    return nullptr;
+void ContentSubresourceFilterThrottleManager::
+    MaybeCreateAndAddChildNavigationThrottle(
+        content::NavigationThrottleRegistry& registry) {
+  content::NavigationHandle& navigation_handle = registry.GetNavigationHandle();
+  if (IsInSubresourceFilterRoot(&navigation_handle)) {
+    return;
   }
   AsyncDocumentSubresourceFilter* parent_filter =
-      GetParentFrameFilter(navigation_handle);
-  return parent_filter ? std::make_unique<SafeBrowsingChildNavigationThrottle>(
-                             navigation_handle, parent_filter,
-                             profile_interaction_manager_->AsWeakPtr(),
-                             base::BindRepeating([](const GURL& url) {
-                               return base::StringPrintf(
-                                   kDisallowChildFrameConsoleMessageFormat,
-                                   url.possibly_invalid_spec().c_str());
-                             }),
-                             EnsureFrameAdEvidence(navigation_handle))
-                       : nullptr;
+      GetParentFrameFilter(&navigation_handle);
+  if (!parent_filter) {
+    return;
+  }
+  registry.AddThrottle(std::make_unique<SafeBrowsingChildNavigationThrottle>(
+      registry, parent_filter, profile_interaction_manager_->AsWeakPtr(),
+      base::BindRepeating([](const GURL& url) {
+        return base::StringPrintf(kDisallowChildFrameConsoleMessageFormat,
+                                  url.possibly_invalid_spec().c_str());
+      }),
+      EnsureFrameAdEvidence(&navigation_handle)));
 }
 
 std::unique_ptr<ActivationStateComputingNavigationThrottle>
 ContentSubresourceFilterThrottleManager::
     MaybeCreateActivationStateComputingThrottle(
-        content::NavigationHandle* navigation_handle) {
+        content::NavigationThrottleRegistry& registry) {
   // Subresource filter roots: create unconditionally.
-  if (IsInSubresourceFilterRoot(navigation_handle)) {
+  content::NavigationHandle& navigation_handle = registry.GetNavigationHandle();
+  if (IsInSubresourceFilterRoot(&navigation_handle)) {
     auto throttle = ActivationStateComputingNavigationThrottle::CreateForRoot(
-        navigation_handle, kSafeBrowsingRulesetConfig.uma_tag);
+        registry, kSafeBrowsingRulesetConfig.uma_tag);
     if (base::FeatureList::IsEnabled(kAdTagging)) {
       mojom::ActivationState ad_tagging_state;
       ad_tagging_state.activation_level = mojom::ActivationLevel::kDryRun;
@@ -643,21 +634,20 @@ ContentSubresourceFilterThrottleManager::
   // Subresource filter children: create only for frames with activated
   // parents.
   AsyncDocumentSubresourceFilter* parent_filter =
-      GetParentFrameFilter(navigation_handle);
+      GetParentFrameFilter(&navigation_handle);
   if (!parent_filter) {
     return nullptr;
   }
-  CHECK(ruleset_handle_, base::NotFatalUntil::M129);
+  CHECK(ruleset_handle_);
   return ActivationStateComputingNavigationThrottle::CreateForChild(
-      navigation_handle, ruleset_handle_.get(),
-      parent_filter->activation_state(), kSafeBrowsingRulesetConfig.uma_tag);
+      registry, ruleset_handle_.get(), parent_filter->activation_state(),
+      kSafeBrowsingRulesetConfig.uma_tag);
 }
 
 AsyncDocumentSubresourceFilter*
 ContentSubresourceFilterThrottleManager::GetParentFrameFilter(
     content::NavigationHandle* child_frame_navigation) {
-  CHECK(!IsInSubresourceFilterRoot(child_frame_navigation),
-        base::NotFatalUntil::M129);
+  CHECK(!IsInSubresourceFilterRoot(child_frame_navigation));
   return GetFrameFilter(
       child_frame_navigation->GetParentFrameOrOuterDocument());
 }
@@ -674,22 +664,21 @@ ContentSubresourceFilterThrottleManager::GetFrameActivationState(
 AsyncDocumentSubresourceFilter*
 ContentSubresourceFilterThrottleManager::GetFrameFilter(
     content::RenderFrameHost* frame_host) {
-  CHECK(frame_host, base::NotFatalUntil::M129);
+  CHECK(frame_host);
 
   auto it = frame_host_filter_map_.find(frame_host);
   if (it == frame_host_filter_map_.end()) {
     return nullptr;
   }
 
-  CHECK(it->second, base::NotFatalUntil::M129);
+  CHECK(it->second);
   return it->second.get();
 }
 
 void ContentSubresourceFilterThrottleManager::MaybeShowNotification(
     content::RenderFrameHost* frame_host) {
-  CHECK(page_, base::NotFatalUntil::M129);
-  CHECK_EQ(&GetSubresourceFilterRootPage(frame_host), page_,
-           base::NotFatalUntil::M129);
+  CHECK(page_);
+  CHECK_EQ(&GetSubresourceFilterRootPage(frame_host), page_);
 
   if (current_committed_load_has_notified_disallowed_load_) {
     return;
@@ -741,15 +730,13 @@ void ContentSubresourceFilterThrottleManager::SetIsAdFrame(
     bool is_ad_frame) {
   content::FrameTreeNodeId frame_tree_node_id =
       render_frame_host->GetFrameTreeNodeId();
-  CHECK(base::Contains(tracked_ad_evidence_, frame_tree_node_id),
-        base::NotFatalUntil::M129);
+  CHECK(base::Contains(tracked_ad_evidence_, frame_tree_node_id));
 
   // TODO(crbug.com/373985560): This is rarely hit. After fixing, upgrade to a
   // CHECK.
   DCHECK_EQ(tracked_ad_evidence_.at(frame_tree_node_id).IndicatesAdFrame(),
             is_ad_frame);
-  CHECK(render_frame_host->GetParentOrOuterDocument(),
-        base::NotFatalUntil::M129);
+  CHECK(render_frame_host->GetParentOrOuterDocument());
 
   // `ad_frames_` does not need updating.
   if (is_ad_frame == base::Contains(ad_frames_, frame_tree_node_id)) {
@@ -774,8 +761,7 @@ void ContentSubresourceFilterThrottleManager::SetIsAdFrame(
 void ContentSubresourceFilterThrottleManager::SetIsAdFrameForTesting(
     content::RenderFrameHost* render_frame_host,
     bool is_ad_frame) {
-  CHECK(render_frame_host->GetParentOrOuterDocument(),
-        base::NotFatalUntil::M129);
+  CHECK(render_frame_host->GetParentOrOuterDocument());
   if (is_ad_frame ==
       base::Contains(ad_frames_, render_frame_host->GetFrameTreeNodeId())) {
     return;
@@ -824,7 +810,7 @@ void ContentSubresourceFilterThrottleManager::FrameIsAd() {
   // iframes, see `AdScriptDidCreateFencedFrame`.
   content::RenderFrameHost* render_frame_host =
       receiver_.GetCurrentTargetFrame();
-  CHECK(!render_frame_host->IsFencedFrameRoot(), base::NotFatalUntil::M129);
+  CHECK(!render_frame_host->IsFencedFrameRoot());
   OnFrameIsAd(receiver_.GetCurrentTargetFrame());
 }
 
@@ -837,9 +823,9 @@ void ContentSubresourceFilterThrottleManager::SetDocumentLoadStatistics(
 
 void ContentSubresourceFilterThrottleManager::OnAdsViolationTriggered(
     mojom::AdsViolation violation) {
-  CHECK(page_, base::NotFatalUntil::M129);
+  CHECK(page_);
   CHECK_EQ(&GetSubresourceFilterRootPage(receiver_.GetCurrentTargetFrame()),
-           page_, base::NotFatalUntil::M129);
+           page_);
   // TODO(bokan) How should we deal with violations coming from a fenced frame?
   // Should we pass in the fenced frame root instead? crbug.com/1263541.
   OnAdsViolationTriggered(&page_->GetMainDocument(), violation);
@@ -870,7 +856,7 @@ void ContentSubresourceFilterThrottleManager::AdScriptDidCreateFencedFrame(
   // fenced frames.
 
   content::RenderFrameHost* owner_frame = receiver_.GetCurrentTargetFrame();
-  CHECK(owner_frame, base::NotFatalUntil::M129);
+  CHECK(owner_frame);
 
   auto* fenced_frame_root = content::RenderFrameHost::FromPlaceholderToken(
       owner_frame->GetProcess()->GetDeprecatedID(), placeholder_token);
@@ -894,15 +880,14 @@ void ContentSubresourceFilterThrottleManager::AdScriptDidCreateFencedFrame(
   }
 
   CHECK(!base::Contains(tracked_ad_evidence_,
-                        fenced_frame_root->GetFrameTreeNodeId()),
-        base::NotFatalUntil::M129);
+                        fenced_frame_root->GetFrameTreeNodeId()));
   OnChildFrameWasCreatedByAdScript(fenced_frame_root);
 }
 
 void ContentSubresourceFilterThrottleManager::OnChildFrameWasCreatedByAdScript(
     content::RenderFrameHost* frame_host) {
-  CHECK(frame_host, base::NotFatalUntil::M129);
-  CHECK(!IsSubresourceFilterRoot(frame_host), base::NotFatalUntil::M129);
+  CHECK(frame_host);
+  CHECK(!IsSubresourceFilterRoot(frame_host));
 
   EnsureFrameAdEvidence(frame_host)
       .set_created_by_ad_script(
@@ -912,8 +897,7 @@ void ContentSubresourceFilterThrottleManager::OnChildFrameWasCreatedByAdScript(
 blink::FrameAdEvidence&
 ContentSubresourceFilterThrottleManager::EnsureFrameAdEvidence(
     content::NavigationHandle* navigation_handle) {
-  CHECK(!IsInSubresourceFilterRoot(navigation_handle),
-        base::NotFatalUntil::M129);
+  CHECK(!IsInSubresourceFilterRoot(navigation_handle));
   auto frame_tree_node_id = navigation_handle->GetFrameTreeNodeId();
   auto parent_frame_tree_node_id =
       navigation_handle->GetParentFrameOrOuterDocument()->GetFrameTreeNodeId();
@@ -923,7 +907,7 @@ ContentSubresourceFilterThrottleManager::EnsureFrameAdEvidence(
 blink::FrameAdEvidence&
 ContentSubresourceFilterThrottleManager::EnsureFrameAdEvidence(
     content::RenderFrameHost* render_frame_host) {
-  CHECK(!IsSubresourceFilterRoot(render_frame_host), base::NotFatalUntil::M129);
+  CHECK(!IsSubresourceFilterRoot(render_frame_host));
   auto frame_tree_node_id = render_frame_host->GetFrameTreeNodeId();
   auto parent_frame_tree_node_id =
       render_frame_host->GetParentOrOuterDocument()->GetFrameTreeNodeId();
@@ -934,8 +918,8 @@ blink::FrameAdEvidence&
 ContentSubresourceFilterThrottleManager::EnsureFrameAdEvidence(
     content::FrameTreeNodeId frame_tree_node_id,
     content::FrameTreeNodeId parent_frame_tree_node_id) {
-  CHECK(frame_tree_node_id, base::NotFatalUntil::M129);
-  CHECK(parent_frame_tree_node_id, base::NotFatalUntil::M129);
+  CHECK(frame_tree_node_id);
+  CHECK(parent_frame_tree_node_id);
   return tracked_ad_evidence_
       .emplace(frame_tree_node_id,
                /*parent_is_ad=*/base::Contains(ad_frames_,

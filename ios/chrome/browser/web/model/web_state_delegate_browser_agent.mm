@@ -95,10 +95,10 @@ bool IsMicOrCameraAccessSubjectToParentalControls(
 WebStateDelegateBrowserAgent::WebStateDelegateBrowserAgent(
     Browser* browser,
     TabInsertionBrowserAgent* tab_insertion_agent)
-    : web_state_list_(browser->GetWebStateList()),
+    : BrowserUserData(browser),
+      web_state_list_(browser->GetWebStateList()),
       tab_insertion_agent_(tab_insertion_agent) {
   DCHECK(tab_insertion_agent_);
-  browser_ = browser;
   browser_observation_.Observe(browser);
   web_state_list_observation_.Observe(web_state_list_.get());
 

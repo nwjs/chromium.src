@@ -10,6 +10,7 @@
 #include "base/functional/callback.h"
 #include "base/memory/safe_ref.h"
 #include "base/notimplemented.h"
+#include "chrome/browser/actor/actor_coordinator.h"
 #include "chrome/browser/actor/tools/history_tool.h"
 #include "chrome/browser/actor/tools/navigate_tool.h"
 #include "chrome/browser/actor/tools/page_tool.h"
@@ -18,6 +19,7 @@
 #include "chrome/browser/actor/tools/tool_invocation.h"
 #include "chrome/browser/actor/tools/wait_tool.h"
 #include "chrome/common/actor.mojom.h"
+#include "chrome/common/actor/action_result.h"
 #include "chrome/common/actor/actor_logging.h"
 #include "chrome/common/chrome_features.h"
 #include "components/optimization_guide/proto/features/actions_data.pb.h"
@@ -85,7 +87,8 @@ void ToolController::Invoke(const ToolInvocation& invocation,
   RenderFrameHost* target_frame = invocation.FindTargetFrame();
   if (!target_frame) {
     // The tab for this action was closed.
-    PostResponseTask(std::move(result_callback), false);
+    PostResponseTask(std::move(result_callback),
+                     MakeResult(mojom::ActionResultCode::kTabWentAway));
     return;
   }
 
@@ -93,7 +96,8 @@ void ToolController::Invoke(const ToolInvocation& invocation,
 
   if (!created_tool) {
     // Tool not found.
-    PostResponseTask(std::move(result_callback), false);
+    PostResponseTask(std::move(result_callback),
+                     MakeResult(mojom::ActionResultCode::kToolUnknown));
     return;
   }
 
@@ -104,14 +108,13 @@ void ToolController::Invoke(const ToolInvocation& invocation,
       &ToolController::ValidationComplete, weak_ptr_factory_.GetWeakPtr()));
 }
 
-void ToolController::ValidationComplete(bool success) {
+void ToolController::ValidationComplete(mojom::ActionResultPtr result) {
   if (!active_state_) {
     return;
   }
 
-  // TODO(crbug.com/389739308): Provide more detail of failure to the caller.
-  if (!success) {
-    CompleteToolRequest(/*result=*/false);
+  if (!IsOk(*result)) {
+    CompleteToolRequest(std::move(result));
     return;
   }
 
@@ -124,11 +127,19 @@ void ToolController::ValidationComplete(bool success) {
       &ToolController::CompleteToolRequest, weak_ptr_factory_.GetSafeRef()));
 }
 
-void ToolController::CompleteToolRequest(bool result) {
+void ToolController::CompleteToolRequest(mojom::ActionResultPtr result) {
   CHECK(active_state_);
-  ACTOR_LOG() << "Completed Tool[" << (result ? "SUCCESS" : "FAILURE")
+  ACTOR_LOG() << "Completed Tool[" << ToDebugString(*result)
               << "]: " << active_state_->tool->DebugString();
-  PostResponseTask(std::move(active_state_->completion_callback), result);
+
+  // TODO(crbug.com/409564704): Delay the callback to give the page a chance to
+  // react to the tool's effects. Temporary until we can do this more reliably
+  // in the renderer.
+  auto delay = active_state_->tool->ShouldAddCompletionDelay()
+                   ? actor::ActorCoordinator::GetActionObservationDelay()
+                   : base::Seconds(0);
+  PostResponseTask(std::move(active_state_->completion_callback),
+                   std::move(result), delay);
 
   active_state_.reset();
 }

@@ -92,10 +92,6 @@ std::string StripFirstGenericPrefix(const std::string& host) {
   return host;
 }
 
-bool ShouldShowPopularSites() {
-  return base::FeatureList::IsEnabled(kUsePopularSitesSuggestions);
-}
-
 // Generate a short title for Most Visited items before they're converted to
 // custom links.
 std::u16string GenerateShortTitle(const std::u16string& title) {
@@ -259,10 +255,7 @@ void MostVisitedSites::AddMostVisitedURLsObserver(Observer* observer,
   // Starts observing the following sources when the first observer is added.
   if (!is_observing_) {
     is_observing_ = true;
-    // The order for this condition is important, ShouldShowPopularSites()
-    // should always be called last to keep metrics as relevant as possible.
-    if (popular_sites_ && NeedPopularSites(prefs_, GetMaxNumSites()) &&
-        ShouldShowPopularSites()) {
+    if (popular_sites_ && NeedPopularSites(prefs_, GetMaxNumSites())) {
       popular_sites_->MaybeStartFetch(
           false, base::BindOnce(&MostVisitedSites::OnPopularSitesDownloaded,
                                 base::Unretained(this)));
@@ -366,6 +359,14 @@ bool MostVisitedSites::IsShortcutsVisible() const {
   return is_shortcuts_visible_;
 }
 
+bool MostVisitedSites::AddCustomLinkTo(const GURL& url,
+                                       const std::u16string& title,
+                                       size_t pos) {
+  return ApplyCustomLinksAction(base::BindOnce(
+      &CustomLinksManager::AddLinkTo,
+      base::Unretained(custom_links_manager_.get()), url, title, pos));
+}
+
 bool MostVisitedSites::AddCustomLink(const GURL& url,
                                      const std::u16string& title) {
   return ApplyCustomLinksAction(base::BindOnce(
@@ -460,8 +461,13 @@ void MostVisitedSites::ResetProfilePrefs(PrefService* prefs) {
 }
 
 size_t MostVisitedSites::GetMaxNumSites() const {
+#if BUILDFLAG(IS_ANDROID)
+  // The "Add new" button (for custom tiles) is not a Tile; don't include.
+  return max_num_sites_;
+#else
   return max_num_sites_ +
          ((custom_links_manager_ && IsCustomLinksEnabled()) ? 1 : 0);
+#endif
 }
 
 void MostVisitedSites::InitiateTopSitesQuery() {
@@ -541,7 +547,7 @@ MostVisitedSites::CreatePopularSitesSections(
   }
 #endif
 
-  if (!popular_sites_ || !ShouldShowPopularSites()) {
+  if (!popular_sites_) {
     return sections;
   }
 

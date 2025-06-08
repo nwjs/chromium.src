@@ -6,9 +6,12 @@
 
 #import <UIKit/UIKit.h>
 
+#import "base/functional/callback_helpers.h"
 #import "components/signin/core/browser/account_reconcilor.h"
 #import "components/signin/ios/browser/account_consistency_service.h"
-#import "ios/chrome/browser/authentication/ui_bundled/signin/account_menu/account_menu_constants.h"
+#import "ios/chrome/browser/authentication/ui_bundled/account_menu/account_menu_constants.h"
+#import "ios/chrome/browser/authentication/ui_bundled/continuation.h"
+#import "ios/chrome/browser/authentication/ui_bundled/signin/signin_coordinator.h"
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
 #import "ios/chrome/browser/shared/model/profile/features.h"
 #import "ios/chrome/browser/shared/model/profile/profile_attributes_storage_ios.h"
@@ -26,7 +29,7 @@
 AccountConsistencyBrowserAgent::AccountConsistencyBrowserAgent(
     Browser* browser,
     UIViewController* base_view_controller)
-    : base_view_controller_(base_view_controller), browser_(browser) {
+    : BrowserUserData(browser), base_view_controller_(base_view_controller) {
   installation_observer_ =
       std::make_unique<WebStateDependencyInstallationObserver>(
           browser->GetWebStateList(), this);
@@ -37,7 +40,16 @@ AccountConsistencyBrowserAgent::AccountConsistencyBrowserAgent(
       HandlerForProtocol(browser_->GetCommandDispatcher(), SettingsCommands);
 }
 
-AccountConsistencyBrowserAgent::~AccountConsistencyBrowserAgent() {}
+AccountConsistencyBrowserAgent::~AccountConsistencyBrowserAgent() {
+  StopSigninCoordinator(SigninCoordinatorResultInterrupted, nil);
+}
+
+void AccountConsistencyBrowserAgent::StopSigninCoordinator(
+    SigninCoordinatorResult result,
+    id<SystemIdentity> identity) {
+  [add_account_coordinator_ stop];
+  add_account_coordinator_ = nil;
+}
 
 void AccountConsistencyBrowserAgent::InstallDependency(
     web::WebState* web_state) {
@@ -65,13 +77,13 @@ void AccountConsistencyBrowserAgent::OnRestoreGaiaCookies() {
       showSigninAccountNotificationFromViewController:base_view_controller_];
 }
 
-void AccountConsistencyBrowserAgent::OnManageAccounts() {
+void AccountConsistencyBrowserAgent::OnManageAccounts(const GURL& url) {
   signin_metrics::LogAccountReconcilorStateOnGaiaResponse(
       ios::AccountReconcilorFactory::GetForProfile(browser_->GetProfile())
           ->GetState());
 
   if (ShouldShowAccountMenu()) {
-    ShowAccountMenu();
+    ShowAccountMenu(url);
   } else {
     [settings_handler_
         showAccountsSettingsFromViewController:base_view_controller_
@@ -94,7 +106,7 @@ void AccountConsistencyBrowserAgent::OnShowConsistencyPromo(
   }
 }
 
-void AccountConsistencyBrowserAgent::OnAddAccount() {
+void AccountConsistencyBrowserAgent::OnAddAccount(const GURL& url) {
   if ([base_view_controller_ presentedViewController]) {
     // If the base view controller is already presenting a view, the sign-in
     // should not appear on top of it.
@@ -103,15 +115,22 @@ void AccountConsistencyBrowserAgent::OnAddAccount() {
   }
 
   if (ShouldShowAccountMenu()) {
-    ShowAccountMenu();
+    ShowAccountMenu(url);
   } else {
-    ShowSigninCommand* command = [[ShowSigninCommand alloc]
-        initWithOperation:AuthenticationOperation::kAddAccount
-              accessPoint:signin_metrics::AccessPoint::
-                              kAccountConsistencyService];
-    command.skipIfUINotAvailable = YES;
-    [application_handler_ showSignin:command
-                  baseViewController:base_view_controller_];
+    signin_metrics::AccessPoint access_point =
+        signin_metrics::AccessPoint::kAccountConsistencyService;
+    SigninContextStyle context_style = SigninContextStyle::kDefault;
+    add_account_coordinator_ = [SigninCoordinator
+        addAccountCoordinatorWithBaseViewController:base_view_controller_
+                                            browser:browser_
+                                       contextStyle:context_style
+                                        accessPoint:access_point
+                               continuationProvider:
+                                   DoNothingContinuationProvider()];
+    add_account_coordinator_.signinCompletion = CallbackToBlock(
+        base::BindOnce(&AccountConsistencyBrowserAgent::StopSigninCoordinator,
+                       base::Unretained(this)));
+    [add_account_coordinator_ start];
   }
 }
 
@@ -155,10 +174,11 @@ bool AccountConsistencyBrowserAgent::ShouldShowAccountMenu() const {
   return num_profiles > 1;
 }
 
-void AccountConsistencyBrowserAgent::ShowAccountMenu() {
+void AccountConsistencyBrowserAgent::ShowAccountMenu(const GURL& url) {
   CHECK(AreSeparateProfilesForManagedAccountsEnabled());
   // TODO(crbug.com/411614444): Open the account menu here instead of going
   // through the handler.
   [application_handler_
-      showAccountMenuFromAccessPoint:AccountMenuAccessPoint::kWeb];
+      showAccountMenuFromAccessPoint:AccountMenuAccessPoint::kWeb
+                                 URL:url];
 }

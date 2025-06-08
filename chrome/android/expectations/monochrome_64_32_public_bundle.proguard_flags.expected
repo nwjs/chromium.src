@@ -273,23 +273,6 @@
   public <init>();
 }
 
-# Let proguard know CastMediaOptions in CastOptions is always null, so it can
-# trim unused MediaNotificationService methods. This saves about 170 methods in
-# the dex file. https://crbug.com/855081
--assumenosideeffects class com.google.android.gms.cast.framework.CastOptions {
-  *** getCastMediaOptions() return null;
-}
-
-# Also, because CastOptions creates a default CastMediaOptions object upon
-# construction, we need to trim out the its builder as well, so we are truly
-# assuming there's no CastMediaOptions instances anywhere. This is to avoid
-# CastMediaOptions to reference resources upon construction.
--assumenosideeffects class com.google.android.gms.cast.framework.media.CastMediaOptions$Builder {
-  public <init>();
-  public <clinit>();
-  *** build() return null;
-}
-
 # Keep implementation classes needed for split compat. These will be accessed by
 # reflection.
 -keep,allowobfuscation public class ** extends org.chromium.chrome.browser.base.SplitCompat*$Impl {
@@ -986,10 +969,13 @@
 # Can be removed after transport-api exposes this in their proguard rule.
 -dontwarn com.google.auto.value.**
 
+# Don't warn about the VMStack class in Cast SDK Proguard.
+-dontwarn dalvik.system.VMStack
+
 # We keep all fields for every generated proto file as the runtime uses
 # reflection over them that ProGuard cannot detect. Without this keep
 # rule, fields may be removed that would cause runtime failures.
--keepclassmembers class * extends com.google.android.gms.internal.cast.zztx {
+-keepclassmembers class * extends com.google.android.gms.internal.cast.zzxi {
   <fields>;
 }
 
@@ -997,7 +983,7 @@
 # We keep all fields for every generated proto file as the runtime uses
 # reflection over them that ProGuard cannot detect. Without this keep
 # rule, fields may be removed that would cause runtime failures.
--keepclassmembers class * extends com.google.android.gms.internal.cast.zztx {
+-keepclassmembers class * extends com.google.android.gms.internal.cast.zzxi {
   <fields>;
 }
 

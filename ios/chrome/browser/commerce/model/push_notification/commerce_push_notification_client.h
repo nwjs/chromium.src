@@ -13,6 +13,7 @@
 #import "ios/chrome/browser/push_notification/model/push_notification_client.h"
 
 class CommercePushNotificationClientTest;
+class ProfileIOS;
 
 namespace bookmarks {
 class BookmarkModel;
@@ -24,6 +25,11 @@ class ShoppingService;
 
 class CommercePushNotificationClient : public PushNotificationClient {
  public:
+  // Constructor for when multi-Profile push notification handling is enabled.
+  // Associates this client instance with a specific user `profile`. This should
+  // only be called when `IsMultiProfilePushNotificationHandlingEnabled()`
+  // returns YES.
+  explicit CommercePushNotificationClient(ProfileIOS* profile);
   CommercePushNotificationClient();
   ~CommercePushNotificationClient() override;
 
@@ -42,6 +48,15 @@ class CommercePushNotificationClient : public PushNotificationClient {
 
  private:
   friend class ::CommercePushNotificationClientTest;
+
+  // Returns the appropriate `ProfileIOS*` based on
+  // `IsMultiProfilePushNotificationHandlingEnabled()`.
+  //
+  // If enabled, returns the Profile associated with this client instance. If
+  // disabled, returns an arbitrary loaded Profile (legacy behavior).
+  //
+  // Returns `nullptr` if the profile is unavailable or invalid.
+  ProfileIOS* GetTargetProfile();
 
   commerce::ShoppingService* GetShoppingService();
   bookmarks::BookmarkModel* GetBookmarkModel();

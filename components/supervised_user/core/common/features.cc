@@ -141,4 +141,11 @@ BASE_FEATURE(kWaitUntilAccessTokenAvailableForClassifyUrl,
 #endif
 );
 
+BASE_FEATURE(kAlignSafeSitesValueWithBrowserDefault,
+             "AlignSafeSitesValueWithBrowserDefault",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kDecoupleSafeSitesFromMainSwitch,
+             "DecoupleSafeSitesFromMainSwitch",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
 }  // namespace supervised_user

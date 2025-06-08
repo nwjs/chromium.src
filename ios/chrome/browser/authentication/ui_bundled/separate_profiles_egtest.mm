@@ -7,8 +7,8 @@
 #import "base/test/ios/wait_util.h"
 #import "components/policy/core/browser/signin/profile_separation_policies.h"
 #import "components/signin/public/base/signin_pref_names.h"
+#import "ios/chrome/browser/authentication/ui_bundled/account_menu/account_menu_constants.h"
 #import "ios/chrome/browser/authentication/ui_bundled/separate_profiles_util.h"
-#import "ios/chrome/browser/authentication/ui_bundled/signin/account_menu/account_menu_constants.h"
 #import "ios/chrome/browser/authentication/ui_bundled/signin/signin_constants.h"
 #import "ios/chrome/browser/authentication/ui_bundled/signin_earl_grey.h"
 #import "ios/chrome/browser/authentication/ui_bundled/signin_earl_grey_ui_test_util.h"
@@ -42,22 +42,19 @@ id<GREYMatcher> MergeBrowsingDataCellMatcher() {
   return grey_accessibilityID(kMergeBrowsingDataCellId);
 }
 
+id<GREYMatcher> ManagedProfileCreationSubtitleMergeByDefaultMatcher() {
+  return grey_accessibilityLabel(l10n_util::GetNSString(
+      IDS_IOS_ENTERPRISE_PROFILE_CREATION_ACCOUNT_KEEP_BROWSING_DATA_DESCRIPTION));
+}
+
 id<GREYMatcher> ManagedProfileCreationSubtitleMatcher() {
-  return grey_accessibilityLabel([NSString
-      stringWithFormat:
-          @"%@\n\n%@",
-          l10n_util::GetNSString(IDS_IOS_ENTERPRISE_PROFILE_CREATION_SUBTITLE),
-          l10n_util::GetNSString(
-              IDS_IOS_ENTERPRISE_PROFILE_CREATION_ACCOUNT_KEEP_BROWSING_DATA_DESCRIPTION)]);
+  return grey_accessibilityLabel(
+          l10n_util::GetNSString(IDS_IOS_ENTERPRISE_PROFILE_CREATION_SUBTITLE));
 }
 
 id<GREYMatcher> ManagedProfileCreationDataMigrationDisabledSubtitleMatcher() {
-  return grey_accessibilityLabel([NSString
-      stringWithFormat:
-          @"%@\n\n%@",
-          l10n_util::GetNSString(IDS_IOS_ENTERPRISE_PROFILE_CREATION_SUBTITLE),
-          l10n_util::GetNSString(
-              IDS_IOS_ENTERPRISE_PROFILE_CREATION_ACCOUNT_KEEP_BROWSING_DATA_DISABLED_DESCRIPTION)]);
+  return grey_accessibilityLabel(l10n_util::GetNSString(
+      IDS_IOS_ENTERPRISE_PROFILE_CREATION_ACCOUNT_KEEP_BROWSING_DATA_DISABLED_DESCRIPTION));
 }
 
 }  // namespace
@@ -66,6 +63,25 @@ id<GREYMatcher> ManagedProfileCreationDataMigrationDisabledSubtitleMatcher() {
 @end
 
 @implementation SeparateProfilesTestCase
+
++ (void)setUpForTestCase {
+  [SigninEarlGrey setUseFakeResponsesForProfileSeparationPolicyRequests];
+}
+
++ (void)tearDown {
+  [SigninEarlGrey clearUseFakeResponsesForProfileSeparationPolicyRequests];
+  [super tearDown];
+}
+
+- (void)setUp {
+  [super setUp];
+  ClearHistorySyncPrefs();
+}
+
+- (void)tearDownHelper {
+  ClearHistorySyncPrefs();
+  [super tearDownHelper];
+}
 
 - (AppLaunchConfiguration)appConfigurationForTestCase {
   AppLaunchConfiguration config = [super appConfigurationForTestCase];
@@ -99,15 +115,7 @@ id<GREYMatcher> ManagedProfileCreationDataMigrationDisabledSubtitleMatcher() {
 // Tests that signing in from a signed out state with a managed account
 // shows the enterprise onboarding only the first time and that by default
 // existing browsing data is kept separate from the managed profile.
-// TODO(crbug.com/411035267): Fix this flaky test on simulator.
-#if TARGET_OS_SIMULATOR
-#define MAYBE_testSigninWithManagedAccountFromUnsignedStateSeparateData \
-  FLAKY_testSigninWithManagedAccountFromUnsignedStateSeparateData
-#else
-#define MAYBE_testSigninWithManagedAccountFromUnsignedStateSeparateData \
-  testSigninWithManagedAccountFromUnsignedStateSeparateData
-#endif
-- (void)MAYBE_testSigninWithManagedAccountFromUnsignedStateSeparateData {
+- (void)testSigninWithManagedAccountFromUnsignedStateSeparateData {
   // Separate profiles are only available in iOS 17+.
   if (!@available(iOS 17, *)) {
     return;
@@ -185,7 +193,7 @@ id<GREYMatcher> ManagedProfileCreationDataMigrationDisabledSubtitleMatcher() {
              @"Profile name should be changed");
 
   // Sign out - that should cause a switch back to the personal profile.
-  [SigninEarlGreyUI signOut];
+  SignoutFromAccountMenu();
   NSString* personalProfileName = [ChromeEarlGrey currentProfileName];
   GREYAssert([personalProfileName isEqualToString:originalProfileName],
              @"Profile name should be the personal one");
@@ -209,15 +217,7 @@ id<GREYMatcher> ManagedProfileCreationDataMigrationDisabledSubtitleMatcher() {
 // shows the enterprise onboarding only the first time. And if the user
 // decides to keep their existing data into the managed profile, the existing
 // profile is converted.
-// TODO(crbug.com/411035267): Fix this flaky test on simulator.
-#if TARGET_OS_SIMULATOR
-#define MAYBE_testSigninWithManagedAccountFromUnsignedStateConvertsProfile \
-  FLAKY_testSigninWithManagedAccountFromUnsignedStateConvertsProfile
-#else
-#define MAYBE_testSigninWithManagedAccountFromUnsignedStateConvertsProfile \
-  testSigninWithManagedAccountFromUnsignedStateConvertsProfile
-#endif
-- (void)MAYBE_testSigninWithManagedAccountFromUnsignedStateConvertsProfile {
+- (void)testSigninWithManagedAccountFromUnsignedStateConvertsProfile {
   // Separate profiles are only available in iOS 17+.
   if (!@available(iOS 17, *)) {
     return;
@@ -298,7 +298,7 @@ id<GREYMatcher> ManagedProfileCreationDataMigrationDisabledSubtitleMatcher() {
              @"Profile name should be unchanged");
 
   // Sign out - this should cause a switch back to the personal profile.
-  [SigninEarlGreyUI signOut];
+  SignoutFromAccountMenu();
   NSString* personalProfileName = [ChromeEarlGrey currentProfileName];
   GREYAssert(![personalProfileName isEqualToString:newProfileName],
              @"Profile name should be the personal one");
@@ -321,16 +321,7 @@ id<GREYMatcher> ManagedProfileCreationDataMigrationDisabledSubtitleMatcher() {
 // Tests that signing in from a signed out state with a managed account shows
 // the enterprise onboarding only the first time. And the user cannot merge
 // existing browsing data because it is disabled by policy.
-// TODO(crbug.com/411035267): Fix this flaky test on simulator.
-#if TARGET_OS_SIMULATOR
-#define MAYBE_testSigninWithManagedAccountFromUnsignedStateWithDataMigrationDisabled \
-  FLAKY_testSigninWithManagedAccountFromUnsignedStateWithDataMigrationDisabled
-#else
-#define MAYBE_testSigninWithManagedAccountFromUnsignedStateWithDataMigrationDisabled \
-  testSigninWithManagedAccountFromUnsignedStateWithDataMigrationDisabled
-#endif
-- (void)
-    MAYBE_testSigninWithManagedAccountFromUnsignedStateWithDataMigrationDisabled {
+- (void)testSigninWithManagedAccountFromUnsignedStateWithDataMigrationDisabled {
   // Separate profiles are only available in iOS 17+.
   if (!@available(iOS 17, *)) {
     return;
@@ -395,7 +386,7 @@ id<GREYMatcher> ManagedProfileCreationDataMigrationDisabledSubtitleMatcher() {
              @"Profile name should be unchanged");
 
   // Sign out - this should cause a switch back to the personal profile.
-  [SigninEarlGreyUI signOut];
+  SignoutFromAccountMenu();
   NSString* personalProfileName = [ChromeEarlGrey currentProfileName];
   GREYAssert([personalProfileName isEqualToString:originalProfileName],
              @"Profile name should be the personal one");
@@ -472,9 +463,7 @@ id<GREYMatcher> ManagedProfileCreationDataMigrationDisabledSubtitleMatcher() {
 // Tests that signing in from a signed out state with a managed account
 // shows the enterprise onboarding only the first time and merging browsing data
 // is suggested by policy.
-// TODO(crbug.com/411035267): Fix this flaky test on simulator and device.
-- (void)
-    FLAKY_testSigninWithManagedAccountFromUnsignedStateWithDataMergingSuggested {
+- (void)testSigninWithManagedAccountFromUnsignedStateWithDataMergingSuggested {
   // Separate profiles are only available in iOS 17+.
   if (!@available(iOS 17, *)) {
     return;
@@ -506,6 +495,10 @@ id<GREYMatcher> ManagedProfileCreationDataMigrationDisabledSubtitleMatcher() {
   // Wait for the enterprise onboarding screen.
   [ChromeEarlGrey waitForSufficientlyVisibleElementWithMatcher:
                       ManagedProfileCreationScreenMatcher()];
+
+  // Verifies that the subtitle is the right one.
+  [[EarlGrey selectElementWithMatcher:ManagedProfileCreationSubtitleMergeByDefaultMatcher()]
+      assertWithMatcher:grey_sufficientlyVisible()];
 
   // Open the browsing data management screen.
   [[EarlGrey selectElementWithMatcher:
@@ -775,15 +768,7 @@ id<GREYMatcher> ManagedProfileCreationDataMigrationDisabledSubtitleMatcher() {
 
 // Tests switching to a managed account but refusing the enterprise onboarding
 // screen.
-// TODO(crbug.com/399015648): Test is flaky on device.
-#if TARGET_OS_SIMULATOR
-#define MAYBE_testRefuseToSwitchToManageAccount \
-  testRefuseToSwitchToManageAccount
-#else
-#define MAYBE_testRefuseToSwitchToManageAccount \
-  FLAKY_testRefuseToSwitchToManageAccount
-#endif
-- (void)MAYBE_testRefuseToSwitchToManageAccount {
+- (void)testRefuseToSwitchToManageAccount {
   // Separate profiles are only available in iOS 17+.
   if (!@available(iOS 17, *)) {
     return;
@@ -869,15 +854,7 @@ id<GREYMatcher> ManagedProfileCreationDataMigrationDisabledSubtitleMatcher() {
       @"Profile should be personal");
 }
 
-// TODO(crbug.com/411035267): Fix this flaky test on simulator.
-#if TARGET_OS_SIMULATOR
-#define MAYBE_testProfileDeletedOnRemoveManagedAccount \
-  FLAKY_testProfileDeletedOnRemoveManagedAccount
-#else
-#define MAYBE_testProfileDeletedOnRemoveManagedAccount \
-  testProfileDeletedOnRemoveManagedAccount
-#endif
-- (void)MAYBE_testProfileDeletedOnRemoveManagedAccount {
+- (void)testProfileDeletedOnRemoveManagedAccount {
   // Separate profiles are only available in iOS 17+.
   if (!@available(iOS 17, *)) {
     return;
@@ -928,6 +905,14 @@ id<GREYMatcher> ManagedProfileCreationDataMigrationDisabledSubtitleMatcher() {
                                           PromoScreenSecondaryButtonMatcher()]
       performAction:grey_tap()];
 
+  //  Dismiss signed in snackbar.
+  NSString* signedInSnackbarTitle = l10n_util::GetNSStringF(
+      IDS_IOS_ACCOUNT_MENU_SWITCH_CONFIRMATION_TITLE,
+      base::SysNSStringToUTF16(managedIdentity.userFullName));
+  [[EarlGrey
+      selectElementWithMatcher:grey_accessibilityLabel(signedInSnackbarTitle)]
+      performAction:grey_tap()];
+
   // Confirm profile switched.
   GREYAssert([[ChromeEarlGrey currentProfileName]
                  isEqualToString:[ChromeEarlGrey currentProfileName]],
@@ -946,6 +931,10 @@ id<GREYMatcher> ManagedProfileCreationDataMigrationDisabledSubtitleMatcher() {
       selectElementWithMatcher:chrome_test_util::ButtonWithAccessibilityLabelId(
                                    IDS_IOS_REMOVE_ACCOUNT_LABEL)]
       performAction:grey_tap()];
+
+  // Wait for the profile switch to complete.
+  // TODO(crbug.com/399033938): Find a better way to wait for this.
+  GREYWaitForAppToIdle(@"App failed to idle");
 
   // Verify that the profile was actually switched back to personal.
   GREYAssert(
@@ -1158,8 +1147,7 @@ id<GREYMatcher> ManagedProfileCreationDataMigrationDisabledSubtitleMatcher() {
 
 // Tests signing in with a managed account during the FRE. This should convert
 // the existing profile to a managed profile.
-// TODO(crbug.com/394536438): Test is flaky.
-- (void)FLAKY_testSignInWithManagedAccount {
+- (void)testSignInWithManagedAccount {
   // Separate profiles are only available in iOS 17+.
   if (!@available(iOS 17, *)) {
     return;

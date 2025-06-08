@@ -75,6 +75,7 @@ chromium-metrics-reviews@google.com.
   <int value="28" label="Translate text in image with Google Lens"/>
   <int value="29" label="Search web for... in new tab"/>
   <int value="30" label="Open link in preview"/>
+  <int value="31" label="Open link in split view"/>
 </enum>
 
 <enum name="DefaultBrowserInfoBarUserInteraction">
@@ -285,6 +286,7 @@ chromium-metrics-reviews@google.com.
   <int value="153" label="IDC_CONTENT_CONTEXT_USE_PASSKEY_FROM_ANOTHER_DEVICE"/>
   <int value="154" label="IDC_CONTENT_CONTEXT_RELOAD_GLIC"/>
   <int value="155" label="IDC_CONTENT_CONTEXT_CLOSE_GLIC"/>
+  <int value="156" label="IDC_CONTENT_CONTEXT_OPENLINKSPLITVIEW"/>
 </enum>
 
 <enum name="ShapeRunFallback">
@@ -373,6 +375,7 @@ chromium-metrics-reviews@google.com.
   <int value="72" label="UMA_REVOKE_FILE_EDIT_GRANT"/>
   <int value="73" label="UMA_SEARCH_ENGINE_CHANGED_NOTIFICATION"/>
   <int value="74" label="UMA_BOOKMARK_BATCH_UPLOAD"/>
+  <int value="75" label="UMA_NTP_MOST_VISITED_UNPIN_UNDO"/>
 </enum>
 
 <enum name="WebUIPreloadResult">
@@ -570,7 +573,9 @@ chromium-metrics-reviews@google.com.
 <enum name="WebUIUrlHashes">
   <int value="-2137891043" label="chrome-untrusted://scanner-feedback/"/>
   <int value="-2103246641" label="chrome://signin-internals/"/>
+  <int value="-2087891836" label="chrome://debug-webuis-disabled/"/>
   <int value="-2086395469" label="chrome://dlp-internals/"/>
+  <int value="-2084645929" label="chrome://infobar-internals/"/>
   <int value="-2069349961" label="chrome://history-clusters-internals/"/>
   <int value="-2061366287" label="chrome://dev-ui-loader/"/>
   <int value="-2034706497" label="chrome://net-internals/"/>
@@ -720,6 +725,7 @@ chromium-metrics-reviews@google.com.
   <int value="-485494550" label="chrome://interventions-internals/"/>
   <int value="-451371558" label="chrome://serviceworker-internals/"/>
   <int value="-443189279" label="chrome://enterprise-profile-welcome/"/>
+  <int value="-412283693" label="chrome://extensions-zero-state/"/>
   <int value="-407160627" label="chrome://on-device-translation-internals/"/>
   <int value="-394586044" label="chrome://confirm-password-change/"/>
   <int value="-377028639" label="chrome://copresence/"/>
@@ -827,6 +833,8 @@ chromium-metrics-reviews@google.com.
       label="chrome://shopping-insights-side-panel.top-chrome/"/>
   <int value="977219287" label="chrome://memory/"/>
   <int value="985294599" label="chrome://webrtc-logs/"/>
+  <int value="1002389801" label="chrome://floating-workspace/"/>
+  <int value="1007720460" label="chrome://tab-group-home/"/>
   <int value="1010453084" label="chrome-untrusted://data-sharing/"/>
   <int value="1015167335" label="chrome://lens/"/>
   <int value="1044107189" label="chrome://sample-system-web-app/"/>

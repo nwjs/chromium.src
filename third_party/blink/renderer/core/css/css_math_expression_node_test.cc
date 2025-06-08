@@ -769,6 +769,56 @@ TEST(CSSMathExpressionNode, TestColorChannelExpressionWithoutSubstitution) {
             360.f);
 }
 
+TEST(CSSMathExpressionNode, CSSMathTypeSum) {
+  auto check_type_sum = [](const CSSMathType& type1, const CSSMathType& type2,
+                           bool is_valid, CalculationResultCategory type) {
+    CSSMathType sum_type = type1 + type2;
+    CSSMathType reversed_sum_type = type2 + type1;
+    EXPECT_EQ(sum_type.IsValid(), is_valid);
+    EXPECT_EQ(sum_type.Type(), type);
+    EXPECT_EQ(reversed_sum_type.IsValid(), is_valid);
+    EXPECT_EQ(reversed_sum_type.Type(), type);
+  };
+
+  CSSMathType number(kCalcNumber);
+  CSSMathType length(kCalcLength);
+  CSSMathType percent(kCalcPercent);
+
+  check_type_sum(number, length, false, kCalcOther);
+  check_type_sum(number, percent, false, kCalcOther);
+  check_type_sum(percent, length, true, kCalcLength);
+
+  check_type_sum(number, number, true, kCalcNumber);
+  check_type_sum(length, length, true, kCalcLength);
+  check_type_sum(percent, percent, true, kCalcPercent);
+}
+
+TEST(CSSMathExpressionNode, CSSMathTypeProduct) {
+  CSSMathType number(kCalcNumber);
+  CSSMathType length(kCalcLength);
+  CSSMathType percent(kCalcPercent);
+
+  EXPECT_EQ((number * number).Type(), kCalcNumber);
+  EXPECT_EQ((number * number / number).Type(), kCalcNumber);
+  EXPECT_EQ((number * length).Type(), kCalcLength);
+  EXPECT_EQ((length / length).Type(), kCalcNumber);
+  EXPECT_EQ((length * length / length).Type(), kCalcLength);
+  EXPECT_EQ((length * length / length / length).Type(), kCalcNumber);
+  EXPECT_EQ((length * length / (length * length)).Type(), kCalcNumber);
+  EXPECT_EQ((length * (length / length) * number).Type(), kCalcLength);
+
+  EXPECT_EQ((length * length).Type(), kCalcOther);
+  EXPECT_EQ((percent * length).Type(), kCalcOther);
+  EXPECT_EQ((percent * percent).Type(), kCalcOther);
+  EXPECT_EQ((number / length).Type(), kCalcOther);
+}
+
+TEST(CSSMathExpressionNode, CSSMathTypeComplex) {
+  CSSMathType length(kCalcLength);
+
+  EXPECT_EQ(((length + length) / length).Type(), kCalcNumber);
+}
+
 }  // anonymous namespace
 
 }  // namespace blink

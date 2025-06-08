@@ -39,14 +39,14 @@ namespace features {
 // involvement. For now, this applies only to top controls.
 BASE_FEATURE(kAndroidBrowserControlsInViz,
              "AndroidBrowserControlsInViz",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // If this flag is enabled, AndroidBrowserControlsInViz and
 // BottomControlsRefactor with the "Dispatch yOffset" variation must also be
 // enabled.
 BASE_FEATURE(kAndroidBcivBottomControls,
              "AndroidBcivBottomControls",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 #endif  // BUILDFLAG(IS_ANDROID)
 
@@ -65,11 +65,7 @@ BASE_FEATURE(kUseDrmBlackFullscreenOptimization,
 
 BASE_FEATURE(kUseFrameIntervalDecider,
              "UseFrameIntervalDecider",
-#if BUILDFLAG(IS_CHROMEOS)
-             base::FEATURE_DISABLED_BY_DEFAULT
-#else
              base::FEATURE_ENABLED_BY_DEFAULT
-#endif
 );
 
 #if BUILDFLAG(IS_ANDROID)
@@ -321,12 +317,6 @@ const base::FeatureParam<base::TimeDelta> kADPFBoostTimeout{
     &kEnableADPFScrollBoost, "adpf_boost_mode_timeout",
     base::Milliseconds(200)};
 
-// If enabled, Chrome includes the Renderer Main thread(s) into the
-// ADPF(Android Dynamic Performance Framework) hint session.
-BASE_FEATURE(kEnableADPFRendererMain,
-             "EnableADPFRendererMain",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 // If enabled, Chrome's ADPF(Android Dynamic Performance Framework) hint
 // session includes Renderer threads only if:
 // - The Renderer is handling an interacton
@@ -431,12 +421,6 @@ BASE_FEATURE(kShouldLogFrameQuadInfo,
 BASE_FEATURE(kBatchResourceRelease,
              "BatchResourceRelease",
              base::FEATURE_DISABLED_BY_DEFAULT);
-
-// Do HDR color conversion per render pass update rect in renderer instead of
-// inserting a separate color conversion pass during surface aggregation.
-BASE_FEATURE(kColorConversionInRenderer,
-             "ColorConversionInRenderer",
-             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Stops BeginFrame issue to use |last_vsync_interval_| instead of the current
 // set of BeginFrameArgs.
@@ -600,25 +584,18 @@ bool IsCrosContentAdjustedRefreshRateEnabled() {
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
 #if BUILDFLAG(IS_WIN)
-bool ShouldUseDCompSurfacesForDelegatedInk() {
-  // kDCompSurfacesForDelegatedInk is for delegated ink to work with partial
-  // delegated compositing. This function should return true if the feature
-  // is enabled or partial delegated compositing is enabled - a condition
-  // which requires the use of DCOMP surfaces for delegated ink.
-  if (IsDelegatedCompositingEnabled() &&
-      kDelegatedCompositingModeParam.Get() ==
-          DelegatedCompositingMode::kLimitToUi) {
-    return true;
-  }
-  return base::FeatureList::IsEnabled(kDCompSurfacesForDelegatedInk);
-}
-
 bool ShouldRemoveRedirectionBitmap() {
-  // Windows.UI.Composition DesktopWindowTarget is supported on on Win10 version
-  // 1511 and higher, therefore limit the bitmap removal to those versions or
-  // higher so that an appropriate background replacement is available.
-  return base::win::GetVersion() >= base::win::Version::WIN10_RS4 &&
-         base::FeatureList::IsEnabled(kRemoveRedirectionBitmap);
+  // Limit to Win11 because there are a high number of D3D9 users on Win10;
+  // which requires the Redirection Bitmap. Additionally, software GL in tests
+  // can take the Swiftshader rendering path, which also needs the Redirection
+  // Bitmap. On devices with DComp disabled, ANGLE draws to the redirection
+  // bitmap via a blit swap chain, so check for the command line switch as well.
+  return base::win::GetVersion() >= base::win::Version::WIN11 &&
+         base::FeatureList::IsEnabled(kRemoveRedirectionBitmap) &&
+         !base::CommandLine::ForCurrentProcess()->HasSwitch(
+             switches::kOverrideUseSoftwareGLForTests) &&
+         !base::CommandLine::ForCurrentProcess()->HasSwitch(
+             switches::kDisableDirectComposition);
 }
 #endif
 

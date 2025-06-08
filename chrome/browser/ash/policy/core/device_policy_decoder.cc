@@ -11,6 +11,7 @@
 #include <string_view>
 #include <utility>
 
+#include "ash/constants/ash_features.h"
 #include "ash/system/privacy_hub/privacy_hub_controller.h"
 #include "base/containers/fixed_flat_map.h"
 #include "base/functional/callback.h"
@@ -26,13 +27,12 @@
 #include "chrome/browser/policy/chrome_browser_policy_connector.h"
 #include "chromeos/ash/components/dbus/dbus_thread_manager.h"
 #include "chromeos/ash/components/dbus/update_engine/update_engine_client.h"
+#include "chromeos/ash/components/policy/device_local_account/device_local_account_type.h"
 #include "chromeos/ash/components/settings/cros_settings_names.h"
 #include "components/policy/core/browser/policy_error_map.h"
 #include "components/policy/core/common/chrome_schema.h"
-#include "components/policy/core/common/device_local_account_type.h"
 #include "components/policy/core/common/external_data_fetcher.h"
 #include "components/policy/core/common/external_data_manager.h"
-#include "components/policy/core/common/features.h"
 #include "components/policy/core/common/policy_map.h"
 #include "components/policy/core/common/policy_types.h"
 #include "components/policy/core/common/schema.h"
@@ -737,8 +737,23 @@ base::Value::Dict DecodeDeviceLocalAccountInfoProto(
       entry_dict.Set(ash::kAccountsPrefDeviceLocalAccountsKeyIwaKioskUpdateUrl,
                      entry.isolated_kiosk_app().update_manifest_url());
     }
+    if (entry.isolated_kiosk_app().has_update_channel()) {
+      entry_dict.Set(
+          ash::kAccountsPrefDeviceLocalAccountsKeyIwaKioskUpdateChannel,
+          entry.isolated_kiosk_app().update_channel());
+    }
+    if (entry.isolated_kiosk_app().has_pinned_version()) {
+      entry_dict.Set(
+          ash::kAccountsPrefDeviceLocalAccountsKeyIwaKioskPinnedVersion,
+          entry.isolated_kiosk_app().pinned_version());
+    }
+    if (entry.isolated_kiosk_app().has_allow_downgrades()) {
+      entry_dict.Set(
+          ash::kAccountsPrefDeviceLocalAccountsKeyIwaKioskAllowDowngrades,
+          entry.isolated_kiosk_app().allow_downgrades());
+    }
   }
-  if (policy::features::IsHeliumArcvmKioskEnabled()) {
+  if (ash::features::IsHeliumArcvmKioskEnabled()) {
     if (entry.arcvm_kiosk_app().has_package_name()) {
       entry_dict.Set(ash::kAccountsPrefDeviceLocalAccountsKeyArcvmKioskPackage,
                      entry.arcvm_kiosk_app().package_name());

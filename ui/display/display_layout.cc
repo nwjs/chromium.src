@@ -16,7 +16,6 @@
 #include "base/check_op.h"
 #include "base/containers/contains.h"
 #include "base/logging.h"
-#include "base/not_fatal_until.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/values.h"
 #include "components/device_event_log/device_event_log.h"
@@ -160,8 +159,7 @@ void MaybeReparentTargetDisplay(
 
     auto target_display_placement_itr = std::ranges::find(
         *placement_list, target_display->id(), &DisplayPlacement::display_id);
-    CHECK(target_display_placement_itr != placement_list->end(),
-          base::NotFatalUntil::M130);
+    CHECK(target_display_placement_itr != placement_list->end());
     target_display_placement = &(*target_display_placement_itr);
     if (AreDisplaysTouching(*target_display, *parent_display,
                             target_display_placement->position)) {
@@ -396,18 +394,6 @@ DisplayPlacement::DisplayPlacement(const DisplayPlacement&) = default;
 
 DisplayPlacement& DisplayPlacement::operator=(const DisplayPlacement&) =
     default;
-
-bool DisplayPlacement::operator==(const DisplayPlacement& other) const {
-  return display_id == other.display_id &&
-         parent_display_id == other.parent_display_id &&
-         position == other.position &&
-         offset == other.offset &&
-         offset_reference == other.offset_reference;
-}
-
-bool DisplayPlacement::operator!=(const DisplayPlacement& other) const {
-  return !operator==(other);
-}
 
 DisplayPlacement& DisplayPlacement::Swap() {
   switch (position) {

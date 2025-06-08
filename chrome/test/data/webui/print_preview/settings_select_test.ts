@@ -27,7 +27,7 @@ suite('SettingsSelectTest', function() {
 
   // Test that destinations are correctly displayed in the lists.
   test('custom media names', async function() {
-    model.set('settings.mediaSize.available', true);
+    model.setSettingAvailableForTesting('mediaSize', true);
 
     // Set a capability with custom paper sizes.
     settingsSelect.settingName = 'mediaSize';
@@ -49,17 +49,7 @@ suite('SettingsSelectTest', function() {
   });
 
   test('set setting', async () => {
-    // Fake setting.
-    model.set('settings.headerFooter', {
-      value: {},
-      unavailableValue: {},
-      valid: true,
-      available: true,
-      setByGlobalPolicy: false,
-      setFromUi: false,
-      key: 'headerFooter',
-    });
-    settingsSelect.settingName = 'headerFooter';
+    settingsSelect.settingName = 'dpi';
     settingsSelect.capability = {
       option: [
         {name: 'lime', color: 'green', size: 3},
@@ -71,15 +61,16 @@ suite('SettingsSelectTest', function() {
     const select = settingsSelect.shadowRoot.querySelector('select')!;
 
     // Normally done for initialization by the model and parent section.
-    model.set(
-        'settings.headerFooter.value', settingsSelect.capability.option[1]!);
+    model.setSetting(
+        'dpi', settingsSelect.capability.option[1]!,
+        /*noSticky=*/ true);
     settingsSelect.selectValue(option1);
     await microtasksFinished();
 
     // Verify that the selected option and names are as expected.
     assertEquals(2, select.options.length);
     assertEquals(1, select.selectedIndex);
-    assertFalse(settingsSelect.getSetting('headerFooter').setFromUi);
+    assertFalse(settingsSelect.getSetting('dpi').setFromUi);
     assertEquals('lime', select.options[0]!.textContent!.trim());
     assertEquals('orange', select.options[1]!.textContent!.trim());
     assertEquals(option0, select.options[0]!.value);
@@ -88,9 +79,8 @@ suite('SettingsSelectTest', function() {
     // Verify that selecting an new option in the dropdown sets the setting.
     await selectOption(settingsSelect, option0);
     assertEquals(
-        option0,
-        JSON.stringify(settingsSelect.getSettingValue('headerFooter')));
-    assertTrue(settingsSelect.getSetting('headerFooter').setFromUi);
+        option0, JSON.stringify(settingsSelect.getSettingValue('dpi')));
+    assertTrue(settingsSelect.getSetting('dpi').setFromUi);
     assertEquals(option0, settingsSelect.selectedValue);
     assertEquals(0, select.selectedIndex);
     assertEquals(option0, select.value);
@@ -106,7 +96,6 @@ suite('SettingsSelectTest', function() {
     assertEquals(option1, select.value);
     assertEquals(1, select.selectedIndex);
     assertEquals(
-        option0,
-        JSON.stringify(settingsSelect.getSettingValue('headerFooter')));
+        option0, JSON.stringify(settingsSelect.getSettingValue('dpi')));
   });
 });

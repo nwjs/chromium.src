@@ -8,6 +8,7 @@ import("//build/config/features.gni")
 import("//build/config/ui.gni")
 import("//components/compose/features.gni")
 import("//components/enterprise/buildflags/buildflags.gni")
+import("//components/guest_contents/common/buildflags.gni")
 import("//components/guest_view/buildflags/buildflags.gni")
 import("//components/nacl/features.gni")
 import("//components/optimization_guide/features.gni")
@@ -283,6 +284,7 @@ test("components_unittests") {
     "//components/password_manager/core/browser/ui:unit_tests",
     "//components/password_manager/core/browser/well_known_change_password:unit_tests",
     "//components/password_manager/core/common:unit_tests",
+    "//components/password_manager/services/csv_password:unit_tests",
     "//components/payments/core:unit_tests",
     "//components/persistent_cache:unit_tests",
     "//components/plus_addresses:unit_tests",
@@ -356,6 +358,7 @@ test("components_unittests") {
     "//components/system_media_controls:unit_tests",
     "//components/tabs:unit_tests",
     "//components/test:run_all_unittests",
+    "//components/themes:unit_tests",
     "//components/tpcd/metadata/browser:unit_tests",
     "//components/tpcd/metadata/common:unit_tests",
     "//components/translate/core/browser:unit_tests",
@@ -506,7 +509,6 @@ test("components_unittests") {
       "//components/paint_preview/renderer:unit_tests",
       "//components/passage_embeddings:unit_tests",
       "//components/password_manager/content/browser:unit_tests",
-      "//components/password_manager/services/csv_password:unit_tests",
       "//components/payments/content:unit_tests",
       "//components/payments/content/utility:unit_tests",
       "//components/pdf/common:unit_tests",
@@ -576,6 +578,7 @@ test("components_unittests") {
       "//components/signin/public/identity_manager/objc:unit_tests",
       "//components/translate/ios/browser:unit_tests",
       "//components/ukm/ios:unit_tests",
+      "//components/webauthn/ios:unit_tests",
     ]
     if (use_blink) {
       deps += [ ":components_tests_distiller_bundle_data" ]
@@ -607,7 +610,6 @@ test("components_unittests") {
       "//components/site_isolation:unit_tests",
       "//components/spellcheck/browser:unit_tests",
       "//components/spellcheck/renderer:unit_tests",
-      "//components/themes:unit_tests",
     ]
 
     if (!is_win) {  #!iOS and!Windows
@@ -725,11 +727,15 @@ test("components_unittests") {
     ]
   }
 
+  if (enable_guest_contents) {
+    deps += [ "//components/guest_contents/browser:unit_tests" ]
+  }
+
   if (enable_guest_view) {
     deps += [ "//components/guest_view/browser:unit_tests" ]
   }
 
-  if (!is_android && !is_ios && (!is_fuchsia || !optimize_for_size)) {
+  if (!is_android && !is_ios && !is_fuchsia) {
     deps += [ "//components/autofill_ai/core/browser:unit_tests" ]
   }
 
@@ -808,6 +814,7 @@ test("components_unittests") {
       "//components/safe_browsing/content/common:file_type_policies_unittest",
       "//components/safe_browsing/content/common:unit_tests",
       "//components/safe_browsing/core/browser:safe_browsing_url_checker_unittest",
+      "//components/safe_browsing/core/common/proto_to_value:unit_tests",
     ]
   }
 
@@ -902,6 +909,7 @@ test("components_unittests") {
   fuzztests = [
     "FilterDataTest.Matches",
     "OsRegistrationTest.Parses",
+    "PrivacyMathTest.GetKCombinationAtIndexDoesNotCrash",
     "RegistrationInfoTest.Parses",
     "SourceRegistrationTest.Parses",
     "TriggerRegistrationTest.Parses",
@@ -1230,6 +1238,7 @@ if (use_blink) {
       "autofill/core/browser/ml_model/field_classification_model_executor_perftest.cc",
       "discardable_memory/common/discardable_shared_memory_heap_perftest.cc",
       "omnibox/browser/history_quick_provider_performance_unittest.cc",
+      "persistent_cache/persistent_cache_perftest.cc",
       "subresource_filter/core/common/perftests/indexed_ruleset_perftest.cc",
       "test/run_all_perftests.cc",
       "visitedlink/test/visitedlink_perftest.cc",
@@ -1245,6 +1254,8 @@ if (use_blink) {
       "//components/history/core/test",
       "//components/omnibox/browser",
       "//components/omnibox/browser:test_support",
+      "//components/persistent_cache",
+      "//components/persistent_cache:test_support",
       "//components/subresource_filter/core/common",
       "//components/subresource_filter/tools:tools_lib",
       "//components/test:test_support",

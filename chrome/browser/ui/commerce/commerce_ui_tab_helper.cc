@@ -259,7 +259,10 @@ void CommerceUiTabHelper::UpdatePriceInsightsIconView() {
 
     tab_interface->GetTabFeatures()
         ->commerce_price_insights_page_action_view_controller()
-        ->UpdatePageActionIcon();
+        ->UpdatePageActionIcon(
+            ShouldShowPriceInsightsIconView(),
+            ShouldExpandPageActionIcon(PageActionIconType::kPriceInsights),
+            GetPriceInsightsIconLabelTypeForPage());
     return;
   }
 
@@ -525,9 +528,10 @@ void CommerceUiTabHelper::UpdateProductSpecificationsIconView() {
 
 void CommerceUiTabHelper::MakeShoppingInsightsSidePanelAvailable() {
   auto entry = std::make_unique<SidePanelEntry>(
-      SidePanelEntry::Id::kShoppingInsights,
+      SidePanelEntry::Key(SidePanelEntry::Id::kShoppingInsights),
       base::BindRepeating(&CommerceUiTabHelper::CreateShoppingInsightsWebView,
-                          base::Unretained(this)));
+                          base::Unretained(this)),
+      SidePanelEntry::kSidePanelDefaultContentWidth);
   side_panel_registry_->Register(std::move(entry));
 }
 

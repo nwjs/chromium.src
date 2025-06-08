@@ -47,8 +47,8 @@ public class AuxiliarySearchUtils {
             ChromeFeatureList.sAndroidAppIntegrationWithFaviconSkipSchemaCheck;
 
     @VisibleForTesting
-    static final BooleanCachedFeatureParam USE_SCHEMA_V1 =
-            ChromeFeatureList.sAndroidAppIntegrationMultiDataSourceUseSchemaV1;
+    static final BooleanCachedFeatureParam MULTI_DATA_SOURCE_SKIP_SCHEMA_CHECK =
+            ChromeFeatureList.sAndroidAppIntegrationMultiDataSourceSkipSchemaCheck;
 
     @VisibleForTesting
     static final BooleanCachedFeatureParam MULTI_DATA_SOURCE_SKIP_DEVICE_CHECK =
@@ -141,7 +141,8 @@ public class AuxiliarySearchUtils {
 
     /** Returns whether the sharing Tabs settings is enabled by default. */
     public static boolean isShareTabsWithOsDefaultEnabled() {
-        return AuxiliarySearchUtils.SKIP_DEVICE_CHECK.getValue()
+        return (AuxiliarySearchUtils.SKIP_DEVICE_CHECK.getValue()
+                        || AuxiliarySearchUtils.MULTI_DATA_SOURCE_SKIP_DEVICE_CHECK.getValue())
                 ? !AuxiliarySearchUtils.SHOW_THIRD_PARTY_CARD.getValue()
                 : AuxiliarySearchControllerFactory.getInstance().isSettingDefaultEnabledByOs();
     }

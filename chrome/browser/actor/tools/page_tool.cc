@@ -5,7 +5,7 @@
 #include "chrome/browser/actor/tools/page_tool.h"
 
 #include "chrome/browser/actor/actor_coordinator.h"
-#include "chrome/common/actor.mojom.h"
+#include "chrome/common/actor/action_result.h"
 #include "chrome/common/chrome_render_frame.mojom.h"
 #include "content/public/browser/render_frame_host.h"
 #include "mojo/public/cpp/bindings/associated_remote.h"
@@ -29,8 +29,12 @@ void SetMojoTarget(const ActionTarget& target,
     out_mojo_target = actor::mojom::ToolTarget::NewCoordinate(
         gfx::Point(target.coordinate().x(), target.coordinate().y()));
   } else {
-    out_mojo_target =
-        actor::mojom::ToolTarget::NewDomNodeId(target.content_node_id());
+    // A ContentNodeId of 0 indicates the viewport. The mojo message indicates
+    // viewport by omitting a target.
+    if (target.content_node_id() > 0) {
+      out_mojo_target =
+          actor::mojom::ToolTarget::NewDomNodeId(target.content_node_id());
+    }
   }
 }
 
@@ -169,12 +173,6 @@ void SetDragAndReleaseToolArgs(
                 drag_and_release->to_target);
 }
 
-void DelayedInvokeCallback(actor::Tool::InvokeCallback callback, bool success) {
-  base::SequencedTaskRunner::GetCurrentDefault()->PostDelayedTask(
-      FROM_HERE, base::BindOnce(std::move(callback), success),
-      actor::ActorCoordinator::GetActionObservationDelay());
-}
-
 }  // namespace
 
 namespace actor {
@@ -189,7 +187,7 @@ PageTool::~PageTool() = default;
 void PageTool::Validate(ValidateCallback callback) {
   // No browser-side validation yet.
   base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
-      FROM_HERE, base::BindOnce(std::move(callback), true));
+      FROM_HERE, base::BindOnce(std::move(callback), MakeOkResult()));
 }
 
 void PageTool::Invoke(InvokeCallback callback) {
@@ -200,7 +198,8 @@ void PageTool::Invoke(InvokeCallback callback) {
     case ActionInformation::ActionInfoCase::kClick: {
       auto click = mojom::ClickAction::New();
       if (!SetClickToolArgs(click, action_info)) {
-        std::move(callback).Run(false);
+        std::move(callback).Run(
+            MakeResult(mojom::ActionResultCode::kArgumentsInvalid));
         return;
       }
       request->action = mojom::ToolAction::NewClick(std::move(click));
@@ -209,7 +208,8 @@ void PageTool::Invoke(InvokeCallback callback) {
     case ActionInformation::ActionInfoCase::kType: {
       auto type = mojom::TypeAction::New();
       if (!SetTypeToolArgs(type, action_info)) {
-        std::move(callback).Run(false);
+        std::move(callback).Run(
+            MakeResult(mojom::ActionResultCode::kArgumentsInvalid));
         return;
       }
       request->action = mojom::ToolAction::NewType(std::move(type));
@@ -218,7 +218,8 @@ void PageTool::Invoke(InvokeCallback callback) {
     case ActionInformation::ActionInfoCase::kScroll: {
       auto scroll = mojom::ScrollAction::New();
       if (!SetScrollToolArgs(scroll, action_info)) {
-        std::move(callback).Run(false);
+        std::move(callback).Run(
+            MakeResult(mojom::ActionResultCode::kArgumentsInvalid));
         return;
       }
       request->action = mojom::ToolAction::NewScroll(std::move(scroll));
@@ -251,12 +252,7 @@ void PageTool::Invoke(InvokeCallback callback) {
       NOTREACHED();
   }
 
-  // TODO(crbug.com/409564704): Delay the callback to give the page a chance to
-  // react to the tool's effects. Temporary until we can do this more reliably
-  // in the renderer.
-  chrome_render_frame_->InvokeTool(
-      std::move(request),
-      base::BindOnce(DelayedInvokeCallback, std::move(callback)));
+  chrome_render_frame_->InvokeTool(std::move(request), std::move(callback));
 }
 
 std::string PageTool::DebugString() const {

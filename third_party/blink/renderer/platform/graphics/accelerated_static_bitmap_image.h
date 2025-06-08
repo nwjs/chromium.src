@@ -78,7 +78,7 @@ class PLATFORM_EXPORT AcceleratedStaticBitmapImage final
       const gfx::ColorSpace& color_space,
       base::OnceCallback<void(const gpu::SyncToken&)> release_callback);
 
-  bool CurrentFrameKnownToBeOpaque() override;
+  bool IsOpaque() override;
   bool IsTextureBacked() const override { return true; }
 
   void Draw(cc::PaintCanvas*,
@@ -129,9 +129,6 @@ class PLATFORM_EXPORT AcceleratedStaticBitmapImage final
 
   gfx::Size GetSize() const override { return size_; }
   SkAlphaType GetAlphaType() const override { return alpha_type_; }
-  sk_sp<SkColorSpace> GetSkColorSpace() const override {
-    return color_space_.ToSkColorSpace();
-  }
   gfx::ColorSpace GetColorSpace() const override { return color_space_; }
   viz::SharedImageFormat GetSharedImageFormat() const override {
     return format_;

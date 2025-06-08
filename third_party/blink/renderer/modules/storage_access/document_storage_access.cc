@@ -343,9 +343,7 @@ ScriptPromise<T> DocumentStorageAccess::RequestStorageAccessImpl(
         "requestStorageAccess not allowed"));
     return promise;
   }
-  if (RuntimeEnabledFeatures::FedCmWithStorageAccessAPIEnabled(
-          GetSupplementable()->GetExecutionContext()) &&
-      GetSupplementable()->GetExecutionContext()->IsFeatureEnabled(
+  if (GetSupplementable()->GetExecutionContext()->IsFeatureEnabled(
           network::mojom::PermissionsPolicyFeature::kIdentityCredentialsGet)) {
     UseCounter::Count(GetSupplementable()->GetExecutionContext(),
                       WebFeature::kFedCmWithStorageAccessAPI);
@@ -402,7 +400,8 @@ void DocumentStorageAccess::ProcessStorageAccessPermissionState(
         RequestStorageResult::APPROVED_NEW_OR_EXISTING_GRANT);
     if (request_unpartitioned_cookie_access) {
       GetSupplementable()->dom_window_->SetStorageAccessApiStatus(
-          net::StorageAccessApiStatus::kAccessViaAPI);
+          net::StorageAccessApiStatus::kAccessViaAPI,
+          LocalDOMWindow::StorageAccessApiNotifyEmbedder::kBrowserProcess);
     }
     std::move(on_resolve).Run(resolver);
   } else {

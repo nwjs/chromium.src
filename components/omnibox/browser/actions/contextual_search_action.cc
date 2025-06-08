@@ -4,13 +4,32 @@
 
 #include "components/omnibox/browser/actions/contextual_search_action.h"
 
+#include "components/omnibox/common/omnibox_feature_configs.h"
 #include "components/strings/grit/components_strings.h"
+#include "ui/base/l10n/l10n_util.h"
 
 #if defined(SUPPORT_PEDALS_VECTOR_ICONS)
 #include "build/branding_buildflags.h"                // nogncheck
 #include "components/omnibox/browser/vector_icons.h"  // nogncheck
 #include "components/vector_icons/vector_icons.h"     // nogncheck
 #endif
+
+namespace {
+
+int GetOpenLensActionLabelId() {
+  switch (omnibox_feature_configs::ContextualSearch::Get()
+              .alternative_action_label) {
+    case 1:
+      return IDS_CONTEXTUAL_SEARCH_OPEN_LENS_ACTION_LABEL_ALT;
+    case 2:
+      return IDS_CONTEXTUAL_SEARCH_OPEN_LENS_ACTION_LABEL_ALT2;
+    case 0:
+    default:
+      return IDS_CONTEXTUAL_SEARCH_OPEN_LENS_ACTION_LABEL;
+  }
+}
+
+}  // namespace
 
 ContextualSearchFulfillmentAction::ContextualSearchFulfillmentAction(
     const GURL& url,
@@ -41,71 +60,13 @@ ContextualSearchFulfillmentAction::~ContextualSearchFulfillmentAction() =
 
 ////////////////////////////////////////////////////////////////////////////////
 
-ContextualSearchAskAboutPageAction::ContextualSearchAskAboutPageAction()
-    : OmniboxAction(
-          OmniboxAction::LabelStrings(u"Ask about this page", u"", u"", u""),
-          GURL()) {}
-
-OmniboxActionId ContextualSearchAskAboutPageAction::ActionId() const {
-  return OmniboxActionId::CONTEXTUAL_SEARCH_ASK_ABOUT_PAGE;
-}
-
-void ContextualSearchAskAboutPageAction::Execute(
-    ExecutionContext& context) const {
-  context.client_->OpenLensOverlay(/*show=*/false);
-}
-
-#if defined(SUPPORT_PEDALS_VECTOR_ICONS)
-const gfx::VectorIcon& ContextualSearchSelectRegionAction::GetVectorIcon()
-    const {
-#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
-  return vector_icons::kGoogleLensMonochromeLogoIcon;
-#else
-  return vector_icons::kSearchChromeRefreshIcon;
-#endif
-}
-#endif  // defined(SUPPORT_PEDALS_VECTOR_ICONS)
-
-ContextualSearchAskAboutPageAction::~ContextualSearchAskAboutPageAction() =
-    default;
-
-////////////////////////////////////////////////////////////////////////////////
-
-ContextualSearchSelectRegionAction::ContextualSearchSelectRegionAction()
-    : OmniboxAction(OmniboxAction::LabelStrings(u"Search with Google Lens",
-                                                u"",
-                                                u"",
-                                                u""),
-                    GURL()) {}
-
-OmniboxActionId ContextualSearchSelectRegionAction::ActionId() const {
-  return OmniboxActionId::CONTEXTUAL_SEARCH_SELECT_REGION;
-}
-
-void ContextualSearchSelectRegionAction::Execute(
-    ExecutionContext& context) const {
-  context.client_->OpenLensOverlay(/*show=*/true);
-}
-
-#if defined(SUPPORT_PEDALS_VECTOR_ICONS)
-const gfx::VectorIcon& ContextualSearchAskAboutPageAction::GetVectorIcon()
-    const {
-  return omnibox::kPageSparkIcon;
-}
-#endif  // defined(SUPPORT_PEDALS_VECTOR_ICONS)
-
-ContextualSearchSelectRegionAction::~ContextualSearchSelectRegionAction() =
-    default;
-
-////////////////////////////////////////////////////////////////////////////////
-
 ContextualSearchOpenLensAction::ContextualSearchOpenLensAction()
-    : OmniboxAction(
-          OmniboxAction::LabelStrings(u"Ask Google Lens about this page",
-                                      u"",
-                                      u"",
-                                      u""),
-          GURL()) {}
+    : OmniboxAction(OmniboxAction::LabelStrings(
+                        l10n_util::GetStringUTF16(GetOpenLensActionLabelId()),
+                        u"",
+                        u"",
+                        u""),
+                    GURL()) {}
 
 OmniboxActionId ContextualSearchOpenLensAction::ActionId() const {
   return OmniboxActionId::CONTEXTUAL_SEARCH_OPEN_LENS;

@@ -4,7 +4,10 @@
 
 #import "ios/chrome/browser/collaboration/model/messaging/instant_messaging_service.h"
 
+#import <set>
+
 #import "base/functional/callback.h"
+#import "base/uuid.h"
 #import "ios/chrome/browser/collaboration/model/messaging/infobar/collaboration_group_infobar_delegate.h"
 #import "ios/chrome/browser/infobars/model/infobar_ios.h"
 #import "ios/chrome/browser/infobars/model/infobar_manager_impl.h"
@@ -29,14 +32,19 @@ void InstantMessagingService::DisplayInstantaneousMessage(
     case InstantNotificationLevel::SYSTEM:
       break;
     case InstantNotificationLevel::BROWSER:
-      message_displayed = ShowCollaboraitonGroupInfobar(instant_message);
+      message_displayed = ShowCollaborationGroupInfobar(instant_message);
       break;
   }
 
   std::move(success_callback).Run(message_displayed);
 }
 
-bool InstantMessagingService::ShowCollaboraitonGroupInfobar(
+void InstantMessagingService::HideInstantaneousMessage(
+    const std::set<base::Uuid>& message_ids) {
+  // TODO(crbug.com/416265501) Implement this.
+}
+
+bool InstantMessagingService::ShowCollaborationGroupInfobar(
     collaboration::messaging::InstantMessage instant_message) {
   bool infobar_displayed =
       CollaborationGroupInfoBarDelegate::Create(profile_, instant_message);

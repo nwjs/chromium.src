@@ -18,6 +18,7 @@
 #include <optional>
 #include <set>
 #include <utility>
+#include <vector>
 
 #include "base/command_line.h"
 #include "base/dcheck_is_on.h"
@@ -43,7 +44,6 @@
 #include "chrome/browser/ui/browser_list.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/tabs/features.h"
-#include "chrome/browser/ui/tabs/tab_group.h"
 #include "chrome/browser/ui/tabs/tab_group_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_model_observer.h"
@@ -70,7 +70,10 @@
 #include "components/tab_groups/tab_group_color.h"
 #include "components/tab_groups/tab_group_id.h"
 #include "components/tab_groups/tab_group_visual_data.h"
+#include "components/tabs/public/split_tab_data.h"
 #include "components/tabs/public/split_tab_id.h"
+#include "components/tabs/public/tab_group.h"
+#include "components/tabs/public/tab_interface.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/content_features.h"
 #include "content/public/common/content_switches.h"
@@ -686,7 +689,8 @@ class DetachToBrowserTabDragControllerTest
           testing::tuple<bool, bool, const char*>> {
  public:
   DetachToBrowserTabDragControllerTest() {
-    std::vector<base::test::FeatureRef> enabled_features = {};
+    std::vector<base::test::FeatureRef> enabled_features = {
+        features::kSideBySide};
     std::vector<base::test::FeatureRef> disabled_features = {
         features::kWebUITabStrip};
 
@@ -1330,6 +1334,45 @@ IN_PROC_BROWSER_TEST_P(DetachToBrowserTabDragControllerTest,
   EXPECT_EQ(group_model->GetTabGroup(group1)->ListTabs(), gfx::Range(3, 4));
 }
 
+// TODO(crbug.com/333085989): Re-enable flaky tests
+#if BUILDFLAG(IS_CHROMEOS)
+#define MAYBE_RevertDragSplitTab DISABLED_RevertDragSplitTab
+#else
+#define MAYBE_RevertDragSplitTab RevertDragSplitTab
+#endif
+
+// Drag a split tab within a tabstrip and cancel the drag.
+IN_PROC_BROWSER_TEST_P(DetachToBrowserTabDragControllerTest,
+                       MAYBE_RevertDragSplitTab) {
+  ASSERT_TRUE(browser()->tab_strip_model()->SupportsTabGroups());
+
+  TabStrip* tab_strip = GetTabStripForBrowser(browser());
+  TabStripModel* model = browser()->tab_strip_model();
+  AddTabsAndResetBrowser(browser(), 3);
+  model->ActivateTabAt(0);
+  split_tabs::SplitTabId split_id =
+      model->AddToNewSplit({1}, split_tabs::SplitTabVisualData());
+  StopAnimating(tab_strip);
+
+  ASSERT_TRUE(PressInputAtCenter(tab_strip->tab_at(0)));
+  ASSERT_TRUE(DragInputToCenter(tab_strip->tab_at(3)));
+
+  EXPECT_EQ("2 3 0 1", IDString(model));
+  EXPECT_EQ(model->GetSplitData(split_id)->ListTabs(),
+            std::vector<tabs::TabInterface*>(
+                {model->GetTabAtIndex(2), model->GetTabAtIndex(3)}));
+
+  ASSERT_TRUE(TabDragController::IsActive());
+
+  // Pressing escape will revert the tabs to original state before the drag.
+  ASSERT_TRUE(ui_test_utils::SendKeyPressSync(browser(), ui::VKEY_ESCAPE, false,
+                                              false, false, false));
+  EXPECT_EQ("0 1 2 3", IDString(model));
+  EXPECT_EQ(model->GetSplitData(split_id)->ListTabs(),
+            std::vector<tabs::TabInterface*>(
+                {model->GetTabAtIndex(0), model->GetTabAtIndex(1)}));
+}
+
 // Creates a browser with four tabs. The first two tabs are in Tab Group 1.
 // Dragging the third tab over one to the left will result in the tab joining
 // Tab Group 1. While this drag is still in session, pressing escape will revert
@@ -1381,7 +1424,7 @@ IN_PROC_BROWSER_TEST_P(DetachToBrowserTabDragControllerTest,
   tab_groups::TabGroupId group2 = model->AddToNewGroup({1});
   const tab_groups::TabGroupVisualData new_data(
       u"Foo", tab_groups::TabGroupColorId::kCyan);
-  group_model->GetTabGroup(group2)->SetVisualData(new_data);
+  model->ChangeTabGroupVisuals(group2, new_data);
   StopAnimating(tab_strip);
 
   // Dragging the tab in the first index to the tab in the second index switches
@@ -2698,6 +2741,98 @@ void DragAllToSeparateWindowStep2(DetachToBrowserTabDragControllerTest* test,
 
 }  // namespace
 
+#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+// Flaky on Mac10.14 and Linux: https://crbug.com/1213345
+#define MAYBE_DragPinnedAndUnpinnedToSeparateWindow \
+  DISABLED_DragPinnedAndUnpinnedToSeparateWindow
+#else
+#define MAYBE_DragPinnedAndUnpinnedToSeparateWindow \
+  DragPinnedAndUnpinnedToSeparateWindow
+#endif
+
+// Creates two browsers, then drags a combination of pinned and unpinned tabs
+// from one to the other.
+IN_PROC_BROWSER_TEST_P(DetachToBrowserTabDragControllerTest,
+                       MAYBE_DragPinnedAndUnpinnedToSeparateWindow) {
+  ASSERT_TRUE(browser()->tab_strip_model()->SupportsTabGroups());
+
+  TabStrip* tab_strip = GetTabStripForBrowser(browser());
+  AddTabsAndResetBrowser(browser(), 1);
+  browser()->tab_strip_model()->SetTabPinned(0, true);
+  StopAnimating(tab_strip);
+
+  // Create another browser.
+  Browser* browser2 = CreateAnotherBrowserAndResize();
+  TabStrip* tab_strip2 = GetTabStripForBrowser(browser2);
+  TabStripModel* model2 = browser2->tab_strip_model();
+  AddTabsAndResetBrowser(browser2, 1);
+  ResetIDs(model2, 100);
+  StopAnimating(tab_strip2);
+
+  // Click the first tab and select the second tab so they are the only ones
+  // selected.
+  ASSERT_TRUE(PressInputAtCenter(tab_strip->tab_at(0)));
+  ASSERT_TRUE(ReleaseInput());
+  browser()->tab_strip_model()->SelectTabAt(1);
+
+  DragTabAndNotify(tab_strip, base::BindOnce(&DragAllToSeparateWindowStep2,
+                                             this, tab_strip, tab_strip2));
+
+  // Drag to the trailing end of the tabstrip to ensure we're in a
+  // predictable spot within the strip.
+  StopAnimating(tab_strip2);
+  ASSERT_TRUE(DragInputToCenter(tab_strip2->tab_at(3)));
+  // Release mouse or touch, stopping the drag session.
+  ASSERT_TRUE(ReleaseInput());
+
+  EXPECT_EQ("0 100 101 1", IDString(model2));
+  EXPECT_TRUE(browser2->tab_strip_model()->IsTabPinned(0));
+  EXPECT_FALSE(browser2->tab_strip_model()->IsTabPinned(1));
+}
+
+#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+// Flaky on Mac10.14 and Linux: https://crbug.com/1213345
+#define MAYBE_DragSplitTabToSeparateWindow DISABLED_DragSplitTabToSeparateWindow
+#else
+#define MAYBE_DragSplitTabToSeparateWindow DragSplitTabToSeparateWindow
+#endif
+
+// Creates two browsers, then drags a split tab from one to the other.
+IN_PROC_BROWSER_TEST_P(DetachToBrowserTabDragControllerTest,
+                       MAYBE_DragSplitTabToSeparateWindow) {
+  ASSERT_TRUE(browser()->tab_strip_model()->SupportsTabGroups());
+
+  TabStrip* tab_strip = GetTabStripForBrowser(browser());
+  AddTabsAndResetBrowser(browser(), 1);
+  browser()->tab_strip_model()->ActivateTabAt(0);
+  split_tabs::SplitTabId split_id = browser()->tab_strip_model()->AddToNewSplit(
+      {1}, split_tabs::SplitTabVisualData());
+  StopAnimating(tab_strip);
+
+  // Create another browser.
+  Browser* browser2 = CreateAnotherBrowserAndResize();
+  TabStrip* tab_strip2 = GetTabStripForBrowser(browser2);
+  TabStripModel* model2 = browser2->tab_strip_model();
+  AddTabsAndResetBrowser(browser2, 1);
+  ResetIDs(model2, 100);
+  StopAnimating(tab_strip2);
+
+  DragTabAndNotify(tab_strip, base::BindOnce(&DragAllToSeparateWindowStep2,
+                                             this, tab_strip, tab_strip2));
+
+  // Drag to the trailing end of the tabstrip to ensure we're in a
+  // predictable spot within the strip.
+  StopAnimating(tab_strip2);
+  ASSERT_TRUE(DragInputToCenter(tab_strip2->tab_at(3)));
+  // Release mouse or touch, stopping the drag session.
+  ASSERT_TRUE(ReleaseInput());
+
+  EXPECT_EQ("100 101 0 1", IDString(model2));
+  EXPECT_EQ(
+      browser2->tab_strip_model()->GetSplitData(split_id)->ListTabs().size(),
+      2u);
+}
+
 // Flaky. http://crbug.com/1128774
 #if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
 // Bulk-disabled for arm64 bot stabilization: https://crbug.com/1154345
@@ -2956,13 +3091,55 @@ IN_PROC_BROWSER_TEST_P(DetachToBrowserTabDragControllerTest,
 
   // Expect the group to be in browser2, but with a new tab_groups::TabGroupId.
   EXPECT_EQ("100 0 1", IDString(model2));
-  std::vector<tab_groups::TabGroupId> groups2 =
-      model2->group_model()->ListTabGroups();
-  EXPECT_EQ(1u, groups2.size());
-  EXPECT_EQ(model2->group_model()->GetTabGroup(groups2[0])->ListTabs(),
+  EXPECT_EQ(model2->group_model()->GetTabGroup(group)->ListTabs(),
             gfx::Range(1, 3));
-  EXPECT_EQ(groups2[0], group);
-  EXPECT_EQ(tab_strip2->GetGroupColorId(groups2[0]), group_color);
+  EXPECT_EQ(tab_strip2->GetGroupColorId(group), group_color);
+}
+
+#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+// Bulk-disabled for arm64 bot stabilization: https://crbug.com/1154345
+// Flaky on Mac10.14 and Linux: https://crbug.com/1213345
+#define MAYBE_DragGroupHeaderWithSplitToSeparateWindow \
+  DISABLED_DragGroupHeaderWithSplitToSeparateWindow
+#else
+#define MAYBE_DragGroupHeaderWithSplitToSeparateWindow \
+  DragGroupHeaderWithSplitToSeparateWindow
+#endif
+
+// Creates two browsers, then drags a group from one to the other.
+IN_PROC_BROWSER_TEST_P(DetachToBrowserTabDragControllerTest,
+                       MAYBE_DragGroupHeaderWithSplitToSeparateWindow) {
+  ASSERT_TRUE(browser()->tab_strip_model()->SupportsTabGroups());
+
+  TabStrip* tab_strip = GetTabStripForBrowser(browser());
+  TabStripModel* model = browser()->tab_strip_model();
+  AddTabsAndResetBrowser(browser(), 1);
+  tab_groups::TabGroupId group = model->AddToNewGroup({0, 1});
+
+  model->ActivateTabAt(0);
+  model->AddToNewSplit({1}, split_tabs::SplitTabVisualData());
+
+  tab_groups::TabGroupColorId group_color = tab_strip->GetGroupColorId(group);
+  StopAnimating(tab_strip);
+
+  // Create another browser.
+  Browser* browser2 = CreateAnotherBrowserAndResize();
+  TabStrip* tab_strip2 = GetTabStripForBrowser(browser2);
+  TabStripModel* model2 = browser2->tab_strip_model();
+  StopAnimating(tab_strip2);
+
+  // Drag the group by its header into the second browser.
+  DragToDetachGroupAndNotify(tab_strip,
+                             base::BindOnce(&DragAllToSeparateWindowStep2, this,
+                                            tab_strip, tab_strip2),
+                             group);
+  ASSERT_TRUE(ReleaseInput());
+
+  // Expect the group to be in browser2.
+  EXPECT_EQ("100 0 1", IDString(model2));
+  EXPECT_EQ(model2->group_model()->GetTabGroup(group)->ListTabs(),
+            gfx::Range(1, 3));
+  EXPECT_EQ(tab_strip2->GetGroupColorId(group), group_color);
 }
 
 // Drags a tab group by the header to a new position toward the right and
@@ -3564,17 +3741,18 @@ IN_PROC_BROWSER_TEST_P(
   const TabStyle* tab_style = TabStyle::Get();
   // We must ensure that we set the bounds of the browser window such that it is
   // wide enough to allow the tab strip to expand to accommodate this tab.
-  browser()->window()->SetBounds(
-      gfx::Rect(0, 0, tab_style->GetStandardWidth() * 5, 400));
+  browser()->window()->SetBounds(gfx::Rect(
+      0, 0, tab_style->GetStandardWidth(/*is_split*/ false) * 5, 400));
 
   const int tab_strip_width = tab_strip->width();
   ASSERT_TRUE(PressInputAtCenter(tab_strip->tab_at(1)));
   ASSERT_TRUE(DragInputToCenter(
-      tab_strip->tab_at(1), gfx::Vector2d(tab_style->GetStandardWidth(), 0)));
+      tab_strip->tab_at(1),
+      gfx::Vector2d(tab_style->GetStandardWidth(/*is_split*/ false), 0)));
   BrowserView::GetBrowserViewForBrowser(browser())
       ->GetWidget()
       ->LayoutRootViewIfNecessary();
-  EXPECT_EQ(tab_strip_width + tab_style->GetStandardWidth(),
+  EXPECT_EQ(tab_strip_width + tab_style->GetStandardWidth(/*is_split*/ false),
             tab_strip->width());
   ASSERT_TRUE(ReleaseInput());
 }
@@ -5500,7 +5678,7 @@ IN_PROC_BROWSER_TEST_F(SideBySideTabDragControllerTest,
   AddTabs(browser(), 2);
 
   split_tabs::SplitTabId id = split_tabs::SplitTabId::GenerateNew();
-  tab_strip->SetSplit({0, 1}, id);
+  tab_strip->OnSplitCreated({0, 1}, id);
   StopAnimating(tab_strip);
 
   Tab* const last_split_tab = tab_strip->tab_at(1);
@@ -5523,7 +5701,7 @@ IN_PROC_BROWSER_TEST_F(SideBySideTabDragControllerTest,
 }
 
 // Flaky. https://crbug.com/40748225
-#if BUILDFLAG(IS_MAC)
+#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 #define MAYBE_DragBetweenMultipleSplitTabs DISABLED_DragBetweenMultipleSplitTabs
 #else
 #define MAYBE_DragBetweenMultipleSplitTabs DragBetweenMultipleSplitTabs
@@ -5535,10 +5713,10 @@ IN_PROC_BROWSER_TEST_F(SideBySideTabDragControllerTest,
   AddTabs(browser(), 4);
 
   split_tabs::SplitTabId first_id = split_tabs::SplitTabId::GenerateNew();
-  tab_strip->SetSplit({0, 1}, first_id);
+  tab_strip->OnSplitCreated({0, 1}, first_id);
 
   split_tabs::SplitTabId second_id = split_tabs::SplitTabId::GenerateNew();
-  tab_strip->SetSplit({2, 3}, second_id);
+  tab_strip->OnSplitCreated({2, 3}, second_id);
 
   StopAnimating(tab_strip);
 

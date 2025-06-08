@@ -95,7 +95,6 @@ class TestInstantMessageQueueProcessor : public InstantMessageQueueProcessor {
 class InstantMessageQueueProcessorTest : public testing::Test {
  protected:
   void SetUp() override {
-    feature_list_.InitAndEnableFeature(toast_features::kToastFramework);
     layout_provider_ = ChromeLayoutProvider::CreateLayoutProvider();
 
     TestingProfile::Builder builder;
@@ -138,7 +137,6 @@ class InstantMessageQueueProcessorTest : public testing::Test {
   std::unique_ptr<TestingProfile> testing_profile_;
   raw_ptr<data_sharing::MockDataSharingService> sharing_service_;
   std::unique_ptr<TestInstantMessageQueueProcessor> processor_;
-  base::test::ScopedFeatureList feature_list_;
 };
 
 TEST_F(InstantMessageQueueProcessorTest, IgnoresUnsupportedEvents) {

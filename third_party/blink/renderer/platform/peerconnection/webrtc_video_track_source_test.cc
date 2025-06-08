@@ -12,11 +12,12 @@
 #include "base/test/bind.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/task_environment.h"
+#include "components/viz/common/resources/shared_image_format_utils.h"
+#include "gpu/command_buffer/client/fake_gpu_memory_buffer.h"
 #include "gpu/command_buffer/client/test_shared_image_interface.h"
 #include "media/base/format_utils.h"
 #include "media/base/media_switches.h"
 #include "media/base/video_frame.h"
-#include "media/video/fake_gpu_memory_buffer.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/renderer/platform/testing/video_frame_utils.h"
@@ -60,7 +61,7 @@ TEST(WebRtcVideoTrackSourceRefreshFrameTest, CallsRefreshFrame) {
 class WebRtcVideoTrackSourceTest
     : public ::testing::TestWithParam<
           std::tuple<media::VideoFrame::StorageType, media::VideoPixelFormat>>,
-      public media::FakeGpuMemoryBuffer::MapCallbackController {
+      public gpu::FakeGpuMemoryBuffer::MapCallbackController {
  public:
   WebRtcVideoTrackSourceTest()
       : shared_resources_(
@@ -120,17 +121,27 @@ class WebRtcVideoTrackSourceTest
   void SendTestFrameWithMappableGMB(const FrameParameters& frame_parameters,
                                     base::TimeDelta timestamp,
                                     bool premapped) {
-    std::unique_ptr<media::FakeGpuMemoryBuffer> fake_gmb =
-        std::make_unique<media::FakeGpuMemoryBuffer>(
-            frame_parameters.coded_size,
-            media::VideoPixelFormatToGfxBufferFormat(
-                frame_parameters.pixel_format)
-                .value(),
-            premapped, this);
-    scoped_refptr<media::VideoFrame> frame = CreateTestFrameWithGMB(
-        frame_parameters.coded_size, frame_parameters.visible_rect,
-        frame_parameters.natural_size, frame_parameters.storage_type,
-        frame_parameters.pixel_format, timestamp, std::move(fake_gmb));
+    std::optional<gfx::BufferFormat> buffer_format =
+        media::VideoPixelFormatToGfxBufferFormat(frame_parameters.pixel_format);
+    CHECK(buffer_format) << "Pixel format "
+                         << media::VideoPixelFormatToString(
+                                frame_parameters.pixel_format)
+                         << " has no corresponding gfx::BufferFormat";
+
+    // Setting some default usage in order to get a mappable shared image.
+    auto si_usage = gpu::SHARED_IMAGE_USAGE_CPU_WRITE_ONLY |
+                    gpu::SHARED_IMAGE_USAGE_DISPLAY_READ;
+    auto shared_image = test_sii_->CreateSharedImageWithMapCallbackController(
+        {viz::GetSharedImageFormat(*buffer_format), frame_parameters.coded_size,
+         gfx::ColorSpace(), gpu::SharedImageUsageSet(si_usage),
+         "WebRtcVideoTrackSourceTest"},
+        gfx::BufferUsage::GPU_READ_CPU_READ_WRITE, premapped, this);
+    CHECK(shared_image) << "Failed to create a mappable shared image.";
+    auto frame = media::VideoFrame::WrapMappableSharedImage(
+        std::move(shared_image), test_sii_->GenVerifiedSyncToken(),
+        base::NullCallback(), frame_parameters.visible_rect,
+        frame_parameters.natural_size, timestamp);
+
     track_source_->OnFrameCaptured(frame);
   }
 
@@ -688,16 +699,13 @@ TEST_P(WebRtcVideoTrackSourceTest, PassesMappedFramesInOrder) {
   // This will be the 1st async frame.
   SendTestFrameWithMappableGMB(frame_parameters, base::Seconds(1),
                                /*premapped=*/false);
-
   SetRequireMappedFrame(true);
   // This will be the 2nd async frame.
   SendTestFrameWithMappableGMB(frame_parameters, base::Seconds(2),
                                /*premapped=*/false);
-
   SetRequireMappedFrame(true);
   SendTestFrameWithMappableGMB(frame_parameters, base::Seconds(3),
                                /*premapped=*/true);
-
   // This will return the 1st async frame.
   InvokeNextMapCallback();
 
@@ -754,15 +762,12 @@ TEST_P(WebRtcVideoTrackSourceTest, DoesntCrashOnLateCallbacks) {
     // Mapping is only valid for GMB backed frames.
     return;
   }
-
   SetRequireMappedFrame(true);
   SendTestFrameWithMappableGMB(frame_parameters, base::Seconds(0),
                                /*premapped=*/false);
-
   track_source_->Dispose();
   track_source_->RemoveSink(&mock_sink_);
   track_source_.reset();
-
   InvokeNextMapCallback();
 }
 

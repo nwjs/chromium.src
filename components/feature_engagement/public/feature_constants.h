@@ -16,6 +16,9 @@
 
 namespace feature_engagement {
 
+// Returns true if adding on-device storage is enabled.
+bool IsOnDeviceStorageEnabled();
+
 #define FEATURE_CONSTANTS_DECLARE_FEATURE(feature_name)  \
   COMPONENT_EXPORT(FEATURE_ENGAGEMENT_FEATURE_CONSTANTS) \
   BASE_DECLARE_FEATURE(feature_name)
@@ -49,6 +52,23 @@ FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHHistorySearchFeature);
 #if BUILDFLAG(ENABLE_EXTENSIONS)
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHExtensionsMenuFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHExtensionsRequestAccessButtonFeature);
+FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHExtensionsZeroStatePromoFeature);
+// The variant of In-Product-Help (IPH) shown to users with zero extensions
+// installed.
+enum IPHExtensionsZeroStatePromoVariant {
+  // A custom action IPH. Triggering the action opens a new tab to the Chrome
+  // Web Store home page.
+  kCustomActionIph,
+  // A custom UI IPH, presenting the user with different collections of
+  // extension collections in cr-chip buttons.
+  kCustomUiChipIph,
+  // A custom UI IPH, presenting the user with different collections of
+  // extension collections in plain text links.
+  kCustomUIPlainLinkIph,
+};
+COMPONENT_EXPORT(FEATURE_ENGAGEMENT_FEATURE_CONSTANTS)
+BASE_DECLARE_FEATURE_PARAM(IPHExtensionsZeroStatePromoVariant,
+                           kIPHExtensionsZeroStatePromoVariantParam);
 #endif
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHFocusHelpBubbleScreenReaderPromoFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHGlicPromoFeature);
@@ -111,7 +131,6 @@ FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHTabGroupsSharedTabFeedbackFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHTabOrganizationSuccessFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHTabSearchFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHTabSearchToolbarButtonFeature);
-FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHWebUITabStripFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHDesktopSnoozeFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHDesktopPwaInstallFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHProfileSwitchFeature);
@@ -194,6 +213,7 @@ FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHPreviewsOmniboxUIFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHQuietNotificationPromptsFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHReadAloudAppMenuFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHReadAloudExpandedPlayerFeature);
+FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHReadAloudPlaybackModeFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHReadLaterContextMenuFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHReadLaterAppMenuBookmarkThisPageFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHReadLaterAppMenuBookmarksFeature);
@@ -242,6 +262,7 @@ FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHSharedHighlightingReceiverFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHSharingHubWebnotesStylizeFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHRestoreTabsOnFREFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHRtlGestureNavigationFeature);
+FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHTabSwitcherXR);
 #endif  // BUILDFLAG(IS_ANDROID)
 
 #if BUILDFLAG(IS_IOS) || BUILDFLAG(IS_ANDROID)
@@ -316,6 +337,7 @@ FEATURE_CONSTANTS_DECLARE_FEATURE(
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHiOSFeedSwipeStaticFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHiOSFeedSwipeAnimatedFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHiOSWelcomeBackFeature);
+FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHIOSGLICPromoFeature);
 
 // A feature flag to enable and parametrize the sliding window of time for a
 // user's eligibility to be shown a default browser promo. This is not an FET

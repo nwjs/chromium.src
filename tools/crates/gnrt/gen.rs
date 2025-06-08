@@ -40,7 +40,7 @@ fn generate_for_std(args: GenCommandArgs, paths: &paths::ChromiumPaths) -> Resul
     // dependencies.
     let rust_src_root = args.for_std.as_ref().unwrap();
 
-    println!("Generating stdlib GN rules from {}", rust_src_root);
+    println!("Generating stdlib GN rules from {rust_src_root}");
 
     let cargo_config = std::fs::read_to_string(paths.std_fake_root_config_template)
         .unwrap()
@@ -178,9 +178,9 @@ fn generate_for_std(args: GenCommandArgs, paths: &paths::ChromiumPaths) -> Resul
         .filter(|p| p.lib_target.is_some())
         .map(|p| {
             crates::collect_crate_files(p, &config, crates::IncludeCrateTargets::LibOnly)
-                .expect("missing a stdlib input file, did you gclient sync?")
+                .with_context(|| format!("Failed to collect crate files for {p}"))
         })
-        .collect();
+        .collect::<Result<_>>()?;
 
     let build_file = gn::build_file_from_deps(
         dependencies.iter(),
@@ -317,13 +317,15 @@ fn generate_for_third_party(args: GenCommandArgs, paths: &paths::ChromiumPaths) 
 /// Runs `gn format` command to format a `BUILD.gn` file at the given path.
 fn format_build_file(path_to_build_gn_file: &Path) -> Result<()> {
     let cmd_name = "gn format";
-    let child = check_spawn(
+    check_spawn(
         Command::new(if cfg!(windows) { "gn.bat" } else { "gn" })
             .arg("format")
             .arg(path_to_build_gn_file)
             // Discard `Wrote formatted to '//.../BUILD>gn'` messages.
             .stdout(Stdio::null()),
         cmd_name,
-    )?;
-    check_exit_ok(&check_wait_with_output(child, cmd_name)?, cmd_name)
+    )
+    .and_then(|child| check_wait_with_output(child, cmd_name))
+    .and_then(|output| check_exit_ok(&output, cmd_name))
+    .with_context(|| format!("Error formatting `{}`", path_to_build_gn_file.display()))
 }

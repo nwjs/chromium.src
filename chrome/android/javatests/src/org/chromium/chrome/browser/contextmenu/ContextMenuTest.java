@@ -7,11 +7,16 @@ package org.chromium.chrome.browser.contextmenu;
 import static androidx.test.espresso.matcher.ViewMatchers.assertThat;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import static org.chromium.chrome.browser.contextmenu.ContextMenuCoordinator.ListItemType.CONTEXT_MENU_ITEM;
+import static org.chromium.ui.listmenu.ListMenuItemProperties.MENU_ITEM_ID;
+import static org.chromium.ui.listmenu.ListMenuItemProperties.TITLE;
 
 import android.content.ClipData;
 import android.content.ClipboardManager;
@@ -39,6 +44,7 @@ import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
+import org.mockito.stubbing.Answer;
 
 import org.chromium.base.Callback;
 import org.chromium.base.ThreadUtils;
@@ -53,12 +59,15 @@ import org.chromium.base.test.util.Feature;
 import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.base.test.util.HistogramWatcher;
+import org.chromium.base.test.util.Manual;
 import org.chromium.base.test.util.RequiresRestart;
 import org.chromium.base.test.util.Restriction;
 import org.chromium.chrome.browser.compositor.layouts.LayoutManagerImpl;
 import org.chromium.chrome.browser.download.DownloadTestRule;
 import org.chromium.chrome.browser.download.DownloadTestRule.CustomMainActivityStart;
 import org.chromium.chrome.browser.download.DownloadUtils;
+import org.chromium.chrome.browser.enterprise.util.DataProtectionBridge;
+import org.chromium.chrome.browser.enterprise.util.DataProtectionBridgeJni;
 import org.chromium.chrome.browser.ephemeraltab.EphemeralTabCoordinator;
 import org.chromium.chrome.browser.firstrun.FirstRunStatus;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
@@ -88,8 +97,13 @@ import org.chromium.content_public.browser.test.util.DOMUtils;
 import org.chromium.content_public.browser.test.util.TestTouchUtils;
 import org.chromium.content_public.common.ContentFeatures;
 import org.chromium.net.test.EmbeddedTestServer;
+import org.chromium.printing.Printable;
+import org.chromium.printing.PrintingController;
+import org.chromium.printing.PrintingControllerImpl;
 import org.chromium.ui.base.Clipboard;
 import org.chromium.ui.base.DeviceFormFactor;
+import org.chromium.ui.base.DeviceInput;
+import org.chromium.ui.base.UiAndroidFeatures;
 import org.chromium.ui.mojom.MenuSourceType;
 import org.chromium.url.GURL;
 
@@ -111,6 +125,8 @@ public class ContextMenuTest {
 
     @Mock private TabContextMenuItemDelegate mItemDelegate;
     @Mock private ShareDelegate mShareDelegate;
+    @Mock private PrintingController mPrintingController;
+    @Mock private DataProtectionBridge.Natives mDataProtectionBridgeMock;
 
     @ClassRule
     public static DownloadTestRule sDownloadTestRule =
@@ -174,6 +190,19 @@ public class ContextMenuTest {
     private static final String[] TEST_FILES =
             new String[] {FILENAME_GIF, FILENAME_PNG, FILENAME_WEBM};
 
+    private static final Answer<Object> sCopyIsAllowedByPolicy =
+            (invocation) -> {
+                Callback<Boolean> callback = invocation.getArgument(2);
+                callback.onResult(true);
+                return null;
+            };
+    private static final Answer<Object> sCopyIsNotAllowedByPolicy =
+            (invocation) -> {
+                Callback<Boolean> callback = invocation.getArgument(2);
+                callback.onResult(false);
+                return null;
+            };
+
     @BeforeClass
     public static void beforeClass() {
         Looper.prepare();
@@ -191,6 +220,7 @@ public class ContextMenuTest {
         CriteriaHelper.pollUiThread(() -> tab.isUserInteractable() && !tab.isLoading());
         setupLensChipDelegate();
         DownloadUtils.setIsDownloadRestrictedByPolicyForTesting(false);
+        DataProtectionBridgeJni.setInstanceForTesting(mDataProtectionBridgeMock);
     }
 
     @After
@@ -209,6 +239,13 @@ public class ContextMenuTest {
     @Test
     @MediumTest
     public void testCopyLinkURL() throws Throwable {
+        doAnswer(sCopyIsAllowedByPolicy)
+                .when(mDataProtectionBridgeMock)
+                .verifyCopyUrlIsAllowedByPolicy(anyString(), any(), any());
+
+        // Clear the clipboard.
+        Clipboard.getInstance().setText("");
+
         Tab tab = sDownloadTestRule.getActivity().getActivityTab();
         // Allow DiskWrites temporarily in main thread to avoid
         // violation during copying under emulator environment.
@@ -222,6 +259,33 @@ public class ContextMenuTest {
         }
 
         assertStringContains("test_link.html", getClipboardText());
+    }
+
+    @Test
+    @MediumTest
+    @EnableFeatures(ChromeFeatureList.ENABLE_CLIPBOARD_DATA_CONTROLS_ANDROID)
+    @Manual(message = "crbug.com/414443097")
+    public void testCopyLinkURL_notAllowedByPolicy() throws Throwable {
+        doAnswer(sCopyIsNotAllowedByPolicy)
+                .when(mDataProtectionBridgeMock)
+                .verifyCopyUrlIsAllowedByPolicy(anyString(), any(), any());
+
+        // Clear the clipboard.
+        Clipboard.getInstance().setText("");
+
+        Tab tab = sDownloadTestRule.getActivity().getActivityTab();
+        // Allow DiskWrites temporarily in main thread to avoid
+        // violation during copying under emulator environment.
+        try (CloseableOnMainThread ignored = CloseableOnMainThread.StrictMode.allowDiskWrites()) {
+            ContextMenuUtils.selectContextMenuItem(
+                    InstrumentationRegistry.getInstrumentation(),
+                    sDownloadTestRule.getActivity(),
+                    tab,
+                    "testLink",
+                    R.id.contextmenu_copy_link_address);
+        }
+
+        assertStringDoesNotContain("test_link.html", getClipboardText());
     }
 
     @Test
@@ -249,6 +313,77 @@ public class ContextMenuTest {
     @RequiresRestart
     public void testLongPressOnImage() throws TimeoutException {
         checkOpenImageInNewTab("testImage", "/chrome/test/data/android/contextmenu/test_image.png");
+    }
+
+    @Test
+    @MediumTest
+    @Feature({"Browser"})
+    @EnableFeatures(ChromeFeatureList.ENABLE_CLIPBOARD_DATA_CONTROLS_ANDROID)
+    public void testLongPressOnImage_notAllowedByPolicy() throws TimeoutException {
+        doAnswer(sCopyIsNotAllowedByPolicy)
+                .when(mDataProtectionBridgeMock)
+                .verifyCopyImageIsAllowedByPolicy(anyString(), any(), any());
+
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    sDownloadTestRule
+                            .getActivity()
+                            .getTabModelSelector()
+                            .addObserver(
+                                    new TabModelSelectorObserver() {
+                                        @Override
+                                        public void onNewTabCreated(
+                                                Tab tab, @TabCreationState int creationState) {
+                                            Assert.fail();
+                                        }
+                                    });
+                });
+
+        ContextMenuUtils.selectContextMenuItem(
+                InstrumentationRegistry.getInstrumentation(),
+                sDownloadTestRule.getActivity(),
+                sDownloadTestRule.getActivity().getActivityTab(),
+                "testImage",
+                R.id.contextmenu_open_image_in_new_tab);
+
+        verify(mDataProtectionBridgeMock)
+                .verifyCopyImageIsAllowedByPolicy(anyString(), any(), any());
+    }
+
+    @Test
+    @MediumTest
+    @Feature({"Browser"})
+    @EnableFeatures(ChromeFeatureList.ENABLE_CLIPBOARD_DATA_CONTROLS_ANDROID)
+    public void testOpenInEphemeralTab_notAllowedByPolicy() throws TimeoutException {
+        doAnswer(sCopyIsNotAllowedByPolicy)
+                .when(mDataProtectionBridgeMock)
+                .verifyCopyImageIsAllowedByPolicy(anyString(), any(), any());
+
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    sDownloadTestRule
+                            .getActivity()
+                            .getTabModelSelector()
+                            .addObserver(
+                                    new TabModelSelectorObserver() {
+                                        @Override
+                                        public void onNewTabCreated(
+                                                Tab tab, @TabCreationState int creationState) {
+                                            Assert.fail();
+                                        }
+                                    });
+                });
+
+        ContextMenuUtils.selectContextMenuItem(
+                InstrumentationRegistry.getInstrumentation(),
+                sDownloadTestRule.getActivity(),
+                sDownloadTestRule.getActivity().getActivityTab(),
+                "testImage",
+                R.id.contextmenu_open_image_in_ephemeral_tab);
+
+        verify(mDataProtectionBridgeMock)
+                .verifyCopyImageIsAllowedByPolicy(anyString(), any(), any());
+        verify(mItemDelegate, Mockito.never()).onOpenInEphemeralTab(any(), anyString());
     }
 
     @Test
@@ -872,6 +1007,10 @@ public class ContextMenuTest {
     @SmallTest
     @Feature({"Browser", "ContextMenu"})
     public void testCopyImage() throws Throwable {
+        doAnswer(sCopyIsAllowedByPolicy)
+                .when(mDataProtectionBridgeMock)
+                .verifyCopyImageIsAllowedByPolicy(anyString(), any(), any());
+
         // Clear the clipboard.
         Clipboard.getInstance().setText("");
 
@@ -913,6 +1052,38 @@ public class ContextMenuTest {
     @Test
     @SmallTest
     @Feature({"Browser", "ContextMenu"})
+    @EnableFeatures(ChromeFeatureList.ENABLE_CLIPBOARD_DATA_CONTROLS_ANDROID)
+    public void testCopyImage_notAllowedByPolicy() throws Throwable {
+        doAnswer(sCopyIsNotAllowedByPolicy)
+                .when(mDataProtectionBridgeMock)
+                .verifyCopyImageIsAllowedByPolicy(anyString(), any(), any());
+
+        // Clear the clipboard.
+        Clipboard.getInstance().setText("");
+
+        hardcodeTestImageForSharing(TEST_GIF_IMAGE_FILE_EXTENSION);
+        Tab tab = sDownloadTestRule.getActivity().getActivityTab();
+        // Allow all thread policies temporarily in main thread to avoid
+        // DiskWrite and UnBufferedIo violations during copying under
+        // emulator environment.
+        try (CloseableOnMainThread ignored =
+                CloseableOnMainThread.StrictMode.allowAllThreadPolicies()) {
+            ContextMenuUtils.selectContextMenuItem(
+                    InstrumentationRegistry.getInstrumentation(),
+                    sDownloadTestRule.getActivity(),
+                    tab,
+                    "dataUrlIcon",
+                    R.id.contextmenu_copy_image);
+        }
+
+        verify(mDataProtectionBridgeMock, times(1))
+                .verifyCopyImageIsAllowedByPolicy(anyString(), any(), any());
+        Assert.assertNull(Clipboard.getInstance().getImageUri());
+    }
+
+    @Test
+    @SmallTest
+    @Feature({"Browser", "ContextMenu"})
     public void testContextMenuOpenedFromHighlight() {
         when(mItemDelegate.isIncognito()).thenReturn(false);
         when(mItemDelegate.getPageTitle()).thenReturn("");
@@ -937,6 +1108,7 @@ public class ContextMenuTest {
                         MenuSourceType.TOUCH,
                         /* openedFromHighlight= */ true,
                         /* openedFromInterestTarget= */ false,
+                        /* interestTargetNodeID= */ 0,
                         /* additionalNavigationParams= */ null);
         ContextMenuPopulatorFactory populatorFactory =
                 new ChromeContextMenuPopulatorFactory(
@@ -1059,7 +1231,9 @@ public class ContextMenuTest {
     @SmallTest
     @Restriction(DeviceFormFactor.DESKTOP)
     @EnableFeatures({ChromeFeatureList.CONTEXT_MENU_EMPTY_SPACE})
+    @DisableFeatures({UiAndroidFeatures.ANDROID_WINDOW_OCCLUSION})
     public void testSharePage() throws Exception {
+        DeviceInput.setSupportsPrecisionPointerForTesting(true);
         Tab tab = sDownloadTestRule.getActivity().getActivityTab();
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
@@ -1100,6 +1274,33 @@ public class ContextMenuTest {
                 chromeExtrasCaptor.getValue().saveLastUsed());
     }
 
+    @Test
+    @MediumTest
+    @Restriction(DeviceFormFactor.DESKTOP)
+    @EnableFeatures({ChromeFeatureList.CONTEXT_MENU_EMPTY_SPACE})
+    @DisableFeatures({UiAndroidFeatures.ANDROID_WINDOW_OCCLUSION})
+    public void testPrintPage() throws Exception {
+        DeviceInput.setSupportsPrecisionPointerForTesting(true);
+        Tab tab = sDownloadTestRule.getActivity().getActivityTab();
+        ThreadUtils.runOnUiThreadBlocking(
+                // Set printing controller to use the mock instance.
+                () -> {
+                    PrintingControllerImpl.setInstanceForTesting(mPrintingController);
+                });
+
+        ContextMenuUtils.selectContextMenuItemFromRightClick(
+                InstrumentationRegistry.getInstrumentation(),
+                sDownloadTestRule.getActivity(),
+                tab,
+                "testEmptySpace",
+                R.id.contextmenu_print_page);
+
+        // Check that the started print job has the same title as the current tab.
+        ArgumentCaptor<Printable> printableCaptor = ArgumentCaptor.forClass(Printable.class);
+        verify(mPrintingController).startPrint(printableCaptor.capture(), any());
+        Assert.assertEquals(tab.getTitle(), printableCaptor.getValue().getTitle());
+    }
+
     // TODO(benwgold): Add more test coverage for histogram recording of other context menu types.
 
     /**
@@ -1113,7 +1314,7 @@ public class ContextMenuTest {
         List<Integer> actualItems = new ArrayList<>();
         for (int i = 0; i < menu.getCount(); i++) {
             if (menu.getItem(i).type >= CONTEXT_MENU_ITEM) {
-                actualItems.add(menu.getItem(i).model.get(ContextMenuItemProperties.MENU_ID));
+                actualItems.add(menu.getItem(i).model.get(MENU_ITEM_ID));
             }
         }
 
@@ -1127,8 +1328,7 @@ public class ContextMenuTest {
         StringBuilder items = new StringBuilder();
         for (int i = 0; i < menu.getCount(); i++) {
             if (menu.getItem(i).type >= CONTEXT_MENU_ITEM) {
-                items.append("\n")
-                        .append(menu.getItem(i).model.get(ContextMenuItemProperties.TEXT));
+                items.append("\n").append(menu.getItem(i).model.get(TITLE));
             }
         }
         return items.toString();
@@ -1138,8 +1338,8 @@ public class ContextMenuTest {
         StringBuilder itemName = new StringBuilder();
         for (int i = 0; i < menu.getCount(); i++) {
             if (menu.getItem(i).type >= CONTEXT_MENU_ITEM) {
-                if (menu.getItem(i).model.get(ContextMenuItemProperties.MENU_ID) == itemId) {
-                    itemName.append(menu.getItem(i).model.get(ContextMenuItemProperties.TEXT));
+                if (menu.getItem(i).model.get(MENU_ITEM_ID) == itemId) {
+                    itemName.append(menu.getItem(i).model.get(TITLE));
                     return itemName.toString();
                 }
             }
@@ -1220,6 +1420,12 @@ public class ContextMenuTest {
     private void assertStringContains(String subString, String superString) {
         Assert.assertTrue(
                 "String '" + superString + "' does not contain '" + subString + "'",
+                superString.contains(subString));
+    }
+
+    private void assertStringDoesNotContain(String subString, String superString) {
+        Assert.assertFalse(
+                "String '" + superString + "' contains '" + subString + "'",
                 superString.contains(subString));
     }
 

@@ -16,6 +16,8 @@
 #include "third_party/blink/public/common/privacy_budget/identifiable_token_builder.h"
 #include "third_party/blink/public/platform/web_graphics_context_3d_provider.h"
 #include "third_party/blink/renderer/bindings/modules/v8/webgl_any.h"
+#include "third_party/blink/renderer/core/dom/document.h"
+#include "third_party/blink/renderer/core/dom/element.h"
 #include "third_party/blink/renderer/core/html/canvas/html_canvas_element.h"
 #include "third_party/blink/renderer/core/html/canvas/image_data.h"
 #include "third_party/blink/renderer/core/html/html_image_element.h"
@@ -28,6 +30,7 @@
 #include "third_party/blink/renderer/modules/webgl/webgl_program.h"
 #include "third_party/blink/renderer/modules/webgl/webgl_query.h"
 #include "third_party/blink/renderer/modules/webgl/webgl_renderbuffer.h"
+#include "third_party/blink/renderer/modules/webgl/webgl_rendering_context_base.h"
 #include "third_party/blink/renderer/modules/webgl/webgl_sampler.h"
 #include "third_party/blink/renderer/modules/webgl/webgl_sync.h"
 #include "third_party/blink/renderer/modules/webgl/webgl_texture.h"
@@ -3539,8 +3542,9 @@ void WebGL2RenderingContextBase::deleteQuery(WebGLQuery* query) {
 }
 
 bool WebGL2RenderingContextBase::isQuery(WebGLQuery* query) {
-  if (!query || isContextLost() || !query->Validate(ContextGroup(), this))
+  if (!query || isContextLost() || !query->Validate(this)) {
     return false;
+  }
 
   if (query->MarkedForDeletion())
     return false;
@@ -3757,8 +3761,9 @@ void WebGL2RenderingContextBase::deleteSampler(WebGLSampler* sampler) {
 }
 
 bool WebGL2RenderingContextBase::isSampler(WebGLSampler* sampler) {
-  if (!sampler || isContextLost() || !sampler->Validate(ContextGroup(), this))
+  if (!sampler || isContextLost() || !sampler->Validate(this)) {
     return false;
+  }
 
   if (sampler->MarkedForDeletion())
     return false;
@@ -3965,8 +3970,9 @@ WebGLSync* WebGL2RenderingContextBase::fenceSync(GLenum condition,
 }
 
 bool WebGL2RenderingContextBase::isSync(WebGLSync* sync) {
-  if (!sync || isContextLost() || !sync->Validate(ContextGroup(), this))
+  if (!sync || isContextLost() || !sync->Validate(this)) {
     return false;
+  }
 
   if (sync->MarkedForDeletion())
     return false;
@@ -4062,8 +4068,7 @@ void WebGL2RenderingContextBase::deleteTransformFeedback(
     WebGLTransformFeedback* feedback) {
   // We have to short-circuit the deletion process if the transform feedback is
   // active. This requires duplication of some validation logic.
-  if (!isContextLost() && feedback &&
-      feedback->Validate(ContextGroup(), this)) {
+  if (!isContextLost() && feedback && feedback->Validate(this)) {
     if (feedback->active()) {
       SynthesizeGLError(
           GL_INVALID_OPERATION, "deleteTransformFeedback",
@@ -4081,8 +4086,9 @@ void WebGL2RenderingContextBase::deleteTransformFeedback(
 
 bool WebGL2RenderingContextBase::isTransformFeedback(
     WebGLTransformFeedback* feedback) {
-  if (!feedback || isContextLost() || !feedback->Validate(ContextGroup(), this))
+  if (!feedback || isContextLost() || !feedback->Validate(this)) {
     return false;
+  }
 
   if (!feedback->HasEverBeenBound())
     return false;
@@ -4692,7 +4698,7 @@ void WebGL2RenderingContextBase::deleteVertexArray(
   // deleted, so we must replicate most of its checks here.
   if (isContextLost() || !vertex_array)
     return;
-  if (!vertex_array->Validate(ContextGroup(), this)) {
+  if (!vertex_array->Validate(this)) {
     SynthesizeGLError(GL_INVALID_OPERATION, "deleteVertexArray",
                       "object does not belong to this context");
     return;
@@ -4709,9 +4715,9 @@ void WebGL2RenderingContextBase::deleteVertexArray(
 
 bool WebGL2RenderingContextBase::isVertexArray(
     WebGLVertexArrayObject* vertex_array) {
-  if (isContextLost() || !vertex_array ||
-      !vertex_array->Validate(ContextGroup(), this))
+  if (isContextLost() || !vertex_array || !vertex_array->Validate(this)) {
     return false;
+  }
 
   if (!vertex_array->HasEverBeenBound())
     return false;
@@ -5469,11 +5475,11 @@ ScriptValue WebGL2RenderingContextBase::getFramebufferAttachmentParameter(
     }
   }
 
-  WebGLSharedObject* attachment_object = nullptr;
+  WebGLObject* attachment_object = nullptr;
   if (attachment == GL_DEPTH_STENCIL_ATTACHMENT) {
-    WebGLSharedObject* depth_attachment =
+    WebGLObject* depth_attachment =
         framebuffer_binding->GetAttachmentObject(GL_DEPTH_ATTACHMENT);
-    WebGLSharedObject* stencil_attachment =
+    WebGLObject* stencil_attachment =
         framebuffer_binding->GetAttachmentObject(GL_STENCIL_ATTACHMENT);
     if (depth_attachment != stencil_attachment) {
       SynthesizeGLError(

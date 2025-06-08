@@ -281,6 +281,11 @@ gn_args.config(
 )
 
 gn_args.config(
+    name = "cast_receiver_perf_optimized",
+    args_file = "//build/config/fuchsia/perf_optimized_cast_receiver_args.gn",
+)
+
+gn_args.config(
     name = "cast_receiver_size_optimized",
     args_file = "//build/config/fuchsia/size_optimized_cast_receiver_args.gn",
 )
@@ -1191,6 +1196,14 @@ gn_args.config(
         "try_builder",
         "no_symbols",
     ],
+)
+
+gn_args.config(
+    name = "release_with_dchecks",
+    args = {
+        "is_debug": False,
+        "dcheck_always_on": True,
+    },
 )
 
 gn_args.config(

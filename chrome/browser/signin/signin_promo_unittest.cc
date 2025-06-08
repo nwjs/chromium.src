@@ -22,7 +22,6 @@
 #include "components/autofill/core/browser/data_manager/personal_data_manager.h"
 #include "components/autofill/core/browser/data_model/addresses/autofill_profile.h"
 #include "components/autofill/core/browser/test_utils/test_profiles.h"
-#include "components/autofill/core/common/autofill_features.h"
 #include "components/signin/public/base/consent_level.h"
 #include "components/signin/public/base/signin_metrics.h"
 #include "components/signin/public/base/signin_pref_names.h"
@@ -353,6 +352,22 @@ TEST_F(ShowSigninPromoTestWithFeatureFlags,
   EXPECT_FALSE(ShouldShowPasswordSignInPromo(*profile()));
 }
 
+TEST_F(ShowSigninPromoTestWithFeatureFlags, DoNotShowPromoWithNoSyncService) {
+  TestingProfile::Builder profile_builder;
+  profile_builder.AddTestingFactory(
+      SyncServiceFactory::GetInstance(),
+      base::BindRepeating([](content::BrowserContext* context) {
+        return static_cast<std::unique_ptr<KeyedService>>(nullptr);
+      }));
+
+  std::unique_ptr<TestingProfile> profile =
+      IdentityTestEnvironmentProfileAdaptor::
+          CreateProfileForIdentityTestEnvironment(profile_builder);
+
+  ASSERT_EQ(nullptr, SyncServiceFactory::GetForProfile(profile.get()));
+  EXPECT_FALSE(ShouldShowPasswordSignInPromo(*profile));
+}
+
 TEST_F(ShowSigninPromoTestWithFeatureFlags,
        DoNotShowPromoWithOffTheRecordProfile) {
   EXPECT_FALSE(ShouldShowPasswordSignInPromo(
@@ -477,23 +492,6 @@ TEST_F(ShowSigninPromoTestWithFeatureFlags,
       ->address_data_manager()
       .AddMaxStrikesToBlockProfileMigration(address.guid());
   EXPECT_FALSE(ShouldShowAddressSignInPromo(*profile(), address));
-}
-
-// TODO(crbug.com/40100455): Remove when
-// kAutofillEnableAccountStorageForIneligibleCountries is cleaned up.
-TEST_F(ShowSigninPromoTestWithFeatureFlags,
-       DoNotShowAddressIfCountryNotEligibleForAccountStorage) {
-  base::test::ScopedFeatureList feature;
-  feature.InitAndDisableFeature(
-      autofill::features::kAutofillEnableAccountStorageForIneligibleCountries);
-  const std::string non_eligible_country_code("IR");
-
-  ASSERT_FALSE(
-      autofill::PersonalDataManagerFactory::GetForBrowserContext(profile())
-          ->address_data_manager()
-          .IsCountryEligibleForAccountStorage(non_eligible_country_code));
-  EXPECT_FALSE(ShouldShowAddressSignInPromo(
-      *profile(), CreateAddress(non_eligible_country_code)));
 }
 
 TEST_F(ShowSigninPromoTestWithFeatureFlags,

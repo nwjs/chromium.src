@@ -15,11 +15,14 @@ import 'chrome://resources/cr_elements/cr_link_row/cr_link_row.js';
 import 'chrome://resources/cr_elements/cr_shared_style.css.js';
 import 'chrome://resources/cr_elements/cr_hidden_style.css.js';
 import '../controls/settings_toggle_button.js';
+import '../icons.html.js';
 import '../privacy_icons.html.js';
 import '../safety_hub/safety_hub_module.js';
 import '../settings_page/settings_animated_pages.js';
 import '../settings_page/settings_subpage.js';
 import '../settings_shared.css.js';
+import '../site_settings/geolocation_page.js';
+import '../site_settings/notifications_page.js';
 import '../site_settings/settings_category_default_radio_group.js';
 import '../site_settings/smart_card_readers_page.js';
 import './privacy_guide/privacy_guide_dialog.js';
@@ -32,7 +35,6 @@ import {I18nMixin} from 'chrome://resources/cr_elements/i18n_mixin.js';
 import {WebUiListenerMixin} from 'chrome://resources/cr_elements/web_ui_listener_mixin.js';
 import {assert, assertNotReached} from 'chrome://resources/js/assert.js';
 import {focusWithoutInk} from 'chrome://resources/js/focus_without_ink.js';
-import {PluralStringProxyImpl} from 'chrome://resources/js/plural_string_proxy.js';
 import {PolymerElement} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
 
 import {BaseMixin} from '../base_mixin.js';
@@ -41,12 +43,12 @@ import type {FocusConfig} from '../focus_config.js';
 import {HatsBrowserProxyImpl, TrustSafetyInteraction} from '../hats_browser_proxy.js';
 import {loadTimeData} from '../i18n_setup.js';
 import type {MetricsBrowserProxy} from '../metrics_browser_proxy.js';
-import {MetricsBrowserProxyImpl, PrivacyGuideInteractions, SafetyHubEntryPoint} from '../metrics_browser_proxy.js';
+import {MetricsBrowserProxyImpl, PrivacyGuideInteractions} from '../metrics_browser_proxy.js';
 import {routes} from '../route.js';
 import {RouteObserverMixin, Router} from '../router.js';
-import type {NotificationPermission, SafetyHubBrowserProxy} from '../safety_hub/safety_hub_browser_proxy.js';
-import {SafetyHubBrowserProxyImpl, SafetyHubEvent} from '../safety_hub/safety_hub_browser_proxy.js';
-import {ChooserType, ContentSetting, ContentSettingsTypes, CookieControlsMode, SettingsState} from '../site_settings/constants.js';
+import type {SafetyHubBrowserProxy} from '../safety_hub/safety_hub_browser_proxy.js';
+import {SafetyHubBrowserProxyImpl} from '../safety_hub/safety_hub_browser_proxy.js';
+import {ChooserType, ContentSetting, ContentSettingsTypes, CookieControlsMode} from '../site_settings/constants.js';
 import type {SiteSettingsPrefsBrowserProxy} from '../site_settings/site_settings_prefs_browser_proxy.js';
 import {SiteSettingsPrefsBrowserProxyImpl} from '../site_settings/site_settings_prefs_browser_proxy.js';
 
@@ -183,11 +185,6 @@ export class SettingsPrivacyPageElement extends SettingsPrivacyPageElementBase {
         value: () => loadTimeData.getBoolean('enableWebPrintingContentSetting'),
       },
 
-      showNotificationPermissionsReview_: {
-        type: Boolean,
-        value: false,
-      },
-
       isPrivacySandboxRestricted_: {
         type: Boolean,
         value: () => loadTimeData.getBoolean('isPrivacySandboxRestricted'),
@@ -209,16 +206,6 @@ export class SettingsPrivacyPageElement extends SettingsPrivacyPageElementBase {
         value: () => loadTimeData.getBoolean('capturedSurfaceControlEnabled'),
       },
 
-      enableAiSettingsPageRefresh_: {
-        type: Boolean,
-        value: () => loadTimeData.getBoolean('enableAiSettingsPageRefresh'),
-      },
-
-      enableComposeProactiveNudge_: {
-        type: Boolean,
-        value: () => loadTimeData.getBoolean('enableComposeProactiveNudge'),
-      },
-
       /**
        * Whether the File System Access Persistent Permissions UI should be
        * displayed.
@@ -235,12 +222,6 @@ export class SettingsPrivacyPageElement extends SettingsPrivacyPageElementBase {
         type: Boolean,
         value: () =>
             loadTimeData.getBoolean('enableAutomaticFullscreenContentSetting'),
-      },
-
-      enablePermissionSiteSettingsRadioButton_: {
-        type: Boolean,
-        value: () =>
-            loadTimeData.getBoolean('enablePermissionSiteSettingsRadioButton'),
       },
 
       focusConfig_: {
@@ -282,14 +263,6 @@ export class SettingsPrivacyPageElement extends SettingsPrivacyPageElementBase {
         },
       },
 
-      /**
-       * Expose the Permissions SettingsState enum to HTML bindings.
-       */
-      settingsStateEnum_: {
-        type: Object,
-        value: SettingsState,
-      },
-
       searchFilter_: {
         type: String,
         value: '',
@@ -327,16 +300,6 @@ export class SettingsPrivacyPageElement extends SettingsPrivacyPageElementBase {
         },
       },
 
-      // <if expr="chrome_root_store_cert_management_ui">
-      enableCertManagementUIV2_: {
-        type: Boolean,
-        readOnly: true,
-        value: function() {
-          return loadTimeData.getBoolean('enableCertManagementUIV2');
-        },
-      },
-      // </if>
-
       enableKeyboardLockPrompt_: {
         type: Boolean,
         value: () => loadTimeData.getBoolean('enableKeyboardLockPrompt'),
@@ -359,13 +322,15 @@ export class SettingsPrivacyPageElement extends SettingsPrivacyPageElementBase {
 
       enableIncognitoTrackingProtections_: {
         type: Boolean,
-        value: () => loadTimeData.getBoolean('enableIncognitoTrackingProtections'),
+        value: () =>
+            loadTimeData.getBoolean('enableIncognitoTrackingProtections'),
       },
 
-      isNotificationAllowed_: Boolean,
-      isLocationAllowed_: Boolean,
-      notificationPermissionsReviewHeader_: String,
-      notificationPermissionsReviewSubheader_: String,
+      enableBundledSecuritySettings_: {
+        type: Boolean,
+        value: () => loadTimeData.getBoolean('enableBundledSecuritySettings'),
+      },
+
       allSitesPageTitle_: String,
     };
   }
@@ -389,23 +354,17 @@ export class SettingsPrivacyPageElement extends SettingsPrivacyPageElementBase {
   // </if>
   declare private enableWebBluetoothNewPermissionsBackend_: boolean;
   declare private enableWebPrintingContentSetting_: boolean;
-  declare private showNotificationPermissionsReview_: boolean;
   declare private isPrivacySandboxRestricted_: boolean;
   declare private isPrivacySandboxRestrictedNoticeEnabled_: boolean;
   declare private enableAutomaticFullscreenContentSetting_: boolean;
-  declare private enablePermissionSiteSettingsRadioButton_: boolean;
   private privateStateTokensEnabled_: boolean;
   declare private autoPictureInPictureEnabled_: boolean;
   declare private capturedSurfaceControlEnabled_: boolean;
-  declare private enableAiSettingsPageRefresh_: boolean;
-  declare private enableComposeProactiveNudge_: boolean;
   declare private shouldShowSafetyHub_: boolean;
   declare private enableWebAppInstallation_: boolean;
   declare private enableLocalNetworkAccessSetting_: boolean;
   declare private focusConfig_: FocusConfig;
   declare private searchFilter_: string;
-  declare private notificationPermissionsReviewHeader_: string;
-  declare private notificationPermissionsReviewSubheader_: string;
   private browserProxy_: PrivacyPageBrowserProxy =
       PrivacyPageBrowserProxyImpl.getInstance();
   private metricsBrowserProxy_: MetricsBrowserProxy =
@@ -414,15 +373,11 @@ export class SettingsPrivacyPageElement extends SettingsPrivacyPageElementBase {
       SiteSettingsPrefsBrowserProxyImpl.getInstance();
   private safetyHubBrowserProxy_: SafetyHubBrowserProxy =
       SafetyHubBrowserProxyImpl.getInstance();
-  declare private isNotificationAllowed_: boolean;
-  declare private isLocationAllowed_: boolean;
-  // <if expr="chrome_root_store_cert_management_ui">
-  declare private enableCertManagementUIV2_: boolean;
-  // </if>
   declare private enableKeyboardLockPrompt_: boolean;
   declare private enableRelatedWebsiteSetsV2Ui_: boolean;
   declare private allSitesPageTitle_: string;
   declare private enableIncognitoTrackingProtections_: boolean;
+  declare private enableBundledSecuritySettings_: boolean;
 
   override ready() {
     super.ready();
@@ -441,18 +396,6 @@ export class SettingsPrivacyPageElement extends SettingsPrivacyPageElementBase {
         (status: BlockAutoplayStatus) =>
             this.onBlockAutoplayStatusChanged_(status));
 
-    if (!this.isGuest_) {
-      this.addWebUiListener(
-          SafetyHubEvent.NOTIFICATION_PERMISSIONS_MAYBE_CHANGED,
-          (sites: NotificationPermission[]) =>
-              this.onReviewNotificationPermissionListChanged_(sites));
-
-      this.safetyHubBrowserProxy_.getNotificationPermissionReview().then(
-          (sites: NotificationPermission[]) =>
-              this.onReviewNotificationPermissionListChanged_(sites));
-    }
-
-    this.updateLocationAndNotificationState_();
     this.updateAllSitesPageTitle_();
   }
 
@@ -462,15 +405,6 @@ export class SettingsPrivacyPageElement extends SettingsPrivacyPageElementBase {
     this.showPrivacyGuideDialog_ =
         Router.getInstance().getCurrentRoute() === routes.PRIVACY_GUIDE &&
         this.isPrivacyGuideAvailable;
-
-    // Only record the metrics when the user navigates to the notification
-    // settings page that shows the entry point.
-    if (Router.getInstance().getCurrentRoute() ===
-            routes.SITE_SETTINGS_NOTIFICATIONS &&
-        this.showNotificationPermissionsReview_) {
-      this.metricsBrowserProxy_.recordSafetyHubEntryPointShown(
-          SafetyHubEntryPoint.NOTIFICATIONS);
-    }
   }
 
   /**
@@ -546,72 +480,6 @@ export class SettingsPrivacyPageElement extends SettingsPrivacyPageElementBase {
     Router.getInstance().navigateTo(routes.INCOGNITO_TRACKING_PROTECTIONS);
   }
 
-  private async updateLocationAndNotificationState_() {
-    const [notificationDefaultValue, locationDefaultValue] = await Promise.all([
-      this.siteSettingsPrefsBrowserProxy_.getDefaultValueForContentType(
-          ContentSettingsTypes.NOTIFICATIONS),
-      this.siteSettingsPrefsBrowserProxy_.getDefaultValueForContentType(
-          ContentSettingsTypes.GEOLOCATION),
-    ]);
-    this.isNotificationAllowed_ =
-        (notificationDefaultValue.setting === ContentSetting.ASK);
-    this.isLocationAllowed_ =
-        (locationDefaultValue.setting === ContentSetting.ASK);
-  }
-
-  private onLocationTopLevelRadioChanged_(event: CustomEvent<{value: string}>) {
-    const radioButtonName = event.detail.value;
-    switch (radioButtonName) {
-      case 'location-block-radio-button':
-        this.setPrefValue('generated.geolocation', SettingsState.BLOCK);
-        this.isLocationAllowed_ = false;
-        break;
-      case 'location-ask-radio-button':
-        this.setPrefValue('generated.geolocation', SettingsState.CPSS);
-        this.isLocationAllowed_ = true;
-        break;
-    }
-  }
-
-  private onNotificationTopLevelRadioChanged_(
-      event: CustomEvent<{value: string}>) {
-    const radioButtonName = event.detail.value;
-    switch (radioButtonName) {
-      case 'notification-block-radio-button':
-        this.setPrefValue('generated.notification', SettingsState.BLOCK);
-        this.isNotificationAllowed_ = false;
-        break;
-      case 'notification-ask-radio-button':
-        this.setPrefValue('generated.notification', SettingsState.CPSS);
-        this.isNotificationAllowed_ = true;
-        break;
-    }
-  }
-
-  private onLocationTopLevelRadioChanged2_(
-      event: CustomEvent<{value: boolean}>) {
-    const selected = event.detail.value;
-    if (selected) {
-      this.setPrefValue('generated.geolocation', SettingsState.CPSS);
-      this.isLocationAllowed_ = true;
-    } else {
-      this.setPrefValue('generated.geolocation', SettingsState.BLOCK);
-      this.isLocationAllowed_ = false;
-    }
-  }
-
-  private onNotificationTopLevelRadioChanged2_(
-      event: CustomEvent<{value: boolean}>) {
-    const selected = event.detail.value;
-    if (selected) {
-      this.setPrefValue('generated.notification', SettingsState.CPSS);
-      this.isNotificationAllowed_ = true;
-    } else {
-      this.setPrefValue('generated.notification', SettingsState.BLOCK);
-      this.isNotificationAllowed_ = false;
-    }
-  }
-
   private onPrivacyGuideClick_() {
     this.metricsBrowserProxy_.recordPrivacyGuideEntryExitHistogram(
         PrivacyGuideInteractions.SETTINGS_LINK_ROW_ENTRY);
@@ -620,27 +488,6 @@ export class SettingsPrivacyPageElement extends SettingsPrivacyPageElementBase {
     Router.getInstance().navigateTo(
         routes.PRIVACY_GUIDE, /* dynamicParams */ undefined,
         /* removeSearch */ true);
-  }
-
-  private async onReviewNotificationPermissionListChanged_(
-      permissions: NotificationPermission[]) {
-    // The notification permissions review is shown when there are items to
-    // review (provided the feature is enabled and should be shown). Once
-    // visible it remains that way to show completion info, even if the list is
-    // emptied.
-    if (this.showNotificationPermissionsReview_) {
-      return;
-    }
-    this.showNotificationPermissionsReview_ = !this.isGuest_ &&
-        permissions.length > 0;
-
-    this.notificationPermissionsReviewHeader_ =
-        await PluralStringProxyImpl.getInstance().getPluralString(
-            'safetyHubNotificationPermissionsPrimaryLabel', permissions.length);
-    this.notificationPermissionsReviewSubheader_ =
-        await PluralStringProxyImpl.getInstance().getPluralString(
-            'safetyHubNotificationPermissionsSecondaryLabel',
-            permissions.length);
   }
 
   private interactedWithPage_() {
@@ -698,17 +545,6 @@ export class SettingsPrivacyPageElement extends SettingsPrivacyPageElementBase {
   private shouldShowAdPrivacy_(): boolean {
     return !this.isPrivacySandboxRestricted_ ||
         this.isPrivacySandboxRestrictedNoticeEnabled_;
-  }
-
-  private shouldShowComposeProactiveNudge_(): boolean {
-    return this.enableComposeProactiveNudge_ &&
-        !this.enableAiSettingsPageRefresh_;
-  }
-
-  private onSafetyHubButtonClick_() {
-    this.metricsBrowserProxy_.recordSafetyHubEntryPointClicked(
-        SafetyHubEntryPoint.NOTIFICATIONS);
-    Router.getInstance().navigateTo(routes.SAFETY_HUB);
   }
 }
 

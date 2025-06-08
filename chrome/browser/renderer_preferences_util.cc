@@ -228,6 +228,10 @@ void UpdateFromSystemSettings(blink::RendererPreferences* prefs,
 #else
   prefs->focus_ring_color = SkColorSetRGB(0x10, 0x10, 0x10);
 #endif
+
+  prefs->view_source_line_wrap_enabled =
+      pref_service->GetBoolean(prefs::kViewSourceLineWrappingEnabled);
+
   std::string user_agent;
   if (nw::GetUserAgentFromManifest(&user_agent))
     prefs->user_agent_override.ua_string_override = user_agent;

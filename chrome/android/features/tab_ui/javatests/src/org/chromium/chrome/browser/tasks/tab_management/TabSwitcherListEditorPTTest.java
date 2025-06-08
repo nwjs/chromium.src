@@ -22,7 +22,7 @@ import org.mockito.junit.MockitoRule;
 import org.chromium.base.ThreadUtils;
 import org.chromium.base.test.util.Batch;
 import org.chromium.base.test.util.CommandLineFlags;
-import org.chromium.base.test.util.Features;
+import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.RequiresRestart;
 import org.chromium.chrome.browser.collaboration.CollaborationServiceFactory;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
@@ -57,9 +57,14 @@ import java.util.List;
 @Batch(Batch.PER_CLASS)
 // TODO(https://crbug.com/392634251): Fix line height when elegant text height is used with Roboto
 // or enable Google Sans (Text) in //chrome/ tests on Android T+.
-@Features.DisableFeatures({
+// TODO(crbug.com/419289558): Re-enable color surface feature flags
+@DisableFeatures({
     ChromeFeatureList.DATA_SHARING,
-    ChromeFeatureList.ANDROID_ELEGANT_TEXT_HEIGHT
+    ChromeFeatureList.ANDROID_ELEGANT_TEXT_HEIGHT,
+    ChromeFeatureList.ANDROID_SURFACE_COLOR_UPDATE,
+    ChromeFeatureList.GRID_TAB_SWITCHER_SURFACE_COLOR_UPDATE,
+    ChromeFeatureList.GRID_TAB_SWITCHER_UPDATE,
+    ChromeFeatureList.ANDROID_THEME_MODULE
 })
 public class TabSwitcherListEditorPTTest {
     @Rule
@@ -84,7 +89,8 @@ public class TabSwitcherListEditorPTTest {
     public void testLeaveEditorViaBackPress() {
         WebPageStation firstPage = mCtaTestRule.startOnBlankPage();
         RegularTabSwitcherStation tabSwitcher = firstPage.openRegularTabSwitcher();
-        TabSwitcherListEditorFacility editor = tabSwitcher.openAppMenu().clickSelectTabs();
+        TabSwitcherListEditorFacility<RegularTabSwitcherStation> editor =
+                tabSwitcher.openAppMenu().clickSelectTabs();
         editor.pressBackToExit();
 
         // Go back to PageStation for InitialStateRule to reset
@@ -98,11 +104,12 @@ public class TabSwitcherListEditorPTTest {
         WebPageStation firstPage = mCtaTestRule.startOnBlankPage();
         int firstTabId = firstPage.loadedTabElement.get().getId();
         RegularTabSwitcherStation tabSwitcher = firstPage.openRegularTabSwitcher();
-        TabSwitcherListEditorFacility editor = tabSwitcher.openAppMenu().clickSelectTabs();
+        TabSwitcherListEditorFacility<RegularTabSwitcherStation> editor =
+                tabSwitcher.openAppMenu().clickSelectTabs();
         editor = editor.addTabToSelection(0, firstTabId);
 
-        NewTabGroupDialogFacility dialog = editor.openAppMenuWithEditor()
-                .groupTabs();
+        NewTabGroupDialogFacility<RegularTabSwitcherStation> dialog =
+                editor.openAppMenuWithEditor().groupTabs();
         dialog = dialog.inputName("test_tab_group_name");
         dialog = dialog.pickColor(TabGroupColorId.RED);
         dialog.pressDone();
@@ -120,7 +127,8 @@ public class TabSwitcherListEditorPTTest {
         RegularNewTabPageStation secondPage = firstPage.openNewTabFast();
         int secondTabId = secondPage.loadedTabElement.get().getId();
         RegularTabSwitcherStation tabSwitcher = secondPage.openRegularTabSwitcher();
-        TabSwitcherListEditorFacility editor = tabSwitcher.openAppMenu().clickSelectTabs();
+        TabSwitcherListEditorFacility<RegularTabSwitcherStation> editor =
+                tabSwitcher.openAppMenu().clickSelectTabs();
         editor = editor.addTabToSelection(0, firstTabId);
         editor = editor.addTabToSelection(1, secondTabId);
 
@@ -144,11 +152,12 @@ public class TabSwitcherListEditorPTTest {
         RegularNewTabPageStation secondPage = firstPage.openNewTabFast();
         int secondTabId = secondPage.loadedTabElement.get().getId();
         RegularTabSwitcherStation tabSwitcher = secondPage.openRegularTabSwitcher();
-        TabSwitcherListEditorFacility editor = tabSwitcher.openAppMenu().clickSelectTabs();
+        TabSwitcherListEditorFacility<RegularTabSwitcherStation> editor =
+                tabSwitcher.openAppMenu().clickSelectTabs();
         editor = editor.addTabToSelection(0, firstTabId);
         editor = editor.addTabToSelection(1, secondTabId);
 
-        NewTabGroupDialogFacility dialog =
+        NewTabGroupDialogFacility<RegularTabSwitcherStation> dialog =
                 editor.openAppMenuWithEditor().groupTabs();
         dialog = dialog.inputName("test_tab_group_name");
         dialog = dialog.pickColor(TabGroupColorId.RED);
@@ -178,6 +187,8 @@ public class TabSwitcherListEditorPTTest {
     @Test
     @MediumTest
     @RequiresRestart("crbug.com/378502216")
+    // TODO(crbug.com/417767506) New tab group's card isn't scrolled to
+    @DisableFeatures(ChromeFeatureList.TAB_GROUP_PARITY_BOTTOM_SHEET_ANDROID)
     public void testCreate10TabsAndCreateTabGroupOf4() {
         WebPageStation firstPage = mCtaTestRule.startOnBlankPage();
         WebPageStation pageStation =
@@ -201,6 +212,7 @@ public class TabSwitcherListEditorPTTest {
     @Test
     @MediumTest
     @RequiresRestart("crbug.com/378502216")
+    @DisableFeatures(ChromeFeatureList.TAB_GROUP_PARITY_BOTTOM_SHEET_ANDROID)
     public void testCreate2TabGroups() {
         WebPageStation pageStation = mCtaTestRule.startOnBlankPage();
         pageStation =
@@ -231,6 +243,7 @@ public class TabSwitcherListEditorPTTest {
 
     @Test
     @MediumTest
+    @DisableFeatures(ChromeFeatureList.TAB_GROUP_PARITY_BOTTOM_SHEET_ANDROID)
     public void testUndoCreateTabGroup() {
         WebPageStation firstPage = mCtaTestRule.startOnBlankPage();
 
@@ -245,12 +258,19 @@ public class TabSwitcherListEditorPTTest {
         RegularTabSwitcherStation tabSwitcher = thirdPage.openRegularTabSwitcher();
 
         // Group first and second tabs
-        TabSwitcherListEditorFacility editor = tabSwitcher.openAppMenu().clickSelectTabs();
+        TabSwitcherListEditorFacility<RegularTabSwitcherStation> editor =
+                tabSwitcher.openAppMenu().clickSelectTabs();
         editor = editor.addTabToSelection(0, firstTabId);
         editor = editor.addTabToSelection(1, secondTabId);
-        NewTabGroupDialogFacility dialog = editor.openAppMenuWithEditor().groupTabs();
+        NewTabGroupDialogFacility<RegularTabSwitcherStation> dialog =
+                editor.openAppMenuWithEditor().groupTabs();
         dialog.pressDone();
-        TabBinningUtil.assertBinsEqual(tabModel, group(secondTabId, firstTabId), thirdTabId);
+        if (ChromeFeatureList.sTabGroupParityBottomSheetAndroid.isEnabled()) {
+            TabBinningUtil.assertBinsEqual(tabModel, group(firstTabId, secondTabId), thirdTabId);
+        } else {
+            // This is the actual behavior, but it's not ideal.
+            TabBinningUtil.assertBinsEqual(tabModel, group(secondTabId, firstTabId), thirdTabId);
+        }
 
         // Group all tabs; needed to bypass the New Tab Group dialog
         editor = tabSwitcher.openAppMenu().clickSelectTabs();
@@ -260,7 +280,7 @@ public class TabSwitcherListEditorPTTest {
         TabBinningUtil.assertBinsEqual(tabModel, group(secondTabId, firstTabId, thirdTabId));
 
         // Ungroup and revert to only first and second tabs grouped, and third tab by itself
-        UndoSnackbarFacility undoSnackbar = groupMergedResult.second;
+        UndoSnackbarFacility<RegularTabSwitcherStation> undoSnackbar = groupMergedResult.second;
         undoSnackbar.pressUndo();
         tabSwitcher.expectGroupCard(
                 List.of(firstTabId, secondTabId),

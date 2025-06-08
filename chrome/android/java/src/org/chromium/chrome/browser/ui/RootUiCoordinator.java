@@ -148,6 +148,7 @@ import org.chromium.chrome.browser.ui.desktop_windowing.AppHeaderUtils;
 import org.chromium.chrome.browser.ui.edge_to_edge.EdgeToEdgeController;
 import org.chromium.chrome.browser.ui.edge_to_edge.EdgeToEdgeControllerFactory;
 import org.chromium.chrome.browser.ui.edge_to_edge.EdgeToEdgeUtils;
+import org.chromium.chrome.browser.ui.edge_to_edge.EdgeToEdgeUtils.EdgeToEdgeDebuggingInfo;
 import org.chromium.chrome.browser.ui.edge_to_edge.EdgeToEdgeUtils.MissingNavbarInsetsReason;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
 import org.chromium.chrome.browser.ui.native_page.NativePage;
@@ -178,6 +179,7 @@ import org.chromium.components.messages.ManagedMessageDispatcher;
 import org.chromium.components.messages.MessageContainer;
 import org.chromium.components.messages.MessageDispatcherProvider;
 import org.chromium.components.messages.MessagesFactory;
+import org.chromium.components.search_engines.TemplateUrlService;
 import org.chromium.components.ukm.UkmRecorder;
 import org.chromium.content_public.browser.ActionModeCallbackHelper;
 import org.chromium.content_public.browser.BrowserContextHandle;
@@ -276,7 +278,7 @@ public class RootUiCoordinator
             new ObservableSupplierImpl<>();
     protected final ObservableSupplier<Profile> mProfileSupplier;
     protected final ObservableSupplier<BookmarkModel> mBookmarkModelSupplier;
-    private final ObservableSupplier<TabBookmarker> mTabBookmarkerSupplier;
+    protected final ObservableSupplier<TabBookmarker> mTabBookmarkerSupplier;
     private final OneshotSupplierImpl<AppMenuCoordinator> mAppMenuSupplier;
     private BottomSheetObserver mBottomSheetObserver;
     protected final CallbackController mCallbackController;
@@ -308,6 +310,7 @@ public class RootUiCoordinator
     protected StatusBarColorController mStatusBarColorController;
     protected final Supplier<SnackbarManager> mSnackbarManagerSupplier;
     protected final ObservableSupplierImpl<EdgeToEdgeController> mEdgeToEdgeControllerSupplier;
+    private final EdgeToEdgeDebuggingInfo mEdgeToEdgeDebuggingInfo = new EdgeToEdgeDebuggingInfo();
     protected Destroyable mEdgeToEdgeBottomChin;
     protected final @ActivityType int mActivityType;
     protected final Supplier<Boolean> mIsInOverviewModeSupplier;
@@ -846,6 +849,10 @@ public class RootUiCoordinator
         }
     }
 
+    public void onResumeWithNative() {
+        dumpEdgeToEdgeDebuggingInfo("onResumeWithNative");
+    }
+
     protected boolean showWebSearchInActionMode() {
         return true;
     }
@@ -1168,10 +1175,10 @@ public class RootUiCoordinator
 
     /** Generate the LoadUrlParams necessary to load the specified search query. */
     private static LoadUrlParams generateUrlParamsForSearch(Tab tab, String query) {
-        String url =
-                TemplateUrlServiceFactory.getForProfile(tab.getProfile())
-                        .getUrlForSearchQuery(query);
-        String headers = GeolocationHeader.getGeoHeader(url, tab);
+        Profile profile = tab.getProfile();
+        TemplateUrlService service = TemplateUrlServiceFactory.getForProfile(profile);
+        String url = service.getUrlForSearchQuery(query);
+        String headers = GeolocationHeader.getGeoHeader(url, profile, service);
 
         LoadUrlParams loadUrlParams = new LoadUrlParams(url);
         loadUrlParams.setVerbatimHeaders(headers);
@@ -1275,6 +1282,19 @@ public class RootUiCoordinator
                         .show();
             }
             return true;
+        } else if (id == R.id.esc_key) {
+            // Unlike Back presses, which are plumbed through an OnBackPressedCallback provided
+            // by View.java, Escape key presses do not have an equivalent callback and must be
+            // handled manually. However, in most cases we want Escape key presses to behave the
+            // same as Back presses, so we intercept them here and send them to the
+            // BackPressManager, but Views can override this for custom behavior. Escape key
+            // presses that include modifier keys (e.g. Ctrl), are not sent to BackPressManager.
+            if (ChromeFeatureList.sKeyboardEscBackNavigation.isEnabled()) {
+                if (mBackPressManager != null) {
+                    Boolean result = mBackPressManager.processEscapeKeyEvent();
+                    return result != null && result;
+                }
+            }
         }
 
         return false;
@@ -1810,6 +1830,9 @@ public class RootUiCoordinator
                 "EdgeToEdgeChinEligibility", eligible ? "Eligible" : "Not Eligible");
 
         if (supportsEdgeToEdge() && EdgeToEdgeUtils.isEdgeToEdgeBottomChinEnabled()) {
+            assert eligible
+                    : "The edge-to-edge controller is being initialized, though it should not be"
+                            + " eligible!";
             mEdgeToEdgeController =
                     EdgeToEdgeControllerFactory.create(
                             mActivity,
@@ -1859,6 +1882,27 @@ public class RootUiCoordinator
         }
 
         EdgeToEdgeUtils.recordIfMissingNavigationBar(reason);
+        mEdgeToEdgeDebuggingInfo.setMissingNavBarInsetsReason(reason);
+    }
+
+    private void dumpEdgeToEdgeDebuggingInfo(String callSite) {
+        if (!ChromeFeatureList.sEdgeToEdgeDebugging.isEnabled()
+                || mEdgeToEdgeDebuggingInfo.isUsed()) {
+            return;
+        }
+
+        boolean hasEdgeToEdgeController = mEdgeToEdgeControllerSupplier.get() != null;
+        boolean isSupportedConfiguration =
+                EdgeToEdgeControllerFactory.isSupportedConfiguration(mActivity);
+        mEdgeToEdgeDebuggingInfo.buildDebugReport(
+                mActivity.getWindow(),
+                mWindowAndroid,
+                hasEdgeToEdgeController,
+                isSupportedConfiguration,
+                callSite,
+                (info) ->
+                        ChromePureJavaExceptionReporter.reportJavaExceptionFromMsg(
+                                info, /* isWarning= */ true));
     }
 
     /** Create a bottom chin for Edge-to-Edge. */

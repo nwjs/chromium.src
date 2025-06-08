@@ -47,8 +47,8 @@ export class OutlookCalendarModuleElement extends
     };
   }
 
-  protected accessor events_: CalendarEvent[];
-  protected accessor showInfoDialog_: boolean;
+  protected accessor events_: CalendarEvent[] = [];
+  protected accessor showInfoDialog_: boolean = false;
 
   private handler_: OutlookCalendarPageHandlerRemote;
 
@@ -96,6 +96,7 @@ export class OutlookCalendarModuleElement extends
 
   protected onDisableButtonClick_() {
     const disableEvent = new CustomEvent('disable-module', {
+      bubbles: true,
       composed: true,
       detail: {
         message: loadTimeData.getStringF(

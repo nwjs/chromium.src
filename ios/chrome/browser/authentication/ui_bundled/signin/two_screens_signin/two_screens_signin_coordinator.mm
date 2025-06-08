@@ -53,6 +53,9 @@ using base::UserMetricsAction;
   UpgradeSigninLogger* _upgradeSigninLogger;
 
   ChangeProfileContinuationProvider _continuationProvider;
+
+  // The current screen type.
+  ScreenType _currentScreenType;
 }
 
 - (instancetype)
@@ -87,6 +90,10 @@ using base::UserMetricsAction;
   return self;
 }
 
+- (void)dealloc {
+  CHECK(!_upgradeSigninLogger, base::NotFatalUntil::M146);
+}
+
 #pragma mark - ChromeCoordinator
 
 - (void)start {
@@ -101,7 +108,17 @@ using base::UserMetricsAction;
                                                     toolbarClass:nil];
   _navigationController.modalPresentationStyle = UIModalPresentationFormSheet;
 
-  [self presentScreen:[_screenProvider nextScreenType]];
+  // Retain `self` in case `presentScreenIfNeeded` executes the
+  // signinCompletion, which would cause self’s owner to unassign its variable.
+  __typeof(self) strongSelf = self;
+  [self presentScreenIfNeeded:[_screenProvider nextScreenType]];
+
+  // Check if the flow is already completed (kStepsCompleted) to prevent
+  // presenting a nil navigation controller.
+  if (strongSelf->_currentScreenType == kStepsCompleted) {
+    return;
+  }
+
   // Set the presentation delegate after the child coordinator creation to
   // override the default implementation.
   _navigationController.presentationController.delegate = self;
@@ -152,7 +169,8 @@ using base::UserMetricsAction;
 }
 
 // Presents the screen of certain `type`.
-- (void)presentScreen:(ScreenType)type {
+- (void)presentScreenIfNeeded:(ScreenType)type {
+  _currentScreenType = type;
   // If there are no screens remaining, call delegate to stop presenting
   // screens.
   if (type == kStepsCompleted) {
@@ -189,6 +207,7 @@ using base::UserMetricsAction;
     case kChoice:
     case kDockingPromo:
     case kBestFeatures:
+    case kLensInteractivePromo:
     case kStepsCompleted:
       break;
   }
@@ -219,15 +238,14 @@ using base::UserMetricsAction;
 - (void)screenWillFinishPresenting {
   CHECK(_childCoordinator) << base::SysNSStringToUTF8([self description]);
   [self stopChildCoordinator];
-  [self presentScreen:[_screenProvider nextScreenType]];
+  [self presentScreenIfNeeded:[_screenProvider nextScreenType]];
 }
 
 #pragma mark - HistorySyncCoordinatorDelegate
 
 // Dismisses the current screen.
-- (void)closeHistorySyncCoordinator:
-            (HistorySyncCoordinator*)historySyncCoordinator
-                     declinedByUser:(BOOL)declined {
+- (void)historySyncCoordinator:(HistorySyncCoordinator*)historySyncCoordinator
+                    withResult:(HistorySyncResult)result {
   [self screenWillFinishPresenting];
 }
 

@@ -12,8 +12,10 @@
 #import "ios/chrome/browser/crash_report/model/breadcrumbs/breadcrumb_manager_browser_agent.h"
 #import "ios/chrome/browser/credential_provider/model/credential_provider_buildflags.h"
 #import "ios/chrome/browser/device_sharing/model/device_sharing_browser_agent.h"
+#import "ios/chrome/browser/discover_feed/model/discover_feed_visibility_browser_agent.h"
 #import "ios/chrome/browser/favicon/model/favicon_browser_agent.h"
 #import "ios/chrome/browser/follow/model/follow_browser_agent.h"
+#import "ios/chrome/browser/fullscreen/ui_bundled/fullscreen_controller.h"
 #import "ios/chrome/browser/infobars/model/overlays/browser_agent/infobar_overlay_browser_agent_util.h"
 #import "ios/chrome/browser/intents/model/user_activity_browser_agent.h"
 #import "ios/chrome/browser/lens/model/lens_browser_agent.h"
@@ -21,11 +23,15 @@
 #import "ios/chrome/browser/metrics/model/web_state_list_metrics_browser_agent.h"
 #import "ios/chrome/browser/omnibox/model/omnibox_position/omnibox_position_browser_agent.h"
 #import "ios/chrome/browser/policy/model/policy_watcher_browser_agent.h"
+#import "ios/chrome/browser/reader_mode/model/features.h"
+#import "ios/chrome/browser/reader_mode/model/reader_mode_browser_agent.h"
 #import "ios/chrome/browser/reading_list/model/reading_list_browser_agent.h"
 #import "ios/chrome/browser/send_tab_to_self/model/send_tab_to_self_browser_agent.h"
 #import "ios/chrome/browser/sessions/model/live_tab_context_browser_agent.h"
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
 #import "ios/chrome/browser/shared/model/profile/profile_ios.h"
+#import "ios/chrome/browser/shared/public/commands/command_dispatcher.h"
+#import "ios/chrome/browser/shared/public/commands/reader_mode_commands.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/snapshots/model/snapshot_browser_agent.h"
 #import "ios/chrome/browser/start_surface/ui_bundled/start_surface_recent_tab_browser_agent.h"
@@ -65,6 +71,10 @@ void AttachBrowserAgents(Browser* browser) {
   UrlLoadingNotifierBrowserAgent::CreateForBrowser(browser);
   AppLauncherBrowserAgent::CreateForBrowser(browser);
   OmniboxPositionBrowserAgent::CreateForBrowser(browser);
+
+  // TODO(crbug.com/40277656): Do not create FullscreenController and
+  // FullscreenWebStateListObserver for an inactive browser.
+  FullscreenController::CreateForBrowser(browser);
 
   // LensBrowserAgent must be created before WebNavigationBrowserAgent.
   LensBrowserAgent::CreateForBrowser(browser);
@@ -108,6 +118,11 @@ void AttachBrowserAgents(Browser* browser) {
   WebStateListMetricsBrowserAgent::CreateForBrowser(
       browser, SessionMetrics::FromProfile(browser->GetProfile()));
 
+  if (IsReaderModeAvailable()) {
+    ReaderModeBrowserAgent::CreateForBrowser(browser,
+                                             browser->GetWebStateList());
+  }
+
   // Normal profiles are the only ones to get tab usage recorder.
   if (!browser_is_off_record) {
     TabUsageRecorderBrowserAgent::CreateForBrowser(browser);
@@ -132,6 +147,10 @@ void AttachBrowserAgents(Browser* browser) {
   if (!browser_is_inactive) {
     BrowserViewVisibilityNotifierBrowserAgent::CreateForBrowser(browser);
     TabBasedIPHBrowserAgent::CreateForBrowser(browser);
+  }
+
+  if (!browser_is_off_record && !browser_is_inactive) {
+    DiscoverFeedVisibilityBrowserAgent::CreateForBrowser(browser);
   }
 
 #if BUILDFLAG(IOS_CREDENTIAL_PROVIDER_ENABLED)

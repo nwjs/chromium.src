@@ -4,6 +4,7 @@
 
 package org.chromium.chrome.browser.ai;
 
+
 import android.content.Context;
 import android.content.res.Resources;
 import android.view.View;
@@ -11,6 +12,8 @@ import android.view.View;
 import androidx.appcompat.content.res.AppCompatResources;
 
 import org.chromium.base.supplier.Supplier;
+import org.chromium.build.annotations.NullMarked;
+import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.pdf.PdfPage;
 import org.chromium.chrome.browser.tab.Tab;
@@ -25,6 +28,7 @@ import org.chromium.components.feature_engagement.Tracker;
 import org.chromium.ui.modaldialog.ModalDialogManager;
 
 /** Controller for page summary toolbar button. */
+@NullMarked
 public class PageSummaryButtonController extends BaseButtonDataProvider {
 
     private final Context mContext;
@@ -44,7 +48,7 @@ public class PageSummaryButtonController extends BaseButtonDataProvider {
     public PageSummaryButtonController(
             Context context,
             ModalDialogManager modalDialogManager,
-            Supplier<Tab> activeTabSupplier,
+            Supplier<@Nullable Tab> activeTabSupplier,
             AiAssistantService aiAssistantService,
             Supplier<Tracker> tracker) {
         super(
@@ -56,8 +60,7 @@ public class PageSummaryButtonController extends BaseButtonDataProvider {
                 /* supportsTinting= */ true,
                 /* iphCommandBuilder= */ null,
                 AdaptiveToolbarButtonVariant.PAGE_SUMMARY,
-                /* tooltipTextResId= */ R.string.menu_summarize_with_ai,
-                /* showBackgroundHighlight= */ true);
+                /* tooltipTextResId= */ R.string.menu_summarize_with_ai);
         mContext = context;
         mAiAssistantService = aiAssistantService;
         mTrackerSupplier = tracker;
@@ -75,27 +78,25 @@ public class PageSummaryButtonController extends BaseButtonDataProvider {
                         AdaptiveToolbarButtonVariant.PAGE_SUMMARY,
                         /* actionChipLabelResId= */ Resources.ID_NULL,
                         /* tooltipTextResId= */ R.string.menu_review_pdf_with_ai,
-                        /* showBackgroundHighlight= */ true,
                         /* hasErrorBadge= */ false);
     }
 
     @Override
-    public ButtonData get(Tab tab) {
+    public ButtonData get(@Nullable Tab tab) {
         var isPdfPage = isPdfPage(tab);
         mButtonData.setButtonSpec(isPdfPage ? mReviewPdfSpec : mPageSummarySpec);
         return super.get(tab);
     }
 
     @Override
-    protected boolean shouldShowButton(Tab tab) {
+    protected boolean shouldShowButton(@Nullable Tab tab) {
         return super.shouldShowButton(tab) && mAiAssistantService.canShowAiForTab(mContext, tab);
     }
 
     @Override
     public void onClick(View view) {
-        assert mActiveTabSupplier.hasValue() : "Active tab supplier should have a value";
-        assert mTrackerSupplier.hasValue() : "Tracker supplier should have a value";
         var activeTab = mActiveTabSupplier.get();
+        assert activeTab != null;
         var trackerEvent =
                 isPdfPage(activeTab)
                         ? EventConstants.ADAPTIVE_TOOLBAR_PAGE_SUMMARY_PDF_USED
@@ -126,7 +127,7 @@ public class PageSummaryButtonController extends BaseButtonDataProvider {
                 /* accessibilityStringId= */ stringId);
     }
 
-    private boolean isPdfPage(Tab tab) {
+    private boolean isPdfPage(@Nullable Tab tab) {
         return tab != null && tab.getNativePage() instanceof PdfPage;
     }
 }

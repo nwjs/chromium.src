@@ -10,7 +10,6 @@
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/css/css_anchor_query_enums.h"
 #include "third_party/blink/renderer/core/css/css_custom_ident_value.h"
-#include "third_party/blink/renderer/core/css/css_gap_decoration_property_enums.h"
 #include "third_party/blink/renderer/core/css/css_identifier_value.h"
 #include "third_party/blink/renderer/core/css/css_numeric_literal_value.h"
 #include "third_party/blink/renderer/core/css/css_primitive_value.h"
@@ -44,6 +43,9 @@ class CSSValueList;
 class CSSValuePair;
 class StylePropertyShorthand;
 
+enum class CSSGapDecorationPropertyDirection : int;
+enum class CSSGapDecorationPropertyType : int;
+
 // "Consume" functions, when successful, should consume all the relevant tokens
 // as well as any trailing whitespace. When the start of the stream doesn't
 // match the type we're looking for, the position in the stream should
@@ -71,7 +73,27 @@ enum class AllowCalcSize {
   kAllowWithAutoAndContent,
   kForbid
 };
-enum class AllowedColors { kAll, kAbsolute };
+class ColorParserContext {
+  STACK_ALLOCATED();
+
+ public:
+  static ColorParserContext AbsoluteColorContext() {
+    return {.absolute_colors_ = true};
+  }
+  static ColorParserContext NoElementContext() { return {.no_element_ = true}; }
+
+  bool AllColorsAllowed() const { return !absolute_colors_ && !no_element_; }
+  bool OnlyAbsoluteColorsAllowed() const { return absolute_colors_; }
+  bool InElementContext() const { return !(no_element_ || absolute_colors_); }
+
+  // Parsing absolute <color> values:
+  // https://drafts.csswg.org/css-color-5/#absolute-color
+  bool absolute_colors_ = false;
+
+  // Parsing <color> values without an element context.
+  // Disallow tree counting functions.
+  bool no_element_ = false;
+};
 enum class EmptyPathStringHandling { kFailure, kTreatAsNone };
 
 using ConsumeAnimationItemValue = CSSValue* (*)(CSSPropertyID,
@@ -186,9 +208,15 @@ cssvalue::CSSURIValue* ConsumeUrl(CSSParserTokenStream&,
 CORE_EXPORT CSSValue* ConsumeColorMaybeQuirky(CSSParserTokenStream&,
                                               const CSSParserContext&);
 
-// https://drafts.csswg.org/css-color-5/#typedef-color
-CORE_EXPORT CSSValue* ConsumeColor(CSSParserTokenStream&,
-                                   const CSSParserContext&);
+CORE_EXPORT CSSValue* ConsumeColor(
+    CSSParserTokenStream&,
+    const CSSParserContext&,
+    const ColorParserContext& = ColorParserContext());
+
+// To parse in context without element (e.g. to prevent sibling-index()).
+CORE_EXPORT CSSValue* ConsumeColorWithoutElementContext(
+    CSSParserTokenStream&,
+    const CSSParserContext&);
 
 // https://drafts.csswg.org/css-color-5/#absolute-color
 CORE_EXPORT CSSValue* ConsumeAbsoluteColor(CSSParserTokenStream&,
@@ -231,6 +259,9 @@ CSSValue* ConsumeImage(
     const ConsumeStringUrlImagePolicy = ConsumeStringUrlImagePolicy::kForbid,
     const ConsumeImageSetImagePolicy = ConsumeImageSetImagePolicy::kAllow);
 CSSValue* ConsumeImageOrNone(CSSParserTokenStream&, const CSSParserContext&);
+CSSValue* ConsumeImageOrNone(CSSParserTokenStream&,
+                             const CSSParserContext&,
+                             const ColorParserContext&);
 
 CSSValue* ConsumeAxis(CSSParserTokenStream&, const CSSParserContext& context);
 
@@ -526,6 +557,13 @@ bool ConsumeGridTemplateShorthand(bool important,
 
 CSSValue* ConsumeItemTolerance(CSSParserTokenStream&, const CSSParserContext&);
 
+bool ConsumeGapDecorationsRuleShorthand(bool important,
+                                        const CSSParserContext& context,
+                                        CSSParserTokenStream& stream,
+                                        CSSValueList*& rule_widths,
+                                        CSSValueList*& rule_styles,
+                                        CSSValueList*& rule_colors);
+
 CSSValue* ConsumeHyphenateLimitChars(CSSParserTokenStream&,
                                      const CSSParserContext&);
 
@@ -765,6 +803,8 @@ CORE_EXPORT CSSValue* ConsumeSinglePositionTryFallback(CSSParserTokenStream&,
                                                        const CSSParserContext&);
 CORE_EXPORT CSSValue* ConsumePositionTryFallbacks(CSSParserTokenStream&,
                                                   const CSSParserContext&);
+
+CSSValue* ConsumeFitText(CSSParserTokenStream&, const CSSParserContext&);
 
 // If the stream starts with “!important”, consumes it and returns true.
 // If the stream is at EOF, returns false.

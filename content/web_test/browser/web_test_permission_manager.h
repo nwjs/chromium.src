@@ -17,7 +17,7 @@
 #include "third_party/blink/public/common/permissions/permission_utils.h"
 #include "third_party/blink/public/mojom/permissions/permission.mojom-forward.h"
 #include "third_party/blink/public/mojom/permissions/permission.mojom.h"
-#include "third_party/blink/public/mojom/permissions/permission_automation.mojom.h"
+#include "third_party/blink/public/test/mojom/permissions/permission_automation.test-mojom.h"
 #include "url/gurl.h"
 
 namespace blink {
@@ -114,10 +114,8 @@ class WebTestPermissionManager
     // types such as STORAGE_ACCESS_GRANT, which are scoped to (requesting
     // site, embedding site), it will apply a same-site check instead.
     bool operator==(const PermissionDescription& other) const;
-    bool operator!=(const PermissionDescription& other) const;
 
     bool operator==(PermissionStatusSubscription* other) const;
-    bool operator!=(PermissionStatusSubscription* other) const;
 
     // Hash operator for hash maps.
     struct Hash {

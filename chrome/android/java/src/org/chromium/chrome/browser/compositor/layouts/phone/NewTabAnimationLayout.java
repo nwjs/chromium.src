@@ -321,7 +321,7 @@ public class NewTabAnimationLayout extends Layout {
         ensureSceneLayerExists();
 
         LayoutTab layoutTab = getLayoutTab();
-        layoutTab.set(LayoutTab.IS_ACTIVE_LAYOUT_SUPPLIER, this::isActive);
+        layoutTab.set(LayoutTab.IS_ACTIVE_LAYOUT, isActive());
         layoutTab.set(LayoutTab.CONTENT_OFFSET, browserControls.getContentOffset());
         mSceneLayer.update(layoutTab);
     }
@@ -414,7 +414,9 @@ public class NewTabAnimationLayout extends Layout {
      */
     private @RectStart int getForegroundRectStart(Tab oldTab, Tab newTab) {
         @TabLaunchType int tabLaunchType = newTab.getLaunchType();
-        if (oldTab == null || tabLaunchType == TabLaunchType.FROM_LONGPRESS_FOREGROUND) {
+        if (oldTab == null
+                || tabLaunchType == TabLaunchType.FROM_LONGPRESS_FOREGROUND
+                || tabLaunchType == TabLaunchType.FROM_LONGPRESS_FOREGROUND_IN_GROUP) {
             return RectStart.CENTER;
         }
 
@@ -684,6 +686,7 @@ public class NewTabAnimationLayout extends Layout {
                 prevTabCount,
                 toolbarPosition[1],
                 compositorViewRect.top,
+                compositorViewRect.left,
                 mToolbarManager.getNtpTransitionPercentage());
 
         // {@link View#INVISIBLE} is needed to generate the geometry information.

@@ -11,7 +11,7 @@
 
 @protocol AutocompleteSuggestion;
 @class OmniboxAutocompleteController;
-class OmniboxController;
+class OmniboxControllerIOS;
 @protocol OmniboxFocusDelegate;
 @protocol OmniboxTextControllerDelegate;
 @class OmniboxTextFieldIOS;
@@ -34,7 +34,8 @@ class OmniboxViewIOS;
 @property(nonatomic, weak) OmniboxTextFieldIOS* textField;
 
 /// Temporary initializer, used during the refactoring. crbug.com/390409559
-- (instancetype)initWithOmniboxController:(OmniboxController*)omniboxController
+- (instancetype)initWithOmniboxController:
+                    (OmniboxControllerIOS*)omniboxController
                            omniboxViewIOS:(OmniboxViewIOS*)omniboxViewIOS
                             inLensOverlay:(BOOL)inLensOverlay
     NS_DESIGNATED_INITIALIZER;
@@ -48,6 +49,9 @@ class OmniboxViewIOS;
 
 /// Returns whether the omnibox is first responder.
 - (BOOL)isOmniboxFirstResponder;
+
+/// Focuses the omnibox.
+- (void)focusOmnibox;
 
 /// Ends omnibox editing / defocus the omnibox.
 - (void)endEditing;
@@ -134,6 +138,15 @@ class OmniboxViewIOS;
 - (void)setCaretPos:(NSUInteger)caretPos;
 
 - (void)startAutocompleteAfterEdit;
+
+- (void)setWindowText:(const std::u16string&)text
+             caretPos:(size_t)caretPos
+    startAutocomplete:(BOOL)startAutocomplete
+    notifyTextChanged:(BOOL)notifyTextChanged;
+
+- (void)updateAutocompleteIfTextChanged:(const std::u16string&)userText
+                         autocompletion:
+                             (const std::u16string&)inlineAutocomplete;
 
 @end
 

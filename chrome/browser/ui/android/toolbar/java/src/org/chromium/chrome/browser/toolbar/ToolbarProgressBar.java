@@ -24,6 +24,7 @@ import org.chromium.base.ThreadUtils;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.theme.ThemeUtils;
 import org.chromium.components.browser_ui.styles.SemanticColorUtils;
 import org.chromium.components.browser_ui.widget.ClipDrawableProgressBar;
@@ -89,9 +90,6 @@ public class ToolbarProgressBar extends ClipDrawableProgressBar
 
     /** The indeterminate animating view for the progress bar. */
     private @Nullable ToolbarProgressBarAnimatingView mAnimatingView;
-
-    /** The progress bar's height. */
-    private final int mProgressBarHeight;
 
     /** The current running animator that controls the fade in/out of the progress bar. */
     private @Nullable Animator mFadeAnimator;
@@ -163,23 +161,23 @@ public class ToolbarProgressBar extends ClipDrawableProgressBar
         super(context, attrs);
         setAlpha(0.0f);
         mAnimationLogic = new ProgressAnimationSmooth();
-        mProgressBarHeight =
-                getResources()
-                        .getDimensionPixelSize(
-                                org.chromium.chrome.browser.toolbar.R.dimen
-                                        .toolbar_progress_bar_height);
 
         setVisibility(View.VISIBLE);
 
         // This tells accessibility services that progress bar changes are important enough to
         // announce to the user even when not focused.
         ViewCompat.setAccessibilityLiveRegion(this, ViewCompat.ACCESSIBILITY_LIVE_REGION_POLITE);
-        setForegroundOrThemeColor();
+        setProgressBarColors();
+    }
+
+    @Override
+    protected boolean useGradientDrawable() {
+        return ChromeFeatureList.sAndroidProgressBarVisualUpdate.isEnabled();
     }
 
     public void setAnimatingView(ToolbarProgressBarAnimatingView animatingView) {
         mAnimatingView = animatingView;
-        setForegroundOrThemeColor();
+        setProgressBarColors();
     }
 
     /**
@@ -361,7 +359,7 @@ public class ToolbarProgressBar extends ClipDrawableProgressBar
         if (MathUtils.areFloatsEqual(progress, 1.0f) || progress > 1.0f) finish(true);
     }
 
-    private void setForegroundOrThemeColor() {
+    private void setProgressBarColors() {
         if (mThemeColor != 0) {
             setThemeColor(mThemeColor, false);
         } else {
@@ -388,7 +386,11 @@ public class ToolbarProgressBar extends ClipDrawableProgressBar
         // The default toolbar has specific colors to use.
         if ((isDefaultTheme || ColorUtils.isThemeColorTooBright(color)) && !isIncognito) {
             setForegroundColor(SemanticColorUtils.getProgressBarForeground(getContext()));
-            setBackgroundColor(getContext().getColor(R.color.progress_bar_bg_color_list));
+            if (ChromeFeatureList.sAndroidProgressBarVisualUpdate.isEnabled()) {
+                setBackgroundColor(SemanticColorUtils.getProgressBarTrackColor(getContext()));
+            } else {
+                setBackgroundColor(getContext().getColor(R.color.progress_bar_bg_color_list));
+            }
             return;
         }
 

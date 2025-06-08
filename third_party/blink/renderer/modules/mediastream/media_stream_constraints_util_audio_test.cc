@@ -119,8 +119,10 @@ class MediaStreamConstraintsUtilAudioTestBase : public SimTest {
     device.input.set_effects(effects);
 
     return std::make_unique<ProcessedLocalAudioSource>(
-        *MainFrame().GetFrame(), device, disable_local_echo, properties,
-        num_requested_channels, base::NullCallback(),
+        *MainFrame().GetFrame(), device, disable_local_echo,
+        MediaStreamAudioProcessingLayout(properties, effects,
+                                         num_requested_channels),
+        base::NullCallback(),
         blink::scheduler::GetSingleThreadTaskRunnerForTesting());
   }
 
@@ -165,13 +167,11 @@ class MediaStreamConstraintsUtilAudioTestBase : public SimTest {
           std::nullopt) {
     MediaConstraints constraints = constraint_factory_.CreateMediaConstraints();
     if (capabilities) {
-      return SelectSettingsAudioCapture(*capabilities, constraints,
-                                        GetMediaStreamType(), false,
-                                        is_reconfigurable);
+      return SelectSettingsAudioCapture(
+          *capabilities, constraints, GetMediaStreamType(), is_reconfigurable);
     } else {
-      return SelectSettingsAudioCapture(capabilities_, constraints,
-                                        GetMediaStreamType(), false,
-                                        is_reconfigurable);
+      return SelectSettingsAudioCapture(
+          capabilities_, constraints, GetMediaStreamType(), is_reconfigurable);
     }
   }
 
@@ -179,8 +179,7 @@ class MediaStreamConstraintsUtilAudioTestBase : public SimTest {
   SelectEligibleSettings(bool is_reconfigurable = false) {
     MediaConstraints constraints = constraint_factory_.CreateMediaConstraints();
     return SelectEligibleSettingsAudioCapture(
-        capabilities_, constraints, GetMediaStreamType(),
-        /*should_disable_hardware_noise_suppression=*/false, is_reconfigurable);
+        capabilities_, constraints, GetMediaStreamType(), is_reconfigurable);
   }
 
   void CheckBoolDefaultsDeviceCapture(
@@ -1789,7 +1788,7 @@ TEST_P(MediaStreamConstraintsUtilAudioTest, UsedAndUnusedSources) {
     auto result = SelectSettingsAudioCapture(
         capabilities, constraint_factory_.CreateMediaConstraints(),
         GetMediaStreamType(),
-        false /* should_disable_hardware_noise_suppression */);
+        /*is_reconfiguration_allowed=*/false);
     EXPECT_TRUE(result.HasValue());
     EXPECT_EQ(result.device_id(), kUnusedDeviceID.Utf8());
     EXPECT_EQ(result.audio_processing_properties().echo_cancellation_type,
@@ -1802,7 +1801,7 @@ TEST_P(MediaStreamConstraintsUtilAudioTest, UsedAndUnusedSources) {
     auto result = SelectSettingsAudioCapture(
         capabilities, constraint_factory_.CreateMediaConstraints(),
         GetMediaStreamType(),
-        false /* should_disable_hardware_noise_suppression */);
+        /*is_reconfiguration_allowed=*/false);
     EXPECT_TRUE(result.HasValue());
     EXPECT_EQ(result.device_id(), processed_source->device().id);
     EXPECT_EQ(result.audio_processing_properties().echo_cancellation_type,

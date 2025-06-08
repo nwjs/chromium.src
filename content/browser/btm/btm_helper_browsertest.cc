@@ -78,13 +78,10 @@ class BtmTabHelperBrowserTest : public ContentBrowserTest {
         ->SetClockForTesting(&test_clock_);
     browser_client_.emplace();
 
-    // Initialize exceptions for 1P sites with embedded 3P cookies. Block 3PC by
-    // default on a.test and d.test, since those are used as the initial and
-    // final URL in the redirect chains. This avoids trimming bounces due to 1P
-    // exceptions (e.g. Chrome Guard).
-    browser_client_->impl().SetBlockThirdPartyCookiesByDefault(false);
-    browser_client_->impl().BlockThirdPartyCookiesOnSite(GURL("http://a.test"));
-    browser_client_->impl().BlockThirdPartyCookiesOnSite(GURL("http://d.test"));
+    browser_client_->impl().SetBlockThirdPartyCookiesByDefault(true);
+    WebContents* web_contents = GetActiveWebContents();
+    ASSERT_FALSE(btm::Are3PcsGenerallyEnabled(web_contents->GetBrowserContext(),
+                                              web_contents));
 
     // We can only create extra browser contexts while single-threaded.
     extra_browser_context_ = CreateTestBrowserContext();
@@ -130,7 +127,7 @@ class BtmTabHelperBrowserTest : public ContentBrowserTest {
         BtmServiceImpl::Get(web_contents->GetBrowserContext());
     GURL expected_url = web_contents->GetLastCommittedURL();
 
-    DipsRedirectChainObserver chain_observer(btm_service, expected_url);
+    BtmRedirectChainObserver chain_observer(btm_service, expected_url);
     // Performing a browser-based navigation terminates the current redirect
     // chain.
     ASSERT_TRUE(NavigateToURL(web_contents, embedded_test_server()->GetURL(
@@ -164,6 +161,7 @@ IN_PROC_BROWSER_TEST_F(BtmTabHelperBrowserTest,
 
   // The top-level page is on a.test.
   ASSERT_TRUE(NavigateToURL(web_contents, url_a));
+  SimulateEndOfPaintHoldingOnPrimaryMainFrame(web_contents);
 
   // Before clicking, no BTM state for either site.
   EXPECT_FALSE(GetBtmState(GetBtmService(web_contents), url_a).has_value());
@@ -226,6 +224,7 @@ IN_PROC_BROWSER_TEST_F(BtmTabHelperBrowserTest,
   SetBtmTime(time);
   // Navigate to a.test.
   ASSERT_TRUE(NavigateToURL(web_contents, url));
+  SimulateEndOfPaintHoldingOnPrimaryMainFrame(web_contents);
   RenderFrameHost* frame = web_contents->GetPrimaryMainFrame();
   WaitForHitTestData(frame);  // Wait until we can click.
 
@@ -445,6 +444,7 @@ IN_PROC_BROWSER_TEST_F(BtmTabHelperBrowserTest,
       web_contents, embedded_test_server()->GetURL("a.test", "/title1.html")));
   UserActivationObserver observer(web_contents,
                                   web_contents->GetPrimaryMainFrame());
+  SimulateEndOfPaintHoldingOnPrimaryMainFrame(web_contents);
   SimulateMouseClick(web_contents, 0, blink::WebMouseEvent::Button::kLeft);
   observer.Wait();
 

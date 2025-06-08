@@ -65,7 +65,7 @@ public class TabGridItemTouchHelperCallback extends ItemTouchHelper.SimpleCallba
     private final ObservableSupplierImpl<RecyclerView> mRecyclerViewSupplier =
             new ObservableSupplierImpl<>();
     private float mSwipeToDismissThreshold;
-    private float mLongPressDpCancelThreshold;
+    private final float mLongPressDpCancelThreshold;
     private float mMergeThreshold;
     private float mUngroupThreshold;
     // A bool to track whether an action such as swiping, group/ungroup and drag past a certain
@@ -270,7 +270,9 @@ public class TabGridItemTouchHelperCallback extends ItemTouchHelper.SimpleCallba
 
         if (simpleViewHolder.model.get(CARD_TYPE) == TAB) {
             mTabClosedListener.run(
-                    viewHolder.itemView, simpleViewHolder.model.get(TabProperties.TAB_ID));
+                    viewHolder.itemView,
+                    simpleViewHolder.model.get(TabProperties.TAB_ID),
+                    /* triggeringMotion= */ null);
 
             RecordUserAction.record("MobileStackViewSwipeCloseTab." + mComponentName);
         } else if (simpleViewHolder.model.get(CARD_TYPE) == MESSAGE) {

@@ -50,12 +50,27 @@ constexpr size_t kTooManyQuads = 2048;
 // than |kTooManyQuads|.
 constexpr int kTooManyQuadsWithRoundedCorners = 256;
 
+// kDCompSurfacesForDelegatedInk is for delegated ink to work with partial
+// delegated compositing. This function should return true if the feature is
+// enabled or partial delegated compositing is enabled - a condition which
+// requires the use of DCOMP surfaces for delegated ink.
+bool ShouldUseDCompSurfacesForDelegatedInk(
+    OutputSurface::DCSupportLevel support_level) {
+  if (IsDelegatedCompositingSupportedAndEnabled(support_level) &&
+      features::kDelegatedCompositingModeParam.Get() ==
+          features::DelegatedCompositingMode::kLimitToUi) {
+    return true;
+  }
+
+  return base::FeatureList::IsEnabled(features::kDCompSurfacesForDelegatedInk);
+}
+
 gfx::Rect UpdateRenderPassFromOverlayData(
     const DCLayerOverlayProcessor::RenderPassOverlayData& overlay_data,
     AggregatedRenderPass* render_pass,
     base::flat_map<AggregatedRenderPassId, int>&
         frames_since_using_dc_layers_map,
-    const bool frame_has_delegated_ink) {
+    const bool force_dcomp_surface) {
   bool was_using_dc_layers =
       frames_since_using_dc_layers_map.contains(render_pass->id);
 
@@ -76,9 +91,7 @@ gfx::Rect UpdateRenderPassFromOverlayData(
   // delegated ink visual updates with DComp commits. Doing so eliminates the
   // need to identify the correct swap chain in complicated delegated
   // compositing scenarios.
-  if (!overlay_data.promoted_overlays.empty() ||
-      (frame_has_delegated_ink &&
-       features::ShouldUseDCompSurfacesForDelegatedInk())) {
+  if (!overlay_data.promoted_overlays.empty() || force_dcomp_surface) {
     frames_since_using_dc_layers_map[render_pass->id] = 0;
     using_dc_layers = true;
   } else if ((was_using_dc_layers &&
@@ -194,7 +207,7 @@ void OverlayProcessorWin::ProcessForOverlays(
 
   DebugLogAfterDelegation(status, *candidates, *root_damage_rect);
 
-  frame_has_delegated_ink_ = false;
+  frame_has_forced_dcomp_surface_ = false;
   delegation_succeeded_last_frame_ =
       status == DelegationStatus::kFullDelegation;
 }
@@ -212,8 +225,8 @@ DelegationStatus OverlayProcessorWin::ProcessOverlaysForDelegation(
   // Do not attempt delegated compositing if we do not support DComp textures
   // (and therefore cannot possibly scanout quad resources) or if the feature is
   // disabled.
-  if (dc_support_level_ < OutputSurface::DCSupportLevel::kDCompTexture ||
-      !features::IsDelegatedCompositingEnabled() || ForceDisableDelegation()) {
+  if (ForceDisableDelegation() ||
+      !IsDelegatedCompositingSupportedAndEnabled(dc_support_level_)) {
     return DelegationStatus::kCompositedFeatureDisabled;
   }
 
@@ -267,7 +280,7 @@ DelegationStatus OverlayProcessorWin::ProcessOverlaysForDelegation(
       for (auto& [render_pass, overlay_data] : surface_content_render_passes) {
         render_pass->damage_rect = UpdateRenderPassFromOverlayData(
             overlay_data, render_pass, frames_since_using_dc_layers_map_,
-            frame_has_delegated_ink_);
+            frame_has_forced_dcomp_surface_);
 
         DBG_LOG_OPT("delegated.overlay.log", DBG_OPT_BLUE,
                     "Partially delegated pass{id: %llu, damage: %s}, "
@@ -332,10 +345,6 @@ void OverlayProcessorWin::ProcessOverlaysFromOutputSurfacePlane(
     CandidateList* candidates,
     gfx::Rect* root_damage_rect) {
   auto* root_render_pass = render_passes->back().get();
-  if (render_passes->back()->is_color_conversion_pass) {
-    DCHECK_GT(render_passes->size(), 1u);
-    root_render_pass = (*render_passes)[render_passes->size() - 2].get();
-  }
 
   DCLayerOverlayProcessor::RenderPassOverlayDataMap
       render_pass_overlay_data_map;
@@ -360,7 +369,7 @@ void OverlayProcessorWin::ProcessOverlaysFromOutputSurfacePlane(
   }
   *root_damage_rect = UpdateRenderPassFromOverlayData(
       root_render_pass_overlay_data, root_render_pass,
-      frames_since_using_dc_layers_map_, frame_has_delegated_ink_);
+      frames_since_using_dc_layers_map_, frame_has_forced_dcomp_surface_);
   *candidates = std::move(root_render_pass_overlay_data.promoted_overlays);
   if (!root_render_pass->copy_requests.empty()) {
     // A DComp surface is not readable by viz.
@@ -382,7 +391,8 @@ void OverlayProcessorWin::ProcessOverlaysFromOutputSurfacePlane(
 }
 
 void OverlayProcessorWin::SetFrameHasDelegatedInk() {
-  frame_has_delegated_ink_ = true;
+  frame_has_forced_dcomp_surface_ |=
+      ShouldUseDCompSurfacesForDelegatedInk(dc_support_level_);
 }
 
 void OverlayProcessorWin::SetUsingDCLayersForTesting(
@@ -504,12 +514,6 @@ OverlayProcessorWin::TryDelegatedCompositing(
 
   if (root_render_pass->quad_list.size() > kTooManyQuads) {
     return base::unexpected(DelegationStatus::kCompositedTooManyQuads);
-  }
-
-  if (root_render_pass->is_color_conversion_pass) {
-    // We don't expect to handle a color conversion pass (e.g. for frames with
-    // HDR content) with delegated compositing. See: crbug.com/41497086
-    return base::unexpected(DelegationStatus::kCompositedOther);
   }
 
   DelegatedCompositingResult result;

@@ -7,17 +7,20 @@ package org.chromium.chrome.browser.tasks.tab_management;
 import android.app.Activity;
 import android.content.Context;
 import android.content.res.Resources;
+import android.view.View;
 
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 import androidx.annotation.StringRes;
 import androidx.core.content.res.ResourcesCompat;
 
 import org.chromium.base.Token;
 import org.chromium.base.supplier.Supplier;
+import org.chromium.build.annotations.NullMarked;
+import org.chromium.build.annotations.Nullable;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.tab_ui.R;
+import org.chromium.components.browser_ui.util.motion.MotionEventInfo;
 import org.chromium.components.browser_ui.widget.BrowserUiListMenuUtils;
 import org.chromium.components.collaboration.CollaborationService;
 import org.chromium.components.data_sharing.member_role.MemberRole;
@@ -32,9 +35,10 @@ import org.chromium.ui.widget.ViewRectProvider;
  * A coordinator for the menu on tab group cards in GTS. It is responsible for creating a list of
  * menu items, setting up the menu and displaying the menu.
  */
+@NullMarked
 public class TabListGroupMenuCoordinator extends TabGroupOverflowMenuCoordinator {
     private final Activity mActivity;
-    private boolean mShouldShowIcons;
+    private final boolean mShouldShowIcons;
 
     /**
      * @param onItemClicked A callback for listening to clicks.
@@ -46,8 +50,8 @@ public class TabListGroupMenuCoordinator extends TabGroupOverflowMenuCoordinator
             OnItemClickedCallback<Token> onItemClicked,
             Supplier<TabModel> tabModelSupplier,
             @Nullable TabGroupSyncService tabGroupSyncService,
-            @NonNull CollaborationService collaborationService,
-            @NonNull Activity activity) {
+            CollaborationService collaborationService,
+            Activity activity) {
         super(
                 R.layout.tab_switcher_action_menu_layout,
                 onItemClicked,
@@ -56,6 +60,7 @@ public class TabListGroupMenuCoordinator extends TabGroupOverflowMenuCoordinator
                 collaborationService,
                 activity);
         mActivity = activity;
+        mShouldShowIcons = ChromeFeatureList.sTabGroupParityBottomSheetAndroid.isEnabled();
     }
 
     /**
@@ -63,35 +68,41 @@ public class TabListGroupMenuCoordinator extends TabGroupOverflowMenuCoordinator
      * clicked.
      */
     TabListMediator.TabActionListener getTabActionListener() {
-        return (view, tabId) -> {
-            @Nullable TabModel tabModel = getTabModel();
-            if (tabModel == null) return;
+        return new TabListMediator.TabActionListener() {
+            @Override
+            public void run(View view, int tabId, @Nullable MotionEventInfo triggeringMotion) {
+                @Nullable TabModel tabModel = getTabModel();
+                if (tabModel == null) return;
 
-            @Nullable Tab tab = tabModel.getTabById(tabId);
-            if (tab == null) return;
+                @Nullable Tab tab = tabModel.getTabById(tabId);
+                if (tab == null) return;
 
-            @Nullable Token tabGroupId = tab.getTabGroupId();
-            if (tabGroupId == null) return;
+                @Nullable Token tabGroupId = tab.getTabGroupId();
+                if (tabGroupId == null) return;
 
-            mShouldShowIcons = false;
-            createAndShowMenu(
-                    new ViewRectProvider(view),
-                    tabGroupId,
-                    /* animStyle= */ R.style.EndIconMenuAnim,
-                    /* verticalOverlapAnchor= */ true,
-                    (Activity) view.getContext());
+                createAndShowMenu(
+                        new ViewRectProvider(view),
+                        tabGroupId,
+                        /* animStyle= */ R.style.EndIconMenuAnim,
+                        /* verticalOverlapAnchor= */ true,
+                        (Activity) view.getContext());
+            }
+
+            @Override
+            public void run(View view, String syncId, @Nullable MotionEventInfo triggeringMotion) {
+                // Intentional no-op.
+            }
         };
     }
 
     /**
-     * Show the context menu of the tab group with visible icons.
+     * Show the context menu of the tab group.
      *
      * @param anchorViewRectProvider The context menu's anchor view rect provider. These are screen
      *     coordinates.
      * @param tabGroupId The tab group ID of the interacting tab group.
      */
-    public void showMenuWithIcons(RectProvider anchorViewRectProvider, Token tabGroupId) {
-        mShouldShowIcons = true;
+    public void showMenu(RectProvider anchorViewRectProvider, Token tabGroupId) {
         createAndShowMenu(
                 anchorViewRectProvider,
                 tabGroupId,
@@ -102,7 +113,7 @@ public class TabListGroupMenuCoordinator extends TabGroupOverflowMenuCoordinator
 
     private void createAndShowMenu(
             RectProvider anchorRectProvider,
-            @NonNull Token tabGroupId,
+            Token tabGroupId,
             int animStyle,
             boolean verticalOverlapAnchor,
             Activity activity) {

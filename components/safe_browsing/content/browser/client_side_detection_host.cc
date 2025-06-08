@@ -178,6 +178,25 @@ void RecordPreClassificationCheckResultWithAndWithoutSuffix(
       result, PreClassificationCheckResult::NO_CLASSIFY_MAX);
 }
 
+void LogLlamaForcedTriggerInfoFields(
+    LlamaForcedTriggerInfo llama_forced_trigger_info) {
+  base::UmaHistogramBoolean(
+      "SBClientPhishing.LlamaForcedTriggerInfo.IntelligentScan",
+      llama_forced_trigger_info.intelligent_scan());
+  size_t rule_infos_size =
+      llama_forced_trigger_info.llama_trigger_rule_infos().size();
+  base::UmaHistogramCounts100(
+      "SBClientPhishing.LlamaForcedTriggerInfo.LlamaTriggerRuleInfosSize",
+      rule_infos_size);
+  for (size_t i = 0; i < rule_infos_size; i++) {
+    base::UmaHistogramCounts1000(
+        "SBClientPhishing.LlamaForcedTriggerInfo.LlamaTriggerRuleId",
+        llama_forced_trigger_info.llama_trigger_rule_infos()
+            .at(i)
+            .llama_trigger_rule_id());
+  }
+}
+
 bool ShouldShowScamWarning(std::optional<IntelligentScanVerdict> verdict) {
   if (!verdict.has_value() ||
       *verdict ==
@@ -754,7 +773,7 @@ void ClientSideDetectionHost::PrimaryPageChanged(content::Page& page) {
   // that don't call this method on the UI thread.
   // DCHECK_CURRENTLY_ON(BrowserThread::UI);
 
-  trigger_models_request_skipped_ = false;
+  trigger_model_request_sent_as_force_request_ = false;
   MaybeStartPreClassification(ClientSideDetectionType::TRIGGER_MODELS);
 }
 
@@ -780,19 +799,21 @@ void ClientSideDetectionHost::OnPermissionRequestManagerDestructed() {
 }
 
 void ClientSideDetectionHost::OnAsyncSafeBrowsingCheckCompleted() {
-  // If TRIGGER_MODELS ping is not skipped, do not allow async check to trigger
-  // another request. This is to avoid duplicate pings.
-  if (!trigger_models_request_skipped_) {
-    RecordAsyncCheckTriggerForceRequestResult(
-        AsyncCheckTriggerForceRequestResult::
-            kSkippedTriggerModelsPingNotSkipped);
-    return;
-  }
   if (!HasForceRequestFromRtUrlLookup()) {
     RecordAsyncCheckTriggerForceRequestResult(
         AsyncCheckTriggerForceRequestResult::kSkippedNotForced);
     return;
   }
+
+  // If a TRIGGER_MODELS requested ping is sent as a FORCE_REQUEST, do not allow
+  // async check to trigger another request. This is to avoid duplicate pings.
+  if (trigger_model_request_sent_as_force_request_) {
+    RecordAsyncCheckTriggerForceRequestResult(
+        AsyncCheckTriggerForceRequestResult::
+            kSkippedTriggerModelsPingSentAsForceRequest);
+    return;
+  }
+
   RecordAsyncCheckTriggerForceRequestResult(
       AsyncCheckTriggerForceRequestResult::kTriggered);
   MaybeStartPreClassification(ClientSideDetectionType::FORCE_REQUEST);
@@ -1079,7 +1100,6 @@ void ClientSideDetectionHost::MaybeSendClientPhishingRequest(
         safe_browsing::LlamaForcedTriggerInfo llama_forced_trigger_info;
         if (cache_manager->GetCachedRealTimeLlamaForcedTriggerInfo(
                 current_url_, &llama_forced_trigger_info)) {
-          llama_forced_trigger_info.set_trigger_url(current_url_.spec());
           verdict->mutable_llama_forced_trigger_info()->Swap(
               &llama_forced_trigger_info);
         } else if (
@@ -1100,7 +1120,6 @@ void ClientSideDetectionHost::MaybeSendClientPhishingRequest(
           for (GURL url : redirect_chain) {
             if (cache_manager->GetCachedRealTimeLlamaForcedTriggerInfo(
                     url, &llama_forced_trigger_info)) {
-              llama_forced_trigger_info.set_trigger_url(url.spec());
               redirect_chain_contains_forced_trigger_info = true;
               verdict->mutable_llama_forced_trigger_info()->Swap(
                   &llama_forced_trigger_info);
@@ -1143,18 +1162,21 @@ void ClientSideDetectionHost::MaybeSendClientPhishingRequest(
     debugging_metadata->set_forced_request(force_request_from_rt_url_lookup);
   }
 
+  trigger_model_request_sent_as_force_request_ =
+      force_request_from_rt_url_lookup;
+
   // We only send a phishing verdict if the verdict is phishing, the client
   // side detection type is |TRIGGER_MODELS|, AND the request is not a sample
   // ping. The detection type can be changed to FORCE_REQUEST from a
   // RTLookupResponse for a SBER/ESB user. This can also be changed when the
   // request is made from a notification permission prompt, keyboard & pointer
   // lock API.
-  trigger_models_request_skipped_ =
+  bool trigger_models_request_skipped =
       !verdict->is_phishing() &&
       verdict->client_side_detection_type() ==
           ClientSideDetectionType::TRIGGER_MODELS &&
       verdict->report_type() == ClientPhishingRequest::FULL_REPORT;
-  if (trigger_models_request_skipped_) {
+  if (trigger_models_request_skipped) {
     return;
   }
 
@@ -1242,6 +1264,10 @@ void ClientSideDetectionHost::MaybeInquireOnDeviceForScamDetection(
       verdict->has_llama_forced_trigger_info() &&
       verdict->llama_forced_trigger_info().intelligent_scan();
 
+  if (verdict->has_llama_forced_trigger_info()) {
+    LogLlamaForcedTriggerInfoFields(verdict->llama_forced_trigger_info());
+  }
+
   if (IsEnhancedProtectionEnabled(*delegate_->GetPrefs()) &&
       (is_keyboard_lock_requested || is_intelligent_scan_requested)) {
     if (is_keyboard_lock_requested &&
@@ -1261,6 +1287,10 @@ void ClientSideDetectionHost::MaybeInquireOnDeviceForScamDetection(
 
     base::UmaHistogramBoolean(
         "SBClientPhishing.IsOnDeviceModelAvailableAtInquiryTime",
+        on_device_model_available);
+    base::UmaHistogramBoolean(
+        "SBClientPhishing.IsOnDeviceModelAvailableAtInquiryTime." +
+            GetRequestTypeName(verdict->client_side_detection_type()),
         on_device_model_available);
 
     if (!on_device_model_available) {
@@ -1294,6 +1324,10 @@ void ClientSideDetectionHost::OnInnerTextComplete(
     std::string inner_text) {
   base::UmaHistogramCounts100000("SBClientPhishing.OnDeviceModelInnerTextSize",
                                  inner_text.size());
+  base::UmaHistogramCounts100000(
+      "SBClientPhishing.OnDeviceModelInnerTextSize." +
+          GetRequestTypeName(verdict->client_side_detection_type()),
+      inner_text.size());
   if (inner_text.empty()) {
     IntelligentScanInfo intelligent_scan_info;
     intelligent_scan_info.set_no_info_reason(IntelligentScanInfo::EMPTY_TEXT);
@@ -1318,7 +1352,10 @@ void ClientSideDetectionHost::OnInquireOnDeviceModelDone(
   base::UmaHistogramBoolean(
       "SBClientPhishing.OnDeviceModelHasSuccessfulResponse",
       response.has_value());
-
+  base::UmaHistogramBoolean(
+      "SBClientPhishing.OnDeviceModelHasSuccessfulResponse." +
+          GetRequestTypeName(verdict->client_side_detection_type()),
+      response.has_value());
   if (response.has_value()) {
     IntelligentScanInfo intelligent_scan_info;
     intelligent_scan_info.set_brand(response->brand());

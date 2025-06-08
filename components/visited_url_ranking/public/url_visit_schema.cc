@@ -46,6 +46,9 @@ const char kSignalTabGroupSyncId[] = "tab_group_sync_id";
 const char kSignalTabId[] = "tab_id";
 const char kSignalTabUrlOriginHash[] = "tab_url_origin_hash";
 const char kSignalTabUkmSourceId[] = "tab_ukm_source_id";
+const char kSignalIsTabSelected[] = "is_tab_selected";
+const char kSignalTabIndex[] = "tab_index";
+const char kSignalIsLastTab[] = "is_last_tab";
 
 constexpr std::array<FieldSchema, kTabResumptionNumInputs>
     kURLVisitAggregateSchema = {{
@@ -115,38 +118,53 @@ constexpr std::array<FieldSchema, kTabResumptionNumInputs>
     }};
 
 constexpr std::array<FieldSchema, kSuggestionsNumInputs>
-    kSuggestionsPredictionSchema{{
-        {.signal = URLVisitAggregateRankingModelInputSignals::
-             kTimeSinceLastModifiedSec,
-         .name = kSignalTimeSinceModifiedSec},
-        {.signal =
-             URLVisitAggregateRankingModelInputSignals::kTimeSinceLastActiveSec,
-         .name = kSignalTimeSinceLastActiveSec},
-        {.signal = URLVisitAggregateRankingModelInputSignals::
-             kTabRecentForegroundCount,
-         .name = kSignalTabRecentForegroundCount},
-        {.signal =
-             URLVisitAggregateRankingModelInputSignals::kIsTabOpenedByUser,
-         .name = kSignalIsTabOpenedByUser},
-        {.signal =
-             URLVisitAggregateRankingModelInputSignals::kAndroidTabLaunchType,
-         .name = kSignalAndroidTabLaunchType},
-        {.signal = URLVisitAggregateRankingModelInputSignals::
-             kAndroidTabLaunchPackageName,
-         .name = kSignalAndroidTabLaunchPackageName},
-        {.signal = URLVisitAggregateRankingModelInputSignals::kTabParentId,
-         .name = kSignalTabParentId},
-        {.signal = URLVisitAggregateRankingModelInputSignals::
-             kTimeSinceTabCreationSec,
-         .name = kSignalTimeSinceTabCreationSec},
-        {.signal = URLVisitAggregateRankingModelInputSignals::kTabGroupSyncId,
-         .name = kSignalTabGroupSyncId},
-        {.signal = URLVisitAggregateRankingModelInputSignals::kTabId,
-         .name = kSignalTabId},
-        {.signal = URLVisitAggregateRankingModelInputSignals::kTabUrlOriginHash,
-         .name = kSignalTabUrlOriginHash},
-        {.signal = URLVisitAggregateRankingModelInputSignals::kTabUkmSourceId,
-         .name = kSignalTabUkmSourceId},
-    }};
+    kSuggestionsPredictionSchema{
+        {{.signal = URLVisitAggregateRankingModelInputSignals::
+              kTimeSinceLastModifiedSec,
+          .name = kSignalTimeSinceModifiedSec},
+         {.signal = URLVisitAggregateRankingModelInputSignals::
+              kTimeSinceLastActiveSec,
+          .name = kSignalTimeSinceLastActiveSec},
+         {.signal = URLVisitAggregateRankingModelInputSignals::
+              kTabRecentForegroundCount,
+          .name = kSignalTabRecentForegroundCount},
+         {.signal =
+              URLVisitAggregateRankingModelInputSignals::kIsTabOpenedByUser,
+          .name = kSignalIsTabOpenedByUser},
+         {.signal =
+              URLVisitAggregateRankingModelInputSignals::kAndroidTabLaunchType,
+          .name = kSignalAndroidTabLaunchType},
+         {.signal = URLVisitAggregateRankingModelInputSignals::
+              kAndroidTabLaunchPackageName,
+          .name = kSignalAndroidTabLaunchPackageName},
+         {.signal = URLVisitAggregateRankingModelInputSignals::kTabParentId,
+          .name = kSignalTabParentId},
+         {.signal = URLVisitAggregateRankingModelInputSignals::
+              kTimeSinceTabCreationSec,
+          .name = kSignalTimeSinceTabCreationSec},
+         {.signal = URLVisitAggregateRankingModelInputSignals::kTabGroupSyncId,
+          .name = kSignalTabGroupSyncId},
+         {.signal = URLVisitAggregateRankingModelInputSignals::kTabId,
+          .name = kSignalTabId},
+         {.signal =
+              URLVisitAggregateRankingModelInputSignals::kTabUrlOriginHash,
+          .name = kSignalTabUrlOriginHash},
+         {.signal = URLVisitAggregateRankingModelInputSignals::kTabUkmSourceId,
+          .name = kSignalTabUkmSourceId},
+         {.signal = URLVisitAggregateRankingModelInputSignals::kIsTabSelected,
+          .name = kSignalIsTabSelected},
+         {.signal = URLVisitAggregateRankingModelInputSignals::kTabIndex,
+          .name = kSignalTabIndex},
+         {.signal = URLVisitAggregateRankingModelInputSignals::kIsLastTab,
+          .name = kSignalIsLastTab}}};
+
+const char* GetNameForInput(URLVisitAggregateRankingModelInputSignals signal) {
+  for (const auto& field : kSuggestionsPredictionSchema) {
+    if (field.signal == signal) {
+      return field.name;
+    }
+  }
+  return nullptr;
+}
 
 }  // namespace visited_url_ranking

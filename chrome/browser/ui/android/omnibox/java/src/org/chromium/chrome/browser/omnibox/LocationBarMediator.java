@@ -178,8 +178,8 @@ class LocationBarMediator
     private AutocompleteCoordinator mAutocompleteCoordinator;
     private @Nullable OmniboxPrerender mOmniboxPrerender;
     private UrlBarCoordinator mUrlCoordinator;
-    private ObservableSupplier<Profile> mProfileSupplier;
-    private CallbackController mCallbackController = new CallbackController();
+    private final ObservableSupplier<Profile> mProfileSupplier;
+    private final CallbackController mCallbackController = new CallbackController();
     private final OverrideUrlLoadingDelegate mOverrideUrlLoadingDelegate;
     private final LocaleManager mLocaleManager;
     private final List<Runnable> mDeferredNativeRunnables = new ArrayList<>();
@@ -215,9 +215,9 @@ class LocationBarMediator
     // Tracks if the location bar is laid out in a focused state due to an ntp scroll.
     private boolean mIsLocationBarFocusedFromNtpScroll;
     private @BrandedColorScheme int mBrandedColorScheme = BrandedColorScheme.APP_DEFAULT;
-    private ObservableSupplierImpl<Boolean> mBackPressStateSupplier =
+    private final ObservableSupplierImpl<Boolean> mBackPressStateSupplier =
             new ObservableSupplierImpl<>();
-    private @Nullable ObservableSupplier<TabModelSelector> mTabModelSelectorSupplier;
+    private final @Nullable ObservableSupplier<TabModelSelector> mTabModelSelectorSupplier;
     private @Nullable SearchEngineUtils mSearchEngineUtils;
 
     /*package */ LocationBarMediator(
@@ -289,6 +289,7 @@ class LocationBarMediator
 
     @SuppressWarnings("NullAway")
     /* package */ void destroy() {
+        mCallbackController.destroy();
         if (mTemplateUrlServiceSupplier.hasValue()) {
             mTemplateUrlServiceSupplier.get().removeObserver(this);
         }
@@ -336,17 +337,13 @@ class LocationBarMediator
                 && mLocationBarDataProvider.hasTab()
                 && !mLocationBarDataProvider.isIncognito()) {
             if (mTemplateUrlServiceSupplier.hasValue()) {
-                if (mTemplateUrlServiceSupplier.get().isDefaultSearchEngineGoogle()) {
-                    GeolocationHeader.primeLocationForGeoHeaderIfEnabled(
-                            mProfileSupplier.get(), mTemplateUrlServiceSupplier.get());
-                }
+                GeolocationHeader.primeLocationForGeoHeaderIfEnabled(
+                        mProfileSupplier.get(), mTemplateUrlServiceSupplier.get());
             } else {
                 mTemplateUrlServiceSupplier.onAvailable(
                         (templateUrlService) -> {
-                            if (templateUrlService.isDefaultSearchEngineGoogle()) {
-                                GeolocationHeader.primeLocationForGeoHeaderIfEnabled(
-                                        mProfileSupplier.get(), templateUrlService);
-                            }
+                            GeolocationHeader.primeLocationForGeoHeaderIfEnabled(
+                                    mProfileSupplier.get(), templateUrlService);
                         });
             }
         } // Focus change caused by a closed tab may result in there not being an active tab.
@@ -361,14 +358,12 @@ class LocationBarMediator
         mNativeInitialized = true;
         mOmniboxPrerender = new OmniboxPrerender();
         mTemplateUrlServiceSupplier.onAvailable(
-                (templateUrlService) -> {
-                    templateUrlService.addObserver(this);
-                    if (OmniboxFeatures.sUseFusedLocationProvider.isEnabled()
-                            && templateUrlService.isDefaultSearchEngineGoogle()) {
-                        GeolocationHeader.primeLocationForGeoHeaderIfEnabled(
-                                mProfileSupplier.get(), mTemplateUrlServiceSupplier.get());
-                    }
-                });
+                mCallbackController.makeCancelable(
+                        (templateUrlService) -> {
+                            templateUrlService.addObserver(this);
+                            GeolocationHeader.primeLocationForGeoHeaderIfEnabled(
+                                    mProfileSupplier.get(), mTemplateUrlServiceSupplier.get());
+                        }));
 
         mLocationBarLayout.onFinishNativeInitialization();
         if (mProfileSupplier.hasValue()) setProfile(mProfileSupplier.get());
@@ -605,7 +600,9 @@ class LocationBarMediator
             LoadUrlParams loadUrlParams = new LoadUrlParams(url);
             try (TimingMetric record =
                     TimingMetric.shortUptime("Android.Omnibox.SetGeolocationHeadersTime")) {
-                loadUrlParams.setVerbatimHeaders(GeolocationHeader.getGeoHeader(url, currentTab));
+                loadUrlParams.setVerbatimHeaders(
+                        GeolocationHeader.getGeoHeader(
+                                url, mProfileSupplier.get(), mTemplateUrlServiceSupplier.get()));
             }
             loadUrlParams.setTransitionType(
                     omniboxLoadUrlParams.transitionType | PageTransition.FROM_ADDRESS_BAR);
@@ -1091,6 +1088,9 @@ class LocationBarMediator
     private void setProfile(Profile profile) {
         if (profile == null || !mNativeInitialized) return;
 
+        mUrlCoordinator.setUrlBarHintText(
+                SearchEngineUtils.getForProfile(mProfileSupplier.get()).getSearchBoxHintText());
+
         assumeNonNull(mOmniboxPrerender);
         mOmniboxPrerender.initializeForProfile(profile);
         mSearchEngineUtils = SearchEngineUtils.getForProfile(profile);
@@ -1377,6 +1377,10 @@ class LocationBarMediator
     @Override
     public void onTemplateURLServiceChanged() {
         sLastCachedIsLensOnOmniboxEnabled = Boolean.valueOf(isLensEnabled(LensEntryPoint.OMNIBOX));
+        if (mProfileSupplier.hasValue()) {
+            mUrlCoordinator.setUrlBarHintText(
+                    SearchEngineUtils.getForProfile(mProfileSupplier.get()).getSearchBoxHintText());
+        }
     }
 
     // OmniboxStub implementation.

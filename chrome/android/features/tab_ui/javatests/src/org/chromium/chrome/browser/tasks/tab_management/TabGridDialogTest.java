@@ -45,6 +45,7 @@ import static org.mockito.Mockito.when;
 
 import static org.chromium.chrome.browser.flags.ChromeFeatureList.DATA_SHARING;
 import static org.chromium.chrome.browser.flags.ChromeFeatureList.NAV_BAR_COLOR_MATCHES_TAB_BACKGROUND;
+import static org.chromium.chrome.browser.flags.ChromeFeatureList.TAB_GROUP_PARITY_BOTTOM_SHEET_ANDROID;
 import static org.chromium.chrome.browser.flags.ChromeFeatureList.TAB_GROUP_SYNC_ANDROID;
 import static org.chromium.chrome.browser.ntp.HomeSurfaceTestUtils.createTabStatesAndMetadataFile;
 import static org.chromium.chrome.browser.ntp.HomeSurfaceTestUtils.createThumbnailBitmapAndWriteToFile;
@@ -181,7 +182,7 @@ import java.util.concurrent.TimeoutException;
 @ParameterAnnotations.UseRunnerDelegate(ChromeJUnit4RunnerDelegate.class)
 @CommandLineFlags.Add({ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE})
 @Restriction({Restriction.RESTRICTION_TYPE_NON_LOW_END_DEVICE})
-@DisableFeatures({NAV_BAR_COLOR_MATCHES_TAB_BACKGROUND})
+@DisableFeatures({NAV_BAR_COLOR_MATCHES_TAB_BACKGROUND, TAB_GROUP_PARITY_BOTTOM_SHEET_ANDROID})
 @EnableFeatures({DATA_SHARING})
 @Batch(Batch.PER_CLASS)
 public class TabGridDialogTest {
@@ -196,7 +197,7 @@ public class TabGridDialogTest {
             ActivityLifecycleMonitorRegistry.getInstance();
 
     private boolean mHasReceivedSourceRect;
-    private TabListEditorTestingRobot mSelectionEditorRobot = new TabListEditorTestingRobot();
+    private final TabListEditorTestingRobot mSelectionEditorRobot = new TabListEditorTestingRobot();
     private ModalDialogManager mModalDialogManager;
     private PrefService mPrefService;
 
@@ -1825,8 +1826,8 @@ public class TabGridDialogTest {
                                 .getEmbeddedTestServerRule()
                                 .getServer()
                                 .getURL("/chrome/test/data/android/google.html"));
-        when(mHomepagePolicyManager.isHomepageLocationPolicyEnabled()).thenReturn(true);
-        when(mHomepagePolicyManager.getHomepagePreference()).thenReturn(url);
+        when(mHomepagePolicyManager.isHomepageLocationPolicyManaged()).thenReturn(true);
+        when(mHomepagePolicyManager.getHomepageLocationPolicyUrl()).thenReturn(url);
 
         HomepagePolicyManager.setInstanceForTests(mHomepagePolicyManager);
         ChromeTabbedActivity cta = sActivityTestRule.getActivity();
@@ -2091,7 +2092,7 @@ public class TabGridDialogTest {
             return;
         }
 
-        if (!EdgeToEdgeUtils.isEnabled()) {
+        if (!EdgeToEdgeUtils.isChromeEdgeToEdgeFeatureEnabled()) {
             @ColorInt int scrimDefaultColor = cta.getColor(R.color.default_scrim_color);
             @ColorInt int navigationBarColor = SemanticColorUtils.getBottomSystemNavColor(cta);
             @ColorInt

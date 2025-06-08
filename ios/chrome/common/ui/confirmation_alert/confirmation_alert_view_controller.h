@@ -150,7 +150,7 @@
 @property(nonatomic, assign) UIBarButtonSystemItem dismissBarButtonSystemItem;
 
 // Sets a custom UIBarButtonItem for the dismiss bar button.
-@property(nonatomic, assign) UIImage* customDismissBarButtonImage;
+@property(nonatomic, strong) UIImage* customDismissBarButtonImage;
 
 // The action handler for interactions in this View Controller.
 @property(nonatomic, weak) id<ConfirmationAlertActionHandler> actionHandler;
@@ -167,6 +167,9 @@
 
 // Button for the primary action string.
 @property(nonatomic, readonly) UIButton* primaryActionButton;
+
+// Button for the secondary action string.
+@property(nonatomic, readonly) UIButton* secondaryActionButton;
 
 // Color used for the activity indicator on the primary button when in the
 // loading state. Defaults to kSolidWhiteColor.

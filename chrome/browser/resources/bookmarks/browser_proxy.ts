@@ -9,8 +9,7 @@ import type {IncognitoAvailability} from './constants.js';
 // This is the data structure that is received from the browser.
 export interface BatchUploadPromoData {
   canShow: boolean;
-  localBookmarksCount: number;
-  email: string;
+  promoSubtitle: string;
 }
 
 export interface BrowserProxy {
@@ -51,20 +50,15 @@ export class BrowserProxyImpl implements BrowserProxy {
   }
 
   getBatchUploadPromoInfo() {
-    // TODO(crbug.com/411439975): redirect to proxy to retrieve the right data.
-    return Promise.resolve({
-      canShow: false,
-      localBookmarksCount: 0,
-      email: 'test@gmail.com',
-    });
+    return sendWithPromise('getBatchUploadPromoInfo');
   }
 
   onBatchUploadPromoClicked(): void {
-    // TODO(crbug.com/411439975): redirect to proxy to open batch upload.
+    chrome.send('onBatchUploadPromoClicked');
   }
 
   onBatchUploadPromoDismissed(): void {
-    // TODO(crbug.com/411439975): redirect to proxy to update dismiss count.
+    chrome.send('onBatchUploadPromoDismissed');
   }
 
   static getInstance(): BrowserProxy {

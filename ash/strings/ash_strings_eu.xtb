@@ -462,6 +462,7 @@ Hona hemen hasteko egin ditzakezun gauza batzuk.</translation>
 <translation id="2530896289327917474">Aktibatu edo desaktibatu testu-kurtsorearen bidez arakatzeko eginbidea</translation>
 <translation id="2531025035050312891">gailua motela</translation>
 <translation id="2531107890083353124">Fitxa arrastatu bitartean, sakatu <ph name="KEY_ONE" /></translation>
+<translation id="2532199152994248594">Arrastatu edo sakatu zuriune-barra zer eremu atera nahi duzun hautatzeko</translation>
 <translation id="2545334090614121435">"Hasiera" erabili nahi duzu? Erabili</translation>
 <translation id="254900897760075745">Kopiatu hautatutako edukia arbelean</translation>
 <translation id="2549711466868162843">Hobetu argiztapena</translation>
@@ -581,7 +582,6 @@ Bestela, <ph name="TIMEOUT_SECONDS" /> barru gaituko da berriro ukipen-panel int
 <translation id="2949420361496057765">Sakatu <ph name="MODIFIER" /> eta egin klik esteka batean</translation>
 <translation id="2957159466053076448">Eginbide horiek desaktibatzeko, joan Ezarpenak atalera. <ph name="LINK_TO_LEARN_MORE" /></translation>
 <translation id="295852781144570696">Gailuaren audioa</translation>
-<translation id="2960314608273155470">Edukia kapturatzeko modua. Balio lehenetsia <ph name="TYPE" /> <ph name="SOURCE" /> da. Teklatuaren bidez nabigatzeko, sakatu tabuladorea.</translation>
 <translation id="2961963223658824723">Arazo bat izan da. Saiatu berriro segundo batzuk barru.</translation>
 <translation id="2963773877003373896">mod3</translation>
 <translation id="2965227184985674128">Mikrofonoa erabiltzeko baimena aktibatu nahi duzu?</translation>
@@ -761,6 +761,7 @@ Bestela, <ph name="TIMEOUT_SECONDS" /> barru gaituko da berriro ukipen-panel int
 <translation id="3552189655002856821">Desaktibatuta dago wifi-konexioa</translation>
 <translation id="3554215588514239132">Erakutsi edo ezkutatu garatzaileentzako tresnen panela</translation>
 <translation id="3554637740840164787">Ainguratu da <ph name="ITEM_TITLE" /></translation>
+<translation id="3554928024630051016">USB bidezko beste gailu bat gehitzeko, kendu bat eta entxufatu beste bat</translation>
 <translation id="3558768885091059911">Kamera eta mikrofonoa erabiltzeko baimena aktibatu nahi duzu?</translation>
 <translation id="3560174576767922131">Grabatu bideo bat</translation>
 <translation id="3563775809269155755">Gaitu wifi-gunea</translation>
@@ -869,6 +870,7 @@ Aurrera egiteko, erabiltzaile guztiek saioa amaitu behar dute.</translation>
 <translation id="3861651314799684201">Pantaila osoa grabatzeko, sakatu Sartu</translation>
 <translation id="3870197372373144624">Itzali gailua.</translation>
 <translation id="3879748587602334249">Deskargen kudeatzailea</translation>
+<translation id="3884007280698606545">USB bidezko gailuen mugara iritsi zara</translation>
 <translation id="3886872229787704059">Gaur ireki da</translation>
 <translation id="3891340733213178823">Saioa amaitzeko, sakatu Ktrl + Maius + Q bi aldiz.</translation>
 <translation id="3892148308691398805">Kopiatu testua</translation>
@@ -1487,6 +1489,7 @@ Ez dago gailurik konektatuta.</translation>
 <translation id="5788127256798019331">Play fitxategiak</translation>
 <translation id="5788535737706478207">Ireki berriro itxitako azken fitxa edo leihoa</translation>
 <translation id="5790085346892983794">Behar bezala egin da</translation>
+<translation id="5791926618942305301">Pantaila-kapturan, <ph name="TYPE" /> <ph name="SOURCE" />. Kaptura mota aldatzeko, sakatu tabuladorea. Kapturatzeko, sakatu Sartu. Kapturatu beharreko eremua hautatzeko, ezarri pantaila-argazki partzial gisa. Oraindik aktibo ez badago, sakatu zuriunea lurraldea hautatzeko.</translation>
 <translation id="579415080077680903">Modu isila</translation>
 <translation id="5802516411616338943">Ireki Ezarpen bizkorrak</translation>
 <translation id="5804651031882187592">Desaktibatu "Blokeatu SIMa" ezarpena</translation>
@@ -1643,6 +1646,7 @@ Ez dago gailurik konektatuta.</translation>
 <translation id="6288235558961782912">Geroago gehi daiteke <ph name="USER_EMAIL_ADDRESS" /> guraso baten baimenarekin.</translation>
 <translation id="6291221004442998378">Ez da kargatzen ari</translation>
 <translation id="6298183524022479114">Pertsonalizatu gailu hau aplikazioan</translation>
+<translation id="6304076460080088478">Itxi edo minimizatu ezkutuko moduko leihoak pantailan bilaketak egiteko Google Lens bidez</translation>
 <translation id="6309219492973062892">Sakatu apaleko 1-8 ikonoak</translation>
 <translation id="6315170314923504164">Ahotsa</translation>
 <translation id="6319058840130157106">Mugitu atzerantz beheko eskuinaldeko izkinaren, Exekutatzeko tresnaren, helbide-barraren, laster-marken barraren, irekitako webgunearen eta deskargen artean</translation>
@@ -1771,6 +1775,7 @@ Berriki instalatu da</translation>
 <translation id="6700713906295497288">IME menu-botoia</translation>
 <translation id="6704073473590541209">Eskuineko ertzeko kontrol-puntua hautatu da, erabili teklak mugitzeko</translation>
 <translation id="6706742084323792866">Ainguratu teklatua</translation>
+<translation id="6709719156428404245">Arrastatu edo sakatu zuriune-barra zer eremu grabatu nahi duzun hautatzeko</translation>
 <translation id="6710213216561001401">Aurrekoa</translation>
 <translation id="6723839937902243910">Bateria</translation>
 <translation id="672609503628871915">Ikusi azken berrikuntzak</translation>
@@ -2434,7 +2439,6 @@ Itzaltzeko, eduki sakatuta berriro gailuaren etengailua.</translation>
 <translation id="8934418770423095813">Sortu Google-ko dokumentu bat</translation>
 <translation id="8934926665751933910">{NUM_FILES,plural, =1{1 fitxategi}other{# fitxategi}}</translation>
 <translation id="8936501819958976551">desaktibatuta</translation>
-<translation id="8937312474322077653">Pantaila-kapturan, <ph name="TYPE" /> <ph name="SOURCE" />. Kaptura mota aldatzeko, sakatu tabuladorea. Eremua hautatzeko, sakatu zuriune-barra. Kapturatzeko, sakatu Sartu.</translation>
 <translation id="8938800817013097409">USB-C gailua (eskuinaldeko atzeko ataka)</translation>
 <translation id="8939855324412367560">Audio-sarrera "<ph name="INPUT_DEVICE_NAME" />" da, eta audio-irteera, berriz, "<ph name="OUTPUT_DEVICE_NAME" />". Aldatzeko, joan Ezarpenak atalera.</translation>
 <translation id="8940956008527784070">Bateria gutxi (% <ph name="PERCENTAGE" />)</translation>

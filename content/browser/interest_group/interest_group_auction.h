@@ -240,6 +240,10 @@ class CONTENT_EXPORT InterestGroupAuction
     // 0 for things that don't use that mode.
     size_t group_by_origin_id = 0;
 
+    // ID used to isolate conflicting IGs in GroupByOrigin execution mode.
+    // 0 for things that don't use that mode.
+    std::optional<size_t> seller_group_by_origin_id;
+
     // ReceiverId for use as a GenerateBidClient. Only populated while
     // generateBid() is running.
     std::optional<mojo::ReceiverId> generate_bid_client_receiver_id;
@@ -320,6 +324,12 @@ class CONTENT_EXPORT InterestGroupAuction
 
     // True if the bid is created from parsing B&A server response.
     bool is_from_server_response = false;
+
+    // True if this BidState has received a bidder worklet but now needs to wait
+    // on the bidder's `per_buyer_tkv_signals` promise being resolved before
+    // sending a KVv2 signals fetch and calling BeginGenerateBid() on the bidder
+    // worklet.
+    bool waiting_for_tkv_promise = false;
 
     // forDebuggingOnly reports that have been filtered (also sampled) by the
     // B&A server.
@@ -622,6 +632,22 @@ class CONTENT_EXPORT InterestGroupAuction
   // Assumes that `pos` has already been range-checked, and that this is
   // a parent auction.
   void NotifyComponentConfigPromisesResolved(uint32_t pos);
+
+  // Called by AuctionRunner when a buyer's TKV signals promise has been
+  // resolved or rejected. `pos` is nullopt if this is a promise in the
+  // top-level auction, and the index of a component auction if it's the buyer's
+  // TKV signals in a component auction.
+  //
+  // AuctionConfig must already have been updated to reflect the result of the
+  // promise before calling.
+  //
+  // This is a separate method because it delayed GenerateBid() calls for the
+  // interest groups of `buyer` groups using TKVv2, not just the
+  // FinishedGenerateBid() calls, like other promises.
+  //
+  // Assumes that `pos` has already been range-checked.
+  void NotifyBuyerTkvSignalsPromiseResolved(const url::Origin& buyer,
+                                            std::optional<uint32_t> pos);
 
   // Called by AuctionRunner when the promise providing the additional_bids
   // array has been resolved, if one exists. Unlike other similar methods,
@@ -1209,6 +1235,15 @@ class CONTENT_EXPORT InterestGroupAuction
   // Returns the multi-bid limit configured for `buyer` by `config_`,
   // ensuring that it's at least 1.
   uint16_t GetBuyerMultiBidLimit(const url::Origin& buyer);
+
+  // Gets the buyer `per-buyer-tkv-signals` in `config` for interest group
+  // buyer. Returns nullptr if no such signals exist.
+  const blink::AuctionConfig::MaybePromiseJson* GetBuyerTKVSignals(
+      const url::Origin& buyer) const;
+
+  // Gets the `seller-tkv-signals` in `config` to provide more contextual data
+  // during scoring ads process.
+  base::optional_ref<const std::string> GetSellerTKVSignals() const;
 
   // -----------------------------------
   // Methods not associated with a phase

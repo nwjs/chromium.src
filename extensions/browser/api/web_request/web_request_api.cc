@@ -17,7 +17,6 @@
 #include "base/lazy_instance.h"
 #include "base/memory/raw_ptr.h"
 #include "base/metrics/histogram_functions.h"
-#include "base/not_fatal_until.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/sequenced_task_runner.h"
@@ -235,7 +234,7 @@ void WebRequestAPI::ProxySet::RemoveProxy(Proxy* proxy) {
   }
 
   auto proxy_it = proxies_.find(proxy);
-  CHECK(proxy_it != proxies_.end(), base::NotFatalUntil::M130);
+  CHECK(proxy_it != proxies_.end());
   proxies_.erase(proxy_it);
 }
 
@@ -334,7 +333,7 @@ WebRequestAPI::WebRequestAPI(content::BrowserContext* context)
   // observe the EventRouter for each BrowserContext that has webRequest
   // API event listeners.
   // Observe related events in the EventRouter for the WebRequestEventRouter.
-  for (std::string event_name : WebRequestEventRouter::GetEventNames()) {
+  for (const std::string& event_name : WebRequestEventRouter::GetEventNames()) {
     event_router->RegisterObserver(this, event_name);
   }
   extensions::ExtensionRegistry::Get(browser_context_)->AddObserver(this);

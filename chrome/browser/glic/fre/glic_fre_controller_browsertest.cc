@@ -8,7 +8,8 @@
 #include "base/time/time.h"
 #include "chrome/browser/glic/glic_keyed_service.h"
 #include "chrome/browser/glic/glic_pref_names.h"
-#include "chrome/browser/glic/test_support/interactive_glic_test.h"
+#include "chrome/browser/glic/test_support/non_interactive_glic_test.h"
+#include "chrome/browser/lifetime/application_lifetime_desktop.h"
 #include "chrome/browser/signin/identity_test_environment_profile_adaptor.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
@@ -21,7 +22,7 @@
 namespace glic {
 namespace {
 
-class GlicFreControllerBrowserTest : public glic::test::InteractiveGlicTest {
+class GlicFreControllerBrowserTest : public NonInteractiveGlicTest {
  public:
   GlicFreControllerBrowserTest() = default;
   ~GlicFreControllerBrowserTest() override = default;
@@ -228,14 +229,11 @@ IN_PROC_BROWSER_TEST_F(GlicFreControllerBrowserTest,
 IN_PROC_BROWSER_TEST_F(GlicFreControllerBrowserTest,
                        FreControllerWithWebContentsDestruction) {
   // Open the FRE dialog in a tab.
-  chrome::AddTabAt(browser(), GURL("about:blank"), 0, true);
-  browser()->tab_strip_model()->ActivateTabAt(0);
-
   glic_fre_controller()->ShowFreDialog(browser());
   WaitForFreShow();
 
   // Open a new tab at the end of the tab strip and activate it.
-  chrome::AddTabAt(browser(), GURL("about:blank"), 1, true);
+  chrome::AddTabAt(browser(), GURL("about:blank"), -1, true);
   browser()->tab_strip_model()->ActivateTabAt(1);
 
   // Destroy the WebContents that the dialog is being shown on.
@@ -245,8 +243,6 @@ IN_PROC_BROWSER_TEST_F(GlicFreControllerBrowserTest,
 
 IN_PROC_BROWSER_TEST_F(GlicFreControllerBrowserTest, FreAcceptance) {
   // Open the FRE dialog in a tab.
-  chrome::AddTabAt(browser(), GURL("about:blank"), 0, true);
-  browser()->tab_strip_model()->ActivateTabAt(0);
   glic_fre_controller()->ShowFreDialog(browser());
   WaitForFreShow();
 
@@ -254,6 +250,14 @@ IN_PROC_BROWSER_TEST_F(GlicFreControllerBrowserTest, FreAcceptance) {
   glic_fre_controller()->AcceptFre();
   WaitForFreClose();
   WaitForGlicPanelShow();
+}
+
+IN_PROC_BROWSER_TEST_F(GlicFreControllerBrowserTest, DoNotCrashOnBrowserClose) {
+  // Open the FRE dialog in a tab.
+  glic_fre_controller()->ShowFreDialog(browser());
+  WaitForFreShow();
+
+  chrome::CloseAllBrowsers();
 }
 
 }  // namespace

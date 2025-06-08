@@ -156,6 +156,19 @@ class ZeroSuggestProviderTest : public testing::Test,
         template_url_service->search_terms_data());
   }
 
+  GURL GetProviderRequestURL(const AutocompleteInput& input) {
+    network::ResourceRequest resource_request;
+    // Intercept the request to determine full URL actually used by provider.
+    test_loader_factory()->SetInterceptor(base::BindLambdaForTesting(
+        [&](const network::ResourceRequest& request) {
+          resource_request = request;
+        }));
+    provider_->Start(input, false);
+    EXPECT_TRUE(
+        base::test::RunUntil([&] { return !resource_request.url.is_empty(); }));
+    return resource_request.url;
+  }
+
   // An AutocompleteInput that gets Zero Prefix Suggestions on NTP.
   AutocompleteInput ZeroPrefixInputForNTP(
       const bool is_prefetch,
@@ -183,7 +196,8 @@ class ZeroSuggestProviderTest : public testing::Test,
   AutocompleteInput ZeroPrefixInputForWeb(
       const bool is_prefetch,
       const bool user_input_in_progress = false,
-      const std::string& input_url = "https://example.com/") {
+      const std::string& input_url = "https://example.com/",
+      const std::u16string& input_title = u"Example / Page") {
     // On IOS WEB/SRP, input text is not empty.
     AutocompleteInput input(is_ios ? base::ASCIIToUTF16(input_url) : u"",
                             is_prefetch
@@ -191,6 +205,7 @@ class ZeroSuggestProviderTest : public testing::Test,
                                 : metrics::OmniboxEventProto::OTHER,
                             TestSchemeClassifier());
     input.set_current_url(GURL(input_url));
+    input.set_current_title(input_title);
     input.set_focus_type(user_input_in_progress
                              ? metrics::OmniboxFocusType::INTERACTION_DEFAULT
                              : metrics::OmniboxFocusType::INTERACTION_FOCUS);
@@ -211,7 +226,8 @@ class ZeroSuggestProviderTest : public testing::Test,
   AutocompleteInput ZeroPrefixInputForSRP(
       const bool is_prefetch,
       const bool user_input_in_progress = false,
-      const std::string& input_url = "https://www.google.com/search?q=foo") {
+      const std::string& input_url = "https://www.google.com/search?q=foo",
+      const std::u16string& input_title = u"foo - Google Search") {
     AutocompleteInput input(
         // On IOS WEB/SRP, input text is not empty.
         is_ios ? base::ASCIIToUTF16(input_url) : u"",
@@ -220,6 +236,7 @@ class ZeroSuggestProviderTest : public testing::Test,
                           SEARCH_RESULT_PAGE_NO_SEARCH_TERM_REPLACEMENT,
         TestSchemeClassifier());
     input.set_current_url(GURL(input_url));
+    input.set_current_title(input_title);
     input.set_focus_type(user_input_in_progress
                              ? metrics::OmniboxFocusType::INTERACTION_DEFAULT
                              : metrics::OmniboxFocusType::INTERACTION_FOCUS);
@@ -1128,6 +1145,204 @@ TEST_F(ZeroSuggestProviderTest,
   // Expect the provider to not have notified the provider listener since the
   // request was not sent.
   EXPECT_FALSE(provider_did_notify_);
+}
+
+TEST_F(ZeroSuggestProviderTest, SyncMatchesOnly) {
+  EXPECT_CALL(*client_, IsAuthenticated())
+      .WillRepeatedly(testing::Return(true));
+
+  base::test::ScopedFeatureList features;
+  features.InitWithFeatures(
+      /*enabled_features=*/
+      {omnibox_feature_configs::ContextualSearch::kOmniboxContextualSuggestions,
+       omnibox_feature_configs::ContextualSearch::
+           kOmniboxZeroSuggestSynchronousMatchesOnly,
+       omnibox::kZeroSuggestPrefetchingOnSRP,
+       omnibox::kZeroSuggestPrefetchingOnWeb},
+      /*disabled_features=*/{omnibox::kZeroSuggestInMemoryCaching});
+
+  auto clear_matches = [&]() {
+    while (!provider_->matches().empty()) {
+      provider_->DeleteMatch(provider_->matches().front());
+    }
+  };
+
+  // ZPS via CSB (Lens overlay)
+  {
+    // Set up the pref to cache the response from the previous run.
+    std::string json_response(
+        R"(["",["search1", "search2", "search3"],)"
+        R"([],[],{"google:suggestrelevance":[602, 601, 600],)"
+        R"("google:suggestdetail":[{"du":"a.com"}, {"du":"a.com"}, {"du":"a.com"}],)"
+        R"("google:verbatimrelevance":1300}])");
+    PrefService* prefs = client_->GetPrefs();
+    prefs->SetString(omnibox::kZeroSuggestCachedResults, json_response);
+
+    AutocompleteInput input = ZeroPrefixInputForLens();
+    provider_->Start(input, false);
+    ASSERT_EQ(ZeroSuggestProvider::ResultType::kRemoteNoURL,
+              provider_->GetResultTypeRunningForTesting());
+    ASSERT_EQ(1, test_loader_factory()->NumPending());
+
+    // Expect that matches DO NOT get populated synchronously out of the cache
+    // for CSB.
+    EXPECT_TRUE(provider_->matches().empty());
+
+    clear_matches();
+
+    std::string json_response2(
+        R"(["",["search4", "search5", "search6"],)"
+        R"([],[],{"google:suggestrelevance":[602, 601, 600],)"
+        R"("google:verbatimrelevance":1300}])");
+    test_loader_factory()->AddResponse(
+        test_loader_factory()->GetPendingRequest(0)->request.url.spec(),
+        json_response2);
+
+    base::RunLoop().RunUntilIdle();
+    EXPECT_TRUE(provider_->done());
+
+    // Expect that matches get populated using the async ZPS response.
+    ASSERT_EQ(3U, provider_->matches().size());
+    EXPECT_EQ(u"search4", provider_->matches()[0].contents);
+    EXPECT_EQ(u"search5", provider_->matches()[1].contents);
+    EXPECT_EQ(u"search6", provider_->matches()[2].contents);
+  }
+
+  // ZPS on NTP
+  {
+    // Set up the pref to cache the response from the previous run.
+    std::string json_response(
+        R"(["",["search1", "search2", "search3"],)"
+        R"([],[],{"google:suggestrelevance":[602, 601, 600],)"
+        R"("google:suggestdetail":[{"du":"a.com"}, {"du":"a.com"}, {"du":"a.com"}],)"
+        R"("google:verbatimrelevance":1300}])");
+    PrefService* prefs = client_->GetPrefs();
+    prefs->SetString(omnibox::kZeroSuggestCachedResults, json_response);
+
+    AutocompleteInput input = ZeroPrefixInputForNTP(/*is_prefetch=*/false);
+    provider_->Start(input, false);
+    ASSERT_EQ(ZeroSuggestProvider::ResultType::kRemoteNoURL,
+              provider_->GetResultTypeRunningForTesting());
+
+    // Expect that matches get populated synchronously out of the cache.
+    ASSERT_EQ(3U, provider_->matches().size());
+    EXPECT_EQ(u"search1", provider_->matches()[0].contents);
+    EXPECT_EQ(u"search2", provider_->matches()[1].contents);
+    EXPECT_EQ(u"search3", provider_->matches()[2].contents);
+
+    clear_matches();
+
+    GURL suggest_url =
+        GetSuggestURL(metrics::OmniboxEventProto::NTP_REALBOX,
+                      metrics::OmniboxFocusType::INTERACTION_FOCUS, "");
+    EXPECT_TRUE(test_loader_factory()->IsPending(suggest_url.spec()));
+    std::string json_response2(
+        R"(["",["search4", "search5", "search6"],)"
+        R"([],[],{"google:suggestrelevance":[602, 601, 600],)"
+        R"("google:verbatimrelevance":1300}])");
+    test_loader_factory()->AddResponse(suggest_url.spec(), json_response2);
+
+    base::RunLoop().RunUntilIdle();
+    EXPECT_TRUE(provider_->done());
+
+    // Expect that matches get populated using the async ZPS response.
+    ASSERT_EQ(3U, provider_->matches().size());
+    EXPECT_EQ(u"search4", provider_->matches()[0].contents);
+    EXPECT_EQ(u"search5", provider_->matches()[1].contents);
+    EXPECT_EQ(u"search6", provider_->matches()[2].contents);
+  }
+
+  // ZPS on SRP
+  {
+    // Set up the pref to cache the response from the previous run.
+    std::string json_response(
+        R"(["",["search1", "search2", "search3"],)"
+        R"([],[],{"google:suggestrelevance":[602, 601, 600],)"
+        R"("google:suggestdetail":[{"du":"a.com"}, {"du":"a.com"}, {"du":"a.com"}],)"
+        R"("google:verbatimrelevance":1300}])");
+    PrefService* prefs = client_->GetPrefs();
+    AutocompleteInput input = ZeroPrefixInputForSRP(/*is_prefetch=*/false);
+    omnibox::SetUserPreferenceForZeroSuggestCachedResponse(
+        prefs, input.current_url().spec(), json_response);
+
+    provider_->Start(input, false);
+    ASSERT_EQ(ZeroSuggestProvider::ResultType::kRemoteSendURL,
+              provider_->GetResultTypeRunningForTesting());
+
+    // Expect that matches get populated synchronously out of the cache.
+    ASSERT_EQ(3U, provider_->matches().size());
+    EXPECT_EQ(u"search1", provider_->matches()[0].contents);
+    EXPECT_EQ(u"search2", provider_->matches()[1].contents);
+    EXPECT_EQ(u"search3", provider_->matches()[2].contents);
+
+    clear_matches();
+
+    GURL suggest_url =
+        GetSuggestURL(metrics::OmniboxEventProto::
+                          SEARCH_RESULT_PAGE_NO_SEARCH_TERM_REPLACEMENT,
+                      metrics::OmniboxFocusType::INTERACTION_FOCUS,
+                      input.current_url().spec());
+    EXPECT_TRUE(test_loader_factory()->IsPending(suggest_url.spec()));
+    std::string json_response2(
+        R"(["",["search4", "search5", "search6"],)"
+        R"([],[],{"google:suggestrelevance":[602, 601, 600],)"
+        R"("google:verbatimrelevance":1300}])");
+    test_loader_factory()->AddResponse(suggest_url.spec(), json_response2);
+
+    base::RunLoop().RunUntilIdle();
+    EXPECT_TRUE(provider_->done());
+
+    // Expect that matches get populated using the async ZPS response.
+    ASSERT_EQ(3U, provider_->matches().size());
+    EXPECT_EQ(u"search4", provider_->matches()[0].contents);
+    EXPECT_EQ(u"search5", provider_->matches()[1].contents);
+    EXPECT_EQ(u"search6", provider_->matches()[2].contents);
+  }
+
+  // ZPS on Web
+  {
+    // Set up the pref to cache the response from the previous run.
+    std::string json_response(
+        R"(["",["search1", "search2", "search3"],)"
+        R"([],[],{"google:suggestrelevance":[602, 601, 600],)"
+        R"("google:suggestdetail":[{"du":"a.com"}, {"du":"a.com"}, {"du":"a.com"}],)"
+        R"("google:verbatimrelevance":1300}])");
+    PrefService* prefs = client_->GetPrefs();
+    AutocompleteInput input = ZeroPrefixInputForWeb(/*is_prefetch=*/false);
+    omnibox::SetUserPreferenceForZeroSuggestCachedResponse(
+        prefs, input.current_url().spec(), json_response);
+
+    provider_->Start(input, false);
+    ASSERT_EQ(ZeroSuggestProvider::ResultType::kRemoteSendURL,
+              provider_->GetResultTypeRunningForTesting());
+
+    // Expect that matches get populated synchronously out of the cache.
+    ASSERT_EQ(3U, provider_->matches().size());
+    EXPECT_EQ(u"search1", provider_->matches()[0].contents);
+    EXPECT_EQ(u"search2", provider_->matches()[1].contents);
+    EXPECT_EQ(u"search3", provider_->matches()[2].contents);
+
+    clear_matches();
+
+    GURL suggest_url =
+        GetSuggestURL(metrics::OmniboxEventProto::OTHER,
+                      metrics::OmniboxFocusType::INTERACTION_FOCUS,
+                      input.current_url().spec());
+    EXPECT_TRUE(test_loader_factory()->IsPending(suggest_url.spec()));
+    std::string json_response2(
+        R"(["",["search4", "search5", "search6"],)"
+        R"([],[],{"google:suggestrelevance":[602, 601, 600],)"
+        R"("google:verbatimrelevance":1300}])");
+    test_loader_factory()->AddResponse(suggest_url.spec(), json_response2);
+
+    base::RunLoop().RunUntilIdle();
+    EXPECT_TRUE(provider_->done());
+
+    // Expect that matches DO NOT get populated using the async ZPS response,
+    // since "sync matches only" targets the Contextual Search in Omnibox
+    // experience on Web.
+    EXPECT_TRUE(provider_->matches().empty());
+  }
 }
 
 TEST_F(ZeroSuggestProviderTest, TestPsuggestZeroSuggestHasCachedResultsNTP) {
@@ -2988,23 +3203,10 @@ TEST_F(ZeroSuggestProviderTest, TestDeleteMatchTriggersDeletionRequest) {
 }
 
 TEST_F(ZeroSuggestProviderTest, SuggestUrlIncludesCtxus) {
-  // Intercept the request to determine full URL actually used by provider.
-  auto get_provider_request_url = [&](AutocompleteInput input) {
-    network::ResourceRequest resource_request;
-    test_loader_factory()->SetInterceptor(base::BindLambdaForTesting(
-        [&](const network::ResourceRequest& request) {
-          resource_request = request;
-        }));
-    provider_->Start(input, false);
-    EXPECT_TRUE(
-        base::test::RunUntil([&] { return !resource_request.url.is_empty(); }));
-    return resource_request.url;
-  };
-
   // Ensure it's not included by default.
   {
     GURL url =
-        get_provider_request_url(ZeroPrefixInputForWeb(/*is_prefetch=*/false));
+        GetProviderRequestURL(ZeroPrefixInputForWeb(/*is_prefetch=*/false));
     EXPECT_EQ(url.spec().find("ctxus="), std::string::npos);
   }
 
@@ -3014,22 +3216,104 @@ TEST_F(ZeroSuggestProviderTest, SuggestUrlIncludesCtxus) {
       config;
   config.Get().contextual_url_suggest_param = "1";
 
-  // Web gets the param.
+  // Web gets the param when Lens is enabled.
   {
+    EXPECT_CALL(*client_, IsLensEnabled())
+        .WillRepeatedly(testing::Return(true));
     GURL url =
-        get_provider_request_url(ZeroPrefixInputForWeb(/*is_prefetch=*/false));
+        GetProviderRequestURL(ZeroPrefixInputForWeb(/*is_prefetch=*/false));
     EXPECT_NE(url.spec().find("ctxus=1"), std::string::npos);
+  }
+  // Web does not get the param when Lens is disabled.
+  {
+    EXPECT_CALL(*client_, IsLensEnabled())
+        .WillRepeatedly(testing::Return(false));
+    GURL url =
+        GetProviderRequestURL(ZeroPrefixInputForWeb(/*is_prefetch=*/false));
+    EXPECT_EQ(url.spec().find("ctxus=1"), std::string::npos);
   }
   // NTP does not, even when enabled.
   {
+    EXPECT_CALL(*client_, IsLensEnabled())
+        .WillRepeatedly(testing::Return(true));
     GURL url =
-        get_provider_request_url(ZeroPrefixInputForNTP(/*is_prefetch=*/false));
+        GetProviderRequestURL(ZeroPrefixInputForNTP(/*is_prefetch=*/false));
     EXPECT_EQ(url.spec().find("ctxus=1"), std::string::npos);
   }
   // SRP does not, even when enabled.
   {
+    EXPECT_CALL(*client_, IsLensEnabled())
+        .WillRepeatedly(testing::Return(true));
     GURL url =
-        get_provider_request_url(ZeroPrefixInputForSRP(/*is_prefetch=*/false));
+        GetProviderRequestURL(ZeroPrefixInputForSRP(/*is_prefetch=*/false));
     EXPECT_EQ(url.spec().find("ctxus=1"), std::string::npos);
+  }
+}
+
+TEST_F(ZeroSuggestProviderTest, SuggestUrlIncludesPageTitle) {
+  // Ensure it's not included by default.
+  {
+    GURL url =
+        GetProviderRequestURL(ZeroPrefixInputForWeb(/*is_prefetch=*/false));
+    EXPECT_EQ(url.spec().find("pageTitle="), std::string::npos);
+  }
+
+  // Ensure it is conditionally included when enabled.
+  omnibox_feature_configs::ScopedConfigForTesting<
+      omnibox_feature_configs::ContextualSearch>
+      config;
+  config.Get().send_page_title_suggest_param = true;
+
+  // Web gets the param (URL-encoded page title).
+  {
+    EXPECT_CALL(*client_, IsLensEnabled())
+        .WillRepeatedly(testing::Return(true));
+    EXPECT_CALL(*client_, IsPersonalizedUrlDataCollectionActive())
+        .WillRepeatedly(testing::Return(true));
+    GURL url =
+        GetProviderRequestURL(ZeroPrefixInputForWeb(/*is_prefetch=*/false));
+    EXPECT_NE(url.spec().find("pageTitle=Example%20%2F%20Page"),
+              std::string::npos);
+  }
+  // Web does not get the param when Lens is disabled.
+  {
+    EXPECT_CALL(*client_, IsLensEnabled())
+        .WillRepeatedly(testing::Return(false));
+    EXPECT_CALL(*client_, IsPersonalizedUrlDataCollectionActive())
+        .WillRepeatedly(testing::Return(true));
+    GURL url =
+        GetProviderRequestURL(ZeroPrefixInputForWeb(/*is_prefetch=*/false));
+    EXPECT_EQ(url.spec().find("pageTitle="), std::string::npos);
+  }
+  // Web does not get the param when personalized URL data collection is
+  // disabled.
+  {
+    EXPECT_CALL(*client_, IsLensEnabled())
+        .WillRepeatedly(testing::Return(true));
+    EXPECT_CALL(*client_, IsPersonalizedUrlDataCollectionActive())
+        .WillRepeatedly(testing::Return(false));
+    GURL url =
+        GetProviderRequestURL(ZeroPrefixInputForWeb(/*is_prefetch=*/false));
+    EXPECT_EQ(url.spec().find("pageTitle="), std::string::npos);
+  }
+  // NTP does not, even when enabled.
+  {
+    EXPECT_CALL(*client_, IsLensEnabled())
+        .WillRepeatedly(testing::Return(true));
+    EXPECT_CALL(*client_, IsPersonalizedUrlDataCollectionActive())
+        .WillRepeatedly(testing::Return(true));
+    GURL url =
+        GetProviderRequestURL(ZeroPrefixInputForNTP(/*is_prefetch=*/false));
+    EXPECT_EQ(url.spec().find("pageTitle="), std::string::npos);
+  }
+  // SRP does not, even when enabled.
+  {
+    EXPECT_CALL(*client_, IsLensEnabled())
+        .WillRepeatedly(testing::Return(true));
+    EXPECT_CALL(*client_, IsPersonalizedUrlDataCollectionActive())
+        .WillRepeatedly(testing::Return(true));
+    GURL url =
+        GetProviderRequestURL(ZeroPrefixInputForSRP(/*is_prefetch=*/false));
+    EXPECT_EQ(url.spec().find("pageTitle="), std::string::npos);
   }
 }

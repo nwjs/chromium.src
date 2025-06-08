@@ -165,6 +165,22 @@ class WebIdlSchemaTest(unittest.TestCase):
         'name': 'returnsCustomType',
         '$ref': 'ExampleType'
     }, getFunctionReturn(schema, 'returnsCustomType'))
+    self.assertEqual(
+        {
+            'name': 'returnsDOMStringSequence',
+            'type': 'array',
+            'items': {
+                'type': 'string'
+            }
+        }, getFunctionReturn(schema, 'returnsDOMStringSequence'))
+    self.assertEqual(
+        {
+            'name': 'returnsCustomTypeSequence',
+            'type': 'array',
+            'items': {
+                '$ref': 'ExampleType'
+            }
+        }, getFunctionReturn(schema, 'returnsCustomTypeSequence'))
 
   def testPromiseBasedReturn(self):
     schema = self.idl_basics
@@ -198,6 +214,28 @@ class WebIdlSchemaTest(unittest.TestCase):
         'parameters': [],
         'type': 'promise'
     }, getFunctionAsyncReturn(schema, 'undefinedPromiseReturn'))
+    self.assertEqual(
+        {
+            'name': 'callback',
+            'parameters': [{
+                'type': 'array',
+                'items': {
+                    'type': 'integer'
+                }
+            }],
+            'type': 'promise'
+        }, getFunctionAsyncReturn(schema, 'longSequencePromiseReturn'))
+    self.assertEqual(
+        {
+            'name': 'callback',
+            'parameters': [{
+                'type': 'array',
+                'items': {
+                    '$ref': 'ExampleType'
+                }
+            }],
+            'type': 'promise'
+        }, getFunctionAsyncReturn(schema, 'customTypeSequencePromiseReturn'))
 
   # Tests function parameters are processed as expected.
   def testFunctionParameters(self):
@@ -233,6 +271,21 @@ class WebIdlSchemaTest(unittest.TestCase):
         'name': 'last',
         'type': 'string'
     }], getFunctionParameters(schema, 'takesOptionalInnerArgument'))
+    self.assertEqual([{
+        'name': 'sequenceArgument',
+        'type': 'array',
+        'items': {
+            'type': 'boolean'
+        }
+    }], getFunctionParameters(schema, 'takesSequenceArgument'))
+    self.assertEqual([{
+        'name': 'optionalSequenceArgument',
+        'type': 'array',
+        'optional': True,
+        'items': {
+            'type': 'boolean'
+        }
+    }], getFunctionParameters(schema, 'takesOptionalSequenceArgument'))
     self.assertEqual([{
         'name': 'customTypeArgument',
         '$ref': 'ExampleType'
@@ -286,8 +339,6 @@ class WebIdlSchemaTest(unittest.TestCase):
         }, function_parameters[1])
 
   # Tests that API events are processed as expected.
-  # TODO(crbug.com/379052294): Add description testing when it is added to the
-  # processor.
   def testEvents(self):
     schema = self.idl_basics
 
@@ -296,68 +347,78 @@ class WebIdlSchemaTest(unittest.TestCase):
     # the object and raises a KeyError if it is not found.
     self.assertEqual('onTestOne', event_one.get('name'))
     self.assertEqual('function', event_one.get('type'))
-    self.assertEqual([{
-        'name': 'argument1',
-        'type': 'string'
-    }, {
-        'name': 'argument2',
-        'optional': True,
-        'type': 'number'
-    }], event_one['parameters'])
+    self.assertEqual(
+        'Comment that acts as a description for onTestOne. Parameter specific'
+        ' comments are down below before the associated callback definition.',
+        event_one.get('description'))
+    self.assertEqual(
+        [{
+            'name': 'argument1',
+            'type': 'string',
+            'description': 'Parameter description for argument1.'
+        }, {
+            'name': 'argument2',
+            'optional': True,
+            'type': 'number',
+            'description': 'Another description, this time for argment2.'
+        }], event_one['parameters'])
 
     event_two = getEvent(schema, 'onTestTwo')
     self.assertEqual('onTestTwo', event_two.get('name'))
     self.assertEqual('function', event_two.get('type'))
-    self.assertEqual([{
-        'name': 'customType',
-        '$ref': 'ExampleType'
-    }], event_two['parameters'])
+    self.assertEqual('Comment for onTestTwo.', event_two.get('description'))
+    self.assertEqual(
+        [{
+            'name': 'customType',
+            '$ref': 'ExampleType',
+            'description': 'An ExampleType passed to the event listener.'
+        }], event_two['parameters'])
 
   # Tests that Dictionaries defined on the top level of the IDL file are
   # processed into types on the resulting namespace.
   def testApiTypesOnNamespace(self):
     schema = self.idl_basics
+    custom_type = getType(schema, 'ExampleType')
+    self.assertEqual('ExampleType', custom_type['id'])
+    self.assertEqual('object', custom_type['type'])
     self.assertEqual(
         {
-            'id': 'ExampleType',
-            'properties': {
-                'someString': {
-                    'name':
-                    'someString',
-                    'type':
-                    'string',
-                    'description':
-                    ('Attribute comment attached to ExampleType.someString.'),
-                },
-                'someNumber': {
-                    'name':
-                    'someNumber',
-                    'type':
-                    'number',
-                    'description':
-                    ('Comment where <var>someNumber</var> has some markup.'),
-                },
-                # TODO(crbug.com/379052294): using HTML comments like this is a
-                # bit of a hack to allow us to add comments in IDL files (e.g.
-                # for TODOs) and to not have them end up on the documentation
-                # site. We should probably just filter them out during
-                # compilation.
-                'optionalBoolean': {
-                    'name':
-                    'optionalBoolean',
-                    'type':
-                    'boolean',
-                    'optional':
-                    True,
-                    'description':
-                    ('Comment with HTML comment. <!-- Which should get'
-                     ' through -->'),
-                },
+            'name': 'someString',
+            'type': 'string',
+            'description':
+            'Attribute comment attached to ExampleType.someString.'
+        }, custom_type['properties']['someString'])
+    self.assertEqual(
+        {
+            'name': 'someNumber',
+            'type': 'number',
+            'description':
+            'Comment where <var>someNumber</var> has some markup.'
+        }, custom_type['properties']['someNumber'])
+    # TODO(crbug.com/379052294): using HTML comments like this is a bit of a
+    # hack to allow us to add comments in IDL files (e.g. for TODOs) and to not
+    # have them end up on the documentation site. We should probably just filter
+    # them out during compilation.
+    self.assertEqual(
+        {
+            'name':
+            'optionalBoolean',
+            'type':
+            'boolean',
+            'optional':
+            True,
+            'description':
+            'Comment with HTML comment. <!-- Which should get through -->'
+        }, custom_type['properties']['optionalBoolean'])
+    self.assertEqual(
+        {
+            'name': 'booleanSequence',
+            'type': 'array',
+            'items': {
+                'type': 'boolean'
             },
-            'type': 'object',
-        },
-        getType(schema, 'ExampleType'),
-    )
+            'description': 'Comment on sequence type.',
+        }, custom_type['properties']['booleanSequence'])
 
   # Tests that a top level API comment is processed into a description
   # attribute, with HTML paragraph nodes added due to the blank commented line.
@@ -580,12 +641,24 @@ class WebIdlSchemaTest(unittest.TestCase):
     expected = ['chromeos']
     self.assertEqual(expected, platforms_schema[0]['platforms'])
 
-  # Tests that the platforms attribute is None if not specified on in the
-  # extended attributes of a namespace.
-  def testNonSpecifiedPlatformsOnNamespace(self):
-    basic_schema = self.idl_basics
-    expected = None
-    self.assertEqual(expected, basic_schema['platforms'])
+  # Tests a variety of default values that are set on an API namespace when they
+  # are not specified in the source IDL file.
+  def testNonSpecifiedDefaultValues(self):
+    defaults_schema = web_idl_schema.Load('test/web_idl/defaults.idl')[0]
+    self.assertEqual(
+        {
+            'compiler_options': {},
+            'deprecated': None,
+            'description': '',
+            'events': [],
+            'functions': [],
+            'manifest_keys': None,
+            'namespace': 'defaultsOnlyWebIdl',
+            'nodoc': False,
+            'platforms': None,
+            'properties': {},
+            'types': [],
+        }, defaults_schema)
 
 
 if __name__ == '__main__':

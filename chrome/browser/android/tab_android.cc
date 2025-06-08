@@ -40,7 +40,6 @@
 #include "chrome/browser/ui/browser_navigator_params.h"
 #include "chrome/browser/ui/startup/bad_flags_prompt.h"
 #include "chrome/browser/ui/tab_helpers.h"
-#include "chrome/browser/ui/tabs/tab_collection.h"
 #include "components/android_autofill/browser/android_autofill_client.h"
 #include "components/android_autofill/browser/android_autofill_manager.h"
 #include "components/android_autofill/browser/android_autofill_provider.h"
@@ -49,6 +48,7 @@
 #include "components/infobars/content/content_infobar_manager.h"
 #include "components/no_state_prefetch/browser/no_state_prefetch_manager.h"
 #include "components/sessions/content/session_tab_helper.h"
+#include "components/tabs/public/tab_collection.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/devtools_agent_host.h"
 #include "content/public/browser/navigation_entry.h"
@@ -678,6 +678,10 @@ tabs::TabFeatures* TabAndroid::GetTabFeatures() {
   return tab_features_.get();
 }
 
+const tabs::TabFeatures* TabAndroid::GetTabFeatures() const {
+  return tab_features_.get();
+}
+
 bool TabAndroid::IsPinned() const {
   NOTIMPLEMENTED();
   return false;
@@ -707,6 +711,12 @@ std::optional<split_tabs::SplitTabId> TabAndroid::GetSplit() const {
 // TODO(crbug.com/409366905): Finish implementing TabInterface.
 tabs::TabCollection* TabAndroid::GetParentCollection(
     base::PassKey<tabs::TabCollection>) const {
+  NOTIMPLEMENTED();
+  return nullptr;
+}
+
+// TODO(crbug.com/409366905): Finish implementing TabInterface.
+const tabs::TabCollection* TabAndroid::GetParentCollection() const {
   NOTIMPLEMENTED();
   return nullptr;
 }

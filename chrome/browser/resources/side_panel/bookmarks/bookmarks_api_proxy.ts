@@ -19,6 +19,7 @@ export interface BookmarksApiProxy {
   showUi(): void;
   getAllBookmarks(): Promise<{nodes: BookmarksTreeNode[]}>;
   getActiveUrl(): Promise<string|undefined>;
+  isActiveTabInSplit(): Promise<boolean>;
 
   // Side Panel display choices.
   setSortOrder(sortOrder: SortOrder): void;
@@ -80,23 +81,20 @@ export class BookmarksApiProxyImpl implements BookmarksApiProxy {
   }
 
   contextMenuOpenBookmarkInNewTab(ids: string[], source: ActionSource) {
-    this.handler.executeOpenInNewTabCommand(ids.map(id => BigInt(id)), source);
+    this.handler.executeOpenInNewTabCommand(ids, source);
   }
 
   contextMenuOpenBookmarkInNewWindow(ids: string[], source: ActionSource) {
-    this.handler.executeOpenInNewWindowCommand(
-        ids.map(id => BigInt(id)), source);
+    this.handler.executeOpenInNewWindowCommand(ids, source);
   }
 
   contextMenuOpenBookmarkInIncognitoWindow(
       ids: string[], source: ActionSource) {
-    this.handler.executeOpenInIncognitoWindowCommand(
-        ids.map(id => BigInt(id)), source);
+    this.handler.executeOpenInIncognitoWindowCommand(ids, source);
   }
 
   contextMenuOpenBookmarkInNewTabGroup(ids: string[], source: ActionSource) {
-    this.handler.executeOpenInNewTabGroupCommand(
-        ids.map(id => BigInt(id)), source);
+    this.handler.executeOpenInNewTabGroupCommand(ids, source);
   }
 
   contextMenuOpenBookmarkInSplitView(ids: string[], source: ActionSource) {
@@ -163,6 +161,12 @@ export class BookmarksApiProxyImpl implements BookmarksApiProxy {
       }
       return undefined;
     });
+  }
+
+  // TODO(crbug.com/406794014): Use the extensions API for this once
+  // implemented.
+  isActiveTabInSplit() {
+    return chrome.bookmarkManagerPrivate.isActiveTabInSplit();
   }
 
   openBookmark(

@@ -38,7 +38,7 @@
 #include "components/autofill/core/browser/logging/log_manager.h"
 #include "components/autofill/core/browser/metrics/form_interactions_ukm_logger.h"
 #include "components/autofill/core/browser/metrics/log_event.h"
-#include "components/autofill/core/browser/metrics/refill_metrics.h"
+#include "components/autofill/core/browser/metrics/per_fill_metrics.h"
 #include "components/autofill/core/common/autofill_clock.h"
 #include "components/autofill/core/common/autofill_features.h"
 #include "components/autofill/core/common/autofill_internals/log_message.h"
@@ -189,14 +189,13 @@ bool ShouldSkipFieldBecauseOfMeaningfulInitialValue(const AutofillField& field,
   }
   // By default, empty initial values are not considered to be meaningful. A
   // value only consisting of whitespace is considered empty.
-  if (base::TrimWhitespace(field.value(ValueSemantics::kInitial),
-                           base::TrimPositions::TRIM_ALL)
+  if (base::TrimWhitespace(field.initial_value(), base::TrimPositions::TRIM_ALL)
           .empty()) {
     return false;
   }
   // If the field's initial value coincides with the value of its placeholder
   // attribute, don't consider the initial value to be meaningful.
-  if (field.value(ValueSemantics::kInitial) == field.placeholder()) {
+  if (field.initial_value() == field.placeholder()) {
     return false;
   }
 
@@ -343,11 +342,11 @@ DenseSet<FieldFillingSkipReason> FormFiller::GetFillingSkipReasonsForField(
   // is empty and its initial value (= cached value) was empty as well. A
   // similar check is done in ForEachMatchingFormFieldCommon(), which
   // frequently has false negatives.
-  add_if((field.properties_mask() & kUserTyped) &&
-             !(field.value().empty() &&
-               autofill_field.value(ValueSemantics::kInitial).empty()) &&
-             !is_trigger_field,
-         FieldFillingSkipReason::kUserFilledFields);
+  add_if(
+      (field.properties_mask() & kUserTyped) &&
+          !(field.value().empty() && autofill_field.initial_value().empty()) &&
+          !is_trigger_field,
+      FieldFillingSkipReason::kUserFilledFields);
 
   // Don't fill previously autofilled fields except the initiating field or
   // when it's a refill or for credit card fields, when
@@ -474,21 +473,22 @@ FormFiller::GetFieldFillingSkipReasons(
   return skip_reasons;
 }
 
-FillingProduct FormFiller::UndoAutofill(
-    mojom::ActionPersistence action_persistence,
-    FormData form,
-    FormStructure& form_structure,
-    const FormFieldData& trigger_field) {
+void FormFiller::UndoAutofill(mojom::ActionPersistence action_persistence,
+                              FormData form,
+                              FormStructure& form_structure,
+                              const FormFieldData& trigger_field,
+                              FillingProduct filling_product) {
   if (!form_autofill_history_.HasHistory(trigger_field.global_id())) {
     LOG_AF(log_manager())
         << "Could not undo the filling operation on field "
         << trigger_field.global_id()
         << " because history was dropped upon reaching history limit of "
         << kMaxStorableFieldFillHistory;
-    return FillingProduct::kNone;
+    return;
   }
-  FormAutofillHistory::FillOperation operation =
-      form_autofill_history_.GetLastFillingOperationForField(
+
+  const auto fill_operation_it =
+      form_autofill_history_.GetLastFormFillingEntryForField(
           trigger_field.global_id());
 
   std::vector<FormFieldData> fields = form.ExtractFields();
@@ -498,30 +498,41 @@ FillingProduct FormFiller::UndoAutofill(
           [](const std::unique_ptr<AutofillField>& field) {
             return std::make_pair(field->global_id(), field.get());
           });
+
   // Remove the fields to be skipped so that we only pass fields to be modified
   // by the renderer.
-  std::erase_if(
-      fields, [this, &operation, &cached_fields](const FormFieldData& field) {
-        return
-            // Skip fields whose last autofill operation is different
-            // than the one of the trigger field.
-            form_autofill_history_.GetLastFillingOperationForField(
-                field.global_id()) != operation ||
-            // Skip not-autofilled fields as undo only acts on autofilled
-            // fields. Only exception is the fields that were emptied due to
-            // suggestion swapping.
-            (!field.is_autofilled() && !field.value().empty() &&
-             operation.GetFieldFillingEntry(field.global_id())
-                 .ignore_is_autofilled) ||
-            // Skip fields that are not cached to avoid unexpected outcomes.
-            !cached_fields.contains(field.global_id());
-      });
+  std::erase_if(fields, [&](const FormFieldData& field) {
+    const auto field_fill_operation_it =
+        form_autofill_history_.GetLastFormFillingEntryForField(
+            field.global_id());
+    return
+        // Skip fields whose last autofill operation is different
+        // than the one of the trigger field.
+        field_fill_operation_it != fill_operation_it ||
+        // Skip not-autofilled fields as undo only acts on autofilled
+        // fields. Only exception is the fields that were emptied due to
+        // suggestion swapping.
+        // Note that `field_fill_operation` is guaranteed to have an entry for
+        // `field.global_id()` because of the condition right above.
+        (!field.is_autofilled() && !field.value().empty() &&
+         field_fill_operation_it->at(field.global_id()).ignore_is_autofilled) ||
+        // Skip fields that are not cached to avoid unexpected outcomes.
+        !cached_fields.contains(field.global_id()) ||
+        // Skip fields which have a different filling product than the trigger
+        // field. This is to avoid modifying a field that was autofilled later
+        // with a filling product that doesn't support Undo (e.g.,
+        // Autocomplete).
+        cached_fields[field.global_id()]->filling_product() != filling_product;
+  });
 
   for (FormFieldData& field : fields) {
     AutofillField& autofill_field =
         CHECK_DEREF(cached_fields[field.global_id()]);
-    const FormAutofillHistory::FieldFillingEntry& previous_state =
-        operation.GetFieldFillingEntry(field.global_id());
+    auto it = fill_operation_it->find(field.global_id());
+    // See comments in the `erase_if` block for why this is guaranteed.
+    CHECK(it != fill_operation_it->end());
+    const FormAutofillHistory::FieldFillingEntry& previous_state = it->second;
+
     // Update the FormFieldData to be sent for the renderer.
     field.set_value(previous_state.value);
     field.set_is_autofilled(previous_state.is_autofilled);
@@ -534,6 +545,13 @@ FillingProduct FormFiller::UndoAutofill(
           previous_state.autofill_source_profile_guid);
       autofill_field.set_autofilled_type(previous_state.autofilled_type);
       autofill_field.set_filling_product(previous_state.filling_product);
+
+      // The filling history is not cleared on previews as it might be used for
+      // future previews or for the filling. it is also cleared field by field
+      // because some fields in the current entry might not be used now but
+      // could still be valuable (see crbug.com/416019464).
+      form_autofill_history_.EraseFieldFillingEntry(fill_operation_it,
+                                                    field.global_id());
     }
   }
   form.set_fields(std::move(fields));
@@ -551,14 +569,6 @@ FillingProduct FormFiller::UndoAutofill(
                                      action_persistence, form.fields(),
                                      url::Origin(),
                                      /*field_type_map=*/{});
-
-  FillingProduct filling_product = operation.get_filling_product();
-  if (action_persistence != mojom::ActionPersistence::kPreview) {
-    // History is not cleared on previews as it might be used for future
-    // previews or for the filling.
-    form_autofill_history_.EraseFormFillEntry(std::move(operation));
-  }
-  return filling_product;
 }
 
 void FormFiller::FillOrPreviewField(mojom::ActionPersistence action_persistence,
@@ -581,7 +591,7 @@ void FormFiller::FillOrPreviewField(mojom::ActionPersistence action_persistence,
 
     if (ShouldRecordFillingHistory(filling_product)) {
       // TODO(crbug.com/40232021): Only use AutofillField.
-      form_autofill_history_.AddFormFillEntry(
+      form_autofill_history_.AddFormFillingEntry(
           std::to_array<const FormFieldData*>({&field}),
           std::to_array<const AutofillField*>({autofill_field}),
           filling_product,
@@ -798,7 +808,7 @@ void FormFiller::FillOrPreviewForm(
   // Save filling history to support undoing it later if needed.
   if (action_persistence == mojom::ActionPersistence::kFill &&
       ShouldRecordFillingHistory(filling_product)) {
-    form_autofill_history_.AddFormFillEntry(
+    form_autofill_history_.AddFormFillingEntry(
         safe_filled_fields.old_values, safe_filled_fields.cached,
         filling_product, refill_trigger_reason.has_value());
   }

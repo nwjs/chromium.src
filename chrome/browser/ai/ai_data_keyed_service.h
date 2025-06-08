@@ -21,6 +21,7 @@
 #if BUILDFLAG(ENABLE_GLIC)
 #include "chrome/browser/actor/actor_coordinator.h"
 #include "chrome/browser/glic/host/context/glic_page_context_fetcher.h"
+#include "chrome/common/actor.mojom-forward.h"
 #endif
 
 namespace content {
@@ -28,7 +29,8 @@ class WebContents;
 class BrowserContext;
 }  // namespace content
 
-// Browser service to collect AI data.
+// Browser service to collect AI data, including data resulting from triggering
+// actor tasks.
 class AiDataKeyedService : public KeyedService {
  public:
   // Data related to AiData collection.
@@ -48,6 +50,9 @@ class AiDataKeyedService : public KeyedService {
 
   // Returns the list of extensions that are allowlisted for actions.
   static bool IsExtensionAllowlistedForActions(const std::string& extension_id);
+
+  // Returns whether an extension is allowed to run on stable channel.
+  static bool IsExtensionAllowlistedForStable(const std::string& extension_id);
 
   // Fills an AiData and returns the result via the passed in callback. If the
   // AiData is empty, data collection failed. |callback| is guaranteed to be
@@ -82,6 +87,11 @@ class AiDataKeyedService : public KeyedService {
       base::OnceCallback<void(optimization_guide::proto::BrowserActionResult)>
           callback);
 
+  // Returns true if the associated ActorCoordinator is active on the given
+  // `tab`. This can be used by callers to customize certain behaviour that
+  // might interfere with the ActorCoordinator.
+  bool IsActorCoordinatorActingOnTab(const content::WebContents* tab) const;
+
   static const base::Feature& GetAllowlistedAiDataExtensionsFeatureForTesting();
   static const base::Feature&
   GetAllowlistedActionsExtensionsFeatureForTesting();
@@ -102,7 +112,7 @@ class AiDataKeyedService : public KeyedService {
           callback,
       int task_id,
       int tab_id,
-      bool action_success,
+      actor::mojom::ActionResultPtr action_result,
       glic::mojom::GetContextResultPtr result);
   // Called when the actor coordinator has started a tas.
   void OnTaskCreated(
@@ -118,7 +128,7 @@ class AiDataKeyedService : public KeyedService {
           callback,
       int task_id,
       int tab_id,
-      bool success);
+      actor::mojom::ActionResultPtr action_result);
   // The actor coordinator which manages task and action routing.
   std::unique_ptr<actor::ActorCoordinator> actor_coordinator_;
 

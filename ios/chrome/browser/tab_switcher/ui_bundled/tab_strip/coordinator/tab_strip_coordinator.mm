@@ -15,10 +15,11 @@
 #import "components/strings/grit/components_strings.h"
 #import "components/tab_groups/tab_group_visual_data.h"
 #import "ios/chrome/browser/collaboration/model/collaboration_service_factory.h"
+#import "ios/chrome/browser/collaboration/model/features.h"
 #import "ios/chrome/browser/collaboration/model/ios_collaboration_controller_delegate.h"
 #import "ios/chrome/browser/collaboration/model/messaging/messaging_backend_service_factory.h"
+#import "ios/chrome/browser/favicon/model/ios_chrome_favicon_loader_factory.h"
 #import "ios/chrome/browser/saved_tab_groups/model/ios_tab_group_sync_util.h"
-#import "ios/chrome/browser/saved_tab_groups/model/tab_group_service_factory.h"
 #import "ios/chrome/browser/saved_tab_groups/model/tab_group_sync_service_factory.h"
 #import "ios/chrome/browser/shared/coordinator/alert/alert_coordinator.h"
 #import "ios/chrome/browser/shared/coordinator/layout_guide/layout_guide_util.h"
@@ -29,6 +30,8 @@
 #import "ios/chrome/browser/shared/model/web_state_list/web_state_list.h"
 #import "ios/chrome/browser/shared/public/commands/application_commands.h"
 #import "ios/chrome/browser/shared/public/commands/command_dispatcher.h"
+#import "ios/chrome/browser/shared/public/commands/shared_tab_group_last_tab_closed_alert_command.h"
+#import "ios/chrome/browser/shared/public/commands/shared_tab_group_last_tab_closed_alert_commands.h"
 #import "ios/chrome/browser/shared/public/commands/snackbar_commands.h"
 #import "ios/chrome/browser/shared/public/commands/tab_grid_commands.h"
 #import "ios/chrome/browser/shared/public/commands/tab_groups_commands.h"
@@ -122,12 +125,21 @@ using collaboration::CollaborationControllerDelegate;
   collaboration::CollaborationService* collaborationService =
       collaboration::CollaborationServiceFactory::GetForProfile(profile);
 
+  FaviconLoader* faviconLoader = nil;
+  // Fetch favicons if in regular mode and sync or shared tab groups is enabled.
+  if (!profile->IsOffTheRecord() &&
+      (IsTabGroupSyncEnabled() ||
+       IsSharedTabGroupsJoinEnabled(collaborationService))) {
+    faviconLoader = IOSChromeFaviconLoaderFactory::GetForProfile(profile);
+  }
+
   self.mediator =
       [[TabStripMediator alloc] initWithConsumer:self.tabStripViewController
                              tabGroupSyncService:tabGroupSyncService
                                      browserList:browserList
                                 messagingService:messagingService
-                            collaborationService:collaborationService];
+                            collaborationService:collaborationService
+                                   faviconLoader:faviconLoader];
   self.mediator.webStateList = self.browser->GetWebStateList();
   self.mediator.profile = profile;
   self.mediator.browser = self.browser;
@@ -146,6 +158,7 @@ using collaboration::CollaborationControllerDelegate;
 
   self.tabStripViewController.mutator = self.mediator;
   self.tabStripViewController.dragDropHandler = self.mediator;
+  self.tabStripViewController.snapshotAndfaviconDataSource = self.mediator;
   self.tabStripViewController.contextMenuProvider = self.contextMenuHelper;
 }
 
@@ -271,14 +284,29 @@ using collaboration::CollaborationControllerDelegate;
   [_alertCoordinator start];
 }
 
+- (void)showAlertForLastTabRemovedFromGroup:(const TabGroup*)group
+                                      tabID:(web::WebStateID)itemID
+                                    closing:(BOOL)closing {
+  UIView* sourceView = self.tabStripViewController.closedTabGroupView;
+  SharedTabGroupLastTabAlertCommand* command =
+      [[SharedTabGroupLastTabAlertCommand alloc]
+               initWithTabID:itemID
+                     browser:self.browser
+                       group:group
+          baseViewController:self.baseViewController
+                  sourceView:sourceView
+                     closing:closing];
+  self.tabStripViewController.closedTabGroupView = nil;
+
+  id<SharedTabGroupLastTabAlertCommands> lastTabAlertHandler =
+      HandlerForProtocol(self.browser->GetCommandDispatcher(),
+                         SharedTabGroupLastTabAlertCommands);
+  [lastTabAlertHandler showLastTabInSharedGroupAlert:command];
+}
+
 - (void)showTabGroupConfirmationForAction:(TabGroupActionType)actionType
                                 groupItem:(TabGroupItem*)tabGroupItem
                                sourceView:(UIView*)sourceView {
-  if (actionType == TabGroupActionType::kLeaveOrKeepSharedTabGroup ||
-      actionType == TabGroupActionType::kDeleteOrKeepSharedTabGroup) {
-    sourceView = self.tabStripViewController.closedTabGroupView;
-  }
-
   _tabGroupConfirmationCoordinator = [[TabGroupConfirmationCoordinator alloc]
       initWithBaseViewController:self.baseViewController
                          browser:self.browser
@@ -288,20 +316,6 @@ using collaboration::CollaborationControllerDelegate;
   __weak TabStripCoordinator* weakSelf = self;
   _tabGroupConfirmationCoordinator.primaryAction = ^{
     [weakSelf takeActionForActionType:actionType tabGroupItem:tabGroupItem];
-  };
-  _tabGroupConfirmationCoordinator.secondaryAction = ^{
-    switch (actionType) {
-      case TabGroupActionType::kUngroupTabGroup:
-      case TabGroupActionType::kDeleteTabGroup:
-      case TabGroupActionType::kLeaveSharedTabGroup:
-      case TabGroupActionType::kDeleteSharedTabGroup:
-        NOTREACHED();
-
-      case TabGroupActionType::kLeaveOrKeepSharedTabGroup:
-      case TabGroupActionType::kDeleteOrKeepSharedTabGroup:
-        [weakSelf replaceLastTabByNewTabInGroup:tabGroupItem];
-        break;
-    }
   };
   _tabGroupConfirmationCoordinator.dismissAction = ^{
     [weakSelf clearLeaveOrDeleteCompletion];
@@ -398,9 +412,9 @@ using collaboration::CollaborationControllerDelegate;
 
   std::unique_ptr<IOSCollaborationControllerDelegate> delegate =
       std::make_unique<IOSCollaborationControllerDelegate>(
-          browser, self.baseViewController,
-          TabGroupServiceFactory::GetForProfile(browser->GetProfile()),
-          FlowType::kLeaveOrDelete);
+          browser,
+          CreateControllerDelegateParamsFromProfile(
+              self.profile, self.baseViewController, FlowType::kLeaveOrDelete));
   delegate->SetLeaveOrDeleteConfirmationCallback(std::move(completionCallback));
 
   collaboration::CollaborationServiceLeaveOrDeleteEntryPoint entryPoint =
@@ -481,15 +495,12 @@ using collaboration::CollaborationControllerDelegate;
     case TabGroupActionType::kLeaveSharedTabGroup:
       [self runLeaveOrDeleteCompletion];
       break;
-    case TabGroupActionType::kLeaveOrKeepSharedTabGroup:
-      [_mediator leaveSharedGroup:tabGroupItem];
-      break;
     case TabGroupActionType::kDeleteSharedTabGroup:
       [self runLeaveOrDeleteCompletion];
       break;
     case TabGroupActionType::kDeleteOrKeepSharedTabGroup:
-      [_mediator deleteSharedGroup:tabGroupItem];
-      break;
+    case TabGroupActionType::kLeaveOrKeepSharedTabGroup:
+      NOTREACHED();
   }
 
   [_tabGroupConfirmationCoordinator stop];
@@ -524,9 +535,9 @@ using collaboration::CollaborationControllerDelegate;
 
   std::unique_ptr<CollaborationControllerDelegate> delegate =
       std::make_unique<IOSCollaborationControllerDelegate>(
-          browser, self.baseViewController,
-          TabGroupServiceFactory::GetForProfile(self.profile),
-          FlowType::kShareOrManage);
+          browser,
+          CreateControllerDelegateParamsFromProfile(
+              self.profile, self.baseViewController, FlowType::kShareOrManage));
   collaborationService->StartShareOrManageFlow(
       std::move(delegate), tabGroup->tab_group_id(), entryPoint);
 }

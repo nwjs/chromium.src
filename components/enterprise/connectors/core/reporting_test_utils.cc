@@ -8,6 +8,7 @@
 
 #include "base/json/json_writer.h"
 #include "base/strings/utf_string_conversions.h"
+#include "base/test/protobuf_matchers.h"
 #include "build/build_config.h"
 #include "components/enterprise/common/proto/synced/browser_events.pb.h"
 #include "components/enterprise/connectors/core/common.h"
@@ -26,6 +27,8 @@
 namespace enterprise_connectors::test {
 
 namespace {
+
+using base::test::EqualsProto;
 
 base::Value::List CreateOptInEventsList(
     const std::map<std::string, std::vector<std::string>>&
@@ -75,10 +78,13 @@ constexpr char kKeyTriggeredRuleInfo[] = "triggeredRuleInfo";
 constexpr char kKeyTriggeredRuleName[] = "ruleName";
 constexpr char kKeyTriggeredRuleId[] = "ruleId";
 constexpr char kKeyUrlCategory[] = "urlCategory";
+constexpr char kKeyUserName[] = "userName";
 constexpr char kKeyAction[] = "action";
 constexpr char kKeyHasWatermarking[] = "hasWatermarking";
 constexpr char kKeyIsFederated[] = "isFederated";
+constexpr char kKeyIsPhishingUrl[] = "isPhishingUrl";
 constexpr char kKeyFederatedOrigin[] = "federatedOrigin";
+constexpr char kKeyProfileIdentifier[] = "profileIdentifier";
 constexpr char kKeyProfileUserName[] = "profileUserName";
 constexpr char kKeyLoginUserName[] = "loginUserName";
 constexpr char kKeyTrigger[] = "trigger";
@@ -186,7 +192,12 @@ EventReportValidatorBase::~EventReportValidatorBase() {
 }
 
 void EventReportValidatorBase::ExpectNoReport() {
-  EXPECT_CALL(*client_, UploadSecurityEventReport).Times(0);
+  if (base::FeatureList::IsEnabled(
+          policy::kUploadRealtimeReportingEventsUsingProto)) {
+    EXPECT_CALL(*client_, UploadSecurityEvent).Times(0);
+  } else {
+    EXPECT_CALL(*client_, UploadSecurityEventReport).Times(0);
+  }
 }
 
 void EventReportValidatorBase::ExpectURLFilteringInterstitialEvent(
@@ -213,9 +224,7 @@ void EventReportValidatorBase::ExpectURLFilteringInterstitialEvent(
         ValidateField(event, kKeyEventResult,
                       chrome::cros::reporting::proto::EventResult_Name(
                           expected_urlf_event.event_result()));
-        ValidateField(event,
-                      enterprise_connectors::RealtimeReportingClientBase::
-                          kKeyProfileIdentifier,
+        ValidateField(event, kKeyProfileIdentifier,
                       expected_urlf_event.profile_identifier());
         const base::Value::List* triggered_rules =
             event->FindList(kKeyTriggeredRuleInfo);
@@ -257,9 +266,7 @@ void EventReportValidatorBase::ExpectURLFilteringInterstitialEventWithReferrers(
         ValidateField(event, kKeyEventResult,
                       chrome::cros::reporting::proto::EventResult_Name(
                           expected_urlf_event.event_result()));
-        ValidateField(event,
-                      enterprise_connectors::RealtimeReportingClientBase::
-                          kKeyProfileIdentifier,
+        ValidateField(event, kKeyProfileIdentifier,
                       expected_urlf_event.profile_identifier());
         const base::Value::List* triggered_rules =
             event->FindList(kKeyTriggeredRuleInfo);
@@ -313,9 +320,7 @@ void EventReportValidatorBase::ExpectLoginEvent(
         ValidateField(event, kKeyIsFederated, expected_is_federated);
         ValidateFederatedOrigin(event, expected_federated_origin);
         ValidateField(event, kKeyProfileUserName, expected_profile_username);
-        ValidateField(event,
-                      enterprise_connectors::RealtimeReportingClientBase::
-                          kKeyProfileIdentifier,
+        ValidateField(event, kKeyProfileIdentifier,
                       expected_profile_identifier);
         ValidateField(event, kKeyLoginUserName, expected_login_username);
 
@@ -323,6 +328,27 @@ void EventReportValidatorBase::ExpectLoginEvent(
           done_closure_.Run();
         }
       });
+}
+
+void EventReportValidatorBase::ExpectLoginEvent(
+    chrome::cros::reporting::proto::LoginEvent expected_login_event) {
+  EXPECT_CALL(*client_, UploadSecurityEvent)
+      .WillOnce(
+          [this, expected_login_event](
+              bool include_device_info,
+              ::chrome::cros::reporting::proto::UploadEventsRequest request,
+              base::OnceCallback<void(policy::CloudPolicyClient::Result)>
+                  callback) {
+            // There should only be 1 event per test.
+            ASSERT_EQ(1, request.events_size());
+            ASSERT_TRUE(request.events().Get(0).has_login_event());
+            auto login_event = request.events().Get(0).login_event();
+            EXPECT_THAT(login_event, EqualsProto(expected_login_event));
+
+            if (!done_closure_.is_null()) {
+              done_closure_.Run();
+            }
+          });
 }
 
 void EventReportValidatorBase::ExpectPasswordBreachEvent(
@@ -352,9 +378,7 @@ void EventReportValidatorBase::ExpectPasswordBreachEvent(
         ValidateField(event, kKeyTrigger, expected_trigger);
         ValidateIdentities(event, std::move(expected_identities));
         ValidateField(event, kKeyProfileUserName, expected_profile_username);
-        ValidateField(event,
-                      enterprise_connectors::RealtimeReportingClientBase::
-                          kKeyProfileIdentifier,
+        ValidateField(event, kKeyProfileIdentifier,
                       expected_profile_identifier);
         if (!done_closure_.is_null()) {
           done_closure_.Run();
@@ -393,9 +417,7 @@ void EventReportValidatorBase::ExpectPasswordReuseEvent(
         ValidateField(event, kKeyIsPhishingUrl, expected_is_phishing_url);
         ValidateField(event, kKeyEventResult, event_result);
         ValidateField(event, kKeyProfileUserName, expected_profile_username);
-        ValidateField(event,
-                      enterprise_connectors::RealtimeReportingClientBase::
-                          kKeyProfileIdentifier,
+        ValidateField(event, kKeyProfileIdentifier,
                       expected_profile_identifier);
       });
 }
@@ -424,9 +446,7 @@ void EventReportValidatorBase::ExpectPassowrdChangedEvent(
 
         ValidateField(event, kKeyUserName, expected_username);
         ValidateField(event, kKeyProfileUserName, expected_profile_username);
-        ValidateField(event,
-                      enterprise_connectors::RealtimeReportingClientBase::
-                          kKeyProfileIdentifier,
+        ValidateField(event, kKeyProfileIdentifier,
                       expected_profile_identifier);
       });
 }
@@ -463,9 +483,7 @@ void EventReportValidatorBase::ExpectSecurityInterstitialEvent(
         ValidateField(event, kKeyNetErrorCode, expected_net_error_code);
         ValidateField(event, kKeyClickedThrough, expected_click_through);
         ValidateField(event, kKeyProfileUserName, expected_profile_username);
-        ValidateField(event,
-                      enterprise_connectors::RealtimeReportingClientBase::
-                          kKeyProfileIdentifier,
+        ValidateField(event, kKeyProfileIdentifier,
                       expected_profile_identifier);
         ValidateField(event, kKeyEventResult, result);
         if (!done_closure_.is_null()) {
@@ -507,14 +525,12 @@ void EventReportValidatorBase::ExpectSecurityInterstitialEventWithReferrers(
         ValidateField(event, kKeyNetErrorCode, expected_net_error_code);
         ValidateField(event, kKeyClickedThrough, expected_click_through);
         ValidateField(event, kKeyProfileUserName, expected_profile_username);
-        ValidateField(event,
-                      enterprise_connectors::RealtimeReportingClientBase::
-                          kKeyProfileIdentifier,
+        ValidateField(event, kKeyProfileIdentifier,
                       expected_profile_identifier);
         ValidateField(event, kKeyEventResult, result);
         const base::Value::List* referrers = event->FindList(kReferrers);
         ASSERT_TRUE(referrers);
-        for (const auto& referrer : *referrers) {
+        for (const auto & referrer : *referrers) {
           ValidateReferrer(&referrer.GetDict(), expected_referrers);
         }
         if (!done_closure_.is_null()) {
@@ -561,10 +577,16 @@ void EventReportValidatorBase::ValidateField(
     const base::Value::Dict* value,
     const std::string& field_key,
     const std::optional<int>& expected_value) {
-  ASSERT_EQ(value->FindInt(field_key), expected_value)
-      << "Mismatch in field " << field_key
-      << "\nActual value: " << value->FindInt(field_key).value()
-      << "\nExpected value: " << expected_value.value();
+  if (expected_value.has_value()) {
+    ASSERT_EQ(value->FindInt(field_key), expected_value)
+        << "Mismatch in field " << field_key
+        << "\nActual value: " << value->FindInt(field_key).value()
+        << "\nExpected value: " << expected_value.value();
+  } else {
+    ASSERT_FALSE(value->FindInt(field_key).has_value())
+        << "Field " << field_key << " should not be populated. It has value "
+        << *value->FindInt(field_key);
+  }
 }
 
 void EventReportValidatorBase::ValidateField(const base::Value::Dict* value,
@@ -591,7 +613,7 @@ void EventReportValidatorBase::ValidateThreatInfo(
         expected_rule_info) {
   ValidateField(value, kKeyTriggeredRuleName, expected_rule_info.rule_name());
   ValidateField(value, kKeyTriggeredRuleId,
-                base::NumberToString(expected_rule_info.rule_id()));
+                std::optional<int>(expected_rule_info.rule_id()));
   ValidateField(value, kKeyUrlCategory, expected_rule_info.url_category());
   ValidateField(value, kKeyAction,
                 chrome::cros::reporting::proto::TriggeredRuleInfo::Action_Name(

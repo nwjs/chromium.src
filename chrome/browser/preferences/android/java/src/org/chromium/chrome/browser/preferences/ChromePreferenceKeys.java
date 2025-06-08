@@ -113,10 +113,6 @@ public final class ChromePreferenceKeys {
     public static final String AUXILIARY_SEARCH_IS_SCHEMA_SET =
             "Chrome.AuxiliarySearch.IsSchemaSet";
 
-    /** Whether the Tab sharing schema for multiple data sources has been set. */
-    public static final String AUXILIARY_SEARCH_IS_SCHEMA_V2_SET =
-            "Chrome.AuxiliarySearch.IsSchemaV2Set";
-
     /** The current version of the WebPage schema sent to the App search. */
     public static final String AUXILIARY_SEARCH_SCHEMA_VERSION =
             "Chrome.AuxiliarySearch.SchemaVersion";
@@ -292,11 +288,14 @@ public final class ChromePreferenceKeys {
     public static final String EXPLORE_OFFLINE_CONTENT_AVAILABILITY_STATUS =
             "Chrome.NTPExploreOfflineCard.HasExploreOfflineContent";
 
-    public static final String FIRST_RUN_CACHED_TOS_ACCEPTED = "first_run_tos_accepted";
     public static final String FIRST_RUN_FLOW_COMPLETE = "first_run_flow";
     // BACKUP_FLOW_SIGNIN_ACCOUNT_NAME used to be employed for the FRE too, thus the "first_run_"
     // prefix. The string should NOT be changed without some sort of migration.
     public static final String BACKUP_FLOW_SIGNIN_ACCOUNT_NAME = "first_run_signin_account_name";
+
+    /** Timestamp for when the user opened a ChromeTabbedActivity for the first time. */
+    public static final String FIRST_CTA_START_TIMESTAMP = "Chrome.FirstCtaStart.Timestamp";
+
     public static final String FIRST_RUN_FLOW_SIGNIN_SETUP = "first_run_signin_setup";
     // Needed by ChromeBackupAgent
     public static final String FIRST_RUN_LIGHTWEIGHT_FLOW_COMPLETE = "lightweight_first_run_flow";
@@ -330,6 +329,10 @@ public final class ChromePreferenceKeys {
             "Chrome.Policy.HomepageLocation";
 
     public static final String HOMEPAGE_LOCATION_POLICY_GURL = "Chrome.Policy.HomepageLocationGurl";
+
+    public static final String SHOW_HOME_BUTTON_POLICY_MANAGED =
+            "Chrome.Policy.ShowHomeButtonManaged";
+    public static final String SHOW_HOME_BUTTON_POLICY_VALUE = "Chrome.Policy.ShowHomeButtonValue";
 
     /** Used for get image descriptions feature, track "Just once"/"Don't ask again" choice. */
     public static final String IMAGE_DESCRIPTIONS_JUST_ONCE_COUNT =
@@ -860,6 +863,8 @@ public final class ChromePreferenceKeys {
             "Chrome.Tab.ArchiveTimeDeltaHours";
     public static final String TAB_DECLUTTER_AUTO_DELETE_ENABLED =
             "Chrome.Tab.ArchiveAutoDeleteEnabled";
+    public static final String TAB_DECLUTTER_AUTO_DELETE_DECISION_MADE =
+            "Chrome.Tab.ArchiveAutoDeleteDecisionMade";
     public static final String TAB_DECLUTTER_AUTO_DELETE_TIME_DELTA_HOURS =
             "Chrome.Tab.ArchiveAutoDeleteTimeDeltaHours";
     public static final String TAB_DECLUTTER_DIALOG_IPH_DISMISS_COUNT =
@@ -869,12 +874,12 @@ public final class ChromePreferenceKeys {
             "org.chromium.chrome.browser.tab.TabIdManager.NEXT_ID";
 
     // Start timestamp of 1-day period for measuring the number of times the max-instance toast is
-    // shown when tab tearing fails.
-    public static final String TAB_TEARING_MAX_INSTANCES_FAILURE_START_TIME_MS =
-            "Chrome.TabTearing.MaxInstancesFailureStartTimeMs";
-    // Number of times in a day the max-instance toast is shown when tab tearing fails.
-    public static final String TAB_TEARING_MAX_INSTANCES_FAILURE_COUNT =
-            "Chrome.TabTearing.MaxInstancesFailureCount";
+    // shown when tab or group tearing fails.
+    public static final String TAB_OR_GROUP_TEARING_MAX_INSTANCES_FAILURE_START_TIME_MS =
+            "Chrome.TabOrGroupTearing.MaxInstancesFailureStartTimeMs";
+    // Number of times in a day the max-instance toast is shown when tab or group tearing fails.
+    public static final String TAB_OR_GROUP_TEARING_MAX_INSTANCES_FAILURE_COUNT =
+            "Chrome.TabOrGroupTearing.MaxInstancesFailureCount";
 
     // If the toolbar should be shown on top.
     public static final String TOOLBAR_TOP_ANCHORED = "Chrome.Toolbar.TopAnchored";
@@ -991,7 +996,6 @@ public final class ChromePreferenceKeys {
                 AUXILIARY_SEARCH_MODULE_USER_RESPONDED,
                 AUXILIARY_SEARCH_MODULE_IMPRESSION,
                 AUXILIARY_SEARCH_IS_SCHEMA_SET,
-                AUXILIARY_SEARCH_IS_SCHEMA_V2_SET,
                 AUXILIARY_SEARCH_SCHEMA_VERSION,
                 APP_LAUNCH_LAST_KNOWN_ACTIVE_TAB_STATE,
                 APP_LAUNCH_SEARCH_ENGINE_HAD_LOGO,
@@ -1029,6 +1033,7 @@ public final class ChromePreferenceKeys {
                 HOME_MODULES_IMPRESSION_COUNT_BEFORE_INTERACTION.pattern(),
                 EXPLORE_OFFLINE_CONTENT_AVAILABILITY_STATUS,
                 FIRST_RUN_SKIPPED_BY_POLICY,
+                FIRST_CTA_START_TIMESTAMP,
                 FLAGS_LAST_CACHED_MINIMAL_BROWSER_FLAGS_TIME_MILLIS,
                 HISTORY_APP_SPECIFIC_INFO_SEEN,
                 HOME_MODULES_MODULE_TYPE.pattern(),
@@ -1038,6 +1043,8 @@ public final class ChromePreferenceKeys {
                 HOMEPAGE_LOCATION_POLICY_GURL,
                 HOMEPAGE_USE_CHROME_NTP,
                 HOMEPAGE_PARTNER_CUSTOMIZED_DEFAULT_GURL,
+                SHOW_HOME_BUTTON_POLICY_MANAGED,
+                SHOW_HOME_BUTTON_POLICY_VALUE,
                 IMAGE_DESCRIPTIONS_JUST_ONCE_COUNT,
                 IMAGE_DESCRIPTIONS_DONT_ASK_AGAIN,
                 INCOGNITO_REAUTH_PROMO_CARD_ENABLED,
@@ -1123,10 +1130,11 @@ public final class ChromePreferenceKeys {
                 TAB_DECLUTTER_ARCHIVE_ENABLED,
                 TAB_DECLUTTER_ARCHIVE_TIME_DELTA_HOURS,
                 TAB_DECLUTTER_AUTO_DELETE_ENABLED,
+                TAB_DECLUTTER_AUTO_DELETE_DECISION_MADE,
                 TAB_DECLUTTER_AUTO_DELETE_TIME_DELTA_HOURS,
                 TAB_DECLUTTER_DIALOG_IPH_DISMISS_COUNT,
-                TAB_TEARING_MAX_INSTANCES_FAILURE_START_TIME_MS,
-                TAB_TEARING_MAX_INSTANCES_FAILURE_COUNT,
+                TAB_OR_GROUP_TEARING_MAX_INSTANCES_FAILURE_START_TIME_MS,
+                TAB_OR_GROUP_TEARING_MAX_INSTANCES_FAILURE_COUNT,
                 TOOLBAR_TOP_ANCHORED,
                 TWA_DISCLOSURE_SEEN_PACKAGES,
                 UMA_ON_POSTCREATE_COUNTER,

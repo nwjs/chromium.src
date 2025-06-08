@@ -30,9 +30,11 @@
 #include "net/dns/host_resolver.h"
 #include "net/dns/public/resolve_error_info.h"
 #include "net/http/http_stream_pool.h"
+#include "net/http/http_stream_pool_ip_endpoint_state_tracker.h"
 #include "net/http/http_stream_pool_job.h"
 #include "net/http/http_stream_request.h"
 #include "net/log/net_log_with_source.h"
+#include "net/quic/quic_session_pool.h"
 #include "net/socket/connection_attempts.h"
 #include "net/socket/next_proto.h"
 #include "net/socket/stream_attempt.h"
@@ -54,32 +56,30 @@ class HttpStreamKey;
 //
 // Maintains multiple in-flight Jobs for a single destination keyed by
 // HttpStreamKey. Peforms DNS resolution and manages connection attempts.
-// Delegates QUIC connection attempts to QuicTask. Upon successful HttpStream
+// Delegates QUIC connection attempts to QuicAttempt. Upon successful HttpStream
 // creations or fatal error occurrence, notify jobs of success or failure.
 //
 // Created by an HttpStreamPool::Group when new connection attempts are needed
-// and destroyed when all jobs, in-flight attempts, and the QuicTask are
+// and destroyed when all jobs, in-flight attempts, and the QuicAttempt are
 // completed.
 class HttpStreamPool::AttemptManager
-    : public HostResolver::ServiceEndpointRequest::Delegate {
+    : public HostResolver::ServiceEndpointRequest::Delegate,
+      public IPEndPointStateTracker::Delegate {
  public:
-  class NET_EXPORT_PRIVATE QuicTask;
+  class NET_EXPORT_PRIVATE QuicAttempt;
+  struct NET_EXPORT_PRIVATE QuicAttemptOutcome {
+    explicit QuicAttemptOutcome(int result) : result(result) {}
+    ~QuicAttemptOutcome() = default;
 
-  // The state of an IPEndPoint. There is no success state. The absence of a
-  // state for an endpoint means that we haven't yet attempted to connect to the
-  // endpoint, or that a connection to the endpoint was successfully completed
-  // and was not slow. Public for testing.
-  enum class IPEndPointState {
-    // The endpoint has failed.
-    kFailed,
-    // The endpoint is considered slow and haven't timed out yet.
-    kSlowAttempting,
-    // The endpoint was slow to connect, but the connection establishment
-    // completed successfully.
-    kSlowSucceeded,
+    QuicAttemptOutcome(QuicAttemptOutcome&&) = default;
+    QuicAttemptOutcome& operator=(QuicAttemptOutcome&&) = default;
+    QuicAttemptOutcome(const QuicAttemptOutcome&) = delete;
+    QuicAttemptOutcome& operator=(const QuicAttemptOutcome&) = delete;
+
+    int result;
+    NetErrorDetails error_details;
+    raw_ptr<QuicChromiumClientSession> session;
   };
-
-  using IPEndPointStateMap = std::map<IPEndPoint, IPEndPointState>;
 
   // Time to delay connection attempts more than one when the destination is
   // known to support HTTP/2, to avoid unnecessary socket connection
@@ -96,7 +96,9 @@ class HttpStreamPool::AttemptManager
 
   Group* group() { return group_; }
 
-  bool is_failing() const { return is_failing_; }
+  bool is_shutting_down() const {
+    return availability_state_ != AvailabilityState::kAvailable;
+  }
 
   int final_error_to_notify_jobs() const;
 
@@ -110,8 +112,9 @@ class HttpStreamPool::AttemptManager
 
   const NetLogWithSource& net_log();
 
-  // Starts a Job. Will call one of Job::Delegate methods to notify results.
-  void StartJob(Job* job);
+  // Starts `job` for a stream request. Will call one of Job::Delegate methods
+  // to notify results.
+  void RequestStream(Job* job);
 
   // Creates idle streams or sessions for `num_streams` be opened.
   // Note that `job` will be notified once `this` has enough streams/sessions
@@ -124,16 +127,24 @@ class HttpStreamPool::AttemptManager
   void OnServiceEndpointsUpdated() override;
   void OnServiceEndpointRequestFinished(int rv) override;
 
+  // IPEndPointStateTracker::Delegate implementation:
+  HostResolver::ServiceEndpointRequest* GetServiceEndpointRequest() override;
+  bool IsSvcbOptional() override;
+  bool HasEnoughTcpBasedAttemptsForSlowIPEndPoint(
+      const IPEndPoint& ip_endpoint) override;
+  bool IsEndpointUsableForTcpBasedAttempt(const ServiceEndpoint& endpoint,
+                                          bool svcb_optional) override;
+
   // Tries to process a single pending request/preconnect.
   void ProcessPendingJob();
 
-  // Returns the number of jobs that haven't yet been notified success or
-  // failure.
-  size_t JobCount() const { return jobs_.size(); }
+  // Returns the number of request jobs that haven't yet been notified success
+  // or failure.
+  size_t RequestJobCount() const { return request_jobs_.size(); }
 
-  // Returns the number of jobs that have already been notified success or
-  // failure.
-  size_t NotifiedJobCount() const { return notified_jobs_.size(); }
+  // Returns the number of request jobs that have already been notified success
+  // or failure.
+  size_t NotifiedRequestJobCount() const { return notified_jobs_.size(); }
 
   // Returns the number of in-flight TCP based attempts.
   size_t TcpBasedAttemptCount() const { return tcp_based_attempts_.size(); }
@@ -147,13 +158,13 @@ class HttpStreamPool::AttemptManager
   // Cancels all jobs.
   void CancelJobs(int error);
 
-  // Cancels the QuicTask if it exists.
-  void CancelQuicTask(int error);
+  // Cancels the QuicAttempt if it exists.
+  void CancelQuicAttempt(int error);
 
-  // Returns the number of pending jobs/preconnects. The number is
+  // Returns the number of pending requests/preconnects. The number is
   // calculated by subtracting the number of in-flight attempts (excluding slow
   // attempts) from the number of total jobs.
-  size_t PendingJobCount() const;
+  size_t PendingRequestJobCount() const;
   size_t PendingPreconnectCount() const;
 
   // Returns the current load state.
@@ -169,14 +180,11 @@ class HttpStreamPool::AttemptManager
   // Returns true when `this` is blocked by the pool's stream limit.
   bool IsStalledByPoolLimit();
 
-  // Returns whether attempts is "SVCB-optional". See
-  // https://www.rfc-editor.org/rfc/rfc9460.html#section-3-4
-  // Note that the result can be changed over time while the DNS resolution is
-  // still ongoing.
-  bool IsSvcbOptional();
+  // Called when the QuicAttempt owned by `this` is completed.
+  void OnQuicAttemptComplete(QuicAttemptOutcome result);
 
-  // Called when the QuicTask owned by `this` is completed.
-  void OnQuicTaskComplete(int rv, NetErrorDetails details);
+  // Called when the QuicAttempt owned by `this` is slow.
+  void OnQuicAttemptSlow();
 
   // Retrieves information on the current state of `this` as a base::Value.
   base::Value::Dict GetInfoAsValue() const;
@@ -184,22 +192,39 @@ class HttpStreamPool::AttemptManager
   MultiplexedSessionCreationInitiator
   CalculateMultiplexedSessionCreationInitiator();
 
-  std::optional<int> GetQuicTaskResultForTesting() { return quic_task_result_; }
-
-  void SetIsFailingForTest(bool is_failing) { is_failing_ = is_failing; }
-
-  QuicTask* quic_task_for_testing() const { return quic_task_.get(); }
-
-  IPEndPointStateMap& ip_endpoint_states_for_testing() {
-    return ip_endpoint_states_;
+  // TODO(crbug.com/383606724): Remove this once we move unittests from
+  // HttpStreamPoolAttemptManagerTest to
+  // HttpStreamPoolIPEndPointStateTrackerTest
+  const IPEndPointStateTracker& ip_endpoint_state_tracker() const {
+    return ip_endpoint_state_tracker_;
   }
-  const IPEndPointStateMap& ip_endpoint_states_for_testing() const {
-    return ip_endpoint_states_;
+
+  std::optional<int> GetQuicAttemptResultForTesting() {
+    return quic_attempt_result_;
   }
+
+  base::WeakPtr<AttemptManager> GetWeakPtrForTesting() {
+    return weak_ptr_factory_.GetWeakPtr();
+  }
+
+  QuicAttempt* quic_attempt_for_testing() const { return quic_attempt_.get(); }
+
+  void SetOnCompleteCallbackForTesting(base::OnceClosure callback);
 
  private:
   FRIEND_TEST_ALL_PREFIXES(HttpStreamPoolAttemptManagerTest,
                            GetIPEndPointToAttempt);
+
+  // Represents the availability of this instance. If not kAvailable, `this`
+  // can't handle new Jobs and this should not have in-flight attempts.
+  enum class AvailabilityState {
+    // Can handle new Jobs and make connection attempts.
+    kAvailable = 0,
+    // Is in preparation of a successful completion.
+    kDraining = 1,
+    // Is handling a fatal error.
+    kFailing = 2,
+  };
 
   // Represents the initial attempt state of this manager.
   // These values are persisted to logs. Entries should not be renumbered and
@@ -265,8 +290,6 @@ class HttpStreamPool::AttemptManager
   static std::string_view TcpBasedAttemptStateToString(
       TcpBasedAttemptState state);
 
-  static std::string_view IPEndPointStateToString(IPEndPointState state);
-
   const HttpStreamKey& stream_key() const;
 
   const SpdySessionKey& spdy_session_key() const;
@@ -309,11 +332,13 @@ class HttpStreamPool::AttemptManager
   // Called when service endpoint results have changed or finished.
   void ProcessServiceEndpointChanges();
 
-  // Returns true when there is an active SPDY/QUIC session that can be used for
-  // on-going jobs after service endpoint results has changed. May notify jobs
-  // of stream ready.
-  bool CanUseExistingQuicSessionAfterEndpointChanges();
-  bool CanUseExistingSpdySessionAfterEndpointChanges();
+  // Returns an active QUIC session when there is an active QUIC session that
+  // can be used for on-going jobs after service endpoint results have changed.
+  QuicChromiumClientSession* CanUseExistingQuicSessionAfterEndpointChanges();
+
+  // Returns an active SPDY session when there is an active SPDY session that
+  // can be used for on-going jobs after service endpoint results have changed.
+  base::WeakPtr<SpdySession> CanUseExistingSpdySessionAfterEndpointChanges();
 
   // If `this` is ready to start cryptographic handshakes, notifies TCP based
   // attempts that SSLConfigs are ready.
@@ -363,38 +388,23 @@ class HttpStreamPool::AttemptManager
   // Calculates the maximum streams counts requested by preconnects.
   size_t CalculateMaxPreconnectCount() const;
 
-  // Helper method to calculate pending jobs/preconnects.
+  // Helper method to calculate pending jobs.
   size_t PendingCountInternal(size_t pending_count) const;
 
-  // Returns an IPEndPoint to attempt a connection. If `exclude_ip_endpoint` is
-  // given, exclude the endpoint. Brief summary of the behavior are:
-  //  * Try preferred address family first.
-  //  * Prioritize unattempted or fast endpoints.
-  //  * Fall back to slow but succeeded endpoints.
-  //  * Use slow and attempting endpoints as the last option.
-  //  * For a slow endpoint, skip the endpoint if there are enough attempts for
-  //    the endpoint.
-  // TODO(crbug.com/383606724): The current logic relies on rather naive and not
-  // very well-founded heuristics. Write a design document and implement more
-  // appropriate algorithm to pick an IPEndPoint.
-  std::optional<IPEndPoint> GetIPEndPointToAttemptTcpBased(
-      std::optional<IPEndPoint> exclude_ip_endpoint = std::nullopt);
-  void FindBetterIPEndPoint(const std::vector<IPEndPoint>& ip_endpoints,
-                            std::optional<IPEndPoint> exclude_ip_endpoint,
-                            std::optional<IPEndPointState>& current_state,
-                            std::optional<IPEndPoint>& current_endpoint);
-  bool HasEnoughTcpBasedAttemptsForSlowIPEndPoint(
-      const IPEndPoint& ip_endpoint);
+  // Returns a QUIC endpoint to make a connection attempt. See the comments in
+  // QuicSessionPool::SelectQuicVersion() for the criteria to select a QUIC
+  // endpoint.
+  std::optional<QuicEndpoint> GetQuicEndpointToAttempt();
 
   // Called when this gets a fatal error. Notifies all jobs of the failure and
-  // cancels in-flight TCP based attempts and QuicTask's, if they exist.
+  // cancels in-flight TCP based attempts and QuicAttempt's, if they exist.
   void HandleFinalError(int error);
 
   // Calculate the failure kind to notify jobs of failure. Used to call one of
   // the job's methods.
   FailureKind DetermineFailureKind();
 
-  // Notifies a failure to a single job. Used by NotifyFailure().
+  // Notifies a failure to a single request job. Used by NotifyFailure().
   void NotifyJobOfFailure();
 
   // Notifies all preconnects of completion.
@@ -407,12 +417,10 @@ class HttpStreamPool::AttemptManager
   void ProcessPreconnectsAfterAttemptComplete(int rv,
                                               size_t active_stream_count);
 
-  // Helper methods to post a task to notify a job of preconnect completion. If
-  // `this` is deleted the notification is canceled.
-  void NotifyJobOfPreconnectCompleteLater(Job* job, int rv);
-  void NotifyJobOfPreconnectComplete(Job* job, int rv);
+  // Notifies a job of preconnect completion.
+  void NotifyJobOfPreconnectComplete(raw_ptr<Job> job, int rv);
 
-  // Creates a text based stream and notifies the highest priority job.
+  // Creates a text based stream and Notifies the highest priority job.
   void CreateTextBasedStreamAndNotify(
       std::unique_ptr<StreamSocket> stream_socket,
       StreamSocketHandle::SocketReuseType reuse_type,
@@ -420,30 +428,38 @@ class HttpStreamPool::AttemptManager
 
   bool HasAvailableSpdySession() const;
 
-  void CreateSpdyStreamAndNotify(base::WeakPtr<SpdySession> spdy_session);
+  void MaybeStartDraining();
 
-  void CreateQuicStreamAndNotify();
+  void MaybeCreateSpdyStreamAndNotify(base::WeakPtr<SpdySession> spdy_session);
+
+  void MaybeCreateQuicStreamAndNotify(QuicChromiumClientSession* quic_session);
 
   void NotifyStreamReady(std::unique_ptr<HttpStream> stream,
                          NextProto negotiated_protocol);
 
   // Called when a SPDY session is ready to use. Cancels in-flight attempts.
-  // Closes idle streams. Completes preconnects and jobs.
+  // Closes idle streams. Completes request/preconnect jobs.
   void HandleSpdySessionReady(base::WeakPtr<SpdySession> spdy_session,
                               StreamSocketCloseReason refresh_group_reason);
 
   // Called when a QUIC session is ready to use. Cancels in-flight attempts.
-  // Closes idle streams. Completes preconnects.
-  void HandleQuicSessionReady(StreamSocketCloseReason refresh_group_reason);
+  // Closes idle streams. Completes request/preconnect jobs.
+  void HandleQuicSessionReady(QuicChromiumClientSession* quic_session,
+                              StreamSocketCloseReason refresh_group_reason);
 
-  // Extracts an entry from `jobs_` of which priority is highest. The ownership
-  // of the entry is moved to `notified_jobs_`.
+  // Extracts an entry from `request_jobs_` of which priority is highest. The
+  // ownership of the entry is moved to `notified_jobs_`.
   Job* ExtractFirstJobToNotify();
 
-  // Remove the pointeee of `job_pointer` from `jobs_`. May cancel in-flight
-  // TCP based attempts when there are no limit ignoring jobs after removing the
-  // job and in-flight TCP based attempts count is larger than the limit.
+  // Remove the pointeee of `job_pointer` from `request_jobs_`. May cancel
+  // in-flight TCP based attempts when there are no limit ignoring jobs after
+  // removing the job and in-flight TCP based attempts count is larger than the
+  // limit.
   raw_ptr<Job> RemoveJobFromQueue(JobQueue::Pointer job_pointer);
+
+  // Transfers the ownership of `raw_attempt` to the caller.
+  std::unique_ptr<TcpBasedAttempt> ExtractTcpBasedAttempt(
+      TcpBasedAttempt* raw_attempt);
 
   void OnTcpBasedAttemptComplete(TcpBasedAttempt* raw_attempt, int rv);
   void OnTcpBasedAttemptSlow(TcpBasedAttempt* raw_attempt);
@@ -480,10 +496,6 @@ class HttpStreamPool::AttemptManager
 
   bool IsEchEnabled() const;
 
-  // Returns true when `endpoint` can be used to attempt TCP/TLS connections.
-  bool IsEndpointUsableForTcpBasedAttempt(const ServiceEndpoint& endpoint,
-                                          bool svcb_optional);
-
   // Mark QUIC brokenness if QUIC attempts failed but TCP/TLS attempts succeeded
   // or not attempted.
   void MaybeMarkQuicBroken();
@@ -508,14 +520,16 @@ class HttpStreamPool::AttemptManager
 
   const base::TimeTicks created_time_;
 
-  // Keeps the initial attempt state. Set when `this` starts a job or
-  // preconnect.
+  // Keeps the initial attempt state. Set when `this` attempts a TCP based
+  // attempt for the first time.
   std::optional<InitialAttemptState> initial_attempt_state_;
 
   NextProtoSet allowed_alpns_ = NextProtoSet::All();
 
-  // Holds jobs that are waiting for notifications.
-  JobQueue jobs_;
+  // Holds request jobs that are waiting for notifications.
+  JobQueue request_jobs_;
+  // Holds preconnect jobs that are waiting for notifications.
+  std::set<raw_ptr<Job>> preconnect_jobs_;
   // Holds jobs that are already notified results. We need to keep them to avoid
   // dangling pointers.
   std::set<raw_ptr<Job>> notified_jobs_;
@@ -526,23 +540,13 @@ class HttpStreamPool::AttemptManager
 
   base::flat_set<raw_ptr<Job>> alternative_service_disabling_jobs_;
 
-  // Holds preconnect requests.
-  std::set<raw_ptr<Job>> preconnect_jobs_;
-  size_t notifying_preconnect_completion_count_ = 0;
-
   std::unique_ptr<HostResolver::ServiceEndpointRequest>
       service_endpoint_request_;
   bool service_endpoint_request_finished_ = false;
   base::TimeTicks dns_resolution_start_time_;
   base::TimeTicks dns_resolution_end_time_;
 
-  // Set to true when `this` cannot handle further jobs. Used to ensure that
-  // `this` doesn't accept further jobs while notifying the failure to the
-  // existing jobs.
-  bool is_failing_ = false;
-
-  // Set to true when `CancelJobs()` is called.
-  bool is_canceling_jobs_ = false;
+  AvailabilityState availability_state_ = AvailabilityState::kAvailable;
 
   NetErrorDetails net_error_details_;
   ResolveErrorInfo resolve_error_info_;
@@ -580,11 +584,8 @@ class HttpStreamPool::AttemptManager
   base::OneShotTimer spdy_throttle_timer_;
   bool spdy_throttle_delay_passed_ = false;
 
-  // When true, try to use IPv6 for the next attempt first.
-  bool prefer_ipv6_ = true;
-  // Updated when a stream attempt is completed or considered slow. Used to
-  // calculate next IPEndPoint to attempt.
-  IPEndPointStateMap ip_endpoint_states_;
+  // Tracks the states of IPEndPoints.
+  IPEndPointStateTracker ip_endpoint_state_tracker_{this};
 
   // The current state of TCP/TLS connection attempts.
   TcpBasedAttemptState tcp_based_attempt_state_ =
@@ -594,16 +595,18 @@ class HttpStreamPool::AttemptManager
   // from Alt-Svc.
   quic::ParsedQuicVersion quic_version_ =
       quic::ParsedQuicVersion::Unsupported();
-  // Created when attempting QUIC sessions.
-  std::unique_ptr<QuicTask> quic_task_;
-  // Set when `quic_task_` is completed.
-  std::optional<int> quic_task_result_;
+  // Created when attempting a QUIC session.
+  std::unique_ptr<QuicAttempt> quic_attempt_;
+  // Set when `quic_attempt_` is completed.
+  std::optional<int> quic_attempt_result_;
 
   // The delay for TCP based stream attempts in favor of QUIC.
   base::TimeDelta tcp_based_attempt_delay_;
   // Set to true when TCP based attempts should be blocked.
   bool should_block_tcp_based_attempt_ = false;
   base::OneShotTimer tcp_based_attempt_delay_timer_;
+
+  base::OnceClosure on_complete_callback_for_testing_;
 
   base::WeakPtrFactory<AttemptManager> weak_ptr_factory_{this};
 };

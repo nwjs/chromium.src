@@ -40,12 +40,9 @@
 #include "base/debug/dump_without_crashing.h"
 #include "base/i18n/time_formatting.h"
 #include "base/metrics/histogram_functions.h"
-#include "base/metrics/histogram_macros.h"
-#include "base/not_fatal_until.h"
 #include "base/notreached.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/time/time.h"
-#include "base/timer/elapsed_timer.h"
 #include "base/trace_event/trace_event.h"
 #include "cc/animation/animation_host.h"
 #include "cc/animation/animation_timeline.h"
@@ -401,11 +398,6 @@
 #include "third_party/blink/renderer/platform/wtf/text/text_encoding_registry.h"
 #include "third_party/blink/renderer/platform/wtf/text/utf16.h"
 
-#ifndef NDEBUG
-using WeakDocumentSet = blink::HeapHashSet<blink::WeakMember<blink::Document>>;
-static WeakDocumentSet& LiveDocumentSet();
-#endif
-
 namespace blink {
 
 namespace {
@@ -416,6 +408,15 @@ class IntrinsicSizeResizeObserverDelegate : public ResizeObserver::Delegate {
   ResizeObserver::DeliveryTime Delivery() const final;
   bool SkipNonAtomicInlineObservations() const final;
 };
+
+using WeakDocumentSet = blink::HeapHashSet<blink::WeakMember<blink::Document>>;
+
+WeakDocumentSet& LiveDocumentSet() {
+  using WeakDocumentSetHolder = blink::DisallowNewWrapper<WeakDocumentSet>;
+  DEFINE_STATIC_LOCAL(blink::Persistent<WeakDocumentSetHolder>, holder,
+                      (blink::MakeGarbageCollected<WeakDocumentSetHolder>()));
+  return holder->Value();
+}
 
 // Returns true if any of <object> ancestors don't start loading or are loading
 // plugins/frames/images. If there are no <object> ancestors, this function
@@ -909,6 +910,12 @@ Document::Document(const DocumentInit& initializer,
             network::mojom::PermissionsPolicyFeature::kVerticalScroll);
     cached_top_frame_site_for_visited_links_ =
         net::SchemefulSite(TopFrameOrigin()->ToUrlOrigin());
+    // The WidgetCreationObserver can be only added during initialization
+    // of the local root. The observer is added to lower the frate rate
+    // during the loading of the page.
+    if (frame->IsLocalRoot() && !frame->GetWidgetForLocalRoot()) {
+      frame->AddWidgetCreationObserver(this);
+    }
   } else {
     // We disable fetches for frame-less Documents.
     // See https://crbug.com/961614 for details.
@@ -970,9 +977,7 @@ Document::Document(const DocumentInit& initializer,
   DCHECK(!ParentDocument() ||
          !ParentDocument()->domWindow()->IsContextPaused());
 
-#ifndef NDEBUG
   LiveDocumentSet().insert(this);
-#endif
 }
 
 Document::~Document() {
@@ -2059,7 +2064,7 @@ uint32_t Document::softNavigations() const {
     return 0;
   }
   if (SoftNavigationHeuristics* heuristics =
-          SoftNavigationHeuristics::From(*window)) {
+          window->GetSoftNavigationHeuristics()) {
     return heuristics->SoftNavigationCount();
   }
   return 0;
@@ -2444,6 +2449,8 @@ void Document::UpdateStyleAndLayoutTreeForThisDocument() {
     // the load event.
     UnblockLoadEventAfterLayoutTreeUpdate();
   };
+
+  ViewTransitionUtils::WillUpdateStyleAndLayoutTree(*this);
 
   bool needs_slot_assignment = IsSlotAssignmentDirty();
   bool needs_layout_tree_update = false;
@@ -4927,6 +4934,19 @@ void Document::DidRemoveAllPendingStylesheets() {
 void Document::DidLoadAllPendingParserBlockingStylesheets() {
   if (ScriptableDocumentParser* parser = GetScriptableDocumentParser())
     parser->DidLoadAllPendingParserBlockingStylesheets();
+}
+
+void Document::NotifyParserPauseByUserTiming() {
+  CHECK(base::FeatureList::IsEnabled(features::kHTMLParserYieldByUserTiming));
+  if (ScriptableDocumentParser* parser = GetScriptableDocumentParser()) {
+    parser->NotifyParserPauseByUserTiming();
+  }
+}
+void Document::NotifyParserResumeByUserTiming() {
+  CHECK(base::FeatureList::IsEnabled(features::kHTMLParserYieldByUserTiming));
+  if (ScriptableDocumentParser* parser = GetScriptableDocumentParser()) {
+    parser->NotifyParserResumeByUserTiming();
+  }
 }
 
 void Document::DidLoadAllScriptBlockingResources() {
@@ -7549,8 +7569,7 @@ void Document::OnLargestContentfulPaintUpdated() {
 void Document::OnPrepareToStopParsing() {
   if (render_blocking_resource_manager_) {
     render_blocking_resource_manager_->ClearPendingParsingElements();
-    if (features::kThrottleFrameRateOnInitialization.Get() && GetFrame() &&
-        GetFrame()->IsLocalRoot() && GetFrame()->GetPage() &&
+    if (GetFrame() && GetFrame()->IsLocalRoot() && GetFrame()->GetPage() &&
         GetFrame()->IsAttached()) {
       // The frame rate will be implicitly throttled during initialization
       // if the feature is enabled so unthrottle here.
@@ -8933,7 +8952,7 @@ DocumentResourceCoordinator* Document::GetResourceCoordinator() {
   // afterwards, when the Document is no longer active. If `is_for_discard_` do
   // not instantiate a resource coordinator.
   if (!resource_coordinator_ && IsActive() && !is_for_discard_) {
-    CHECK(GetFrame(), base::NotFatalUntil::M135);
+    CHECK(GetFrame());
     if (auto* frame = GetFrame()) {
       resource_coordinator_ = DocumentResourceCoordinator::MaybeCreate(
           frame->GetBrowserInterfaceBroker());
@@ -9414,8 +9433,7 @@ void Document::RunPostPrerenderingActivationSteps() {
 
 bool Document::InStyleRecalc() const {
   return lifecycle_.GetState() == DocumentLifecycle::kInStyleRecalc ||
-         style_engine_->InContainerQueryStyleRecalc() ||
-         style_engine_->InPositionTryStyleRecalc() ||
+         style_engine_->InInterleavedStyleRecalc() ||
          style_engine_->InEnsureComputedStyle();
 }
 
@@ -9470,14 +9488,17 @@ bool Document::DeferredCompositorCommitIsAllowed() const {
 }
 
 Document::PaintPreviewScope::PaintPreviewScope(Document& document,
-                                               PaintPreviewState state)
+                                               PaintPreviewState state,
+                                               bool allow_scrollbars)
     : document_(document) {
   document_.paint_preview_ = state;
+  document_.allow_scrollbars_in_paint_preview_ = allow_scrollbars;
   document_.GetDisplayLockDocumentState().NotifyPrintingOrPreviewChanged();
 }
 
 Document::PaintPreviewScope::~PaintPreviewScope() {
   document_.paint_preview_ = kNotPaintingPreview;
+  document_.allow_scrollbars_in_paint_preview_ = false;
   document_.GetDisplayLockDocumentState().NotifyPrintingOrPreviewChanged();
 }
 
@@ -9574,6 +9595,21 @@ void Document::HandlePaymentLink(const KURL& href) {
 }
 #endif  // BUILDFLAG(IS_ANDROID)
 
+void Document::OnLocalRootWidgetCreated() {
+  if (!features::kThrottleFrameRateOnInitialization.Get() || !GetFrame() ||
+      !GetFrame()->GetPage() || !GetFrame()->IsAttached()) {
+    return;
+  }
+  bool allowed_by_security = CanThrottleFrameRate();
+  base::UmaHistogramBoolean(
+      "Blink.ThrottleFrameRate.AllowedBySecurity.DocumentInitialization",
+      allowed_by_security);
+  if (allowed_by_security) {
+    GetFrame()->GetPage()->GetChromeClient().SetShouldThrottleFrameRate(
+        true, *GetFrame());
+  }
+}
+
 void Document::ProcessScheduledShadowTreeCreationsNow() {
   if (elements_needing_shadow_tree_.empty()) {
     return;
@@ -9620,8 +9656,13 @@ void Document::UpdateRenderFrameRate() {
   if (!GetFrame() || !GetFrame()->GetPage() || !GetFrame()->IsAttached()) {
     return;
   }
-  GetFrame()->GetPage()->GetChromeClient().SetShouldThrottleFrameRate(
-      has_frame_rate_blocking_expect_link_elements_, *GetFrame());
+  bool allowed_by_security = CanThrottleFrameRate();
+  base::UmaHistogramBoolean("Blink.ThrottleFrameRate.AllowedBySecurity.API",
+                            allowed_by_security);
+  if (allowed_by_security) {
+    GetFrame()->GetPage()->GetChromeClient().SetShouldThrottleFrameRate(
+        has_frame_rate_blocking_expect_link_elements_, *GetFrame());
+  }
 }
 
 // static
@@ -9655,7 +9696,7 @@ Document* Document::parseHTMLUnsafe(ExecutionContext* context,
   UseCounter::Count(context, WebFeature::kHTMLUnsafeMethods);
   CHECK(RuntimeEnabledFeatures::SanitizerAPIEnabled());
   Document* doc = parseHTMLInternal(context, html, exception_state);
-  SanitizerAPI::SanitizeUnsafeInternal(doc->body(), options, exception_state);
+  SanitizerAPI::SanitizeUnsafeInternal(doc, options, exception_state);
   return doc;
 }
 
@@ -9666,7 +9707,7 @@ Document* Document::parseHTML(ExecutionContext* context,
                               ExceptionState& exception_state) {
   CHECK(RuntimeEnabledFeatures::SanitizerAPIEnabled());
   Document* doc = parseHTMLInternal(context, html, exception_state);
-  SanitizerAPI::SanitizeSafeInternal(doc->body(), options, exception_state);
+  SanitizerAPI::SanitizeSafeInternal(doc, options, exception_state);
   return doc;
 }
 
@@ -9791,19 +9832,30 @@ net::SchemefulSite Document::GetCachedTopFrameSite(VisitedLinkPassKey) {
   return cached_top_frame_site_for_visited_links_.value();
 }
 
+bool Document::CanThrottleFrameRate() {
+  // To prevent side-channel attacks by monitoring the frame rate to detect
+  // page loads from other origins, we only allow the frame rate to be throttled
+  // if the renderer process is only hosting pages from one origin.
+  CHECK(GetExecutionContext());
+  const SecurityOrigin* expected_security_origin =
+      GetExecutionContext()->GetSecurityOrigin();
+  for (blink::Document* document : blink::LiveDocumentSet()) {
+    if (!document->GetExecutionContext() ||
+        !document->GetExecutionContext()->GetSecurityOrigin()->IsSameOriginWith(
+            expected_security_origin)) {
+      return false;
+    }
+  }
+  return true;
+}
+
 template class CORE_TEMPLATE_EXPORT Supplement<Document>;
 
 }  // namespace blink
-#ifndef NDEBUG
-static WeakDocumentSet& LiveDocumentSet() {
-  using WeakDocumentSetHolder = blink::DisallowNewWrapper<WeakDocumentSet>;
-  DEFINE_STATIC_LOCAL(blink::Persistent<WeakDocumentSetHolder>, holder,
-                      (blink::MakeGarbageCollected<WeakDocumentSetHolder>()));
-  return holder->Value();
-}
 
+#ifndef NDEBUG
 void ShowLiveDocumentInstances() {
-  WeakDocumentSet& set = LiveDocumentSet();
+  blink::WeakDocumentSet& set = blink::LiveDocumentSet();
   fprintf(stderr, "There are %u documents currently alive:\n", set.size());
   for (blink::Document* document : set) {
     fprintf(stderr, "- Document %p URL: %s\n", document,

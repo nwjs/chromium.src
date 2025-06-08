@@ -482,7 +482,7 @@ bool RecordLcpInfluencerScriptUrlsHistogram(
 
 bool RecordPreconnectOriginsHistogram(int sliding_window_size,
                                       int max_histogram_buckets,
-                                      const std::vector<GURL>& origins,
+                                      const std::set<url::Origin>& origins,
                                       LcppStat& stat) {
   // There could be multiple preconnect origins. Record each in a separate
   // histogram.
@@ -491,7 +491,7 @@ bool RecordPreconnectOriginsHistogram(int sliding_window_size,
           sliding_window_size, max_histogram_buckets,
           stat.preconnect_origin_stat());
   for (auto& origin : origins) {
-    const auto& origin_spec = origin.spec();
+    const auto origin_spec = origin.GetURL().spec();
     if (!IsValidUrlInLcppStringFrequencyStatData(origin_spec)) {
       continue;
     }
@@ -816,20 +816,22 @@ ConvertLcppStatToLCPCriticalPathPredictorNavigationTimeHint(
   std::vector<std::string> lcp_element_locators =
       PredictLcpElementLocators(lcpp_stat.lcp_element_locator_stat(),
                                 kConfidenceThreshold, kTotalFrequencyThreshold);
+  std::vector<std::string> lcp_element_locators_all =
+      PredictLcpElementLocators(lcpp_stat.lcp_element_locator_stat_all());
   std::vector<GURL> lcp_influencer_scripts =
       PredictLcpInfluencerScripts(lcpp_stat);
   std::vector<GURL> fetched_fonts = PredictFetchedFontUrls(lcpp_stat);
-  std::vector<GURL> preconnect_origins =
+  std::vector<url::Origin> preconnect_origins =
       PredictPreconnectableOrigins(lcpp_stat);
   std::vector<GURL> unused_preloads = PredictUnusedPreloads(lcpp_stat);
 
-  if (!lcp_element_locators.empty() || !lcp_influencer_scripts.empty() ||
-      !fetched_fonts.empty() || !preconnect_origins.empty() ||
-      !unused_preloads.empty()) {
+  if (!lcp_element_locators.empty() || !lcp_element_locators_all.empty() ||
+      !lcp_influencer_scripts.empty() || !fetched_fonts.empty() ||
+      !preconnect_origins.empty() || !unused_preloads.empty()) {
     return blink::mojom::LCPCriticalPathPredictorNavigationTimeHint(
-        std::move(lcp_element_locators), std::move(lcp_influencer_scripts),
-        std::move(fetched_fonts), std::move(preconnect_origins),
-        std::move(unused_preloads), false);
+        std::move(lcp_element_locators), std::move(lcp_element_locators_all),
+        std::move(lcp_influencer_scripts), std::move(fetched_fonts),
+        std::move(preconnect_origins), std::move(unused_preloads), false);
   }
   return std::nullopt;
 }
@@ -850,9 +852,10 @@ ConvertLcppStringFrequencyStatDataToConfidenceStringPairs(
 
 std::vector<std::string> PredictLcpElementLocators(
     const predictors::LcpElementLocatorStat& stat,
-    const double confidence_threshold,
-    const double total_frequency_threshold) {
-  if (SumOfFrequency(stat) < total_frequency_threshold) {
+    const std::optional<double>& confidence_threshold,
+    const std::optional<double>& total_frequency_threshold) {
+  if (total_frequency_threshold &&
+      SumOfFrequency(stat) < *total_frequency_threshold) {
     return {};
   }
   std::vector<std::pair<double, std::string>>
@@ -862,7 +865,7 @@ std::vector<std::string> PredictLcpElementLocators(
   lcp_element_locators.reserve(lcp_element_locators_with_confidence.size());
   for (auto& [confidence, lcp_element_locator] :
        lcp_element_locators_with_confidence) {
-    if (confidence < confidence_threshold) {
+    if (confidence_threshold && confidence < *confidence_threshold) {
       break;
     }
     lcp_element_locators.push_back(std::move(lcp_element_locator));
@@ -931,7 +934,7 @@ std::vector<GURL> PredictFetchedFontUrls(const LcppStat& stat) {
   return font_urls;
 }
 
-std::vector<GURL> PredictPreconnectableOrigins(const LcppStat& stat) {
+std::vector<url::Origin> PredictPreconnectableOrigins(const LcppStat& stat) {
   std::vector<std::pair<double, std::string>>
       preconnect_origins_with_frequency =
           ConvertToFrequencyStringPair(stat.preconnect_origin_stat());
@@ -941,11 +944,11 @@ std::vector<GURL> PredictPreconnectableOrigins(const LcppStat& stat) {
   int preconnects_allowed =
       blink::features::kkLCPPAutoPreconnectMaxPreconnectOriginsCount.Get();
   if (preconnects_allowed <= 0) {
-    return std::vector<GURL>();
+    return std::vector<url::Origin>();
   }
 
-  std::vector<GURL> preconnect_origins;
-  for (const auto& [frequency, preconnect_url] :
+  std::vector<url::Origin> preconnect_origins;
+  for (const auto& [frequency, preconnect_origin] :
        preconnect_origins_with_frequency) {
     // The frequencies are reverse sorted by `ConvertToFrequencyStringPair`.
     // No need to see later frequencies if the frequency is smaller than the
@@ -953,11 +956,11 @@ std::vector<GURL> PredictPreconnectableOrigins(const LcppStat& stat) {
     if (frequency < frequency_threshold) {
       break;
     }
-    GURL parsed_url(preconnect_url);
-    if (!parsed_url.is_valid() || !parsed_url.SchemeIsHTTPOrHTTPS()) {
+    GURL parsed_origin(preconnect_origin);
+    if (!parsed_origin.is_valid() || !parsed_origin.SchemeIsHTTPOrHTTPS()) {
       continue;
     }
-    preconnect_origins.emplace_back(std::move(parsed_url));
+    preconnect_origins.emplace_back(url::Origin::Create(parsed_origin));
     if (--preconnects_allowed <= 0) {
       break;
     }
@@ -1452,7 +1455,7 @@ void LcppDataMap::DeleteUrls(const std::vector<GURL>& urls) {
         needs_update[key_value.first] = lcpp_origin;
       }
     }
-    for (auto it : needs_update) {
+    for (const auto& it : needs_update) {
       origin_map_->UpdateData(it.first, it.second);
     }
   }
@@ -1501,10 +1504,10 @@ void LcppDataMap::GetPreconnectAndPrefetchRequest(
     std::vector<PreconnectRequest> additional_preconnects;
     auto anonymization_key =
         net::NetworkAnonymizationKey::CreateSameSite(net::SchemefulSite(url));
-    for (const GURL& preconnect_origin :
+    for (const url::Origin& preconnect_origin :
          PredictPreconnectableOrigins(*lcpp_stat)) {
-      additional_preconnects.emplace_back(
-          url::Origin::Create(preconnect_origin), 1, anonymization_key);
+      additional_preconnects.emplace_back(preconnect_origin, 1,
+                                          anonymization_key);
       ++count;
     }
 

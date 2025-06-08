@@ -47,7 +47,7 @@ InputTransferHandlerAndroid::InputTransferHandlerAndroid(
       jni_delegate_(std::make_unique<JniDelegateImpl>()),
       input_observer_(*this) {
   CHECK(client_);
-  CHECK(input::IsTransferInputToVizSupported());
+  CHECK(input::InputUtils::IsTransferInputToVizSupported());
 }
 
 InputTransferHandlerAndroid::InputTransferHandlerAndroid()
@@ -73,7 +73,8 @@ void InputTransferHandlerAndroid::EmitTransferResultHistogramAndTraceEvent(
 }
 
 bool InputTransferHandlerAndroid::OnTouchEvent(
-    const ui::MotionEventAndroid& event) {
+    const ui::MotionEventAndroid& event,
+    bool is_ignoring_input_events) {
   if (handler_state_ == HandlerState::kDroppingCurrentSequence) {
     DropCurrentSequence(event);
     return true;
@@ -83,6 +84,22 @@ bool InputTransferHandlerAndroid::OnTouchEvent(
     ConsumeEventsUntilCancel(event);
     return true;
   }
+
+  if (handler_state_ == HandlerState::kConsumeSequence) {
+    ConsumeSequence(event);
+    return true;
+  }
+
+  if (event.GetDownTime() <= cached_transferred_sequence_down_time_ms_ &&
+      requested_input_back_reason_ ==
+          RequestInputBackReason::kStartDragAndDropGesture) {
+    requested_input_back_reason_ = std::nullopt;
+    handler_state_ = HandlerState::kConsumeSequence;
+    ConsumeSequence(event);
+    return true;
+  }
+
+  requested_input_back_reason_ = std::nullopt;
 
   if (event.GetAction() != ui::MotionEvent::Action::DOWN) {
     return false;
@@ -104,7 +121,7 @@ bool InputTransferHandlerAndroid::OnTouchEvent(
   if (delta < 0) {
     // TODO(crbug.com/406485568): Investigate this negative delta and
     // potentially file an Android platform bug.
-    TRACE_EVENT_INSTANT("input", "DownTimeAfterEventTime");
+    TRACE_EVENT_INSTANT("input,input.scrolling", "DownTimeAfterEventTime");
     EmitTransferResultHistogramAndTraceEvent(
         TransferInputToVizResult::kDownTimeAfterEventTime);
     if (active_touch_sequence_on_viz) {
@@ -123,6 +140,14 @@ bool InputTransferHandlerAndroid::OnTouchEvent(
         TransferInputToVizResult::kSequenceTransferredBackFromViz);
     // We don't want to retransfer this sequence which was transferred back from
     // Viz.
+    return false;
+  }
+
+  if (is_ignoring_input_events) {
+    EmitTransferResultHistogramAndTraceEvent(
+        TransferInputToVizResult::kWebContentsIgnoringInputEvents);
+    // Let browser handle this sequence since it might potentially be filtered
+    // out at WebContents level.
     return false;
   }
 
@@ -184,9 +209,16 @@ bool InputTransferHandlerAndroid::FilterRedundantDownEvent(
   return event.GetDownTime() <= cached_transferred_sequence_down_time_ms_;
 }
 
-void InputTransferHandlerAndroid::RequestInputBack() {
+void InputTransferHandlerAndroid::RequestInputBack(
+    RequestInputBackReason reason) {
   requested_input_back_ = true;
+  requested_input_back_reason_ = reason;
   GetHostFrameSinkManager()->RequestInputBack();
+}
+
+bool InputTransferHandlerAndroid::IsTouchSequencePotentiallyActiveOnViz()
+    const {
+  return cached_transferred_sequence_down_time_ms_ > last_seen_touch_end_ts_;
 }
 
 void InputTransferHandlerAndroid::OnTouchEnd(base::TimeTicks event_time) {
@@ -233,7 +265,8 @@ void InputTransferHandlerAndroid::ConsumeEventsUntilCancel(
     if (event.GetDownTime() != cached_transferred_sequence_down_time_ms_) {
       // TODO(crbug.com/411338242): Investigate touch cancel received with
       // different downtime.
-      TRACE_EVENT_INSTANT("input", "CancelWithDifferentDownTime");
+      TRACE_EVENT_INSTANT("input,input.scrolling",
+                          "CancelWithDifferentDownTime");
     }
     base::UmaHistogramCustomCounts(
         kTouchMovesSeenHistogram, touch_moves_seen_after_transfer_,
@@ -248,6 +281,15 @@ void InputTransferHandlerAndroid::ConsumeEventsUntilCancel(
   }
   base::UmaHistogramEnumeration(kEventsAfterTransferHistogram,
                                 event.GetAction());
+}
+
+void InputTransferHandlerAndroid::ConsumeSequence(
+    const ui::MotionEventAndroid& event) {
+  CHECK_EQ(handler_state_, HandlerState::kConsumeSequence);
+  if (event.GetAction() == ui::MotionEvent::Action::CANCEL ||
+      event.GetAction() == ui::MotionEvent::Action::UP) {
+    handler_state_ = HandlerState::kIdle;
+  }
 }
 
 void InputTransferHandlerAndroid::OnTouchTransferredSuccessfully(

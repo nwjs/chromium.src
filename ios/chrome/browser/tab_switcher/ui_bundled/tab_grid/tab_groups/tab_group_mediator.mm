@@ -23,6 +23,7 @@
 #import "ios/chrome/browser/drag_and_drop/model/drag_item_util.h"
 #import "ios/chrome/browser/saved_tab_groups/model/ios_tab_group_sync_util.h"
 #import "ios/chrome/browser/saved_tab_groups/model/tab_group_sync_service_factory.h"
+#import "ios/chrome/browser/saved_tab_groups/ui/tab_group_utils.h"
 #import "ios/chrome/browser/share_kit/model/share_kit_avatar_configuration.h"
 #import "ios/chrome/browser/share_kit/model/share_kit_face_pile_configuration.h"
 #import "ios/chrome/browser/share_kit/model/share_kit_service.h"
@@ -154,7 +155,8 @@ constexpr CGFloat kActivityLabelAvatarSize = 16;
     _tabGroup = tabGroup;
 
     [_groupConsumer setGroupTitle:tabGroup->GetTitle()];
-    [_groupConsumer setGroupColor:tabGroup->GetColor()];
+    [_groupConsumer setGroupColor:tab_groups::ColorForTabGroupColorId(
+                                      tabGroup->GetColor())];
 
     _messagingService = messagingService;
     if (_messagingService) {
@@ -420,29 +422,7 @@ constexpr CGFloat kActivityLabelAvatarSize = 16;
 - (void)closeItemWithIdentifier:(GridItemIdentifier*)identifier {
   CHECK_EQ(identifier.type, GridItemType::kTab);
   web::WebStateID webStateID = identifier.tabSwitcherItem.identifier;
-  if (_tabGroup->range().count() > 1 || ![self isShared] ||
-      !_collaborationService) {
-    [self closeItemWithID:webStateID];
-    return;
-  }
-
-  data_sharing::MemberRole userRole = tab_groups::utils::GetUserRoleForGroup(
-      _tabGroup.get(), _tabGroupSyncService, _collaborationService);
-
-  switch (userRole) {
-    case data_sharing::MemberRole::kOwner:
-      [self.tabGroupDelegate tabGroupMediatorCloseLastTabAsOwner:self
-                                               lastTabIdentifier:webStateID];
-      break;
-    case data_sharing::MemberRole::kMember:
-      [self.tabGroupDelegate tabGroupMediatorCloseLastTabAsMember:self
-                                                lastTabIdentifier:webStateID];
-      break;
-    case data_sharing::MemberRole::kInvitee:
-    case data_sharing::MemberRole::kFormerMember:
-    case data_sharing::MemberRole::kUnknown:
-      NOTREACHED();
-  }
+  [self closeItemWithID:webStateID];
 }
 
 #pragma mark - TabCollectionDragDropHandler override
@@ -575,7 +555,8 @@ constexpr CGFloat kActivityLabelAvatarSize = 16;
         break;
       }
       [_groupConsumer setGroupTitle:tabGroup->GetTitle()];
-      [_groupConsumer setGroupColor:tabGroup->GetColor()];
+      [_groupConsumer setGroupColor:tab_groups::ColorForTabGroupColorId(
+                                        tabGroup->GetColor())];
       break;
     }
     case WebStateListChange::Type::kGroupDelete: {
@@ -652,7 +633,8 @@ constexpr CGFloat kActivityLabelAvatarSize = 16;
   [self populateConsumerItems];
   if (_tabGroup) {
     [_groupConsumer setGroupTitle:_tabGroup->GetTitle()];
-    [_groupConsumer setGroupColor:_tabGroup->GetColor()];
+    [_groupConsumer setGroupColor:tab_groups::ColorForTabGroupColorId(
+                                      _tabGroup->GetColor())];
   } else {
     [self.tabGroupsHandler hideTabGroup];
   }

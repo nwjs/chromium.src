@@ -187,6 +187,23 @@ TEST_F(ValuableSyncBridgeTest, MergeFullSyncData) {
   EXPECT_THAT(GetAllDataFromTable(), UnorderedElementsAre(remote1, remote2));
 }
 
+// Tests that loyalty cards with empty logo url are synced and stored.
+TEST_F(ValuableSyncBridgeTest, LoyaltyCardsWithNoProgramLogo) {
+  const LoyaltyCard remote1 = LoyaltyCard(
+      ValuableId(std::string("no_logo")), "merchant_name", "program_name",
+      GURL(), "card_number", {GURL("https://domain.example")});
+
+  EXPECT_CALL(mock_processor(), Put).Times(0);
+  EXPECT_CALL(mock_processor(), Delete).Times(0);
+  EXPECT_CALL(backend(), CommitChanges);
+  EXPECT_CALL(backend(),
+              NotifyOnAutofillChangedBySync(syncer::AUTOFILL_VALUABLE));
+
+  EXPECT_TRUE(StartSyncing({remote1}));
+
+  EXPECT_THAT(GetAllDataFromTable(), UnorderedElementsAre(remote1));
+}
+
 // Tests that `MergeFullSyncData()` replaces currently stored loyalty cards.
 TEST_F(ValuableSyncBridgeTest, MergeFullSyncData_ReplacePreviousData) {
   const LoyaltyCard remote1 = TestLoyaltyCard(kId1);
@@ -317,6 +334,22 @@ TEST_F(ValuableSyncBridgeTest,
                     specifics_with_known_and_unknown_fields)
                 .SerializeAsString(),
             specifics_with_only_unknown_fields.SerializePartialAsString());
+}
+
+// Tests that when the server sends the same data as the client has, nothing
+// changes on the client.
+TEST_F(ValuableSyncBridgeTest, MergeFullSyncData_SameValuablesData) {
+  const LoyaltyCard card1 = TestLoyaltyCard(kId1);
+  const LoyaltyCard card2 = TestLoyaltyCard(kId2);
+  AddLoyaltyCardsToTheTable({card1, card2});
+
+  EXPECT_CALL(backend(),
+              NotifyOnAutofillChangedBySync(syncer::AUTOFILL_VALUABLE))
+      .Times(0);
+  // We still need to commit the updated progress marker on the client.
+  EXPECT_CALL(backend(), CommitChanges());
+  StartSyncing({card1, card2});
+  EXPECT_THAT(GetAllDataFromTable(), UnorderedElementsAre(card1, card2));
 }
 
 }  // namespace autofill

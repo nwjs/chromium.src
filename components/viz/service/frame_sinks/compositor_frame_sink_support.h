@@ -136,7 +136,8 @@ class VIZ_SERVICE_EXPORT CompositorFrameSinkSupport
   base::TimeDelta GetPreferredFrameInterval(
       mojom::CompositorFrameSinkType* type) const;
   void InitializeCompositorFrameSinkType(mojom::CompositorFrameSinkType type);
-  void BindLayerContext(mojom::PendingLayerContext& context);
+  void BindLayerContext(mojom::PendingLayerContext& context,
+                        bool draw_mode_is_gpu);
   void SetThreads(bool from_untrusted_client,
                   std::vector<Thread> unverified_threads);
 
@@ -344,10 +345,6 @@ class VIZ_SERVICE_EXPORT CompositorFrameSinkSupport
 
   // Posts a task to invoke DestroySelf() ASAP.
   void ScheduleSelfDestruction();
-
-  // Applies the preferred frame rate, would call ThrottleBeginFrame if the
-  // conditions are met.
-  void ApplyPreferredFrameRate(uint64_t source_id);
 
   void UpdateThreadIdsPostVerification(std::vector<Thread> threads,
                                        bool passed_verification);

@@ -25,6 +25,7 @@
 #import "ios/chrome/browser/first_run/ui_bundled/features.h"
 #import "ios/chrome/browser/first_run/ui_bundled/first_run_screen_delegate.h"
 #import "ios/chrome/browser/first_run/ui_bundled/first_run_util.h"
+#import "ios/chrome/browser/first_run/ui_bundled/interactive_lens/coordinator/interactive_lens_promo_coordinator.h"
 #import "ios/chrome/browser/screen/ui_bundled/screen_provider.h"
 #import "ios/chrome/browser/screen/ui_bundled/screen_type.h"
 #import "ios/chrome/browser/search_engine_choice/ui_bundled/search_engine_choice_coordinator.h"
@@ -95,7 +96,7 @@ class FirstRunCoordinatorMetricsHelper final {
                                       completion:completion];
 }
 
-- (void)stop {
+- (void)stopWithCompletion:(ProceduralBlock)completionHandler {
   if (self.childCoordinator) {
     // If the child coordinator is not nil, then the FRE is stopped because
     // Chrome is being shutdown.
@@ -103,9 +104,14 @@ class FirstRunCoordinatorMetricsHelper final {
                                   first_run::kFirstRunInterrupted);
     [self stopChildCoordinator];
   }
-  [self.baseViewController dismissViewControllerAnimated:YES completion:nil];
+  [self.baseViewController dismissViewControllerAnimated:YES
+                                              completion:completionHandler];
   _navigationController = nil;
   [super stop];
+}
+
+- (void)stop {
+  [self stopWithCompletion:nil];
 }
 
 #pragma mark - FirstRunScreenDelegate
@@ -194,6 +200,14 @@ class FirstRunCoordinatorMetricsHelper final {
           initWithBaseNavigationController:self.navigationController
                                    browser:self.browser
                                   delegate:self];
+    case kLensInteractivePromo: {
+      InteractiveLensPromoCoordinator* lensInteractivePromoCoordinator =
+          [[InteractiveLensPromoCoordinator alloc]
+              initWithBaseNavigationController:self.navigationController
+                                       browser:self.browser];
+      lensInteractivePromoCoordinator.firstRunDelegate = self;
+      return lensInteractivePromoCoordinator;
+    }
     case kStepsCompleted:
       NOTREACHED() << "Reaches kStepsCompleted unexpectedly.";
   }
@@ -202,9 +216,8 @@ class FirstRunCoordinatorMetricsHelper final {
 
 #pragma mark - HistorySyncCoordinatorDelegate
 
-- (void)closeHistorySyncCoordinator:
-            (HistorySyncCoordinator*)historySyncCoordinator
-                     declinedByUser:(BOOL)declined {
+- (void)historySyncCoordinator:(HistorySyncCoordinator*)historySyncCoordinator
+                    withResult:(HistorySyncResult)result {
   CHECK_EQ(self.childCoordinator, historySyncCoordinator);
   [self screenWillFinishPresenting];
 }

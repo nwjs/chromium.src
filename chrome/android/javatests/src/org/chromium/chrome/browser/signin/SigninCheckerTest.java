@@ -20,15 +20,14 @@ import org.mockito.quality.Strictness;
 
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.CriteriaHelper;
-import org.chromium.base.test.util.Features;
 import org.chromium.base.test.util.UserActionTester;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
-import org.chromium.chrome.test.ChromeTabbedActivityTestRule;
+import org.chromium.chrome.test.transit.ChromeTransitTestRules;
+import org.chromium.chrome.test.transit.FreshCtaTransitTestRule;
 import org.chromium.chrome.test.util.browser.signin.SigninTestRule;
 import org.chromium.chrome.test.util.browser.sync.SyncTestUtil;
 import org.chromium.components.externalauth.ExternalAuthUtils;
-import org.chromium.components.signin.SigninFeatures;
 import org.chromium.components.signin.identitymanager.ConsentLevel;
 import org.chromium.components.signin.test.util.TestAccounts;
 
@@ -44,13 +43,13 @@ public class SigninCheckerTest {
     @Rule public final SigninTestRule mSigninTestRule = new SigninTestRule();
 
     @Rule
-    public final ChromeTabbedActivityTestRule mActivityTestRule =
-            new ChromeTabbedActivityTestRule();
+    public final FreshCtaTransitTestRule mActivityTestRule =
+            ChromeTransitTestRules.freshChromeTabbedActivityRule();
 
     @Mock private ExternalAuthUtils mExternalAuthUtilsMock;
 
     private void signinWhenChildAccountIsTheOnlyAccount() {
-        mActivityTestRule.startMainActivityOnBlankPage();
+        mActivityTestRule.startOnBlankPage();
 
         mSigninTestRule.addAccount(TestAccounts.CHILD_ACCOUNT);
 
@@ -68,20 +67,12 @@ public class SigninCheckerTest {
 
     @Test
     @MediumTest
-    @Features.EnableFeatures(SigninFeatures.FORCE_SUPERVISED_SIGNIN_WITH_CAPABILITIES)
     public void signinWhenChildAccountIsTheOnlyAccountWithCapabilities() {
         signinWhenChildAccountIsTheOnlyAccount();
     }
 
-    @Test
-    @MediumTest
-    @Features.DisableFeatures(SigninFeatures.FORCE_SUPERVISED_SIGNIN_WITH_CAPABILITIES)
-    public void signinWhenChildAccountIsTheOnlyAccountWithUsm() {
-        signinWhenChildAccountIsTheOnlyAccount();
-    }
-
     private void noSigninWhenChildAccountIsTheOnlyAccountButSigninIsNotAllowed() {
-        mActivityTestRule.startMainActivityOnBlankPage();
+        mActivityTestRule.startOnBlankPage();
         UserActionTester actionTester = new UserActionTester();
         when(mExternalAuthUtilsMock.isGooglePlayServicesMissing(any())).thenReturn(true);
         ExternalAuthUtils.setInstanceForTesting(mExternalAuthUtilsMock);
@@ -99,15 +90,7 @@ public class SigninCheckerTest {
 
     @Test
     @MediumTest
-    @Features.EnableFeatures(SigninFeatures.FORCE_SUPERVISED_SIGNIN_WITH_CAPABILITIES)
     public void noSigninWhenChildAccountIsTheOnlyAccountButSigninIsNotAllowedWithCapabilities() {
-        noSigninWhenChildAccountIsTheOnlyAccountButSigninIsNotAllowed();
-    }
-
-    @Test
-    @MediumTest
-    @Features.DisableFeatures(SigninFeatures.FORCE_SUPERVISED_SIGNIN_WITH_CAPABILITIES)
-    public void noSigninWhenChildAccountIsTheOnlyAccountButSigninIsNotAllowedWithUsm() {
         noSigninWhenChildAccountIsTheOnlyAccountButSigninIsNotAllowed();
     }
 
@@ -119,7 +102,7 @@ public class SigninCheckerTest {
         mSigninTestRule.addAccount("the.default.account@gmail.com");
         mSigninTestRule.addAccount(TestAccounts.CHILD_ACCOUNT);
 
-        mActivityTestRule.startMainActivityOnBlankPage();
+        mActivityTestRule.startOnBlankPage();
         UserActionTester actionTester = new UserActionTester();
 
         Assert.assertEquals(
@@ -133,20 +116,12 @@ public class SigninCheckerTest {
 
     @Test
     @MediumTest
-    @Features.EnableFeatures(SigninFeatures.FORCE_SUPERVISED_SIGNIN_WITH_CAPABILITIES)
     public void noSigninWhenChildAccountIsTheSecondaryAccountWithCapabilities() {
         noSigninWhenChildAccountIsTheSecondaryAccount();
     }
 
-    @Test
-    @MediumTest
-    @Features.DisableFeatures(SigninFeatures.FORCE_SUPERVISED_SIGNIN_WITH_CAPABILITIES)
-    public void noSigninWhenChildAccountIsTheSecondaryAccountWithUsm() {
-        noSigninWhenChildAccountIsTheSecondaryAccount();
-    }
-
     private void signinWhenChildAccountIsFirstAccount() {
-        mActivityTestRule.startMainActivityOnBlankPage();
+        mActivityTestRule.startOnBlankPage();
         mSigninTestRule.addAccount(TestAccounts.CHILD_ACCOUNT);
         mSigninTestRule.addAccount("the.second.account@gmail.com");
 
@@ -165,15 +140,7 @@ public class SigninCheckerTest {
 
     @Test
     @MediumTest
-    @Features.EnableFeatures(SigninFeatures.FORCE_SUPERVISED_SIGNIN_WITH_CAPABILITIES)
     public void signinWhenChildAccountIsFirstAccountWithCapabilities() {
-        signinWhenChildAccountIsFirstAccount();
-    }
-
-    @Test
-    @MediumTest
-    @Features.DisableFeatures(SigninFeatures.FORCE_SUPERVISED_SIGNIN_WITH_CAPABILITIES)
-    public void signinWhenChildAccountIsFirstAccountWithUsm() {
         signinWhenChildAccountIsFirstAccount();
     }
 }

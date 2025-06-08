@@ -18,6 +18,7 @@
 #include "base/location.h"
 #include "base/logging.h"
 #include "base/metrics/histogram_functions.h"
+#include "base/numerics/safe_conversions.h"
 #include "base/process/process.h"
 #include "base/strings/stringprintf.h"
 #include "base/system/sys_info.h"
@@ -47,13 +48,10 @@ namespace screen_ai {
 
 namespace {
 
-// Maximum image dimension that OCR service processes. Images with width or
-// height larger than this threshold are downsampled before processing.
-// TODO(crbug.com/413318481): Get this threshold from the library.
-constexpr int kMaxOcrDimension = 2048;
-
 // How often it would be checked that the service is idle and can be shutdown.
+// LINT.IfChange(kIdleCheckingDelay)
 constexpr base::TimeDelta kIdleCheckingDelay = base::Seconds(3);
+// LINT.ThenChange(//chrome/browser/screen_ai/optical_character_recognizer_browsertest.cc:kServiceIdleCheckingDelay)
 
 // How long to wait for a request to the library be responded, before assuming
 // that the library is not responsive.
@@ -175,7 +173,7 @@ class HangTimer : public base::OneShotTimer {
           base::BindOnce(
               [](bool request_is_ocr) {
                 base::UmaHistogramBoolean(
-                    "Accessibility.ScreenAI.Service.NotReponsive.IsOCR",
+                    "Accessibility.ScreenAI.Service.NotResponsive.IsOCR",
                     request_is_ocr);
                 base::Process::TerminateCurrentProcessImmediately(0);
               },
@@ -264,9 +262,6 @@ ScreenAIService::ScreenAIService(
       base::BindRepeating(&ScreenAIService::OcrReceiverDisconnected,
                           weak_ptr_factory_.GetWeakPtr()));
   model_data_holder_ = std::make_unique<ModelDataHolder>();
-  idle_checking_timer_ = std::make_unique<base::RepeatingTimer>();
-  idle_checking_timer_->Start(FROM_HERE, kIdleCheckingDelay, this,
-                              &ScreenAIService::ShutDownIfNoClients);
 
   background_task_runner_ = base::ThreadPool::CreateSequencedTaskRunner(
       {base::TaskPriority::BEST_EFFORT,
@@ -348,6 +343,7 @@ void ScreenAIService::InitializeMainContentExtraction(
 
   std::move(callback).Run(true);
   mce_last_used_ = base::TimeTicks::Now();
+  StartShutDownOnIdleTimer();
 }
 
 void ScreenAIService::InitializeOCR(
@@ -378,6 +374,9 @@ void ScreenAIService::InitializeOCR(
     return;
   }
 
+  max_ocr_dimension_ = library_->GetMaxImageDimension();
+  CHECK(max_ocr_dimension_);
+
   // This interface should be created only once.
   CHECK(!ocr_receiver_.is_bound());
 
@@ -385,6 +384,7 @@ void ScreenAIService::InitializeOCR(
 
   std::move(callback).Run(true);
   ocr_last_used_ = base::TimeTicks::Now();
+  StartShutDownOnIdleTimer();
 }
 
 void ScreenAIService::BindShutdownHandler(
@@ -419,13 +419,13 @@ ScreenAIService::PerformOcrAndRecordMetrics(const SkBitmap& image) {
   base::UmaHistogramEnumeration("Accessibility.ScreenAI.OCR.ClientType",
                                 client_type);
 
-  ocr_last_used_ = base::TimeTicks::Now();
+  base::TimeTicks start_time = base::TimeTicks::Now();
   base::SequenceBound<HangTimer> hang_timer(background_task_runner_,
                                             /*is_ocr=*/true);
   hang_timer.AsyncCall(&HangTimer::StartTimer);
   auto result = library_->PerformOcr(image);
   hang_timer.AsyncCall(&base::OneShotTimer::Stop);
-  base::TimeDelta elapsed_time = base::TimeTicks::Now() - ocr_last_used_;
+  base::TimeDelta elapsed_time = base::TimeTicks::Now() - start_time;
 
   int lines_count = result ? result->lines_size() : 0;
   VLOG(1) << "OCR returned " << lines_count << " lines in " << elapsed_time;
@@ -435,7 +435,8 @@ ScreenAIService::PerformOcrAndRecordMetrics(const SkBitmap& image) {
         "Accessibility.ScreenAI.OCR.Failed.ClientType", client_type);
   }
 
-  if (image.width() > kMaxOcrDimension || image.height() > kMaxOcrDimension) {
+  int max_dimension = base::checked_cast<int>(max_ocr_dimension_);
+  if (image.width() > max_dimension || image.height() > max_dimension) {
     base::UmaHistogramEnumeration(
         "Accessibility.ScreenAI.OCR.Downsampled.ClientType", client_type);
   }
@@ -444,9 +445,7 @@ ScreenAIService::PerformOcrAndRecordMetrics(const SkBitmap& image) {
                             result.has_value());
   base::UmaHistogramCounts100("Accessibility.ScreenAI.OCR.LinesCount",
                               lines_count);
-  base::UmaHistogramCounts10M("Accessibility.ScreenAI.OCR.ImageSize10M",
-                              image.width() * image.height());
-  if (image.width() < kMaxOcrDimension && image.height() < kMaxOcrDimension) {
+  if (image.width() < max_dimension && image.height() < max_dimension) {
     base::UmaHistogramTimes("Accessibility.ScreenAI.OCR.Latency.NotDownsampled",
                             elapsed_time);
   } else {
@@ -477,6 +476,7 @@ ScreenAIService::PerformOcrAndRecordMetrics(const SkBitmap& image) {
     }
   }
 
+  ocr_last_used_ = base::TimeTicks::Now();
   return result;
 }
 
@@ -508,6 +508,12 @@ void ScreenAIService::MceReceiverDisconnected() {
   // Modify last used time to ensure the service does not shutdown while a
   // client is disconnecting.
   mce_last_used_ = base::TimeTicks::Now();
+}
+
+void ScreenAIService::GetMaxImageDimension(
+    GetMaxImageDimensionCallback callback) {
+  CHECK(max_ocr_dimension_);
+  std::move(callback).Run(max_ocr_dimension_);
 }
 
 void ScreenAIService::PerformOcrAndReturnAnnotation(
@@ -645,6 +651,7 @@ bool ScreenAIService::ExtractMainContentInternalAndRecordMetrics(
         client_type);
   }
 
+  mce_last_used_ = base::TimeTicks::Now();
   if (successful) {
     base::UmaHistogramTimes(
         "Accessibility.ScreenAI.MainContentExtraction.Latency.Success",
@@ -666,18 +673,20 @@ ui::AXNodeID ScreenAIService::ComputeMainNodeForTesting(
   return ComputeMainNode(tree, content_node_ids);
 }
 
-void ScreenAIService::ShutDownIfNoClients() {
+void ScreenAIService::StartShutDownOnIdleTimer() {
+  if (!idle_checking_timer_) {
+    idle_checking_timer_ = std::make_unique<base::RepeatingTimer>();
+    idle_checking_timer_->Start(FROM_HERE, kIdleCheckingDelay, this,
+                                &ScreenAIService::ShutDownOnIdle);
+  }
+}
+
+void ScreenAIService::ShutDownOnIdle() {
   const base::TimeTicks kIdlenessThreshold =
       base::TimeTicks::Now() - kIdleCheckingDelay;
-  bool ocr_not_needed =
-      !screen_ai_annotators_.size() || ocr_last_used_ < kIdlenessThreshold;
-  bool main_content_extractioncan_not_needed =
-      !screen2x_main_content_extractors_.size() ||
-      mce_last_used_ < kIdlenessThreshold;
-
-  if (ocr_not_needed && main_content_extractioncan_not_needed) {
+  if (ocr_last_used_ < kIdlenessThreshold &&
+      mce_last_used_ < kIdlenessThreshold) {
     screen_ai_shutdown_handler_->ShuttingDownOnIdle();
-    VLOG(2) << "Shutting down since no client or idle.";
     base::Process::TerminateCurrentProcessImmediately(0);
   }
 }

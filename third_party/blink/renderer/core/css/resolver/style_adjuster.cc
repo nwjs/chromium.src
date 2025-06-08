@@ -695,26 +695,26 @@ void StyleAdjuster::AdjustOverflow(ComputedStyleBuilder& builder,
 
 // g-issues.chromium.org/issues/349835587
 // https://github.com/WICG/canvas-place-element
-static bool IsCanvasPlacedElement(const Element* element) {
-  if (RuntimeEnabledFeatures::CanvasPlaceElementEnabled() && element &&
+static bool IsCanvasDrawElement(const Element* element) {
+  if (RuntimeEnabledFeatures::CanvasDrawElementEnabled() && element &&
       element->IsInCanvasSubtree()) {
     // Placed elements are always immediate children of the canvas.
     if (const auto* canvas =
             DynamicTo<HTMLCanvasElement>(element->parentElement())) {
-      return canvas->HasPlacedElements();
+      return canvas->layoutSubtree();
     }
   }
 
   return false;
 }
 
-static bool IsCanvasWithPlacedElements(const Element* element) {
-  if (!RuntimeEnabledFeatures::CanvasPlaceElementEnabled() || !element) {
+static bool IsCanvasWithDrawElements(const Element* element) {
+  if (!RuntimeEnabledFeatures::CanvasDrawElementEnabled() || !element) {
     return false;
   }
 
   if (const auto* canvas = DynamicTo<HTMLCanvasElement>(element)) {
-    return canvas->HasPlacedElements();
+    return canvas->layoutSubtree();
   }
 
   return false;
@@ -725,10 +725,10 @@ void StyleAdjuster::AdjustStyleForDisplay(
     const ComputedStyle& layout_parent_style,
     const Element* element,
     Document* document) {
-  bool is_canvas_placed_element = IsCanvasPlacedElement(element);
+  bool is_canvas_draw_element = IsCanvasDrawElement(element);
 
   if ((layout_parent_style.BlockifiesChildren() && !HostIsInputFile(element)) ||
-      is_canvas_placed_element) {
+      is_canvas_draw_element) {
     builder.SetIsInBlockifyingDisplay();
     if (builder.Display() != EDisplay::kContents) {
       builder.SetDisplay(EquivalentBlockDisplay(builder.Display()));
@@ -737,12 +737,13 @@ void StyleAdjuster::AdjustStyleForDisplay(
       }
     }
     if (layout_parent_style.IsDisplayFlexibleOrGridBox() ||
-        layout_parent_style.IsDisplayMathType() || is_canvas_placed_element) {
+        layout_parent_style.IsDisplayMathType() || is_canvas_draw_element) {
       builder.SetIsInsideDisplayIgnoringFloatingChildren();
     }
 
-    if (is_canvas_placed_element) {
+    if (is_canvas_draw_element) {
       builder.SetPosition(EPosition::kStatic);
+      builder.SetContain(builder.Contain() | kContainsPaint);
     }
   }
 
@@ -1164,7 +1165,7 @@ void StyleAdjuster::AdjustComputedStyle(StyleResolverState& state,
       builder.Overlay() == EOverlay::kAuto ||
       builder.StyleType() == kPseudoIdBackdrop ||
       builder.StyleType() == kPseudoIdViewTransition ||
-      IsCanvasPlacedElement(element) || IsCanvasWithPlacedElements(element)) {
+      IsCanvasWithDrawElements(element)) {
     builder.SetForcesStackingContext(true);
   }
 

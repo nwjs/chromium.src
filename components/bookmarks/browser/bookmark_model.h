@@ -163,9 +163,6 @@ class BookmarkModel : public BookmarkUndoProvider,
     return node && (node == root_ || node->parent() == root_);
   }
 
-  // Returns true if the given `node` should be visible in UI surfaces.
-  bool IsNodeVisible(const BookmarkNode& node) const;
-
   // Returns true if `node` represents a bookmark that is stored on the local
   // profile but not saved to the user's server-side account. The opposite case,
   // returning null, can happen because the user turned sync-the-feature on,
@@ -308,8 +305,11 @@ class BookmarkModel : public BookmarkUndoProvider,
   // Returns true if there are bookmarks, otherwise returns false.
   bool HasBookmarks() const;
 
-  // Returns true is there is no user created bookmarks or folders.
-  bool HasNoUserCreatedBookmarksOrFolders() const;
+  // Returns true is there is at least one user-created bookmark or folder. This
+  // includes bookmarks downloaded via Sync but excludes managed nodes
+  // (enterprise) as well as, on Android, partner bookmarks (which are not
+  // included in BookmarkModel).
+  bool HasUserCreatedBookmarksOrFolders() const;
 
   // Returns true if the specified URL is bookmarked.
   bool IsBookmarked(const GURL& url) const;
@@ -586,6 +586,23 @@ class BookmarkModel : public BookmarkUndoProvider,
   // suffixed with for the purpose of metric breakdowns.
   metrics::StorageStateForUma GetStorageStateForUma(
       const BookmarkNode* node) const;
+
+  // Returns true if the given `node` should be visible in UI surfaces.
+  // This method is used during transient states (eg. just before or just after
+  // making model updates), therefore explicit parameters are passed in for
+  // properties of the node/model that shouldn't be read directly.
+  bool DetermineIfNodeShouldBeVisible(const BookmarkNode& node,
+                                      bool account_folders_exist,
+                                      bool local_bookmarks_exist) const;
+
+  // Updates the visibility of all local permanent folders.
+  void RefreshPermanentFolderVisibility(bool notify_observers);
+
+  // Updates the visibility of `node` and notifies observers if the visibility
+  // changed and `notify_observers` is true.
+  void UpdateNodeVisibilityIfNeeded(BookmarkNode& node,
+                                    bool new_visibility,
+                                    bool notify_observers);
 
   // Whether the initial set of data has been loaded.
   bool loaded_ = false;

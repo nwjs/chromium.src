@@ -47,6 +47,7 @@
 <translation id="1917964099031477364">‏החשבון הזה וכל הנתונים שלא נשמרו יוסרו מ-Chrome ומאפליקציות אחרות של Google במכשיר הזה.</translation>
 <translation id="1919130412786645364">‏התרת כניסה אל Chrome</translation>
 <translation id="1965935827552890526">‏יש לסיים את הפעילות בחלון Chrome הפתוח הנוסף.</translation>
+<translation id="1966638102563776885">‏טיפ ל-Chrome: גישה לסיסמאות מכל אפליקציה</translation>
 <translation id="1973910962341002002">‏בהגדרות של "<ph name="TEXT_OF_THE_SETTINGS_MENU_ITEM" />", מפעילים את "Chrome"</translation>
 <translation id="1984705450038014246">‏סנכרון הנתונים מ-Chrome</translation>
 <translation id="1987779152850321833">‏השלמת הפעולות הבאות תעזור לך להשתמש ב-Chrome בדרך היעילה ביותר.</translation>
@@ -114,7 +115,6 @@
 <translation id="3655656110921623717">‏כלומר, Chrome תמיד יבקש את האתר לנייד.</translation>
 <translation id="3740397331642243698">‏פתיחת כתובות ה-URL שהוזנו ב-Google Chrome במצב אנונימי.</translation>
 <translation id="3741995255368156336">‏פתיחה של רשימת הקריאה ב-Chrome.</translation>
-<translation id="3808570423967020928">‏אפשר לגשת מהר יותר ל-Chrome דרך ה-Dock במסך הבית</translation>
 <translation id="3827545470516145620">במכשיר הזה יש אבטחה ברמה רגילה</translation>
 <translation id="384394811301901750">‏Google Chrome לא יכול להשתמש עכשיו במצלמה</translation>
 <translation id="3863841106411295595">‏הוספה של כתובות ה-URL שהוזנו לרשימת הקריאה ב-Chrome.</translation>
@@ -138,6 +138,7 @@
 <translation id="4724297637870447613">‏אפשר להשתמש ב-Chrome בכל מקום</translation>
 <translation id="4738647308035481133">‏דף Google Chrome</translation>
 <translation id="4742795653798179840">‏הנתונים של Chrome נמחקו</translation>
+<translation id="4749294594657945639">‏אפשר לבחור ב-Chrome למילוי אוטומטי כדי לגשת בקלות לסיסמאות השמורות שלך באפליקציות אחרות</translation>
 <translation id="4761869838909035636">‏הרצה של בדיקת אבטחה ב-Chrome</translation>
 <translation id="4798859546468762093">‏כדי להשתמש בהתאמה אישית ובתכונות אחרות, צריך לכלול את Chrome ב<ph name="FEATURE_NAME_1" /> וב<ph name="FEATURE_NAME_2" /></translation>
 <translation id="4819268619367838612">‏כדי לעזור בשיפור האפליקציה, Chrome ישלח נתוני שימוש וקריסות אל Google. <ph name="BEGIN_LINK" />ניהול<ph name="END_LINK" /></translation>
@@ -233,7 +234,6 @@
 <translation id="6975725306479268850">‏בחירת Chrome למילוי אוטומטי</translation>
 <translation id="7056826488869329999">‏פתיחה והפעלה של 'טיימר לדיווח על מצב מסוכן' ב-Chrome.</translation>
 <translation id="7061455974939528301">‏לוחצים לחיצה ארוכה על סמל Chrome ואז לוחצים על 'עריכה של מסך הבית'</translation>
-<translation id="7065813315247345131">‏העברת Chrome ל-Dock</translation>
 <translation id="7124339256045485976">‏Chrome יתעדכן באופן קבוע</translation>
 <translation id="7145599899567697473">‏שמירה ומילוי אוטומטי של סיסמאות ב-Chrome</translation>
 <translation id="7161390184744336561">‏Google Chrome אינו מעודכן</translation>
@@ -317,10 +317,10 @@
 <translation id="8603022514504485810">‏למנהל הסיסמאות של Google לא הייתה אפשרות לבדוק את כל הסיסמאות. אפשר לנסות שוב מחר או <ph name="BEGIN_LINK" />לבדוק את הסיסמאות בחשבון Google<ph name="END_LINK" />.</translation>
 <translation id="8630122478628016441">‏מפעילים את האפשרות 'כרטיסיות פרטיות יינעלו כש-Chrome ייסגר'.</translation>
 <translation id="8673726683583791503">‏קניות באמצעות Google Lens</translation>
-<translation id="8727043961453758442">‏נהנים מהמיטב של Chrome</translation>
 <translation id="8765470054473112089">‏כשמקלידים טקסט בסרגל הכתובות או בתיבת החיפוש, Chrome שולח את הטקסט הזה למנוע החיפוש שמוגדר כברירת מחדל כדי לקבל הצעות טובות יותר. האפשרות הזו מושבתת במצב הפרטי.</translation>
 <translation id="8772179140489533211">‏יוצגו הודעות לצורך כניסה אל Chrome.</translation>
 <translation id="8788269841521769222">‏אין צורך לזכור את הסיסמה הזו. היא תישמר במנהל הסיסמאות של Google בחשבון <ph name="EMAIL" /></translation>
+<translation id="8796490717897731471">‏‫<ph name="EMAIL" />. Chrome מנוהל.</translation>
 <translation id="880967149107462122">‏כניסה להגדרות Chrome</translation>
 <translation id="8842132678697187091">‏אפשר לפתוח את Google Lens כאן.</translation>
 <translation id="8850736900032787670">‏כדי לקבל תוכן בהתאמה אישית על סמך תחומי העניין שלך, עליך להיכנס אל Chrome.</translation>

@@ -33,6 +33,7 @@
 #include "base/metrics/field_trial_params.h"
 #include "base/path_service.h"
 #include "base/run_loop.h"
+#include "base/strings/string_number_conversions.h"
 #include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/test/bind.h"
@@ -4120,6 +4121,8 @@ IN_PROC_BROWSER_TEST_F(DownloadContentTest,
   std::unique_ptr<DownloadTestObserver> observer(CreateWaiter(shell(), 1));
   EXPECT_TRUE(NavigateToURL(shell(), referrer_url));
 
+  SimulateEndOfPaintHoldingOnPrimaryMainFrame(shell()->web_contents());
+
   // Alt-click the link.
   blink::WebMouseEvent mouse_event(
       blink::WebInputEvent::Type::kMouseDown, blink::WebInputEvent::kAltKey,
@@ -5538,6 +5541,7 @@ IN_PROC_BROWSER_TEST_F(DownloadContentTest,
 
   // Load the download page and click on the link.
   EXPECT_TRUE(NavigateToURL(shell(), referrer_url));
+  SimulateEndOfPaintHoldingOnPrimaryMainFrame(shell()->web_contents());
   content::SimulateMouseClickOrTapElementWithId(shell()->web_contents(),
                                                 "downloadlink");
 

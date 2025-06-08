@@ -47,6 +47,7 @@
 <translation id="1917964099031477364">Сметкава и сите незачувани податоци ќе се отстранат од Chrome и другите апликации на Google на уредов.</translation>
 <translation id="1919130412786645364">Дозволете најавување на Chrome</translation>
 <translation id="1965935827552890526">Завршете го тоа што сте го започнале во другиот отворен прозорец на Chrome.</translation>
+<translation id="1966638102563776885">Совет за Chrome: Добивајте ги лозинките во која било апликација</translation>
 <translation id="1973910962341002002">Вклучете го „Chrome“ од поставките „<ph name="TEXT_OF_THE_SETTINGS_MENU_ITEM" />“</translation>
 <translation id="1984705450038014246">Синхронизирајте ги податоците од Chrome</translation>
 <translation id="1987779152850321833">Завршете ги чекориве предложени подолу за да го извлечете максимумот од Chrome.</translation>
@@ -114,7 +115,6 @@
 <translation id="3655656110921623717">Ова значи дека Chrome ќе го бара сајтот за мобилен уред секој пат.</translation>
 <translation id="3740397331642243698">Ги отвора внесените URL-адреси во Google Chrome во „Инкогнито“.</translation>
 <translation id="3741995255368156336">Го отвора „Списокот за читање“ на Chrome.</translation>
-<translation id="3808570423967020928">Пристапувајте до Chrome побрзо од докот на почетниот екран.</translation>
 <translation id="3827545470516145620">Добивате стандардна безбедносна заштита на уредов</translation>
 <translation id="384394811301901750">Google Chrome не може да ја користи камерата сега</translation>
 <translation id="3863841106411295595">Ги додава внесените URL-адреси во вашиот „Список за читање“ во Chrome.</translation>
@@ -138,6 +138,7 @@
 <translation id="4724297637870447613">Користете го Chrome насекаде</translation>
 <translation id="4738647308035481133">Страница на Google Chrome</translation>
 <translation id="4742795653798179840">Избришани податоци на Chrome</translation>
+<translation id="4749294594657945639">За да ги добивате зачуваните лозинки лесно во други апликации, изберете Chrome for AutoFill.</translation>
 <translation id="4761869838909035636">Изврши безбедносна проверка во Chrome</translation>
 <translation id="4798859546468762093">За да добиете персонализација и други функции, опфатете го Chrome во <ph name="FEATURE_NAME_1" /> и <ph name="FEATURE_NAME_2" /></translation>
 <translation id="4819268619367838612">За да се подобри апликацијата, Chrome испраќа податоци за користењето и падовите во Google. <ph name="BEGIN_LINK" />Управувајте<ph name="END_LINK" /></translation>
@@ -233,7 +234,6 @@
 <translation id="6975725306479268850">Избирање Chrome за „Автоматско пополнување“</translation>
 <translation id="7056826488869329999">Отвора и врши безбедносна проверка во Chrome.</translation>
 <translation id="7061455974939528301">Притиснете и задржете ја иконата за Chrome, па кликнете „Изменете го почетниот екран“</translation>
-<translation id="7065813315247345131">Преместете го Chrome на докот</translation>
 <translation id="7124339256045485976">Одржувајте го Chrome ажурен</translation>
 <translation id="7145599899567697473">Зачувувајте и автоматски пополнувајте лозинки во Chrome</translation>
 <translation id="7161390184744336561">Google Chrome е застарен</translation>
@@ -317,10 +317,10 @@
 <translation id="8603022514504485810">Google Password Manager не можеше да ги провери сите лозинки. Обидете се пак утре или <ph name="BEGIN_LINK" />проверете ги лозинките во сметката на Google.<ph name="END_LINK" /></translation>
 <translation id="8630122478628016441">Вклучете „Заклучувај ги картичките „Инкогнито“ при затворање на Chrome“.</translation>
 <translation id="8673726683583791503">Купувајте со Google Lens</translation>
-<translation id="8727043961453758442">Извлекување на максимумот од Chrome</translation>
 <translation id="8765470054473112089">Кога ќе напишете нешто во лентата за адреси или полето за пребарување, Chrome го испраќа напишаното до вашиот стандарден пребарувач за да добиете подобри предлози. Ова е исклучено во „Инкогнито“.</translation>
 <translation id="8772179140489533211">Прикажува prompt за најава на Chrome.</translation>
 <translation id="8788269841521769222">Не треба да ја помните лозинкава. Ќе се зачува во „Управникот со лозинки на Google“ за <ph name="EMAIL" /></translation>
+<translation id="8796490717897731471"><ph name="EMAIL" />. Chrome е управуван.</translation>
 <translation id="880967149107462122">Одете во поставките за Chrome</translation>
 <translation id="8842132678697187091">Може да ја отворите Google Lens тука.</translation>
 <translation id="8850736900032787670">За да добивате персонализирани содржини според вашите интереси, најавете се на Chrome.</translation>

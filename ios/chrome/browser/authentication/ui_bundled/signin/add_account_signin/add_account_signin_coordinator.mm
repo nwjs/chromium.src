@@ -84,6 +84,8 @@ using signin_metrics::PromoAction;
                                accessPoint:accessPoint];
   if (self) {
     CHECK(continuationProvider);
+    CHECK(viewController, base::NotFatalUntil::M140);
+    CHECK(browser, base::NotFatalUntil::M140);
     _continuationProvider = continuationProvider;
     _signinIntent = signinIntent;
     _promoAction = promoAction;
@@ -92,7 +94,7 @@ using signin_metrics::PromoAction;
 }
 
 - (void)dealloc {
-  CHECK(!_accountManagerService, base::NotFatalUntil::M145);
+  CHECK(!_continuationProvider, base::NotFatalUntil::M145);
 }
 
 #pragma mark - ChromeCoordinator
@@ -101,6 +103,19 @@ using signin_metrics::PromoAction;
   [super start];
   ProfileIOS* profile = self.profile->GetOriginalProfile();
   _authenticationService = AuthenticationServiceFactory::GetForProfile(profile);
+  switch (_signinIntent) {
+    case AddAccountSigninIntent::kAddAccount:
+      // It is possible to have a primary identity when adding a secondary
+      // identity. It is possible to have no primary identity when doing a first
+      // sign-in.
+      break;
+    case AddAccountSigninIntent::kPrimaryAccountReauth:
+    case AddAccountSigninIntent::kResignin:
+      CHECK(!_authenticationService->HasPrimaryIdentity(
+                signin::ConsentLevel::kSignin),
+            base::NotFatalUntil::M142);
+      break;
+  }
   _syncService = SyncServiceFactory::GetForProfile(profile);
   _accountManagerService =
       ChromeAccountManagerServiceFactory::GetForProfile(profile);
@@ -133,6 +148,7 @@ using signin_metrics::PromoAction;
   _accountManagerService = nullptr;
   _identityManager = nullptr;
   _authenticationService = nil;
+  _continuationProvider.Reset();
   _syncService = nil;
   // If one of those 3 DCHECK() fails, -[AddAccountSigninCoordinator
   // runCompletionWithSigninResult] has not been called.
@@ -283,17 +299,6 @@ using signin_metrics::PromoAction;
   [self.alertCoordinator start];
 }
 
-- (void)addAccountDone {
-  AuthenticationService* authService =
-      AuthenticationServiceFactory::GetForProfile(
-          self.profile->GetOriginalProfile());
-  // Even if `result` is not "success" for the history opt-in step, the sign-in
-  // step did succeed, so pass SigninCoordinatorResultSuccess.
-  [self addAccountDoneWithSigninResult:SigninCoordinatorResultSuccess
-                              identity:authService->GetPrimaryIdentity(
-                                           signin::ConsentLevel::kSignin)];
-}
-
 // Runs callback completion on finishing the add account flow.
 - (void)addAccountDoneWithSigninResult:(SigninCoordinatorResult)signinResult
                               identity:(id<SystemIdentity>)identity {
@@ -346,27 +351,45 @@ using signin_metrics::PromoAction;
   if (history_sync::GetSkipReason(_syncService, _authenticationService,
                                   self.profile->GetPrefs(), YES) !=
       history_sync::HistorySyncSkipReason::kNone) {
-    [self addAccountDone];
-  } else {
-    self.historySyncPopupCoordinator = [[HistorySyncPopupCoordinator alloc]
-        initWithBaseViewController:self.baseViewController
-                           browser:self.browser
-                     showUserEmail:NO
-                 signOutIfDeclined:NO
-                        isOptional:YES
-                      contextStyle:self.contextStyle
-                       accessPoint:self.accessPoint];
-    self.historySyncPopupCoordinator.delegate = self;
-    [self.historySyncPopupCoordinator start];
+    [self addAccountDoneWithSigninResult:result identity:resultIdentity];
+    return;
   }
+  self.historySyncPopupCoordinator = [[HistorySyncPopupCoordinator alloc]
+      initWithBaseViewController:self.baseViewController
+                         browser:self.browser
+                   showUserEmail:NO
+               signOutIfDeclined:NO
+                      isOptional:YES
+                    contextStyle:self.contextStyle
+                     accessPoint:self.accessPoint];
+  self.historySyncPopupCoordinator.delegate = self;
+  [self.historySyncPopupCoordinator start];
 }
 
 #pragma mark - HistorySyncPopupCoordinatorDelegate
 
 - (void)historySyncPopupCoordinator:(HistorySyncPopupCoordinator*)coordinator
-                didFinishWithResult:(SigninCoordinatorResult)result {
+                didFinishWithResult:(HistorySyncResult)result {
   [self stopHistorySyncPopupCoordinator];
-  [self addAccountDone];
+  AuthenticationService* authService =
+      AuthenticationServiceFactory::GetForProfile(
+          self.profile->GetOriginalProfile());
+  id<SystemIdentity> primaryIdentity =
+      authService->GetPrimaryIdentity(signin::ConsentLevel::kSignin);
+  SigninCoordinatorResult signinResult;
+  switch (result) {
+    case HistorySyncResult::kUserCanceled:
+    case HistorySyncResult::kSuccess:
+    case HistorySyncResult::kSkipped:
+      signinResult = SigninCoordinatorResultSuccess;
+      CHECK(primaryIdentity, base::NotFatalUntil::M145);
+      break;
+    case HistorySyncResult::kPrimaryIdentityRemoved:
+      signinResult = SigninCoordinatorResultInterrupted;
+      CHECK(!primaryIdentity, base::NotFatalUntil::M145);
+      break;
+  }
+  [self addAccountDoneWithSigninResult:signinResult identity:primaryIdentity];
 }
 
 #pragma mark - NSObject

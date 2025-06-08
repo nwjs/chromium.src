@@ -24,9 +24,7 @@ proto_library("optimization_guide_proto") {
     "features/default.proto",
     "features/enhanced_calendar.proto",
     "features/example_for_testing.proto",
-    "features/forms_annotations.proto",
     "features/forms_classifications.proto",
-    "features/forms_predictions.proto",
     "features/history_answer.proto",
     "features/history_query.proto",
     "features/history_query_intent.proto",
@@ -38,6 +36,7 @@ proto_library("optimization_guide_proto") {
     "features/permissions_ai.proto",
     "features/product_specifications.proto",
     "features/prompt_api.proto",
+    "features/proofreader_api.proto",
     "features/scam_detection.proto",
     "features/summarize.proto",
     "features/tab_organization.proto",
@@ -45,6 +44,7 @@ proto_library("optimization_guide_proto") {
     "features/wallpaper_search.proto",
     "features/writing_assistance_api.proto",
     "features/zero_state_suggestions.proto",
+    "fieldwise_parser_config.proto",
     "glic_page_context_eligibility_metadata.proto",
     "hint_cache.proto",
     "hints.proto",
@@ -106,6 +106,5 @@ proto_library("optimization_guide_proto_descriptors") {
   generate_cc = false
   generate_python = false
   generate_descriptor = "optimization_guide_proto.descriptor"
-  generator_visibility = [ "//components/optimization_guide/core:on_device_model_execution_proto_generator" ]
   import_dirs = [ "//third_party/metrics_proto/" ]
 }

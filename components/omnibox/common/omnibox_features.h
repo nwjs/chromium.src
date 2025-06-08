@@ -37,7 +37,6 @@ BASE_DECLARE_FEATURE(kDynamicMaxAutocomplete);
 BASE_DECLARE_FEATURE(kDisambiguateTabMatchingForEntitySuggestions);
 
 // Local history zero-prefix (aka zero-suggest) and prefix suggestions.
-BASE_DECLARE_FEATURE(kAdjustLocalHistoryZeroSuggestRelevanceScore);
 BASE_DECLARE_FEATURE(kFocusTriggersWebAndSRPZeroSuggest);
 BASE_DECLARE_FEATURE(kHideSuggestionGroupHeaders);
 BASE_DECLARE_FEATURE(kLocalHistoryZeroSuggestBeyondNTP);
@@ -69,8 +68,7 @@ BASE_DECLARE_FEATURE(kDocumentProviderNoSyncRequirement);
 BASE_DECLARE_FEATURE(kDomainSuggestions);
 
 // Suggestions UI - these affect the UI or function of the suggestions popup.
-BASE_DECLARE_FEATURE(kClipboardSuggestionContentHidden);
-BASE_DECLARE_FEATURE(kSuppressClipboardSuggestionAfterFirstUsed);
+BASE_DECLARE_FEATURE(kShowPopupOnMouseReleased);
 BASE_DECLARE_FEATURE(kMostVisitedTilesHorizontalRenderGroup);
 BASE_DECLARE_FEATURE(kRichAutocompletion);
 BASE_DECLARE_FEATURE(kWebUIOmniboxPopup);
@@ -124,6 +122,8 @@ BASE_DECLARE_FEATURE(kReportApplicationLanguageInSearchRequest);
 BASE_DECLARE_FEATURE(kOmniboxAsyncViewInflation);
 BASE_DECLARE_FEATURE(kUseFusedLocationProvider);
 
+BASE_DECLARE_FEATURE(kOmniboxMobileParityUpdate);
+
 // Omnibox suggestions tuning
 BASE_DECLARE_FEATURE(kNumNtpZpsRecentSearches);
 BASE_DECLARE_FEATURE(kNumNtpZpsTrendingSearches);
@@ -152,6 +152,9 @@ BASE_DECLARE_FEATURE(kEnableSearchAggregatorPolicy);
 
 // Ipad ZPS matches limit increase.
 BASE_DECLARE_FEATURE(kIpadZeroSuggestMatches);
+
+// Site search allow user override feature.
+BASE_DECLARE_FEATURE(kEnableSiteSearchAllowUserOverridePolicy);
 
 }  // namespace omnibox
 

@@ -282,6 +282,7 @@ using blink::WebFrameSerializer;
 using blink::WebFrameSerializerClient;
 using blink::WebHistoryItem;
 using blink::WebHTTPBody;
+using blink::WebInputMethodController;
 using blink::WebLocalFrame;
 using blink::WebMediaPlayer;
 using blink::WebMediaPlayerClient;
@@ -1079,8 +1080,8 @@ void FillMiscNavigationParams(
   navigation_params->ancestor_or_self_has_cspee =
       commit_params.ancestor_or_self_has_cspee;
 
-  navigation_params->browsing_context_group_info =
-      commit_params.browsing_context_group_info;
+  navigation_params->browsing_context_group_token =
+      commit_params.browsing_context_group_token;
 
   navigation_params->content_settings =
       std::move(commit_params.content_settings);
@@ -1702,6 +1703,7 @@ void RenderFrameImpl::CreateFrame(
     base::optional_ref<const blink::FrameToken> parent_frame_token,
     base::optional_ref<const blink::FrameToken> previous_sibling_frame_token,
     const base::UnguessableToken& devtools_frame_token,
+    const std::optional<base::UnguessableToken>& navigation_metrics_token,
     blink::mojom::TreeScopeType tree_scope_type,
     blink::mojom::FrameReplicationStatePtr replicated_state,
     mojom::CreateFrameWidgetParamsPtr widget_params,
@@ -2323,7 +2325,7 @@ void RenderFrameImpl::Delete(mojom::FrameDeleteIntention intent) {
 #else
       // Previously this CHECK() was disabled on Android because it was much
       // easier to hit the race there.
-      CHECK(!in_frame_tree_, base::NotFatalUntil::M135);
+      CHECK(!in_frame_tree_);
 #endif  // !BUILDFLAG(IS_ANDROID)
       break;
   }
@@ -4595,10 +4597,6 @@ void RenderFrameImpl::FinalizeRequest(blink::WebURLRequest& request) {
   // a navigation concept. We pass ui::PAGE_TRANSITION_LINK as default one.
   FinalizeRequestInternal(request, /*for_outermost_main_frame=*/false,
                           ui::PAGE_TRANSITION_LINK);
-  for (auto& observer : observers_) {
-    // TODO(sky): rename to FinalizeRequest.
-    observer.WillSendRequest(request);
-  }
 }
 
 std::optional<blink::WebURL> RenderFrameImpl::WillSendRequest(
@@ -5030,8 +5028,6 @@ RenderFrameImpl::MakeDidCommitProvisionalLoadParams(
   params->method = "GET";
   params->post_id = -1;
   params->embedding_token = embedding_token;
-  params->origin_calculation_debug_info =
-      document_loader->OriginCalculationDebugInfo().Utf8();
 
   // Pass the navigation token back to the browser process, or generate a new
   // one if this navigation is committing without the browser process asking for
@@ -6133,15 +6129,14 @@ void RenderFrameImpl::SyncSelectionIfRequired(blink::SyncCondition force_sync) {
   } else
 #endif
   {
-    WebRange selection =
-        frame_->GetInputMethodController()->GetSelectionOffsets();
+    WebInputMethodController* controller = frame_->GetInputMethodController();
+    WebRange selection = controller->GetSelectionOffsets();
     if (selection.IsNull())
       return;
 
     range = gfx::Range(selection.StartOffset(), selection.EndOffset());
 
-    if (frame_->GetInputMethodController()->TextInputType() !=
-        blink::kWebTextInputTypeNone) {
+    if (controller->TextInputType() != blink::kWebTextInputTypeNone) {
       // If current focused element is editable, we will send 100 more chars
       // before and after selection. It is for input method surrounding text
       // feature.
@@ -6151,7 +6146,13 @@ void RenderFrameImpl::SyncSelectionIfRequired(blink::SyncCondition force_sync) {
         offset = 0;
       size_t length =
           selection.EndOffset() - offset + kExtraCharsBeforeAndAfterSelection;
-      text = frame_->RangeAsText(WebRange(offset, length)).Utf16();
+      if (base::FeatureList::IsEnabled(blink::features::kFastSelectionSync)) {
+        WebString value = controller->TextInputInfo().value;
+        text = value.IsNull() ? value.Utf16()
+                              : value.Substring(offset, length).Utf16();
+      } else {
+        text = frame_->RangeAsText(WebRange(offset, length)).Utf16();
+      }
     } else {
       offset = selection.StartOffset();
       text = frame_->SelectionAsText().Utf16();
@@ -7070,7 +7071,8 @@ WebView* RenderFrameImpl::CreateNewWindow(
   view_params->replication_state->frame_policy.sandbox_flags = sandbox_flags;
   view_params->replication_state->name = frame_name_utf8;
   view_params->devtools_main_frame_token = reply->devtools_main_frame_token;
-  view_params->browsing_context_group_info = reply->browsing_context_group_info;
+  view_params->browsing_context_group_token =
+      reply->browsing_context_group_token;
   view_params->color_provider_colors = reply->color_provider_colors;
 
   auto widget_params = mojom::CreateFrameWidgetParams::New();

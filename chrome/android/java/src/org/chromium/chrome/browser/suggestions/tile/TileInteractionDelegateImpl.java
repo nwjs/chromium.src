@@ -11,8 +11,7 @@ import android.view.MotionEvent;
 import android.view.View;
 
 import org.chromium.base.CancelableRunnable;
-import org.chromium.base.TimeUtils;
-import org.chromium.base.metrics.RecordHistogram;
+import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.base.task.PostTask;
 import org.chromium.base.task.TaskTraits;
 import org.chromium.build.annotations.NullMarked;
@@ -21,6 +20,7 @@ import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.native_page.ContextMenuManager;
 import org.chromium.chrome.browser.native_page.ContextMenuManager.ContextMenuItemId;
 import org.chromium.chrome.browser.preloading.AndroidPrerenderManager;
+import org.chromium.chrome.browser.suggestions.SiteSuggestion;
 import org.chromium.chrome.browser.suggestions.SuggestionsMetrics;
 import org.chromium.ui.mojom.WindowOpenDisposition;
 import org.chromium.url.GURL;
@@ -35,42 +35,32 @@ import java.util.Objects;
 class TileInteractionDelegateImpl
         implements TileGroup.TileInteractionDelegate,
                 ContextMenuManager.Delegate,
-                View.OnTouchListener {
+                TileGroup.TileDragHandlerDelegate {
     private final ContextMenuManager mContextMenuManager;
     private final TileGroup.Delegate mTileGroupDelegate;
+    private final TileGroup.TileDragDelegate mTileDragDelegate;
     private final TileGroup.CustomTileModificationDelegate mCustomTileModificationDelegate;
     private final int mPrerenderDelay;
     private final Tile mTile;
-    private AndroidPrerenderManager mAndroidPrerenderManager;
+    private final AndroidPrerenderManager mAndroidPrerenderManager;
 
     private @Nullable Runnable mOnClickRunnable;
     private @Nullable Runnable mOnRemoveRunnable;
-    private @Nullable Long mTouchTimer;
     private @Nullable CancelableRunnable mPrerenderRunnable;
     private @Nullable GURL mPrerenderedUrl;
     private @Nullable GURL mScheduldedPrerenderingUrl;
 
-    private void maybeRecordTouchDuration(boolean taken) {
-        if (mTouchTimer == null) return;
-
-        long duration = TimeUtils.elapsedRealtimeMillis() - mTouchTimer;
-        mTouchTimer = null;
-        RecordHistogram.recordLongTimesHistogram(
-                taken
-                        ? "Prerender.Experimental.NewTabPage.TouchDuration.Taken"
-                        : "Prerender.Experimental.NewTabPage.TouchDuration.NotTaken",
-                duration);
-    }
-
     public TileInteractionDelegateImpl(
             ContextMenuManager contextMenuManager,
             TileGroup.Delegate tileGroupDelegate,
+            TileGroup.TileDragDelegate tileDragDelegate,
             TileGroup.CustomTileModificationDelegate customTileModificationDelegate,
             int prerenderDelay,
             Tile tile,
             View view) {
         mContextMenuManager = contextMenuManager;
         mTileGroupDelegate = tileGroupDelegate;
+        mTileDragDelegate = tileDragDelegate;
         mCustomTileModificationDelegate = customTileModificationDelegate;
         mPrerenderDelay = prerenderDelay;
         mTile = tile;
@@ -80,11 +70,11 @@ class TileInteractionDelegateImpl
         mTileGroupDelegate.initAndroidPrerenderManager(mAndroidPrerenderManager);
     }
 
+    // TileGroup.TileInteractionDelegate => OnClickListener implementation.
     @Override
     public void onClick(View view) {
-        maybeRecordTouchDuration(true);
-
         SuggestionsMetrics.recordTileTapped();
+        mTileDragDelegate.reset();
         if (mOnClickRunnable != null) mOnClickRunnable.run();
         mTileGroupDelegate.openMostVisitedItem(WindowOpenDisposition.CURRENT_TAB, mTile);
     }
@@ -137,21 +127,57 @@ class TileInteractionDelegateImpl
         mScheduldedPrerenderingUrl = null;
     }
 
+    // TileGroup.TileInteractionDelegate => View.OnCreateContextMenuListener implementation.
+    @Override
+    public void onCreateContextMenu(
+            ContextMenu contextMenu, View view, ContextMenuInfo contextMenuInfo) {
+        if (ChromeFeatureList.isEnabled(ChromeFeatureList.TILE_CONTEXT_MENU_REFACTOR)) return;
+
+        mContextMenuManager.createContextMenu(contextMenu, view, this);
+    }
+
+    // TileGroup.TileInteractionDelegate => View.OnLongClickListener implementation.
+    @Override
+    public boolean onLongClick(View view) {
+        if (!ChromeFeatureList.isEnabled(ChromeFeatureList.TILE_CONTEXT_MENU_REFACTOR)) {
+            return false;
+        }
+
+        return mContextMenuManager.showListContextMenu(view, this);
+    }
+
+    // TileGroup.TileInteractionDelegate => View.OnTouchListener implementation.
     @Override
     @SuppressLint("ClickableViewAccessibility")
     public boolean onTouch(View view, MotionEvent event) {
         if (event.getAction() == MotionEvent.ACTION_DOWN) {
-            mTouchTimer = TimeUtils.elapsedRealtimeMillis();
             maybePrerender(mTile.getUrl());
-        }
-        if (event.getAction() == MotionEvent.ACTION_CANCEL) {
-            maybeRecordTouchDuration(false);
+        } else if (event.getAction() == MotionEvent.ACTION_CANCEL) {
             cancelPrerender();
+        }
+
+        // Handle tile drag-and-drop separately.
+        if (event.getAction() == MotionEvent.ACTION_DOWN) {
+            mTileDragDelegate.onTileTouchDown(view, event, this);
+        } else if (mTileDragDelegate.hasSession()) {
+            mTileDragDelegate.onSessionTileTouch(view, event);
         }
 
         return false;
     }
 
+    // TileGroup.TileInteractionDelegate implementation.
+    @Override
+    public void setOnClickRunnable(Runnable clickRunnable) {
+        mOnClickRunnable = clickRunnable;
+    }
+
+    @Override
+    public void setOnRemoveRunnable(Runnable removeRunnable) {
+        mOnRemoveRunnable = removeRunnable;
+    }
+
+    // ContextMenuManager.Delegate implementation.
     @Override
     public void openItem(int windowDisposition) {
         mTileGroupDelegate.openMostVisitedItem(windowDisposition, mTile);
@@ -210,33 +236,23 @@ class TileInteractionDelegateImpl
     }
 
     @Override
+    public boolean hasSpaceForPinnedShortcut() {
+        return mCustomTileModificationDelegate.hasSpace();
+    }
+
+    @Override
     public void onContextMenuCreated() {}
 
+    // TileGroup.TileDragHandlerDelegate implementation.
     @Override
-    public void onCreateContextMenu(
-            ContextMenu contextMenu, View view, ContextMenuInfo contextMenuInfo) {
-        if (ChromeFeatureList.isEnabled(ChromeFeatureList.TILE_CONTEXT_MENU_REFACTOR)) return;
-
-        mContextMenuManager.createContextMenu(contextMenu, view, this);
+    public void onDragDominate() {
+        mContextMenuManager.hideListContextMenu();
     }
 
     @Override
-    public boolean onLongClick(View view) {
-        if (!ChromeFeatureList.isEnabled(ChromeFeatureList.TILE_CONTEXT_MENU_REFACTOR)) {
-            return false;
-        }
-
-        return mContextMenuManager.showListContextMenu(view, this);
-    }
-
-    @Override
-    public void setOnClickRunnable(Runnable clickRunnable) {
-        mOnClickRunnable = clickRunnable;
-    }
-
-    @Override
-    public void setOnRemoveRunnable(Runnable removeRunnable) {
-        mOnRemoveRunnable = removeRunnable;
+    public boolean onDragAccept(SiteSuggestion fromSuggestion, SiteSuggestion toSuggestion) {
+        RecordUserAction.record("Suggestions.Drag.ReorderItem");
+        return mCustomTileModificationDelegate.reorder(fromSuggestion, toSuggestion);
     }
 
     boolean isCustomizationItemSupported(boolean matchIsCustomLink) {

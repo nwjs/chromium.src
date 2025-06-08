@@ -74,7 +74,7 @@ class BrowserWindowInterface : public content::PageNavigator {
                         WindowOpenDisposition disposition) = 0;
 
   // Returns a session-unique ID.
-  virtual const SessionID& GetSessionID() = 0;
+  virtual const SessionID& GetSessionID() const = 0;
 
   virtual TabStripModel* GetTabStripModel() = 0;
 
@@ -108,6 +108,24 @@ class BrowserWindowInterface : public content::PageNavigator {
   // Returns true if the window is visible.
   virtual bool IsVisible() const = 0;
 
+  // WARNING: Many uses of base::WeakPtr are inappropriate and lead to bugs.
+  // An appropriate use case is as a variable passed to an asynchronously
+  // invoked PostTask.
+  // An inappropriate use case is to store as a member of an object that can
+  // outlive BrowserWindowInterface. This leads to inconsistent state machines.
+  // For example (don't do this):
+  // class FooOutlivesBrowser {
+  //   base::WeakPtr<BrowserWindowInterface> bwi_;
+  //   // Conceptually, this member should only be set if bwi_ is set.
+  //   std::optional<SkColor> color_of_browser_;
+  // };
+  // For example (do this):
+  // class FooOutlivesBrowser {
+  //   // Use RegisterBrowserDidClose() to clear both bwi_ and
+  //   // color_of_browser_ prior to bwi_ destruction.
+  //   raw_ptr<BrowserWindowInterface> bwi_;
+  //   std::optional<SkColor> color_of_browser_;
+  // };
   virtual base::WeakPtr<BrowserWindowInterface> GetWeakPtr() = 0;
 
   // Returns the view that houses the Lens overlay.
@@ -227,6 +245,10 @@ class BrowserWindowInterface : public content::PageNavigator {
   // incremental migration.
   virtual Browser* GetBrowserForMigrationOnly() = 0;
 
+  // Activates (brings to front) the window. Restores the window from minimized
+  // state if necessary.
+  virtual void ActivateWindow() = 0;
+
   // Changes the blocked state of |web_contents|. WebContentses are considered
   // blocked while displaying a web contents modal dialog. During that time
   // renderer host will ignore any UI interaction within WebContents outside of
@@ -239,7 +261,7 @@ class BrowserWindowInterface : public content::PageNavigator {
                                      bool blocked) = 0;
 
   // Checks if the browser popup is tab modal dialog.
-  virtual bool IsTabModalPopup() const = 0;
+  virtual bool IsTabModalPopupDeprecated() const = 0;
 
   // Features that want to show a window level call to action UI can be mutually
   // exclusive. Before gating on call to action UI first check

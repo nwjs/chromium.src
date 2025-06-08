@@ -47,6 +47,7 @@ Things to consider:
 <translation id="1917964099031477364">This account and any unsaved data will be removed from Chrome and other Google apps on this device.</translation>
 <translation id="1919130412786645364">Allow Chrome sign-in</translation>
 <translation id="1965935827552890526">Finish what you were doing in your other open Chrome window.</translation>
+<translation id="1966638102563776885">Chrome tip: Get your passwords in any app</translation>
 <translation id="1973910962341002002">From '<ph name="TEXT_OF_THE_SETTINGS_MENU_ITEM" />' settings, toggle 'Chrome' on</translation>
 <translation id="1984705450038014246">Sync your Chrome data</translation>
 <translation id="1987779152850321833">Complete these suggested actions below to get the most out of Chrome.</translation>
@@ -114,7 +115,6 @@ Try waiting a few minutes before signing out. If you sign out now, this data wil
 <translation id="3655656110921623717">This means that Chrome will request the mobile site every time.</translation>
 <translation id="3740397331642243698">Opens the inputted URLs in Google Chrome in Incognito.</translation>
 <translation id="3741995255368156336">Opens the Chrome reading list.</translation>
-<translation id="3808570423967020928">Access Chrome faster from your Home screen dock.</translation>
 <translation id="3827545470516145620">You're getting standard security protection on this device</translation>
 <translation id="384394811301901750">Google Chrome can't use your camera at the moment.</translation>
 <translation id="3863841106411295595">Adds the inputted URLs to your reading list in Chrome.</translation>
@@ -138,6 +138,7 @@ Try waiting a few minutes before signing out. If you sign out now, this data wil
 <translation id="4724297637870447613">Use Chrome everywhere</translation>
 <translation id="4738647308035481133">Google Chrome page</translation>
 <translation id="4742795653798179840">Deleted Chrome data</translation>
+<translation id="4749294594657945639">To easily get your saved passwords in other apps, choose Chrome for autofill.</translation>
 <translation id="4761869838909035636">Run Chrome Safety Check</translation>
 <translation id="4798859546468762093">To get personalisation and other features, include Chrome in <ph name="FEATURE_NAME_1" /> and <ph name="FEATURE_NAME_2" /></translation>
 <translation id="4819268619367838612">To help improve the app, Chrome sends usage and crash data to Google. <ph name="BEGIN_LINK" />Manage<ph name="END_LINK" /></translation>
@@ -233,7 +234,6 @@ For more settings that use data to improve your Chrome experience, go to <ph nam
 <translation id="6975725306479268850">Choose Chrome for auto-fill</translation>
 <translation id="7056826488869329999">Opens and Runs Safety Check in Chrome.</translation>
 <translation id="7061455974939528301">Press and hold the Chrome icon and click 'Edit home screen'</translation>
-<translation id="7065813315247345131">Move Chrome to the Dock</translation>
 <translation id="7124339256045485976">Keep Chrome up to date</translation>
 <translation id="7145599899567697473">Save and autofill passwords in Chrome</translation>
 <translation id="7161390184744336561">Google Chrome is out of date</translation>
@@ -317,10 +317,10 @@ Your data was encrypted with your passphrase on <ph name="TIME" />. Enter it to 
 <translation id="8603022514504485810">Google Password Manager couldn't check all passwords. Try again tomorrow or <ph name="BEGIN_LINK" />check passwords in your Google Account.<ph name="END_LINK" /></translation>
 <translation id="8630122478628016441">Turn on 'Lock Incognito tabs when you close Chrome'.</translation>
 <translation id="8673726683583791503">Shop with Google Lens</translation>
-<translation id="8727043961453758442">Get the most out of Chrome</translation>
 <translation id="8765470054473112089">When you type in the address bar or search box, Chrome sends what you type to your default search engine to get better suggestions. This is off in Incognito.</translation>
 <translation id="8772179140489533211">Shows prompts to sign in to Chrome.</translation>
 <translation id="8788269841521769222">You won't need to remember this password. It will be saved to Google Password Manager for <ph name="EMAIL" /></translation>
+<translation id="8796490717897731471"><ph name="EMAIL" />. Chrome is managed.</translation>
 <translation id="880967149107462122">Go to Chrome settings</translation>
 <translation id="8842132678697187091">You can open Google Lens here.</translation>
 <translation id="8850736900032787670">To receive personalised content based on your interests, sign in to Chrome.</translation>

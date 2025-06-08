@@ -79,10 +79,8 @@ class ExecutionContext;
 class ImageBitmap;
 class ScriptState;
 class StaticBitmapImage;
-class
-    V8UnionCanvasRenderingContext2DOrGPUCanvasContextOrImageBitmapRenderingContextOrWebGL2RenderingContextOrWebGLRenderingContext;
-class
-    V8UnionGPUCanvasContextOrImageBitmapRenderingContextOrOffscreenCanvasRenderingContext2DOrWebGL2RenderingContextOrWebGLRenderingContext;
+class V8RenderingContext;
+class V8OffscreenRenderingContext;
 class WebGraphicsContext3DVideoFramePool;
 
 class CORE_EXPORT CanvasRenderingContext
@@ -137,25 +135,9 @@ class CORE_EXPORT CanvasRenderingContext
     return canvas_rendering_type_ == CanvasRenderingAPI::kWebgl ||
            canvas_rendering_type_ == CanvasRenderingAPI::kWebgl2;
   }
-  bool IsWebGL2() const {
-    return canvas_rendering_type_ == CanvasRenderingAPI::kWebgl2;
-  }
   bool IsWebGPU() const {
     return canvas_rendering_type_ == CanvasRenderingAPI::kWebgpu;
   }
-
-  // ---------------------------------------------------------------------- //
-  // ctx.placeElement() API. Used exclusively with CanvasRenderingContext2D.
-
-  // Elements placed with ctx.placeElement() hold CanvasDeferredPaintRecords,
-  // which are painted into with this function during
-  // HTMLCanvasElement::PaintInternal.
-  virtual void PaintPlacedElements() {}
-  // Returns true if any element has been drawn to the canvas.
-  virtual bool HasPlacedElements() const { return false; }
-  // Element needs to be redrawn
-  virtual void MarkPlacedElementDirty(Element* element) {}
-  // ---------------------------------------------------------------------- //
 
   // ActiveScriptWrappable
   // As this class inherits from ActiveScriptWrappable, as long as
@@ -212,12 +194,8 @@ class CORE_EXPORT CanvasRenderingContext
   virtual bool isContextLost() const { return true; }
   bool IsContextBeingRestored() const { return is_context_being_restored_; }
   // TODO(fserb): remove AsV8RenderingContext and AsV8OffscreenRenderingContext.
-  virtual V8UnionCanvasRenderingContext2DOrGPUCanvasContextOrImageBitmapRenderingContextOrWebGL2RenderingContextOrWebGLRenderingContext*
-  AsV8RenderingContext() {
-    NOTREACHED();
-  }
-  virtual V8UnionGPUCanvasContextOrImageBitmapRenderingContextOrOffscreenCanvasRenderingContext2DOrWebGL2RenderingContextOrWebGLRenderingContext*
-  AsV8OffscreenRenderingContext() {
+  virtual V8RenderingContext* AsV8RenderingContext() { NOTREACHED(); }
+  virtual V8OffscreenRenderingContext* AsV8OffscreenRenderingContext() {
     NOTREACHED();
   }
   virtual bool IsPaintable() const = 0;
@@ -229,9 +207,14 @@ class CORE_EXPORT CanvasRenderingContext
   }
   void DidDraw(const SkIRect& dirty_rect, CanvasPerformanceMonitor::DrawType);
 
-  // Return true if the content is updated.
-  virtual bool PaintRenderingResultsToCanvas(SourceDrawingBuffer) {
-    return false;
+  // Returns a CanvasResourceProvider containing the current content, or nullptr
+  // if it was not possible to obtain that content. Default implementation
+  // returns the host's CanvasResourceProvider, which is suitable for contexts
+  // that write directly to that resource provider. Other contexts will need to
+  // override this method as suitable.
+  virtual CanvasResourceProvider* PaintRenderingResultsToCanvas(
+      SourceDrawingBuffer) {
+    return Host()->ResourceProvider();
   }
 
   // Copy the contents of the rendering context to a media::VideoFrame created
@@ -296,8 +279,8 @@ class CORE_EXPORT CanvasRenderingContext
   // WebGL-specific interface
   virtual bool UsingSwapChain() const { return false; }
   virtual void MarkLayerComposited() { NOTREACHED(); }
-  virtual sk_sp<SkData> PaintRenderingResultsToRGBADataArray(
-      SourceDrawingBuffer) {
+  virtual scoped_refptr<StaticBitmapImage>
+  GetRGBAUnacceleratedStaticBitmapImage(SourceDrawingBuffer source_buffer) {
     NOTREACHED();
   }
   virtual gfx::Size DrawingBufferSize() const { NOTREACHED(); }

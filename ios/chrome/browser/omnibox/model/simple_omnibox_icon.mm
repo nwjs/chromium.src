@@ -61,6 +61,7 @@
     case OmniboxSuggestionIconType::kSearch:
     case OmniboxSuggestionIconType::kSearchHistory:
     case OmniboxSuggestionIconType::kSearchTrend:
+    case OmniboxSuggestionIconType::kSearchWithSparkle:
       return NO;
     case OmniboxSuggestionIconType::kCalculator:
     case OmniboxSuggestionIconType::kConversion:
@@ -93,11 +94,11 @@
     case OmniboxIconTypeImage:
     case OmniboxIconTypeSuggestionIcon:
       if ([self hasCustomAnswerIcon]) {
-        return [UIColor colorNamed:@"omnibox_suggestion_answer_icon_color"];
+        return [UIColor colorNamed:kOmniboxSuggestionAnswerIconColor];
       }
-      return [UIColor colorNamed:@"omnibox_suggestion_icon_color"];
+      return [UIColor colorNamed:kOmniboxSuggestionIconColor];
     case OmniboxIconTypeFavicon:
-      return [UIColor colorNamed:@"omnibox_suggestion_icon_color"];
+      return [UIColor colorNamed:kOmniboxSuggestionIconColor];
   }
 }
 

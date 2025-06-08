@@ -76,6 +76,11 @@ class PLATFORM_EXPORT ExceptionState {
   // Throws a DOMException due to the given exception code.
   NOINLINE void ThrowDOMException(DOMExceptionCode, const String& message);
 
+  // Throws a constructed DOMException.
+  NOINLINE void ThrowDOMException(v8::Local<v8::Value> exception,
+                                  DOMExceptionCode code,
+                                  const String& message);
+
   // Throws a DOMException with SECURITY_ERR.
   NOINLINE void ThrowSecurityError(
       const String& sanitized_message,
@@ -84,6 +89,7 @@ class PLATFORM_EXPORT ExceptionState {
   // Throws an ECMAScript Error object.
   NOINLINE void ThrowRangeError(const String& message);
   NOINLINE void ThrowTypeError(const String& message);
+  NOINLINE void ThrowSyntaxError(const String& message);
 
   // Throws WebAssembly Error object.
   NOINLINE void ThrowWasmCompileError(const String& message);
@@ -98,6 +104,7 @@ class PLATFORM_EXPORT ExceptionState {
                                    const char* unsanitized_message = nullptr);
   NOINLINE void ThrowRangeError(const char* message);
   NOINLINE void ThrowTypeError(const char* message);
+  NOINLINE void ThrowSyntaxError(const char* message);
   NOINLINE void ThrowWasmCompileError(const char* message);
 
   // Report the given value as the exception being thrown, but rethrow it
@@ -109,6 +116,8 @@ class PLATFORM_EXPORT ExceptionState {
 
   // Returns the context of what Web API is currently being executed.
   const ExceptionContext& GetContext() const { return context_; }
+
+  v8::Isolate* GetIsolate() const { return isolate_; }
 
   ExceptionState& ReturnThis() { return *this; }
 
@@ -133,7 +142,7 @@ class PLATFORM_EXPORT ExceptionState {
   // Delegated constructor for DummyExceptionStateForTesting
   explicit ExceptionState(DummyExceptionStateForTesting& dummy_derived);
 
-  static constexpr ExceptionContext kEmptyContext;
+  static constexpr ExceptionContext kEmptyContext{};
 
  private:
   void SetExceptionInfo(ExceptionCode, const String&);

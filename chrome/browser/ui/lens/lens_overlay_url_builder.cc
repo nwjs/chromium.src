@@ -9,6 +9,7 @@
 #include "base/base64url.h"
 #include "base/notreached.h"
 #include "base/strings/escape.h"
+#include "base/strings/stringprintf.h"
 #include "chrome/browser/browser_process.h"
 #include "components/language/core/common/language_util.h"
 #include "components/lens/lens_features.h"
@@ -79,6 +80,10 @@ inline constexpr char kInvocationSourceImageSearchContextMenu[] =
 inline constexpr char kInvocationSourceFindInPage[] = "chrome.cr.find";
 inline constexpr char kInvocationSourceToolbarIcon[] = "chrome.cr.tbic";
 inline constexpr char kInvocationSourceOmniboxIcon[] = "chrome.cr.obic";
+inline constexpr char kInvocationSourceOmniboxPageAction[] = "chrome.cr.obpa";
+inline constexpr char kInvocationSourceOmniboxContextualSuggestion[] =
+    "chrome.cr.obcs";
+inline constexpr char kInvocationSourceHomeworkActionChip[] = "chrome.cr.hwac";
 
 // The url query param for the viewport width and height.
 inline constexpr char kViewportWidthQueryParamKey[] = "biw";
@@ -122,6 +127,9 @@ inline constexpr char kClientIdQueryParameter[] = "client";
 // Query parameter value for client ID sent to translate API for getting
 // supported translate languages.
 inline constexpr char kClientIdQueryParameterValue[] = "lens-overlay";
+
+// Query parameter for the start time.
+inline constexpr char kStartTimeQueryParameter[] = "qsubts";
 
 // Appends the url params from the map to the url.
 GURL AppendUrlParamsFromMap(
@@ -250,6 +258,15 @@ GURL AppendInvocationSourceParamToURL(
     case lens::LensOverlayInvocationSource::kOmnibox:
       param_value = kInvocationSourceOmniboxIcon;
       break;
+    case lens::LensOverlayInvocationSource::kOmniboxPageAction:
+      param_value = kInvocationSourceOmniboxPageAction;
+      break;
+    case lens::LensOverlayInvocationSource::kOmniboxContextualSuggestion:
+      param_value = kInvocationSourceOmniboxContextualSuggestion;
+      break;
+    case lens::LensOverlayInvocationSource::kHomeworkActionChip:
+      param_value = kInvocationSourceHomeworkActionChip;
+      break;
     case lens::LensOverlayInvocationSource::kLVFShutterButton:
     case lens::LensOverlayInvocationSource::kLVFGallery:
     case lens::LensOverlayInvocationSource::kContextMenu:
@@ -267,6 +284,7 @@ GURL AppendDarkModeParamToURL(const GURL& url_to_modify, bool use_dark_mode) {
 }
 
 GURL BuildTextOnlySearchURL(
+    base::Time query_start_time,
     const std::string& text_query,
     std::optional<GURL> page_url,
     std::optional<std::string> page_title,
@@ -289,11 +307,9 @@ GURL BuildTextOnlySearchURL(
     url_with_query_params = net::AppendOrReplaceQueryParameter(
         url_with_query_params, kLensModeParameterKey,
         kLensModeParameterTextValue);
-    if (lens::features::IsUpdatedClientContextEnabled()) {
-      url_with_query_params = net::AppendOrReplaceQueryParameter(
-          url_with_query_params, kLensSurfaceParameterKey,
-          kLensSurfaceParameterLensOverlayValue);
-    }
+    url_with_query_params = net::AppendOrReplaceQueryParameter(
+        url_with_query_params, kLensSurfaceParameterKey,
+        kLensSurfaceParameterLensOverlayValue);
   }
   url_with_query_params =
       AppendCommonSearchParametersToURL(url_with_query_params, use_dark_mode);
@@ -303,10 +319,14 @@ GURL BuildTextOnlySearchURL(
     url_with_query_params =
         AppendVideoContextParamToURL(url_with_query_params, page_url);
   }
+  url_with_query_params = net::AppendOrReplaceQueryParameter(
+      url_with_query_params, kStartTimeQueryParameter,
+      base::NumberToString(query_start_time.InMillisecondsSinceUnixEpoch()));
   return url_with_query_params;
 }
 
 GURL BuildLensSearchURL(
+    base::Time query_start_time,
     std::optional<std::string> text_query,
     std::optional<GURL> page_url,
     std::optional<std::string> page_title,
@@ -340,11 +360,9 @@ GURL BuildLensSearchURL(
   url_with_query_params = net::AppendOrReplaceQueryParameter(
       url_with_query_params, kLensFootprintParameterKey,
       kLensFootprintParameterValue);
-  if (lens::features::IsUpdatedClientContextEnabled()) {
-    url_with_query_params = net::AppendOrReplaceQueryParameter(
-        url_with_query_params, kLensSurfaceParameterKey,
-        kLensSurfaceParameterLensOverlayValue);
-  }
+  url_with_query_params = net::AppendOrReplaceQueryParameter(
+      url_with_query_params, kLensSurfaceParameterKey,
+      kLensSurfaceParameterLensOverlayValue);
 
   // The search url should use the search session id from the cluster info.
   url_with_query_params = net::AppendOrReplaceQueryParameter(
@@ -364,6 +382,9 @@ GURL BuildLensSearchURL(
                         &encoded_request_id);
   url_with_query_params = net::AppendOrReplaceQueryParameter(
       url_with_query_params, kRequestIdParameterKey, encoded_request_id);
+  url_with_query_params = net::AppendOrReplaceQueryParameter(
+      url_with_query_params, kStartTimeQueryParameter,
+      base::NumberToString(query_start_time.InMillisecondsSinceUnixEpoch()));
 
   return url_with_query_params;
 }
@@ -468,7 +489,7 @@ GURL GetSearchResultsUrlFromRedirectUrl(const GURL& url) {
 
 GURL RemoveIgnoredSearchURLParameters(const GURL& url) {
   GURL processed_url = url;
-  for (std::string query_param : kIgnoredSearchUrlQueryParameters) {
+  for (const std::string& query_param : kIgnoredSearchUrlQueryParameters) {
     processed_url = net::AppendOrReplaceQueryParameter(
         processed_url, query_param, std::nullopt);
   }
@@ -526,6 +547,21 @@ bool URLsMatchWithoutTextFragment(const GURL& first_url,
          first_url.query() == second_url.query() &&
          GetURLRefWithoutTextFragment(first_url) ==
              GetURLRefWithoutTextFragment(second_url);
+}
+
+GURL AddPDFScrollToParametersToUrl(
+    const GURL& url,
+    const std::vector<std::string>& text_fragments,
+    int pdf_page_number) {
+  std::string ref = base::StringPrintf("page=%d", pdf_page_number);
+  if (!text_fragments.empty()) {
+    base::StringAppendF(&ref, ":~:text=%s", text_fragments[0]);
+    for (size_t i = 1; i < text_fragments.size(); i++) {
+      base::StringAppendF(&ref, "&text=%s", text_fragments[i]);
+    }
+  }
+
+  return net::AppendOrReplaceRef(url, ref);
 }
 
 }  // namespace lens

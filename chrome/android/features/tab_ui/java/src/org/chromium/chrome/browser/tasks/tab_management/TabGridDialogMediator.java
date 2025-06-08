@@ -48,9 +48,9 @@ import org.chromium.chrome.browser.tab.TabId;
 import org.chromium.chrome.browser.tab.TabLaunchType;
 import org.chromium.chrome.browser.tab.TabSelectionType;
 import org.chromium.chrome.browser.tab_group_sync.TabGroupSyncServiceFactory;
-import org.chromium.chrome.browser.tab_ui.ActionConfirmationManager;
 import org.chromium.chrome.browser.tab_ui.RecyclerViewPosition;
 import org.chromium.chrome.browser.tab_ui.TabUiThemeUtils;
+import org.chromium.chrome.browser.tabmodel.TabClosureParamsUtils;
 import org.chromium.chrome.browser.tabmodel.TabGroupModelFilter;
 import org.chromium.chrome.browser.tabmodel.TabGroupModelFilterObserver;
 import org.chromium.chrome.browser.tabmodel.TabGroupTitleUtils;
@@ -80,7 +80,9 @@ import org.chromium.components.browser_ui.desktop_windowing.DesktopWindowStateMa
 import org.chromium.components.browser_ui.desktop_windowing.DesktopWindowStateManager.AppHeaderObserver;
 import org.chromium.components.browser_ui.styles.SemanticColorUtils;
 import org.chromium.components.browser_ui.widget.gesture.BackPressHandler;
+import org.chromium.components.browser_ui.widget.list_view.ListViewTouchTracker;
 import org.chromium.components.collaboration.CollaborationService;
+import org.chromium.components.collaboration.CollaborationServiceLeaveOrDeleteEntryPoint;
 import org.chromium.components.collaboration.CollaborationServiceShareOrManageEntryPoint;
 import org.chromium.components.collaboration.messaging.CollaborationEvent;
 import org.chromium.components.collaboration.messaging.MessageUtils;
@@ -226,8 +228,6 @@ public class TabGridDialogMediator
     private final DataSharingTabManager mDataSharingTabManager;
     private final String mComponentName;
     private final Runnable mShowColorPickerPopupRunnable;
-    private final ActionConfirmationManager mActionConfirmationManager;
-    private final ModalDialogManager mModalDialogManager;
     private final Profile mOriginalProfile;
     private final @Nullable TabGroupSyncService mTabGroupSyncService;
     private final @Nullable DataSharingService mDataSharingService;
@@ -267,7 +267,6 @@ public class TabGridDialogMediator
             @NonNull DataSharingTabManager dataSharingTabManager,
             String componentName,
             Runnable showColorPickerPopupRunnable,
-            @Nullable ActionConfirmationManager actionConfirmationManager,
             @Nullable ModalDialogManager modalDialogManager,
             @Nullable DesktopWindowStateManager desktopWindowStateManager,
             ObservableSupplier<TabBookmarker> tabBookmarkerSupplier,
@@ -286,8 +285,6 @@ public class TabGridDialogMediator
         mDataSharingTabManager = dataSharingTabManager;
         mComponentName = componentName;
         mShowColorPickerPopupRunnable = showColorPickerPopupRunnable;
-        mActionConfirmationManager = actionConfirmationManager;
-        mModalDialogManager = modalDialogManager;
         mOriginalProfile =
                 mCurrentTabGroupModelFilterSupplier
                         .get()
@@ -588,7 +585,8 @@ public class TabGridDialogMediator
                             TabListEditorController tabListEditorController =
                                     mTabListEditorControllerSupplier.get();
                             if (tabListEditorController != null) {
-                                tabListEditorController.selectTabs(Set.of(tabId));
+                                tabListEditorController.selectTabs(
+                                        Set.of(TabListEditorItemSelectionId.createTabId(tabId)));
                             }
                         };
                 mTabGridContextMenuCoordinator =
@@ -1040,7 +1038,11 @@ public class TabGridDialogMediator
     }
 
     @VisibleForTesting
-    public void onToolbarMenuItemClick(int menuId, Token tabGroupId, String collaborationId) {
+    public void onToolbarMenuItemClick(
+            int menuId,
+            Token tabGroupId,
+            @Nullable String collaborationId,
+            @Nullable ListViewTouchTracker listViewTouchTracker) {
         // Collaboration IDs will not change without the menu somehow being dismissed. This assert
         // should always hold.
         assert mTransitiveSharedGroupObserver == null
@@ -1049,6 +1051,7 @@ public class TabGridDialogMediator
                         mTransitiveSharedGroupObserver.getCollaborationIdSupplier().get());
 
         int tabId = mCurrentTabId;
+        EitherGroupId eitherId = EitherGroupId.createLocalId(new LocalTabGroupId(tabGroupId));
         if (tabId == Tab.INVALID_TAB_ID) return;
 
         if (menuId == R.id.ungroup_tab || menuId == R.id.select_tabs) {
@@ -1069,9 +1072,7 @@ public class TabGridDialogMediator
         } else if (menuId == R.id.manage_sharing) {
             RecordUserAction.record("TabGridDialogMenu.ManageSharing");
             mDataSharingTabManager.createOrManageFlow(
-                    mActivity,
-                    /* syncId= */ null,
-                    new LocalTabGroupId(tabGroupId),
+                    eitherId,
                     CollaborationServiceShareOrManageEntryPoint.ANDROID_TAB_GRID_DIALOG_MANAGE,
                     /* createGroupFinishedCallback= */ null);
         } else if (menuId == R.id.recent_activity) {
@@ -1085,27 +1086,25 @@ public class TabGridDialogMediator
             } else {
                 RecordUserAction.record("TabGridDialogMenu.Delete");
             }
+
+            boolean allowUndo = TabClosureParamsUtils.shouldAllowUndo(listViewTouchTracker);
+
             TabUiUtils.closeTabGroup(
                     mCurrentTabGroupModelFilterSupplier.get(),
                     tabId,
+                    allowUndo,
                     hideTabGroups,
                     /* didCloseCallback= */ null);
         } else if (menuId == R.id.delete_shared_group) {
             RecordUserAction.record("TabGridDialogMenu.DeleteShared");
-            TabUiUtils.exitSharedTabGroupWithDialog(
-                    mActivity,
-                    mCurrentTabGroupModelFilterSupplier.get(),
-                    mActionConfirmationManager,
-                    mModalDialogManager,
-                    tabId);
+            mDataSharingTabManager.leaveOrDeleteFlow(
+                    eitherId,
+                    CollaborationServiceLeaveOrDeleteEntryPoint.ANDROID_TAB_GRID_DIALOG_DELETE);
         } else if (menuId == R.id.leave_group) {
             RecordUserAction.record("TabGridDialogMenu.LeaveShared");
-            TabUiUtils.exitSharedTabGroupWithDialog(
-                    mActivity,
-                    mCurrentTabGroupModelFilterSupplier.get(),
-                    mActionConfirmationManager,
-                    mModalDialogManager,
-                    tabId);
+            mDataSharingTabManager.leaveOrDeleteFlow(
+                    eitherId,
+                    CollaborationServiceLeaveOrDeleteEntryPoint.ANDROID_TAB_GRID_DIALOG_LEAVE);
         }
     }
 

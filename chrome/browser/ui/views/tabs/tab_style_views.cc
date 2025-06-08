@@ -18,6 +18,7 @@
 #include "chrome/browser/ui/layout_constants.h"
 #include "chrome/browser/ui/tabs/tab_style.h"
 #include "chrome/browser/ui/tabs/tab_types.h"
+#include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/frame/browser_non_client_frame_view.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/frame/top_container_background.h"
@@ -27,7 +28,6 @@
 #include "chrome/browser/ui/views/tabs/tab_group_underline.h"
 #include "chrome/browser/ui/views/tabs/tab_slot_controller.h"
 #include "chrome/browser/ui/views/tabs/tab_slot_view.h"
-#include "chrome/common/chrome_features.h"
 #include "chrome/grit/theme_resources.h"
 #include "components/tab_groups/tab_group_visual_data.h"
 #include "third_party/skia/include/core/SkRRect.h"
@@ -172,10 +172,14 @@ class TabStyleViewsImpl : public TabStyleViews {
                              SkColor stroke_color) const;
   void PaintSeparators(gfx::Canvas* canvas) const;
 
-  // Returns true if the tab is the first in a set of split tabs.
-  bool IsStartSplitTab(const Tab* tab) const;
-  // Returns true if the tab is the last in a set of split tabs.
-  bool IsEndSplitTab(const Tab* tab) const;
+  // Returns true if the tab is the leftmost in a set of split tabs. In RTL,
+  // this will still return the leftmost tab which is needed when setting
+  // left/right insets and positioning.
+  bool IsLeftSplitTab(const Tab* tab) const;
+  // Returns true if the tab is the rightmost in a set of split tabs. In RTL,
+  // this will still return the rightmost tab which is needed when setting
+  // left/right insets and positioning.
+  bool IsRightSplitTab(const Tab* tab) const;
 
   const raw_ptr<const Tab> tab_;
 
@@ -266,10 +270,10 @@ SkPath TabStyleViewsImpl::GetPath(TabStyle::PathType path_type,
     const bool limited_tab_space = (right - left) < (gfx::kFaviconSize * scale);
     const bool expand_into_previous_separator =
         limited_tab_space || path_type == TabStyle::PathType::kHitTest ||
-        IsEndSplitTab(tab());
+        IsRightSplitTab(tab());
     const bool expand_into_next_separator =
         limited_tab_space || path_type == TabStyle::PathType::kHitTest ||
-        IsStartSplitTab(tab());
+        IsLeftSplitTab(tab());
     if (expand_into_previous_separator || expand_into_next_separator) {
       // Take the entire size of the separator. in odd separator size cases, the
       // right side will take the remaining space.
@@ -278,18 +282,13 @@ SkPath TabStyleViewsImpl::GetPath(TabStyle::PathType path_type,
       const int right_separator_overlap =
           tab_style()->GetSeparatorSize().width() - left_separator_overlap;
 
-      // If there is a tab before this one, then expand into its overlap.
-      const Tab* const previous_tab =
-          tab()->controller()->GetAdjacentTab(tab(), -1);
-      if (expand_into_previous_separator && previous_tab) {
+      if (expand_into_previous_separator) {
         left -= (tab_style()->GetSeparatorMargins().right() +
                  left_separator_overlap) *
                 scale;
       }
 
-      // If there is a tab after this one, then expand into its overlap.
-      const Tab* const next_tab = tab()->controller()->GetAdjacentTab(tab(), 1);
-      if (expand_into_next_separator && next_tab) {
+      if (expand_into_next_separator) {
         right += (tab_style()->GetSeparatorMargins().left() +
                   right_separator_overlap) *
                  scale;
@@ -297,10 +296,10 @@ SkPath TabStyleViewsImpl::GetPath(TabStyle::PathType path_type,
     }
 
     if (tab()->split().has_value()) {
-      if (IsStartSplitTab(tab())) {
+      if (IsLeftSplitTab(tab())) {
         top_right_corner_radius = 0;
         bottom_right_corner_radius = 0;
-      } else if (IsEndSplitTab(tab())) {
+      } else if (IsRightSplitTab(tab())) {
         top_left_corner_radius = 0;
         bottom_left_corner_radius = 0;
       }
@@ -356,8 +355,12 @@ SkPath TabStyleViewsImpl::GetPath(TabStyle::PathType path_type,
   const float stroke_adjustment = stroke_thickness * scale;
   if (path_type == TabStyle::PathType::kFill ||
       path_type == TabStyle::PathType::kBorder) {
-    tab_left += 0.5f * stroke_adjustment;
-    tab_right -= 0.5f * stroke_adjustment;
+    if (!IsRightSplitTab(tab())) {
+      tab_left += 0.5f * stroke_adjustment;
+    }
+    if (!IsLeftSplitTab(tab())) {
+      tab_right -= 0.5f * stroke_adjustment;
+    }
     tab_top += 0.5f * stroke_adjustment;
     content_corner_radius -= 0.5f * stroke_adjustment;
     tab_bottom -= 0.5f * stroke_adjustment;
@@ -374,17 +377,15 @@ SkPath TabStyleViewsImpl::GetPath(TabStyle::PathType path_type,
                                    scale;
   }
 
-  if (tab()->split().has_value()) {
-    if (IsStartSplitTab(tab())) {
-      top_right_corner_radius = 0;
-      // Assign half of the tab overlap to each of the split tabs.
-      tab_right = tab_right + extension - tab_style()->GetTabOverlap() / 2;
-      extension_corner_radius = 0;
-    } else if (IsEndSplitTab(tab())) {
-      top_left_corner_radius = 0;
-      tab_left = tab_left - extension + tab_style()->GetTabOverlap() / 2;
-      left_extension_corner_radius = 0;
-    }
+  if (IsLeftSplitTab(tab())) {
+    top_right_corner_radius = 0;
+    // Assign half of the tab overlap to each of the split tabs.
+    tab_right = tab_right + extension - tab_style()->GetTabOverlap() / 2;
+    extension_corner_radius = 0;
+  } else if (IsRightSplitTab(tab())) {
+    top_left_corner_radius = 0;
+    tab_left = tab_left - extension + tab_style()->GetTabOverlap() / 2;
+    left_extension_corner_radius = 0;
   }
 
   // Avoid mallocs at every new path verb by preallocating an
@@ -400,7 +401,7 @@ SkPath TabStyleViewsImpl::GetPath(TabStyle::PathType path_type,
   // stroke width.
 
   if (path_type == TabStyle::PathType::kBorder && tab()->split() &&
-      !IsStartSplitTab(tab())) {
+      !IsLeftSplitTab(tab())) {
     // Start with the top left side of the shape.
     path.moveTo(left, tab_top);
   } else {
@@ -441,7 +442,7 @@ SkPath TabStyleViewsImpl::GetPath(TabStyle::PathType path_type,
   path.lineTo(tab_right - top_right_corner_radius, tab_top);
 
   if (path_type == TabStyle::PathType::kBorder && tab()->split() &&
-      !IsEndSplitTab(tab())) {
+      !IsRightSplitTab(tab())) {
     // Finish to the top right corner.
     path.lineTo(right, tab_top);
   } else {
@@ -492,7 +493,6 @@ SkPath TabStyleViewsImpl::GetPath(TabStyle::PathType path_type,
 }
 
 gfx::Insets TabStyleViewsImpl::GetContentsInsets() const {
-  const int stroke_thickness = GetStrokeThickness(false);
   gfx::Insets base_style_insets = tab_style()->GetContentsInsets();
   gfx::Insets split_insets = gfx::Insets(0);
 
@@ -502,17 +502,15 @@ gfx::Insets TabStyleViewsImpl::GetContentsInsets() const {
       tab_style()->GetSeparatorMargins().left() +
       tab_style()->GetSeparatorSize().width() +
       tab_style()->GetSeparatorMargins().right();
-  if (IsEndSplitTab(tab())) {
+  if (IsRightSplitTab(tab())) {
     split_insets.set_left(total_separator_width / -2);
   }
-  if (IsStartSplitTab(tab())) {
+  if (IsLeftSplitTab(tab())) {
     split_insets.set_right(total_separator_width / -2);
   }
 
-  return gfx::Insets::TLBR(
-             stroke_thickness, 0,
-             stroke_thickness + GetLayoutConstant(TABSTRIP_TOOLBAR_OVERLAP),
-             0) +
+  return gfx::Insets::TLBR(0, 0, GetLayoutConstant(TABSTRIP_TOOLBAR_OVERLAP),
+                           0) +
          base_style_insets + split_insets;
 }
 
@@ -836,7 +834,8 @@ float TabStyleViewsImpl::GetHoverOpacity() const {
   // Opacity boost varies on tab width.  The interpolation is nonlinear so
   // that most tabs will fall on the low end of the opacity range, but very
   // narrow tabs will still stand out on the high end.
-  const float range_start = static_cast<float>(tab_style()->GetStandardWidth());
+  const float range_start =
+      static_cast<float>(tab_style()->GetStandardWidth(/*is_split*/ false));
   constexpr float kWidthForMaxHoverOpacity = 32.0f;
   const float value_in_range = static_cast<float>(tab_->width());
   const float t = std::clamp(
@@ -1068,26 +1067,30 @@ void TabStyleViewsImpl::PaintSeparators(gfx::Canvas* canvas) const {
                         tab_style()->GetSeparatorCornerRadius() * scale, flags);
 }
 
-bool TabStyleViewsImpl::IsStartSplitTab(const Tab* tab) const {
+bool TabStyleViewsImpl::IsLeftSplitTab(const Tab* tab) const {
   if (!tab->split().has_value()) {
     return false;
   }
-  const Tab* tab_to_left = tab->controller()->GetAdjacentTab(tab, -1);
-  return std::ranges::none_of(tab->controller()->GetTabsInSplit(tab),
-                              [&tab_to_left](const Tab* split_tab) {
-                                return split_tab == tab_to_left;
-                              });
+  const std::vector<Tab*>& tabs_in_split =
+      tab->controller()->GetTabsInSplit(tab);
+  if (tabs_in_split.size() < 2) {
+    return true;
+  }
+  return tab ==
+         tabs_in_split[base::i18n::IsRTL() ? tabs_in_split.size() - 1 : 0];
 }
 
-bool TabStyleViewsImpl::IsEndSplitTab(const Tab* tab) const {
+bool TabStyleViewsImpl::IsRightSplitTab(const Tab* tab) const {
   if (!tab->split().has_value()) {
     return false;
   }
-  const Tab* tab_to_right = tab->controller()->GetAdjacentTab(tab, 1);
-  return std::ranges::none_of(tab->controller()->GetTabsInSplit(tab),
-                              [&tab_to_right](const Tab* split_tab) {
-                                return split_tab == tab_to_right;
-                              });
+  const std::vector<Tab*>& tabs_in_split =
+      tab->controller()->GetTabsInSplit(tab);
+  if (tabs_in_split.size() < 2) {
+    return true;
+  }
+  return tab ==
+         tabs_in_split[base::i18n::IsRTL() ? 0 : tabs_in_split.size() - 1];
 }
 
 float TabStyleViewsImpl::GetTopCornerRadiusForWidth(int width) const {

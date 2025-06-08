@@ -150,6 +150,7 @@ UPLOAD_SKIA_JSON_BUILDERS = frozenset([
 
 PUBLIC_PERF_BUILDERS = [
     'linux-perf-fyi',  # ChromiumPerfFyi
+    'linux-r350-perf',  # ChromiumPerf
     'win-10-perf',  # ChromiumPerf
 ]
 
@@ -219,22 +220,14 @@ FYI_BUILDERS = {
         'tests': [{
             'isolate':
             'performance_web_engine_test_suite',
-            'extra_args': [
-                '--output-format=histograms', '--experimental-tbmv3-metrics',
-                '--extra-path=/b/s/w/ir/bin/'
-            ] + bot_platforms.FUCHSIA_EXEC_ARGS['nelson'],
+            'extra_args':
+            ['--output-format=histograms', '--experimental-tbmv3-metrics'] +
+            bot_platforms.FUCHSIA_EXEC_ARGS['nelson'],
             'type':
             TEST_TYPES.TELEMETRY,
         }],
         'platform':
         'fuchsia-wes',
-        # TODO(crbug.com/40272046): Replace with long-term solution for ssh in Fuchsia img,
-        # or codify as long-term solution.
-        'cipd': {
-            "cipd_package": "fuchsia/third_party/openssh-portable/${platform}",
-            "location": ".",
-            "revision": "build_id:8787350426829126785"
-        },
         'dimension': {
             'cpu': None,
             'device_type': 'Nelson',
@@ -246,22 +239,14 @@ FYI_BUILDERS = {
         'tests': [{
             'isolate':
             'performance_web_engine_test_suite',
-            'extra_args': [
-                '--output-format=histograms', '--experimental-tbmv3-metrics',
-                '--extra-path=/b/s/w/ir/bin/'
-            ] + bot_platforms.FUCHSIA_EXEC_ARGS['sherlock'],
+            'extra_args':
+            ['--output-format=histograms', '--experimental-tbmv3-metrics'] +
+            bot_platforms.FUCHSIA_EXEC_ARGS['sherlock'],
             'type':
             TEST_TYPES.TELEMETRY,
         }],
         'platform':
         'fuchsia-wes',
-        # TODO(crbug.com/40272046): Replace with long-term solution for ssh in Fuchsia img,
-        # or codify as long-term solution.
-        'cipd': {
-            "cipd_package": "fuchsia/third_party/openssh-portable/${platform}",
-            "location": ".",
-            "revision": "build_id:8787350426829126785"
-        },
         'dimension': {
             'cpu': None,
             'device_type': 'Sherlock',
@@ -316,7 +301,8 @@ FYI_BUILDERS = {
         'dimension': {
             'pool': 'chrome.tests.perf',
             'os': 'Windows-11',
-            'cpu': 'arm64-64-Snapdragon(R)_X_Plus_-_X1P64100_-_Qualcomm(R)_Oryon(TM)_CPU',
+            'cpu':
+            'arm64-64-Snapdragon(R)_X_Plus_-_X1P64100_-_Qualcomm(R)_Oryon(TM)_CPU',
             'synthetic_product_name': 'Inspiron 14 Plus 7441 (Dell Inc.)'
         },
     },
@@ -336,7 +322,8 @@ FYI_BUILDERS = {
         'dimension': {
             'pool': 'chrome.tests.perf',
             'os': 'Windows-11',
-            'cpu': 'arm64-64-Snapdragon(R)_X_Elite_-_X1E80100_-_Qualcomm(R)_Oryon(TM)_CPU',
+            'cpu':
+            'arm64-64-Snapdragon(R)_X_Elite_-_X1E80100_-_Qualcomm(R)_Oryon(TM)_CPU',
             'synthetic_product_name': 'Latitude 7455 (Dell Inc.)'
         },
     },
@@ -368,6 +355,12 @@ FYI_BUILDERS = {
         },
     },
     'fuchsia-builder-perf-arm64': {
+        'additional_compile_targets': [
+            'web_engine_shell_pkg', 'cast_runner_pkg', 'chromium_builder_perf',
+            'base_perftests'
+        ],
+    },
+    'fuchsia-builder-perf-arm64-pgo': {
         'additional_compile_targets': [
             'web_engine_shell_pkg', 'cast_runner_pkg', 'chromium_builder_perf',
             'base_perftests'
@@ -618,6 +611,28 @@ BUILDERS = {
             'device_os': 'RP1A.201105.002',
             'device_os_flavor': 'google',
         },
+    },
+    'android-desktop-x64-builder-perf': {},
+    'android-byra-perf': {
+        'tests': [{
+            'isolate':
+            'performance_test_suite_android_trichrome_chrome_google_64_32_bundle',
+        }],
+        'platform':
+        'android-trichrome-chrome-google-64-32-bundle',
+        'dimension': {
+            'dut_state': 'ready',
+            'pool': 'chrome',
+            'os': 'Android',
+            'label-pool': 'chrome.tests.perf',
+            'label-board': 'brya',
+        },
+        'server':
+        'https://chromeos-swarming.appspot.com',
+        'service_account':
+        'chromeos-tester@chops-service-accounts.iam.gserviceaccount.com',
+        'realm':
+        'chromeos:chrome',
     },
     'android-pixel4-perf': {
         'tests': [{
@@ -1822,8 +1837,10 @@ def generate_performance_test(tester_config, test, builder_name):
   result['swarming'] = {
       # Always say this is true regardless of whether the tester
       # supports swarming. It doesn't hurt.
-      'can_use_on_swarming_builders': True,
-      'expiration': 2 * 60 * 60,  # 2 hours pending max
+      'can_use_on_swarming_builders':
+      True,
+      'expiration':
+      2 * 60 * 60,  # 2 hours pending max
       # TODO(crbug.com/40585750): once we have plenty of windows hardwares,
       # to shards perf benchmarks on Win builders, reduce this hard timeout
       # limit to ~2 hrs.
@@ -1831,15 +1848,25 @@ def generate_performance_test(tester_config, test, builder_name):
       # (crbug.com/1036447), so we must timeout the shards within ~6 hours to
       # allow for other overhead. If the overall builder times out then we
       # don't get data even from the passing shards.
-      'hard_timeout': test.get('timeout', 4 * 60 * 60),  # default 4 hours
+      'hard_timeout':
+      test.get('timeout', 4 * 60 * 60),  # default 4 hours
       # This is effectively the timeout for a
       # benchmarking subprocess to run since we intentionally do not stream
       # subprocess output to the task stdout.
       # TODO(crbug.com/40585750): Reduce this once we can reduce hard_timeout.
-      'io_timeout': test.get('timeout', 6 * 60 * 60),
-      'dimensions': tester_config['dimension'],
-      'service_account': _TESTER_SERVICE_ACCOUNT,
+      'io_timeout':
+      test.get('timeout', 6 * 60 * 60),
+      'dimensions':
+      tester_config['dimension'],
+      'service_account':
+      tester_config.get('service_account', _TESTER_SERVICE_ACCOUNT),
   }
+
+  if tester_config.get('server', ''):
+    result['swarming']['server'] = tester_config.get('server')
+  if tester_config.get('realm', ''):
+    result['swarming']['realm'] = tester_config.get('realm')
+
   if shards:
     result['swarming']['shards'] = shards
   if tester_config.get('cipd'):

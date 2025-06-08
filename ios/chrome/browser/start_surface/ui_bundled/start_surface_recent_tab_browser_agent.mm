@@ -15,7 +15,7 @@
 
 StartSurfaceRecentTabBrowserAgent::StartSurfaceRecentTabBrowserAgent(
     Browser* browser)
-    : favicon_driver_observer_(this), browser_(browser) {
+    : BrowserUserData(browser), favicon_driver_observer_(this) {
   browser_->AddObserver(this);
   browser_->GetWebStateList()->AddObserver(this);
 }

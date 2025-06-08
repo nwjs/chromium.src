@@ -23,7 +23,7 @@ chromium-metrics-reviews@google.com.
 <histograms>
 
 <histogram name="PaymentRequest.AddressEditorTrigerred"
-    enum="PaymentRequestAddressEditorMode" expires_after="2025-08-28">
+    enum="PaymentRequestAddressEditorMode" expires_after="2025-11-16">
   <owner>vykochko@chromium.org</owner>
   <owner>smcgruer@google.com</owner>
   <owner>payments-autofill-team@google.com</owner>
@@ -48,7 +48,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="PaymentRequest.CheckoutFunnel"
-    enum="PaymentRequestCheckoutFunnelSteps" expires_after="2025-09-14">
+    enum="PaymentRequestCheckoutFunnelSteps" expires_after="2025-11-16">
   <owner>rouslan@chromium.org</owner>
   <owner>web-payments-team@google.com</owner>
   <summary>
@@ -71,7 +71,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="PaymentRequest.HasEnrolledInstrument.CallAllowedByPref"
-    enum="Boolean" expires_after="2025-08-24">
+    enum="Boolean" expires_after="2025-10-26">
   <owner>smcgruer@chromium.org</owner>
   <owner>chrome-payments-team@google.com</owner>
   <summary>
@@ -244,7 +244,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="PaymentRequest.PaymentHandlerInstallSuccess"
-    enum="BooleanSuccess" expires_after="2025-08-31">
+    enum="BooleanSuccess" expires_after="2025-11-02">
   <owner>rouslan@chromium.org</owner>
   <owner>web-payments-team@google.com</owner>
   <summary>
@@ -273,6 +273,38 @@ chromium-metrics-reviews@google.com.
     be being made from a background tab, which is checked later after this
     metric is recorded. As such, interpret this metric with care - it cannot be
     read as &quot;these calls succeed and these calls do not&quot;!
+  </summary>
+</histogram>
+
+<histogram name="SecurePaymentRequest.Fallback.Outcome"
+    enum="SecurePaymentRequestOutcome" expires_after="2025-12-31">
+  <owner>darwinyang@google.com</owner>
+  <owner>chrome-payments-eng@google.com</owner>
+  <summary>
+    The outcome of showing the SecurePaymentRequest &quot;Fallback&quot; UX and
+    how the user interacts with it.
+
+    Recorded when the SecurePaymentRequest fallback dialog is closed.
+
+    Note that this is only for the SPC fallback dialog (when matching
+    credentials are not found) and does not include the SPC transaction dialog
+    or the OS-level web authentication dialog.
+  </summary>
+</histogram>
+
+<histogram name="SecurePaymentRequest.Transaction.Outcome"
+    enum="SecurePaymentRequestOutcome" expires_after="2025-12-31">
+  <owner>darwinyang@google.com</owner>
+  <owner>chrome-payments-eng@google.com</owner>
+  <summary>
+    The outcome of showing the SecurePaymentRequest &quot;Transaction&quot; UX
+    and how the user interacts with it.
+
+    Recorded when the SecurePaymentRequest transaction dialog is closed.
+
+    Note that this is only for the SPC transaction dialog and does not include
+    the OS-level web authentication dialog that comes after this dialog or the
+    fallback dialog when matching credentials are not found.
   </summary>
 </histogram>
 

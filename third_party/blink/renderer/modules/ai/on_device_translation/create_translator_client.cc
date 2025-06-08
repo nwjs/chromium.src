@@ -107,21 +107,17 @@ void CreateTranslatorClient::Trace(Visitor* visitor) const {
 
 void CreateTranslatorClient::OnResult(
     mojom::blink::CreateTranslatorResultPtr result) {
+  // Call `Cleanup` when this function returns.
+  RunOnDestruction run_on_destruction(WTF::BindOnce(
+      &CreateTranslatorClient::Cleanup, WrapWeakPersistent(this)));
+
   if (!GetResolver()) {
     // The request was aborted. Note: Currently abort signal is not supported.
     // TODO(crbug.com/331735396): Support abort signal.
     return;
   }
-  if (result->is_translator()) {
-    if (monitor_) {
-      // Ensure that a download completion event is sent.
-      monitor_->OnDownloadProgressUpdate(kNormalizedDownloadProgressMax,
-                                         kNormalizedDownloadProgressMax);
-    }
-    GetResolver()->Resolve(MakeGarbageCollected<Translator>(
-        std::move(result->get_translator()), task_runner_,
-        std::move(source_language_), std::move(target_language_)));
-  } else {
+
+  if (!result->is_translator()) {
     CHECK(result->is_error());
     GetExecutionContext()->AddConsoleMessage(
         mojom::blink::ConsoleMessageSource::kJavaScript,
@@ -130,21 +126,52 @@ void CreateTranslatorClient::OnResult(
     GetResolver()->Reject(DOMException::Create(
         kExceptionMessageUnableToCreateTranslator,
         DOMException::GetErrorName(DOMExceptionCode::kNotSupportedError)));
+    return;
   }
-  Cleanup();
+
+  if (monitor_) {
+    // Ensure that a download completion event is sent.
+    monitor_->OnDownloadProgressUpdate(0, kNormalizedDownloadProgressMax);
+
+    // Abort may have been triggered by `OnDownloadProgressUpdate`.
+    if (!this->GetResolver()) {
+      return;
+    }
+
+    // Ensure that a download completion event is sent.
+    monitor_->OnDownloadProgressUpdate(kNormalizedDownloadProgressMax,
+                                       kNormalizedDownloadProgressMax);
+
+    // Abort may have been triggered by `OnDownloadProgressUpdate`.
+    if (!this->GetResolver()) {
+      return;
+    }
+  }
+
+  GetResolver()->Resolve(MakeGarbageCollected<Translator>(
+      GetScriptState(), std::move(result->get_translator()), task_runner_,
+      std::move(source_language_), std::move(target_language_),
+      GetAbortSignal()));
 }
 
 void CreateTranslatorClient::OnGotAvailability(
     CanCreateTranslatorResult result) {
-  LocalDOMWindow* const window = LocalDOMWindow::From(GetScriptState());
+  ScriptState* script_state = GetScriptState();
+  ExecutionContext* context = ExecutionContext::From(script_state);
+  LocalDOMWindow* const window = LocalDOMWindow::From(script_state);
+
+  // The Translator API is only available within a window or extension
+  // service worker context. User activation is not consumed by workers, as
+  // they lack the ability to do so.
+  CHECK(window != nullptr || context->IsServiceWorkerGlobalScope());
 
   if (RuntimeEnabledFeatures::TranslationAPIV1Enabled() &&
+      !context->IsServiceWorkerGlobalScope() &&
       RequiresUserActivation(result) &&
       !LocalFrame::ConsumeTransientUserActivation(window->GetFrame())) {
     GetResolver()->RejectWithDOMException(
         DOMExceptionCode::kNotAllowedError,
-        "Requires handling a user gesture when availability is "
-        "\"after-download\".");
+        kExceptionMessageUserActivationRequired);
     return;
   }
   mojo::PendingRemote<mojom::blink::TranslationManagerCreateTranslatorClient>

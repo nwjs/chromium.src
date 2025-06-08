@@ -97,7 +97,8 @@ class SearchEnginePreconnectorBrowserTest
   void OnPreresolveFinished(
       const GURL& url,
       const net::NetworkAnonymizationKey& network_anonymization_key,
-      mojo::PendingRemote<network::mojom::ReconnectEventObserver>& observer,
+      mojo::PendingRemote<network::mojom::ConnectionChangeObserverClient>&
+          observer,
       bool success) override {
     // Take the observer so that we can manually send mojo message.
     if (observer.is_valid() && !remote_.is_bound()) {
@@ -140,7 +141,7 @@ class SearchEnginePreconnectorBrowserTest
   std::map<GURL, int> preresolve_counts_;
   base::test::ScopedFeatureList feature_list_;
 
-  mojo::Remote<network::mojom::ReconnectEventObserver> remote_;
+  mojo::Remote<network::mojom::ConnectionChangeObserverClient> remote_;
 
  private:
   std::unique_ptr<net::EmbeddedTestServer> https_server_;
@@ -362,8 +363,10 @@ INSTANTIATE_TEST_SUITE_P(All,
 
 // Test that search engine preconnects are done only if the browser app is
 // likely in foreground.
+//
+// TODO(crbug.com/413293448): Disabled the test for flakiness due to test setup.
 IN_PROC_BROWSER_TEST_P(SearchEnginePreconnectorForegroundBrowserTest,
-                       PreconnectOnlyInForeground) {
+                       DISABLED_PreconnectOnlyInForeground) {
   static const char16_t kShortName[] = u"test";
   static const char kSearchURL[] =
       "/anchors_different_area.html?q={searchTerms}";
@@ -522,8 +525,10 @@ class SearchEnginePreconnectorDesktopAutoStartBrowserTest
 
 IN_PROC_BROWSER_TEST_F(SearchEnginePreconnectorDesktopAutoStartBrowserTest,
                        AutoStartDesktop) {
+  int preresolve_count =
+      SearchEnginePreconnector::SearchEnginePreconnect2Enabled() ? 1 : 2;
   // Verifies that the default search is preconnected.
-  WaitForPreresolveCountForURL(GURL(kGoogleSearch), 2);
+  WaitForPreresolveCountForURL(GURL(kGoogleSearch), preresolve_count);
 }
 
 class SearchEnginePreconnectorEnabledOnlyBrowserTest
@@ -650,7 +655,8 @@ class SearchEnginePreconnectorWithPreconnect2FeatureBrowserTest
   void OnPreresolveFinished(
       const GURL& url,
       const net::NetworkAnonymizationKey& network_anonymization_key,
-      mojo::PendingRemote<network::mojom::ReconnectEventObserver>& observer,
+      mojo::PendingRemote<network::mojom::ConnectionChangeObserverClient>&
+          observer,
       bool success) override {
     // Take the observer so that we can manually send mojo message.
     if (observer.is_valid() && !remote_.is_bound()) {

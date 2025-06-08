@@ -12,8 +12,8 @@
 #include "third_party/blink/renderer/bindings/modules/v8/v8_gpu_canvas_configuration.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_gpu_canvas_tone_mapping.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_gpu_canvas_tone_mapping_mode.h"
-#include "third_party/blink/renderer/bindings/modules/v8/v8_union_canvasrenderingcontext2d_gpucanvascontext_imagebitmaprenderingcontext_webgl2renderingcontext_webglrenderingcontext.h"
-#include "third_party/blink/renderer/bindings/modules/v8/v8_union_gpucanvascontext_imagebitmaprenderingcontext_offscreencanvasrenderingcontext2d_webgl2renderingcontext_webglrenderingcontext.h"
+#include "third_party/blink/renderer/bindings/modules/v8/v8_union_offscreen_rendering_context.h"
+#include "third_party/blink/renderer/bindings/modules/v8/v8_union_rendering_context.h"
 #include "third_party/blink/renderer/core/frame/web_feature.h"
 #include "third_party/blink/renderer/core/html/canvas/predefined_color_space.h"
 #include "third_party/blink/renderer/core/imagebitmap/image_bitmap.h"
@@ -188,10 +188,10 @@ scoped_refptr<StaticBitmapImage> GPUCanvasContext::GetImage(FlushReason) {
   return SnapshotInternal(front_buffer_texture->GetTexture());
 }
 
-bool GPUCanvasContext::PaintRenderingResultsToCanvas(
+CanvasResourceProvider* GPUCanvasContext::PaintRenderingResultsToCanvas(
     SourceDrawingBuffer source_buffer) {
   if (!swap_buffers_) {
-    return false;
+    return Host()->ResourceProvider();
   }
 
   if (Host()->ResourceProvider() &&
@@ -202,7 +202,7 @@ bool GPUCanvasContext::PaintRenderingResultsToCanvas(
   CanvasResourceProvider* resource_provider =
       Host()->GetOrCreateCanvasResourceProvider();
   if (!resource_provider) {
-    return false;
+    return nullptr;
   }
 
   if (device_->IsDestroyed()) {
@@ -211,7 +211,7 @@ bool GPUCanvasContext::PaintRenderingResultsToCanvas(
                           : SkColors::kTransparent;
     resource_provider->Canvas().clear(color);
     resource_provider->FlushCanvas(FlushReason::kClear);
-    return false;
+    return resource_provider;
   }
 
   wgpu::Texture texture;
@@ -223,28 +223,25 @@ bool GPUCanvasContext::PaintRenderingResultsToCanvas(
     // that copy the front buffer, such as printing.
     // TODO(crbug.com/40902474): Support concurrent SharedImage reads via Dawn
     // on Linux backings and enable the below codepath.
-    return false;
+    return nullptr;
 #else
     // Create a WebGPU texture backed by the front buffer's SharedImage.
     front_buffer_texture = GetFrontBufferMailboxTexture();
     if (!front_buffer_texture) {
-      return false;
+      return resource_provider;
     }
 
     texture = front_buffer_texture->GetTexture();
 #endif
   } else {
     if (!texture_) {
-      return false;
+      return resource_provider;
     }
     texture = texture_->GetHandle();
   }
 
-  if (!texture) {
-    return false;
-  }
-
-  return CopyTextureToResourceProvider(texture, resource_provider);
+  CopyTextureToResourceProvider(texture, resource_provider);
+  return resource_provider;
 }
 
 bool GPUCanvasContext::CopyRenderingResultsToVideoFrame(
@@ -321,15 +318,14 @@ ImageBitmap* GPUCanvasContext::TransferToImageBitmap(
   DCHECK(release_callback);
 
   auto format = client_si->format();
+  auto size = client_si->size();
 
   return MakeGarbageCollected<ImageBitmap>(
       AcceleratedStaticBitmapImage::CreateFromCanvasSharedImage(
           std::move(client_si), sk_image_sync_token,
-          /* shared_image_texture_id = */ 0,
-          gfx::Size(texture_descriptor_.size.width,
-                    texture_descriptor_.size.height),
-          format, kPremul_SkAlphaType, gfx::ColorSpace::CreateSRGB(),
-          GetContextProviderWeakPtr(), base::PlatformThread::CurrentRef(),
+          /* shared_image_texture_id = */ 0, size, format, kPremul_SkAlphaType,
+          gfx::ColorSpace::CreateSRGB(), GetContextProviderWeakPtr(),
+          base::PlatformThread::CurrentRef(),
           ThreadScheduler::Current()->CleanupTaskRunner(),
           std::move(release_callback)));
 }

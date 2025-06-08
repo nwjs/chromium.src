@@ -36,6 +36,7 @@ import org.chromium.chrome.browser.tab.TabSelectionType;
 import org.chromium.chrome.browser.tab_ui.TabContentManager;
 import org.chromium.chrome.browser.tabmodel.NextTabPolicy.NextTabPolicySupplier;
 import org.chromium.chrome.browser.tabmodel.PendingTabClosureManager.PendingTabClosureDelegate;
+import org.chromium.chrome.browser.tabwindow.TabWindowManager;
 import org.chromium.content_public.browser.LoadUrlParams;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.content_public.common.ResourceRequestBody;
@@ -231,7 +232,7 @@ public class TabModelImpl extends TabModelJniBridge {
         super.destroy();
     }
 
-    /** Required to be called before this object is ready for most usage. */
+    @Override
     public void completeInitialization() {
         mInitializationComplete = true;
 
@@ -596,11 +597,15 @@ public class TabModelImpl extends TabModelJniBridge {
         }
     }
 
-    private void closeAllTabs(boolean uponExit, @Nullable Runnable undoRunnable) {
+    private void closeAllTabs(
+            boolean uponExit, boolean allowUndo, @Nullable Runnable undoRunnable) {
         for (TabModelObserver obs : mObservers) obs.willCloseAllTabs(isIncognito());
 
-        // Force close immediately upon exit or if Chrome needs to close with a zero-state.
-        if (uponExit || HomepageManager.getInstance().shouldCloseAppWithZeroTabs()) {
+        // Force close immediately if:
+        // 1. the tabs are to be closed upon app exit,
+        // 2. the operation doesn't allow undo, or
+        // 3. Chrome needs to close with a zero-state.
+        if (uponExit || !allowUndo || HomepageManager.getInstance().shouldCloseAppWithZeroTabs()) {
             commitAllTabClosures();
 
             for (int i = 0; i < getCount(); i++) getTabAt(i).setClosing(true);
@@ -662,6 +667,12 @@ public class TabModelImpl extends TabModelJniBridge {
 
     @Override
     public boolean closeTabs(TabClosureParams tabClosureParams) {
+        if (!tabClosureParams.allowUndo) {
+            // The undo stacks assumes that previous actions in the stack are undoable. If an entry
+            // is not undoable then the reversal of the operations may fail or yield an invalid
+            // state. Commit the rest of the closures now to ensure that doesn't occur.
+            commitAllTabClosures();
+        }
         // TODO(crbug.com/356445932): Respect the provided params more broadly.
         switch (tabClosureParams.tabCloseType) {
             case TabCloseType.SINGLE:
@@ -683,7 +694,10 @@ public class TabModelImpl extends TabModelJniBridge {
                         tabClosureParams.undoRunnable);
                 return true;
             case TabCloseType.ALL:
-                closeAllTabs(tabClosureParams.uponExit, tabClosureParams.undoRunnable);
+                closeAllTabs(
+                        tabClosureParams.uponExit,
+                        tabClosureParams.allowUndo,
+                        tabClosureParams.undoRunnable);
                 return true;
             default:
                 assert false : "Not reached.";
@@ -952,10 +966,17 @@ public class TabModelImpl extends TabModelJniBridge {
         switch (disposition) {
             case WindowOpenDisposition.NEW_WINDOW: // fall through
             case WindowOpenDisposition.NEW_FOREGROUND_TAB:
+                tabLaunchType =
+                        parent.getTabGroupId() == null
+                                ? TabLaunchType.FROM_LONGPRESS_FOREGROUND
+                                : TabLaunchType.FROM_LONGPRESS_FOREGROUND_IN_GROUP;
                 break;
             case WindowOpenDisposition.NEW_POPUP: // fall through
             case WindowOpenDisposition.NEW_BACKGROUND_TAB:
-                tabLaunchType = TabLaunchType.FROM_LONGPRESS_BACKGROUND;
+                tabLaunchType =
+                        parent.getTabGroupId() == null
+                                ? TabLaunchType.FROM_LONGPRESS_BACKGROUND
+                                : TabLaunchType.FROM_LONGPRESS_BACKGROUND_IN_GROUP;
                 break;
             case WindowOpenDisposition.OFF_THE_RECORD:
                 incognito = true;
@@ -995,7 +1016,7 @@ public class TabModelImpl extends TabModelJniBridge {
         Intent intent =
                 MultiWindowUtils.createNewWindowIntent(
                         parentTab.getContext(),
-                        MultiWindowUtils.INVALID_INSTANCE_ID,
+                        TabWindowManager.INVALID_WINDOW_ID,
                         /* preferNew= */ true,
                         /* openAdjacently= */ true,
                         /* addTrustedIntentExtras= */ true);
@@ -1070,6 +1091,19 @@ public class TabModelImpl extends TabModelJniBridge {
             }
         }
         getTabCreator(false).launchNtp();
+    }
+
+    @Override
+    public void openTabProgrammatically(GURL url, int index) {
+        LoadUrlParams loadParams = new LoadUrlParams(url);
+
+        // TODO(crbug.com/415351293): Change tab launch type to allow the specified insertion index.
+        getTabCreator()
+                .createNewTab(
+                        loadParams,
+                        TabLaunchType.FROM_LONGPRESS_BACKGROUND,
+                        /* parent= */ null,
+                        index);
     }
 
     @VisibleForTesting

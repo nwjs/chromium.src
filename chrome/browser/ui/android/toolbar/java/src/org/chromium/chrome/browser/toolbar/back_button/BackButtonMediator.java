@@ -5,11 +5,16 @@
 package org.chromium.chrome.browser.toolbar.back_button;
 
 import android.animation.ObjectAnimator;
+import android.content.Context;
 import android.content.res.ColorStateList;
+import android.content.res.Resources;
+import android.graphics.drawable.InsetDrawable;
 import android.view.View;
 
 import androidx.annotation.DrawableRes;
 import androidx.annotation.VisibleForTesting;
+import androidx.core.content.res.ResourcesCompat;
+import androidx.core.graphics.Insets;
 
 import org.chromium.base.Callback;
 import org.chromium.base.supplier.ObservableSupplier;
@@ -23,6 +28,7 @@ import org.chromium.chrome.browser.toolbar.R;
 import org.chromium.chrome.browser.ui.theme.BrandedColorScheme;
 import org.chromium.ui.modelutil.PropertyModel;
 import org.chromium.ui.modelutil.PropertyModelAnimatorFactory;
+import org.chromium.ui.util.ClickWithMetaStateCallback;
 
 /**
  * A class responsible for mediating external events like theme changes or visibility changes from
@@ -32,35 +38,48 @@ import org.chromium.ui.modelutil.PropertyModelAnimatorFactory;
 class BackButtonMediator implements ThemeColorProvider.TintObserver {
 
     private final PropertyModel mModel;
+    private final Context mContext;
+    private final Resources mResources;
     private final ThemeColorProvider mThemeColorProvider;
     private final TabSupplierObserver mTabObserver;
     private @Nullable Tab mCurrentTab;
-    private boolean mIsTabSwitcherMode;
+    private final ObservableSupplier<Boolean> mEnabledSupplier;
+    private final Callback<Boolean> mEnabledObserver;
+    private Insets mInsets;
+
+    private @DrawableRes int mDrawableResForTesting;
 
     /**
      * Create an instance of {@link BackButtonMediator}.
      *
      * @param model a model that represents back button state.
-     * @param onBackPressed a callback that is invoked on back button click event. Allows parent
-     *     components to intercept click and navigate back in the history or hide custom UI
-     *     components.
+     * @param onBackPressed a {@link Callback<Integer>} (taking a parameter of meta key state) that
+     *     is invoked on back button click event. Allows parent components to intercept click and
+     *     navigate back in the history or hide custom UI components.
      * @param themeColorProvider a provider that notifies about theme changes.
      * @param tabSupplier a supplier that provides current active tab.
      * @param showNavigationPopup a callback that displays history navigation popup.
      */
     public BackButtonMediator(
             PropertyModel model,
-            Runnable onBackPressed,
+            ClickWithMetaStateCallback onBackPressed,
             ThemeColorProvider themeColorProvider,
-            ObservableSupplier<Tab> tabSupplier,
-            Callback<Tab> showNavigationPopup) {
+            ObservableSupplier<@Nullable Tab> tabSupplier,
+            ObservableSupplier<Boolean> enabledSupplier,
+            Callback<Tab> showNavigationPopup,
+            Resources resources,
+            Context context) {
         mModel = model;
         mThemeColorProvider = themeColorProvider;
+        mResources = resources;
+        mContext = context;
+
+        mInsets = Insets.NONE;
 
         mModel.set(
                 BackButtonProperties.CLICK_LISTENER,
-                () -> {
-                    onBackPressed.run();
+                (metaState) -> {
+                    onBackPressed.onClickWithMeta(metaState);
                     updateButtonEnabledState();
                 });
         mModel.set(
@@ -70,15 +89,19 @@ class BackButtonMediator implements ThemeColorProvider.TintObserver {
                     showNavigationPopup.onResult(mCurrentTab);
                 });
 
-        updateBackgroundHighlight(mThemeColorProvider.getBrandedColorScheme());
+        updateBackground(mThemeColorProvider.getBrandedColorScheme());
         mThemeColorProvider.addTintObserver(this);
+
+        mEnabledSupplier = enabledSupplier;
+        mEnabledObserver = (isEnabled) -> updateButtonEnabledState();
+        mEnabledSupplier.addObserver(mEnabledObserver);
 
         // From web_contents_impl.cc and browser.cc back button's enabled state is updated based on
         // the InvalidateType.{TAB, LOAD, and URL} flags that are mapped to the callbacks below.
         mTabObserver =
                 new TabSupplierObserver(tabSupplier, /* shouldTrigger= */ true) {
                     @Override
-                    protected void onObservingDifferentTab(Tab tab) {
+                    protected void onObservingDifferentTab(@Nullable Tab tab) {
                         // ActivityTabProvider returns null for non-interactive tabs, e.g. tab
                         // switcher, and we actually want to keep the most recent tab.
                         // Skipping null to keep recent.
@@ -116,7 +139,7 @@ class BackButtonMediator implements ThemeColorProvider.TintObserver {
 
     private void updateButtonEnabledState() {
         final boolean canGoBack =
-                mCurrentTab != null && mCurrentTab.canGoBack() && !mIsTabSwitcherMode;
+                mCurrentTab != null && mCurrentTab.canGoBack() && mEnabledSupplier.get();
 
         mModel.set(BackButtonProperties.IS_ENABLED, canGoBack);
         mModel.set(BackButtonProperties.IS_FOCUSABLE, canGoBack);
@@ -128,25 +151,27 @@ class BackButtonMediator implements ThemeColorProvider.TintObserver {
             @Nullable ColorStateList activityFocusTint,
             @BrandedColorScheme int brandedColorScheme) {
         mModel.set(BackButtonProperties.TINT_COLOR_LIST, activityFocusTint);
-        updateBackgroundHighlight(brandedColorScheme);
+        updateBackground(brandedColorScheme);
     }
 
-    private void updateBackgroundHighlight(@BrandedColorScheme int brandedThemeColor) {
+    private void updateBackground(@BrandedColorScheme int brandedThemeColor) {
         final @DrawableRes int backgroundRes =
                 brandedThemeColor == BrandedColorScheme.INCOGNITO
                         ? R.drawable.default_icon_background_baseline
                         : R.drawable.default_icon_background;
-        mModel.set(BackButtonProperties.BACKGROUND_HIGHLIGHT_RESOURCE, backgroundRes);
+        mDrawableResForTesting = backgroundRes;
+        var drawable =
+                new InsetDrawable(
+                        ResourcesCompat.getDrawable(mResources, backgroundRes, mContext.getTheme()),
+                        mInsets.left,
+                        mInsets.top,
+                        mInsets.right,
+                        mInsets.bottom);
+        mModel.set(BackButtonProperties.BACKGROUND_HIGHLIGHT, drawable);
     }
 
-    /**
-     * Indicates that parent entered a tab switcher mode.
-     *
-     * @param isTabSwitcherMode whether tab switcher is showing or not.
-     */
-    public void setTabSwitcherMode(boolean isTabSwitcherMode) {
-        mIsTabSwitcherMode = isTabSwitcherMode;
-        updateButtonEnabledState();
+    public @DrawableRes int getBackgroundResForTesting() {
+        return mDrawableResForTesting;
     }
 
     /**
@@ -197,6 +222,11 @@ class BackButtonMediator implements ThemeColorProvider.TintObserver {
         mModel.set(BackButtonProperties.KEY_LISTENER, listener);
     }
 
+    public void setBackgroundInsets(Insets insets) {
+        mInsets = insets;
+        updateBackground(mThemeColorProvider.getBrandedColorScheme());
+    }
+
     /**
      * Cleans up mediator resources and unsubscribes from external events. An instance can't be used
      * after this method is called.
@@ -206,6 +236,7 @@ class BackButtonMediator implements ThemeColorProvider.TintObserver {
         mModel.set(BackButtonProperties.LONG_CLICK_LISTENER, null);
         mThemeColorProvider.removeTintObserver(this);
         mTabObserver.destroy();
+        mEnabledSupplier.removeObserver(mEnabledObserver);
     }
 
     @VisibleForTesting

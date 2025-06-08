@@ -73,6 +73,7 @@ import org.chromium.ui.modelutil.PropertyModel;
 import org.chromium.ui.test.util.BlankUiTestActivity;
 import org.chromium.ui.test.util.NightModeTestUtils;
 import org.chromium.ui.test.util.ViewUtils;
+import org.chromium.url.GURL;
 
 import java.util.Arrays;
 import java.util.List;
@@ -85,7 +86,7 @@ import java.util.List;
 @CommandLineFlags.Add({ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE})
 public class AccessorySheetRenderTest {
     @ParameterAnnotations.ClassParameter
-    private static List<ParameterSet> sClassParams =
+    private static final List<ParameterSet> sClassParams =
             Arrays.asList(
                     new ParameterSet().value(false, false).name("Default"),
                     new ParameterSet().value(false, true).name("RTL"),
@@ -96,7 +97,7 @@ public class AccessorySheetRenderTest {
 
     // No @Rule since we only need the launching helpers. Adding the rule to the chain breaks with
     // any ParameterizedRunnerDelegate.
-    private BaseActivityTestRule<BlankUiTestActivity> mActivityTestRule =
+    private final BaseActivityTestRule<BlankUiTestActivity> mActivityTestRule =
             new BaseActivityTestRule<>(BlankUiTestActivity.class);
 
     @Rule
@@ -396,6 +397,7 @@ public class AccessorySheetRenderTest {
                 .add(
                         new KeyboardAccessoryData.LoyaltyCardInfo(
                                 "CVS Pharmacy",
+                                new GURL("https:://image.server.com/image.png"),
                                 new UserInfoField.Builder()
                                         .setSuggestionType(AccessorySuggestionType.LOYALTY_CARD)
                                         .setDisplayText("987654321")

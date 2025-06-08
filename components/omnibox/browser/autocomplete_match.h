@@ -20,12 +20,14 @@
 #include "base/memory/scoped_refptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/strings/utf_offset_string_conversions.h"
+#include "base/uuid.h"
 #include "build/build_config.h"
 #include "components/omnibox/browser/actions/omnibox_action_concepts.h"
 #include "components/omnibox/browser/autocomplete_input.h"
 #include "components/omnibox/browser/autocomplete_match_type.h"
 #include "components/omnibox/browser/buildflags.h"
 #include "components/omnibox/browser/suggestion_answer.h"
+#include "components/saved_tab_groups/public/types.h"
 #include "components/search_engines/template_url.h"
 #include "components/url_formatter/url_formatter.h"
 #include "third_party/metrics_proto/omnibox_event.pb.h"
@@ -34,6 +36,7 @@
 #include "third_party/omnibox_proto/groups.pb.h"
 #include "third_party/omnibox_proto/navigational_intent.pb.h"
 #include "third_party/omnibox_proto/rich_answer_template.pb.h"
+#include "third_party/omnibox_proto/suggest_template_info.pb.h"
 #include "third_party/omnibox_proto/types.pb.h"
 #include "third_party/perfetto/include/perfetto/tracing/traced_value_forward.h"
 #include "ui/base/page_transition_types.h"
@@ -149,13 +152,8 @@ struct AutocompleteMatch {
     ACMatchClassification(size_t offset, int style)
         : offset(offset), style(style) {}
 
-    bool operator==(const ACMatchClassification& other) const {
-      return offset == other.offset && style == other.style;
-    }
-
-    bool operator!=(const ACMatchClassification& other) const {
-      return offset != other.offset || style != other.style;
-    }
+    friend bool operator==(const ACMatchClassification&,
+                           const ACMatchClassification&) = default;
 
     // Offset within the string that this classification starts
     size_t offset;
@@ -601,6 +599,9 @@ struct AutocompleteMatch {
   // next.
   int GetSortingOrder() const;
 
+  // Whether this autocomplete match supports custom descriptions.
+  bool HasCustomDescription() const;
+
   // Returns true if the match is eligible for ML scoring signal logging.
   bool IsMlSignalLoggingEligible() const;
 
@@ -705,6 +706,9 @@ struct AutocompleteMatch {
     auto it = std::ranges::find_if(actions, std::move(predicate));
     return it != actions.end() ? it->get() : nullptr;
   }
+
+  // Returns true if this match has a `takeover_action` with given `id`.
+  bool HasTakeoverAction(OmniboxActionId id) const;
 
   // Create a new match from scratch based on this match and its action at
   // given `action_index`. The content and takeover match on the returned
@@ -853,6 +857,8 @@ struct AutocompleteMatch {
 
   std::optional<omnibox::RichAnswerTemplate> answer_template;
 
+  std::optional<omnibox::SuggestTemplateInfo> suggest_template;
+
   // AnswerType for answer verticals, including rich answers.
   omnibox::AnswerType answer_type{omnibox::ANSWER_TYPE_UNSPECIFIED};
 
@@ -955,6 +961,13 @@ struct AutocompleteMatch {
   bool typed_search_suggestions_shown_in_session = false;
   bool typed_url_suggestions_shown_in_session = false;
 
+  // Whether at least one contextual search suggestion was shown in the session.
+  bool contextual_search_suggestions_shown_in_session = false;
+
+  // Whether the "Ask Google Lens about this page" action was shown at least
+  // once in the session.
+  bool lens_action_shown_in_session = false;
+
   // Optional search terms args.  If present,
   // AutocompleteController::UpdateSearchboxStats() will incorporate this data
   // with additional data it calculates and pass the completed struct to
@@ -1019,6 +1032,9 @@ struct AutocompleteMatch {
 
   // The user feedback on the match.
   FeedbackType feedback_type = FeedbackType::kNone;
+
+  // Stores the matching tab group uuid for this suggestion.
+  std::optional<base::Uuid> matching_tab_group_uuid = std::nullopt;
 
   // So users of AutocompleteMatch can use the same ellipsis that it uses.
   static const char16_t kEllipsis[];

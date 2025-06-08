@@ -37,7 +37,6 @@ import org.robolectric.annotation.Implements;
 
 import org.chromium.base.Callback;
 import org.chromium.base.ContextUtils;
-import org.chromium.base.MathUtils;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.chrome.browser.omnibox.UrlBarViewBinderUnitTest.ShadowOmniboxResourceProvider;
 import org.chromium.chrome.browser.omnibox.styles.OmniboxResourceProvider;
@@ -190,11 +189,17 @@ public class UrlBarViewBinderUnitTest {
     @Test
     @SmallTest
     public void testSetHintText() {
-        mModel.set(HINT_TEXT, R.string.hub_search_empty_hint);
-        Assert.assertEquals(mActivity.getString(R.string.hub_search_empty_hint), mUrlBar.getHint());
-        mModel.set(HINT_TEXT, R.string.hub_search_empty_hint_incognito);
-        Assert.assertEquals(
-                mActivity.getString(R.string.hub_search_empty_hint_incognito), mUrlBar.getHint());
+        mModel.set(HINT_TEXT, "Hint Text");
+        Assert.assertEquals("Hint Text", mUrlBar.getHint());
+        mModel.set(HINT_TEXT, "Different Hint Text");
+        Assert.assertEquals("Different Hint Text", mUrlBar.getHint());
+
+        mModel.set(UrlBarProperties.USE_SMALL_TEXT, true);
+        Assert.assertNull(mUrlBar.getHint());
+        mModel.set(HINT_TEXT, "Hint Text");
+        Assert.assertNull(mUrlBar.getHint());
+        mModel.set(UrlBarProperties.USE_SMALL_TEXT, false);
+        Assert.assertEquals("Hint Text", mUrlBar.getHint());
     }
 
     @Test
@@ -208,12 +213,21 @@ public class UrlBarViewBinderUnitTest {
     @Test
     @SmallTest
     public void testTextSize() {
-        float normalTextSize =
-                mActivity.getResources().getDimension(R.dimen.location_bar_url_text_size);
-        float smallTextSize = mActivity.getResources().getDimension(R.dimen.text_size_small);
-        Assert.assertEquals(normalTextSize, mUrlBar.getTextSize(), MathUtils.EPSILON);
+        mUrlBar.setPaddingRelative(13, 0, 17, 0);
+        int normalPadding =
+                mActivity.getResources().getDimensionPixelSize(R.dimen.url_bar_vertical_padding);
+        int smallPadding = 0;
 
         mModel.set(UrlBarProperties.USE_SMALL_TEXT, true);
-        Assert.assertEquals(smallTextSize, mUrlBar.getTextSize(), MathUtils.EPSILON);
+        Assert.assertEquals(smallPadding, mUrlBar.getPaddingBottom());
+        Assert.assertEquals(smallPadding, mUrlBar.getPaddingTop());
+        Assert.assertEquals(13, mUrlBar.getPaddingStart());
+        Assert.assertEquals(17, mUrlBar.getPaddingEnd());
+
+        mModel.set(UrlBarProperties.USE_SMALL_TEXT, false);
+        Assert.assertEquals(normalPadding, mUrlBar.getPaddingBottom());
+        Assert.assertEquals(normalPadding, mUrlBar.getPaddingTop());
+        Assert.assertEquals(13, mUrlBar.getPaddingStart());
+        Assert.assertEquals(17, mUrlBar.getPaddingEnd());
     }
 }

@@ -2,13 +2,16 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+import 'chrome://resources/cr_elements/cr_lazy_list/cr_lazy_list.js';
 import '/strings.m.js';
 import '../tab_search_item.js';
 
 import {ColorChangeUpdater} from 'chrome://resources/cr_components/color_change_listener/colors_css_updater.js';
+import type {CrLazyListElement} from 'chrome://resources/cr_elements/cr_lazy_list/cr_lazy_list.js';
 import {assert} from 'chrome://resources/js/assert.js';
 import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
 import {CrLitElement} from 'chrome://resources/lit/v3_0/lit.rollup.js';
+import type {PropertyValues} from 'chrome://resources/lit/v3_0/lit.rollup.js';
 
 import {normalizeURL, TabData, TabItemType} from '../tab_data.js';
 import type {ProfileData, Tab, TabsRemovedInfo, TabUpdateInfo} from '../tab_search.mojom-webui.js';
@@ -19,6 +22,13 @@ import {tabHasMediaAlerts} from '../tab_search_utils.js';
 
 import {getCss} from './app.css.js';
 import {getHtml} from './app.html.js';
+
+export interface SplitNewTabPageAppElement {
+  $: {
+    header: HTMLElement,
+    splitTabsList: CrLazyListElement,
+  };
+}
 
 export class SplitNewTabPageAppElement extends CrLitElement {
   static get is() {
@@ -36,17 +46,35 @@ export class SplitNewTabPageAppElement extends CrLitElement {
   static override get properties() {
     return {
       allInvisibleTabs_: {type: Array},
+      scrollTarget_: {type: Object},
+      focusedIndex_: {type: Number},
+      focusedItem_: {type: Object},
+      minViewportHeight_: {type: Number},
     };
   }
 
   protected accessor allInvisibleTabs_: TabData[] = [];
+  protected accessor scrollTarget_: HTMLElement|null = null;
+  protected accessor focusedIndex_: number = -1;
+  protected accessor focusedItem_: HTMLElement|null = null;
+  protected accessor minViewportHeight_: number = 0;
+  protected title_: string = '';
   private activeTabId_: number = -1;
   private apiProxy_: TabSearchApiProxy = TabSearchApiProxyImpl.getInstance();
   private listenerIds_: number[] = [];
+  private visibilityChangedListener_: () => void;
 
   constructor() {
     super();
     ColorChangeUpdater.forDocument().start();
+
+    this.visibilityChangedListener_ = () => {
+      if (document.visibilityState === 'visible') {
+        this.apiProxy_.getProfileData().then(({profileData}) => {
+          this.onTabsChanged_(profileData);
+        });
+      }
+    };
   }
 
   override connectedCallback() {
@@ -69,9 +97,14 @@ export class SplitNewTabPageAppElement extends CrLitElement {
         callbackRouter.tabsRemoved.addListener(this.onTabsRemoved_.bind(this)),
         callbackRouter.tabUnsplit.addListener(this.redirectToNtp_.bind(this)));
 
+    this.scrollTarget_ = this.$.splitTabsList;
+
     this.apiProxy_.getProfileData().then(({profileData}) => {
       this.onTabsChanged_(profileData);
     });
+
+    document.addEventListener(
+        'visibilitychange', this.visibilityChangedListener_);
   }
 
   override disconnectedCallback() {
@@ -80,6 +113,20 @@ export class SplitNewTabPageAppElement extends CrLitElement {
     this.listenerIds_.forEach(
         id => this.apiProxy_.getCallbackRouter().removeListener(id));
     this.listenerIds_ = [];
+
+    document.removeEventListener(
+        'visibilitychange', this.visibilityChangedListener_);
+  }
+
+  override updated(changedProperties: PropertyValues<this>) {
+    super.updated(changedProperties);
+
+    const changedPrivateProperties =
+        changedProperties as Map<PropertyKey, unknown>;
+
+    if (changedPrivateProperties.has('focusedIndex_')) {
+      this.updateFocusedItem_();
+    }
   }
 
   protected onClose_() {
@@ -94,6 +141,13 @@ export class SplitNewTabPageAppElement extends CrLitElement {
     this.apiProxy_.replaceActiveSplitTab((target.data.tab as Tab).tabId);
   }
 
+  protected updateFocusedItem_() {
+    this.focusedItem_ = this.focusedIndex_ === -1 ?
+        null :
+        this.querySelector<HTMLElement>(
+            `cr-lazy-list > *:nth-child(${this.focusedIndex_ + 1})`);
+  }
+
   private onTabsChanged_(profileData: ProfileData) {
     const activeWindow = profileData.windows.find(({active}) => active)!;
     this.activeTabId_ = activeWindow.tabs.find((tab) => tab.active)!.tabId;
@@ -101,6 +155,9 @@ export class SplitNewTabPageAppElement extends CrLitElement {
         activeWindow.tabs.filter(tab => !tab.visible)
             .map(tab => this.getTabData_(tab, true, TabItemType.OPEN_TAB));
     this.sortTabs_();
+    this.updateComplete.then(() => {
+      this.updateViewportHeight_(profileData);
+    });
   }
 
   private onTabUpdated_(tabUpdateInfo: TabUpdateInfo) {
@@ -117,6 +174,8 @@ export class SplitNewTabPageAppElement extends CrLitElement {
     } else {
       this.allInvisibleTabs_.push(tabData);
     }
+    this.allInvisibleTabs_ =
+        this.allInvisibleTabs_.filter(tab => !(tab.tab as Tab).visible);
     this.sortTabs_();
   }
 
@@ -147,6 +206,10 @@ export class SplitNewTabPageAppElement extends CrLitElement {
               tabA.lastActiveTimeTicks.internalValue) :
           0;
     });
+
+    this.title_ = this.allInvisibleTabs_.length === 0 ?
+        loadTimeData.getString('splitViewEmptyTitle') :
+        loadTimeData.getString('splitViewTitle');
   }
 
   private getTabData_(tab: Tab, inActiveWindow: boolean, type: TabItemType):
@@ -165,6 +228,12 @@ export class SplitNewTabPageAppElement extends CrLitElement {
 
   private redirectToNtp_() {
     window.location.replace(loadTimeData.getString('newTabPageUrl'));
+  }
+
+  private updateViewportHeight_(profileData: ProfileData) {
+    const activeWindow = profileData.windows.find(({active}) => active)!;
+    this.minViewportHeight_ =
+        activeWindow ? activeWindow.height - this.$.header.offsetHeight : 0;
   }
 }
 

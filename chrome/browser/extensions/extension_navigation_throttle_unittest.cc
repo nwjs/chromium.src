@@ -15,8 +15,10 @@
 #include "components/crx_file/id_util.h"
 #include "content/public/browser/content_browser_client.h"
 #include "content/public/browser/navigation_handle.h"
+#include "content/public/browser/navigation_throttle_registry.h"
 #include "content/public/common/content_client.h"
 #include "content/public/test/mock_navigation_handle.h"
+#include "content/public/test/mock_navigation_throttle_registry.h"
 #include "content/public/test/navigation_simulator.h"
 #include "content/public/test/test_renderer_host.h"
 #include "content/public/test/web_contents_tester.h"
@@ -45,11 +47,10 @@ class MockBrowserClient : public content::ContentBrowserClient {
 
   // Only construct an ExtensionNavigationThrottle so that we can test it in
   // isolation.
-  std::vector<std::unique_ptr<NavigationThrottle>> CreateThrottlesForNavigation(
-      content::NavigationHandle* handle) override {
-    std::vector<std::unique_ptr<NavigationThrottle>> throttles;
-    throttles.push_back(std::make_unique<ExtensionNavigationThrottle>(handle));
-    return throttles;
+  void CreateThrottlesForNavigation(
+      content::NavigationThrottleRegistry& registry) override {
+    registry.AddThrottle(
+        std::make_unique<ExtensionNavigationThrottle>(registry));
   }
 };
 
@@ -110,7 +111,9 @@ class ExtensionNavigationThrottleUnitTest
     content::MockNavigationHandle test_handle(extension_url, host);
     test_handle.set_initiator_origin(host->GetLastCommittedOrigin());
     test_handle.set_starting_site_instance(host->GetSiteInstance());
-    auto throttle = std::make_unique<ExtensionNavigationThrottle>(&test_handle);
+    content::MockNavigationThrottleRegistry test_registry(&test_handle);
+    auto throttle =
+        std::make_unique<ExtensionNavigationThrottle>(test_registry);
 
     EXPECT_EQ(expected_will_start_result, throttle->WillStartRequest().action())
         << extension_url;

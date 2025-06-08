@@ -135,7 +135,7 @@ BASE_FEATURE(kWaylandTextInputV3,
 // scaling is enabled.
 BASE_FEATURE(kWaylandUiScale,
              "WaylandUiScale",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Controls whether Wayland session management protocol is enabled.
 BASE_FEATURE(kWaylandSessionManagement,
@@ -292,6 +292,22 @@ bool IsTouchTextEditingRedesignEnabled() {
   return base::FeatureList::IsEnabled(kTouchTextEditingRedesign);
 }
 
+// This feature enables drag and drop using touch input devices.
+BASE_FEATURE(kTouchDragAndDrop,
+             "TouchDragAndDrop",
+#if BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
+             base::FEATURE_ENABLED_BY_DEFAULT
+#else
+             base::FEATURE_DISABLED_BY_DEFAULT
+#endif
+);
+
+bool IsTouchDragAndDropEnabled() {
+  static const bool touch_drag_and_drop_enabled =
+      base::FeatureList::IsEnabled(kTouchDragAndDrop);
+  return touch_drag_and_drop_enabled;
+}
+
 // Enables forced colors mode for web content.
 BASE_FEATURE(kForcedColors, "ForcedColors", base::FEATURE_ENABLED_BY_DEFAULT);
 
@@ -357,7 +373,9 @@ const char kFilterNameOneEuro[] = "one_euro_filter";
 const char kPredictionTypeTimeBased[] = "time";
 const char kPredictionTypeFramesBased[] = "frames";
 const char kPredictionTypeDefaultTime[] = "3.3";
-const char kPredictionTypeDefaultFramesRatio[] = "0.5";
+const char kPredictionTypeDefaultFramesVariation1[] = "0.25";
+const char kPredictionTypeDefaultFramesVariation2[] = "0.375";
+const char kPredictionTypeDefaultFramesVariation3[] = "0.5";
 
 BASE_FEATURE(kSwipeToMoveCursor,
              "SwipeToMoveCursor",
@@ -471,5 +489,21 @@ BASE_FEATURE(kAsyncFullscreenWindowState,
 BASE_FEATURE(kClipboardChangeEvent,
              "ClipboardChangeEvent",
              base::FEATURE_DISABLED_BY_DEFAULT);
+
+// If enabled, all draw commands recorded on canvas are done in pixel aligned
+// measurements. This also enables scaling of all elements in views and layers
+// to be done via corner points. See https://crbug.com/720596 for details.
+BASE_FEATURE(kEnablePixelCanvasRecording,
+             "enable-pixel-canvas-recording",
+#if BUILDFLAG(IS_CHROMEOS)
+             base::FEATURE_ENABLED_BY_DEFAULT
+#else
+             base::FEATURE_DISABLED_BY_DEFAULT
+#endif
+);
+
+bool IsPixelCanvasRecordingEnabled() {
+  return base::FeatureList::IsEnabled(features::kEnablePixelCanvasRecording);
+}
 
 }  // namespace features

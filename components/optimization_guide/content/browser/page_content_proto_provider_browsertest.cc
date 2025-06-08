@@ -5,6 +5,7 @@
 #include "components/optimization_guide/content/browser/page_content_proto_provider.h"
 
 #include "base/run_loop.h"
+#include "base/strings/stringprintf.h"
 #include "base/test/test_future.h"
 #include "components/network_session_configurator/common/network_switches.h"
 #include "components/optimization_guide/core/optimization_guide_features.h"
@@ -330,8 +331,42 @@ IN_PROC_BROWSER_TEST_F(PageContentProtoProviderBrowserTestActionableElements,
   const auto& label = ContentRootNode().children_nodes()[1];
   ASSERT_TRUE(label.content_attributes().has_interaction_info());
   EXPECT_TRUE(label.content_attributes().interaction_info().is_clickable());
-  EXPECT_EQ(label.content_attributes().interaction_info().for_dom_node_id(),
+  EXPECT_EQ(label.content_attributes().label_for_dom_node_id(),
             input.content_attributes().common_ancestor_dom_node_id());
+}
+
+IN_PROC_BROWSER_TEST_F(PageContentProtoProviderBrowserTestActionableElements,
+                       LabelNotActionable) {
+  LoadPage(https_server()->GetURL("/label_not_actionable.html"));
+  EXPECT_EQ(page_content().version(),
+            optimization_guide::proto::
+                ANNOTATED_PAGE_CONTENT_VERSION_ONLY_ACTIONABLE_ELEMENTS_1_0);
+
+  EXPECT_EQ(ContentRootNode().children_nodes().size(), 2);
+
+  const auto& input = ContentRootNode().children_nodes()[0];
+  ASSERT_TRUE(input.content_attributes().has_interaction_info());
+  EXPECT_TRUE(input.content_attributes().interaction_info().is_clickable());
+
+  const auto& label = ContentRootNode().children_nodes()[1];
+  EXPECT_FALSE(label.content_attributes().has_interaction_info());
+  EXPECT_EQ(label.content_attributes().label_for_dom_node_id(),
+            input.content_attributes().common_ancestor_dom_node_id());
+}
+
+IN_PROC_BROWSER_TEST_F(PageContentProtoProviderBrowserTestActionableElements,
+                       AriaRole) {
+  LoadPage(https_server()->GetURL("/aria_role.html"));
+  EXPECT_EQ(page_content().version(),
+            optimization_guide::proto::
+                ANNOTATED_PAGE_CONTENT_VERSION_ONLY_ACTIONABLE_ELEMENTS_1_0);
+
+  EXPECT_EQ(ContentRootNode().children_nodes().size(), 1);
+  const auto& button = ContentRootNode().children_nodes()[0];
+  ASSERT_TRUE(button.content_attributes().has_interaction_info());
+  EXPECT_TRUE(button.content_attributes().interaction_info().is_clickable());
+  EXPECT_EQ(button.content_attributes().aria_role(),
+            optimization_guide::proto::AXRole::AX_ROLE_BUTTON);
 }
 
 IN_PROC_BROWSER_TEST_F(PageContentProtoProviderBrowserTestActionableElements,

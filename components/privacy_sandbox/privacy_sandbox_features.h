@@ -47,8 +47,6 @@ COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
 extern const char
     kPrivacySandboxSettings4ForceShowNoticeRestrictedForTestingName[];
 COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
-extern const char kPrivacySandboxSettings4ForceRestrictedUserForTestingName[];
-COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
 extern const char kPrivacySandboxSettings4ShowSampleDataForTestingName[];
 
 // When true, the user will be shown a consent to enable the Privacy Sandbox
@@ -82,9 +80,6 @@ extern const base::FeatureParam<bool>
 COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
 extern const base::FeatureParam<bool>
     kPrivacySandboxSettings4ForceShowNoticeRestrictedForTesting;
-COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
-extern const base::FeatureParam<bool>
-    kPrivacySandboxSettings4ForceRestrictedUserForTesting;
 COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
 extern const base::FeatureParam<bool>
     kPrivacySandboxSettings4ShowSampleDataForTesting;
@@ -165,10 +160,6 @@ BASE_DECLARE_FEATURE(kIpProtectionUx);
 // Enables displaying ACT features in User Bypass.
 COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
 BASE_DECLARE_FEATURE(kActUserBypassUx);
-
-// Enables UserBypass to set/reset TRACKING_PROTECTION content settings.
-COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
-BASE_DECLARE_FEATURE(kTrackingProtectionContentSettingUbControl);
 
 // Enables TRACKING_PROTECTION content settings to control 3pcb.
 COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
@@ -286,10 +277,6 @@ COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
 extern const base::FeatureParam<int>
     kPrivacySandboxCctAdsNoticeSurveyDelaysMilliseconds;
 
-// If true, enables debouncing for button clicks on all Android notices.
-COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
-BASE_DECLARE_FEATURE(kPrivacySandboxNoticeActionDebouncingAndroid);
-
 // The delay in milliseconds between the first click and the next accepted
 // click.
 COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
@@ -309,9 +296,9 @@ BASE_DECLARE_FEATURE(kPrivacySandboxAllowPromptForBlocked3PCookies);
 COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
 BASE_DECLARE_FEATURE(kPrivacySandboxMigratePrefsToSchemaV2);
 
-// If true, show the V2 of the Privacy Sandbox first time notice.
+// If true, enable showing notices through the notice framework.
 COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
-BASE_DECLARE_FEATURE(kPrivacySandboxFirstTimeNoticeV2);
+BASE_DECLARE_FEATURE(kPrivacySandboxNoticeFramework);
 
 }  // namespace privacy_sandbox
 

@@ -12,7 +12,6 @@
 #include "base/functional/callback_forward.h"
 #include "base/functional/callback_helpers.h"
 #include "base/metrics/user_metrics.h"
-#include "base/not_fatal_until.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/uuid.h"
 #include "chrome/browser/collaboration/collaboration_service_factory.h"
@@ -58,6 +57,7 @@
 #include "components/sync/service/sync_user_settings.h"
 #include "components/tab_groups/tab_group_id.h"
 #include "content/public/browser/web_contents.h"
+#include "ui/gfx/range/range.h"
 #include "url/gurl.h"
 
 namespace tab_groups {
@@ -278,7 +278,7 @@ void SavedTabGroupUtils::MaybeShowSavedTabGroupDeletionDialog(
   tab_groups::TabGroupSyncService* tab_group_service =
       tab_groups::SavedTabGroupUtils::GetServiceForProfile(browser->profile());
 
-  CHECK(group_ids.size() > 0, base::NotFatalUntil::M130);
+  CHECK(group_ids.size() > 0);
 
   // Confirmation is only needed if SavedTabGroups are being deleted. If the
   // service doesnt exist there are no saved tab groups.
@@ -568,21 +568,20 @@ void SavedTabGroupUtils::FocusFirstTabOrWindowInOpenGroup(
       browser_for_activation->tab_strip_model()->group_model()->GetTabGroup(
           local_group_id);
 
-  std::optional<int> first_tab = tab_group->GetFirstTab();
-  std::optional<int> last_tab = tab_group->GetLastTab();
+  gfx::Range tab_group_index_range = tab_group->ListTabs();
+  CHECK(!tab_group_index_range.is_empty());
+
   int active_index = browser_for_activation->tab_strip_model()->active_index();
-  CHECK(first_tab.has_value());
-  CHECK(last_tab.has_value());
   CHECK_GE(active_index, 0);
 
-  if (active_index >= first_tab.value() && active_index <= last_tab) {
+  if (active_index >= static_cast<int>(tab_group_index_range.GetMin()) &&
+      active_index < static_cast<int>(tab_group_index_range.GetMax())) {
     browser_for_activation->window()->Activate();
     return;
   }
 
   browser_for_activation->ActivateContents(
-      browser_for_activation->tab_strip_model()->GetWebContentsAt(
-          first_tab.value()));
+      tab_group->GetFirstTab()->GetContents());
 
   base::RecordAction(
       base::UserMetricsAction("TabGroups_SavedTabGroups_Focused"));

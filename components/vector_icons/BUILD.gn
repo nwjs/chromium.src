@@ -176,6 +176,7 @@ if (current_toolchain == default_toolchain) {
       "page_info_content_paste.icon",
       "passkey.icon",
       "password_manager.icon",
+      "password_manager_off.icon",
       "pause.icon",
       "pause_chrome_refresh.icon",
       "photo.icon",
@@ -199,6 +200,8 @@ if (current_toolchain == default_toolchain) {
       "reload_chrome_refresh.icon",
       "replay.icon",
       "replay_10.icon",
+      "router.icon",
+      "router_off.icon",
       "save_cloud.icon",
       "science.icon",
       "screen_share.icon",
@@ -284,6 +287,7 @@ if (current_toolchain == default_toolchain) {
 
     if (is_chrome_branded) {
       sources += [
+        "google_chrome/google_agentspace_monochrome_logo.icon",
         "google_chrome/google_calendar.icon",
         "google_chrome/google_chrome_webstore.icon",
         "google_chrome/google_docs.icon",
@@ -304,6 +308,8 @@ if (current_toolchain == default_toolchain) {
         "google_chrome/google_sites.icon",
         "google_chrome/google_slides.icon",
         "google_chrome/google_super_g.icon",
+        "google_chrome/google_wallet.icon",
+        "google_chrome/google_wallet_monochrome.icon",
         "google_chrome/gshield.icon",
         "google_chrome/page_insights.icon",
         "google_chrome/page_insights_color.icon",

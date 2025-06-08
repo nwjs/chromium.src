@@ -14,6 +14,7 @@
 #include <vector>
 
 #include "base/check.h"
+#include "base/check_is_test.h"
 #include "base/check_op.h"
 #include "base/containers/flat_set.h"
 #include "base/containers/flat_tree.h"
@@ -24,7 +25,6 @@
 #include "base/functional/callback_helpers.h"
 #include "base/logging.h"
 #include "base/metrics/histogram_functions.h"
-#include "base/not_fatal_until.h"
 #include "base/strings/to_string.h"
 #include "base/types/expected.h"
 #include "base/types/pass_key.h"
@@ -67,6 +67,10 @@
 
 namespace web_app {
 namespace {
+
+bool g_disable_resume_sync_install_and_missing_os_integration_for_testing =
+    false;
+
 // Returns the manifest id from the sync entity. Does not validate whether the
 // manifest_id is valid.
 base::expected<webapps::ManifestId, StorageKeyParseResult>
@@ -189,6 +193,15 @@ void ApplySyncDataToApp(const sync_pb::WebAppSpecifics& sync_proto,
   }
   app->SetSyncProto(std::move(modified_sync_proto));
   CHECK(HasCurrentPlatformUserDisplayMode(app->sync_proto()));
+}
+
+// static
+base::AutoReset<bool>
+WebAppSyncBridge::DisableResumeSyncInstallAndMissingOsIntegrationForTesting() {
+  CHECK_IS_TEST();
+  return base::AutoReset<bool>(
+      &g_disable_resume_sync_install_and_missing_os_integration_for_testing,
+      true);
 }
 
 WebAppSyncBridge::WebAppSyncBridge(WebAppRegistrarMutable* registrar)
@@ -356,7 +369,7 @@ void WebAppSyncBridge::SetAppManifestUpdateTime(const webapps::AppId& app_id,
 
 void WebAppSyncBridge::SetUserPageOrdinal(const webapps::AppId& app_id,
                                           syncer::StringOrdinal page_ordinal) {
-  CHECK(page_ordinal.IsValid(), base::NotFatalUntil::M126);
+  CHECK(page_ordinal.IsValid());
   ScopedRegistryUpdate update = BeginUpdate();
   WebApp* web_app = update->UpdateApp(app_id);
   // Due to the extensions sync system setting ordinals on sync, this can get
@@ -376,7 +389,7 @@ void WebAppSyncBridge::SetUserPageOrdinal(const webapps::AppId& app_id,
 void WebAppSyncBridge::SetUserLaunchOrdinal(
     const webapps::AppId& app_id,
     syncer::StringOrdinal launch_ordinal) {
-  CHECK(launch_ordinal.IsValid(), base::NotFatalUntil::M126);
+  CHECK(launch_ordinal.IsValid());
   ScopedRegistryUpdate update = BeginUpdate();
   // Due to the extensions sync system setting ordinals on sync, this can get
   // called before the app is installed in the web apps system. Until apps are
@@ -509,7 +522,7 @@ void WebAppSyncBridge::UpdateRegistrar(
   }
   for (const webapps::AppId& app_id : update_data->apps_to_delete) {
     auto it = registrar_->registry().find(app_id);
-    CHECK(it != registrar_->registry().end(), base::NotFatalUntil::M130);
+    CHECK(it != registrar_->registry().end());
     registrar_->registry().erase(it);
   }
 }
@@ -528,7 +541,7 @@ void WebAppSyncBridge::UpdateSync(
 
   for (const std::unique_ptr<WebApp>& new_app : update_data.apps_to_create) {
     if (new_app->IsSynced()) {
-      CHECK(new_app->manifest_id().is_valid(), base::NotFatalUntil::M125);
+      CHECK(new_app->manifest_id().is_valid());
       change_processor()->Put(new_app->app_id(), CreateSyncEntityData(*new_app),
                               metadata_change_list);
     }
@@ -544,7 +557,7 @@ void WebAppSyncBridge::UpdateSync(
     // the app if IsSynced flag stays true. Exclude the app from the sync "view"
     // if IsSynced flag becomes false.
     if (new_state->IsSynced()) {
-      CHECK(new_state->manifest_id().is_valid(), base::NotFatalUntil::M125);
+      CHECK(new_state->manifest_id().is_valid());
       // Only call 'Put' if it wasn't synced, or if the sync data has changed.
       // TODO(https://crbug.com/409867622): We can remove this optimization
       // after tests are updated to use a Fake version instead of the Mock
@@ -902,18 +915,18 @@ std::unique_ptr<syncer::DataBatch> WebAppSyncBridge::GetAllDataForDebugging() {
 }
 
 std::string WebAppSyncBridge::GetClientTag(
-    const syncer::EntityData& entity_data) {
-  CHECK(entity_data.specifics.has_web_app(), base::NotFatalUntil::M125);
+    const syncer::EntityData& entity_data) const {
+  CHECK(entity_data.specifics.has_web_app());
   base::expected<webapps::ManifestId, StorageKeyParseResult> manifest_id =
       ParseManifestIdFromSyncEntity(entity_data.specifics.web_app());
   // This is guaranteed to be true, as the contract for this function is that
   // IsEntityDataValid must be true.
-  CHECK(manifest_id.has_value(), base::NotFatalUntil::M125);
+  CHECK(manifest_id.has_value());
   return GenerateAppIdFromManifestId(manifest_id.value());
 }
 
 std::string WebAppSyncBridge::GetStorageKey(
-    const syncer::EntityData& entity_data) {
+    const syncer::EntityData& entity_data) const {
   return GetClientTag(entity_data);
 }
 
@@ -977,7 +990,11 @@ void WebAppSyncBridge::MaybeUninstallAppsPendingUninstall() {
   }
 }
 
-void WebAppSyncBridge::MaybeInstallAppsFromSyncAndPendingInstallOrSyncOsIntegration() {
+void WebAppSyncBridge::
+    MaybeInstallAppsFromSyncAndPendingInstallOrSyncOsIntegration() {
+  if (g_disable_resume_sync_install_and_missing_os_integration_for_testing) {
+    return;
+  }
   for (WebApp& app : registrar_->GetAppsIncludingStubs()) {
     if (app.is_from_sync_and_pending_installation()) {
       command_scheduler_->InstallFromSync(app, base::DoNothing());
@@ -991,12 +1008,11 @@ void WebAppSyncBridge::MaybeInstallAppsFromSyncAndPendingInstallOrSyncOsIntegrat
       // for all apps that are installed with OS integration but don't have
       // shortcut fields set to complete this operation.
       command_scheduler_->SynchronizeOsIntegration(
-          app.app_id(),
-          base::BindOnce([]() {
+          app.app_id(), base::BindOnce([]() {
             base::UmaHistogramBoolean(
                 "WebApp.Install.CompletedOsIntegrationOnStartup", true);
           }));
-      }
+    }
   }
 }
 

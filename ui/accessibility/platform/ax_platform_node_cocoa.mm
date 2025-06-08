@@ -603,9 +603,9 @@ const ui::CocoaActionList& GetCocoaActionListForTesting() {
 
   // No label for windows or native dialogs.
   ax::mojom::Role role = _node->GetRole();
-  if (ui::IsWindow(role) ||
-      (ui::IsDialog(role) && !_node->GetDelegate()->IsWebContent()))
+  if (ui::IsWindow(role) || (ui::IsDialog(role) && !_node->IsWebContent())) {
     return false;
+  }
 
   // VoiceOver computes the wrong description for a link.
   if (ui::IsLink(role))
@@ -2433,8 +2433,7 @@ const ui::CocoaActionList& GetCocoaActionListForTesting() {
 
 // LINT.IfChange
 - (NSString*)AXSelectedText {
-  NSRange selectedTextRange;
-  [[self AXSelectedTextRange] getValue:&selectedTextRange];
+  NSRange selectedTextRange = [[self AXSelectedTextRange] rangeValue];
   return [[self getAXValueAsString] substringWithRange:selectedTextRange];
 }
 // LINT.ThenChange(accessibilitySelectedText)

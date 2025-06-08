@@ -6,6 +6,7 @@ import("//build/config/chrome_build.gni")
 
 source_set("history_sync") {
   sources = [
+    "history_sync_constants.h",
     "history_sync_coordinator.h",
     "history_sync_coordinator.mm",
     "history_sync_mediator.h",
@@ -43,7 +44,7 @@ source_set("history_sync") {
     "//ios/chrome/browser/signin/model:authentication_service",
     "//ios/chrome/browser/signin/model:authentication_service_factory",
     "//ios/chrome/browser/sync/model",
-    "//ios/chrome/common/ui/promo_style:promo_style",
+    "//ios/chrome/common/ui/promo_style",
     "//ui/base",
   ]
 }

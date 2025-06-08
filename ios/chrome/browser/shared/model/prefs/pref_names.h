@@ -207,6 +207,15 @@ inline constexpr char kIosBringAndroidTabsPromptDisplayed[] =
 inline constexpr char kIosCredentialProviderPromoLastActionTaken[] =
     "ios.credential_provider_promo_last_action_taken";
 
+// The timestamp of the last time the CPE promo was displayed.
+inline constexpr char kIosCredentialProviderPromoDisplayTime[] =
+    "ios.credential_provider_promo_display_time";
+
+// The timestamp of the last time the user had a successful login with an
+// existing saved password.
+inline constexpr char kIosSuccessfulLoginWithExistingPassword[] =
+    "ios.successful_login_with_existing_password";
+
 // Boolean that is true when the CredentialProviderPromoEnabled policy is
 // enabled.
 inline constexpr char kIosCredentialProviderPromoPolicyEnabled[] =
@@ -749,6 +758,15 @@ inline constexpr char kProvisionalNotificationsAllowedByPolicy[] =
 // (either explicitly swiped by the user or through the dismissal timeout).
 inline constexpr char kIosSyncInfobarErrorLastDismissedTimestamp[] =
     "ios.sync_infobar_error.last_dismissed_timestamp";
+
+// A boolean specifying whether the glic consent form has been accepted.
+inline constexpr char kIOSGLICConsent[] = "ios.glic.consent";
+
+// A time object storing the first browser startup with a managed primary
+// identity in the personal profile after multi-profile becomes supported. Used
+// to trigger forced migration after some grace period.
+inline constexpr char kWaitingForMultiProfileForcedMigrationTimestamp[] =
+    "ios.waiting_for_multi_profile_forced_migration_timestamp";
 
 }  // namespace prefs
 

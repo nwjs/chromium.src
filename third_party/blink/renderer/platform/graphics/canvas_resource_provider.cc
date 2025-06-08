@@ -312,7 +312,7 @@ class CanvasResourceProviderSharedImage : public CanvasResourceProvider,
     if (IsSingleBuffered()) {
       return false;
     }
-    return !canvas_resources_.empty();
+    return !unused_resources_.empty();
   }
   bool unused_resources_reclaim_timer_is_running_for_testing() const override {
     return unused_resources_reclaim_timer_.IsRunning();
@@ -414,16 +414,9 @@ class CanvasResourceProviderSharedImage : public CanvasResourceProvider,
     TRACE_EVENT0("blink", "CanvasResourceProviderSharedImage::CreateResource");
 
     if (is_software_) {
-      auto format = GetSharedImageFormat();
-      if (!format.IsBitmapFormatSupported()) {
-        // If the rendering format is not supported, downgrade to 8-bits.
-        // TODO(junov): Should we try 12-12-12-12 and 10-10-10-2?
-        format = GetN32FormatForCanvas();
-      }
-
       return CanvasResourceSharedImage::CreateSoftware(
-          Size(), format, GetAlphaType(), GetColorSpace(), CreateWeakPtr(),
-          shared_image_interface_provider_);
+          Size(), viz::SinglePlaneFormat::kBGRA_8888, GetAlphaType(),
+          GetColorSpace(), CreateWeakPtr(), shared_image_interface_provider_);
     }
 
     if (IsGpuContextLost())
@@ -861,7 +854,7 @@ class CanvasResourceProviderSharedImage : public CanvasResourceProvider,
     }
   }
 
-  void OnResourceReturnedFromCompositor(
+  void OnResourceRefReturned(
       scoped_refptr<CanvasResourceSharedImage>&& resource) override {
     if (!resource->IsLost() && resource->HasOneRef()) {
       RecycleResource(std::move(resource));
@@ -877,7 +870,7 @@ class CanvasResourceProviderSharedImage : public CanvasResourceProvider,
 
   void RecycleResource(scoped_refptr<CanvasResourceSharedImage>&& resource) {
     // We don't want to keep an arbitrary large number of canvases.
-    if (canvas_resources_.size() >
+    if (unused_resources_.size() >
         static_cast<unsigned int>(kMaxRecycledCanvasResources)) {
       return;
     }
@@ -893,12 +886,12 @@ class CanvasResourceProviderSharedImage : public CanvasResourceProvider,
     }
   }
 
-  void ClearUnusedResources() override { canvas_resources_.clear(); }
+  void ClearUnusedResources() override { unused_resources_.clear(); }
 
   void RegisterUnusedResource(
       scoped_refptr<CanvasResourceSharedImage>&& resource) {
     CHECK(IsResourceUsable(resource.get()));
-    canvas_resources_.emplace_back(base::TimeTicks::Now(), std::move(resource));
+    unused_resources_.emplace_back(base::TimeTicks::Now(), std::move(resource));
   }
 
   void MaybePostUnusedResourcesReclaimTask() {
@@ -908,7 +901,7 @@ class CanvasResourceProviderSharedImage : public CanvasResourceProvider,
 
     if (resource_recycling_enabled_ && !IsSingleBuffered() &&
         !unused_resources_reclaim_timer_.IsRunning() &&
-        !canvas_resources_.empty()) {
+        !unused_resources_.empty()) {
       unused_resources_reclaim_timer_.Start(
           FROM_HERE, kUnusedResourceExpirationTime,
           base::BindOnce(
@@ -918,7 +911,7 @@ class CanvasResourceProviderSharedImage : public CanvasResourceProvider,
   }
 
   void ClearOldUnusedResources() {
-    WTF::EraseIf(canvas_resources_, [](const UnusedResource& resource) {
+    WTF::EraseIf(unused_resources_, [](const UnusedResource& resource) {
       return base::TimeTicks::Now() - resource.last_use >=
              kUnusedResourceExpirationTime;
     });
@@ -931,7 +924,13 @@ class CanvasResourceProviderSharedImage : public CanvasResourceProvider,
   }
 
   scoped_refptr<CanvasResourceSharedImage> NewOrRecycledResource() {
-    if (canvas_resources_.empty()) {
+    if (IsSingleBuffered()) {
+      CHECK(unused_resources_.empty());
+      num_inflight_resources_ = max_inflight_resources_ = 1;
+      return CreateResource();
+    }
+
+    if (unused_resources_.empty()) {
       scoped_refptr<CanvasResourceSharedImage> resource = CreateResource();
       if (!resource) {
         return nullptr;
@@ -944,14 +943,9 @@ class CanvasResourceProviderSharedImage : public CanvasResourceProvider,
       }
     }
 
-    if (IsSingleBuffered()) {
-      DCHECK_EQ(canvas_resources_.size(), 1u);
-      return canvas_resources_.back().resource;
-    }
-
     scoped_refptr<CanvasResourceSharedImage> resource =
-        std::move(canvas_resources_.back().resource);
-    canvas_resources_.pop_back();
+        std::move(unused_resources_.back().resource);
+    unused_resources_.pop_back();
     DCHECK(resource->HasOneRef());
     return resource;
   }
@@ -976,14 +970,9 @@ class CanvasResourceProviderSharedImage : public CanvasResourceProvider,
     resource()->OnMemoryDump(pmd, path);
 
     std::string cached_path = path + "/cached";
-    for (const auto& canvas_resource : canvas_resources_) {
+    for (const auto& unused_resource : unused_resources_) {
       auto* resource_pointer = static_cast<CanvasResourceSharedImage*>(
-          canvas_resource.resource.get());
-      // In single buffered mode, `resource_` is not removed from
-      // `canvas_resources_`.
-      if (resource_pointer == resource()) {
-        continue;
-      }
+          unused_resource.resource.get());
       resource_pointer->OnMemoryDump(pmd, cached_path);
     }
   }
@@ -1000,9 +989,9 @@ class CanvasResourceProviderSharedImage : public CanvasResourceProvider,
     scoped_refptr<CanvasResourceSharedImage> resource;
   };
 
-  // When and if |resource_recycling_enabled_| is false, |canvas_resources_|
-  // will only hold one resource at most.
-  WTF::Vector<UnusedResource> canvas_resources_;
+  // If this instance is single-buffered or |resource_recycling_enabled_| is
+  // false, |unused_resources_| will be empty.
+  WTF::Vector<UnusedResource> unused_resources_;
   int num_inflight_resources_ = 0;
   int max_inflight_resources_ = 0;
   base::OneShotTimer unused_resources_reclaim_timer_;
@@ -1022,6 +1011,8 @@ class CanvasResourceProviderSharedImage : public CanvasResourceProvider,
   const bool use_oop_rasterization_;
   bool is_software_ = false;
   bool is_cleared_ = false;
+
+  // The resource that is currently being used by this provider.
   scoped_refptr<CanvasResourceSharedImage> resource_;
   scoped_refptr<StaticBitmapImage> cached_snapshot_;
   PaintImage::ContentId cached_content_id_ = PaintImage::kInvalidContentId;
@@ -1277,6 +1268,9 @@ CanvasResourceProvider::CreateSharedImageProviderForSoftwareCompositor(
   if (SharedGpuContext::IsGpuCompositingEnabled()) {
     return nullptr;
   }
+
+  CHECK(format == viz::SharedImageFormat::N32Format() ||
+        format == viz::SinglePlaneFormat::kRGBA_F16);
 
   auto provider = std::make_unique<CanvasResourceProviderSharedImage>(
       size, format, alpha_type, color_space, shared_image_interface_provider,
@@ -1912,14 +1906,7 @@ std::optional<cc::PaintRecord> CanvasResourceProvider::FlushCanvas(
     printing_fallback_reason_ = FlushReason::kNone;
   }
   cc::PaintRecord recording;
-  // TODO(issues.chromium.org/379034737): Certain draws, such a WritePixels,
-  // draw directly to the buffer and thus will not work as currently designed
-  // with placed elements.
-  if (resource_host_ && resource_host_->HasPlacedElements()) {
-    recording = recorder_->CopyMainRecording();
-  } else {
-    recording = recorder_->ReleaseMainRecording();
-  }
+  recording = recorder_->ReleaseMainRecording();
   RasterRecord(recording);
   // Images are locked for the duration of the rasterization, in case they get
   // used multiple times. We can unlock them once the rasterization is complete.

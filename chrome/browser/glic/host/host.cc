@@ -91,6 +91,30 @@ void Host::WebUIPageHandlerAdded(GlicPageHandler* page_handler) {
   PageHandlerInfo info;
   info.page_handler = page_handler;
   page_handlers_.push_back(std::move(info));
+
+  // We effectively just want to pick the first page handler as the primary one.
+  // There are two reasons why there can be more than one glic page handler:
+  // 1. The chrome://glic URL can be loaded in a tab, which is used for
+  //    development sometimes.
+  // 2. The glic window supports right-click->Reload. When this happens, there
+  //    is momentarily two page handlers for the same web contents. Since this
+  //    can affect real users, it needs to be handled specially here.
+  if (contents_ &&
+      contents_->web_contents() == page_handler->webui_contents()) {
+    if (primary_page_handler_) {
+      // Allow replacing the primary page handler if the new handler is running
+      // in the primary web contents. Note that the old handler may also have
+      // the same web contents, but in the case of Reload, it will be removed
+      // soon.
+      WebUiStateChanged(primary_page_handler_,
+                        mojom::WebUiState::kUninitialized);
+      primary_page_handler_ = nullptr;
+    }
+    primary_page_handler_ = page_handler;
+  }
+  if (!primary_page_handler_) {
+    primary_page_handler_ = page_handler;
+  }
 }
 
 void Host::WebUIPageHandlerRemoved(GlicPageHandler* page_handler) {
@@ -98,6 +122,10 @@ void Host::WebUIPageHandlerRemoved(GlicPageHandler* page_handler) {
   if (info) {
     int index = info - &page_handlers_[0];
     page_handlers_.erase(page_handlers_.begin() + index);
+  }
+  if (primary_page_handler_ == page_handler) {
+    WebUiStateChanged(page_handler, mojom::WebUiState::kUninitialized);
+    primary_page_handler_ = nullptr;
   }
 }
 
@@ -159,11 +187,6 @@ void Host::GuestAdded(content::WebContents* guest_contents) {
                                   .default_font_size;
     top->SetWebPreferences(prefs);
   }
-  PageHandlerInfo* info = FindInfoForWebUiContents(top);
-  CHECK(info);
-  auto* webview = extensions::WebViewGuest::FromWebContents(guest_contents);
-  CHECK(webview);
-  info->page_handler->GuestAdded(webview);
 }
 
 void Host::NotifyWindowIntentToShow() {
@@ -177,12 +200,6 @@ void Host::SetWebClient(GlicPageHandler* page_handler,
   PageHandlerInfo* info = FindInfo(page_handler);
   CHECK(info);
   info->web_client = web_client;
-  if (web_client && !primary_page_handler_) {
-    primary_page_handler_ = page_handler;
-  }
-  if (!web_client && primary_page_handler_ == page_handler) {
-    primary_page_handler_ = nullptr;
-  }
 
   if (invocation_source_ && web_client) {
     web_client->PanelWillOpen(
@@ -239,6 +256,10 @@ std::vector<GlicPageHandler*> Host::GetPageHandlersForTesting() {
       [](PageHandlerInfo& e) -> GlicPageHandler* { return e.page_handler; });
 }
 
+GlicPageHandler* Host::GetPrimaryPageHandlerForTesting() {
+  return primary_page_handler_;
+}
+
 void Host::PanelWillOpenComplete(GlicWebClientAccess* client,
                                  mojom::OpenPanelInfoPtr open_info) {
   CHECK(client);
@@ -261,6 +282,19 @@ bool Host::IsReady() const {
     }
   }
   return false;
+}
+
+void Host::WebUiStateChanged(GlicPageHandler* page_handler,
+                             mojom::WebUiState new_state) {
+  if (page_handler != primary_page_handler_) {
+    return;
+  }
+  base::UmaHistogramEnumeration("Glic.PanelWebUiState", new_state);
+  if (primary_webui_state_ != new_state) {
+    // UI State has changed
+    primary_webui_state_ = new_state;
+    observers_.Notify(&Observer::WebUiStateChanged, primary_webui_state_);
+  }
 }
 
 }  // namespace glic

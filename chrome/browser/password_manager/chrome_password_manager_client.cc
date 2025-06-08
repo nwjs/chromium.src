@@ -80,6 +80,7 @@
 #include "components/password_manager/core/browser/http_auth_manager.h"
 #include "components/password_manager/core/browser/http_auth_manager_impl.h"
 #include "components/password_manager/core/browser/leak_detection_dialog_utils.h"
+#include "components/password_manager/core/browser/one_time_passwords/otp_manager.h"
 #include "components/password_manager/core/browser/passkey_credential.h"
 #include "components/password_manager/core/browser/password_bubble_experiment.h"
 #include "components/password_manager/core/browser/password_form.h"
@@ -93,6 +94,9 @@
 #include "components/password_manager/core/browser/password_sync_util.h"
 #include "components/password_manager/core/common/password_manager_features.h"
 #include "components/password_manager/core/common/password_manager_pref_names.h"
+#include "components/policy/content/password_manager_blocklist_policy.h"
+#include "components/policy/core/browser/url_blocklist_manager.h"
+#include "components/policy/core/common/policy_pref_names.h"
 #include "components/prefs/pref_service.h"
 #include "components/profile_metrics/browser_profile_type.h"
 #include "components/safe_browsing/buildflags.h"
@@ -148,6 +152,7 @@
 #include "chrome/browser/password_manager/android/grouped_affiliations/acknowledge_grouped_credential_sheet_bridge.h"
 #include "chrome/browser/password_manager/android/grouped_affiliations/acknowledge_grouped_credential_sheet_controller.h"
 #include "chrome/browser/password_manager/android/local_passwords_migration_warning_util.h"
+#include "chrome/browser/password_manager/android/one_time_passwords/android_sms_otp_backend_factory.h"
 #include "chrome/browser/password_manager/android/password_checkup_launcher_helper_impl.h"
 #include "chrome/browser/password_manager/android/password_generation_controller.h"
 #include "chrome/browser/password_manager/android/password_manager_android_util.h"
@@ -160,6 +165,7 @@
 #include "chrome/browser/touch_to_fill/password_manager/touch_to_fill_controller_autofill_delegate.h"
 #include "components/password_manager/content/browser/keyboard_replacing_surface_visibility_controller_impl.h"
 #include "components/password_manager/core/browser/credential_cache.h"
+#include "components/password_manager/core/browser/one_time_passwords/sms_otp_backend.h"
 #include "components/password_manager/core/browser/password_credential_filler_impl.h"
 #include "components/webauthn/android/webauthn_cred_man_delegate.h"
 #include "components/webauthn/android/webauthn_cred_man_delegate_factory.h"
@@ -248,25 +254,13 @@ void MaybeShowPostMigrationSheetWrapper(
 
 #endif
 
-void InformPasswordChangeServiceIfOtpPresent(
-    content::WebContents* web_contents,
+bool PredictionsContainOtpFields(
     const base::flat_map<autofill::FieldGlobalId, autofill::FieldType>&
         predictions) {
-  bool has_otp_field = std::any_of(
-      predictions.begin(), predictions.end(), [](const auto& field) {
-        return field.second == autofill::ONE_TIME_CODE;
-      });
-  Profile* profile =
-      Profile::FromBrowserContext(web_contents->GetBrowserContext());
-  if (has_otp_field) {
-    ChromePasswordChangeService* password_change_service =
-        PasswordChangeServiceFactory::GetForProfile(profile);
-    if (password_change_service &&
-        password_change_service->GetPasswordChangeDelegate(web_contents)) {
-      password_change_service->GetPasswordChangeDelegate(web_contents)
-          ->OnOtpFieldDetected(web_contents);
-    }
-  }
+  return std::any_of(predictions.begin(), predictions.end(),
+                     [](const auto& field) {
+                       return field.second == autofill::ONE_TIME_CODE;
+                     });
 }
 
 }  // namespace
@@ -1321,6 +1315,16 @@ void ChromePasswordManagerClient::NavigateToManagePasswordsPage(
 #endif
 }
 
+void ChromePasswordManagerClient::InformPasswordChangeServiceOfOtpPresent() {
+  ChromePasswordChangeService* password_change_service =
+      PasswordChangeServiceFactory::GetForProfile(profile_);
+  if (password_change_service &&
+      password_change_service->GetPasswordChangeDelegate(web_contents())) {
+    password_change_service->GetPasswordChangeDelegate(web_contents())
+        ->OnOtpFieldDetected(web_contents());
+  }
+}
+
 #if BUILDFLAG(IS_ANDROID)
 void ChromePasswordManagerClient::NavigateToManagePasskeysPage(
     password_manager::ManagePasswordsReferrer referrer) {
@@ -1379,6 +1383,11 @@ void ChromePasswordManagerClient::MarkSharedCredentialsAsNotified(
       GetProfilePasswordStore()->UpdateLogin(std::move(updatedForm));
     }
   }
+}
+
+password_manager::SmsOtpBackend* ChromePasswordManagerClient::GetSmsOtpBackend()
+    const {
+  return AndroidSmsOtpBackendFactory::GetForProfile(profile_);
 }
 
 #endif  // BUILDFLAG(IS_ANDROID)
@@ -1679,6 +1688,20 @@ void ChromePasswordManagerClient::GenerationElementLostFocus() {
 }
 #endif  // !BUILDFLAG(IS_ANDROID)
 
+autofill::PasswordManagerDelegate*
+ChromePasswordManagerClient::GetAutofillDelegate(
+    const autofill::FieldGlobalId& field_id) {
+  if (content::RenderFrameHost* rfh = autofill::FindRenderFrameHostByToken(
+          *web_contents(), field_id.frame_token)) {
+    if (password_manager::ContentPasswordManagerDriver* driver =
+            password_manager::ContentPasswordManagerDriver::
+                GetForRenderFrameHost(rfh)) {
+      return driver->GetPasswordAutofillManager();
+    }
+  }
+  return nullptr;
+}
+
 void ChromePasswordManagerClient::SetTestObserver(
     PasswordGenerationPopupObserver* observer) {
   observer_ = observer;
@@ -1823,6 +1846,7 @@ ChromePasswordManagerClient::ChromePasswordManagerClient(
                                 g_browser_process->local_state(),
                                 SyncServiceFactory::GetForProfile(profile_)),
       httpauth_manager_(this),
+      otp_manager_(this),
       content_credential_manager_(
           password_manager::BrowserCredentialManagerFactory(this)
               .CreateCredentialManager()),
@@ -1968,7 +1992,10 @@ void ChromePasswordManagerClient::OnFieldTypesDetermined(
             field_ids);
         password_manager_.ProcessClassificationModelPredictions(driver, form,
                                                                 predictions);
-        InformPasswordChangeServiceIfOtpPresent(web_contents(), predictions);
+
+        if (PredictionsContainOtpFields(predictions)) {
+          otp_manager_.ProcessClassificationModelPredictions(form, predictions);
+        }
         break;
       }
     }
@@ -2017,6 +2044,14 @@ void ChromePasswordManagerClient::HideFillingUI() {
 
 bool ChromePasswordManagerClient::IsPasswordManagementEnabledForCurrentPage(
     const GURL& url) const {
+#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_LINUX) || \
+    BUILDFLAG(IS_CHROMEOS)
+  if (IsPasswordManagerForUrlDisallowedByPolicy(url)) {
+    return false;
+  }
+#endif  // BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_LINUX) ||
+        // BUILDFLAG(IS_CHROMEOS)
+
   bool is_enabled = CanShowBubbleOnURL(url);
 
   // The password manager is disabled on Google Password Manager page.
@@ -2024,7 +2059,6 @@ bool ChromePasswordManagerClient::IsPasswordManagementEnabledForCurrentPage(
       GURL(password_manager::kPasswordManagerAccountDashboardURL)) {
     is_enabled = false;
   }
-
 #if BUILDFLAG(SAFE_BROWSING_AVAILABLE)
   // SafeBrowsing Delayed Warnings experiment can delay some SafeBrowsing
   // warnings until user interaction. If the current page has a delayed warning,
@@ -2048,6 +2082,29 @@ bool ChromePasswordManagerClient::IsPasswordManagementEnabledForCurrentPage(
   }
   return is_enabled;
 }
+
+#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_LINUX) || \
+    BUILDFLAG(IS_CHROMEOS)
+bool ChromePasswordManagerClient::IsPasswordManagerForUrlDisallowedByPolicy(
+    const GURL& url) const {
+  if (!GetPrefs() || !GetPrefs()->HasPrefPath(
+                         policy::policy_prefs::kPasswordManagerBlocklist)) {
+    return false;
+  }
+  PasswordManagerBlocklistPolicy* blocklist_policy =
+      PasswordManagerBlocklistPolicyFactory::GetForBrowserContext(
+          web_contents()->GetBrowserContext());
+
+  if (blocklist_policy &&
+      blocklist_policy->GetURLBlocklistState(url) ==
+          policy::URLBlocklist::URLBlocklistState::URL_IN_BLOCKLIST) {
+    return true;
+  }
+
+  return false;
+}
+#endif  // BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_LINUX) ||
+        // BUILDFLAG(IS_CHROMEOS)
 
 void ChromePasswordManagerClient::GenerationResultAvailable(
     PasswordGenerationType type,

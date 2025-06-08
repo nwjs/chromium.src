@@ -28,6 +28,11 @@
 #include "url/gurl.h"
 
 class NotificationPermissionReviewServiceTest : public testing::Test {
+  void SetUp() override {
+    testing::Test::SetUp();
+    safety_hub_test_util::CreateNotificationPermissionsReviewService(profile());
+  }
+
  protected:
   void CreateMockNotificationPermissionsForReview() {
     // Add a couple of notification permission and check they appear in review
@@ -473,10 +478,9 @@ TEST_F(NotificationPermissionReviewServiceTest,
        DisruptiveNotificationRevocationShadowRun) {
   base::test::ScopedFeatureList feature_list;
   feature_list.InitAndEnableFeatureWithParameters(
-      safe_browsing::kSafetyHubDisruptiveNotificationRevocation,
+      features::kSafetyHubDisruptiveNotificationRevocation,
       {
-          {safe_browsing::kSafetyHubDisruptiveNotificationRevocationShadowRun
-               .name,
+          {features::kSafetyHubDisruptiveNotificationRevocationShadowRun.name,
            "true"},
       });
 
@@ -494,10 +498,9 @@ TEST_F(NotificationPermissionReviewServiceTest,
        DisruptiveNotificationRevocation) {
   base::test::ScopedFeatureList feature_list;
   feature_list.InitAndEnableFeatureWithParameters(
-      safe_browsing::kSafetyHubDisruptiveNotificationRevocation,
+      features::kSafetyHubDisruptiveNotificationRevocation,
       {
-          {safe_browsing::kSafetyHubDisruptiveNotificationRevocationShadowRun
-               .name,
+          {features::kSafetyHubDisruptiveNotificationRevocationShadowRun.name,
            "false"},
       });
 

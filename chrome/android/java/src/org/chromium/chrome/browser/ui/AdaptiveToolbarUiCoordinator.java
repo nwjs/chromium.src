@@ -15,7 +15,6 @@ import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ActivityTabProvider;
 import org.chromium.chrome.browser.ai.AiAssistantService;
 import org.chromium.chrome.browser.ai.PageSummaryButtonController;
-import org.chromium.chrome.browser.bookmarks.AddToBookmarksToolbarButtonController;
 import org.chromium.chrome.browser.bookmarks.BookmarkModel;
 import org.chromium.chrome.browser.bookmarks.TabBookmarker;
 import org.chromium.chrome.browser.commerce.CommerceBottomSheetContentController;
@@ -175,14 +174,6 @@ public class AdaptiveToolbarUiCoordinator {
                         AppCompatResources.getDrawable(mContext, R.drawable.ic_translate),
                         mContext.getString(R.string.menu_translate),
                         trackerSupplier);
-        AddToBookmarksToolbarButtonController addToBookmarksToolbarButtonController =
-                new AddToBookmarksToolbarButtonController(
-                        mActivityTabProvider,
-                        mContext,
-                        activityLifecycleDispatcher,
-                        tabBookmarkerSupplier,
-                        trackerSupplier,
-                        bookmarkModelSupplier);
         AdaptiveToolbarButtonController adaptiveToolbarButtonController =
                 new AdaptiveToolbarButtonController(
                         mContext,
@@ -213,9 +204,6 @@ public class AdaptiveToolbarUiCoordinator {
 
         adaptiveToolbarButtonController.addButtonVariant(
                 AdaptiveToolbarButtonVariant.SHARE, shareButtonController);
-        adaptiveToolbarButtonController.addButtonVariant(
-                AdaptiveToolbarButtonVariant.ADD_TO_BOOKMARKS,
-                addToBookmarksToolbarButtonController);
         adaptiveToolbarButtonController.addButtonVariant(
                 AdaptiveToolbarButtonVariant.TRANSLATE, translateToolbarButtonController);
         adaptiveToolbarButtonController.addButtonVariant(
@@ -287,9 +275,19 @@ public class AdaptiveToolbarUiCoordinator {
         return mButtonDataProviders;
     }
 
+    /** Returns {@link ContextualPageActionController} used for adaptive toolbar button. */
+    public ContextualPageActionController getContextualPageActionController() {
+        return mContextualPageActionController;
+    }
+
     /** Returns {@link VoiceToolbarButtonController} used for voice search button. */
     public VoiceToolbarButtonController getVoiceToolbarButtonController() {
         return mVoiceToolbarButtonController;
+    }
+
+    /** Invokes Price Insights UI. */
+    public void runPriceInsightsAction() {
+        mAdaptiveToolbarButtonController.runPriceInsightsAction();
     }
 
     /** Destroy internally used objects. */

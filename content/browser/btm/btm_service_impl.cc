@@ -370,15 +370,17 @@ void BtmServiceImpl::HandleRedirectChain(
     return;
   }
 
-  if (chain->initial_url.source_id != ukm::kInvalidSourceId) {
-    ukm::builders::DIPS_ChainBegin(chain->initial_url.source_id)
+  if (!chain->are_3pcs_generally_enabled &&
+      chain->initial_url.source_id != ukm::kInvalidSourceId) {
+    ukm::builders::BTM_ChainBegin(chain->initial_url.source_id)
         .SetChainId(chain->chain_id)
         .SetInitialAndFinalSitesSame(chain->initial_and_final_sites_same)
         .Record(ukm::UkmRecorder::Get());
   }
 
-  if (chain->final_url.source_id != ukm::kInvalidSourceId) {
-    ukm::builders::DIPS_ChainEnd(chain->final_url.source_id)
+  if (!chain->are_3pcs_generally_enabled &&
+      chain->final_url.source_id != ukm::kInvalidSourceId) {
+    ukm::builders::BTM_ChainEnd(chain->final_url.source_id)
         .SetChainId(chain->chain_id)
         .SetInitialAndFinalSitesSame(chain->initial_and_final_sites_same)
         .Record(ukm::UkmRecorder::Get());
@@ -464,21 +466,19 @@ void BtmServiceImpl::GotState(
 }
 
 void BtmServiceImpl::RecordBounce(
-    const GURL& url,
-    bool has_3pc_exception,
-    const GURL& final_url,
-    base::Time time,
-    bool stateful,
+    const BtmRedirectInfo& redirect,
+    const BtmRedirectChainInfo& chain,
     base::RepeatingCallback<void(const GURL&)> stateful_bounce_callback) {
+  const GURL& url = redirect.redirecting_url.url;
+  bool stateful = redirect.access_type > BtmDataAccessType::kRead;
+
   // If the bounced URL has a 3PC exception when embedded under the initial or
-  // final URL in the redirect,then clear the tracking site from the DIPS DB, to
-  // avoid deleting its storage. The exception overrides any bounces from
-  // non-excepted sites.
-  if (has_3pc_exception) {
-    // These records indicate sites that could've had their state deleted
-    // provided their grace period expired. But are at the moment excepted
-    // following `Are3PCAllowed()` of either `initial_url` or `final_url`.
-    bool would_be_cleared = false;
+  // final URL in the redirect, then clear the tracking site from the BTM
+  // database to avoid deleting its storage. The exception overrides any bounces
+  // from non-excepted sites.
+  if (redirect.has_3pc_exception.value()) {
+    // Check whether the site would have hypothetically been cleared.
+    bool would_be_cleared;
     switch (features::kBtmTriggeringAction.Get()) {
       case BtmTriggeringAction::kNone: {
         would_be_cleared = false;
@@ -497,15 +497,15 @@ void BtmServiceImpl::RecordBounce(
         break;
       }
     }
-    if (would_be_cleared) {
+    if (!chain.are_3pcs_generally_enabled && would_be_cleared) {
       // TODO(crbug.com/40268849): Investigate and fix the presence of empty
       // site(s) in the `site_to_clear` list. Once this is fixed remove this
       // escape.
       if (url.is_empty()) {
         UmaHistogramDeletion(GetCookieMode(), BtmDeletionAction::kIgnored);
-      } else {
-        UmaHistogramDeletion(GetCookieMode(), BtmDeletionAction::kExcepted);
+        return;
       }
+      UmaHistogramDeletion(GetCookieMode(), BtmDeletionAction::kExcepted);
     }
 
     const std::set<std::string> site_to_clear{GetSiteForBtm(url)};
@@ -520,10 +520,12 @@ void BtmServiceImpl::RecordBounce(
   // If the bounce is stateful and not excepted by cookie settings, run the
   // callback.
   if (stateful) {
-    stateful_bounce_callback.Run(final_url);
+    stateful_bounce_callback.Run(chain.final_url.url);
   }
 
-  storage_.AsyncCall(&BtmStorage::RecordBounce).WithArgs(url, time, stateful);
+  // Record the bounce at the storage layer.
+  storage_.AsyncCall(&BtmStorage::RecordBounce)
+      .WithArgs(url, redirect.time, stateful);
 }
 
 /*static*/
@@ -536,23 +538,26 @@ void BtmServiceImpl::HandleRedirect(
   bool final_site_same = (redirect.site == chain.final_site);
   DCHECK_LT(redirect.chain_index.value(), chain.length);
 
-  ukm::builders::DIPS_Redirect(redirect.redirecting_url.source_id)
-      .SetSiteEngagementLevel(redirect.site_had_user_activation.value() ? 1 : 0)
-      .SetRedirectType(static_cast<int64_t>(redirect.redirect_type))
-      .SetCookieAccessType(static_cast<int64_t>(redirect.access_type))
-      .SetRedirectAndInitialSiteSame(initial_site_same)
-      .SetRedirectAndFinalSiteSame(final_site_same)
-      .SetInitialAndFinalSitesSame(chain.initial_and_final_sites_same)
-      .SetRedirectChainIndex(redirect.chain_index.value())
-      .SetRedirectChainLength(chain.length)
-      .SetIsPartialRedirectChain(chain.is_partial_chain)
-      .SetClientBounceDelay(
-          BucketizeBtmBounceDelay(redirect.client_bounce_delay))
-      .SetHasStickyActivation(redirect.has_sticky_activation)
-      .SetWebAuthnAssertionRequestSucceeded(
-          redirect.web_authn_assertion_request_succeeded)
-      .SetChainId(redirect.chain_id.value())
-      .Record(ukm::UkmRecorder::Get());
+  if (!chain.are_3pcs_generally_enabled) {
+    ukm::builders::BTM_Redirect(redirect.redirecting_url.source_id)
+        .SetSiteEngagementLevel(redirect.site_had_user_activation.value() ? 1
+                                                                          : 0)
+        .SetRedirectType(static_cast<int64_t>(redirect.redirect_type))
+        .SetCookieAccessType(static_cast<int64_t>(redirect.access_type))
+        .SetRedirectAndInitialSiteSame(initial_site_same)
+        .SetRedirectAndFinalSiteSame(final_site_same)
+        .SetInitialAndFinalSitesSame(chain.initial_and_final_sites_same)
+        .SetRedirectChainIndex(redirect.chain_index.value())
+        .SetRedirectChainLength(chain.length)
+        .SetIsPartialRedirectChain(chain.is_partial_chain)
+        .SetClientBounceDelay(
+            BucketizeBtmBounceDelay(redirect.client_bounce_delay))
+        .SetHasStickyActivation(redirect.has_sticky_activation)
+        .SetWebAuthnAssertionRequestSucceeded(
+            redirect.web_authn_assertion_request_succeeded)
+        .SetChainId(redirect.chain_id.value())
+        .Record(ukm::UkmRecorder::Get());
+  }
 
   if (initial_site_same || final_site_same) {
     // Don't record UMA metrics for same-site redirects.
@@ -561,11 +566,7 @@ void BtmServiceImpl::HandleRedirect(
 
   // Record this bounce in the BTM database.
   if (redirect.access_type != BtmDataAccessType::kUnknown) {
-    record_bounce.Run(
-        redirect.redirecting_url.url, redirect.has_3pc_exception.value(),
-        chain.final_url.url, redirect.time,
-        /*stateful=*/redirect.access_type > BtmDataAccessType::kRead,
-        stateful_bounce_callback);
+    record_bounce.Run(redirect, chain, stateful_bounce_callback);
   }
 
   BtmRedirectCategory category = ClassifyRedirect(

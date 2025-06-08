@@ -6,6 +6,7 @@
 
 #import "base/auto_reset.h"
 #import "base/check_is_test.h"
+#import "base/containers/to_vector.h"
 #import "base/functional/bind.h"
 #import "base/functional/callback_helpers.h"
 #import "base/location.h"
@@ -216,7 +217,10 @@ void AuthenticationService::Initialize(
                                   signed_in_state);
   }
 
-  PerformFirstTimeProfileInitializationIfNecessary();
+  ProfileInitializationOutcome outcome =
+      PerformProfileInitializationIfNecessary();
+  base::UmaHistogramEnumeration(
+      "Signin.IOSAuthenticationServiceInitializationOutcome", outcome);
 }
 
 void AuthenticationService::Shutdown() {
@@ -448,26 +452,22 @@ void AuthenticationService::SignOut(
   }
 }
 
-void AuthenticationService::PerformFirstTimeProfileInitializationIfNecessary() {
+AuthenticationService::ProfileInitializationOutcome
+AuthenticationService::PerformProfileInitializationIfNecessary() {
   ProfileManagerIOS* profile_manager =
       GetApplicationContext()->GetProfileManager();
   if (!profile_manager) {
     // Skip if there is no profile manager, but this is possible only for test.
     CHECK_IS_TEST();
-    return;
+    return ProfileInitializationOutcome::kNoneForTesting;
   }
   ProfileAttributesStorageIOS* attributes_storage =
       profile_manager->GetProfileAttributesStorage();
 
   const std::string profile_name = account_manager_service_->GetProfileName();
 
-  // If the profile was already initialized before, nothing to do here.
-  if (attributes_storage->GetAttributesForProfileWithName(profile_name)
-          .IsFullyInitialized()) {
-    return;
-  }
-
-  // Once this method returns, the profile is considered fully initialized.
+  // Once this method returns, the profile is considered fully initialized. (If
+  // the profile was already initialized, this is a no-op.)
   base::ScopedClosureRunner mark_profile_initialized(base::BindOnce(
       [](ProfileAttributesStorageIOS* attributes_storage,
          std::string_view profile_name) {
@@ -478,29 +478,62 @@ void AuthenticationService::PerformFirstTimeProfileInitializationIfNecessary() {
       },
       attributes_storage, profile_name));
 
-  // When opening a managed profile for the first time, the user needs to be
-  // signed in automatically.
+  const bool was_already_initialized =
+      attributes_storage->GetAttributesForProfileWithName(profile_name)
+          .IsFullyInitialized();
+
   if (!AreSeparateProfilesForManagedAccountsEnabled()) {
-    return;
+    return was_already_initialized
+               ? ProfileInitializationOutcome::
+                     kFeatureDisabledAlreadyInitialized
+               : ProfileInitializationOutcome::kFeatureDisabledNewlyInitialized;
   }
 
-  if (profile_name == attributes_storage->GetPersonalProfileName()) {
+  // When opening a managed profile for the first time, the user needs to be
+  // signed in automatically.
+
+  const bool is_personal_profile =
+      profile_name == attributes_storage->GetPersonalProfileName();
+  if (is_personal_profile) {
     // Nothing to do if the current profile is the personal profile.
-    return;
+    return was_already_initialized
+               ? ProfileInitializationOutcome::
+                     kPersonalProfileAlreadyInitialized
+               : ProfileInitializationOutcome::kPersonalProfileNewlyInitialized;
   }
-  if (HasPrimaryIdentity(signin::ConsentLevel::kSignin)) {
-    // Nothing to do if the profile is already signed in.
-    return;
+
+  const bool is_signed_in = HasPrimaryIdentity(signin::ConsentLevel::kSignin);
+  if (is_signed_in) {
+    // Nothing to do if the managed profile is already signed in.
+    return was_already_initialized
+               ? ProfileInitializationOutcome::kManagedProfileAlreadyInitialized
+               : ProfileInitializationOutcome::
+                     kManagedProfileNewlyInitializedButAlreadySignedIn;
   }
+
   NSArray<id<SystemIdentity>>* identities_for_profile =
       account_manager_service_->GetAllIdentities();
-  // TODO(crbug.com/375605482): Evaluate if there is no race condition with
-  // this CHECK.
-  CHECK_EQ(identities_for_profile.count, 1ul, base::NotFatalUntil::M142);
-  if (identities_for_profile.count > 0) {
-    // TODO(crbug.com/375605482): Need to set the right access point.
-    SignIn(identities_for_profile[0], signin_metrics::AccessPoint::kUnknown);
+  if (identities_for_profile.count == 0) {
+    return was_already_initialized
+               ? ProfileInitializationOutcome::
+                     kManagedProfileAlreadyInitializedNoAccounts
+               : ProfileInitializationOutcome::
+                     kManagedProfileNewlyInitializedNoAccounts;
   }
+
+  SignIn(identities_for_profile[0],
+         signin_metrics::AccessPoint::kManagedProfileAutoSigninIos);
+  if (identities_for_profile.count > 1) {
+    return was_already_initialized
+               ? ProfileInitializationOutcome::
+                     kManagedProfileAlreadyInitializedMultipleAccountsAndNewlySignedIn
+               : ProfileInitializationOutcome::
+                     kManagedProfileNewlyInitializedMultipleAccounts;
+  }
+  return was_already_initialized
+             ? ProfileInitializationOutcome::
+                   kManagedProfileAlreadyInitializedButNewlySignedIn
+             : ProfileInitializationOutcome::kManagedProfileNewlyInitialized;
 }
 
 id<RefreshAccessTokenError> AuthenticationService::GetCachedMDMError(
@@ -761,18 +794,16 @@ void AuthenticationService::FireServiceStatusNotification() {
 }
 
 void AuthenticationService::ClearAccountSettingsPrefsOfRemovedAccounts() {
-  std::vector<signin::GaiaIdHash> available_gaia_ids;
+  std::vector<GaiaId> available_gaia_ids;
   for (id<SystemIdentity> identity in account_manager_service_
            ->GetAllIdentities()) {
-    signin::GaiaIdHash gaia_id_hash =
-        signin::GaiaIdHash::FromGaiaId(GaiaId(identity.gaiaID));
-    available_gaia_ids.push_back(gaia_id_hash);
+    available_gaia_ids.emplace_back(identity.gaiaID);
   }
   sync_service_->GetUserSettings()->KeepAccountSettingsPrefsOnlyForUsers(
       available_gaia_ids);
   syncer::KeepAccountKeyedPrefValuesOnlyForUsers(
       pref_service_, prefs::kSigninHasAcceptedManagementDialog,
-      available_gaia_ids);
+      base::ToVector(available_gaia_ids, &signin::GaiaIdHash::FromGaiaId));
 }
 
 NSArray<id<SystemIdentity>>* AuthenticationService::ActiveIdentities() {

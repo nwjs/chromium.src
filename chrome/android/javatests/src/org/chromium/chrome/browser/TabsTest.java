@@ -585,7 +585,7 @@ public class TabsTest {
     }
 
     private static class FocusListener implements View.OnFocusChangeListener {
-        private View mView;
+        private final View mView;
         private int mTimesFocused;
         private int mTimesUnfocused;
 
@@ -868,10 +868,7 @@ public class TabsTest {
     @Test
     @MediumTest
     @Feature({"Android-TabSwitcher"})
-    @DisableFeatures({
-        ChromeFeatureList.ANDROID_TAB_DECLUTTER,
-        ChromeFeatureList.ANDROID_TAB_DECLUTTER_RESCUE_KILLSWITCH
-    })
+    @DisableFeatures({ChromeFeatureList.ANDROID_TAB_DECLUTTER_RESCUE_KILLSWITCH})
     public void testIncognitoTabsNotRestoredAfterSwipe() throws Exception {
         mActivityTestRule.loadUrl(getUrl(TEST_PAGE_FILE_PATH));
 

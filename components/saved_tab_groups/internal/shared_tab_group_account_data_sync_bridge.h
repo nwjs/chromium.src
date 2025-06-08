@@ -49,8 +49,10 @@ class SharedTabGroupAccountDataSyncBridge : public syncer::DataTypeSyncBridge,
   std::unique_ptr<syncer::DataBatch> GetDataForCommit(
       StorageKeyList storage_keys) override;
   std::unique_ptr<syncer::DataBatch> GetAllDataForDebugging() override;
-  std::string GetClientTag(const syncer::EntityData& entity_data) override;
-  std::string GetStorageKey(const syncer::EntityData& entity_data) override;
+  std::string GetClientTag(
+      const syncer::EntityData& entity_data) const override;
+  std::string GetStorageKey(
+      const syncer::EntityData& entity_data) const override;
   bool SupportsGetClientTag() const override;
   bool SupportsGetStorageKey() const override;
   void ApplyDisableSyncChanges(std::unique_ptr<syncer::MetadataChangeList>
@@ -66,6 +68,8 @@ class SharedTabGroupAccountDataSyncBridge : public syncer::DataTypeSyncBridge,
   void SavedTabGroupModelLoaded() override;
   void SavedTabGroupTabLastSeenTimeUpdated(const base::Uuid& saved_tab_id,
                                            TriggerSource source) override;
+  void SavedTabGroupAddedLocally(const base::Uuid& guid) override;
+  void SavedTabGroupAddedFromSync(const base::Uuid& guid) override;
   void SavedTabGroupUpdatedLocally(
       const base::Uuid& group_guid,
       const std::optional<base::Uuid>& tab_guid) override;
@@ -75,6 +79,7 @@ class SharedTabGroupAccountDataSyncBridge : public syncer::DataTypeSyncBridge,
   void SavedTabGroupRemovedLocally(const SavedTabGroup& removed_group) override;
   void SavedTabGroupRemovedFromSync(
       const SavedTabGroup& removed_group) override;
+  void SavedTabGroupReorderedLocally() override;
 
   // Returns whether the sync bridge has initialized by reading data
   // from the on-disk store.
@@ -105,9 +110,16 @@ class SharedTabGroupAccountDataSyncBridge : public syncer::DataTypeSyncBridge,
   void UpdateTabDetailsModel(
       const sync_pb::SharedTabGroupAccountDataSpecifics& specifics);
 
+  void UpdateTabGroupDetailsModel(
+      const sync_pb::SharedTabGroupAccountDataSpecifics& specifics);
+
   // Look for tabs specified in `storage_keys_for_missing_tabs_` and
   // apply their corresponding model updates.
   void ApplyMissingTabData();
+
+  // Look for tab groups specified in `storage_keys_for_missing_tab_groups_` and
+  // apply their corresponding model updates.
+  void ApplyMissingTabGroupData();
 
   // Write a new entity to sync. This is used when the model is updated
   // with a new value and sync needs to be triggered.
@@ -123,6 +135,14 @@ class SharedTabGroupAccountDataSyncBridge : public syncer::DataTypeSyncBridge,
   std::unique_ptr<syncer::EntityData> CreateEntityDataFromSavedTabGroupTab(
       const SavedTabGroupModel& model,
       const SavedTabGroupTab& tab);
+
+  // Remove tab details on tab group update locally or from sync if available.
+  void MaybeRemoveTabDetailsOnGroupUpdate(
+      const SavedTabGroup& group,
+      const std::optional<base::Uuid>& tab_guid);
+
+  // Write tab group detail to sync only if the tab group details has changed.
+  void WriteTabGroupDetailToSyncIfPositionChanged(const SavedTabGroup& group);
 
   SEQUENCE_CHECKER(sequence_checker_);
 
@@ -143,6 +163,8 @@ class SharedTabGroupAccountDataSyncBridge : public syncer::DataTypeSyncBridge,
   // SharedTabGroupDataSyncBridge, so specifics for these keys are
   // still stored in sync bridge cache as well as written to disk.
   std::set<std::string> storage_keys_for_missing_tabs_;
+
+  std::set<std::string> storage_keys_for_missing_tab_groups_;
 
   // Observes the SavedTabGroupModel.
   base::ScopedObservation<SavedTabGroupModel, SavedTabGroupModelObserver>

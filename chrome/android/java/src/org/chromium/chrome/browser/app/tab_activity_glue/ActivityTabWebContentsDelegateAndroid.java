@@ -5,6 +5,7 @@
 package org.chromium.chrome.browser.app.tab_activity_glue;
 
 import android.app.Activity;
+import android.app.ActivityManager;
 import android.content.Context;
 import android.content.Intent;
 import android.content.res.Resources;
@@ -40,6 +41,7 @@ import org.chromium.chrome.browser.policy.PolicyAuditor;
 import org.chromium.chrome.browser.policy.PolicyAuditor.AuditEvent;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.tab.EmptyTabObserver;
+import org.chromium.chrome.browser.tab.InterceptNavigationDelegateTabHelper;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabLaunchType;
 import org.chromium.chrome.browser.tab.TabObserver;
@@ -54,6 +56,7 @@ import org.chromium.chrome.browser.tabmodel.TabModelUtils;
 import org.chromium.chrome.browser.ui.edge_to_edge.EdgeToEdgeControllerFactory;
 import org.chromium.chrome.browser.util.WindowFeatures;
 import org.chromium.components.embedder_support.contextmenu.ContextMenuUtils;
+import org.chromium.components.embedder_support.delegate.WebContentsDelegateAndroid;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.content_public.common.ResourceRequestBody;
 import org.chromium.ui.base.WindowAndroid;
@@ -203,13 +206,28 @@ public class ActivityTabWebContentsDelegateAndroid extends TabWebContentsDelegat
                 PopupCreator.arePopupsEnabled(mActivity)
                         && (disposition == WindowOpenDisposition.NEW_POPUP);
 
+        // Auxiliary navigations starting in a PWA will always cause a tab reparenting, we
+        // want to prevent UI effects caused by adding the Tab to the TabModel.
+        // This check is done before the tab is even created and the Tab where navigation started
+        // will be used to extract some information. The destination WebContents is provided to
+        // extract the missing features of this navigation that cannot be extracted from this
+        // InterceptNavigationDelegateImpl instance.
+        // TODO(crbug.com/404767741): enable early navigation capturing to address captured
+        // navigations UI jank.
+        var navigationTabHelper = InterceptNavigationDelegateTabHelper.getFromTab(mTab);
+        boolean willReparentTab =
+                navigationTabHelper != null
+                        && navigationTabHelper
+                                .getInterceptNavigationDelegate()
+                                .shouldReparentTab(webContents);
+
         Tab tab =
                 tabCreator.createTabWithWebContents(
                         mTab,
                         webContents,
                         TabLaunchType.FROM_LONGPRESS_FOREGROUND,
                         url,
-                        !openingPopup);
+                        !openingPopup && !willReparentTab);
         if (tab == null) return false;
 
         if (openingPopup) {
@@ -327,24 +345,28 @@ public class ActivityTabWebContentsDelegateAndroid extends TabWebContentsDelegat
 
     /** Brings chrome's Activity to foreground, if it is not so. */
     protected void bringActivityToForeground() {
-        // TODO(https://crbug.com/412888357): investigate updating the way of focusing activities.
-
-        // This intent is sent in order to get the activity back to the foreground if it was
-        // not already. The previous call will activate the right tab in the context of the
-        // TabModel but will only show the tab to the user if Chrome was already in the
-        // foreground.
-        // The intent is getting the tabId mostly because it does not cost much to do so.
-        // When receiving the intent, the tab associated with the tabId should already be
-        // active.
-        // Note that calling only the intent in order to activate the tab is slightly slower
-        // because it will change the tab when the intent is handled, which happens after
-        // Chrome gets back to the foreground.
-        Intent newIntent =
-                IntentHandler.createTrustedBringTabToFrontIntent(
-                        mTab.getId(), IntentHandler.BringToFrontSource.ACTIVATE_TAB);
-        if (newIntent != null) {
-            newIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            ContextUtils.getApplicationContext().startActivity(newIntent);
+        if (ChromeFeatureList.isEnabled(
+                ChromeFeatureList.USE_ACTIVITY_MANAGER_FOR_TAB_ACTIVATION)) {
+            ((ActivityManager) mActivity.getSystemService(Context.ACTIVITY_SERVICE))
+                    .moveTaskToFront(mActivity.getTaskId(), 0);
+        } else {
+            // This intent is sent in order to get the activity back to the foreground if it was
+            // not already. The previous call will activate the right tab in the context of the
+            // TabModel but will only show the tab to the user if Chrome was already in the
+            // foreground.
+            // The intent is getting the tabId mostly because it does not cost much to do so.
+            // When receiving the intent, the tab associated with the tabId should already be
+            // active.
+            // Note that calling only the intent in order to activate the tab is slightly slower
+            // because it will change the tab when the intent is handled, which happens after
+            // Chrome gets back to the foreground.
+            Intent newIntent =
+                    IntentHandler.createTrustedBringTabToFrontIntent(
+                            mTab.getId(), IntentHandler.BringToFrontSource.ACTIVATE_TAB);
+            if (newIntent != null) {
+                newIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                ContextUtils.getApplicationContext().startActivity(newIntent);
+            }
         }
     }
 

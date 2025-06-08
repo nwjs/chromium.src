@@ -73,7 +73,7 @@ class FakeOnDeviceSession final : public mojom::Session {
  public:
   explicit FakeOnDeviceSession(FakeOnDeviceServiceSettings* settings,
                                FakeOnDeviceModel* model,
-                               const Capabilities& capabilities);
+                               mojom::SessionParamsPtr params);
   ~FakeOnDeviceSession() override;
 
   // mojom::Session:
@@ -110,7 +110,7 @@ class FakeOnDeviceSession final : public mojom::Session {
   std::string adaptation_model_weight_;
   std::vector<mojom::AppendOptionsPtr> context_;
   raw_ptr<FakeOnDeviceModel> model_;
-  Capabilities capabilities_;
+  mojom::SessionParamsPtr params_;
   on_device_model::mojom::Priority priority_ =
       on_device_model::mojom::Priority::kForeground;
 
@@ -122,6 +122,7 @@ class FakeOnDeviceModel : public mojom::OnDeviceModel {
   struct Data {
     std::string base_weight = "";
     std::string adaptation_model_weight = "";
+    std::string cache_weight = "";
   };
   explicit FakeOnDeviceModel(FakeOnDeviceServiceSettings* settings,
                              Data&& data,
@@ -176,6 +177,7 @@ class FakeTsModel final : public mojom::TextSafetyModel,
                           ClassifyTextSafetyCallback callback) override;
   void DetectLanguage(const std::string& text,
                       DetectLanguageCallback callback) override;
+  void Clone(mojo::PendingReceiver<mojom::TextSafetySession> session) override;
 
  private:
   bool has_safety_model_ = false;
@@ -211,7 +213,7 @@ class FakeOnDeviceModelService : public mojom::OnDeviceModelService {
   void LoadModel(mojom::LoadModelParamsPtr params,
                  mojo::PendingReceiver<mojom::OnDeviceModel> model,
                  LoadModelCallback callback) override;
-  void GetCapabilities(ModelAssets assets,
+  void GetCapabilities(ModelFile model_file,
                        GetCapabilitiesCallback callback) override;
   void LoadTextSafetyModel(
       mojom::TextSafetyModelParamsPtr params,

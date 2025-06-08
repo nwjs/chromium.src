@@ -2,10 +2,9 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import {AnnotationMode, hexToColor, Ink2Manager, TEXT_COLORS, TextAlignment, UserAction} from 'chrome-extension://mhjfbmdgcfjbbpaeojofohoefgiehjai/pdf_viewer_wrapper.js';
+import {AnnotationMode, hexToColor, Ink2Manager, TEXT_COLORS, TextAlignment, TextTypeface, UserAction} from 'chrome-extension://mhjfbmdgcfjbbpaeojofohoefgiehjai/pdf_viewer_wrapper.js';
 import type {Color} from 'chrome-extension://mhjfbmdgcfjbbpaeojofohoefgiehjai/pdf_viewer_wrapper.js';
 import {assert} from 'chrome://resources/js/assert.js';
-import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
 import {eventToPromise, isVisible, microtasksFinished} from 'chrome://webui-test/test_util.js';
 
 import {clickDropdownButton, getColorButtons, getRequiredElement, setupMockMetricsPrivate} from './test_util.js';
@@ -25,12 +24,8 @@ chrome.test.runTests([
   async function testOpenBottomToolbar() {
     const mockMetricsPrivate = setupMockMetricsPrivate();
 
-    // Enable text annotations.
-    loadTimeData.overrideValues({'pdfTextAnnotationsEnabled': true});
-    viewer.$.toolbar.strings = Object.assign({}, viewer.$.toolbar.strings);
-    await microtasksFinished();
-
     viewer.$.toolbar.setAnnotationMode(AnnotationMode.TEXT);
+    await Ink2Manager.getInstance().initializeTextAnnotations();
     await microtasksFinished();
 
     chrome.test.assertEq(AnnotationMode.TEXT, viewer.$.toolbar.annotationMode);
@@ -51,7 +46,7 @@ chrome.test.runTests([
     // Font and size selects
     const selects = toolbar.shadowRoot.querySelectorAll('select');
     chrome.test.assertEq(2, selects.length);
-    chrome.test.assertEq('Roboto', selects[0]!.value);
+    chrome.test.assertEq(TextTypeface.SANS_SERIF, selects[0]!.value);
     chrome.test.assertEq('12', selects[1]!.value);
 
     // Style selector
@@ -86,7 +81,7 @@ chrome.test.runTests([
 
     const whenChanged =
         eventToPromise('attributes-changed', Ink2Manager.getInstance());
-    const newValue = 'Serif';
+    const newValue = TextTypeface.SERIF;
     fontSelect.focus();
     fontSelect.value = newValue;
     fontSelect.dispatchEvent(new CustomEvent('change'));
@@ -138,7 +133,7 @@ chrome.test.runTests([
     assert(selector);
     const buttons =
         selector.shadowRoot.querySelectorAll('selectable-icon-button');
-    chrome.test.assertEq(4, buttons.length);
+    chrome.test.assertEq(3, buttons.length);
     chrome.test.assertTrue(buttons[0]!.checked);
 
     const whenChanged =

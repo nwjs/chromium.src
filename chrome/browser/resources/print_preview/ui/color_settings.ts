@@ -3,19 +3,19 @@
 // found in the LICENSE file.
 
 import 'chrome://resources/cr_elements/md_select_lit.css.js';
-import './print_preview_shared_lit.css.js';
+import './print_preview_shared.css.js';
 import './settings_section.js';
 
 import {getCss as getMdSelectLitCss} from 'chrome://resources/cr_elements/md_select_lit.css.js';
 import {CrLitElement} from 'chrome://resources/lit/v3_0/lit.rollup.js';
 
 import {getHtml} from './color_settings.html.js';
-import {getCss as getPrintPreviewSharedLitCss} from './print_preview_shared_lit.css.js';
-import {SelectMixinLit} from './select_mixin_lit.js';
-import {SettingsMixinLit} from './settings_mixin_lit.js';
+import {getCss as getPrintPreviewSharedCss} from './print_preview_shared.css.js';
+import {SelectMixin} from './select_mixin.js';
+import {SettingsMixin} from './settings_mixin.js';
 
 const PrintPreviewColorSettingsElementBase =
-    SettingsMixinLit(SelectMixinLit(CrLitElement));
+    SettingsMixin(SelectMixin(CrLitElement));
 
 export class PrintPreviewColorSettingsElement extends
     PrintPreviewColorSettingsElementBase {
@@ -25,7 +25,7 @@ export class PrintPreviewColorSettingsElement extends
 
   static override get styles() {
     return [
-      getPrintPreviewSharedLitCss(),
+      getPrintPreviewSharedCss(),
       getMdSelectLitCss(),
     ];
   }
@@ -41,8 +41,8 @@ export class PrintPreviewColorSettingsElement extends
     };
   }
 
-  accessor disabled: boolean;
-  private accessor managed_: boolean;
+  accessor disabled: boolean = false;
+  private accessor managed_: boolean = false;
 
   override connectedCallback() {
     super.connectedCallback();

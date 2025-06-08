@@ -4,6 +4,8 @@
 
 #include <array>
 
+#include "base/strings/string_number_conversions.h"
+#include "base/strings/stringprintf.h"
 #include "base/test/bind.h"
 #include "content/browser/back_forward_cache_browsertest.h"
 #include "content/browser/web_contents/web_contents_impl.h"
@@ -788,8 +790,7 @@ IN_PROC_BROWSER_TEST_P(
   // RelatedActiveContents metrics because the related active contents
   // count is > 1.
   if (ShouldCreateNewHostForAllFrames() ||
-      (!NavigateSameSite() &&
-       SiteIsolationPolicy::UseDedicatedProcessesForAllSites())) {
+      (!NavigateSameSite() && AreStrictSiteInstancesEnabled())) {
     ExpectNotRestored(
         {NotRestoredReason::kRelatedActiveContentsExist,
          NotRestoredReason::kBlocklistedFeatures,

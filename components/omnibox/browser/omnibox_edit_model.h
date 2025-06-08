@@ -137,6 +137,11 @@ class OmniboxEditModel {
   // icon.
   ui::ImageModel GetSuperGIcon(int image_size, bool dark_mode) const;
 
+  // Returns the Agentspace icon for chrome builds. Otherwise return an empty
+  // Image. If `dark_mode` is enabled, return the monochrome version of the
+  // icon.
+  gfx::Image GetAgentspaceIcon(bool dark_mode) const;
+
   // Sets the state of user_input_in_progress_, and notifies the observer if
   // that state has changed.
   void SetInputInProgress(bool in_progress);
@@ -390,11 +395,22 @@ class OmniboxEditModel {
 #if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
   // Gets the icon for the given `match`.
   gfx::Image GetMatchIcon(const AutocompleteMatch& match,
-                          SkColor vector_icon_color) const;
+                          SkColor vector_icon_color,
+                          bool dark_mode = false) const;
   // Gets the icon for the given `match` if the match was provided by an omnibox
   // API extension, otherwise returns empty image.
   gfx::Image GetMatchIconIfExtension(const AutocompleteMatch& match) const;
 #endif
+
+  // Gets the suggestion group header text associated with the given suggestion
+  // group ID.
+  // In addition to calling `AutocompleteResult::GetHeaderForSuggestionGroup()`,
+  // this function takes into account certain header visibility criteria (e.g.
+  // experiment flags) to determine the proper header text, which will then be
+  // used by the relevant code to conditionally show suggestion group headers
+  // in the Omnibox/Realbox popup.
+  std::u16string GetSuggestionGroupHeaderText(
+      const std::optional<omnibox::GroupId>& suggestion_group_id) const;
 
   // Returns true if the popup exists and is open. Virtual for testing.
   virtual bool PopupIsOpen() const;
@@ -476,10 +492,6 @@ class OmniboxEditModel {
 
   // Stores the icon in a local data member and schedules a repaint.
   void SetIconBitmap(const GURL& icon_url, const SkBitmap& bitmap);
-
-  // Updates the popup view when the visibility of a group changes.
-  void SetPopupSuggestionGroupVisibility(size_t match_index,
-                                         bool suggestion_group_hidden);
 
   void SetAutocompleteInput(AutocompleteInput input);
 
@@ -654,9 +666,6 @@ class OmniboxEditModel {
   void SetKeyword(const std::u16string& keyword);
   void SetKeywordPlaceholder(const std::u16string& keyword_placeholder);
 
-  // Closes lens if still needed.
-  void MaybeCloseLens();
-
   // Owns this.
   raw_ptr<OmniboxController> controller_;
 
@@ -794,13 +803,6 @@ class OmniboxEditModel {
   // This is needed to properly update the SearchModel state when the user
   // presses escape.
   bool in_revert_;
-
-  // The omnibox sometimes opens the lens controller, e.g. when entering '@page'
-  // keyword mode. When exiting the scope or committing the omnibox, it should
-  // be closed again, unless lens is invoked by taking a contextual search
-  // match. In that case, the omnibox relinquishes the obligation to close so
-  // as to not interfere with lens match fulfillment and continued use.
-  bool close_lens_;
 
   // Indicates if the upcoming autocomplete search is allowed to be treated as
   // an exact keyword match.  If this is true then keyword mode will be

@@ -98,6 +98,9 @@ declare namespace chrome {
     // If distillations have been queued up.
     let requiresDistillation: boolean;
 
+    // If the speech tree has been initialized in the renderer.
+    let isSpeechTreeInitialized: boolean;
+
     // Returns whether the reading highlight is currently on.
     function isHighlightOn(): boolean;
 
@@ -204,7 +207,7 @@ declare namespace chrome {
 
     // Called when there is no text content after building the tree but we're
     // not showing the empty page either.
-    function onNoTextContent(): void;
+    function onNoTextContent(previouslyHadContent: boolean): void;
 
     // Returns the actual spacing value to use based on the given lineSpacing
     // category.
@@ -324,12 +327,6 @@ declare namespace chrome {
     // for text associated with these nodes.
     function getCurrentText(): number[];
 
-    // Begins processing the speech segments on the current page to be used by
-    // Read Aloud. This will split the speech into segments and process
-    // words to be used by word highlighting. This allows text to be traversed
-    // more quickly after speech begins.
-    function preprocessTextForSpeech(): void;
-
     // Resets the granularity index.
     function resetGranularityIndex(): void;
 
@@ -371,13 +368,13 @@ declare namespace chrome {
 
     // Sends an async request to get the status of a Natural voice pack for a
     // specific language. The response is sent back to the UI via
-    // updateVoicePackStatus()
+    // updateLanguageStatus()
     // TODO(crbug.com/377697173) Rename `VoicePack` to `Voice`
     function sendGetVoicePackInfoRequest(language: string): void;
 
     // Sends an async request to install a Natural voice pack for a
     // specific language. The response is sent back to the UI via
-    // updateVoicePackStatus()
+    // updateLanguageStatus()
     // TODO(crbug.com/377697173) Rename `VoicePack` to `Voice`
     function sendInstallVoicePackRequest(language: string): void;
 

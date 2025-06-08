@@ -52,7 +52,7 @@ public class BrowserUiListMenuRenderTest {
     /** Used to run a test only with night mode. */
     public static class NightModeOnlyParameterProvider implements ParameterProvider {
 
-        private static List<ParameterSet> sNightModeOnly =
+        private static final List<ParameterSet> sNightModeOnly =
                 Collections.singletonList(new ParameterSet().value(true).name("NightModeEnabled"));
 
         @Override
@@ -69,6 +69,7 @@ public class BrowserUiListMenuRenderTest {
     public RenderTestRule mRenderTestRule =
             RenderTestRule.Builder.withPublicCorpus()
                     .setBugComponent(RenderTestRule.Component.UI_BROWSER_MOBILE)
+                    .setRevision(1)
                     .build();
 
     @Rule public MethodRule mMethodParamAnnotationProcessor = new MethodParamAnnotationRule();

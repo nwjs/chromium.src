@@ -146,6 +146,7 @@ build_webui("build") {
     "privacy_page/security_keys_reset_dialog.ts",
     "privacy_page/security_keys_set_pin_dialog.ts",
     "privacy_page/security_keys_subpage.ts",
+    "privacy_page/security_page_v2.ts",
     "privacy_page/security_page.ts",
     "privacy_sandbox/privacy_sandbox_ad_measurement_subpage.ts",
     "privacy_sandbox/privacy_sandbox_fledge_subpage.ts",
@@ -188,7 +189,9 @@ build_webui("build") {
     "site_settings/file_system_site_entry.ts",
     "site_settings/file_system_site_entry_item.ts",
     "site_settings/file_system_site_list.ts",
+    "site_settings/geolocation_page.ts",
     "site_settings/media_picker.ts",
+    "site_settings/notifications_page.ts",
     "site_settings/pdf_documents.ts",
     "site_settings/protocol_handlers.ts",
     "site_settings/settings_category_default_radio_group.ts",
@@ -370,6 +373,7 @@ build_webui("build") {
     "privacy_page/privacy_guide/privacy_guide_fragment_shared.css",
     "search_engines_page/search_engine_entry.css",
     "site_settings/clear_storage_dialog_shared.css",
+    "site_settings/site_settings_shared.css",
     "site_settings_page/site_review_shared.css",
   ]
 
@@ -409,11 +413,6 @@ build_webui("build") {
         [ "//ui/webui/resources/cr_components/theme_color_picker:build_ts" ]
   } else {
     ts_deps += [ "//ash/webui/common/resources:build_ts" ]
-  }
-
-  if (use_nss_certs || chrome_root_store_cert_management_ui) {
-    ts_deps +=
-        [ "//ui/webui/resources/cr_components/certificate_manager:build_ts" ]
   }
 
   ts_path_mappings =

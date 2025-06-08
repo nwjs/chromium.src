@@ -54,7 +54,7 @@
 @end
 
 @implementation ProfileState {
-  base::WeakPtr<ProfileIOS> _profile;
+  raw_ptr<ProfileIOS> _profile;
 
   // Agents attached to this profile state.
   NSMutableArray<id<ProfileStateAgent>>* _agents;
@@ -110,8 +110,7 @@
 }
 
 - (void)setProfile:(ProfileIOS*)profile {
-  CHECK(profile);
-  _profile = profile->AsWeakPtr();
+  _profile = profile;
 }
 
 - (SceneState*)foregroundActiveScene {
@@ -253,6 +252,14 @@
   if (_needsIncrementInitStage) {
     _needsIncrementInitStage = false;
     [self queueTransitionToNextInitStage];
+  }
+}
+
+- (void)willBlockProfileInitialisationForUI {
+  DCHECK_GE(_initStage, ProfileInitStage::kPrepareUI);
+  DCHECK_LT(_initStage, ProfileInitStage::kFinal);
+  for (SceneState* sceneState in _connectedSceneStates) {
+    [sceneState.animator cancelAnimation];
   }
 }
 

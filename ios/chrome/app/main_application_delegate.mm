@@ -193,7 +193,7 @@ constexpr base::TimeDelta kMainIntentCheckDelay = base::Seconds(1);
               (void (^)(UIBackgroundFetchResult result))completionHandler {
   // This method is invoked by iOS to process an incoming remote push
   // notification for the application and fetch any additional data.
-
+  //
   // According to the documentation, iOS invokes this function whether the
   // application is in the foreground or background. In addition, iOS will
   // launch the application and place it in background mode to invoke this
@@ -201,11 +201,9 @@ constexpr base::TimeDelta kMainIntentCheckDelay = base::Seconds(1);
   // application. In that case, the user must relaunch the application or must
   // restart the device before the system will launch the application and invoke
   // this function.
-  UIBackgroundFetchResult result = [self.pushNotificationDelegate
-      applicationWillProcessIncomingRemoteNotification:userInfo];
-  if (completionHandler) {
-    completionHandler(result);
-  }
+  [self.pushNotificationDelegate
+      applicationWillProcessIncomingRemoteNotification:userInfo
+                                fetchCompletionHandler:completionHandler];
 }
 
 - (void)application:(UIApplication*)application
@@ -300,18 +298,6 @@ constexpr base::TimeDelta kMainIntentCheckDelay = base::Seconds(1);
 }
 
 - (void)sceneWillConnect:(NSNotification*)notification {
-  UIWindowScene* scene =
-      base::apple::ObjCCastStrict<UIWindowScene>(notification.object);
-  SceneDelegate* sceneDelegate =
-      base::apple::ObjCCastStrict<SceneDelegate>(scene.delegate);
-
-  // Under some iOS 15 betas, Chrome gets scene connection events for some
-  // system scene connections. To handle this, early return if the connecting
-  // scene doesn't have a valid delegate. (See crbug.com/1217461)
-  if (!sceneDelegate) {
-    return;
-  }
-
   // TODO(crbug.com/40679152): This should be called later, or this flow should
   // be changed completely.
   if (self.foregroundSceneCount == 0) {

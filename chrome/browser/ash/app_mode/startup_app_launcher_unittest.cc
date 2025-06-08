@@ -50,9 +50,9 @@
 #include "chrome/test/base/testing_browser_process.h"
 #include "chrome/test/base/testing_profile_manager.h"
 #include "chromeos/ash/components/login/login_state/login_state.h"
+#include "chromeos/ash/components/policy/device_local_account/device_local_account_type.h"
 #include "chromeos/ash/components/settings/cros_settings_names.h"
 #include "components/account_id/account_id.h"
-#include "components/policy/core/common/device_local_account_type.h"
 #include "components/sync/model/string_ordinal.h"
 #include "components/user_manager/scoped_user_manager.h"
 #include "content/public/browser/browser_context.h"
@@ -1358,7 +1358,7 @@ TEST_F(StartupAppLauncherTest,
   // initially, so the test can verify the app gets enabled regardless of the
   // initial state.
   PreinstallApp(*SecondaryAppBuilder(kSecondaryAppId).Build());
-  // Disable the secodnary app for a reason different than user action - that
+  // Disable the secondary app for a reason different than user action - that
   // disable reason should not be overriden during the kiosk launch.
   registrar()->DisableExtension(
       kSecondaryAppId, {extensions::disable_reason::DISABLE_USER_ACTION,

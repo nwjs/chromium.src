@@ -4,6 +4,8 @@
 
 package org.chromium.chrome.browser.autofill;
 
+import static org.chromium.build.NullUtil.assumeNonNull;
+
 import android.annotation.SuppressLint;
 import android.content.ComponentCallbacks;
 import android.content.Context;
@@ -39,8 +41,8 @@ import android.widget.ImageView;
 import android.widget.PopupWindow;
 import android.widget.TextView;
 
+import androidx.annotation.DimenRes;
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.annotation.Px;
 import androidx.annotation.VisibleForTesting;
 import androidx.appcompat.content.res.AppCompatResources;
@@ -51,6 +53,8 @@ import org.chromium.base.ApiCompatibilityUtils;
 import org.chromium.base.Callback;
 import org.chromium.base.CommandLine;
 import org.chromium.base.ContextUtils;
+import org.chromium.build.annotations.NullMarked;
+import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.components.autofill.FieldType;
@@ -68,6 +72,7 @@ import java.util.List;
 import java.util.Optional;
 
 /** Helper methods that can be used across multiple Autofill UIs. */
+@NullMarked
 public class AutofillUiUtils {
     // URL for the "Payment methods" page on the Google Wallet website. To manage a specific FOP,
     // append its instrument id as a query parameter using '&id='.
@@ -117,30 +122,43 @@ public class AutofillUiUtils {
     /** Contains dimensional specs for icons by the {@code AutofillImageFetcher}. */
     public static class IconSpecs {
         private final Context mContext;
-        private final int mWidthId;
-        private final int mHeightId;
-        private final int mCornerRadiusId;
-        private final int mBorderWidthId;
+        private final @ImageType int mImageType;
+        private final @DimenRes int mWidthId;
+        private final @DimenRes int mHeightId;
+        private final @DimenRes int mCornerRadiusId;
+        private final @DimenRes int mBorderWidthId;
 
         /**
          * @param context to get the resources.
+         * @param imageType the type of the image supported by the {@link AutofillImageFetcher}.
          * @param widthId Resource Id for the icon's width spec.
          * @param heightId Resource Id for the icon's height spec.
          */
-        private IconSpecs(Context context, int widthId, int heightId) {
-            this(context, widthId, heightId, 0, 0);
+        private IconSpecs(
+                Context context,
+                @ImageType int imageType,
+                @DimenRes int widthId,
+                @DimenRes int heightId) {
+            this(context, imageType, widthId, heightId, 0, 0);
         }
 
         /**
          * @param context to get the resources.
+         * @param imageType the type of the image supported by the {@link AutofillImageFetcher}.
          * @param widthId Resource Id for the icon's width spec.
          * @param heightId Resource Id for the icon's height spec.
          * @param cornerRadiusId Resource Id for the icon's corner radius spec.
          * @param borderWidthId Resource Id for the icon's border width spec.
          */
         private IconSpecs(
-                Context context, int widthId, int heightId, int cornerRadiusId, int borderWidthId) {
+                Context context,
+                @ImageType int imageType,
+                @DimenRes int widthId,
+                @DimenRes int heightId,
+                @DimenRes int cornerRadiusId,
+                @DimenRes int borderWidthId) {
             mContext = context;
+            mImageType = imageType;
             mWidthId = widthId;
             mHeightId = heightId;
             mCornerRadiusId = cornerRadiusId;
@@ -167,7 +185,7 @@ public class AutofillUiUtils {
                     return createForValuableIcon(context, imageSize);
             }
             assert false : "Image type not handled: " + imageType;
-            return null;
+            return assumeNonNull(null);
         }
 
         private static IconSpecs createForCreditCardIcon(
@@ -176,6 +194,7 @@ public class AutofillUiUtils {
                 case ImageSize.LARGE:
                     return new IconSpecs(
                             context,
+                            ImageType.CREDIT_CARD_ART_IMAGE,
                             R.dimen.large_card_icon_width,
                             R.dimen.large_card_icon_height,
                             R.dimen.large_card_icon_corner_radius,
@@ -183,6 +202,7 @@ public class AutofillUiUtils {
                 case ImageSize.SQUARE:
                     return new IconSpecs(
                             context,
+                            ImageType.CREDIT_CARD_ART_IMAGE,
                             R.dimen.square_card_icon_side_length,
                             R.dimen.square_card_icon_side_length,
                             R.dimen.square_card_icon_corner_radius,
@@ -190,13 +210,14 @@ public class AutofillUiUtils {
                 case ImageSize.SMALL:
                     return new IconSpecs(
                             context,
+                            ImageType.CREDIT_CARD_ART_IMAGE,
                             R.dimen.small_card_icon_width,
                             R.dimen.small_card_icon_height,
                             R.dimen.small_card_icon_corner_radius,
                             R.dimen.card_icon_border_width);
             }
             assert false : "Image size not handled: " + imageSize;
-            return null;
+            return assumeNonNull(null);
         }
 
         private static IconSpecs createForValuableIcon(Context context, @ImageSize int imageSize) {
@@ -204,20 +225,32 @@ public class AutofillUiUtils {
                 case ImageSize.LARGE:
                     return new IconSpecs(
                             context,
+                            ImageType.VALUABLE_IMAGE,
                             R.dimen.large_valuable_icon_size,
                             R.dimen.large_valuable_icon_size);
                 case ImageSize.SMALL:
                     return new IconSpecs(
                             context,
+                            ImageType.VALUABLE_IMAGE,
                             R.dimen.small_valuable_icon_size,
                             R.dimen.small_valuable_icon_size);
             }
             assert false : "Image size not handled: " + imageSize;
-            return null;
+            return assumeNonNull(null);
         }
 
         public GURL getResolvedIconUrl(GURL iconUrl) {
-            return getFifeIconUrlWithParams(iconUrl, getWidth(), getHeight());
+            switch (mImageType) {
+                case ImageType.CREDIT_CARD_ART_IMAGE:
+                case ImageType.PIX_ACCOUNT_IMAGE:
+                    return getFifeIconUrlWithParams(
+                            iconUrl, getWidth(), getHeight(), /* circleCrop= */ false, /* requestPng= */ false);
+                case ImageType.VALUABLE_IMAGE:
+                    return getFifeIconUrlWithParams(
+                            iconUrl, getWidth(), getHeight(), /* circleCrop= */ true, /* requestPng= */ true);
+            }
+            assert false : "Image type not handled: " + mImageType;
+            return assumeNonNull(null);
         }
 
         public @Px int getWidth() {
@@ -481,7 +514,7 @@ public class AutofillUiUtils {
      * Applies the error filter to the invalid fields based on the errorType.
      *
      * @param errorType The ErrorType value representing the type of error found for the unmask
-     *                  fields.
+     *     fields.
      * @param context Context required to get resources,
      * @param monthInput EditText for the month field.
      * @param yearInput EditText for the year field.
@@ -492,7 +525,7 @@ public class AutofillUiUtils {
             Context context,
             EditText monthInput,
             EditText yearInput,
-            EditText cvcInput) {
+            @Nullable EditText cvcInput) {
         ColorFilter filter =
                 new PorterDuffColorFilter(
                         context.getColor(R.color.input_underline_error_color),
@@ -520,10 +553,11 @@ public class AutofillUiUtils {
 
     /**
      * Sets the stroke color for the given input.
+     *
      * @param input The input to modify.
      * @param filter The color filter to apply to the background.
      */
-    public static void updateColorForInput(EditText input, ColorFilter filter) {
+    public static void updateColorForInput(EditText input, @Nullable ColorFilter filter) {
         input.getBackground().mutate().setColorFilter(filter);
     }
 
@@ -541,6 +575,7 @@ public class AutofillUiUtils {
         Drawable mInlineTitleIcon =
                 ResourcesCompat.getDrawable(
                         context.getResources(), logoResourceId, context.getTheme());
+        assumeNonNull(mInlineTitleIcon);
         // The first character will be replaced by the logo, and the consecutive spaces after
         // are used as padding.
         SpannableString titleWithLogo = new SpannableString("   " + title);
@@ -633,14 +668,22 @@ public class AutofillUiUtils {
      * @param customIconUrl A FIFE URL to fetch the image.
      * @param width in pixels.
      * @param height in pixels.
+     * @param circleCrop whether to the circle crop parameter to the URL ('-cc').
      * @return {@link GURL} formatted with the icon dimensions to fetch the image.
      */
     @VisibleForTesting
-    static GURL getFifeIconUrlWithParams(GURL customIconUrl, @Px int width, @Px int height) {
+    static GURL getFifeIconUrlWithParams(
+            GURL customIconUrl, @Px int width, @Px int height, boolean circleCrop, boolean requestPng) {
         // Params can be added to a FIFE URL by appending them at the end like URL[=params]. "w"
         // option is used to set the width in pixels, and "h" is used to set the height in pixels.
         StringBuilder url = new StringBuilder(customIconUrl.getSpec());
         url.append("=w").append(width).append("-h").append(height);
+        if (circleCrop) {
+            url.append("-cc");
+        }
+        if (requestPng) {
+            url.append("-rp");
+        }
 
         return new GURL(url.toString());
     }
@@ -712,6 +755,31 @@ public class AutofillUiUtils {
             return defaultIcon;
         }
 
+        return new BitmapDrawable(context.getResources(), customIconBitmap.get());
+    }
+
+    /**
+     * If {@code imageUrl} is valid, it fetches the bitmap of the required size from {@link
+     * AutofillImageFetcher}. Otherwise @{code null} drawable is returned.
+     *
+     * @param context Context required to get resources.
+     * @param imageFetcher The {@link AutofillImageFetcher} associated with the profile.
+     * @param imageUrl The URL to fetch the icon.
+     * @param imageSize Enum that specifies the icon's size (small or large).
+     * @return {@link Drawable} that can be set as the card icon.
+     */
+    public static @Nullable Drawable getValuableIcon(
+            Context context,
+            AutofillImageFetcher imageFetcher,
+            GURL imageUrl,
+            @ImageSize int imageSize) {
+        Optional<Bitmap> customIconBitmap =
+                imageFetcher.getImageIfAvailable(
+                        imageUrl, IconSpecs.create(context, ImageType.VALUABLE_IMAGE, imageSize));
+
+        if (!customIconBitmap.isPresent()) {
+            return null;
+        }
         return new BitmapDrawable(context.getResources(), customIconBitmap.get());
     }
 

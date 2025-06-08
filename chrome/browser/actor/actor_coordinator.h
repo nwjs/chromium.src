@@ -6,13 +6,17 @@
 #define CHROME_BROWSER_ACTOR_ACTOR_COORDINATOR_H_
 
 #include <memory>
+#include <optional>
 
-#include "base/functional/callback_forward.h"
+#include "base/functional/callback.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/sequence_checker.h"
 #include "base/types/id_type.h"
+#include "chrome/browser/actor/task_id.h"
 #include "chrome/browser/actor/tools/tool_controller.h"
+#include "chrome/common/actor.mojom-forward.h"
+#include "components/tabs/public/tab_interface.h"
 #include "content/public/browser/web_contents_observer.h"
 
 class Profile;
@@ -36,9 +40,10 @@ class BrowserAction;
 namespace actor {
 
 // Coordinates the execution of a multi-step task.
+// This class is misnamed. It's a specific type of execution engine.
 class ActorCoordinator {
  public:
-  using ActionResultCallback = base::OnceCallback<void(bool)>;
+  using ActionResultCallback = base::OnceCallback<void(mojom::ActionResultPtr)>;
   using StartTaskCallback =
       base::OnceCallback<void(base::WeakPtr<tabs::TabInterface>)>;
 
@@ -58,24 +63,34 @@ class ActorCoordinator {
   static void RegisterWithProfile(Profile* profile);
 
   // Starts a new task.
-  // Currently, requires a navigate action to start, and always creates a new
-  // tab.
-  // If starting the task succeeds, provides the newly-created tab in the
-  // callback, otherwise null.
-  // Starting the task may fail for any of:
+  // Currently, requires a navigate action to start.
+  // If starting the task succeeds, provides the tab in the callback, otherwise
+  // null. Starting the task may fail for any of:
   //   - The `action` is not navigate.
   //   - There is already a task started, or attempting to create a new tab to
   //   start a task.
-  //   - Unable to create a new tab.
+  //   - If a tab handle is provided, the tab must exist and be valid. The task
+  //   will fail if the tab cannot be found or is invalid.
+  //   - If no tab handle is provided, a new tab will be created.
   void StartTask(const optimization_guide::proto::BrowserAction& action,
-                 StartTaskCallback callback);
+                 StartTaskCallback callback,
+                 std::optional<tabs::TabHandle> tab_handle);
 
-  // Stops the currently running task, if one is active. Callbacks for
+  // Stops the current task, if it's active. Callbacks for
   // in-progress actions are invoked.
   void StopTask();
+  // Pauses the current task, if it's active. Callbacks for in-progress actions
+  // are invoked.
+  void PauseTask();
+
+  // Returns the tab associated with the current task if it exists.
+  tabs::TabInterface* GetTabOfCurrentTask() const;
 
   // Returns true if a task is currently active.
   bool HasTask() const;
+
+  // Returns true if a task is currently active in `tab`.
+  bool HasTaskForTab(const content::WebContents* tab) const;
 
   // Starts new task with an existing tab, for testing only. Intended for unit
   // tests that do not use a browser and actual navigation.
@@ -88,13 +103,12 @@ class ActorCoordinator {
 
  private:
   class NewTabWebContentsObserver;
-  struct Task;
-  using TaskId = base::IdType32<Task>;
 
   // Starts a new task, after validating there isn't already a task being
   // initialized or in progress.
   void TryStartNewTask(const optimization_guide::proto::BrowserAction& action,
-                       StartTaskCallback callback);
+                       StartTaskCallback callback,
+                       std::optional<tabs::TabHandle> tab_handle);
 
   // Invokes the StartTask callback when initializing a new task failed (e.g.
   // error creating a new tab). Must be called to reset from the "initializing"
@@ -112,18 +126,18 @@ class ActorCoordinator {
                              const url::Origin& evaluated_origin,
                              bool may_act);
 
-  void CompleteAction(bool success);
+  void CompleteAction(mojom::ActionResultPtr result);
 
   base::WeakPtr<ActorCoordinator> GetWeakPtr();
 
-  static base::TimeDelta action_observation_delay_;
+  static std::optional<base::TimeDelta> action_observation_delay_for_testing_;
 
   bool initializing_new_task_ = false;
   raw_ptr<Profile> profile_;
 
   struct Action {
     Action(const optimization_guide::proto::BrowserAction& action,
-           ActionResultCallback callback);
+           ActorCoordinator::ActionResultCallback callback);
     ~Action();
     Action(const Action&) = delete;
     Action& operator=(const Action&) = delete;
@@ -143,6 +157,8 @@ class ActorCoordinator {
 
     TaskId id;
 
+    // TODO(mcnee): Ensure this task can't outlive the tab, then stop using weak
+    // ptr.
     base::WeakPtr<tabs::TabInterface> tab;
     ToolController tool_controller;
 

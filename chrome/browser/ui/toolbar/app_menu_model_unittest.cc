@@ -102,6 +102,13 @@ class AppMenuModelTest : public BrowserWithTestWindowTest,
  public:
   AppMenuModelTest() = default;
 
+  void SetUp() override {
+    BrowserWithTestWindowTest::SetUp();
+    safety_hub_test_util::CreateRevokedPermissionsService(browser()->profile());
+    safety_hub_test_util::CreateNotificationPermissionsReviewService(
+        browser()->profile());
+  }
+
   AppMenuModelTest(const AppMenuModelTest&) = delete;
   AppMenuModelTest& operator=(const AppMenuModelTest&) = delete;
 
@@ -301,22 +308,6 @@ TEST_F(AppMenuModelTest, CustomizeChromeLogMetrics) {
   model.Init();
   model.ExecuteCommand(IDC_SHOW_CUSTOMIZE_CHROME_SIDE_PANEL, 0);
   EXPECT_EQ(1, model.log_metrics_count_);
-}
-
-TEST_F(AppMenuModelTest, TabSearchItem) {
-  feature_list_.Reset();
-  feature_list_.InitWithFeaturesAndParameters(
-      /*enabled_features=*/
-      {{features::kTabstripComboButton,
-        {{"tab_search_toolbar_button", "true"}}}},
-      /*disabled_features=*/{});
-
-  AppMenuModel model(this, browser());
-  model.Init();
-  ToolsMenuModel toolModel(&model, browser());
-  size_t tab_search_index =
-      toolModel.GetIndexOfCommandId(IDC_TAB_SEARCH).value();
-  EXPECT_TRUE(toolModel.IsEnabledAt(tab_search_index));
 }
 
 TEST_F(AppMenuModelTest, OrganizeTabsItem) {
@@ -579,7 +570,8 @@ class TestAppMenuModelSafetyHubTest : public AppMenuModelTest {
 
     // Let PasswordStatusCheckService run until it fetches the latest data.
     PasswordStatusCheckService* password_service =
-        PasswordStatusCheckServiceFactory::GetForProfile(profile());
+        safety_hub_test_util::CreateAndUsePasswordStatusService(profile());
+
     safety_hub_test_util::UpdatePasswordCheckServiceAsync(password_service);
     EXPECT_EQ(password_service->compromised_credential_count(), 0UL);
 
@@ -645,4 +637,31 @@ TEST_F(TestAppMenuModelSafetyHubTest, HaTSControlTrigger) {
       ->GetNotificationToShow();
   AppMenuModel new_model(this, browser());
   new_model.Init();
+}
+
+class TabSearchMenuModelTest : public AppMenuModelTest {
+ public:
+  TabSearchMenuModelTest() = default;
+  ~TabSearchMenuModelTest() override = default;
+
+  void SetUp() override {
+    scoped_feature_list_.InitWithFeaturesAndParameters(
+        /*enabled_features=*/
+        {{features::kTabstripComboButton,
+          {{"tab_search_toolbar_button", "true"}}}},
+        /*disabled_features=*/{});
+    AppMenuModelTest::SetUp();
+  }
+
+ private:
+  base::test::ScopedFeatureList scoped_feature_list_;
+};
+
+TEST_F(TabSearchMenuModelTest, TabSearchItem) {
+  AppMenuModel model(this, browser());
+  model.Init();
+  ToolsMenuModel toolModel(&model, browser());
+  size_t tab_search_index =
+      toolModel.GetIndexOfCommandId(IDC_TAB_SEARCH).value();
+  EXPECT_TRUE(toolModel.IsEnabledAt(tab_search_index));
 }

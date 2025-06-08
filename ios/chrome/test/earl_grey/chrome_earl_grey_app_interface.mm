@@ -24,6 +24,7 @@
 #import "components/autofill/core/browser/data_manager/personal_data_manager.h"
 #import "components/autofill/core/common/autofill_features.h"
 #import "components/browsing_data/core/pref_names.h"
+#import "components/collaboration/public/messaging/messaging_backend_service.h"
 #import "components/content_settings/core/browser/host_content_settings_map.h"
 #import "components/metrics/demographics/demographic_metrics_provider.h"
 #import "components/metrics/dwa/dwa_recorder.h"
@@ -42,6 +43,7 @@
 #import "ios/chrome/app/application_delegate/app_state.h"
 #import "ios/chrome/app/main_controller.h"
 #import "ios/chrome/browser/autofill/model/personal_data_manager_factory.h"
+#import "ios/chrome/browser/collaboration/model/messaging/messaging_backend_service_factory.h"
 #import "ios/chrome/browser/content_settings/model/host_content_settings_map_factory.h"
 #import "ios/chrome/browser/default_browser/model/utils.h"
 #import "ios/chrome/browser/default_browser/model/utils_test_support.h"
@@ -108,8 +110,14 @@ using base::test::ios::kWaitForActionTimeout;
 using base::test::ios::kWaitForJSCompletionTimeout;
 using base::test::ios::kWaitForPageLoadTimeout;
 using base::test::ios::WaitUntilConditionOrTimeout;
+using collaboration::messaging::MessagingBackendService;
+using collaboration::messaging::MessagingBackendServiceFactory;
 
 namespace {
+
+// The timeout for the MessagingBackendService initialization. This is taking
+// a long time on the bots, so the value is pretty large.
+constexpr base::TimeDelta kWaitForMessagingBackend = base::Seconds(60);
 
 // Returns a JSON-encoded string representing the given `pref`. If `pref` is
 // nullptr, returns a string representing a base::Value of type NONE.
@@ -1270,6 +1278,12 @@ NSString* SerializedValue(const base::Value* value) {
   return SerializedPref(pref);
 }
 
++ (base::Time)localStateTimePref:(NSString*)prefName {
+  std::string path = base::SysNSStringToUTF8(prefName);
+  PrefService* prefService = GetApplicationContext()->GetLocalState();
+  return prefService->GetTime(path);
+}
+
 + (void)setIntegerValue:(int)value forLocalStatePref:(NSString*)prefName {
   std::string path = base::SysNSStringToUTF8(prefName);
   PrefService* prefService = GetApplicationContext()->GetLocalState();
@@ -1415,6 +1429,10 @@ NSString* SerializedValue(const base::Value* value) {
   [UIPasteboard.generalPasteboard setURL:[NSURL URLWithString:link]];
 }
 
++ (void)copyImageToPasteboard:(NSData*)imageData {
+  [UIPasteboard.generalPasteboard setImage:[UIImage imageWithData:imageData]];
+}
+
 #pragma mark - Watcher utilities
 
 // Delay between two watch cycles.
@@ -1558,9 +1576,12 @@ int watchRunNumber = 0;
   UNUserNotificationCenter* center =
       UNUserNotificationCenter.currentNotificationCenter;
 
+  std::string_view profileName =
+      chrome_test_util::GetOriginalProfile()->GetProfileName();
   UNNotificationRequest* request = [UNNotificationRequest
       requestWithIdentifier:kTipsNotificationId
-                    content:ContentForTipsNotificationType(type, false)
+                    content:ContentForTipsNotificationType(type, false,
+                                                           profileName)
                     trigger:nil];
 
   [center addNotificationRequest:request withCompletionHandler:nil];
@@ -1573,6 +1594,26 @@ int watchRunNumber = 0;
   variations::VariationsService* variationsService =
       GetApplicationContext()->GetVariationsService();
   variationsService->OverrideStoredPermanentCountry(UTF8Country);
+}
+
+#pragma mark - Shared Tab Groups Utilities
+
++ (NSError*)waitForMessagingBackendServiceInitialized {
+  bool success = WaitUntilConditionOrTimeout(kWaitForMessagingBackend, ^bool {
+    ProfileIOS* profile = chrome_test_util::GetOriginalProfile();
+    CHECK(profile);
+    MessagingBackendService* service =
+        MessagingBackendServiceFactory::GetForProfile(profile);
+    CHECK(service);
+    return service->IsInitialized();
+  });
+  if (!success) {
+    NSString* NSErrorDescription = [NSString
+        stringWithFormat:
+            @"Failed waiting for MessagingBackendService to initialize"];
+    return testing::NSErrorWithLocalizedDescription(NSErrorDescription);
+  }
+  return nil;
 }
 
 @end

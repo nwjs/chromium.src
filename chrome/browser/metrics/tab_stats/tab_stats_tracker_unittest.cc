@@ -13,32 +13,45 @@
 #include <vector>
 
 #include "base/memory/raw_ptr.h"
+#include "base/memory/raw_ref.h"
 #include "base/metrics/histogram_samples.h"
 #include "base/strings/strcat.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/power_monitor_test.h"
 #include "base/time/time.h"
-#include "chrome/browser/resource_coordinator/test_lifecycle_unit.h"
-#include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/tabs/tab_enums.h"
-#include "chrome/browser/ui/tabs/tab_strip_model.h"
+#include "build/build_config.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/test/base/chrome_render_view_host_test_harness.h"
-#include "chrome/test/base/test_browser_window.h"
 #include "components/metrics/daily_event.h"
 #include "components/prefs/pref_registry_simple.h"
 #include "components/prefs/testing_pref_service.h"
+#include "content/public/browser/media_player_id.h"
 #include "content/public/browser/web_contents.h"
+#include "content/public/browser/web_contents_observer.h"
 #include "content/public/test/navigation_simulator.h"
 #include "content/public/test/web_contents_tester.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
+
+#if BUILDFLAG(IS_ANDROID)
+#include "chrome/browser/android/tab_android.h"
+#include "chrome/browser/ui/android/tab_model/tab_model_list.h"
+#include "chrome/browser/ui/android/tab_model/tab_model_observer.h"
+#include "chrome/browser/ui/android/tab_model/tab_model_test_helper.h"
+#else
+#include "chrome/browser/resource_coordinator/test_lifecycle_unit.h"
+#include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/tabs/tab_enums.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
+#include "chrome/test/base/test_browser_window.h"
+#endif
 
 namespace metrics {
 
 namespace {
 
 using TabsStats = TabStatsDataStore::TabsStats;
+using TabStripInterface = TabStatsTracker::TabStripInterface;
 
 std::string GetHistogramNameWithBatteryStateSuffix(const char* histogram_name) {
   const char* suffix = base::PowerMonitor::GetInstance()->IsOnBatteryPower()
@@ -74,19 +87,94 @@ auto SampleCountInBucketMatcher(int sample, int count) {
 
 class TestTabStatsObserver : public TabStatsObserver {
  public:
+  explicit TestTabStatsObserver(TabStatsTracker& stats_tracker)
+      : stats_tracker_(stats_tracker) {
+    stats_tracker_->AddObserverAndSetInitialState(this);
+  }
+  ~TestTabStatsObserver() override { stats_tracker_->RemoveObserver(this); }
+
   // Functions used to update the counts.
   void OnPrimaryMainFrameNavigationCommitted(
       content::WebContents* web_contents) override {
     ++main_frame_committed_navigations_count_;
+  }
+  void OnVideoStartedPlaying(content::WebContents* web_contents) override {
+    ASSERT_FALSE(video_playing_in_tab_);
+    video_playing_in_tab_ = true;
+  }
+  void OnVideoStoppedPlaying(content::WebContents* web_contents) override {
+    ASSERT_TRUE(video_playing_in_tab_);
+    video_playing_in_tab_ = false;
   }
 
   size_t main_frame_committed_navigations_count() {
     return main_frame_committed_navigations_count_;
   }
 
+  bool is_video_playing_in_tab() const { return video_playing_in_tab_; }
+
  private:
+  const base::raw_ref<TabStatsTracker> stats_tracker_;
   size_t main_frame_committed_navigations_count_ = 0;
+  bool video_playing_in_tab_ = false;
 };
+
+// Modifies the TabStripModel (on Desktop) or TabModel (on Android).
+
+#if BUILDFLAG(IS_ANDROID)
+
+class TabStripModifier {
+ public:
+  TabStripModifier(const TabStripInterface* tab_strip,
+                   OwningTestTabModel* test_tab_model)
+      : tab_strip_(tab_strip), test_tab_model_(test_tab_model) {}
+
+  ~TabStripModifier() = default;
+
+  TabStripModifier(const TabStripModifier&) = delete;
+  TabStripModifier& operator=(const TabStripModifier&) = delete;
+
+  const TabStripInterface& tab_strip() const { return *tab_strip_; }
+
+  void InsertWebContentsAt(size_t index,
+                           std::unique_ptr<content::WebContents> web_contents) {
+    test_tab_model_->AddTabFromWebContents(std::move(web_contents), index,
+                                           /*select=*/true);
+  }
+
+  void CloseWebContentsAt(size_t index) { test_tab_model_->CloseTabAt(index); }
+
+ private:
+  raw_ptr<const TabStripInterface> tab_strip_;
+  raw_ptr<OwningTestTabModel> test_tab_model_;
+};
+
+#else  // !BUILDFLAG(IS_ANDROID)
+
+class TabStripModifier {
+ public:
+  TabStripModifier(const TabStripInterface* tab_strip, Browser* browser)
+      : tab_strip_(tab_strip), browser_(browser) {}
+
+  const TabStripInterface& tab_strip() const { return *tab_strip_; }
+
+  void InsertWebContentsAt(size_t index,
+                           std::unique_ptr<content::WebContents> web_contents) {
+    browser_->tab_strip_model()->InsertWebContentsAt(
+        index, std::move(web_contents), AddTabTypes::ADD_ACTIVE);
+  }
+
+  void CloseWebContentsAt(size_t index) {
+    browser_->tab_strip_model()->CloseWebContentsAt(
+        index, TabCloseTypes::CLOSE_USER_GESTURE);
+  }
+
+ private:
+  raw_ptr<const TabStripInterface> tab_strip_;
+  raw_ptr<Browser> browser_;
+};
+
+#endif  // !BUILDFLAG(IS_ANDROID)
 
 class TestTabStatsTracker : public TabStatsTracker {
  public:
@@ -105,25 +193,25 @@ class TestTabStatsTracker : public TabStatsTracker {
 
   size_t AddTabs(size_t tab_count,
                  ChromeRenderViewHostTestHarness* test_harness,
-                 TabStripModel* tab_strip_model) {
+                 TabStripModifier* tab_strip_modifier) {
     EXPECT_TRUE(test_harness);
     for (size_t i = 0; i < tab_count; ++i) {
       std::unique_ptr<content::WebContents> tab =
           test_harness->CreateTestWebContents();
-      tab_strip_model->InsertWebContentsAt(
-          tab_strip_model->count(), std::move(tab), AddTabTypes::ADD_ACTIVE);
+      tab_strip_modifier->InsertWebContentsAt(
+          tab_strip_modifier->tab_strip().GetTabCount(), std::move(tab));
     }
     EXPECT_EQ(tab_stats_data_store()->tab_stats().total_tab_count,
-              static_cast<size_t>(tab_strip_model->count()));
+              tab_strip_modifier->tab_strip().GetTabCount());
     return tab_stats_data_store()->tab_stats().total_tab_count;
   }
 
-  size_t RemoveTabs(size_t tab_count, TabStripModel* tab_strip_model) {
+  size_t RemoveTabs(size_t tab_count, TabStripModifier* tab_strip_modifier) {
     EXPECT_LE(tab_count, tab_stats_data_store()->tab_stats().total_tab_count);
-    EXPECT_LE(tab_count, static_cast<size_t>(tab_strip_model->count()));
+    EXPECT_LE(tab_count, tab_strip_modifier->tab_strip().GetTabCount());
     for (size_t i = 0; i < tab_count; ++i) {
-      tab_strip_model->CloseWebContentsAt(tab_strip_model->count() - 1,
-                                          TabCloseTypes::CLOSE_USER_GESTURE);
+      tab_strip_modifier->CloseWebContentsAt(
+          tab_strip_modifier->tab_strip().GetTabCount() - 1);
     }
     return tab_stats_data_store()->tab_stats().total_tab_count;
   }
@@ -141,6 +229,9 @@ class TestTabStatsTracker : public TabStatsTracker {
     return tab_stats_data_store()->tab_stats().window_count;
   }
 
+#if !BUILDFLAG(IS_ANDROID)
+  // TODO(crbug.com/412634171): Enable this when discarding is supported on
+  // Android.
   void DiscardedStateChange(ChromeRenderViewHostTestHarness* test_harness,
                             ::mojom::LifecycleUnitDiscardReason reason,
                             bool is_discarded) {
@@ -159,6 +250,7 @@ class TestTabStatsTracker : public TabStatsTracker {
     OnLifecycleUnitStateChanged(&lifecycle_unit, previous_state,
                                 kStateChangeReason);
   }
+#endif  // !BUILDFLAG(IS_ANDROID)
 
   void CheckDailyEventInterval() { daily_event_for_testing()->CheckInterval(); }
 
@@ -222,19 +314,36 @@ class TabStatsTrackerTest : public ChromeRenderViewHostTestHarness {
 
   void SetUp() override {
     ChromeRenderViewHostTestHarness::SetUp();
+#if BUILDFLAG(IS_ANDROID)
+    test_tab_model_ = std::make_unique<OwningTestTabModel>(profile());
+    test_tab_model_->AddEmptyTab(0);
+    tab_strip_interface_ =
+        std::make_unique<TabStripInterface>(test_tab_model_.get());
+    tab_strip_modifier_ = std::make_unique<TabStripModifier>(
+        tab_strip_interface_.get(), test_tab_model_.get());
+#else
     browser_ = CreateBrowserWithTestWindowForParams(
         Browser::CreateParams(profile(), true));
-    tab_strip_model_ = browser_->tab_strip_model();
+    tab_strip_interface_ = std::make_unique<TabStripInterface>(browser_.get());
+    tab_strip_modifier_ = std::make_unique<TabStripModifier>(
+        tab_strip_interface_.get(), browser_.get());
+#endif
   }
 
   void TearDown() override {
-    tab_stats_tracker_->RemoveTabs(tab_strip_model_->count(), tab_strip_model_);
+    tab_stats_tracker_->RemoveTabs(tab_strip_interface_->GetTabCount(),
+                                   tab_strip_modifier_.get());
     tab_stats_tracker_.reset();
 
     // Everything depending on `profile()` must be destroyed before it's deleted
     // in TearDown.
-    tab_strip_model_ = nullptr;
+    tab_strip_modifier_.reset();
+    tab_strip_interface_.reset();
+#if BUILDFLAG(IS_ANDROID)
+    test_tab_model_.reset();
+#else
     browser_.reset();
+#endif
     ChromeRenderViewHostTestHarness::TearDown();
   }
 
@@ -306,8 +415,15 @@ class TabStatsTrackerTest : public ChromeRenderViewHostTestHarness {
 
   TestingPrefServiceSimple pref_service_;
 
+#if BUILDFLAG(IS_ANDROID)
+  std::unique_ptr<OwningTestTabModel> test_tab_model_;
+#else
   std::unique_ptr<Browser> browser_;
-  raw_ptr<TabStripModel> tab_strip_model_;
+#endif
+
+  // Wrappers for the TabStripModel on desktop or TabModel on Android.
+  std::unique_ptr<TabStripInterface> tab_strip_interface_;
+  std::unique_ptr<TabStripModifier> tab_strip_modifier_;
 };
 
 TestTabStatsTracker::TestTabStatsTracker(PrefService* pref_service)
@@ -329,8 +445,7 @@ TestTabStatsTracker::TestTabStatsTracker(PrefService* pref_service)
 TEST_F(TabStatsTrackerTest, MainFrameCommittedNavigationTriggersUpdate) {
   constexpr const char kFirstUrl[] = "https://parent.com/";
 
-  TestTabStatsObserver tab_stats_observer;
-  tab_stats_tracker_->AddObserverAndSetInitialState(&tab_stats_observer);
+  TestTabStatsObserver tab_stats_observer(*tab_stats_tracker_);
   // Number of navigations starts of at zero.
   ASSERT_EQ(tab_stats_observer.main_frame_committed_navigations_count(), 0u);
 
@@ -345,7 +460,6 @@ TEST_F(TabStatsTrackerTest, MainFrameCommittedNavigationTriggersUpdate) {
 
   // Navigation registered.
   ASSERT_EQ(tab_stats_observer.main_frame_committed_navigations_count(), 1u);
-  tab_stats_tracker_->RemoveObserver(&tab_stats_observer);
 }
 
 TEST_F(TabStatsTrackerTest, OnResume) {
@@ -355,7 +469,7 @@ TEST_F(TabStatsTrackerTest, OnResume) {
 
   // Creates some tabs.
   size_t expected_tab_count =
-      tab_stats_tracker_->AddTabs(12, this, tab_strip_model_);
+      tab_stats_tracker_->AddTabs(12, this, tab_strip_modifier_.get());
 
   EXPECT_EQ(power_monitor_source_.GetBatteryPowerStatus(),
             base::PowerStateObserver::BatteryPowerStatus::kUnknown);
@@ -376,7 +490,7 @@ TEST_F(TabStatsTrackerTest, OnResume) {
 
   // Removes some tabs and update the expectations.
   size_t expected_tab_count2 =
-      tab_stats_tracker_->RemoveTabs(5, tab_strip_model_);
+      tab_stats_tracker_->RemoveTabs(5, tab_strip_modifier_.get());
 
   power_monitor_source_.GeneratePowerStateEvent(
       base::PowerStateObserver::BatteryPowerStatus::kBatteryPower);
@@ -404,12 +518,13 @@ TEST_F(TabStatsTrackerTest, StatsGetReportedDaily) {
   // Adds some tabs and windows, then remove some so the maximums are not equal
   // to the current state.
   size_t expected_tab_count =
-      tab_stats_tracker_->AddTabs(12, this, tab_strip_model_);
+      tab_stats_tracker_->AddTabs(12, this, tab_strip_modifier_.get());
   size_t expected_window_count = tab_stats_tracker_->AddWindows(5);
   size_t expected_max_tab_per_window = expected_tab_count;
   tab_stats_tracker_->data_store()->UpdateMaxTabsPerWindowIfNeeded(
       expected_max_tab_per_window);
-  expected_tab_count = tab_stats_tracker_->RemoveTabs(5, tab_strip_model_);
+  expected_tab_count =
+      tab_stats_tracker_->RemoveTabs(5, tab_strip_modifier_.get());
   expected_window_count = tab_stats_tracker_->RemoveWindows(2);
   expected_max_tab_per_window = expected_tab_count;
 
@@ -493,12 +608,15 @@ TEST_F(TabStatsTrackerTest, StatsGetReportedDaily) {
       stats.window_count_max, 1);
 }
 
+#if !BUILDFLAG(IS_ANDROID)
+// TODO(crbug.com/412634171): Enable this when discarding is supported on
+// Android.
 TEST_F(TabStatsTrackerTest, DailyDiscards) {
   // This test checks that the discard/reload counts are reported when the
   // daily event triggers.
 
   // Daily report is skipped when there is no tab. Adds tabs to avoid that.
-  tab_stats_tracker_->AddTabs(1, this, tab_strip_model_);
+  tab_stats_tracker_->AddTabs(1, this, tab_strip_modifier_.get());
 
   constexpr size_t kExpectedDiscardsExternal = 1;
   constexpr size_t kExpectedDiscardsUrgent = 2;
@@ -679,10 +797,11 @@ TEST_F(TabStatsTrackerTest, DailyDiscards) {
                            kDailyReloadsFrozenWithGrowingMemoryHistogramName,
                        kExpectedReloadsFrozenWithGrowingMemory2, 1);
 }
+#endif  // !BUILDFLAG(IS_ANDROID)
 
 TEST_F(TabStatsTrackerTest, HeartbeatMetrics) {
   size_t expected_tab_count =
-      tab_stats_tracker_->AddTabs(12, this, tab_strip_model_);
+      tab_stats_tracker_->AddTabs(12, this, tab_strip_modifier_.get());
   size_t expected_window_count = tab_stats_tracker_->AddWindows(5);
 
   tab_stats_tracker_->OnHeartbeatEvent();
@@ -692,13 +811,98 @@ TEST_F(TabStatsTrackerTest, HeartbeatMetrics) {
   ExpectBucketedSample(UmaStatsReportingDelegate::kWindowCountHistogramName,
                        expected_window_count, 1);
 
-  expected_tab_count = tab_stats_tracker_->RemoveTabs(4, tab_strip_model_);
+  expected_tab_count =
+      tab_stats_tracker_->RemoveTabs(4, tab_strip_modifier_.get());
   expected_window_count = tab_stats_tracker_->RemoveWindows(3);
 
   tab_stats_tracker_->OnHeartbeatEvent();
 
   ExpectBucketedSample(UmaStatsReportingDelegate::kWindowCountHistogramName,
                        expected_window_count, 1);
+}
+
+TEST_F(TabStatsTrackerTest, VideoPlayingInTab) {
+  content::WebContentsTester* const contents_tester =
+      content::WebContentsTester::For(web_contents());
+
+  constexpr auto kStoppedReason =
+      content::WebContentsObserver::MediaStoppedReason::kReachedEndOfStream;
+
+  const content::MediaPlayerId video_player_id0(
+      web_contents()->GetPrimaryMainFrame()->GetGlobalId(), 0);
+  const content::WebContentsObserver::MediaPlayerInfo video_player_info0(
+      /*has_video=*/true, /*has_audio=*/true);
+
+  const content::MediaPlayerId video_player_id1(
+      web_contents()->GetPrimaryMainFrame()->GetGlobalId(), 1);
+  const content::WebContentsObserver::MediaPlayerInfo video_player_info1(
+      /*has_video=*/true, /*has_audio=*/false);
+
+  const content::MediaPlayerId audio_video_player_id(
+      web_contents()->GetPrimaryMainFrame()->GetGlobalId(), 2);
+  content::WebContentsObserver::MediaPlayerInfo audio_video_player_info(
+      /*has_video=*/false, /*has_audio=*/true);
+
+  TestTabStatsObserver tab_stats_observer(*tab_stats_tracker_);
+
+  tab_stats_tracker_->OnInitialOrInsertedTab(web_contents());
+
+  content::WebContentsObserver* const observer =
+      tab_stats_tracker_->GetWebContentsUsageObserverForTesting(web_contents());
+  ASSERT_NE(observer, nullptr);
+
+  EXPECT_FALSE(tab_stats_observer.is_video_playing_in_tab());
+
+  observer->MediaMetadataChanged(video_player_info0, video_player_id0);
+  observer->MediaMetadataChanged(video_player_info1, video_player_id1);
+  observer->MediaMetadataChanged(audio_video_player_info,
+                                 audio_video_player_id);
+  EXPECT_FALSE(tab_stats_observer.is_video_playing_in_tab());
+
+  observer->MediaStartedPlaying(audio_video_player_info, audio_video_player_id);
+  EXPECT_FALSE(tab_stats_observer.is_video_playing_in_tab())
+      << "Only audio is playing";
+
+  contents_tester->SetCurrentlyPlayingVideoCount(1);
+  observer->MediaStartedPlaying(video_player_info0, video_player_id0);
+  EXPECT_TRUE(tab_stats_observer.is_video_playing_in_tab())
+      << "One video is playing";
+
+  contents_tester->SetCurrentlyPlayingVideoCount(2);
+  observer->MediaStartedPlaying(video_player_info1, video_player_id1);
+  EXPECT_TRUE(tab_stats_observer.is_video_playing_in_tab())
+      << "Two videos are playing";
+
+  contents_tester->SetCurrentlyPlayingVideoCount(1);
+  observer->MediaStoppedPlaying(video_player_info1, video_player_id1,
+                                kStoppedReason);
+  EXPECT_TRUE(tab_stats_observer.is_video_playing_in_tab())
+      << "One video is playing";
+
+  contents_tester->SetCurrentlyPlayingVideoCount(0);
+  observer->MediaStoppedPlaying(video_player_info0, video_player_id0,
+                                kStoppedReason);
+  EXPECT_FALSE(tab_stats_observer.is_video_playing_in_tab())
+      << "No video is playing";
+
+  audio_video_player_info.has_video = true;
+  contents_tester->SetCurrentlyPlayingVideoCount(1);
+  observer->MediaMetadataChanged(audio_video_player_info,
+                                 audio_video_player_id);
+  EXPECT_TRUE(tab_stats_observer.is_video_playing_in_tab())
+      << "A video track was added to a player that was playing";
+
+  audio_video_player_info.has_video = false;
+  contents_tester->SetCurrentlyPlayingVideoCount(0);
+  observer->MediaMetadataChanged(audio_video_player_info,
+                                 audio_video_player_id);
+  EXPECT_FALSE(tab_stats_observer.is_video_playing_in_tab())
+      << "The video track was removed";
+
+  observer->MediaStoppedPlaying(audio_video_player_info, audio_video_player_id,
+                                kStoppedReason);
+  EXPECT_FALSE(tab_stats_observer.is_video_playing_in_tab())
+      << "No video is playing";
 }
 
 }  // namespace metrics

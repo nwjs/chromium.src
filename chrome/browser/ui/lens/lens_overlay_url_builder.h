@@ -9,6 +9,7 @@
 #include <optional>
 #include <string>
 
+#include "base/time/time.h"
 #include "components/lens/lens_overlay_invocation_source.h"
 #include "third_party/lens_server_proto/lens_overlay_cluster_info.pb.h"
 #include "third_party/lens_server_proto/lens_overlay_request_id.pb.h"
@@ -38,6 +39,7 @@ GURL AppendInvocationSourceParamToURL(
     lens::LensOverlayInvocationSource invocation_source);
 
 GURL BuildTextOnlySearchURL(
+    base::Time query_start_time,
     const std::string& text_query,
     std::optional<GURL> page_url,
     std::optional<std::string> page_title,
@@ -47,6 +49,7 @@ GURL BuildTextOnlySearchURL(
     bool use_dark_mode);
 
 GURL BuildLensSearchURL(
+    base::Time query_start_time,
     std::optional<std::string> text_query,
     std::optional<GURL> page_url,
     std::optional<std::string> page_title,
@@ -120,6 +123,14 @@ bool IsLensTextSelectionType(
 // both URLs.
 bool URLsMatchWithoutTextFragment(const GURL& first_url,
                                   const GURL& second_url);
+
+// Adds the `text_fragments` and `pdf_page_number` to the ref attribute of `url`
+// without modifying any part of the rest of the URL. Any information in the
+// current ref of `url` is discarded.
+GURL AddPDFScrollToParametersToUrl(
+    const GURL& url,
+    const std::vector<std::string>& text_fragments,
+    int pdf_page_number);
 
 }  // namespace lens
 

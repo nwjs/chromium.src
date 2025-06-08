@@ -37,6 +37,22 @@ export enum WebClientState {
   ERROR,  // Final state
 }
 
+// These values are persisted to logs. Entries should not be renumbered and
+// numeric values should never be reused.
+//
+// LINT.IfChange(DetailedWebClientState)
+export enum DetailedWebClientState {
+  BOOTSTRAP_PENDING = 0,
+  WEB_CLIENT_NOT_CREATED = 1,
+  WEB_CLIENT_INITIALIZE_FAILED = 2,
+  WEB_CLIENT_NOT_INITIALIZED = 3,
+  TEMPORARY_UNRESPONSIVE = 4,
+  PERMANENT_UNRESPONSIVE = 5,
+  RESPONSIVE = 6,
+  MAX_VALUE = RESPONSIVE,
+}
+// LINT.ThenChange(//tools/metrics/histograms/metadata/glic/enums.xml:GlicDetailedWebClientState)
+
 // Implemented by the embedder of GlicApiHost.
 export interface ApiHostEmbedder {
   // Called when the guest requests resize.
@@ -148,6 +164,13 @@ class WebClientImpl implements WebClientInterface {
         });
   }
 
+  notifyClosedCaptioningSettingChanged(enabled: boolean): void {
+    this.sender.requestNoResponse(
+        'glicWebClientNotifyClosedCaptioningSettingChanged', {
+          enabled: enabled,
+        });
+  }
+
   notifyFocusedTabChanged(focusedTabData: (FocusedTabDataMojo)): void {
     const extras = new ResponseExtras();
     this.sender.requestNoResponse(
@@ -199,6 +222,8 @@ class HostMessageHandler implements HostMessageHandlerInterface {
     if (this.receiver) {
       throw new Error('web client already created');
     }
+    this.host.detailedWebClientState =
+        DetailedWebClientState.WEB_CLIENT_NOT_INITIALIZED;
     this.receiver = new WebClientReceiver(
         new WebClientImpl(this.sender, this.host, this.embedder));
     const {initialState} = await this.handler.webClientCreated(
@@ -338,8 +363,28 @@ class HostMessageHandler implements HostMessageHandlerInterface {
     };
   }
 
-  glicBrowserStopActorTask(): void {
-    this.handler.stopActorTask();
+  glicBrowserStopActorTask(request: {taskId: number}): void {
+    this.handler.stopActorTask(request.taskId);
+  }
+
+  glicBrowserPauseActorTask(request: {taskId: number}): void {
+    this.handler.pauseActorTask(request.taskId);
+  }
+
+  async glicBrowserResumeActorTask(
+      request: {taskId: number, tabContextOptions: TabContextOptions},
+      extras: ResponseExtras):
+      Promise<{tabContextResult: TabContextResultPrivate}> {
+    const {result: {errorReason, tabContext}} =
+        await this.handler.resumeActorTask(
+            request.taskId,
+            tabContextOptionsFromClient(request.tabContextOptions));
+    if (!tabContext) {
+      throw new Error(`resumeActorTask failed: ${errorReason}`);
+    }
+    return {
+      tabContextResult: tabContextToClient(tabContext, extras),
+    };
   }
 
   async glicBrowserResizeWindow(request: {
@@ -399,6 +444,10 @@ class HostMessageHandler implements HostMessageHandlerInterface {
 
   glicBrowserSetTabContextPermissionState(request: {enabled: boolean}) {
     return this.handler.setTabContextPermissionState(request.enabled);
+  }
+
+  glicBrowserSetClosedCaptioningSetting(request: {enabled: boolean}) {
+    return this.handler.setClosedCaptioningSetting(request.enabled);
   }
 
   async glicBrowserGetUserProfileInfo(_request: void, extras: ResponseExtras) {
@@ -560,6 +609,10 @@ class HostMessageHandler implements HostMessageHandlerInterface {
       };
     }
   }
+
+  glicBrowserDropScrollToHighlight(): void {
+    this.handler.dropScrollToHighlight();
+  }
 }
 
 export class GlicApiHost implements PostMessageRequestHandler {
@@ -573,6 +626,7 @@ export class GlicApiHost implements PostMessageRequestHandler {
   private webClientState =
       ObservableValue.withValue<WebClientState>(WebClientState.UNINITIALIZED);
   private waitingOnPanelWillOpenValue = false;
+  detailedWebClientState = DetailedWebClientState.BOOTSTRAP_PENDING;
 
   constructor(
       private browserProxy: BrowserProxy, private windowProxy: WindowProxy,
@@ -625,11 +679,14 @@ export class GlicApiHost implements PostMessageRequestHandler {
 
   // Called when the web client is initialized.
   webClientInitialized() {
+    this.detailedWebClientState = DetailedWebClientState.RESPONSIVE;
     this.setWebClientState(WebClientState.RESPONSIVE);
     this.responsiveCheckLoop();
   }
 
   webClientInitializeFailed() {
+    this.detailedWebClientState =
+        DetailedWebClientState.WEB_CLIENT_INITIALIZE_FAILED;
     this.setWebClientState(WebClientState.ERROR);
   }
 
@@ -639,6 +696,10 @@ export class GlicApiHost implements PostMessageRequestHandler {
 
   getWebClientState(): ObservableValueReadOnly<WebClientState> {
     return this.webClientState;
+  }
+
+  getDetailedWebClientState(): DetailedWebClientState {
+    return this.detailedWebClientState;
   }
 
   // Sends a message to the webview which is required to initialize the client.
@@ -696,6 +757,7 @@ export class GlicApiHost implements PostMessageRequestHandler {
       if (gotResponse) {  // Success
         this.webClientErrorTimer.reset();
         this.setWebClientState(WebClientState.RESPONSIVE);
+        this.detailedWebClientState = DetailedWebClientState.RESPONSIVE;
 
         await sleep(checkIntervalMs);
         continue;
@@ -703,6 +765,8 @@ export class GlicApiHost implements PostMessageRequestHandler {
 
       // Failed, not responsive.
       if (this.webClientState.getCurrentValue() === WebClientState.RESPONSIVE) {
+        this.detailedWebClientState =
+            DetailedWebClientState.TEMPORARY_UNRESPONSIVE;
         this.setWebClientState(WebClientState.UNRESPONSIVE);
         this.startWebClientErrorTimer();
       }
@@ -715,6 +779,8 @@ export class GlicApiHost implements PostMessageRequestHandler {
 
   startWebClientErrorTimer() {
     this.webClientErrorTimer.start(() => {
+      this.detailedWebClientState =
+          DetailedWebClientState.PERMANENT_UNRESPONSIVE;
       this.setWebClientState(WebClientState.ERROR);
     });
   }
@@ -741,6 +807,11 @@ export class GlicApiHost implements PostMessageRequestHandler {
       return;
     }
 
+    if (this.detailedWebClientState ===
+        DetailedWebClientState.BOOTSTRAP_PENDING) {
+      this.detailedWebClientState =
+          DetailedWebClientState.WEB_CLIENT_NOT_CREATED;
+    }
     this.stopBootstrapPing();
 
     const response =
@@ -754,7 +825,11 @@ export class GlicApiHost implements PostMessageRequestHandler {
 
 
   onRequestReceived(type: string): void {
-    this.reportRequestCountEvent(type, GlicRequestEvent.REQUEST_RECIEVED);
+    this.reportRequestCountEvent(type, GlicRequestEvent.REQUEST_RECEIVED);
+    if (document.visibilityState === 'hidden') {
+      this.reportRequestCountEvent(
+          type, GlicRequestEvent.REQUEST_RECEIVED_WHILE_HIDDEN);
+    }
   }
 
   onRequestHandlerException(type: string): void {
@@ -777,13 +852,15 @@ export class GlicApiHost implements PostMessageRequestHandler {
   }
 }
 
-// Must match tools/metrics/histograms/metadata/glic/enums.xml.
+// LINT.IfChange(GlicRequestEvent)
 enum GlicRequestEvent {
-  REQUEST_RECIEVED = 0,
+  REQUEST_RECEIVED = 0,
   RESPONSE_SENT = 1,
   REQUEST_HANDLER_EXCEPTION = 2,
-  MAX_VALUE = REQUEST_HANDLER_EXCEPTION,
+  REQUEST_RECEIVED_WHILE_HIDDEN = 3,
+  MAX_VALUE = REQUEST_RECEIVED_WHILE_HIDDEN,
 }
+// LINT.ThenChange(//tools/metrics/histograms/metadata/glic/enums.xml:GlicRequestEvent)
 
 // Returns a Promise resolving after 'ms' milliseconds
 function sleep(ms: number) {

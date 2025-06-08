@@ -119,6 +119,10 @@ mojom("mojom") {
     enabled_features += [ "allow_oop_video_decoder" ]
   }
 
+  if (use_linux_video_acceleration) {
+    enabled_features += [ "allow_linux_video_acceleration" ]
+  }
+
   # Help select ServiceSandbox for media_service.mojom.
   if (mojo_media_host == "browser") {
     enabled_features += [ "mojo_media_in_browser" ]
@@ -1004,6 +1008,7 @@ source_set("unit_tests") {
     ":speech_recognition_recognition_context",
     "//base",
     "//base/test:test_support",
+    "//gpu:test_support",
     "//media:test_support",
     "//media/mojo:test_support",
     "//mojo/public/cpp/test_support:test_utils",

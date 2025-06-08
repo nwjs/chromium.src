@@ -517,18 +517,8 @@ bool CommandService::CanAutoAssign(const ui::Command& command,
             command.accelerator().key_code() <= ui::VKEY_9);
   }
 
-#if BUILDFLAG(ENABLE_EXTENSIONS)
   // Not a global command, check if the command is a Chrome shortcut.
   return !chrome::IsChromeAccelerator(command.accelerator());
-#else
-  // TODO(crbug.com/406136564): Implement IsChromeAccelerator on desktop
-  // android.
-  // Until IsChromeAccelerator is implemented, allowlist Ctrl-Shift-L. This is
-  // very artificial but eases testing.
-  return command.accelerator().IsCtrlDown() &&
-         command.accelerator().IsShiftDown() &&
-         command.accelerator().key_code() == ui::VKEY_L;
-#endif  // BUILDFLAG(ENABLE_EXTENSIONS)
 }
 
 void CommandService::UpdateExtensionSuggestedCommandPrefs(

@@ -35,11 +35,14 @@ import java.util.Map;
 public class AuxiliarySearchControllerImpl
         implements AuxiliarySearchController,
                 AuxiliarySearchConfigManager.ShareTabsWithOsStateListener {
+    // 3 minutes in milliseconds.
+    @VisibleForTesting static final long TIME_RANGE_MS = 3 * TimeUtils.MILLISECONDS_PER_MINUTE;
+
     protected final @AuxiliarySearchHostType int mHostType;
     protected final AuxiliarySearchProvider mAuxiliarySearchProvider;
+    protected final Profile mProfile;
 
     private final Context mContext;
-    private final Profile mProfile;
     private final FaviconHelper mFaviconHelper;
     private final AuxiliarySearchDonor mDonor;
     private final boolean mIsFaviconEnabled;
@@ -149,6 +152,18 @@ public class AuxiliarySearchControllerImpl
                 });
     }
 
+    @Override
+    public void donateCustomTabs(GURL url, long beginTime) {
+        long startTime = TimeUtils.uptimeMillis();
+        mAuxiliarySearchProvider.getCustomTabsAsync(
+                // A backward time adjustment is required due to the history visit's timestamp being
+                // earlier than that of the TabImpl's last visit timestamp.
+                url,
+                beginTime - TIME_RANGE_MS,
+                mCallbackController.makeCancelable(
+                        (entries) -> onNonSensitiveCustomTabsAvailable(entries, startTime)));
+    }
+
     // AuxiliarySearchConfigManager.ShareTabsWithOsStateListener implementations.
     @Override
     public void onConfigChanged(boolean enabled) {
@@ -186,6 +201,19 @@ public class AuxiliarySearchControllerImpl
         }
 
         onNonSensitiveDataAvailable(tabs, startTimeMs, /* onDonationCompleteRunnable= */ null);
+    }
+
+    @VisibleForTesting
+    <T> void onNonSensitiveCustomTabsAvailable(@Nullable List<T> entries, long startTimeMs) {
+        AuxiliarySearchMetrics.recordQueryCustomTabTime(TimeUtils.uptimeMillis() - startTimeMs);
+
+        if (entries == null || entries.isEmpty()) {
+            AuxiliarySearchMetrics.recordCustomTabFetchResultsCount(0);
+            return;
+        }
+
+        AuxiliarySearchMetrics.recordCustomTabFetchResultsCount(entries.size());
+        onNonSensitiveDataAvailable(entries, startTimeMs, /* onDonationCompleteRunnable= */ null);
     }
 
     @VisibleForTesting

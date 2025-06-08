@@ -45,7 +45,7 @@ import java.lang.annotation.RetentionPolicy;
  */
 public class NewBackgroundTabFakeTabSwitcherButton extends FrameLayout implements RunOnNextLayout {
     @VisibleForTesting /* package */ static final long TRANSLATE_DURATION_MS = 200L;
-    @VisibleForTesting /* package */ static final long SHRINK_DURATION_MS = 250L;
+    @VisibleForTesting /* package */ static final long SHRINK_DURATION_MS = 300L;
     @VisibleForTesting /* package */ static final long SCALE_DOWN_DURATION_MS = 50L;
 
     @IntDef({
@@ -131,8 +131,8 @@ public class NewBackgroundTabFakeTabSwitcherButton extends FrameLayout implement
 
         AnimatorSet animatorSet = new AnimatorSet();
         animatorSet.playTogether(scaleXAnimator, scaleYAnimator);
-        animatorSet.setInterpolator(Interpolators.STANDARD_INTERPOLATOR);
         animatorSet.setDuration(SHRINK_DURATION_MS);
+        animatorSet.setInterpolator(Interpolators.NEW_BACKGROUND_TAB_ANIMATION_BOUNCE_INTERPOLATOR);
 
         animatorSet.addListener(
                 new AnimatorListenerAdapter() {
@@ -222,10 +222,12 @@ public class NewBackgroundTabFakeTabSwitcherButton extends FrameLayout implement
      * Gets the center location for the button.
      *
      * @param location Array to store the x and y position.
+     * @param xOffset x-offset to account for cases where the screen can't draw from x = 0 (ex:
+     *     on-screen navigation buttons).
      * @param yOffset y-offset to account for the status bar and status indicator (ex: no internet
      *     connection).
      */
-    /* package */ void getButtonLocation(int[] location, int yOffset) {
+    /* package */ void getButtonLocation(int[] location, int xOffset, int yOffset) {
         assert location.length == 2;
         // Difficult for test environment.
         if (!BuildConfig.IS_FOR_TEST) {
@@ -234,7 +236,7 @@ public class NewBackgroundTabFakeTabSwitcherButton extends FrameLayout implement
         }
 
         mTabSwitcherButtonView.getLocationInWindow(location);
-        location[0] += mTabSwitcherButtonView.getMeasuredWidth() / 2;
+        location[0] += mTabSwitcherButtonView.getMeasuredWidth() / 2 - xOffset;
         location[1] += mTabSwitcherButtonView.getMeasuredHeight() / 2 - yOffset;
     }
 

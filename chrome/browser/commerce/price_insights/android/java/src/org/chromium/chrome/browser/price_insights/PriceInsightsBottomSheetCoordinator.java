@@ -67,9 +67,9 @@ public class PriceInsightsBottomSheetCoordinator {
     private final BottomSheetController mBottomSheetController;
 
     private @Nullable PriceInsightsBottomSheetContent mBottomSheetContent;
-    private PriceInsightsBottomSheetMediator mBottomSheetMediator;
-    private BottomSheetObserver mBottomSheetObserver;
-    private View mPriceInsightsView;
+    private final PriceInsightsBottomSheetMediator mBottomSheetMediator;
+    private final BottomSheetObserver mBottomSheetObserver;
+    private final View mPriceInsightsView;
     private @Nullable Long mSheetOpenTimeMs;
 
     /**
@@ -121,7 +121,7 @@ public class PriceInsightsBottomSheetCoordinator {
 
     /** Request to show the price insights bottom sheet. */
     public void requestShowContent() {
-        ScrollView scrollView = (ScrollView) mPriceInsightsView.findViewById(R.id.scroll_view);
+        ScrollView scrollView = mPriceInsightsView.findViewById(R.id.scroll_view);
         mBottomSheetContent = new PriceInsightsBottomSheetContent(mPriceInsightsView, scrollView);
         mBottomSheetController.addObserver(mBottomSheetObserver);
         mBottomSheetMediator.requestShowContent();

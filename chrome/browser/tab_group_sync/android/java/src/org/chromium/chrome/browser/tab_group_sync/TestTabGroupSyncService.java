@@ -23,10 +23,9 @@ import java.util.List;
 /** Test implementation of {@link TabGroupSyncService} that can be used for unit tests. */
 @NullMarked
 class TestTabGroupSyncService implements TabGroupSyncService {
-    public static final String SYNC_ID_1 = "SYNC_ID_1";
     public static final String LOCAL_DEVICE_CACHE_GUID = "LocalDevice";
 
-    private List<SavedTabGroup> mTabGroups = new ArrayList<>();
+    private final List<SavedTabGroup> mTabGroups = new ArrayList<>();
 
     @Override
     public void addObserver(Observer observer) {}
@@ -121,7 +120,7 @@ class TestTabGroupSyncService implements TabGroupSyncService {
     }
 
     @Override
-    public boolean isRemoteDevice(String syncCacheGuid) {
+    public boolean isRemoteDevice(@Nullable String syncCacheGuid) {
         boolean isLocal =
                 TextUtils.isEmpty(syncCacheGuid)
                         || TextUtils.equals(LOCAL_DEVICE_CACHE_GUID, syncCacheGuid);
@@ -138,4 +137,7 @@ class TestTabGroupSyncService implements TabGroupSyncService {
 
     @Override
     public void updateArchivalStatus(String syncTabGroupId, boolean archivalStatus) {}
+
+    @Override
+    public void setCollaborationAvailableInFinderForTesting(String collaborationId) {}
 }

@@ -27,6 +27,7 @@ namespace {
 // (e.g. content/, components/, etc).
 const base::Feature* const kFeaturesExposedToJava[] = {
     &features::kWebViewBackForwardCache,
+    &features::kWebViewDrainPrefetchQueueDuringInit,
     &features::kWebViewFileSystemAccess,
     &features::kWebViewInvokeZoomPickerOnGSU,
     &features::kWebViewLazyFetchHandWritingIcon,
@@ -57,6 +58,8 @@ const base::Feature* const kFeaturesExposedToJava[] = {
     &features::kWebViewShortCircuitShouldInterceptRequest,
     &features::kWebViewUseStartupTasksLogic,
     &features::kWebViewRecordAppCacheHistograms,
+    &features::kWebViewQuicConnectionTimeout,
+    &features::kWebViewCacheSizeLimitDerivedFromAppCacheQuota,
 };
 
 // static

@@ -57,6 +57,7 @@
 #include "services/network/public/cpp/network_service_buildflags.h"
 #include "services/network/public/cpp/transferable_directory.h"
 #include "services/network/public/mojom/clear_data_filter.mojom-forward.h"
+#include "services/network/public/mojom/connection_change_observer_client.mojom.h"
 #include "services/network/public/mojom/cookie_access_observer.mojom.h"
 #include "services/network/public/mojom/cookie_manager.mojom-shared.h"
 #include "services/network/public/mojom/host_resolver.mojom.h"
@@ -66,7 +67,6 @@
 #include "services/network/public/mojom/network_service.mojom-forward.h"
 #include "services/network/public/mojom/proxy_lookup_client.mojom.h"
 #include "services/network/public/mojom/proxy_resolving_socket.mojom.h"
-#include "services/network/public/mojom/reconnect_event_observer.mojom.h"
 #include "services/network/public/mojom/restricted_cookie_manager.mojom.h"
 #include "services/network/public/mojom/restricted_udp_socket.mojom.h"
 #include "services/network/public/mojom/tcp_socket.mojom.h"
@@ -133,6 +133,7 @@ class SCTAuditingHandler;
 class SQLiteTrustTokenPersister;
 class SessionCleanupCookieStore;
 class SharedDictionaryManager;
+class SharedResourceChecker;
 class WebSocketFactory;
 class WebTransport;
 class DeviceBoundSessionManager;
@@ -459,8 +460,8 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkContext
       const net::NetworkAnonymizationKey& network_anonymization_key,
       const net::MutableNetworkTrafficAnnotationTag& traffic_annotation,
       const std::optional<net::ConnectionKeepAliveConfig>& keepalive_config,
-      mojo::PendingRemote<mojom::ReconnectEventObserver>
-          reconnect_event_observer) override;
+      mojo::PendingRemote<mojom::ConnectionChangeObserverClient>
+          connection_change_observer_client) override;
 #if BUILDFLAG(IS_P2P_ENABLED)
   void CreateP2PSocketManager(
       const net::NetworkAnonymizationKey& network_anonymization_key,
@@ -581,6 +582,8 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkContext
       mojo::PendingReceiver<network::mojom::DeviceBoundSessionManager>
           device_bound_session_manager) override;
 
+  void SetTLS13EarlyDataEnabled(bool enabled);
+
   // Destroys |request| when a proxy lookup completes.
   void OnProxyLookupComplete(ProxyLookupRequest* proxy_lookup_request);
 
@@ -677,6 +680,10 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkContext
 
   SharedDictionaryManager* GetSharedDictionaryManager() {
     return shared_dictionary_manager_.get();
+  }
+
+  SharedResourceChecker* GetSharedResourceChecker() {
+    return shared_resource_checker_.get();
   }
 
   // Returns the current same-origin-policy exceptions.  For more details see
@@ -1080,6 +1087,14 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkContext
 
   // Manager for device bound sessions.
   std::unique_ptr<DeviceBoundSessionManager> device_bound_session_manager_;
+
+  // Used only when network::features::kCacheSharingForPervasiveScripts is
+  // enabled to determine if a given request is for a well-known
+  // pervasive script.
+  // See https://chromestatus.com/feature/5202380930678784
+  // This needs to be ordered after cookie_manager_ as it maintains a reference
+  // to the cookie settings object from cookie_manager_.
+  std::unique_ptr<SharedResourceChecker> shared_resource_checker_;
 
   SEQUENCE_CHECKER(sequence_checker_);
 

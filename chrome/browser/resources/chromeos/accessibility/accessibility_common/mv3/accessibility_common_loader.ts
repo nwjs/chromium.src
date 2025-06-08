@@ -5,7 +5,7 @@
 import '/common/testing/test_import_manager.js';
 
 import {Flags} from '/common/flags.js';
-import {InstanceChecker} from '/common/mv2/instance_checker.js';
+import {InstanceChecker} from '/common/mv3/instance_checker.js';
 import {TestImportManager} from '/common/testing/test_import_manager.js';
 
 import {Autoclick} from './autoclick/autoclick.js';
@@ -22,6 +22,8 @@ declare global {
  * are enabled.
  */
 export class AccessibilityCommon {
+  private static offscreenDocumentPromise_: Promise<void>|null;
+
   private autoclick_: Autoclick|null = null;
   private magnifier_: Magnifier|null = null;
   private dictation_: Dictation|null = null;
@@ -36,7 +38,8 @@ export class AccessibilityCommon {
   private facegazeLoadCallbackForTest_: Function|null = null;
 
   static readonly FACEGAZE_PREF_NAME = 'settings.a11y.face_gaze.enabled';
-
+  static readonly OFFSCREEN_DOCUMENT_PATH =
+      'accessibility_common/mv3/offscreen.html';
 
   constructor() {
     this.init_();
@@ -45,6 +48,27 @@ export class AccessibilityCommon {
   static async init(): Promise<void> {
     await Flags.init();
     globalThis.accessibilityCommon = new AccessibilityCommon();
+    return this.maybeCreateOffscreenDocument();
+  }
+
+  static async maybeCreateOffscreenDocument(): Promise<void> {
+    const offscreenUrl = chrome.runtime.getURL(this.OFFSCREEN_DOCUMENT_PATH);
+    const existingContexts = await chrome.runtime.getContexts({
+      contextTypes: [chrome.runtime.ContextType.OFFSCREEN_DOCUMENT],
+      documentUrls: [offscreenUrl]
+    });
+    if (existingContexts.length > 0) {
+      return;
+    }
+    if (!this.offscreenDocumentPromise_) {
+      const promise = chrome.offscreen.createDocument({
+        url: offscreenUrl,
+        reasons: [chrome.offscreen.Reason.WORKERS],
+        justification: 'Audio web API and web assembly execution',
+      });
+      await promise;
+      this.offscreenDocumentPromise_ = promise;
+    }
   }
 
   getAutoclickForTest(): Autoclick|null {

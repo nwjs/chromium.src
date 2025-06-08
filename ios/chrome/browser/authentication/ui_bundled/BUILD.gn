@@ -26,7 +26,6 @@ source_set("ui_bundled") {
     "//components/infobars/core",
     "//components/policy/core/common",
     "//components/prefs",
-    "//components/reading_list/features:flags",
     "//components/signin/ios/browser",
     "//components/signin/public/base",
     "//components/signin/public/base:signin_switches",
@@ -293,8 +292,9 @@ source_set("eg2_tests") {
     "//components/policy/core/browser",
     "//components/signin/public/base:signin_switches",
     "//ios/chrome/app/strings",
+    "//ios/chrome/browser/authentication/ui_bundled/account_menu:constants",
+    "//ios/chrome/browser/authentication/ui_bundled/history_sync:pref_names",
     "//ios/chrome/browser/authentication/ui_bundled/signin:constants",
-    "//ios/chrome/browser/authentication/ui_bundled/signin/account_menu:constants",
     "//ios/chrome/browser/first_run/ui_bundled:constants",
     "//ios/chrome/browser/ntp/ui_bundled:constants",
     "//ios/chrome/browser/ntp/ui_bundled:feature_flags",
@@ -309,7 +309,7 @@ source_set("eg2_tests") {
     "//ios/chrome/test/earl_grey:switches",
     "//ios/testing/earl_grey:eg_test_support+eg2",
     "//net:test_support",
-    "//ui/base:base",
+    "//ui/base",
   ]
   frameworks = [ "UIKit.framework" ]
 }

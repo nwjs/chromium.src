@@ -15,6 +15,7 @@
 #include "components/collaboration/internal/metrics.h"
 #include "components/collaboration/public/collaboration_controller_delegate.h"
 #include "components/collaboration/public/collaboration_flow_type.h"
+#include "components/collaboration/public/service_status.h"
 #include "components/collaboration/test_support/mock_collaboration_controller_delegate.h"
 #include "components/collaboration/test_support/mock_collaboration_service.h"
 #include "components/data_sharing/public/data_sharing_service.h"
@@ -67,6 +68,8 @@ class CollaborationControllerTest : public testing::Test {
     tab_group_sync_service_ =
         std::make_unique<tab_groups::MockTabGroupSyncService>();
     sync_service_ = std::make_unique<syncer::MockSyncService>();
+    EXPECT_CALL(*data_sharing_service_, GetLogger())
+        .Times(::testing::AnyNumber());
   }
 
   void TearDown() override {}
@@ -266,6 +269,9 @@ TEST_F(CollaborationControllerTest, FullJoinFlowAllStates) {
   histogram_tester.ExpectBucketCount(
       "CollaborationService.JoinFlow",
       metrics::CollaborationServiceJoinEvent::kOpenedNewGroup, 1);
+  histogram_tester.ExpectBucketCount(
+      "CollaborationService.JoinFlow",
+      metrics::CollaborationServiceJoinEvent::kAddedUserToGroup, 1);
   histogram_tester.ExpectTimeBucketCount(
       "CollaborationService.Latency.AuthenticationInitToSuccess",
       authentication_time, 1);
@@ -286,7 +292,7 @@ TEST_F(CollaborationControllerTest, JoinFlowManagedDevice) {
 
   // Simulate managed device.
   ServiceStatus status;
-  status.signin_status = SigninStatus::kNotSignedIn;
+  status.signin_status = SigninStatus::kSigninDisabled;
   status.sync_status = SyncStatus::kNotSyncing;
   status.collaboration_status = CollaborationStatus::kDisabledForPolicy;
   EXPECT_CALL(*collaboration_service_, GetServiceStatus())
@@ -343,7 +349,7 @@ TEST_F(CollaborationControllerTest, JoinFlowSignedOutManagedAccountAsync) {
 
   // Simulate managed account with info not ready.
   ServiceStatus status;
-  status.signin_status = SigninStatus::kNotSignedIn;
+  status.signin_status = SigninStatus::kSigninDisabled;
   status.sync_status = SyncStatus::kNotSyncing;
   status.collaboration_status = CollaborationStatus::kDisabledPending;
   EXPECT_CALL(*collaboration_service_, GetServiceStatus())
@@ -357,6 +363,7 @@ TEST_F(CollaborationControllerTest, JoinFlowSignedOutManagedAccountAsync) {
             StateId::kWaitingForPolicyUpdate);
 
   // The managed account info become available.
+  EXPECT_CALL(*collaboration_service_, RemoveObserver(_));
   EXPECT_CALL(*delegate_,
               ShowError(ErrorInfo(ErrorInfo::Type::kSigninDisabledByPolicy),
                         IsNotNullCallback()));
@@ -610,6 +617,44 @@ TEST_F(CollaborationControllerTest, AuthenticationCanceledAfterSignIn) {
       metrics::CollaborationServiceJoinEvent::kCanceled, 1);
 }
 
+TEST_F(CollaborationControllerTest, SimulateFailureToAddUserToGroup) {
+  base::HistogramTester histogram_tester;
+
+  RunLoop run_loop;
+
+  // Start Join flow.
+  InitializeJoinController(run_loop.QuitClosure());
+  SetUpJoinRequirements();
+
+  // Simulate getting to the Adding User To Group state.
+  base::OnceCallback<void(Outcome)> join_ui_callback;
+  EXPECT_CALL(*delegate_, ShowJoinDialog(_, _, IsNotNullCallback()))
+      .WillOnce(MoveArg<2>(&join_ui_callback));
+
+  base::OnceCallback<void(Outcome)> error_ui_callback;
+  EXPECT_CALL(*delegate_, ShowError(ErrorInfo(ErrorInfo::Type::kGenericError),
+                                    IsNotNullCallback()))
+      .WillOnce(MoveArg<1>(&error_ui_callback));
+  controller_->SetStateForTesting(StateId::kAddingUserToGroup);
+
+  // Show group preview screen.
+  data_sharing::SharedDataPreview preview;
+  preview.shared_tab_group_preview = data_sharing::SharedTabGroupPreview();
+  std::move(preview_callback_).Run(preview);
+  std::move(group_data_callback_).Run(GroupData());
+
+  // Simulate failure on the join flow.
+  EXPECT_CALL(*delegate_, OnFlowFinished);
+  std::move(join_ui_callback).Run(Outcome::kFailure);
+  std::move(error_ui_callback).Run(Outcome::kSuccess);
+
+  run_loop.Run();
+
+  histogram_tester.ExpectBucketCount(
+      "CollaborationService.JoinFlow",
+      metrics::CollaborationServiceJoinEvent::kFailedAddingUserToGroup, 1);
+}
+
 TEST_F(CollaborationControllerTest, AuthenticationError) {
   RunLoop run_loop;
   // Start Join flow with authenticating screens.
@@ -755,6 +800,11 @@ TEST_F(CollaborationControllerTest, FullShareFlowAllStates) {
   histogram_tester.ExpectBucketCount(
       "CollaborationService.ShareOrManageFlow",
       metrics::CollaborationServiceShareOrManageEvent::kShareDialogShown, 1);
+  histogram_tester.ExpectBucketCount(
+      "CollaborationService.ShareOrManageFlow",
+      metrics::CollaborationServiceShareOrManageEvent::
+          kCollaborationGroupCreated,
+      1);
   histogram_tester.ExpectBucketCount(
       "CollaborationService.ShareOrManageFlow",
       metrics::CollaborationServiceShareOrManageEvent::kTabGroupShared, 1);

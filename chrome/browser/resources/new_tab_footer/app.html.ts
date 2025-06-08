@@ -8,14 +8,35 @@ import type {NewTabFooterAppElement} from './app.js';
 
 export function getHtml(this: NewTabFooterAppElement) {
   // clang-format off
-  return html`
- <!-- TODO(crbug.com/409056431): Remove #example-div once actual elements
-      added. This is used as a placeholder. -->
-<div id="example-div">${this.message_}</div>
-${this.extensionAttribution_ ?
-    html`<div id="extensionAttribution">
-      <a href="${this.extensionAttribution_.url}">
-          ${this.extensionAttribution_.name}
-      </a>
-    </div>` : ''}`;
+  return html`<!--_html_template_start_-->
+<!--
+Container for housing the items in the center of the footer that are
+separated from each other by a divider.
+-->
+<div id="centerContainer">
+  ${this.managementNotice_ ?
+      html`<div id="managementNoticeContainer">
+        <img id="managementNoticeLogo" alt=""
+            src="${this.managementNotice_.bitmapDataUrl.url}">
+        <p title="${this.managementNotice_.text}">
+          ${this.managementNotice_.text}
+        </p>
+      </div>` : ''}
+  ${this.extensionName_ ?
+      html`<div id="extensionName" title="${this.extensionName_}">
+        <button @click="${this.onExtensionNameClick_}" role="link"
+            aria-roledescription="$i18n{currentTabLinkRoleDesc}"
+            aria-label="$i18n{currentTabLinkLabel}">
+            ${this.extensionName_}
+        </button>
+      </div>` : ''}
+  <ntp-customize-buttons id="customizeButtons"
+      ?info-shown-to-user="${this.managementNotice_ || this.extensionName_}"
+      ?show-customize="${this.showCustomize_}"
+      ?show-customize-chrome-text="${this.showCustomizeChromeText_}"
+      @customize-click="${this.onCustomizeClick_}">
+  </ntp-customize-buttons>
+</div>
+<!--_html_template_end_-->`;
+  // clang-format off
 }

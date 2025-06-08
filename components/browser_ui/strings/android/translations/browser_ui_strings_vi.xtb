@@ -83,6 +83,7 @@ Chương trình Bảo vệ nâng cao kiểm soát các chế độ cài đặt s
 <translation id="2028449514182362831">Các tính năng cần dùng cảm biến chuyển động sẽ không hoạt động</translation>
 <translation id="2030769033451695672">Nhấn để quay lại <ph name="URL_OF_THE_CURRENT_TAB" /></translation>
 <translation id="2079545284768500474">Hoàn tác</translation>
+<translation id="2080070583977670716">Chế độ cài đặt khác</translation>
 <translation id="2091887806945687916">Âm thanh</translation>
 <translation id="2096716221239095980">Xoá mọi dữ liệu</translation>
 <translation id="2102396546234652240">Không cho phép trang web sử dụng micrô</translation>
@@ -231,7 +232,6 @@ Chương trình Bảo vệ nâng cao kiểm soát các chế độ cài đặt s
 <translation id="3779154269823594982">Đổi mật khẩu</translation>
 <translation id="3797520601150691162">Không áp dụng giao diện tối cho một trang web cụ thể</translation>
 <translation id="3803367742635802571">Các trang web bạn truy cập có thể không còn hoạt động như dự kiến</translation>
-<translation id="3804247818991980532"><ph name="TYPE_1" />. <ph name="TYPE_2" />.</translation>
 <translation id="381841723434055211">Số điện thoại</translation>
 <translation id="3826050100957962900">Đăng nhập qua bên thứ ba</translation>
 <translation id="3835233591525155343">Hoạt động dùng thiết bị của bạn</translation>
@@ -444,7 +444,6 @@ Chương trình Bảo vệ nâng cao kiểm soát các chế độ cài đặt s
 <translation id="6452138246455930388">Có ưu đãi giảm giá trên một thẻ đang mở, từ <ph name="OLD_PRICE" /> xuống còn <ph name="NEW_PRICE" />, <ph name="PRODUCT_NAME" />, <ph name="DOMAIN_NAME" /></translation>
 <translation id="6500423977866688905">Khi cửa sổ bị thu hẹp, hãy yêu cầu chế độ xem trên thiết bị di động</translation>
 <translation id="6527303717912515753">Chia sẻ</translation>
-<translation id="652937045869844725">Hãy thử cho phép cookie của bên thứ ba. Chế độ cài đặt này làm giảm khả năng bảo vệ nhưng các tính năng của trang web sẽ có khả năng hoạt động cao hơn</translation>
 <translation id="6530703012083415527">Khi bạn bật tuỳ chọn này, các trang web có thể sử dụng cửa sổ bật lên và đường liên kết chuyển hướng. Khi bạn tắt tuỳ chọn này, các trang web không thể sử dụng cửa sổ bật lên và đường liên kết chuyển hướng.</translation>
 <translation id="6540488083026747005">Bạn đã cho phép cookie của bên thứ ba trên trang web này</translation>
 <translation id="6545864417968258051">Quét tìm Bluetooth</translation>
@@ -458,6 +457,7 @@ Chương trình Bảo vệ nâng cao kiểm soát các chế độ cài đặt s
 <translation id="6612358246767739896">Nội dung được bảo vệ</translation>
 <translation id="662080504995468778">Ở lại</translation>
 <translation id="6635327442719709864">Khi bạn bật nút này, các trang web có thể yêu cầu sử dụng cổng nối tiếp. Khi bạn tắt nút này, các trang web không thể sử dụng cổng nối tiếp.</translation>
+<translation id="6678072580827808850">Xem lại kết quả Kiểm tra an toàn</translation>
 <translation id="6683865262523156564">Trang web này nằm trong một nhóm có thể xem hoạt động của bạn. Nhóm này do <ph name="RWS_OWNER" /> xác định</translation>
 <translation id="6689172468748959065">Ảnh tiểu sử</translation>
 <translation id="6697925417670533197">Hiện đang tải xuống</translation>
@@ -492,7 +492,6 @@ Chương trình Bảo vệ nâng cao kiểm soát các chế độ cài đặt s
 <translation id="7141896414559753902">Chặn trang web hiển thị cửa sổ bật lên và liên kết chuyển hướng (khuyên dùng)</translation>
 <translation id="7176368934862295254"><ph name="KILOBYTES" /> KB</translation>
 <translation id="7180611975245234373">Làm mới</translation>
-<translation id="7180865173735832675">Tùy chỉnh</translation>
 <translation id="7188508872042490670">Dữ liệu trang web trên thiết bị</translation>
 <translation id="7201549776650881587">Thao tác này sẽ xoá toàn bộ dữ liệu và cookie do tất cả trang web thuộc miền <ph name="ORIGIN" /> hoặc ứng dụng liên quan trên Màn hình chính lưu trữ</translation>
 <translation id="7203150201908454328">Được mở rộng</translation>

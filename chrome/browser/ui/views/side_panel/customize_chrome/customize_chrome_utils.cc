@@ -12,7 +12,10 @@
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service_factory.h"
 #include "components/optimization_guide/core/optimization_guide_features.h"
 #include "components/search/ntp_features.h"
+#include "extensions/browser/disable_reason.h"
+#include "extensions/browser/extension_registrar.h"
 #include "extensions/browser/extension_system.h"
+#include "extensions/common/constants.h"
 #include "extensions/common/extension.h"
 
 namespace customize_chrome {
@@ -30,30 +33,30 @@ bool IsWallpaperSearchEnabledForProfile(Profile* profile) {
                   optimization_guide::UserVisibleFeatureKey::kWallpaperSearch));
 }
 
-// TODO(crbug.com/41494899): Add tests for this function.
+// TODO(crbug.com/415116961): Add unit tests for this function.
 void MaybeDisableExtensionOverridingNtp(
     content::BrowserContext* browser_context) {
   if (!base::FeatureList::IsEnabled(ntp_features::kNtpFooter)) {
     return;
   }
 
-  const extensions::Extension* extension =
-      extensions::GetExtensionOverridingNewTabPage(browser_context);
-  if (!extension) {
+  // Ensure that the extension service has not already shut down.
+  if (!extensions::ExtensionSystem::Get(browser_context)->extension_service()) {
     return;
   }
 
-  // Get extension service.
-  extensions::ExtensionSystem* extension_system =
-      extensions::ExtensionSystem::Get(browser_context);
-  extensions::ExtensionService* extension_service =
-      extension_system->extension_service();
-  if (!extension_service) {
-    return;
-  }
+  extensions::ExtensionId extension_id;
+  while (const extensions::Extension* current_extension =
+             extensions::GetExtensionOverridingNewTabPage(browser_context)) {
+    if (!current_extension || extension_id == current_extension->id()) {
+      return;
+    }
 
-  extension_service->DisableExtension(
-      extension->id(), extensions::disable_reason::DISABLE_USER_ACTION);
+    extension_id = current_extension->id();
+    extensions::ExtensionRegistrar::Get(browser_context)
+        ->DisableExtension(extension_id,
+                           {extensions::disable_reason::DISABLE_USER_ACTION});
+  }
 }
 
 }  // namespace customize_chrome

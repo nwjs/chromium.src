@@ -169,8 +169,8 @@ scoped_refptr<InputContext> AsInputContextInternal(
   signal_value_map.emplace(
       "title", ProcessedValue(base::UTF16ToUTF8(
                    *url_visit_aggregate.GetAssociatedTitles().begin())));
-  signal_value_map.emplace(
-      "url", ProcessedValue(*url_visit_aggregate.GetAssociatedURLs().begin()));
+  GURL url = *(*url_visit_aggregate.GetAssociatedURLs().begin());
+  signal_value_map.emplace("url", std::move(url));
   signal_value_map.emplace("url_key",
                            ProcessedValue(url_visit_aggregate.url_key));
 
@@ -371,6 +371,24 @@ scoped_refptr<InputContext> AsInputContextInternal(
         if (tab_data) {
           value = ProcessedValue(
               tab_data->last_active_tab.tab_metadata.ukm_source_id);
+        }
+        break;
+      case kIsTabSelected:
+        if (tab_data) {
+          value = ProcessedValue::FromFloat(
+              tab_data->last_active_tab.tab_metadata.is_currently_active);
+        }
+        break;
+      case kTabIndex:
+        if (tab_data) {
+          value = ProcessedValue::FromFloat(
+              tab_data->last_active_tab.tab_metadata.tab_model_index);
+        }
+        break;
+      case kIsLastTab:
+        if (tab_data) {
+          value = ProcessedValue::FromFloat(
+              tab_data->last_active_tab.tab_metadata.is_last_tab_in_tab_model);
         }
         break;
     }

@@ -2,10 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifdef UNSAFE_BUFFERS_BUILD
-// TODO(crbug.com/40285824): Remove this and convert code to safer constructs.
-#pragma allow_unsafe_buffers
-#endif
 
 #ifndef GPU_COMMAND_BUFFER_SERVICE_TEXTURE_MANAGER_H_
 #define GPU_COMMAND_BUFFER_SERVICE_TEXTURE_MANAGER_H_
@@ -25,6 +21,7 @@
 #include "base/memory/raw_ptr.h"
 #include "base/memory/ref_counted.h"
 #include "base/notreached.h"
+#include "base/trace_event/memory_dump_provider.h"
 #include "build/build_config.h"
 #include "gpu/command_buffer/service/feature_info.h"
 #include "gpu/command_buffer/service/gl_utils.h"
@@ -364,7 +361,7 @@ class GPU_GLES2_EXPORT Texture final : public TextureBase {
   // Sets the Texture's target
   // Parameters:
   //   target: GL_TEXTURE_2D or GL_TEXTURE_CUBE_MAP or
-  //           GL_TEXTURE_EXTERNAL_OES or GL_TEXTURE_RECTANGLE_ARB
+  //           GL_TEXTURE_EXTERNAL_OES or GL_TEXTURE_RECTANGLE_ANGLE
   //           GL_TEXTURE_2D_ARRAY or GL_TEXTURE_3D (for GLES3)
   //   max_levels: The maximum levels this type of target can have.
   void SetTarget(GLenum target, GLint max_levels);
@@ -776,7 +773,7 @@ class GPU_GLES2_EXPORT TextureManager
       case GL_TEXTURE_2D:
       case GL_TEXTURE_2D_ARRAY:
         return max_levels_;
-      case GL_TEXTURE_RECTANGLE_ARB:
+      case GL_TEXTURE_RECTANGLE_ANGLE:
       case GL_TEXTURE_EXTERNAL_OES:
         return 1;
       case GL_TEXTURE_3D:
@@ -793,7 +790,7 @@ class GPU_GLES2_EXPORT TextureManager
       case GL_TEXTURE_EXTERNAL_OES:
       case GL_TEXTURE_2D_ARRAY:
         return max_texture_size_;
-      case GL_TEXTURE_RECTANGLE:
+      case GL_TEXTURE_RECTANGLE_ANGLE:
         return max_rectangle_texture_size_;
       case GL_TEXTURE_3D:
         return max_3d_texture_size_;
@@ -941,7 +938,7 @@ class GPU_GLES2_EXPORT TextureManager
         return default_textures_[kCubeMap].get();
       case GL_TEXTURE_EXTERNAL_OES:
         return default_textures_[kExternalOES].get();
-      case GL_TEXTURE_RECTANGLE_ARB:
+      case GL_TEXTURE_RECTANGLE_ANGLE:
         return default_textures_[kRectangleARB].get();
       default:
         NOTREACHED();
@@ -968,7 +965,7 @@ class GPU_GLES2_EXPORT TextureManager
         return black_texture_ids_[kCubeMap];
       case GL_SAMPLER_EXTERNAL_OES:
         return black_texture_ids_[kExternalOES];
-      case GL_SAMPLER_2D_RECT_ARB:
+      case GL_SAMPLER_2D_RECT_ANGLE:
         return black_texture_ids_[kRectangleARB];
       default:
         // The above covers ES 2, but ES 3 has many more sampler types. Rather

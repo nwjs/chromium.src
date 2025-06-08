@@ -13,6 +13,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.robolectric.Shadows.shadowOf;
 
+import android.content.Context;
 import android.content.res.ColorStateList;
 import android.content.res.Resources;
 import android.os.Looper;
@@ -59,11 +60,13 @@ public class ReloadButtonMediatorTest {
     @Mock public ThemeColorProvider mThemeColorProvider;
 
     @Mock public Resources mResources;
+    @Mock public Context mContext;
     @Mock public Profile mProfile;
     private MockTab mTab;
     private MockTab mNtpTab;
     private ObservableSupplierImpl<Tab> mTabSupplier;
     private ObservableSupplierImpl<Boolean> mNtpLoadingSupplier;
+    private ObservableSupplierImpl<Boolean> mEnabledSupplier;
     private PropertyModel mModel;
     private ReloadButtonMediator mMediator;
 
@@ -86,6 +89,7 @@ public class ReloadButtonMediatorTest {
 
         mTabSupplier = new ObservableSupplierImpl<>(mTab);
         mNtpLoadingSupplier = new ObservableSupplierImpl<>();
+        mEnabledSupplier = new ObservableSupplierImpl<>();
         mModel = new PropertyModel.Builder(ReloadButtonProperties.ALL_KEYS).build();
         mMediator =
                 new ReloadButtonMediator(
@@ -94,8 +98,10 @@ public class ReloadButtonMediatorTest {
                         mThemeColorProvider,
                         mTabSupplier,
                         mNtpLoadingSupplier,
+                        mEnabledSupplier,
                         mShowToastCallback,
-                        mResources);
+                        mResources,
+                        mContext);
 
         // supplier will try to notify observers initially, need to wait for updates.
         shadowOf(Looper.getMainLooper()).idle();
@@ -205,7 +211,7 @@ public class ReloadButtonMediatorTest {
 
         assertEquals(
                 "Background ripple effect should be default",
-                mModel.get(ReloadButtonProperties.BACKGROUND_HIGHLIGHT_RESOURCE),
+                mMediator.getBackgroundResForTesting(),
                 R.drawable.default_icon_background);
     }
 
@@ -216,7 +222,7 @@ public class ReloadButtonMediatorTest {
 
         assertEquals(
                 "Background ripple effect should be default",
-                mModel.get(ReloadButtonProperties.BACKGROUND_HIGHLIGHT_RESOURCE),
+                mMediator.getBackgroundResForTesting(),
                 R.drawable.default_icon_background);
     }
 
@@ -227,7 +233,7 @@ public class ReloadButtonMediatorTest {
 
         assertEquals(
                 "Background ripple effect should be default",
-                mModel.get(ReloadButtonProperties.BACKGROUND_HIGHLIGHT_RESOURCE),
+                mMediator.getBackgroundResForTesting(),
                 R.drawable.default_icon_background);
     }
 
@@ -238,7 +244,7 @@ public class ReloadButtonMediatorTest {
 
         assertEquals(
                 "Background ripple effect should be incognito",
-                mModel.get(ReloadButtonProperties.BACKGROUND_HIGHLIGHT_RESOURCE),
+                mMediator.getBackgroundResForTesting(),
                 R.drawable.default_icon_background_baseline);
     }
 
@@ -308,6 +314,29 @@ public class ReloadButtonMediatorTest {
 
         mNtpLoadingSupplier.set(false);
         verifyStartLoadingState(mModel);
+    }
+
+    @Test
+    public void testDisabledControl_shouldDisableButton() {
+        mTab.setCanGoBack(true);
+        mTabSupplier.set(mTab);
+        mEnabledSupplier.set(false);
+
+        assertFalse(
+                "Button is enabled, but should be disabled.",
+                mModel.get(ReloadButtonProperties.IS_ENABLED));
+    }
+
+    @Test
+    public void testEnabledControl_shouldEnableButton() {
+        mTab.setCanGoBack(true);
+        mTabSupplier.set(mTab);
+        mEnabledSupplier.set(false);
+        mEnabledSupplier.set(true);
+
+        assertTrue(
+                "Button is disabled, but should be enabled.",
+                mModel.get(ReloadButtonProperties.IS_ENABLED));
     }
 
     @Test

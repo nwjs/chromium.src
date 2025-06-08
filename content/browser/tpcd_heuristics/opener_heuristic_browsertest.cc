@@ -9,6 +9,7 @@
 #include "base/metrics/field_trial_params.h"
 #include "base/run_loop.h"
 #include "base/strings/string_number_conversions.h"
+#include "base/strings/stringprintf.h"
 #include "base/strings/to_string.h"
 #include "base/test/bind.h"
 #include "base/test/gmock_expected_support.h"
@@ -763,8 +764,8 @@ bool IsFullCookieAccessAllowed(WebContents* web_contents,
                                const GURL& first_party_url) {
   return GetContentClientForTesting()->browser()->IsFullCookieAccessAllowed(
       web_contents->GetBrowserContext(), web_contents, url,
-      blink::StorageKey::CreateFirstParty(
-          url::Origin::Create(first_party_url)));
+      blink::StorageKey::CreateFirstParty(url::Origin::Create(first_party_url)),
+      /*overrides=*/{});
 }
 }  // namespace
 

@@ -657,11 +657,12 @@ bool WasmJSPromiseIntegrationEnabledCallback(v8::Local<v8::Context> context) {
       execution_context);
 }
 
-v8::MaybeLocal<v8::Promise> HostImportModuleDynamically(
+v8::MaybeLocal<v8::Promise> HostImportModuleWithPhaseDynamically(
     v8::Local<v8::Context> context,
     v8::Local<v8::Data> v8_host_defined_options,
     v8::Local<v8::Value> v8_referrer_resource_url,
     v8::Local<v8::String> v8_specifier,
+    v8::ModuleImportPhase import_phase,
     v8::Local<v8::FixedArray> v8_import_attributes) {
   v8::Isolate* isolate = context->GetIsolate();
   ScriptState* script_state = ScriptState::From(isolate, context);
@@ -674,7 +675,7 @@ v8::MaybeLocal<v8::Promise> HostImportModuleDynamically(
     v8::TryCatch try_catch(isolate);
 
     g_host_import_module_fn(context, v8_host_defined_options, v8_referrer_resource_url,
-                           v8_specifier, v8_import_attributes, &ret);
+                            v8_specifier, import_phase, v8_import_attributes, &ret);
     v8::Local<v8::Promise> promise;
     if (!ret.ToLocal(&promise)) {
       if (!try_catch.HasCaught()) {
@@ -735,7 +736,8 @@ v8::MaybeLocal<v8::Promise> HostImportModuleDynamically(
       specifier, TextPosition::MinimumPosition(),
       ModuleRecord::ToBlinkImportAttributes(
           script_state->GetContext(), v8::Local<v8::Module>(),
-          v8_import_attributes, /*v8_import_attributes_has_positions=*/false));
+          v8_import_attributes, /*v8_import_attributes_has_positions=*/false),
+      import_phase);
 
   auto* resolver = MakeGarbageCollected<ScriptPromiseResolver<IDLAny>>(
       script_state,
@@ -755,6 +757,17 @@ v8::MaybeLocal<v8::Promise> HostImportModuleDynamically(
   }
 
   return resolver->Promise().V8Promise();
+}
+
+v8::MaybeLocal<v8::Promise> HostImportModuleDynamically(
+    v8::Local<v8::Context> context,
+    v8::Local<v8::Data> v8_host_defined_options,
+    v8::Local<v8::Value> v8_referrer_resource_url,
+    v8::Local<v8::String> v8_specifier,
+    v8::Local<v8::FixedArray> v8_import_attributes) {
+  return HostImportModuleWithPhaseDynamically(
+      context, v8_host_defined_options, v8_referrer_resource_url, v8_specifier,
+      v8::ModuleImportPhase::kEvaluation, v8_import_attributes);
 }
 
 // Enum to control the execution flow
@@ -811,9 +824,9 @@ void OnRejectedCallFallback(const v8::FunctionCallbackInfo<v8::Value>& info) {
   v8::Local<v8::Object> container_object = data_value.As<v8::Object>();
 
   // Check internal field count
-  if (container_object->InternalFieldCount() != 5) {
+  if (container_object->InternalFieldCount() != 6) {
     isolate->ThrowException(NewV8StringSafe(
-        isolate, "Internal error: Incorrect internal field count (expected 5).").ToLocalChecked());
+        isolate, "Internal error: Incorrect internal field count (expected 6).").ToLocalChecked());
     return;
   }
 
@@ -823,9 +836,11 @@ void OnRejectedCallFallback(const v8::FunctionCallbackInfo<v8::Value>& info) {
   v8::Local<v8::Data> val_field2 = container_object->GetInternalField(2);
   v8::Local<v8::Data> val_field3 = container_object->GetInternalField(3);
   v8::Local<v8::Data> val_field4 = container_object->GetInternalField(4);
+  v8::Local<v8::Data> val_field5 = container_object->GetInternalField(5);
 
   // Check if retrieval failed (less likely than SetInternalField failing)
-  if (val_field0.IsEmpty() || val_field1.IsEmpty() || val_field2.IsEmpty() || val_field3.IsEmpty() || val_field4.IsEmpty()) {
+  if (val_field0.IsEmpty() || val_field1.IsEmpty() || val_field2.IsEmpty() ||
+      val_field3.IsEmpty() || val_field4.IsEmpty() || val_field5.IsEmpty()) {
     if (!try_catch.HasCaught()) {
       isolate->ThrowException(NewV8StringSafe(
           isolate, "Internal error: Failed to retrieve value from internal field.").ToLocalChecked());
@@ -833,6 +848,7 @@ void OnRejectedCallFallback(const v8::FunctionCallbackInfo<v8::Value>& info) {
     return;
   }
   int fallback_marker = val_field4.As<v8::Value>().As<v8::Int32>()->Value();
+  v8::ModuleImportPhase import_phase = (v8::ModuleImportPhase)val_field5.As<v8::Value>().As<v8::Int32>()->Value();
   v8::Local<v8::Data> v8_host_defined_options;
   v8_host_defined_options = val_field0.As<v8::Data>();
 
@@ -864,13 +880,13 @@ void OnRejectedCallFallback(const v8::FunctionCallbackInfo<v8::Value>& info) {
   // --- Call the Fallback Import Function ---
   v8::MaybeLocal<v8::Promise> maybe_fallback_promise;
   if (fallback_marker == FALLBACK_DOM) {
-    maybe_fallback_promise = HostImportModuleDynamically(
+    maybe_fallback_promise = HostImportModuleWithPhaseDynamically(
         context, v8_host_defined_options,
-        v8_referrer_resource_url, v8_specifier, v8_import_attributes);
+        v8_referrer_resource_url, v8_specifier, import_phase, v8_import_attributes);
   } else if (fallback_marker == FALLBACK_NODE) {
     g_host_import_module_fn(
         context, v8_host_defined_options, v8_referrer_resource_url,
-        v8_specifier, v8_import_attributes, &maybe_fallback_promise);
+        v8_specifier, import_phase, v8_import_attributes, &maybe_fallback_promise);
   } else {
     isolate->ThrowException(NewV8StringSafe(
         isolate, "Internal error: Invalid fallback marker in rejection data.").ToLocalChecked());
@@ -913,11 +929,12 @@ void OnRejectedCallFallback(const v8::FunctionCallbackInfo<v8::Value>& info) {
  * @return A MaybeLocal containing the final promise representing the import result,
  * or empty if a synchronous error occurred during setup.
  */
-v8::MaybeLocal<v8::Promise> ChainImportModulesCpp(
+v8::MaybeLocal<v8::Promise> ChainImportModulesWithPhase(
     v8::Local<v8::Context> context,
     v8::Local<v8::Data> v8_host_defined_options,
     v8::Local<v8::Value> v8_referrer_resource_url,
     v8::Local<v8::String> v8_specifier,
+    v8::ModuleImportPhase import_phase,
     v8::Local<v8::FixedArray> v8_import_attributes)
 {
   v8::Isolate* isolate = context->GetIsolate();
@@ -945,9 +962,9 @@ v8::MaybeLocal<v8::Promise> ChainImportModulesCpp(
   case ImportMode::DOM_ONLY: {
     // Directly call F2 (HostImport...)
     // std::cout << "Mode: DOM_ONLY" << std::endl;
-    v8::MaybeLocal<v8::Promise> maybe_f2_promise = HostImportModuleDynamically(
+    v8::MaybeLocal<v8::Promise> maybe_f2_promise = HostImportModuleWithPhaseDynamically(
           context, v8_host_defined_options, v8_referrer_resource_url,
-          v8_specifier, v8_import_attributes);
+          v8_specifier, import_phase, v8_import_attributes);
     v8::Local<v8::Promise> f2_promise;
     if (!maybe_f2_promise.ToLocal(&f2_promise)) {
       if(!try_catch.HasCaught())
@@ -969,11 +986,11 @@ v8::MaybeLocal<v8::Promise> ChainImportModulesCpp(
     if (mode == ImportMode::NODE_FIRST) {
       g_host_import_module_fn(
           context, v8_host_defined_options, v8_referrer_resource_url,
-          v8_specifier, v8_import_attributes, &maybe_primary_promise);
+          v8_specifier, import_phase, v8_import_attributes, &maybe_primary_promise);
     } else { // DOM_FIRST
-      maybe_primary_promise = HostImportModuleDynamically(
+      maybe_primary_promise = HostImportModuleWithPhaseDynamically(
           context, v8_host_defined_options, v8_referrer_resource_url,
-          v8_specifier, v8_import_attributes);
+          v8_specifier, import_phase, v8_import_attributes);
     }
 
     // Check primary promise result
@@ -988,7 +1005,7 @@ v8::MaybeLocal<v8::Promise> ChainImportModulesCpp(
       return v8::MaybeLocal<v8::Promise>();
     }
 
-    // 2. Prepare Container Object (with 5 fields)
+    // 2. Prepare Container Object (with 6 fields)
     V8PerIsolateData* per_isolate_data = V8PerIsolateData::From(isolate);
     v8::Local<v8::ObjectTemplate> container_template =
         per_isolate_data->FindV8Template(script_state->World(), script_state)
@@ -996,7 +1013,7 @@ v8::MaybeLocal<v8::Promise> ChainImportModulesCpp(
 
     if (container_template.IsEmpty()) {
       container_template = v8::ObjectTemplate::New(isolate);
-      container_template->SetInternalFieldCount(5);
+      container_template->SetInternalFieldCount(6);
       per_isolate_data->AddV8Template(
           script_state->World(), script_state, container_template);
     }
@@ -1007,8 +1024,8 @@ v8::MaybeLocal<v8::Promise> ChainImportModulesCpp(
 	try_catch.ReThrow();
       return v8::MaybeLocal<v8::Promise>();
     }
-    if (container_object->InternalFieldCount() != 5) {
-      LOG(ERROR) << "Error: Internal field count mismatch (expected 5).";
+    if (container_object->InternalFieldCount() != 6) {
+      LOG(ERROR) << "Error: Internal field count mismatch (expected 6).";
       return v8::MaybeLocal<v8::Promise>();
     }
 
@@ -1020,6 +1037,8 @@ v8::MaybeLocal<v8::Promise> ChainImportModulesCpp(
     v8::Local<v8::Integer> fallback_marker = v8::Int32::New(
         isolate, (mode == ImportMode::NODE_FIRST) ? FALLBACK_DOM : FALLBACK_NODE);
     container_object->SetInternalField(4, fallback_marker);
+    v8::Local<v8::Integer> import_phase_val = v8::Int32::New(isolate, (int)import_phase);
+    container_object->SetInternalField(5, import_phase_val);
 
     // 3. Create Callbacks
     if (!v8::Function::New(context, OnFulfilledPassThrough)
@@ -1064,6 +1083,16 @@ v8::MaybeLocal<v8::Promise> ChainImportModulesCpp(
   }
 }
 
+v8::MaybeLocal<v8::Promise> ChainImportModules(
+    v8::Local<v8::Context> context,
+    v8::Local<v8::Data> v8_host_defined_options,
+    v8::Local<v8::Value> v8_referrer_resource_url,
+    v8::Local<v8::String> v8_specifier,
+    v8::Local<v8::FixedArray> v8_import_attributes) {
+  return ChainImportModulesWithPhase(
+      context, v8_host_defined_options, v8_referrer_resource_url, v8_specifier,
+      v8::ModuleImportPhase::kEvaluation, v8_import_attributes);
+}
 
 // https://html.spec.whatwg.org/C/#hostgetimportmetaproperties
 void HostGetImportMetaProperties(v8::Local<v8::Context> context,
@@ -1141,10 +1170,15 @@ void V8Initializer::InitializeV8Common(v8::Isolate* isolate) {
   isolate->SetWasmJSPIEnabledCallback(WasmJSPromiseIntegrationEnabledCallback);
   isolate->SetSharedArrayBufferConstructorEnabledCallback(
       SharedArrayBufferConstructorEnabledCallback);
-  if (base::FeatureList::IsEnabled(features::kNWESM))
-    isolate->SetHostImportModuleDynamicallyCallback(ChainImportModulesCpp);
-  else
-    isolate->SetHostImportModuleDynamicallyCallback(HostImportModuleDynamically);
+  if (base::FeatureList::IsEnabled(features::kNWESM)) {
+    isolate->SetHostImportModuleDynamicallyCallback(ChainImportModules);
+    isolate->SetHostImportModuleWithPhaseDynamicallyCallback(
+        ChainImportModulesWithPhase);
+  } else {
+  isolate->SetHostImportModuleDynamicallyCallback(HostImportModuleDynamically);
+  isolate->SetHostImportModuleWithPhaseDynamicallyCallback(
+      HostImportModuleWithPhaseDynamically);
+  }
   isolate->SetHostInitializeImportMetaObjectCallback(
       HostGetImportMetaProperties);
   isolate->SetIsJSApiWrapperNativeErrorCallback(IsDOMExceptionWrapper);

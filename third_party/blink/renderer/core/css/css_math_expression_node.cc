@@ -222,6 +222,238 @@ static bool HasDoubleValue(CSSPrimitiveValue::UnitType type) {
   }
 }
 
+CSSMathType::CSSMathType(CalculationResultCategory category) {
+  if (category != kCalcNumber) {
+    base_type_powers_[CalculationCategoryToBaseType(category)] = 1;
+  }
+}
+
+CSSMathType::CSSMathType(bool is_valid) : is_valid_(is_valid) {}
+
+CSSMathType::CSSMathType(BaseTypePowers types_map,
+                         PercentageHint percentage_hint)
+    : base_type_powers_(std::move(types_map)),
+      percentage_hint_(std::move(percentage_hint)) {}
+
+CSSMathType CSSMathType::InvalidType() {
+  return CSSMathType(/*is_valid=*/false);
+}
+
+CalculationResultCategory CSSMathType::BaseTypeToCalculationCategory(
+    BaseType base_type) {
+  using enum BaseType;
+  switch (base_type) {
+    case kLength:
+      return kCalcLength;
+    case BaseType::kPercent:
+      return kCalcPercent;
+    case BaseType::kAngle:
+      return kCalcAngle;
+    case BaseType::kTime:
+      return kCalcTime;
+    case BaseType::kFrequency:
+      return kCalcFrequency;
+    case BaseType::kResolution:
+      return kCalcResolution;
+    case BaseType::kFlex:
+    case BaseType::kNumTypes:
+      NOTREACHED();
+  }
+}
+
+CSSMathType::BaseType CSSMathType::CalculationCategoryToBaseType(
+    CalculationResultCategory category) {
+  using enum BaseType;
+  switch (category) {
+    case kCalcLength:
+      return kLength;
+    case kCalcPercent:
+      return kPercent;
+    case kCalcAngle:
+      return kAngle;
+    case kCalcTime:
+      return kTime;
+    case kCalcFrequency:
+      return kFrequency;
+    case kCalcResolution:
+      return kResolution;
+    case kCalcNumber:
+    case kCalcIdent:
+    case kCalcOther:
+    case kCalcLengthFunction:
+    case kCalcIntrinsicSize:
+      NOTREACHED();
+  }
+}
+
+bool CSSMathType::IsValid() const {
+  return is_valid_;
+}
+
+CalculationResultCategory CSSMathType::Type() const {
+  if (!IsValid()) {
+    return kCalcOther;
+  }
+  BaseType type;
+  int16_t types_sum = 0;
+  for (uint8_t type_index = 0u; type_index < BaseType::kNumTypes;
+       ++type_index) {
+    int8_t type_power = base_type_powers_[type_index];
+    types_sum += type_power;
+    if (type_power != 0) {
+      type = BaseType(type_index);
+    }
+  }
+  if (types_sum == 0) {
+    return kCalcNumber;
+  }
+  if (types_sum != 1) {
+    return kCalcOther;
+  }
+  return BaseTypeToCalculationCategory(type);
+}
+
+void CSSMathType::ApplyHint(BaseType hint) {
+  // To apply the percent hint `hint` to a type without a percent hint, perform
+  // the following steps:
+  if (percentage_hint_.has_value()) {
+    return;
+  }
+  // Set type’s percent hint to hint.
+  percentage_hint_ = hint;
+  // If hint is anything other than "percent".
+  if (hint != kPercent) {
+    // Add type["percent"] to type[hint].
+    base_type_powers_[hint] += base_type_powers_[kPercent];
+    // Then set type["percent"] to 0.
+    base_type_powers_[kPercent] = 0;
+  }
+}
+
+CSSMathType operator+(CSSMathType type1, CSSMathType type2) {
+  DCHECK(type1.IsValid() && type2.IsValid());
+  // If both type1 and type2 have non-null percent hints with different values
+  // The types can’t be added. Return failure.
+  if (type1.percentage_hint_.has_value() &&
+      type2.percentage_hint_.has_value() &&
+      type1.percentage_hint_ != type2.percentage_hint_) {
+    return CSSMathType::InvalidType();
+  }
+  // If type1 has a non-null percent hint hint and type2 doesn’t
+  // Apply the percent hint hint to type2.
+  if (type1.percentage_hint_.has_value() &&
+      !type2.percentage_hint_.has_value()) {
+    type2.ApplyHint(type1.percentage_hint_.value());
+  }
+  // Vice versa if type2 has a non-null percent hint and type1 doesn’t.
+  if (!type1.percentage_hint_.has_value() &&
+      type2.percentage_hint_.has_value()) {
+    type1.ApplyHint(type2.percentage_hint_.value());
+  }
+  // Otherwise continue to the next step.
+  // If all the entries of type1 with non-zero values are contained in type2
+  // with the same value, and vice-versa.
+  if (type1 == type2) {
+    // Copy all of type1’s entries to finalType, and then copy all of type2’s
+    // entries to finalType that finalType doesn’t already contain. Set
+    // finalType’s percent hint to type1’s percent hint. Return finalType.
+    return CSSMathType(std::move(type1.base_type_powers_),
+                       std::move(type1.percentage_hint_));
+  }
+  // If type1 and/or type2 contain "percent" with a non-zero value, and type1
+  // and/or type2 contain a key other than "percent" with a non-zero value.
+  using enum CSSMathType::BaseType;
+  bool type1_contains_percent = type1.base_type_powers_[kPercent] != 0;
+  bool type2_contains_percent = type2.base_type_powers_[kPercent] != 0;
+  bool type1_or_type2_contain_percent =
+      type1_contains_percent || type2_contains_percent;
+  bool type1_contains_key_other_than_percent =
+      type1.base_type_powers_[kPercent] !=
+      std::accumulate(type1.base_type_powers_.begin(),
+                      type1.base_type_powers_.end(), 0);
+  bool type2_contains_key_other_than_percent =
+      type2.base_type_powers_[kPercent] !=
+      std::accumulate(type2.base_type_powers_.begin(),
+                      type2.base_type_powers_.end(), 0);
+  bool type1_or_type2_contain_key_other_than_percent =
+      type1_contains_key_other_than_percent ||
+      type2_contains_key_other_than_percent;
+  if (type1_or_type2_contain_percent &&
+      type1_or_type2_contain_key_other_than_percent) {
+    // For each base type other than "percent" hint:
+    for (uint8_t type_index = 0; type_index < CSSMathType::BaseType::kNumTypes;
+         ++type_index) {
+      auto type = static_cast<CSSMathType::BaseType>(type_index);
+      if (type == kPercent) {
+        continue;
+      }
+      // 1. Provisionally apply the percent hint hint to both type1 and type2.
+      CSSMathType temp_type1(type1);
+      CSSMathType temp_type2(type2);
+      temp_type1.ApplyHint(type);
+      temp_type2.ApplyHint(type);
+      // 2. If, afterwards, all the entries of type1 with non-zero values are
+      // contained in type2 with the same value, and vice versa, then copy all
+      // of type1’s entries to finalType, and then copy all of type2’s entries
+      // to finalType that finalType doesn’t already contain. Set finalType’s
+      // percent hint to hint. Return finalType.
+      if (temp_type1 == temp_type2) {
+        return CSSMathType(std::move(temp_type1.base_type_powers_),
+                           std::move(temp_type1.percentage_hint_));
+      }
+      // 3. Otherwise, revert type1 and type2 to their state at the start of
+      // this loop.
+    }
+    // If the loop finishes without returning finalType, then the types can’t
+    // be added. Return failure.
+    return CSSMathType::InvalidType();
+  }
+  return CSSMathType::InvalidType();
+}
+
+CSSMathType operator*(CSSMathType type1, CSSMathType type2) {
+  DCHECK(type1.IsValid() && type2.IsValid());
+  // If both type1 and type2 have non-null percent hints with different values
+  // The types can’t be added. Return failure.
+  if (type1.percentage_hint_.has_value() &&
+      type2.percentage_hint_.has_value() &&
+      type1.percentage_hint_ != type2.percentage_hint_) {
+    return CSSMathType::InvalidType();
+  }
+  // If type1 has a non-null percent hint hint and type2 doesn’t
+  // Apply the percent hint hint to type2.
+  if (type1.percentage_hint_.has_value() &&
+      !type2.percentage_hint_.has_value()) {
+    type2.ApplyHint(type1.percentage_hint_.value());
+  }
+  // Vice versa if type2 has a non-null percent hint and type1 doesn’t.
+  if (!type1.percentage_hint_.has_value() &&
+      type2.percentage_hint_.has_value()) {
+    type1.ApplyHint(type2.percentage_hint_.value());
+  }
+  // Set finalType’s percent hint to type1’s percent hint (we can just use
+  // type1). Copy all of type1’s entries to finalType, then for each baseType →
+  // power of type2:
+  for (uint8_t type_index = 0; type_index < CSSMathType::BaseType::kNumTypes;
+       ++type_index) {
+    type1.base_type_powers_[type_index] += type2.base_type_powers_[type_index];
+  }
+  return type1;
+}
+
+CSSMathType operator/(CSSMathType type1, CSSMathType type2) {
+  return type1 * -type2;
+}
+
+CSSMathType CSSMathType::operator-() const {
+  CSSMathType type(*this);
+  for (uint8_t type_index = 0; type_index < CSSMathType::BaseType::kNumTypes;
+       ++type_index) {
+    type.base_type_powers_[type_index] = -type.base_type_powers_[type_index];
+  }
+  return type;
+}
+
 namespace {
 
 const PixelsAndPercent CreateClampedSamePixelsAndPercent(float value) {
@@ -833,7 +1065,7 @@ CSSMathExpressionNumericLiteral::ToCalculationExpression(
 
 double CSSMathExpressionNumericLiteral::DoubleValue() const {
   if (HasDoubleValue(ResolvedUnitType())) {
-    return value_->GetDoubleValueWithoutClamping();
+    return value_->DoubleValue();
   }
   DUMP_WILL_BE_NOTREACHED();
   return 0;
@@ -2565,11 +2797,16 @@ bool CSSMathExpressionOperation::AccumulateLengthArray(
       DCHECK_NE((operands_[0]->Category() == kCalcNumber),
                 (operands_[1]->Category() == kCalcNumber));
       if (operands_[0]->Category() == kCalcNumber) {
-        return operands_[1]->AccumulateLengthArray(
-            length_array, multiplier * operands_[0]->DoubleValue());
-      } else {
+        if (IsNumericNodeWithDoubleValue(operands_[0])) {
+          return operands_[1]->AccumulateLengthArray(
+              length_array, multiplier * operands_[0]->DoubleValue());
+        }
+        return false;
+      } else if (IsNumericNodeWithDoubleValue(operands_[1])) {
         return operands_[0]->AccumulateLengthArray(
             length_array, multiplier * operands_[1]->DoubleValue());
+      } else {
+        return false;
       }
     case CSSMathOperator::kInvert:
       // We don't support this yet.
@@ -4764,19 +5001,16 @@ double CSSMathExpressionSiblingFunction::ComputeDouble(
     return nth_index_cache->NthChildIndex(const_cast<Element&>(*element),
                                           /*filter=*/nullptr,
                                           /*selector_checker=*/nullptr,
-                                          /*context=*/nullptr,
-                                          NthIndexData::kFlatTree);
+                                          /*context=*/nullptr);
   } else {
     return nth_index_cache->NthChildIndex(const_cast<Element&>(*element),
                                           /*filter=*/nullptr,
                                           /*selector_checker=*/nullptr,
-                                          /*context=*/nullptr,
-                                          NthIndexData::kFlatTree) +
+                                          /*context=*/nullptr) +
            nth_index_cache->NthLastChildIndex(const_cast<Element&>(*element),
                                               /*filter=*/nullptr,
                                               /*selector_checker=*/nullptr,
-                                              /*context=*/nullptr,
-                                              NthIndexData::kFlatTree) -
+                                              /*context=*/nullptr) -
            1;
   }
 }

@@ -8,14 +8,15 @@
 #import <UIKit/UIKit.h>
 
 #import "ios/chrome/browser/omnibox/model/omnibox_text_controller_delegate.h"
-#import "ios/chrome/browser/omnibox/ui_bundled/omnibox_mutator.h"
-#import "ios/chrome/browser/omnibox/ui_bundled/omnibox_view_controller.h"
+#import "ios/chrome/browser/omnibox/ui/omnibox_mutator.h"
+#import "ios/chrome/browser/omnibox/ui/omnibox_view_controller.h"
 
 class FaviconLoader;
 @protocol LensCommands;
 @protocol LoadQueryCommands;
 @protocol OmniboxCommands;
 @protocol OmniboxConsumer;
+@protocol OmniboxMediatorDelegate;
 @class OmniboxTextController;
 @class SceneState;
 class TemplateURLService;
@@ -29,6 +30,9 @@ class Tracker;
 @interface OmniboxMediator : NSObject <OmniboxMutator,
                                        OmniboxTextControllerDelegate,
                                        OmniboxViewControllerPasteDelegate>
+
+/// Delegate for events in this class.
+@property(nonatomic, weak) id<OmniboxMediatorDelegate> delegate;
 
 /// Controller of the omnibox text.
 @property(nonatomic, weak) OmniboxTextController* omniboxTextController;

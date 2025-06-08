@@ -148,17 +148,28 @@ class PopoverElementForAppearanceBase : public HTMLDivElement {
           control->Focus(FocusParams(FocusTrigger::kScript));
         }
       } else {
-        HTMLOptionElement* option_to_focus = select->SelectedOption();
-        if (!option_to_focus || !option_to_focus->IsFocusable()) {
-          for (auto& option : select->GetOptionList()) {
-            if (option.IsFocusable()) {
-              option_to_focus = &option;
-              break;
+        HTMLElement* element_to_focus = nullptr;
+        if (auto* input = select->FirstDescendantTextInput();
+            input &&
+            (RuntimeEnabledFeatures::
+                 SelectAccessibilityReparentInputEnabled() ||
+             RuntimeEnabledFeatures::SelectAccessibilityNestedInputEnabled())) {
+          // If there is a filter input at the top of the picker, then that
+          // should be focused instead of options when opening.
+          element_to_focus = input;
+        } else {
+          element_to_focus = select->SelectedOption();
+          if (!element_to_focus || !element_to_focus->IsFocusable()) {
+            for (auto& option : select->GetOptionList()) {
+              if (option.IsFocusable()) {
+                element_to_focus = &option;
+                break;
+              }
             }
           }
         }
-        if (option_to_focus) {
-          option_to_focus->Focus(FocusParams(FocusTrigger::kScript));
+        if (element_to_focus) {
+          element_to_focus->Focus(FocusParams(FocusTrigger::kScript));
         }
       }
       if (AXObjectCache* cache =
@@ -168,10 +179,11 @@ class PopoverElementForAppearanceBase : public HTMLDivElement {
     }
   }
 
-  void HidePopoverInternal(HidePopoverFocusBehavior focus_behavior,
+  void HidePopoverInternal(Element* invoker,
+                           HidePopoverFocusBehavior focus_behavior,
                            HidePopoverTransitionBehavior event_firing,
                            ExceptionState* exception_state) override {
-    HTMLDivElement::HidePopoverInternal(focus_behavior, event_firing,
+    HTMLDivElement::HidePopoverInternal(invoker, focus_behavior, event_firing,
                                         exception_state);
     if (auto* select = ParentSelect()) {
       // Focus the select when the popover is hidden.
@@ -602,8 +614,8 @@ void MenuListSelectType::CreateShadowSubtree(ShadowRoot& root) {
 
     popover_ = MakeGarbageCollected<PopoverElementForAppearanceBase>(doc);
     popover_->SetShadowPseudoId(shadow_element_names::kPickerSelect);
-    popover_->setAttribute(html_names::kPopoverAttr, AtomicString("auto"));
     root.appendChild(popover_);
+    popover_->setAttribute(html_names::kPopoverAttr, AtomicString("auto"));
 
     popover_options_slot_ = MakeGarbageCollected<HTMLSlotElement>(doc);
     popover_options_slot_->SetIdAttribute(
@@ -613,11 +625,11 @@ void MenuListSelectType::CreateShadowSubtree(ShadowRoot& root) {
     autofill_popover_ =
         MakeGarbageCollected<HTMLSelectElement::SelectAutofillPreviewElement>(
             doc, select_);
-    autofill_popover_->setAttribute(html_names::kPopoverAttr,
-                                    keywords::kManual);
     autofill_popover_->SetShadowPseudoId(
         shadow_element_names::kSelectAutofillPreview);
     root.appendChild(autofill_popover_);
+    autofill_popover_->setAttribute(html_names::kPopoverAttr,
+                                    keywords::kManual);
 
     autofill_popover_text_ = MakeGarbageCollected<HTMLDivElement>(doc);
     autofill_popover_text_->SetShadowPseudoId(
@@ -748,7 +760,7 @@ void MenuListSelectType::ShowPopup(PopupMenu::ShowEventType type) {
       // opening. Per spec, we close it in that case, to avoid circularity.
       PostChangingAppearanceConsoleWarning(*select_);
       popover_->HidePopoverInternal(
-          HidePopoverFocusBehavior::kNone,
+          /*invoker=*/nullptr, HidePopoverFocusBehavior::kNone,
           HidePopoverTransitionBehavior::kNoEventsNoWaiting,
           /*exception_state=*/nullptr);
     }
@@ -813,6 +825,7 @@ void MenuListSelectType::HidePopup(SelectPopupHideBehavior behavior) {
       popover_->popoverOpen()) {
     bool normal_behavior = behavior == SelectPopupHideBehavior::kNormal;
     popover_->HidePopoverInternal(
+        /*invoker=*/nullptr,
         normal_behavior ? HidePopoverFocusBehavior::kFocusPreviousElement
                         : HidePopoverFocusBehavior::kNone,
         normal_behavior
@@ -944,7 +957,7 @@ void MenuListSelectType::DidSetSuggestedOption(HTMLOptionElement* option) {
     } else {
       autofill_popover_text_->setInnerText(g_empty_string);
       autofill_popover_->HidePopoverInternal(
-          HidePopoverFocusBehavior::kNone,
+          /*invoker=*/nullptr, HidePopoverFocusBehavior::kNone,
           HidePopoverTransitionBehavior::kNoEventsNoWaiting,
           /*exception_state=*/nullptr);
     }

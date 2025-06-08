@@ -1833,7 +1833,7 @@ void FrameLoader::ModifyRequestForCSP(
 
   MixedContentChecker::UpgradeInsecureRequest(
       resource_request, fetch_client_settings_object, window_for_logging,
-      frame_type, frame_->GetContentSettingsClient());
+      frame_type, frame_->GetContentSettingsClient(), frame_);
 }
 
 void FrameLoader::WriteIntoTrace(perfetto::TracedValue context) const {
@@ -1860,7 +1860,7 @@ mojo::PendingRemote<mojom::blink::CodeCacheHost>
 FrameLoader::CreateWorkerCodeCacheHost() {
   if (!document_loader_)
     return mojo::NullRemote();
-  return document_loader_->CreateWorkerCodeCacheHost();
+  return document_loader_->CreateCodeCacheHost();
 }
 
 }  // namespace blink

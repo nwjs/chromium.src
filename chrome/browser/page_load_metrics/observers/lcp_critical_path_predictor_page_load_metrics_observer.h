@@ -71,7 +71,7 @@ enum class LCPPPredictResult {
 
 // Since histogram counts only positive numbers but the indexes origin 0,
 // add 1 for offset.
-const int kLCPIndexHistogramOffset = 1;
+inline constexpr int kLCPIndexHistogramOffset = 1;
 
 void MaybeReportConfidenceUMAsForTesting(
     const GURL& commit_url,
@@ -121,7 +121,7 @@ class LcpCriticalPathPredictorPageLoadMetricsObserver
   void OnLcpUpdated(blink::mojom::LcpElementPtr);
   void SetLcpInfluencerScriptUrls(
       const std::vector<GURL>& lcp_influencer_scripts);
-  void SetPreconnectOrigins(const std::vector<GURL>& origins);
+  void AddPreconnectOrigin(const url::Origin& origin);
   void SetUnusedPreloads(const std::vector<GURL>& unused_preloads);
   // Append fetched font URLs to the list to be passed to LCPP.
   void AppendFetchedFontUrl(const GURL& font_url, bool hit);

@@ -5,14 +5,14 @@
 package org.chromium.chrome.browser.tabmodel;
 
 import androidx.annotation.CallSuper;
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 
 import org.jni_zero.CalledByNative;
 import org.jni_zero.JniType;
 import org.jni_zero.NativeMethods;
 
+import org.chromium.build.annotations.NullMarked;
+import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.flags.ActivityType;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.tab.Tab;
@@ -22,6 +22,7 @@ import org.chromium.url.GURL;
 import org.chromium.url.Origin;
 
 /** Bridges between the C++ and Java {@link TabModel} interfaces. */
+@NullMarked
 public abstract class TabModelJniBridge implements TabModelInternal {
     private final Profile mProfile;
 
@@ -41,7 +42,7 @@ public abstract class TabModelJniBridge implements TabModelInternal {
      *     the model from broadcasting sync updates.
      */
     public TabModelJniBridge(
-            @NonNull Profile profile, @ActivityType int activityType, boolean isArchivedTabModel) {
+            Profile profile, @ActivityType int activityType, boolean isArchivedTabModel) {
         mProfile = profile;
         mActivityType = activityType;
         mIsArchivedTabModel = isArchivedTabModel;
@@ -95,7 +96,7 @@ public abstract class TabModelJniBridge implements TabModelInternal {
 
     @Override
     @CalledByNative
-    public abstract Tab getTabAt(int index);
+    public abstract @Nullable Tab getTabAt(int index);
 
     @Override
     public Profile getProfile() {
@@ -109,7 +110,13 @@ public abstract class TabModelJniBridge implements TabModelInternal {
     /** Returns whether the model is done initializing itself and should be used. */
     public abstract boolean isInitializationComplete();
 
-    /** Broadcast a native-side notification that all tabs are now loaded from storage. */
+    /**
+     * Required to be called before this object is ready for most usage. Used to indicate all tabs
+     * have been loaded and native is ready.
+     */
+    public abstract void completeInitialization();
+
+    @Override
     public void broadcastSessionRestoreComplete() {
         assert isNativeInitialized();
         assert isInitializationComplete();
@@ -169,7 +176,7 @@ public abstract class TabModelJniBridge implements TabModelInternal {
             Tab parent, Profile profile, WebContents webContents, boolean select);
 
     @CalledByNative
-    protected abstract void openNewTab(
+    public abstract void openNewTab(
             Tab parent,
             GURL url,
             @Nullable Origin initiatorOrigin,
@@ -184,9 +191,10 @@ public abstract class TabModelJniBridge implements TabModelInternal {
      *
      * @param url URL to show.
      * @param newWindow Whether to open the new tab in a new window.
+     * @return The created tab or null if the tab could not be created.
      */
     @CalledByNative
-    protected abstract Tab createNewTabForDevTools(GURL url, boolean newWindow);
+    protected abstract @Nullable Tab createNewTabForDevTools(GURL url, boolean newWindow);
 
     /**
      * Returns the count of non-custom tabs that have a {@link
@@ -206,6 +214,15 @@ public abstract class TabModelJniBridge implements TabModelInternal {
     /** Returns whether or not a sync session is currently being restored. */
     @CalledByNative
     protected abstract boolean isSessionRestoreInProgress();
+
+    /**
+     * Opens a tab programmatically
+     *
+     * @param url URL to show.
+     * @param index Index for the tab, it will ignore if it is invalid.
+     */
+    @CalledByNative
+    protected abstract void openTabProgrammatically(GURL url, int index);
 
     @NativeMethods
     @VisibleForTesting(otherwise = VisibleForTesting.PACKAGE_PRIVATE)

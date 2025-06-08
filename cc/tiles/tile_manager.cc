@@ -22,6 +22,7 @@
 #include "base/metrics/histogram_macros.h"
 #include "base/notreached.h"
 #include "base/numerics/safe_conversions.h"
+#include "base/strings/stringprintf.h"
 #include "base/synchronization/waitable_event.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/task/single_thread_task_runner.h"
@@ -577,8 +578,10 @@ void TileManager::Release(Tile* tile) {
   if (tile->raster_task_scheduled_with_checker_images())
     num_of_tiles_with_checker_images_--;
   DCHECK_GE(num_of_tiles_with_checker_images_, 0);
+  CHECK(tile->deleted());
 
   FreeResourcesForTile(tile);
+  client_->NotifyTileStateChanged(tile, /*update_damage=*/false);
   tiles_.erase(tile->id());
 }
 
@@ -1119,16 +1122,21 @@ void TileManager::FreeResourcesForOccludedTiles() {
   std::unique_ptr<TilesWithResourceIterator> iterator =
       client_->CreateTilesWithResourceIterator();
   for (; !iterator->AtEnd(); iterator->Next()) {
-    if (iterator->IsCurrentTileOccluded())
+    if (iterator->IsCurrentTileOccluded()) {
       FreeResourcesForTile(iterator->GetCurrent());
+      // We don't update the damage when Occluded tiles are released.
+      client_->NotifyTileStateChanged(iterator->GetCurrent(),
+                                      /*update_damage=*/false);
+    }
   }
 }
 
 void TileManager::FreeResourcesForTile(Tile* tile) {
   TileDrawInfo& draw_info = tile->draw_info();
 
-  if (draw_info.is_checker_imaged())
+  if (draw_info.is_checker_imaged()) {
     num_of_tiles_with_checker_images_--;
+  }
   DCHECK_GE(num_of_tiles_with_checker_images_, 0);
 
   if (draw_info.has_resource()) {
@@ -1142,8 +1150,7 @@ void TileManager::FreeResourcesForTileAndNotifyClientIfTileWasReadyToDraw(
   TRACE_EVENT0("viz", __PRETTY_FUNCTION__);
   bool was_ready_to_draw = tile->draw_info().IsReadyToDraw();
   FreeResourcesForTile(tile);
-  if (was_ready_to_draw)
-    client_->NotifyTileStateChanged(tile);
+  client_->NotifyTileStateChanged(tile, /*update_damage=*/was_ready_to_draw);
 }
 
 void TileManager::PartitionImagesForCheckering(

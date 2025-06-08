@@ -64,6 +64,7 @@ class OtpUnmaskDelegate;
 enum class OtpUnmaskResult;
 class PaymentsDataManager;
 class SaveAndFillDialogControllerImpl;
+class SaveAndFillManager;
 class TouchToFillDelegate;
 struct VirtualCardEnrollmentFields;
 class VirtualCardEnrollmentManager;
@@ -72,6 +73,7 @@ namespace payments {
 
 struct BnplIssuerContext;
 class MandatoryReauthManager;
+class MultipleRequestPaymentsNetworkInterface;
 class PaymentsWindowManager;
 class SelectBnplIssuerDialogControllerImpl;
 
@@ -157,6 +159,8 @@ class ChromePaymentsAutofillClient : public PaymentsAutofillClient,
       base::WeakPtr<OtpUnmaskDelegate> delegate) override;
   void OnUnmaskOtpVerificationResult(OtpUnmaskResult unmask_result) override;
   PaymentsNetworkInterface* GetPaymentsNetworkInterface() override;
+  MultipleRequestPaymentsNetworkInterface*
+  GetMultipleRequestPaymentsNetworkInterface() override;
   void ShowAutofillErrorDialog(AutofillErrorDialogContext context) override;
   PaymentsWindowManager* GetPaymentsWindowManager() override;
   void ShowUnmaskPrompt(
@@ -194,11 +198,13 @@ class ChromePaymentsAutofillClient : public PaymentsAutofillClient,
   AutofillOfferManager* GetAutofillOfferManager() override;
   bool ShowTouchToFillCreditCard(
       base::WeakPtr<TouchToFillDelegate> delegate,
-      base::span<const autofill::CreditCard> cards_to_suggest,
       base::span<const Suggestion> suggestions) override;
   bool ShowTouchToFillIban(
       base::WeakPtr<TouchToFillDelegate> delegate,
       base::span<const autofill::Iban> ibans_to_suggest) override;
+  bool ShowTouchToFillLoyaltyCard(base::WeakPtr<TouchToFillDelegate> delegate,
+                                  base::span<const autofill::LoyaltyCard>
+                                      loyalty_cards_to_suggest) override;
   void HideTouchToFillPaymentMethod() override;
   std::unique_ptr<webauthn::InternalAuthenticator>
   CreateCreditCardInternalAuthenticator(AutofillDriver* driver) override;
@@ -206,13 +212,15 @@ class ChromePaymentsAutofillClient : public PaymentsAutofillClient,
       override;
   PaymentsDataManager& GetPaymentsDataManager() final;
   void ShowCreditCardSaveAndFillDialog() override;
+  payments::SaveAndFillManager* GetSaveAndFillManager() override;
   void ShowSelectBnplIssuerDialog(
       std::vector<BnplIssuerContext> bnpl_issuer_context,
       std::string app_locale,
       base::OnceCallback<void(BnplIssuer)> selected_issuer_callback,
       base::OnceClosure cancel_callback) override;
   void DismissSelectBnplIssuerDialog() override;
-  bool IsTabModalPopup() const override;
+  bool IsTabModalPopupDeprecated() const override;
+  bool IsRiskBasedAuthEffectivelyAvailable() const override;
 
 #if BUILDFLAG(IS_ANDROID)
   // The AutofillMessageController is used to show a message notification
@@ -288,6 +296,9 @@ class ChromePaymentsAutofillClient : public PaymentsAutofillClient,
 
   std::unique_ptr<PaymentsNetworkInterface> payments_network_interface_;
 
+  std::unique_ptr<MultipleRequestPaymentsNetworkInterface>
+      multiple_request_payments_network_interface_;
+
   std::unique_ptr<AutofillProgressDialogControllerImpl>
       autofill_progress_dialog_controller_;
 
@@ -327,6 +338,8 @@ class ChromePaymentsAutofillClient : public PaymentsAutofillClient,
 
   std::unique_ptr<SaveAndFillDialogControllerImpl>
       save_and_fill_dialog_controller_;
+
+  std::unique_ptr<SaveAndFillManager> save_and_fill_manager_;
 
   std::unique_ptr<SelectBnplIssuerDialogControllerImpl>
       select_bnpl_issuer_dialog_controller_;

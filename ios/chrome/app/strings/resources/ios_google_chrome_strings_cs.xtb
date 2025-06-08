@@ -47,6 +47,7 @@ Co je třeba zvážit:
 <translation id="1917964099031477364">Tento účet a všechna neuložená data budou z Chromu a z ostatních aplikací v tomto zařízení odstraněny.</translation>
 <translation id="1919130412786645364">Povolit přihlášení do Chromu</translation>
 <translation id="1965935827552890526">Dokončete akci, kterou jste prováděli v jiném otevřeném okně Chromu.</translation>
+<translation id="1966638102563776885">Tip pro Chrome: Používejte svá hesla v libovolné aplikaci</translation>
 <translation id="1973910962341002002">V sekci <ph name="TEXT_OF_THE_SETTINGS_MENU_ITEM" /> zapněte možnost Chrome</translation>
 <translation id="1984705450038014246">Synchronizovat data prohlížeče Chrome</translation>
 <translation id="1987779152850321833">Pokud Chrome chcete využít na maximum, proveďte níže uvedené navrhované akce.</translation>
@@ -114,7 +115,6 @@ Zkuste s odhlášením několik minut počkat. Pokud se teď odhlásíte, tato 
 <translation id="3655656110921623717">To znamená, že Chrom bude pokaždé odesílat požadavek na mobilní web.</translation>
 <translation id="3740397331642243698">Otevře zadané adresy URL v prohlížeči Google Chrome v anonymním režimu.</translation>
 <translation id="3741995255368156336">Otevře seznam četby prohlížeče Chrome.</translation>
-<translation id="3808570423967020928">Získejte rychlejší přístup k Chromu z Docku na ploše.</translation>
 <translation id="3827545470516145620">Na tomto zařízení máte standardní bezpečnostní ochranu</translation>
 <translation id="384394811301901750">Google Chrome teď nemůže použít fotoaparát</translation>
 <translation id="3863841106411295595">Přidá zadané adresy URL do seznamu četby v prohlížeči Chrome.</translation>
@@ -138,6 +138,7 @@ Zkuste s odhlášením několik minut počkat. Pokud se teď odhlásíte, tato 
 <translation id="4724297637870447613">Používejte Chrome všude</translation>
 <translation id="4738647308035481133">Stránka prohlížeče Google Chrome</translation>
 <translation id="4742795653798179840">Data Chromu byla smazána</translation>
+<translation id="4749294594657945639">Pokud chcete mít uložená hesla snadno k dispozici v jiných aplikacích, vyberte Chrome pro automatické vyplňování</translation>
 <translation id="4761869838909035636">Spustit bezpečnostní kontrolu Chromu</translation>
 <translation id="4798859546468762093">Pokud chcete získat personalizaci a další funkce, zahrňte Chrome do: <ph name="FEATURE_NAME_1" /> a <ph name="FEATURE_NAME_2" /></translation>
 <translation id="4819268619367838612">Za účelem vylepšování aplikace odesílá Chrome do Googlu údaje o využití a selháních. <ph name="BEGIN_LINK" />Spravovat<ph name="END_LINK" /></translation>
@@ -233,7 +234,6 @@ Další nastavení využití dat ke zlepšení prostředí v prohlížeči Chro
 <translation id="6975725306479268850">Vyberte Chrome pro automatické vyplňování</translation>
 <translation id="7056826488869329999">Otevře a spustí bezpečnostní kontrolu v prohlížeči Chrome.</translation>
 <translation id="7061455974939528301">Podržte ikonu Chrome a klikněte na Upravit plochu</translation>
-<translation id="7065813315247345131">Přesuňte Chrome do doku</translation>
 <translation id="7124339256045485976">Udržují Chrome aktuální</translation>
 <translation id="7145599899567697473">Ukládání a automatické vyplňování hesel v Chromu</translation>
 <translation id="7161390184744336561">Google Chrome je zastaralý</translation>
@@ -317,10 +317,10 @@ Vaše data byla <ph name="TIME" /> zašifrována pomocí heslové fráze. Pokud 
 <translation id="8603022514504485810">Správci hesel Google se nepodařilo zkontrolovat všechna hesla. Zkuste to znovu zítra, případně <ph name="BEGIN_LINK" />hesla zkontrolujte v účtu Google<ph name="END_LINK" />.</translation>
 <translation id="8630122478628016441">Zapněte možnost Při zavření Chromu zamknout anonymní karty.</translation>
 <translation id="8673726683583791503">Nakupujte pomocí Google Lens</translation>
-<translation id="8727043961453758442">Využití všech funkcí Chromu</translation>
 <translation id="8765470054473112089">Při psaní do adresního řádku nebo vyhledávacího pole odesílá Chrome zadaný text do výchozího vyhledávače, aby vám mohl nabízet lepší návrhy. V anonymním režimu je tato funkce vypnutá.</translation>
 <translation id="8772179140489533211">Zobrazuje výzvy k přihlášení do Chromu.</translation>
 <translation id="8788269841521769222">Toto heslo si nebudete muset pamatovat. Uloží se do Správce hesel Google pro účet <ph name="EMAIL" />.</translation>
+<translation id="8796490717897731471"><ph name="EMAIL" />. Chrome je spravován.</translation>
 <translation id="880967149107462122">Přejděte do nastavení Chromu</translation>
 <translation id="8842132678697187091">Google Lens můžete otevřít zde.</translation>
 <translation id="8850736900032787670">Pokud chcete dostávat personalizovaný obsah na základě svých zájmů, přihlaste se do Chromu.</translation>

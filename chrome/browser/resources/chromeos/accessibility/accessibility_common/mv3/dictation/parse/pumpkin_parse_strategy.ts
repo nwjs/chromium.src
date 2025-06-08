@@ -21,6 +21,7 @@ import {SmartReplacePhraseMacro} from '/common/action_fulfillment/macros/smart_r
 import {SmartSelectBetweenMacro} from '/common/action_fulfillment/macros/smart_select_between_macro.js';
 import {ToggleDictationMacro} from '/common/action_fulfillment/macros/toggle_dictation_macro.js';
 
+import {OffscreenCommandType} from '../../offscreen_command_type.js';
 import {LocaleInfo} from '../locale_info.js';
 import {ListCommandsMacro} from '../macros/list_commands_macro.js';
 
@@ -39,10 +40,10 @@ export class PumpkinParseStrategy extends ParseStrategy {
   private pumpkinTaggerReady_ = false;
   private tagResolver_: (
       (results: proto.speech.pumpkin.PumpkinTaggerResults) => void)|null = null;
-  private worker_: Worker|null = null;
   private locale_: PumpkinConstants.PumpkinLocale|null = null;
   private requestedPumpkinInstall_ = false;
   private onPumpkinTaggerReadyChangedForTesting_: VoidFunction|null = null;
+  private offscreenMessageListenerRegistered_ = false;
 
   private init_(): void {
     this.refreshLocale_();
@@ -79,17 +80,34 @@ export class PumpkinParseStrategy extends ParseStrategy {
     this.setPumpkinTaggerReady_(false);
     this.pumpkinData_ = data;
 
-    this.worker_ = new Worker(
-        PumpkinConstants.SANDBOXED_PUMPKIN_TAGGER_JS_FILE, {type: 'module'});
-    this.worker_.onmessage = (message) => this.onMessage_(message);
+    // Register the offscreen document's message listener when
+    // pumpkin data is available and we are ready to communicate with
+    // the tagger worker via the offscreen document.
+    if (!this.offscreenMessageListenerRegistered_) {
+      chrome.runtime.onMessage.addListener(
+          (message: any|undefined, _sender: chrome.runtime.MessageSender,
+           _sendResponse: (value: any) => void) =>
+              this.handleMessageFromOffscreen_(message));
+      this.offscreenMessageListenerRegistered_ = true;
+    }
+
+    this.sendToOffscreen_(OffscreenCommandType.DICTATION_PUMPKIN_INSTALL);
+  }
+
+  private handleMessageFromOffscreen_(message: any|undefined) {
+    switch (message['command']) {
+      case OffscreenCommandType.DICTATION_PUMPKIN_RECEIVE:
+        this.onMessage_(message['fromPumpkinTagger']);
+        break;
+    }
+    return false;
   }
 
   /**
    * Called when the SandboxedPumpkinTagger posts a message to the background
    * context.
    */
-  private onMessage_(message: MessageEvent): void {
-    const command: PumpkinConstants.FromPumpkinTagger = message.data;
+  private onMessage_(command: PumpkinConstants.FromPumpkinTagger): void {
     switch (command.type) {
       case PumpkinConstants.FromPumpkinTaggerCommand.READY:
         this.refreshLocale_();
@@ -128,14 +146,23 @@ export class PumpkinParseStrategy extends ParseStrategy {
   }
 
   private sendToSandboxedPumpkinTagger_(
-      command: PumpkinConstants.ToPumpkinTagger): void {
-    if (!this.worker_) {
-      throw new Error(
-          `Worker not ready, cannot send command to SandboxedPumpkinTagger: ${
-              command.type}`);
-    }
+      toPumpkinTagger: PumpkinConstants.ToPumpkinTagger): void {
+    // Seriazlie ArrayBuffer fields in pumpkinData to send it to the offscren
+    // document.
+    // 1. Traverse pumpkinData object keys and convert each ArrayBuffer value to
+    // a Uint8Array, then to a plain array [v1, v2, ...], making it
+    // serializable.
+    // 2. Construct a new object with the same keys but serialized values.
+    const pumpkinData = toPumpkinTagger.pumpkinData ?
+        Object.fromEntries(
+            Object.entries(toPumpkinTagger.pumpkinData)
+                .map(([key,
+                       buffer]) => [key, Array.from(new Uint8Array(buffer))])) :
+        null;
 
-    this.worker_.postMessage(command);
+    this.sendToOffscreen_(
+        OffscreenCommandType.DICTATION_PUMPKIN_SEND,
+        {toPumpkinTagger: {...toPumpkinTagger, pumpkinData}});
   }
 
   /**
@@ -355,5 +382,9 @@ export class PumpkinParseStrategy extends ParseStrategy {
     if (this.onPumpkinTaggerReadyChangedForTesting_) {
       this.onPumpkinTaggerReadyChangedForTesting_();
     }
+  }
+
+  private sendToOffscreen_(command: OffscreenCommandType, data = {}): void {
+    chrome.runtime.sendMessage(undefined, Object.assign({command}, data));
   }
 }

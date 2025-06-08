@@ -184,8 +184,10 @@ bool HitTestCulledInlineAncestors(
     const bool has_sibling =
         current->PreviousSibling() || current->NextSibling();
     if (has_sibling && previous_sibling &&
-        previous_sibling.GetLayoutObject()->IsDescendantOf(parent))
+        !previous_sibling.Item()->IsFloating() &&
+        previous_sibling.GetLayoutObject()->IsDescendantOf(parent)) {
       break;
+    }
 
     if (auto* parent_layout_inline = DynamicTo<LayoutInline>(parent)) {
       if (parent_layout_inline->HitTestCulledInline(result, hit_test_location,
@@ -538,12 +540,18 @@ void BoxFragmentPainter::PaintInternal(const PaintInfo& paint_info) {
     // We need to call PaintObject twice: one for painting background in the
     // border box space, and the other for painting background in the scrolling
     // contents space.
+    // If there's overflow, we paint the gap decorations in the scrolling
+    // contents space, so we skip painting them in the first call to
+    // `PaintObject`.
     const LayoutBox& box = To<LayoutBox>(*box_fragment_.GetLayoutObject());
     auto paint_location = box.GetBackgroundPaintLocation();
     if (!(paint_location & kBackgroundPaintInBorderBoxSpace))
       info.SetSkipsBackground(true);
+    bool has_overflow = box.ScrollsOverflow();
+    info.SetSkipsGapDecorations(has_overflow);
     PaintObject(info, paint_offset);
     info.SetSkipsBackground(false);
+    info.SetSkipsGapDecorations(false);
 
     // We need to record hit test data for the scrolling contents.
     if (box.ScrollsOverflow() ||
@@ -556,11 +564,12 @@ void BoxFragmentPainter::PaintInternal(const PaintInfo& paint_info) {
       // into the same layer. The function checks if it's appropriate to paint
       // overflow controls now.
       painted_overflow_controls = PaintOverflowControls(info, paint_offset);
-
+      info.SetSkipsGapDecorations(!has_overflow);
       info.SetIsPaintingBackgroundInContentsSpace(true);
       PaintObject(info, paint_offset);
       info.SetIsPaintingBackgroundInContentsSpace(false);
       info.SetSkipsBackground(false);
+      info.SetSkipsGapDecorations(false);
     }
 
     if (ShouldPaintDescendantBlockBackgrounds(original_phase))
@@ -674,8 +683,9 @@ void BoxFragmentPainter::PaintObject(const PaintInfo& paint_info,
                                    suppress_box_decoration_background);
     }
     // We're done. We don't bother painting any children.
-    if (paint_phase == PaintPhase::kSelfBlockBackgroundOnly)
+    if (paint_phase == PaintPhase::kSelfBlockBackgroundOnly) {
       return;
+    }
   }
 
   if (paint_phase == PaintPhase::kMask && is_visible) {
@@ -693,8 +703,9 @@ void BoxFragmentPainter::PaintObject(const PaintInfo& paint_info,
             .AddURLRectIfNeeded(paint_info, paint_offset);
       }
     }
-    if (is_visible && fragment.HasExtraMathMLPainting())
+    if (is_visible && fragment.HasExtraMathMLPainting()) {
       MathMLPainter(fragment).Paint(paint_info, paint_offset);
+    }
   }
 
   // Paint children.
@@ -1198,6 +1209,16 @@ void BoxFragmentPainter::PaintBoxDecorationBackground(
     }
   }
 
+  if (!suppress_box_decoration_background && box_fragment_.GetGapGeometry() &&
+      !paint_info.ShouldSkipGapDecorations() &&
+      RuntimeEnabledFeatures::CSSGapDecorationEnabled()) {
+    // TODO(crbug.com/357648037): Currently painting gap decorations after
+    // the background and borders. This is likely to change following the
+    // resolution of the paint order issue for gap decorations.
+    PaintGapDecorations(paint_info, paint_offset, background_client,
+                        contents_paint_state);
+  }
+
   if (ShouldRecordHitTestData(paint_info)) {
     ObjectPainter(layout_object)
         .RecordHitTestData(paint_info, ToPixelSnappedRect(paint_rect),
@@ -1328,22 +1349,75 @@ void BoxFragmentPainter::PaintBoxDecorationBackgroundWithDecorationData(
   }
 }
 
-void BoxFragmentPainter::PaintGapDecorations(const PaintInfo& paint_info,
-                                             const PhysicalRect& paint_rect) {
-  if (const GapGeometry* gap_geometry = box_fragment_.GapGeometry()) {
-    EGapRulePaintOrder paint_order = box_fragment_.Style().GapRulePaintOrder();
-    // `gap-rule-paint-order` dictates whether to paint the columns over the
-    // rows, or the rows over the columns. The default is to paint the rows over
-    // the columns.
-    if (paint_order == EGapRulePaintOrder::kColumnOverRow) {
-      PaintGaps(kForRows, paint_info, paint_rect, *gap_geometry);
-      PaintGaps(kForColumns, paint_info, paint_rect, *gap_geometry);
-      return;
-    }
+void BoxFragmentPainter::PaintGapDecorations(
+    const PaintInfo& paint_info,
+    const PhysicalOffset& paint_offset,
+    const DisplayItemClient* background_client,
+    const std::optional<ScopedBoxContentsPaintState>& contents_paint_state) {
+  const GapGeometry* gap_geometry = box_fragment_.GetGapGeometry();
+  CHECK(gap_geometry);
+  CHECK(background_client);
+  PhysicalRect paint_rect;
+  gfx::Rect visual_rect;
 
-    PaintGaps(kForColumns, paint_info, paint_rect, *gap_geometry);
-    PaintGaps(kForRows, paint_info, paint_rect, *gap_geometry);
+  const LayoutObject& layout_object = *box_fragment_.GetLayoutObject();
+  const LayoutBox& layout_box = To<LayoutBox>(layout_object);
+
+  std::optional<ScopedBoxContentsPaintState> contents_paint_state_for_hidden;
+  // We only want to create a ScopedBoxContentsPaintState for painting gap
+  // decorations when we don't already have created one for background, since we
+  // create them in the same manner and don't want to duplicate paint chunks.
+  // This boils down to only creating one when we are in overflow: hidden, which
+  // is when GapDecorations need it but background doesn't
+  if (layout_box.HasNonVisibleOverflow() && !contents_paint_state) {
+    // For the case where we are painting the decorations in the contents
+    // space, we need to include the entire overflow rect.
+    paint_rect = layout_box.ScrollableOverflowRect();
+
+    contents_paint_state_for_hidden.emplace(
+        paint_info, paint_offset, layout_box, box_fragment_.GetFragmentData());
+    paint_rect.Move(contents_paint_state_for_hidden->PaintOffset());
+
+    background_client = &layout_box.GetScrollableArea()
+                             ->GetScrollingBackgroundDisplayItemClient();
+    visual_rect = layout_box.GetScrollableArea()->ScrollingBackgroundVisualRect(
+        paint_offset);
+  } else {
+    paint_rect.offset = paint_offset;
+    paint_rect.size = box_fragment_.Size();
+    visual_rect = VisualRect(paint_offset);
   }
+
+  const PaintInfo* final_paint_info = &paint_info;
+  if (contents_paint_state_for_hidden) {
+    final_paint_info = &contents_paint_state_for_hidden->GetPaintInfo();
+  } else if (contents_paint_state) {
+    final_paint_info = &contents_paint_state->GetPaintInfo();
+  }
+
+  // TODO(javiercon): Should introduce a `DisplayItem::GapRules` in place of
+  // `ColumnRules` and use that instead.
+  if (DrawingRecorder::UseCachedDrawingIfPossible(final_paint_info->context,
+                                                  *background_client,
+                                                  DisplayItem::kColumnRules)) {
+    return;
+  }
+
+  DrawingRecorder recorder(final_paint_info->context, *background_client,
+                           DisplayItem::kColumnRules, visual_rect);
+
+  EGapRulePaintOrder paint_order = box_fragment_.Style().GapRulePaintOrder();
+  // `gap-rule-paint-order` dictates whether to paint the columns over the
+  // rows, or the rows over the columns. The default is to paint the rows over
+  // the columns.
+  if (paint_order == EGapRulePaintOrder::kColumnOverRow) {
+    PaintGaps(kForRows, *final_paint_info, paint_rect, *gap_geometry);
+    PaintGaps(kForColumns, *final_paint_info, paint_rect, *gap_geometry);
+    return;
+  }
+
+  PaintGaps(kForColumns, *final_paint_info, paint_rect, *gap_geometry);
+  PaintGaps(kForRows, *final_paint_info, paint_rect, *gap_geometry);
 }
 
 void BoxFragmentPainter::PaintGaps(GridTrackSizingDirection track_direction,
@@ -1414,6 +1488,11 @@ void BoxFragmentPainter::PaintGaps(GridTrackSizingDirection track_direction,
                   ? gap_geometry.GetGapIntersections(kForRows)
                   : gap_geometry.GetGapIntersections(kForColumns);
 
+          // The following logic is only valid for grid containers.
+          if (gap_geometry.GetContainerType() !=
+              GapGeometry::ContainerType::kGrid) {
+            return false;
+          }
           // Get the matching intersection in the cross direction by
           // swapping the indices. This transpose allows us determine if the
           // intersection is flanked by spanning items on opposing sides.
@@ -1467,8 +1546,8 @@ void BoxFragmentPainter::PaintGaps(GridTrackSizingDirection track_direction,
       };
 
   LayoutUnit cross_gutter_width = track_direction == kForRows
-                                      ? gap_geometry.GetBlockGapSize()
-                                      : gap_geometry.GetInlineGapSize();
+                                      ? gap_geometry.GetInlineGapSize()
+                                      : gap_geometry.GetBlockGapSize();
 
   const auto gaps = gap_geometry.GetGapIntersections(track_direction);
   for (wtf_size_t gap_index = 0; gap_index < gaps.size(); ++gap_index) {
@@ -1479,6 +1558,7 @@ void BoxFragmentPainter::PaintGaps(GridTrackSizingDirection track_direction,
 
     wtf_size_t start = 0;
     const auto gap = gaps[gap_index];
+    CHECK(!gap.empty());
     const auto num_intersections = gap.size();
 
     // Gap decorations are painted relative to (start, end) pairs of gap
@@ -1653,14 +1733,6 @@ void BoxFragmentPainter::PaintBoxDecorationBackgroundWithRectImpl(
     }
   }
 
-  // TODO(crbug.com/357648037): Currently painting gap decorations after
-  // borders. This is likely to change following the resolution of the paint
-  // order issue for gap decorations.
-  if (RuntimeEnabledFeatures::CSSGapDecorationEnabled() &&
-      box_decoration_data.ShouldPaintGapDecorations()) {
-    PaintGapDecorations(paint_info, paint_rect);
-  }
-
   if (needs_end_layer)
     paint_info.context.EndLayer();
 }
@@ -1693,7 +1765,7 @@ void BoxFragmentPainter::PaintBoxDecorationBackgroundForBlockInInline(
 // is implemented for multi-column.
 void BoxFragmentPainter::PaintColumnRules(const PaintInfo& paint_info,
                                           const PhysicalOffset& paint_offset) {
-  if (box_fragment_.GapGeometry()) {
+  if (box_fragment_.GetGapGeometry()) {
     return;
   }
 

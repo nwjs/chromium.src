@@ -4,6 +4,7 @@
 
 import './side_panel_ghost_loader.js';
 import './side_panel_error_page.js';
+import './feedback_toast.js';
 import '/strings.m.js';
 import '/lens/shared/searchbox_ghost_loader.js';
 import '/lens/shared/searchbox_shared_style.css.js';
@@ -28,6 +29,8 @@ import type {LensSidePanelPageHandlerInterface} from '../lens_side_panel.mojom-w
 import {PageContentType} from '../page_content_type.mojom-webui.js';
 import {handleEscapeSearchbox} from '../searchbox_utils.js';
 
+import type {FeedbackToastElement} from './feedback_toast.js';
+import {PostMessageReceiver} from './post_message_communication.js';
 import {getTemplate} from './side_panel_app.html.js';
 import {SidePanelBrowserProxyImpl} from './side_panel_browser_proxy.js';
 import type {SidePanelBrowserProxy} from './side_panel_browser_proxy.js';
@@ -38,12 +41,17 @@ import type {SidePanelGhostLoaderElement} from './side_panel_ghost_loader.js';
 const VIEWPORT_HEIGHT_KEY = 'bih';
 const VIEWPORT_WIDTH_KEY = 'biw';
 
+// The delay in milliseconds to reshow the feedback toast after it was hidden by
+// another toast. This is only used if the feedback toast was not already
+// dismissed.
+const RESHOW_FEEDBACK_TOAST_DELAY_MS = 4100;
+
 export interface LensSidePanelAppElement {
   $: {
-    closeFeedbackToastButton: CrButtonElement,
-    feedbackToast: CrToastElement,
+    feedbackToast: FeedbackToastElement,
     ghostLoader: SidePanelGhostLoaderElement,
     messageToast: CrToastElement,
+    messageToastDismissButton: CrButtonElement,
     errorPage: SidePanelErrorPageElement,
     results: HTMLIFrameElement,
     searchbox: SearchboxElement,
@@ -196,6 +204,14 @@ export class LensSidePanelAppElement extends LensSidePanelAppElementBase {
   // increase, and one for the progress bar height decrease on results load.
   private progressBarAnimation: Animation|null = null;
   private progressBarHideAnimation: Animation|null = null;
+  // A helper object responsible for handling post messages received by the
+  // window.
+  private postMessageReceiver: PostMessageReceiver =
+      new PostMessageReceiver(SidePanelBrowserProxyImpl.getInstance());
+  // Whether the feedback toast has been explicitly dismissed by the user.
+  private feedbackToastDismissed = false;
+  // The timeout ID for reshowing the feedback toast.
+  private feedbackToastReshowTimeoutId = -1;
 
   private browserProxy: SidePanelBrowserProxy =
       SidePanelBrowserProxyImpl.getInstance();
@@ -254,6 +270,12 @@ export class LensSidePanelAppElement extends LensSidePanelAppElementBase {
     this.eventTracker_.add(
         document, 'query-autocomplete',
         this.handleQueryAutocomplete.bind(this));
+    this.eventTracker_.add(
+        this.$.feedbackToast, 'feedback-toast-dismissed',
+        () => this.feedbackToastDismissed = true);
+
+    // Start listening to postMessages on the window.
+    this.postMessageReceiver.listen();
   }
 
   override disconnectedCallback() {
@@ -263,6 +285,7 @@ export class LensSidePanelAppElement extends LensSidePanelAppElementBase {
         id => assert(this.browserProxy.callbackRouter.removeListener(id)));
     this.listenerIds = [];
     this.eventTracker_.removeAll();
+    this.postMessageReceiver.detach();
   }
 
   private onBackArrowClick() {
@@ -280,7 +303,9 @@ export class LensSidePanelAppElement extends LensSidePanelAppElementBase {
       // focused.
       this.blurSearchbox();
 
+      clearTimeout(this.feedbackToastReshowTimeoutId);
       this.$.feedbackToast.hide();
+      this.$.messageToast.hide();
     } else {
       // Animate away the progress bar once the results are loaded.
       this.progressBarHideAnimation = this.$.uploadProgressBarContainer.animate(
@@ -295,6 +320,9 @@ export class LensSidePanelAppElement extends LensSidePanelAppElementBase {
         this.uploadProgressPercentage = 0;
       };
 
+      // Show the feedback on every result load by showing it as soon as the
+      // result load animation is complete.
+      this.feedbackToastDismissed = false;
       this.showFeedbackToast();
     }
   }
@@ -456,12 +484,18 @@ export class LensSidePanelAppElement extends LensSidePanelAppElementBase {
     }
 
     await this.$.messageToast.hide();
-    await this.showToast(this.$.feedbackToast);
+    this.$.feedbackToast.show();
   }
 
   private async showMessageToast(message: string) {
-    await this.$.feedbackToast.hide();
+    this.$.feedbackToast.hide();
     await this.showToast(this.$.messageToast, message);
+    if (!this.feedbackToastDismissed) {
+      clearTimeout(this.feedbackToastReshowTimeoutId);
+      this.feedbackToastReshowTimeoutId = setTimeout(() => {
+        this.showFeedbackToast();
+      }, RESHOW_FEEDBACK_TOAST_DELAY_MS);
+    }
   }
 
   private async showToast(toast: CrToastElement, message?: string) {
@@ -480,16 +514,12 @@ export class LensSidePanelAppElement extends LensSidePanelAppElementBase {
     toast.show();
   }
 
-  private onSendFeedbackClick() {
-    // TODO(crbug.com/408057740): Clicking button should open form.
-  }
-
-  private onHideFeedbackToastClick() {
-    this.$.feedbackToast.hide();
-  }
-
   private onHideMessageToastClick() {
     this.$.messageToast.hide();
+    if (!this.feedbackToastDismissed) {
+      clearTimeout(this.feedbackToastReshowTimeoutId);
+      this.showFeedbackToast();
+    }
   }
 
   makeGhostLoaderVisibleForTesting() {

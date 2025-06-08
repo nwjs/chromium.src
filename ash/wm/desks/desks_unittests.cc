@@ -2,11 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifdef UNSAFE_BUFFERS_BUILD
-// TODO(crbug.com/40285824): Remove this and convert code to safer constructs.
-#pragma allow_unsafe_buffers
-#endif
-
+#include <array>
 #include <memory>
 #include <string>
 #include <vector>
@@ -2617,6 +2613,89 @@ TEST_P(DesksTest, AddDeskWhileExitingOverview) {
   NewDesk();
 }
 
+// Verify that the starting desk is not occluded by the ending desk when
+// activation is switching. Regression test for crbug.com/398287318.
+TEST_P(DesksTest, EndingDeskShouldNotOccludeStartingDesk) {
+  UpdateDisplay("600x400");
+
+  auto* root = Shell::GetPrimaryRootWindow();
+  auto* controller = DesksController::Get();
+
+  // Prepare two desks.
+  NewDesk();
+  ASSERT_EQ(2u, controller->desks().size());
+
+  const Desk* desk1 = controller->GetDeskAtIndex(0);
+  const Desk* desk2 = controller->GetDeskAtIndex(1);
+  auto* desk1_container = desk1->GetDeskContainerForRoot(root);
+  auto* desk2_container = desk2->GetDeskContainerForRoot(root);
+
+  // desk1 is active.
+  ASSERT_TRUE(desk1_container->IsVisible());
+  ASSERT_FALSE(desk2_container->IsVisible());
+  ASSERT_EQ(desks_util::GetActiveDeskContainerForRoot(root), desk1_container);
+
+  // Create two windows so that win2 can completely cover win1.
+  const auto win1_bounds = gfx::Rect{20, 20, 100, 100};
+  const auto win2_bounds = gfx::Rect{10, 10, 200, 200};
+  std::unique_ptr<aura::Window> win1 = CreateAppWindow(win1_bounds);
+  std::unique_ptr<aura::Window> win2 = CreateAppWindow(win2_bounds);
+  win1->TrackOcclusionState();
+  win2->TrackOcclusionState();
+  win1->Show();
+  win2->Show();
+  // Check that win1 is occluded when win2 is active.
+  wm::ActivateWindow(win2.get());
+  ASSERT_EQ(win1->GetOcclusionState(), aura::Window::OcclusionState::OCCLUDED);
+  ASSERT_EQ(win2->GetOcclusionState(), aura::Window::OcclusionState::VISIBLE);
+  wm::ActivateWindow(win1.get());
+  ASSERT_EQ(win1->GetOcclusionState(), aura::Window::OcclusionState::VISIBLE);
+  ASSERT_EQ(win2->GetOcclusionState(), aura::Window::OcclusionState::VISIBLE);
+
+  // Move win2 to desk2.
+  controller->SendToDeskAtIndex(win2.get(), 1);
+
+  // Now win1 is only visible.
+  ASSERT_EQ(win1->GetOcclusionState(), aura::Window::OcclusionState::VISIBLE);
+  ASSERT_EQ(win2->GetOcclusionState(), aura::Window::OcclusionState::HIDDEN);
+
+  // Activate desk2.
+  DeskSwitchAnimationWaiter animation_waiter;
+  controller->ActivateDesk(desk2, DesksSwitchSource::kDeskSwitchShortcut);
+
+  // `ActivateDesk` does not activate desk2 immediately.
+  // Although the fix for crbug.com/40100714 makes win2 shown (with opacity 0),
+  // win1 should not be occluded.
+  // Note: Occlusion state update is paused until the starting desk screenshot
+  // is taken.
+  EXPECT_TRUE(desk1_container->IsVisible());
+  EXPECT_TRUE(desk2_container->IsVisible());
+  EXPECT_EQ(win1->GetOcclusionState(), aura::Window::OcclusionState::VISIBLE);
+  EXPECT_EQ(win2->GetOcclusionState(), aura::Window::OcclusionState::HIDDEN);
+
+  // Wait until the starting desk screenshot has been taken.
+  base::RunLoop run_loop;
+  DeskAnimationBase* animation = DesksController::Get()->animation();
+  ASSERT_TRUE(animation);
+  auto* desk_switch_animator =
+      animation->GetDeskSwitchAnimatorAtIndexForTesting(0);
+  ASSERT_TRUE(desk_switch_animator);
+  RootWindowDeskSwitchAnimatorTestApi(desk_switch_animator)
+      .SetOnStartingScreenshotTakenCallback(run_loop.QuitClosure());
+  run_loop.Run();
+
+  // Activation is done while the ending desk screenshot is taken.
+  EXPECT_EQ(desks_util::GetActiveDeskContainerForRoot(root), desk2_container);
+  EXPECT_FALSE(desk1_container->IsVisible());
+  EXPECT_TRUE(desk2_container->IsVisible());
+  // Occlusion tracking is resumed before the ending desk screenshot is
+  // taken, so occlusion stat should be updated.
+  EXPECT_EQ(win1->GetOcclusionState(), aura::Window::OcclusionState::HIDDEN);
+  EXPECT_EQ(win2->GetOcclusionState(), aura::Window::OcclusionState::VISIBLE);
+
+  animation_waiter.Wait();
+}
+
 class DesksWithMultiDisplayOverview : public AshTestBase {
  public:
   DesksWithMultiDisplayOverview() = default;
@@ -3914,35 +3993,6 @@ TEST_P(DesksTest, DragAllOverviewWindowsToOtherDesksNotEndClamshellSplitView) {
   ASSERT_TRUE(overview_controller->InOverviewSession());
   EXPECT_TRUE(overview_session->IsEmpty());
   EXPECT_TRUE(split_view_controller->InSplitViewMode());
-}
-
-TEST_P(DesksTest, DeskTraversalNonTouchpadMetrics) {
-  NewDesk();
-  NewDesk();
-  NewDesk();
-  ASSERT_EQ(4u, DesksController::Get()->desks().size());
-
-  constexpr char kDeskTraversalsHistogramName[] =
-      "Ash.Desks.NumberOfDeskTraversals";
-
-  base::HistogramTester histogram_tester;
-  auto* controller = DesksController::Get();
-  const auto& desks = controller->desks();
-  ASSERT_EQ(controller->active_desk(), desks[0].get());
-
-  // Move 5 desks. There is nothing recorded at the end since the timer is still
-  // running.
-  ActivateDesk(desks[1].get());
-  ActivateDesk(desks[0].get());
-  ActivateDesk(desks[1].get());
-  ActivateDesk(desks[2].get());
-  ActivateDesk(desks[3].get());
-  histogram_tester.ExpectBucketCount(kDeskTraversalsHistogramName, 5, 0);
-
-  // Simulate advancing the time to end the timer. There should be 5 desks
-  // recorded.
-  controller->FireMetricsTimerForTesting();
-  histogram_tester.ExpectBucketCount(kDeskTraversalsHistogramName, 5, 1);
 }
 
 // Tests that clipping is unchanged when removing a desk in overview. Regression
@@ -7171,8 +7221,7 @@ TEST_P(DesksTest, ReorderDesksByKeyboard) {
 // Test reordering desks in RTL mode.
 TEST_P(DesksTest, ReorderDesksInRTLMode) {
   // Turn on RTL mode.
-  const bool default_rtl = base::i18n::IsRTL();
-  base::i18n::SetRTLForTesting(true);
+  base::i18n::ScopedRTLForTesting scoped_rtl(/*rtl=*/true);
   EXPECT_TRUE(base::i18n::IsRTL());
 
   auto* desks_controller = DesksController::Get();
@@ -7258,9 +7307,6 @@ TEST_P(DesksTest, ReorderDesksInRTLMode) {
   EXPECT_EQ(1, desks_controller->GetDeskIndex(desk_2));
   EXPECT_EQ(2, desks_controller->GetDeskIndex(desk_0));
   EXPECT_THAT(GetDeskRestoreNames(prefs), ElementsAre("1", "2", "0"));
-
-  // Recover to default RTL mode.
-  base::i18n::SetRTLForTesting(default_rtl);
 }
 
 // Tests the behavior when dragging a desk on the scroll button.
@@ -11234,8 +11280,7 @@ TEST_P(DeskButtonTest, DeskButtonPressMetrics) {
 // desk to the left in the desk bar.
 TEST_P(DeskButtonTest, LayoutInRTL) {
   // Turn on RTL mode.
-  const bool default_rtl = base::i18n::IsRTL();
-  base::i18n::SetRTLForTesting(true);
+  base::i18n::ScopedRTLForTesting scoped_rtl(/*rtl=*/true);
   EXPECT_TRUE(base::i18n::IsRTL());
 
   // The test doesn't start in RTL so we need to tell the widget to swap the
@@ -11313,9 +11358,6 @@ TEST_P(DeskButtonTest, LayoutInRTL) {
   SwitchToAdjacentDesk(/*next=*/true);
   SwitchToAdjacentDesk(/*next=*/true);
   EXPECT_EQ(2, desks_controller->GetActiveDeskIndex());
-
-  // Recover to default RTL mode.
-  base::i18n::SetRTLForTesting(default_rtl);
 }
 
 TEST_P(DeskButtonTest, BarBoundsWithDeviceSacleFactorChange) {
@@ -11412,17 +11454,13 @@ TEST_P(DeskButtonTest, BarBoundsWithRTL) {
   UpdateDisplay("800x600");
 
   // Turn on RTL mode.
-  const bool default_rtl = base::i18n::IsRTL();
-  base::i18n::SetRTLForTesting(true);
+  base::i18n::ScopedRTLForTesting scoped_rtl(/*rtl=*/true);
   ASSERT_TRUE(base::i18n::IsRTL());
 
   OpenDeskBar();
   EXPECT_EQ(GetDeskBarView()->bounds(), gfx::Rect(0, 0, 154, 98));
 
   CloseDeskBar();
-
-  // Recover to default RTL mode.
-  base::i18n::SetRTLForTesting(default_rtl);
 }
 
 // Tests that desk button tab order is correct in the shelf.
@@ -11560,16 +11598,16 @@ TEST_P(DeskButtonTest, DeskSwitchButtonContextMenu) {
     bool enabled;
     bool show_context_menu;
   };
-  const DeskSwitchButtonTestCase prev_test_cases[] = {
+  const auto prev_test_cases = std::to_array<DeskSwitchButtonTestCase>({
       {.visible = false, .enabled = false, .show_context_menu = false},
       {.visible = true, .enabled = true, .show_context_menu = true},
       {.visible = true, .enabled = true, .show_context_menu = true},
-  };
-  const DeskSwitchButtonTestCase next_test_cases[] = {
+  });
+  const auto next_test_cases = std::to_array<DeskSwitchButtonTestCase>({
       {.visible = true, .enabled = true, .show_context_menu = true},
       {.visible = true, .enabled = true, .show_context_menu = true},
       {.visible = true, .enabled = false, .show_context_menu = false},
-  };
+  });
 
   auto* event_generator = GetEventGenerator();
   auto* shelf_view = GetPrimaryShelf()->GetShelfViewForTesting();

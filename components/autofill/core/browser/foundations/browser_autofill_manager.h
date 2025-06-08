@@ -37,6 +37,7 @@
 #include "components/autofill/core/browser/integrators/autofill_ai/autofill_ai_delegate.h"
 #include "components/autofill/core/browser/integrators/fast_checkout/fast_checkout_delegate.h"
 #include "components/autofill/core/browser/integrators/password_form_classification.h"
+#include "components/autofill/core/browser/integrators/password_manager/password_manager_delegate.h"
 #include "components/autofill/core/browser/integrators/plus_addresses/autofill_plus_address_delegate.h"
 #include "components/autofill/core/browser/integrators/touch_to_fill/touch_to_fill_delegate.h"
 #include "components/autofill/core/browser/metrics/autofill_metrics.h"
@@ -165,7 +166,7 @@ class BrowserAutofillManager : public AutofillManager {
       FieldType field_type_used_to_build_suggestion,
       const std::string& profile_used_guid);
 
-  // Calls UndoAutofillImpl and logs metrics. Virtual for testing.
+  // Calls FormFiller::UndoAutofill and logs metrics. Virtual for testing.
   virtual void UndoAutofill(mojom::ActionPersistence action_persistence,
                             const FormData& form,
                             const FormFieldData& trigger_field);
@@ -315,7 +316,9 @@ class BrowserAutofillManager : public AutofillManager {
       const FormData& form,
       const FieldGlobalId& field_id,
       const gfx::Rect& caret_bounds,
-      AutofillSuggestionTriggerSource trigger_source) override;
+      AutofillSuggestionTriggerSource trigger_source,
+      base::optional_ref<const PasswordSuggestionRequest> password_request)
+      override;
   void OnSelectControlSelectionChangedImpl(
       const FormData& form,
       const FieldGlobalId& field_id) override;
@@ -550,8 +553,7 @@ class BrowserAutofillManager : public AutofillManager {
   // email override.
   void OnEmailOverrideUndone(const std::u16string& original_email,
                              const FormGlobalId& form_id,
-                             const FieldGlobalId& field_id,
-                             const FormFieldData& field_after_last_autofill);
+                             const FieldGlobalId& field_id);
 
   // The function receives a the list of `suggestions` from
   // `GenerateSuggestionsAndMaybeShowUIPhase2` and displays them if

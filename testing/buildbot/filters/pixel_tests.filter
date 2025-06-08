@@ -19,6 +19,7 @@ BookmarkEditorViewBrowserTestWithAccountBookmarks.*
 BrowserViewScrimPixelTest.*
 BubbleFrameViewBrowserTest.*
 BubbleSignInPromoInteractiveUITest.*
+CaptionBubbleBrowserTest.*
 ChromeLabs*UiTest.*
 ChromeSignoutConfirmationPromptPixelTest.*
 ChromeSignoutConfirmationPromptWithExtensionsPixelTest.*
@@ -57,6 +58,7 @@ FirstRunDialogTest.*
 FirstRunIntroPixelTest.*
 GlobalErrorBubbleTest.*
 HatsBubbleTest.*
+HistorySyncOptinUIDialogPixelTest.*
 HomeButtonUiTest.*
 HungRendererDialogViewBrowserTest.*
 ImportLockDialogViewBrowserTest.*
@@ -111,6 +113,7 @@ PermissionPromptPreviewBrowserTest.InvokeUi_*
 PlusAddressCreationDialogWithNoticeTest.ShowNoticeAndCancel
 *PopupViewViewsBrowsertest*
 *PopupViewViewsPlusAddressSuggestionBrowsertest*
+PrivacySandboxPSNoticeDialogViewBrowserTest.*
 PrivacySandboxDialogViewBrowserTest.*
 PrivacySandboxDialogViewAdsApiUxEnhancementBrowserTest.*
 PrivacySandboxDialogViewAdsApiUxEnhancementsLearnMoreBrowserTest.*
@@ -129,6 +132,7 @@ RelaunchRecommendedBubbleViewDialogTest.*
 RelaunchRequiredDialogViewDialogTest.*
 ReopenTabPromoControllerDialogBrowserTest.*
 SafetyTipPageInfoBubbleViewDialogTest.*
+*SaveOrUpdateAutofillAiDataBubbleViewBrowsertest*
 ScreenCaptureNotificationUiBrowserTest.*
 SearchEngineChoiceUIPixelTest.*
 SecurePaymentConfirmationDialogViewTest.InvokeUi_*
@@ -140,6 +144,7 @@ SyncConfirmationUIDialogPixelTest.*
 SyncConfirmationUIWindowPixelTest.*
 SyncPassphraseDialogBrowserTest.*
 TabGroupEditorBubbleViewDialogBrowserTest.*
+TabGroupShortcutsInteractiveTest.Screenshot*
 TabHoverCardBubbleViewDialogBrowserTest.*
 TabSearchBubbleUIBrowserTest.*
 *TailoredSecurityDesktopDialogManagerTest.InvokeUi_*

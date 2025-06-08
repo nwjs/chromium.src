@@ -8,29 +8,44 @@ import type {SplitNewTabPageAppElement} from './app.js';
 
 export function getHtml(this: SplitNewTabPageAppElement) {
   return html`<!--_html_template_start_-->
-<cr-icon-button id="closeButton"
-    iron-icon="tab-search:close"
-    @click="${this.onClose_}">
-</cr-icon-button>
-${
+<div id="header">
+  <cr-icon-button id="closeButton"
+      iron-icon="tab-search:close"
+      @click="${this.onClose_}">
+  </cr-icon-button>
+  ${
       this.allInvisibleTabs_.length === 0 ? html`
-  <div class="title">$i18n{splitViewEmptyTitle}</div>
-  <div class="body">$i18n{splitViewEmptyBody}</div>
-  ` :
-                                            html`
-  <div class="title">$i18n{splitViewTitle}</div>
-  <div class="contents">
-  <div class="heading">$i18n{splitViewOpenHeading}</div>
-  <div class="tab-list">
-    ${this.allInvisibleTabs_.map(data => html`
-      <tab-search-item class="mwb-list-item"
+        <picture>
+          <source media="(prefers-color-scheme: dark)"
+              srcset="./split_view/images/empty_dark.svg">
+          <img id="product-logo" srcset="./split_view/images/empty.svg" alt="">
+        </picture>
+      ` :
+                                            html``}
+  <div class="title">${this.title_}</div>
+  ${
+      this.allInvisibleTabs_.length === 0 ?
+          html`<div class="body">$i18n{splitViewEmptyBody}</div>` :
+          html``}
+</div>
+<div class="tab-list" ?hidden="${this.allInvisibleTabs_.length === 0}">
+  <cr-lazy-list id="splitTabsList" class="scroller"
+      .items="${this.allInvisibleTabs_}"
+      item-size="66"
+      .minViewportHeight="${this.minViewportHeight_}"
+      .scrollTarget="${this.scrollTarget_}"
+      @keydown="${this.onTabClick_}"
+      @viewport-filled="${this.updateFocusedItem_}"
+      .restoreFocusElement="${this.focusedItem_}"
+      .template="${
+      (item: Object, _: number) => html`<tab-search-item class="mwb-list-item"
           hide-close-button
           hide-timestamp
           size="large"
-          .data="${data}"
+          .data="${item}"
           @click="${this.onTabClick_}">
-      </tab-search-item>
-    `)}
-  </div>`}
+        </tab-search-item>`}">
+  </cr-lazy-list>
+</div>
 <!--_html_template_end_-->`;
 }

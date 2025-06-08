@@ -400,9 +400,11 @@ if (_is_default_toolchain) {
       "//android_webview/support_library:support_lib_glue_java",
     ]
 
-    # If the B SDK isn't public yet, include the downstream code to support B.
-    if (!public_android_sdk && android_sdk_release == "b") {
-      deps += [ "//clank/android_webview/next:b_sdk_java" ]
+    # If we are using an unreleased Android SDK snapshot, include the downstream
+    # glue code to support any functionality specific to the in-development
+    # Android version.
+    if (!public_android_sdk) {
+      deps += [ "//clank/android_webview/unreleased:unreleased_glue_java" ]
     }
   }
 
@@ -420,7 +422,6 @@ if (_is_default_toolchain) {
     sources = [
       "java/src/org/chromium/android_webview/AndroidProtocolHandler.java",
       "java/src/org/chromium/android_webview/AppDefinedDomains.java",
-      "java/src/org/chromium/android_webview/AsyncShouldInterceptRequestCallback.java",
       "java/src/org/chromium/android_webview/AwActionModeCallback.java",
       "java/src/org/chromium/android_webview/AwBrowserContext.java",
       "java/src/org/chromium/android_webview/AwBrowserContextStore.java",
@@ -457,6 +458,7 @@ if (_is_default_toolchain) {
       "java/src/org/chromium/android_webview/AwMediaIntegrityApiStatusConfig.java",
       "java/src/org/chromium/android_webview/AwNavigation.java",
       "java/src/org/chromium/android_webview/AwNavigationClient.java",
+      "java/src/org/chromium/android_webview/AwNavigationParams.java",
       "java/src/org/chromium/android_webview/AwNetLogsConnection.java",
       "java/src/org/chromium/android_webview/AwNetworkChangeNotifierRegistrationPolicy.java",
       "java/src/org/chromium/android_webview/AwNoVarySearchData.java",
@@ -861,9 +863,11 @@ if (_is_default_toolchain) {
     renaming_sources = []
     renaming_destinations = []
     foreach(_locale, platform_pak_locales) {
-      renaming_sources +=
-          [ "$root_out_dir/android_webview/locales/$_locale.pak" ]
-      renaming_destinations += [ "stored-locales/$_locale.pak" ]
+      foreach(_gender_suffix, gender_suffixes) {
+        renaming_sources += [ "$root_out_dir/android_webview/locales/${_locale}${_gender_suffix}.pak" ]
+        renaming_destinations +=
+            [ "stored-locales/${_locale}${_gender_suffix}.pak" ]
+      }
     }
     treat_as_locale_paks = true
     deps = [ ":repack_locales" ]
@@ -887,7 +891,7 @@ if (_is_default_toolchain) {
       ":generate_mojo_resources",
       ":generate_webui_resources",
       "//components/metrics:server_urls_grd",
-      "//components/safe_browsing/content/browser/web_ui/resources:resources",
+      "//components/webui/safe_browsing/resources",
       "//content:content_resources",
       "//content/browser/resources/histograms:resources",
       "//net:net_resources",
@@ -1110,18 +1114,15 @@ if (_is_default_toolchain) {
 
   java_strings_grd("strings_grd") {
     grd_file = "java/strings/android_webview_strings.grd"
-    outputs = [ "values/android_webview_strings.xml" ] +
-              process_file_template(
-                  android_bundle_locales_as_resources,
-                  [ "values-{{source_name_part}}/android_webview_strings.xml" ])
   }
 }
 
-grit("generate_components_strings") {
+grit_strings("generate_components_strings") {
   source = "../components/components_strings.grd"
 
   defines = [
     "enable_arcore=$enable_arcore",
+    "enable_cardboard=$enable_cardboard",
     "enable_pdf=$enable_pdf",
     "enable_print_preview=$enable_print_preview",
     "enable_screen_ai_service=$enable_screen_ai_service",
@@ -1139,16 +1140,10 @@ grit("generate_components_strings") {
     "-w",
     _allowlist,
   ]
-  outputs =
-      [
-        "grit/components_strings.h",
-        "java/res/values/components_strings.xml",
-      ] +
-      process_file_template(
-          android_bundle_locales_as_resources,
-          [ "java/res/values-{{source_name_part}}/components_strings.xml" ]) +
-      process_file_template(all_chrome_locales,
-                            [ "components_strings_{{source_name_part}}.pak" ])
+  outputs = [ "grit/components_strings.h" ]
+
+  create_android_resources = true
+  output_prefix = "components_strings_"
 }
 
 generate_jni("common_jni") {
@@ -1223,7 +1218,7 @@ generate_jni("crash_client_jni") {
   sources = [ "java/src/org/chromium/android_webview/common/crash/AwCrashReporterClient.java" ]
 }
 
-component("android_webview") {
+group("android_webview") {
   public_deps = [
     "//android_webview/lib",
     "//android_webview/nonembedded",
@@ -1251,6 +1246,11 @@ template("libwebviewchromium_tmpl") {
     # so there are some Chrome-only native dependencies that sneak into WebView.
     # To fix, we can just remove any uncalled Java->Native methods.
     remove_uncalled_jni = true
+
+    if (!(defined(testonly) && testonly)) {
+      configs -= [ "//build/config/compiler:thinlto_optimize_default" ]
+      configs += [ "//build/config/compiler:thinlto_optimize_max" ]
+    }
   }
 }
 

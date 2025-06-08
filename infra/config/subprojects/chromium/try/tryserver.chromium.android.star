@@ -389,38 +389,6 @@ try_.builder(
 )
 
 try_.builder(
-    name = "android-15-tablet-x64-dbg",
-    mirrors = [
-        "ci/Android x64 Builder (dbg)",
-        "ci/android-15-tablet-x64-dbg-tests",
-    ],
-    gn_args = gn_args.config(
-        configs = [
-            "ci/Android x64 Builder (dbg)",
-            "debug_try_builder",
-        ],
-    ),
-    contact_team_email = "clank-engprod@google.com",
-    siso_remote_jobs = siso.remote_jobs.LOW_JOBS_FOR_CQ,
-)
-
-try_.builder(
-    name = "android-15-tablet-landscape-x64-dbg",
-    mirrors = [
-        "ci/Android x64 Builder (dbg)",
-        "ci/android-15-tablet-landscape-x64-dbg-tests",
-    ],
-    gn_args = gn_args.config(
-        configs = [
-            "ci/Android x64 Builder (dbg)",
-            "debug_try_builder",
-        ],
-    ),
-    contact_team_email = "clank-engprod@google.com",
-    siso_remote_jobs = siso.remote_jobs.LOW_JOBS_FOR_CQ,
-)
-
-try_.builder(
     name = "android-arm-compile-dbg",
     branch_selector = branches.selector.ANDROID_BRANCHES,
     mirrors = ["ci/Android arm Builder (dbg)"],
@@ -1065,30 +1033,6 @@ try_.builder(
     gn_args = "ci/android-15-webview-wpt-fyi-rel",
     contact_team_email = "chrome-product-engprod@google.com",
     siso_remote_jobs = siso.remote_jobs.LOW_JOBS_FOR_CQ,
-)
-
-try_.builder(
-    name = "android-chrome-13-x64-wpt-android-specific",
-    mirrors = ["ci/android-chrome-13-x64-wpt-android-specific"],
-    gn_args = gn_args.config(
-        configs = [
-            "ci/android-chrome-13-x64-wpt-android-specific",
-            "release_try_builder",
-        ],
-    ),
-    contact_team_email = "chrome-blink-engprod@google.com",
-)
-
-try_.builder(
-    name = "android-webview-13-x64-wpt-android-specific",
-    mirrors = ["ci/android-webview-13-x64-wpt-android-specific"],
-    gn_args = gn_args.config(
-        configs = [
-            "ci/android-webview-13-x64-wpt-android-specific",
-            "release_try_builder",
-        ],
-    ),
-    contact_team_email = "chrome-blink-engprod@google.com",
 )
 
 try_.builder(

@@ -84,6 +84,7 @@
 <translation id="2028449514182362831">የእንቅስቃሴ ዳሳሾችን የሚፈልጉ ባህሪዎች አይሰሩም</translation>
 <translation id="2030769033451695672">ወደ <ph name="URL_OF_THE_CURRENT_TAB" /> ለመመለስ መታ ያድርጉ</translation>
 <translation id="2079545284768500474">ቀልብስ</translation>
+<translation id="2080070583977670716">ተጨማሪ ቅንብሮች</translation>
 <translation id="2091887806945687916">ድምፅ</translation>
 <translation id="2096716221239095980">ሁሉንም ውሂብ ሰርዝ</translation>
 <translation id="2102396546234652240">ጣቢያዎች ማይክሮፎንዎን እንዲጠቀሙ አይፍቀዱ</translation>
@@ -232,7 +233,6 @@
 <translation id="3779154269823594982">የይለፍ ቃላት ይለውጡ</translation>
 <translation id="3797520601150691162">ለተወሰነ ጣቢያ ጨለማ ገጽታ አትጠቀም</translation>
 <translation id="3803367742635802571">የሚጎበኟቸው ጣቢያዎች እንደተነደፉት መስራታቸውን ሊያቆሙ ይችላሉ</translation>
-<translation id="3804247818991980532"><ph name="TYPE_1" />። <ph name="TYPE_2" />።</translation>
 <translation id="381841723434055211">ስልክ ቁጥሮች</translation>
 <translation id="3826050100957962900">የሶስተኛ ወገን መግቢያ</translation>
 <translation id="3835233591525155343">የእርስዎ መሣሪያ አጠቃቀም</translation>
@@ -445,7 +445,6 @@
 <translation id="6452138246455930388">ክፍት በሆነ ትርዎ ላይ የዋጋ ቅናሽ ከ<ph name="OLD_PRICE" /> ወደ <ph name="NEW_PRICE" />፣ <ph name="PRODUCT_NAME" />፣ <ph name="DOMAIN_NAME" /></translation>
 <translation id="6500423977866688905">መስኮቱ ጠባብ ሲሆን የሞባይል ዕይታ ይጠይቁ</translation>
 <translation id="6527303717912515753">አጋራ</translation>
-<translation id="652937045869844725">የሦስተኛ ወገን ኩኪዎችን ለመፍቀድ ይሞክሩ፣ ይህ ያነሰ ጥበቃ ነው ማለት ነው ነገር ግን የጣቢያ ባህሪያት የመሥራት ዕድላቸው ከፍተኛ ነው።</translation>
 <translation id="6530703012083415527">ሲበራ፣ ጣቢያዎች ብቅ-ባዮችን እና ማዞሪያዎችን መጠቀም ይችላሉ። ሲጠፋ፣ ጣቢያዎች ብቅ-ባዮችን እና ማዞሪያዎችን መጠቀም አይችሉም።</translation>
 <translation id="6540488083026747005">በዚህ ጣቢያ ላይ የሦስተኛ ወገን ኩኪዎችን ፈቅደዋል</translation>
 <translation id="6545864417968258051">የብሉቱዝ ቅኝት</translation>
@@ -459,6 +458,7 @@
 <translation id="6612358246767739896">ጥበቃ የሚደረግለት ይዘት</translation>
 <translation id="662080504995468778">ቆይ</translation>
 <translation id="6635327442719709864">ሲበራ፣ ጣቢያዎች ተከታታይ ወደቦችን ለመጠቀም መጠየቅ ይችላሉ። ሲጠፋ፣ ጣቢያዎች ተከታታይ ወደቦችን መጠቀም አይችሉም።</translation>
+<translation id="6678072580827808850">የደኅንነት ፍተሻን ገምግም</translation>
 <translation id="6683865262523156564">ይህ ጣቢያ እንቅስቃሴዎን ማየት በሚችል አንድ ቡድን ውስጥ ነው። ይህ ቡድን በ<ph name="RWS_OWNER" /> የሚገለጽ ነው።</translation>
 <translation id="6689172468748959065">የመገለጫ ፎቶዎች</translation>
 <translation id="6697925417670533197">ንቁ ውርዶች</translation>
@@ -493,7 +493,6 @@
 <translation id="7141896414559753902">ጣቢያዎች ብቅ-ባዮችን እንዳያሳዩ ያግዱ (የሚመከር)</translation>
 <translation id="7176368934862295254"><ph name="KILOBYTES" /> ኪባ</translation>
 <translation id="7180611975245234373">አድስ</translation>
-<translation id="7180865173735832675">አብጅ</translation>
 <translation id="7188508872042490670">በመሣሪያ ላይ ያለ የጣቢያ ውሂብ</translation>
 <translation id="7201549776650881587">ይህ እርምጃ <ph name="ORIGIN" /> ሥር ባሉ ሁሉም ጣቢያዎች ወይም በመነሻ ማያ ገፅዎ ላይ ባለው መተግበሪያው የተከማቹ ሁሉንም ውሂብ እና ኩኪዎች ይሰርዛል</translation>
 <translation id="7203150201908454328">ተዘርግቷል</translation>

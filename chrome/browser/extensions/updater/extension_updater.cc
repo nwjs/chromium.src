@@ -20,7 +20,6 @@
 #include "base/functional/bind.h"
 #include "base/logging.h"
 #include "base/metrics/histogram_macros.h"
-#include "base/not_fatal_until.h"
 #include "base/notimplemented.h"
 #include "base/rand_util.h"
 #include "base/strings/string_number_conversions.h"
@@ -979,7 +978,6 @@ scoped_refptr<CrxInstaller> ExtensionUpdater::CreateUpdateInstaller(
   }
 
   installer->set_delete_source(file_ownership_passed);
-  installer->set_install_cause(extension_misc::INSTALL_CAUSE_UPDATE);
 
   return installer;
 }
@@ -988,7 +986,7 @@ void ExtensionUpdater::OnInstallerDone(
     const UnguessableToken& token,
     const std::optional<CrxInstallError>& error) {
   auto iter = running_crx_installs_.find(token);
-  CHECK(iter != running_crx_installs_.end(), base::NotFatalUntil::M130);
+  CHECK(iter != running_crx_installs_.end());
   FetchedCRXFile& crx_file = iter->second;
 
   bool extension_removed_from_cache = false;

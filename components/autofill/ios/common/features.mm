@@ -25,7 +25,7 @@ BASE_FEATURE(kAutofillAllowDefaultPreventedSubmission,
 // LINT.IfChange(autofill_correct_user_edited_bit_in_parsed_field)
 BASE_FEATURE(kAutofillCorrectUserEditedBitInParsedField,
              "AutofillCorrectUserEditedBitInParsedField",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 // LINT.ThenChange(/components/autofill/ios/form_util/resources/autofill_form_features.ts:autofill_correct_user_edited_bit_in_parsed_field)
 
 // LINT.IfChange(autofill_dedupe_form_submission)
@@ -36,13 +36,7 @@ BASE_FEATURE(kAutofillDedupeFormSubmission,
 
 BASE_FEATURE(kAutofillDynamicallyLoadsFieldsForAddressInput,
              "AutofillDynamicallyLoadsFieldsForAddressInput",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
-// LINT.IfChange(autofill_fix_post_filling_payment_sheet)
-BASE_FEATURE(kAutofillFixPaymentSheetSpam,
-             "AutofillFixPostFillingPaymentSheet",
              base::FEATURE_ENABLED_BY_DEFAULT);
-// LINT.ThenChange(/components/autofill/ios/form_util/resources/autofill_form_features.ts:autofill_fix_post_filling_payment_sheet)
 
 BASE_FEATURE(kAutofillFixXhrForXframe,
              "AutofillFixXhrForXframe",
@@ -60,6 +54,10 @@ BASE_FEATURE(kAutofillPaymentsSheetV2Ios,
 
 BASE_FEATURE(kAutofillPaymentsSheetV3Ios,
              "AutofillPaymentsSheetV3Ios",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kAutofillRefillForFormsIos,
+             "AutofillRefillForFormsIos",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kAutofillStickyInfobarIos,

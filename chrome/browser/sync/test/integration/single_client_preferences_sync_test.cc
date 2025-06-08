@@ -20,6 +20,7 @@
 #include "chrome/browser/sync/test/integration/sync_service_impl_harness.h"
 #include "chrome/browser/sync/test/integration/sync_test.h"
 #include "chrome/browser/sync/test/integration/updated_progress_marker_checker.h"
+#include "chrome/browser/ui/ui_features.h"
 #include "chrome/common/chrome_constants.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/chrome_paths.h"
@@ -488,12 +489,16 @@ IN_PROC_BROWSER_TEST_F(SingleClientPreferencesWithAccountStorageSyncTest,
             local_value);
 
   // Enable Sync but not history data type.
-  ASSERT_TRUE(GetClient(0)->SetupSync(
+  ASSERT_TRUE(GetClient(0)->SetupSyncWithCustomSettings(
       base::BindOnce([](syncer::SyncUserSettings* settings) {
         syncer::UserSelectableTypeSet types =
             settings->GetRegisteredSelectableTypes();
         types.Remove(syncer::UserSelectableType::kHistory);
         settings->SetSelectedTypes(/*sync_everything=*/false, types);
+#if !BUILDFLAG(IS_CHROMEOS)
+        settings->SetInitialSyncFeatureSetupComplete(
+            syncer::SyncFirstSetupCompleteSource::ADVANCED_FLOW_CONFIRM);
+#endif  // !BUILDFLAG(IS_CHROMEOS)
       })))
       << "SetupSync() failed.";
 
@@ -598,12 +603,16 @@ IN_PROC_BROWSER_TEST_F(SingleClientPreferencesWithAccountStorageSyncTest,
       base::Value(account_value.Clone()));
 
   // Enable Sync but not history data type.
-  ASSERT_TRUE(GetClient(0)->SetupSync(
+  ASSERT_TRUE(GetClient(0)->SetupSyncWithCustomSettings(
       base::BindOnce([](syncer::SyncUserSettings* settings) {
         syncer::UserSelectableTypeSet types =
             settings->GetRegisteredSelectableTypes();
         types.Remove(syncer::UserSelectableType::kHistory);
         settings->SetSelectedTypes(/*sync_everything=*/false, types);
+#if !BUILDFLAG(IS_CHROMEOS)
+        settings->SetInitialSyncFeatureSetupComplete(
+            syncer::SyncFirstSetupCompleteSource::ADVANCED_FLOW_CONFIRM);
+#endif  // !BUILDFLAG(IS_CHROMEOS)
       })))
       << "SetupSync() failed.";
 

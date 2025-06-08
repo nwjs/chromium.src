@@ -92,11 +92,13 @@ void SystemLoopbackListener::StopListening(
 
 void SystemLoopbackListener::EnsureLoopbackStreamStarted() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(owning_sequence_);
-  if (loopback_stream_ != nullptr) {
+  if (loopback_stream_) {
     return;
   }
+  // Capture audio from all audio devices, or equivalently, audio from all PIDs
+  // playing out audio.
   const std::string loopback_device_id =
-      media::AudioDeviceDescription::kLoopbackInputDeviceId;
+      media::AudioDeviceDescription::kLoopbackAllDevicesId;
 
   // TODO(crbug.com/412581642): Determine optimal parameters.
   const media::AudioParameters params =
@@ -122,14 +124,15 @@ void SystemLoopbackListener::EnsureLoopbackStreamStarted() {
 
 void SystemLoopbackListener::EnsureLoopbackStreamClosed() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(owning_sequence_);
-  if (loopback_stream_ == nullptr) {
+  if (!loopback_stream_) {
     return;
   }
   loopback_stream_->Stop();
   audio_log_->OnStopped();
-  loopback_stream_->Close();
+  // The the stream will destroy itself upon Close(), so we use
+  // ExtractAsDangling() to clear the raw_ptr first.
+  loopback_stream_.ExtractAsDangling()->Close();
   audio_log_->OnClosed();
-  loopback_stream_ = nullptr;
   audio_callback_.reset();
   audio_log_.reset();
 }

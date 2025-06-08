@@ -272,14 +272,14 @@ TestSharedImageInterface::CreateSharedImage(
   if (buffer_handle.type == gfx::GpuMemoryBufferType::NATIVE_PIXMAP) {
     zx_koid_t id =
         base::GetRelatedKoid(
-            buffer_handle.native_pixmap_handle.buffer_collection_handle)
+            buffer_handle.native_pixmap_handle().buffer_collection_handle)
             .value();
     auto collection_it = sysmem_buffer_collections_.find(id);
 
     // NOTE: Not all unittests invoke RegisterSysmemBufferCollection(), but
     // the below CHECK should hold for those that do.
     if (collection_it != sysmem_buffer_collections_.end()) {
-      CHECK_LT(buffer_handle.native_pixmap_handle.buffer_index,
+      CHECK_LT(buffer_handle.native_pixmap_handle().buffer_index,
                collection_it->second->GetNumBuffers());
     }
   }
@@ -305,6 +305,15 @@ TestSharedImageInterface::CreateSharedImageForSoftwareCompositor(
   return base::MakeRefCounted<ClientSharedImage>(mailbox, si_info.meta,
                                                  GenUnverifiedSyncToken(),
                                                  holder_, std::move(mapping));
+}
+
+scoped_refptr<ClientSharedImage>
+TestSharedImageInterface::CreateSharedImageForMLTensor(
+    std::string debug_label,
+    viz::SharedImageFormat format,
+    const gfx::Size& size,
+    gpu::SharedImageUsageSet usage) {
+  NOTREACHED();
 }
 
 void TestSharedImageInterface::UpdateSharedImage(
@@ -337,6 +346,10 @@ void TestSharedImageInterface::DestroySharedImage(
   base::AutoLock locked(lock_);
   shared_images_.erase(mailbox);
   most_recent_destroy_token_ = sync_token;
+
+  if (test_client_) {
+    test_client_->DidDestroySharedImage();
+  }
 }
 
 void TestSharedImageInterface::DestroySharedImage(
@@ -415,6 +428,35 @@ void TestSharedImageInterface::VerifySyncToken(SyncToken& sync_token) {
 
 void TestSharedImageInterface::WaitSyncToken(const SyncToken& sync_token) {
   NOTREACHED();
+}
+
+scoped_refptr<ClientSharedImage>
+TestSharedImageInterface::CreateSharedImageWithMapCallbackController(
+    const SharedImageInfo& si_info,
+    gfx::BufferUsage buffer_usage,
+    bool premapped,
+    FakeGpuMemoryBuffer::MapCallbackController* controller) {
+  CHECK(controller);
+
+  // Create a FakeGpuMemoryBuffer.
+  auto buffer_format =
+      viz::SharedImageFormatToBufferFormatRestrictedUtils::ToBufferFormat(
+          si_info.meta.format);
+  auto fake_gmb = std::make_unique<FakeGpuMemoryBuffer>(
+      si_info.meta.size, buffer_format, premapped, controller);
+
+  Mailbox mailbox;
+  // Create a ClientSharedImage with a FakeGpuMemoryBuffer.
+  {
+    base::AutoLock locked(lock_);
+    mailbox = Mailbox::Generate();
+    shared_images_.insert(mailbox);
+  }
+
+  auto image = ClientSharedImage::CreateForTesting(
+      mailbox, si_info.meta, GenUnverifiedSyncToken(), std::move(fake_gmb),
+      buffer_usage, holder_);
+  return image;
 }
 
 bool TestSharedImageInterface::CheckSharedImageExists(

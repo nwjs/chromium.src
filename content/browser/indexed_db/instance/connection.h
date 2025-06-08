@@ -145,22 +145,21 @@ class CONTENT_EXPORT Connection : public blink::mojom::IDBDatabase {
   void Get(int64_t transaction_id,
            int64_t object_store_id,
            int64_t index_id,
-           const blink::IndexedDBKeyRange& key_range,
+           blink::IndexedDBKeyRange key_range,
            bool key_only,
            blink::mojom::IDBDatabase::GetCallback callback) override;
   void GetAll(int64_t transaction_id,
               int64_t object_store_id,
               int64_t index_id,
-              const blink::IndexedDBKeyRange& key_range,
+              blink::IndexedDBKeyRange key_range,
               blink::mojom::IDBGetAllResultType result_type,
               int64_t max_count,
               blink::mojom::IDBCursorDirection direction,
               blink::mojom::IDBDatabase::GetAllCallback callback) override;
-  void SetIndexKeys(
-      int64_t transaction_id,
-      int64_t object_store_id,
-      const blink::IndexedDBKey& primary_key,
-      const std::vector<blink::IndexedDBIndexKeys>& index_keys) override;
+  void SetIndexKeys(int64_t transaction_id,
+                    int64_t object_store_id,
+                    blink::IndexedDBKey primary_key,
+                    std::vector<blink::IndexedDBIndexKeys> index_keys) override;
   void SetIndexesReady(int64_t transaction_id,
                        int64_t object_store_id,
                        const std::vector<int64_t>& index_ids) override;
@@ -168,7 +167,7 @@ class CONTENT_EXPORT Connection : public blink::mojom::IDBDatabase {
       int64_t transaction_id,
       int64_t object_store_id,
       int64_t index_id,
-      const blink::IndexedDBKeyRange& key_range,
+      blink::IndexedDBKeyRange key_range,
       blink::mojom::IDBCursorDirection direction,
       bool key_only,
       blink::mojom::IDBTaskType task_type,
@@ -176,11 +175,11 @@ class CONTENT_EXPORT Connection : public blink::mojom::IDBDatabase {
   void Count(int64_t transaction_id,
              int64_t object_store_id,
              int64_t index_id,
-             const blink::IndexedDBKeyRange& key_range,
+             blink::IndexedDBKeyRange key_range,
              CountCallback callback) override;
   void DeleteRange(int64_t transaction_id,
                    int64_t object_store_id,
-                   const blink::IndexedDBKeyRange& key_range,
+                   blink::IndexedDBKeyRange key_range,
                    DeleteRangeCallback success_callback) override;
   void GetKeyGeneratorCurrentNumber(
       int64_t transaction_id,
@@ -191,11 +190,7 @@ class CONTENT_EXPORT Connection : public blink::mojom::IDBDatabase {
              ClearCallback callback) override;
   void CreateIndex(int64_t transaction_id,
                    int64_t object_store_id,
-                   int64_t index_id,
-                   const std::u16string& name,
-                   const blink::IndexedDBKeyPath& key_path,
-                   bool unique,
-                   bool multi_entry) override;
+                   const blink::IndexedDBIndexMetadata& index) override;
   void DeleteIndex(int64_t transaction_id,
                    int64_t object_store_id,
                    int64_t index_id) override;
@@ -255,7 +250,13 @@ class CONTENT_EXPORT Connection : public blink::mojom::IDBDatabase {
   mojo::Remote<storage::mojom::IndexedDBClientStateChecker>
       client_state_checker_;
 
-  mojo::RemoteSet<storage::mojom::IndexedDBClientKeepActive>
+  // TODO(381086791): Remove the per-reason split when the regression is fixed.
+  static constexpr size_t kNumKeepActiveReasons =
+      static_cast<size_t>(
+          storage::mojom::DisallowInactiveClientReason::kMaxValue) +
+      1;
+  std::array<mojo::RemoteSet<storage::mojom::IndexedDBClientKeepActive>,
+             kNumKeepActiveReasons>
       client_keep_active_remotes_;
 
   // Uniquely identifies the document or worker that owns the other side of this

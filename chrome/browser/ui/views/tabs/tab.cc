@@ -31,6 +31,7 @@
 #include "chrome/browser/ui/color/chrome_color_id.h"
 #include "chrome/browser/ui/layout_constants.h"
 #include "chrome/browser/ui/tab_contents/core_tab_helper.h"
+#include "chrome/browser/ui/tabs/alert/tab_alert.h"
 #include "chrome/browser/ui/tabs/saved_tab_groups/collaboration_messaging_tab_data.h"
 #include "chrome/browser/ui/tabs/tab_style.h"
 #include "chrome/browser/ui/tabs/tab_utils.h"
@@ -342,8 +343,7 @@ void Tab::Layout(PassKey) {
       MaybeAdjustLeftForPinnedTab(&favicon_bounds, gfx::kFaviconSize);
     }
     icon_->EnlargeDiscardIndicatorRadius(
-        controller()->GetInactiveTabWidth() -
-                    2 * tab_style()->GetBottomCornerRadius() >=
+        width() - 2 * tab_style()->GetBottomCornerRadius() >=
                 gfx::kFaviconSize + 2 * kIncreasedDiscardIndicatorRadiusDp
             ? kIncreasedDiscardIndicatorRadiusDp
             : 0);
@@ -818,12 +818,10 @@ TabSlotView::ViewType Tab::GetTabSlotViewType() const {
 }
 
 TabSizeInfo Tab::GetTabSizeInfo() const {
-  return {tab_style()->GetPinnedWidth(),
-          split().has_value() ? tab_style()->GetMinimumActiveSplitWidth()
-                              : tab_style()->GetMinimumActiveWidth(),
+  return {tab_style()->GetPinnedWidth(split().has_value()),
+          tab_style()->GetMinimumActiveWidth(split().has_value()),
           tab_style()->GetMinimumInactiveWidth(),
-          split().has_value() ? tab_style()->GetStandardSplitWidth()
-                              : tab_style()->GetStandardWidth()};
+          tab_style()->GetStandardWidth(split().has_value())};
 }
 
 void Tab::SetClosing(bool closing) {
@@ -848,7 +846,7 @@ std::optional<SkColor> Tab::GetGroupColor() const {
       controller_->GetGroupColorId(group().value()));
 }
 
-ui::ColorId Tab::GetAlertIndicatorColor(TabAlertState state) const {
+ui::ColorId Tab::GetAlertIndicatorColor(tabs::TabAlert state) const {
   const ui::ColorProvider* color_provider = GetColorProvider();
   if (!color_provider) {
     return gfx::kPlaceholderColor;
@@ -856,25 +854,25 @@ ui::ColorId Tab::GetAlertIndicatorColor(TabAlertState state) const {
 
   int group;
   switch (state) {
-    case TabAlertState::MEDIA_RECORDING:
-    case TabAlertState::AUDIO_RECORDING:
-    case TabAlertState::VIDEO_RECORDING:
-    case TabAlertState::DESKTOP_CAPTURING:
+    case tabs::TabAlert::MEDIA_RECORDING:
+    case tabs::TabAlert::AUDIO_RECORDING:
+    case tabs::TabAlert::VIDEO_RECORDING:
+    case tabs::TabAlert::DESKTOP_CAPTURING:
       group = 0;
       break;
-    case TabAlertState::TAB_CAPTURING:
-    case TabAlertState::PIP_PLAYING:
-    case TabAlertState::GLIC_ACCESSING:
+    case tabs::TabAlert::TAB_CAPTURING:
+    case tabs::TabAlert::PIP_PLAYING:
+    case tabs::TabAlert::GLIC_ACCESSING:
       group = 1;
       break;
-    case TabAlertState::AUDIO_PLAYING:
-    case TabAlertState::AUDIO_MUTING:
-    case TabAlertState::BLUETOOTH_CONNECTED:
-    case TabAlertState::BLUETOOTH_SCAN_ACTIVE:
-    case TabAlertState::USB_CONNECTED:
-    case TabAlertState::HID_CONNECTED:
-    case TabAlertState::SERIAL_CONNECTED:
-    case TabAlertState::VR_PRESENTING_IN_HEADSET:
+    case tabs::TabAlert::AUDIO_PLAYING:
+    case tabs::TabAlert::AUDIO_MUTING:
+    case tabs::TabAlert::BLUETOOTH_CONNECTED:
+    case tabs::TabAlert::BLUETOOTH_SCAN_ACTIVE:
+    case tabs::TabAlert::USB_CONNECTED:
+    case tabs::TabAlert::HID_CONNECTED:
+    case tabs::TabAlert::SERIAL_CONNECTED:
+    case tabs::TabAlert::VR_PRESENTING_IN_HEADSET:
       group = 2;
       break;
   }
@@ -1057,7 +1055,7 @@ void Tab::ReleaseFreezingVote() {
 
 // static
 std::u16string Tab::GetTooltipText(const std::u16string& title,
-                                   std::optional<TabAlertState> alert_state) {
+                                   std::optional<tabs::TabAlert> alert_state) {
   if (!alert_state) {
     return title;
   }
@@ -1071,8 +1069,8 @@ std::u16string Tab::GetTooltipText(const std::u16string& title,
 }
 
 // static
-std::optional<TabAlertState> Tab::GetAlertStateToShow(
-    const std::vector<TabAlertState>& alert_states) {
+std::optional<tabs::TabAlert> Tab::GetAlertStateToShow(
+    const std::vector<tabs::TabAlert>& alert_states) {
   if (alert_states.empty()) {
     return std::nullopt;
   }
@@ -1093,11 +1091,9 @@ void Tab::MaybeAdjustLeftForPinnedTab(gfx::Rect* bounds,
   if (ShouldRenderAsNormalTab()) {
     return;
   }
-  const int pinned_width = tab_style()->GetPinnedWidth();
+  const int pinned_width = GetTabSizeInfo().pinned_tab_width;
   const int ideal_delta = width() - pinned_width;
   const int ideal_x = (pinned_width - visual_width) / 2;
-  // TODO(crbug.com/40436434): This code is broken when the current width is
-  // less than the pinned width.
   bounds->set_x(
       bounds->x() +
       base::ClampRound(
@@ -1223,7 +1219,7 @@ void Tab::UpdateIconVisibility() {
 }
 
 bool Tab::ShouldRenderAsNormalTab() const {
-  return !data().pinned || (width() >= (tab_style()->GetPinnedWidth() +
+  return !data().pinned || (width() >= (GetTabSizeInfo().pinned_tab_width +
                                         kPinnedTabExtraWidthToRenderAsNormal));
 }
 
@@ -1268,7 +1264,7 @@ void Tab::CloseButtonPressed(const ui::Event& event) {
   if (!alert_indicator_button_ || !alert_indicator_button_->GetVisible()) {
     base::RecordAction(UserMetricsAction("CloseTab_NoAlertIndicator"));
   } else if (GetAlertStateToShow(data_.alert_state) ==
-             TabAlertState::AUDIO_PLAYING) {
+             tabs::TabAlert::AUDIO_PLAYING) {
     base::RecordAction(UserMetricsAction("CloseTab_AudioIndicator"));
   } else {
     base::RecordAction(UserMetricsAction("CloseTab_RecordingIndicator"));

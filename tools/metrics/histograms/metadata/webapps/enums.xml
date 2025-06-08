@@ -108,6 +108,13 @@ chromium-metrics-reviews@google.com.
   <int value="13" label="Short name, App name, and Icon changing."/>
   <int value="14" label="Short name, App name, and Mask changing."/>
   <int value="15" label="Short name, App name, Mask and Icon changing."/>
+  <int value="17" label="App Icon changing, icon below threshold."/>
+  <int value="19" label="App Icon and Mask changing, icon below threshold."/>
+  <int value="21" label="App Icon and Name changing, icon below threshold."/>
+  <int value="23"
+      label="App Icon, Mask, and Name changing, icon below threshold."/>
+  <int value="29"
+      label="App Icon, Name, and Short Name changing, icon below threshold."/>
 </enum>
 
 <enum name="AppSettingsPageEntryPoints">
@@ -253,6 +260,17 @@ chromium-metrics-reviews@google.com.
   <int value="2" label="Image download successful"/>
 </enum>
 
+<enum name="NavigationCapturingDisplayMode">
+  <int value="0"
+      label="Opened in standalone window when display mode was standalone"/>
+  <int value="1"
+      label="Opened in browser tab when display mode was browser tab"/>
+  <int value="2"
+      label="Opened in standalone window when display mode was browser tab"/>
+  <int value="3"
+      label="Opened in browser tab when display mode was standalone"/>
+</enum>
+
 <enum name="NavigationCapturingRedirectionResult">
   <int value="0" label="Browser tab reparented into tab"/>
   <int value="1" label="Browser tab reparented into app window"/>
@@ -307,6 +325,13 @@ chromium-metrics-reviews@google.com.
   <int value="15" label="kInstallOverridePreviousUserUninstall"/>
   <int value="16" label="kIgnoreStylusRequiredNoDeviceData"/>
   <int value="17" label="kIgnorePreviouslyUninstalledByUser"/>
+</enum>
+
+<enum name="RewriteIconResult">
+  <int value="0" label="The app's state was changed unexpectedly"/>
+  <int value="1" label="Icon successfully rewritten with mask"/>
+  <int value="2" label="Failed to fetch shortcut info"/>
+  <int value="3" label="Failed to update shortcuts"/>
 </enum>
 
 <enum name="RunOnOSLoginCommandCompletionState">

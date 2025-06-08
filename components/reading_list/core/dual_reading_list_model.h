@@ -102,10 +102,6 @@ class DualReadingListModel : public ReadingListModel,
                                   const GURL& url) override;
   void ReadingListDidRemoveEntry(const ReadingListModel* model,
                                  const GURL& url) override;
-  void ReadingListWillMoveEntry(const ReadingListModel* model,
-                                const GURL& url) override;
-  void ReadingListDidMoveEntry(const ReadingListModel* model,
-                               const GURL& url) override;
   void ReadingListWillAddEntry(const ReadingListModel* model,
                                const ReadingListEntry& entry) override;
   void ReadingListDidAddEntry(const ReadingListModel* model,
@@ -137,6 +133,12 @@ class DualReadingListModel : public ReadingListModel,
   // sync.
   base::flat_set<GURL> GetKeysThatNeedUploadToSyncServer() const;
 
+  // Uploads entries corresponding to `keys` that required upload to sync
+  // server. The upload itself may take long to complete (depending on network
+  // connectivity and many other factors).
+  void MarkEntriesForUploadToSyncServerIfNeeded(
+      const base::flat_set<GURL>& keys);
+
   StorageStateForTesting GetStorageStateForURLForTesting(const GURL& url);
 
   // Returns the model responsible for the local/syncable reading list.
@@ -150,8 +152,6 @@ class DualReadingListModel : public ReadingListModel,
  private:
   void NotifyObserversWithWillRemoveEntry(const GURL& url);
   void NotifyObserversWithDidRemoveEntry(const GURL& url);
-  void NotifyObserversWithWillMoveEntry(const GURL& url);
-  void NotifyObserversWithDidMoveEntry(const GURL& url);
   void NotifyObserversWithWillUpdateEntry(const GURL& url);
   void NotifyObserversWithDidUpdateEntry(const GURL& url);
   void NotifyObserversWithDidApplyChanges();

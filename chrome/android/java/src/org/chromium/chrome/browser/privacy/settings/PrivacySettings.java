@@ -56,6 +56,7 @@ import org.chromium.chrome.browser.sync.settings.GoogleServicesSettings;
 import org.chromium.chrome.browser.sync.settings.ManageSyncSettings;
 import org.chromium.chrome.browser.usage_stats.UsageStatsConsentDialog;
 import org.chromium.components.browser_ui.settings.ChromeSwitchPreference;
+import org.chromium.components.browser_ui.settings.SettingsFragment;
 import org.chromium.components.browser_ui.settings.SettingsNavigation;
 import org.chromium.components.browser_ui.settings.SettingsUtils;
 import org.chromium.components.browser_ui.site_settings.ContentSettingsResources;
@@ -126,7 +127,7 @@ public class PrivacySettings extends ChromeBaseSettingsFragment
     }
 
     @Override
-    public void onCreatePreferences(Bundle savedInstanceState, String rootKey) {
+    public void onCreatePreferences(@Nullable Bundle savedInstanceState, @Nullable String rootKey) {
         mPageTitle.set(getString(R.string.prefs_privacy_security));
 
         SettingsUtils.addPreferencesFromResource(this, R.xml.privacy_preferences);
@@ -205,11 +206,7 @@ public class PrivacySettings extends ChromeBaseSettingsFragment
 
         ChromeSwitchPreference passwordLeakTogglePref =
                 (ChromeSwitchPreference) findPreference(PREF_PASSWORD_LEAK_DETECTION);
-        if (ChromeFeatureList.isEnabled(ChromeFeatureList.PASSWORD_LEAK_TOGGLE_MOVE)) {
-            passwordLeakTogglePref.setOnPreferenceChangeListener(this);
-        } else {
-            passwordLeakTogglePref.setVisible(false);
-        }
+        passwordLeakTogglePref.setOnPreferenceChangeListener(this);
 
         ChromeSwitchPreference canMakePaymentPref =
                 (ChromeSwitchPreference) findPreference(PREF_CAN_MAKE_PAYMENT);
@@ -364,8 +361,8 @@ public class PrivacySettings extends ChromeBaseSettingsFragment
     }
 
     @Override
-    public void onResume() {
-        super.onResume();
+    public void onStart() {
+        super.onStart();
         updatePreferences();
     }
 
@@ -373,7 +370,7 @@ public class PrivacySettings extends ChromeBaseSettingsFragment
     public void updatePreferences() {
         ChromeSwitchPreference passwordLeakTogglePref =
                 (ChromeSwitchPreference) findPreference(PREF_PASSWORD_LEAK_DETECTION);
-        if (passwordLeakTogglePref != null && passwordLeakTogglePref.isVisible()) {
+        if (passwordLeakTogglePref != null) {
             passwordLeakTogglePref.setEnabled(
                     !UserPrefs.get(getProfile())
                             .isManagedPreference(Pref.PASSWORD_LEAK_DETECTION_ENABLED));
@@ -577,5 +574,10 @@ public class PrivacySettings extends ChromeBaseSettingsFragment
             mIncognitoLockSettings.destroy();
         }
         super.onDestroy();
+    }
+
+    @Override
+    public @SettingsFragment.AnimationType int getAnimationType() {
+        return SettingsFragment.AnimationType.PROPERTY;
     }
 }

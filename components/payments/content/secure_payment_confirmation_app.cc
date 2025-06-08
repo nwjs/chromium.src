@@ -29,6 +29,7 @@
 #include "components/payments/core/payer_data.h"
 #include "components/payments/core/payments_experimental_features.h"
 #include "components/webauthn/core/browser/internal_authenticator.h"
+#include "content/public/browser/browser_context.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/content_features.h"
 #include "crypto/sha2.h"
@@ -142,15 +143,23 @@ void SecurePaymentConfirmationApp::InvokePaymentApp(
 #if BUILDFLAG(IS_ANDROID)
   if (passkey_browser_binder_) {
     std::vector<device::PublicKeyCredentialParams::CredentialInfo>
-        credential_parameters =
-            options->extensions->payment_browser_bound_key_parameters.value_or(
-                base::ToVector(kDefaultBrowserBoundKeyCredentialParameters));
-    passkey_browser_binder_->GetOrCreateBoundKeyForPasskey(
-        credential_id_, effective_relying_party_identity_,
-        credential_parameters,
-        base::BindOnce(&SecurePaymentConfirmationApp::OnGetBrowserBoundKey,
-                       weak_ptr_factory_.GetWeakPtr(), delegate,
-                       std::move(options)));
+        credential_parameters = request_->browser_bound_pub_key_cred_params;
+    if (credential_parameters.empty()) {
+      credential_parameters =
+          base::ToVector(kDefaultBrowserBoundKeyCredentialParameters);
+    }
+    auto on_get_browser_bound_key_callback = base::BindOnce(
+        &SecurePaymentConfirmationApp::OnGetBrowserBoundKey,
+        weak_ptr_factory_.GetWeakPtr(), delegate, std::move(options));
+    if (web_contents()->GetBrowserContext()->IsOffTheRecord()) {
+      passkey_browser_binder_->GetBoundKeyForPasskey(
+          credential_id_, effective_relying_party_identity_,
+          std::move(on_get_browser_bound_key_callback));
+    } else {
+      passkey_browser_binder_->GetOrCreateBoundKeyForPasskey(
+          credential_id_, effective_relying_party_identity_,
+          credential_parameters, std::move(on_get_browser_bound_key_callback));
+    }
   } else {
     OnGetBrowserBoundKey(delegate, std::move(options),
                          /*browser_bound_key=*/nullptr);

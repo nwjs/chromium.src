@@ -593,6 +593,7 @@ _CONFIG = [
             'cc::LayerTreeHost',
             'cc::PictureLayer',
             'cc::SurfaceLayer',
+            'cc::TextureLayer',
             'cc::TextureLayerImpl',
 
             # cc::Layer helper data structs.
@@ -849,6 +850,7 @@ _CONFIG = [
             'ui::AXMode',
             'ui::AXNodeData',
             'ui::AXRelativeBounds',
+            'ui::AXSerializationErrorFlag',
             'ui::AXTreeChecks',
             'ui::AXTreeData',
             'ui::AXTreeID',
@@ -858,6 +860,7 @@ _CONFIG = [
             'ui::AXTreeUpdate',
             'ui::kAXModeBasic',
             'ui::kAXModeComplete',
+            'ui::kAXModeInspector',
             'ui::kFirstGeneratedRendererNodeID',
             'ui::kInvalidAXNodeID',
             'ui::kLastGeneratedRendererNodeID',
@@ -1332,10 +1335,29 @@ _CONFIG = [
     },
     {
         'paths': [
+            'third_party/blink/public/web/web_document.h',
+        ],
+        'allowed': [
+            # For accessibility tree snapshots.
+            'ui::AXMode',
+            'ui::AXSerializationErrorFlag',
+            'ui::AXTreeUpdate',
+        ],
+    },
+    {
+        'paths': [
             'third_party/blink/public/common/context_menu_data/',
         ],
         'allowed': [
             'ui::mojom::MenuSourceType',
+        ],
+    },
+    {
+        'paths': [
+            'third_party/blink/public/platform/platform.h',
+        ],
+        'allowed': [
+            'viz::RasterContextProvider',
         ],
     },
     {
@@ -1352,6 +1374,14 @@ _CONFIG = [
         ],
         'allowed': [
             'media::EmeInitDataType',
+        ],
+    },
+    {
+        'paths': [
+            'third_party/blink/public/platform/web_policy_container.h',
+        ],
+        'allowed': [
+            'network::IntegrityPolicy',
         ],
     },
     {
@@ -1559,6 +1589,7 @@ _CONFIG = [
             'gpu::Mailbox',
             'gpu::MailboxHolder',
             'gpu::raster::RasterInterface',
+            'gpu::RasterScopedAccess',
             'gpu::SHARED_IMAGE_USAGE_.+',
             'gpu::SharedImageInterface',
             'gpu::SharedImageTexture',
@@ -2218,10 +2249,14 @@ _CONFIG = [
             'third_party/blink/renderer/modules/webgpu',
         ],
         'allowed': [
+            'base::BindOnce',
+            'cc::TextureLayerClient',
+            'viz::ReleaseCallback',
             'viz::SharedImageFormat',
             'viz::SinglePlaneFormat',
             'viz::SkColorTypeToSinglePlaneSharedImageFormat',
             'viz::ToClosestSkColorType',
+            'viz::TransferableResource',
         ],
     },
     {

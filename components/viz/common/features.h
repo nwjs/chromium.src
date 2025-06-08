@@ -112,7 +112,6 @@ VIZ_COMMON_EXPORT extern const base::FeatureParam<base::TimeDelta>
     kADPFBoostTimeout;
 VIZ_COMMON_EXPORT extern const base::FeatureParam<double>
     kADPFMidFrameBoostDurationMultiplier;
-VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kEnableADPFRendererMain);
 VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kEnableInteractiveOnlyADPFRenderer);
 VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kEnableADPFGpuCompositorThread);
 VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kEnableADPFSeparateRendererMainSession);
@@ -122,7 +121,6 @@ VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kHideDelegatedFrameHostMac);
 VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kEvictionUnlocksResources);
 VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kSingleVideoFrameRateThrottling);
 VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kBatchMainThreadReleaseCallbacks);
-VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kColorConversionInRenderer);
 VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kLastVSyncArgsKillswitch);
 VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kVizNullHypothesis);
 #if BUILDFLAG(IS_CHROMEOS)
@@ -151,7 +149,6 @@ VIZ_COMMON_EXPORT bool IsDynamicColorGamutEnabled();
 VIZ_COMMON_EXPORT int DrawQuadSplitLimit();
 VIZ_COMMON_EXPORT bool IsDelegatedCompositingEnabled();
 #if BUILDFLAG(IS_WIN)
-VIZ_COMMON_EXPORT bool ShouldUseDCompSurfacesForDelegatedInk();
 VIZ_COMMON_EXPORT bool ShouldRemoveRedirectionBitmap();
 #endif
 VIZ_COMMON_EXPORT bool IsUsingVizFrameSubmissionForWebView();

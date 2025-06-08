@@ -80,6 +80,7 @@
 #include "third_party/blink/renderer/core/dom/tree_scope.h"
 #include "third_party/blink/renderer/core/dom/user_action_element_set.h"
 #include "third_party/blink/renderer/core/editing/forward.h"
+#include "third_party/blink/renderer/core/frame/widget_creation_observer.h"
 #include "third_party/blink/renderer/core/html/forms/listed_element.h"
 #include "third_party/blink/renderer/core/html/parser/parser_synchronization_policy.h"
 #include "third_party/blink/renderer/platform/geometry/physical_offset.h"
@@ -353,6 +354,7 @@ struct UnloadEventTimingInfo {
 class CORE_EXPORT Document : public ContainerNode,
                              public TreeScope,
                              public UseCounter,
+                             public WidgetCreationObserver,
                              public Supplementable<Document> {
   DEFINE_WRAPPERTYPEINFO();
 
@@ -1022,6 +1024,9 @@ class CORE_EXPORT Document : public ContainerNode,
     kPaintingPreviewSkipAcceleratedContent,
   };
   PaintPreviewState GetPaintPreviewState() const { return paint_preview_; }
+  bool AreScrollbarsAllowedInPaintPreview() const {
+    return allow_scrollbars_in_paint_preview_;
+  }
   bool IsPrintingOrPaintingPreview() const {
     return Printing() ||
            GetPaintPreviewState() != Document::kNotPaintingPreview;
@@ -1616,6 +1621,8 @@ class CORE_EXPORT Document : public ContainerNode,
   void DidAddPendingParserBlockingStylesheet();
   void DidLoadAllPendingParserBlockingStylesheets();
   void DidRemoveAllPendingStylesheets();
+  void NotifyParserPauseByUserTiming();
+  void NotifyParserResumeByUserTiming();
 
   bool InStyleRecalc() const;
 
@@ -2053,7 +2060,9 @@ class CORE_EXPORT Document : public ContainerNode,
     STACK_ALLOCATED();
 
    public:
-    PaintPreviewScope(Document& document, PaintPreviewState state);
+    PaintPreviewScope(Document& document,
+                      PaintPreviewState state,
+                      bool allow_scrollbars);
     ~PaintPreviewScope();
 
     PaintPreviewScope(PaintPreviewScope&) = delete;
@@ -2215,6 +2224,9 @@ class CORE_EXPORT Document : public ContainerNode,
   // passes the payment link back to browser process through the mojo pipe.
   void HandlePaymentLink(const KURL& href);
 #endif
+
+  // WidgetCreationObserver implementation
+  void OnLocalRootWidgetCreated() override;
 
  protected:
   void ClearXMLVersion() { xml_version_ = String(); }
@@ -2505,6 +2517,8 @@ class CORE_EXPORT Document : public ContainerNode,
                                      const String& html,
                                      ExceptionState& exception_state);
 
+  bool CanThrottleFrameRate();
+
   // Mutable because the token is lazily-generated on demand if no token is
   // explicitly set.
   mutable std::optional<DocumentToken> token_;
@@ -2606,6 +2620,7 @@ class CORE_EXPORT Document : public ContainerNode,
 
   PrintingState printing_ = kNotPrinting;
   PaintPreviewState paint_preview_ = kNotPaintingPreview;
+  bool allow_scrollbars_in_paint_preview_ = false;
 
   CompatibilityMode compatibility_mode_ = kNoQuirksMode;
   // This is cheaper than making setCompatibilityMode virtual.

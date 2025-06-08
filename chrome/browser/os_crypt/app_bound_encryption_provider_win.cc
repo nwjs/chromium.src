@@ -73,13 +73,9 @@ std::optional<KeyProvider::KeyError> DetermineErrorType(HRESULT error,
 }  // namespace
 
 namespace features {
-BASE_FEATURE(kAppBoundUserDataDirProtection,
-             "AppBoundUserDataDirProtection",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 BASE_FEATURE(kAppBoundEncryptionKeyV3,
              "AppBoundEncryptionKeyV3",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kRegenerateKeyForCatastrophicFailures,
              "RegenerateKeyForCatastrophicFailures",
@@ -197,8 +193,7 @@ void AppBoundEncryptionProviderWin::GetKey(KeyCallback callback) {
     return;
   }
 
-  if (base::FeatureList::IsEnabled(features::kAppBoundUserDataDirProtection) &&
-      support_level_ == os_crypt::SupportLevel::kNotUsingDefaultUserDataDir) {
+  if (support_level_ == os_crypt::SupportLevel::kNotUsingDefaultUserDataDir) {
     // Modified user data dir, signal temporarily unavailable. This means
     // decrypts will not work, but neither will new encrypts. Since the key is
     // temporarily unavailable, no data should be lost.

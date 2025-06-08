@@ -792,14 +792,13 @@ VideoFrame* VideoFrame::Create(ScriptState* script_state,
     return nullptr;
   }
 
-  const auto orientation = image->CurrentFrameOrientation().Orientation();
+  const auto orientation = image->Orientation().Orientation();
   const gfx::Size coded_size(sk_image_info.width(), sk_image_info.height());
   const gfx::Rect default_visible_rect(coded_size);
   const gfx::Size default_display_size(coded_size);
   const bool has_undiscarded_unpremultiplied_alpha =
       sk_image_info.alphaType() == kUnpremul_SkAlphaType &&
-      !image->CurrentFrameKnownToBeOpaque() &&
-      !(init && init->alpha() == kAlphaDiscard);
+      !image->IsOpaque() && !(init && init->alpha() == kAlphaDiscard);
 
   sk_sp<SkImage> sk_image;
   scoped_refptr<media::VideoFrame> frame;
@@ -808,7 +807,7 @@ VideoFrame* VideoFrame::Create(ScriptState* script_state,
     DCHECK(image->IsStaticBitmapImage());
     const auto format = media::VideoPixelFormatFromSkColorType(
         paint_image.GetColorType(),
-        image->CurrentFrameKnownToBeOpaque() || init->alpha() == kAlphaDiscard);
+        image->IsOpaque() || init->alpha() == kAlphaDiscard);
 
     ParsedVideoFrameInit parsed_init(init, format, coded_size,
                                      default_visible_rect, default_display_size,
@@ -1226,13 +1225,23 @@ VideoFrameMetadata* VideoFrame::metadata(ExceptionState& exception_state) {
 
   auto* metadata = VideoFrameMetadata::Create();
 
-  if (!local_frame->metadata().background_blur) {
-    return metadata;
+  if (local_frame->metadata().background_blur) {
+    auto* background_blur = BackgroundBlur::Create();
+    background_blur->setEnabled(
+        local_frame->metadata().background_blur->enabled);
+    metadata->setBackgroundBlur(background_blur);
   }
 
-  auto* background_blur = BackgroundBlur::Create();
-  background_blur->setEnabled(local_frame->metadata().background_blur->enabled);
-  metadata->setBackgroundBlur(background_blur);
+  if (RuntimeEnabledFeatures::VideoFrameMetadataRtpTimestampEnabled()) {
+    if (local_frame->metadata().rtp_timestamp) {
+      double rtp_timestamp = *local_frame->metadata().rtp_timestamp;
+      // Ensure that the rtp timestamp fits in uint32_t before exposing it to
+      // JavaScript.
+      if (base::IsValueInRangeForNumericType<uint32_t>(rtp_timestamp)) {
+        metadata->setRtpTimestamp(static_cast<uint32_t>(rtp_timestamp));
+      }
+    }
+  }
 
   return metadata;
 }

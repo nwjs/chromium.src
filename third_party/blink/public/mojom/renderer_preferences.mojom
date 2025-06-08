@@ -209,4 +209,6 @@ struct RendererPreferences {
   // used for canvas noising.
   uint64 canvas_noise_token = 0;
 
+  // Whether line wrapping should be enabled by default in view source pages.
+  bool view_source_line_wrap_enabled = false;
 };

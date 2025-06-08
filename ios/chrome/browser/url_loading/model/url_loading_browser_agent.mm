@@ -125,7 +125,7 @@ NOINLINE void InduceBrowserCrash(const GURL& url) {
 }  // namespace
 
 UrlLoadingBrowserAgent::UrlLoadingBrowserAgent(Browser* browser)
-    : browser_(browser),
+    : BrowserUserData(browser),
       notifier_(UrlLoadingNotifierBrowserAgent::FromBrowser(browser_)) {
   DCHECK(notifier_);
 }

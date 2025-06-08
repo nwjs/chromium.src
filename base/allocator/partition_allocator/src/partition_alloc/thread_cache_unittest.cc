@@ -32,27 +32,30 @@
 
 namespace partition_alloc {
 
+namespace internal::base {
+
+// For gtest-printers. This `operator<<` makes failures of EXPECT-s, which
+// compare TimeDelta values, human-readable.
+// E.g. Without the `operator<<`,
+//  NextInterval()
+//    Which is: 8-byte object <00-09 3D-00 00-00 00-00>
+// With the `operator<<`,
+//    Which is: 4 s
+std::ostream& operator<<(std::ostream& os, TimeDelta time_delta) {
+  return os << time_delta.InSecondsF() << " s";
+}
+
+}  // namespace internal::base
+
 using BucketDistribution = PartitionRoot::BucketDistribution;
-using PartitionFreelistEncoding = internal::PartitionFreelistEncoding;
 
 struct ThreadCacheTestParam {
   BucketDistribution bucket_distribution;
-  PartitionFreelistEncoding freelist_encoding;
 };
 
 const std::vector<ThreadCacheTestParam> params = {
-    {ThreadCacheTestParam{
-        BucketDistribution::kNeutral,
-        internal::PartitionFreelistEncoding::kPoolOffsetFreeList}},
-    {ThreadCacheTestParam{
-        BucketDistribution::kDenser,
-        internal::PartitionFreelistEncoding::kEncodedFreeList}},
-    {ThreadCacheTestParam{
-        BucketDistribution::kNeutral,
-        internal::PartitionFreelistEncoding::kPoolOffsetFreeList}},
-    {ThreadCacheTestParam{
-        BucketDistribution::kDenser,
-        internal::PartitionFreelistEncoding::kEncodedFreeList}}};
+    {ThreadCacheTestParam{BucketDistribution::kNeutral}},
+    {ThreadCacheTestParam{BucketDistribution::kNeutral}}};
 
 namespace {
 
@@ -82,17 +85,11 @@ class DeltaCounter {
 };
 
 // Forbid extras, since they make finding out which bucket is used harder.
-std::unique_ptr<PartitionAllocatorForTesting> CreateAllocator(
-    internal::PartitionFreelistEncoding encoding =
-        internal::PartitionFreelistEncoding::kEncodedFreeList) {
+std::unique_ptr<PartitionAllocatorForTesting> CreateAllocator() {
   PartitionOptions opts;
 #if !PA_BUILDFLAG(USE_PARTITION_ALLOC_AS_MALLOC)
   opts.thread_cache = PartitionOptions::kEnabled;
 #endif  // PA_BUILDFLAG(USE_PARTITION_ALLOC_AS_MALLOC)
-  opts.use_pool_offset_freelists =
-      (encoding == internal::PartitionFreelistEncoding::kPoolOffsetFreeList)
-          ? PartitionOptions::kEnabled
-          : PartitionOptions::kDisabled;
   std::unique_ptr<PartitionAllocatorForTesting> allocator =
       std::make_unique<PartitionAllocatorForTesting>(opts);
   allocator->root()->UncapEmptySlotSpanMemoryForTesting();
@@ -105,8 +102,7 @@ class PartitionAllocThreadCacheTest
     : public ::testing::TestWithParam<ThreadCacheTestParam> {
  public:
   PartitionAllocThreadCacheTest()
-      : allocator_(CreateAllocator(GetParam().freelist_encoding)),
-        scope_(allocator_->root()) {}
+      : allocator_(CreateAllocator()), scope_(allocator_->root()) {}
 
   ~PartitionAllocThreadCacheTest() override {
     ThreadCache::SetLargestCachedSize(ThreadCache::kDefaultSizeThreshold);
@@ -354,25 +350,29 @@ TEST_P(PartitionAllocThreadCacheTest, DirectMappedReallocMetrics) {
             root()->get_total_size_of_allocated_bytes());
   EXPECT_EQ(expected_allocated_size, root()->get_max_size_of_allocated_bytes());
 
-  void* ptr = root()->Alloc(
-      root()->AdjustSizeForExtrasSubtract(10 * internal::kMaxBucketed), "");
+  void* ptr = root()->Alloc(root()->AdjustSizeForExtrasSubtract(
+                                10 * BucketIndexLookup::kMaxBucketSize),
+                            "");
 
-  EXPECT_EQ(expected_allocated_size + 10 * internal::kMaxBucketed,
+  EXPECT_EQ(expected_allocated_size + 10 * BucketIndexLookup::kMaxBucketSize,
             root()->get_total_size_of_allocated_bytes());
 
-  void* ptr2 = root()->Realloc(
-      ptr, root()->AdjustSizeForExtrasSubtract(9 * internal::kMaxBucketed), "");
+  void* ptr2 = root()->Realloc(ptr,
+                               root()->AdjustSizeForExtrasSubtract(
+                                   9 * BucketIndexLookup::kMaxBucketSize),
+                               "");
 
   ASSERT_EQ(ptr, ptr2);
-  EXPECT_EQ(expected_allocated_size + 9 * internal::kMaxBucketed,
+  EXPECT_EQ(expected_allocated_size + 9 * BucketIndexLookup::kMaxBucketSize,
             root()->get_total_size_of_allocated_bytes());
 
-  ptr2 = root()->Realloc(
-      ptr, root()->AdjustSizeForExtrasSubtract(10 * internal::kMaxBucketed),
-      "");
+  ptr2 = root()->Realloc(ptr,
+                         root()->AdjustSizeForExtrasSubtract(
+                             10 * BucketIndexLookup::kMaxBucketSize),
+                         "");
 
   ASSERT_EQ(ptr, ptr2);
-  EXPECT_EQ(expected_allocated_size + 10 * internal::kMaxBucketed,
+  EXPECT_EQ(expected_allocated_size + 10 * BucketIndexLookup::kMaxBucketSize,
             root()->get_total_size_of_allocated_bytes());
 
   root()->Free(ptr);
@@ -1195,19 +1195,12 @@ TEST_P(PartitionAllocThreadCacheTest, DISABLED_DynamicSizeThresholdPurge) {
 }
 
 TEST_P(PartitionAllocThreadCacheTest, ClearFromTail) {
-  auto count_items = [this](ThreadCache* tcache, size_t index) {
-    const internal::PartitionFreelistDispatcher* freelist_dispatcher =
-        this->root()->get_freelist_dispatcher();
+  auto count_items = [](ThreadCache* tcache, size_t index) {
     uint8_t count = 0;
     auto* head = tcache->bucket_for_testing(index).freelist_head;
     while (head) {
-#if PA_BUILDFLAG(USE_FREELIST_DISPATCHER)
-      head = freelist_dispatcher->GetNextForThreadCacheTrue(
-          head, tcache->bucket_for_testing(index).slot_size);
-#else
-      head = freelist_dispatcher->GetNextForThreadCache<true>(
-          head, tcache->bucket_for_testing(index).slot_size);
-#endif  // PA_BUILDFLAG(USE_FREELIST_DISPATCHER)
+      head = head->GetNextForThreadCache(
+          tcache->bucket_for_testing(index).slot_size);
       count++;
     }
     return count;
@@ -1294,33 +1287,6 @@ TEST_P(PartitionAllocThreadCacheTest, MAYBE_Bookkeeping) {
   EXPECT_EQ(root()->get_total_size_of_allocated_bytes(),
             expected_allocated_size);
   tcache->Purge();
-}
-
-TEST_P(PartitionAllocThreadCacheTest, TryPurgeNoAllocs) {
-  auto* tcache = root()->thread_cache_for_testing();
-  tcache->TryPurge();
-}
-
-TEST_P(PartitionAllocThreadCacheTest, TryPurgeMultipleCorrupted) {
-  auto* tcache = root()->thread_cache_for_testing();
-
-  void* ptr =
-      root()->Alloc(root()->AdjustSizeForExtrasSubtract(kMediumSize), "");
-
-  auto* medium_bucket = root()->buckets + SizeToIndex(kMediumSize);
-
-  auto* curr = medium_bucket->active_slot_spans_head->get_freelist_head();
-  const internal::PartitionFreelistDispatcher* freelist_dispatcher =
-      root()->get_freelist_dispatcher();
-#if PA_BUILDFLAG(USE_FREELIST_DISPATCHER)
-  curr = freelist_dispatcher->GetNextForThreadCacheTrue(curr, kMediumSize);
-#else
-  curr = freelist_dispatcher->GetNextForThreadCache<true>(curr, kMediumSize);
-#endif  // PA_BUILDFLAG(USE_FREELIST_DISPATCHER)
-  freelist_dispatcher->CorruptNextForTesting(curr, 0x12345678);
-  tcache->TryPurge();
-  freelist_dispatcher->SetNext(curr, nullptr);
-  root()->Free(ptr);
 }
 
 TEST_P(PartitionAllocThreadCacheTest, AllocationRecording) {

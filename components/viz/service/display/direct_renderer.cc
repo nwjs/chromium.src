@@ -57,13 +57,6 @@ namespace viz {
 
 namespace {
 
-// Allow skipping Begin/EndDraw on the shared image backing for non-root render
-// passes if the computed update rect would mean nothing would be drawn.
-// This is a kill switch in case something depends on an empty update.
-BASE_FEATURE(kAllowSkipEmptyNonrootRenderPassDraws,
-             "AllowSkipEmptyNonrootRenderPassDraws",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 // Enum used for UMA histogram. These enum values must not be changed or
 // reused.
 enum class RenderPassDrawRectAssign {
@@ -131,10 +124,10 @@ gfx::Rect DirectRenderer::MoveFromDrawToWindowSpace(
   return window_rect;
 }
 
-const DrawQuad* DirectRenderer::CanPassBeDrawnDirectly(
+std::optional<const DrawQuad*> DirectRenderer::CanPassBeDrawnDirectly(
     const AggregatedRenderPass* pass,
     const RenderPassRequirements& requirements) {
-  return nullptr;
+  return std::nullopt;
 }
 
 void DirectRenderer::SetOutputSurfaceClipRect(const gfx::Rect& clip_rect) {
@@ -196,11 +189,11 @@ void DirectRenderer::DecideRenderPassAllocationsForFrame(
     // If there's a copy request, we need an explicit renderpass backing so
     // only try to draw directly if there are no copy requests.
     if (!is_root && pass->copy_requests.empty()) {
-      if (const DrawQuad* quad =
+      if (std::optional<const DrawQuad*> quad =
               CanPassBeDrawnDirectly(pass.get(), requirements)) {
         // If the render pass is drawn directly, it will not be drawn from as
         // a render pass so it's not added to the map.
-        render_pass_bypass_quads_[pass->id] = quad;
+        render_pass_bypass_quads_[pass->id] = quad.value();
         continue;
       }
     }
@@ -437,16 +430,6 @@ void DirectRenderer::DrawFrame(
 
   if (overlay_processor_)
     overlay_processor_->ScheduleOverlays(resource_provider_);
-
-  // Total non-root render pass count, excluding root render pass and bypassed
-  // render passes.
-  auto nonroot_render_pass_count = render_passes_in_draw_order->size() - 1 -
-                                   render_pass_bypass_quads_.size();
-  if (nonroot_render_pass_count > 0) {
-    UMA_HISTOGRAM_BOOLEAN(
-        "Compositing.DirectRenderer.SkipAllNonRootRenderPassesPerFrame",
-        skipped_render_pass_ids_.size() == nonroot_render_pass_count);
-  }
 
   // The current drawing frame is valid only during the duration of this
   // function. Clear the pointers held inside to avoid holding dangling
@@ -698,13 +681,7 @@ void DirectRenderer::DrawRenderPass(const AggregatedRenderPass* render_pass) {
   TRACE_EVENT1("viz", "DirectRenderer::DrawRenderPass", "NumberOfQuads",
                render_pass->quad_list.size());
 
-  bool can_skip_rp = CanSkipRenderPass(render_pass);
-  if (render_pass != current_frame()->root_render_pass) {
-    UMA_HISTOGRAM_BOOLEAN("Compositing.DirectRenderer.SkipNonRootRenderPass",
-                          can_skip_rp);
-  }
-
-  if (can_skip_rp) {
+  if (CanSkipRenderPass(render_pass)) {
     skipped_render_pass_ids_.insert(render_pass->id);
     return;
   }
@@ -727,8 +704,7 @@ void DirectRenderer::DrawRenderPass(const AggregatedRenderPass* render_pass) {
     render_pass_scissor_in_draw_space.Intersect(*output_surface_clip_rect_);
   }
 
-  if (!is_root_render_pass && render_pass_scissor_in_draw_space.IsEmpty() &&
-      base::FeatureList::IsEnabled(kAllowSkipEmptyNonrootRenderPassDraws)) {
+  if (!is_root_render_pass && render_pass_scissor_in_draw_space.IsEmpty()) {
     // If the scissor rect is empty, we will end up skipping all the draw quads,
     // so there is no work to do.
     return;
@@ -870,12 +846,14 @@ DirectRenderer::CalculateRenderPassRequirements(
   // All root render pass backings allocated by the renderer needs to eventually
   // go into some composition tree. Other things that own/allocate the root pass
   // backing include the output device and buffer queue.
-  // Windows also can support scanout backings for non-root passes to optimize
-  // partially delegated compositing iff they will not be read in Viz.
-  requirements.is_scanout =
-      is_root || (features::IsDelegatedCompositingEnabled() &&
-                  render_pass->is_from_surface_root_pass &&
-                  !render_pass->will_backing_be_read_by_viz);
+  requirements.is_scanout = is_root;
+  if (IsDelegatedCompositingSupportedAndEnabled(
+          output_surface_->capabilities().dc_support_level)) {
+    // Windows also can support scanout backings for non-root passes to optimize
+    // partially delegated compositing iff they will not be read in Viz.
+    requirements.is_scanout |= render_pass->is_from_surface_root_pass &&
+                               !render_pass->will_backing_be_read_by_viz;
+  }
 
   requirements.scanout_dcomp_surface =
       requirements.is_scanout && render_pass->needs_synchronous_dcomp_commit;

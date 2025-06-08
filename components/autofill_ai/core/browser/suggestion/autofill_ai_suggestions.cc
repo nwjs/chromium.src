@@ -160,7 +160,7 @@ std::vector<Suggestion> GenerateFillingSuggestionWithLabels(
   // Initialize the output using `suggestions_with_metadata`.
   std::vector<Suggestion> suggestions_with_labels;
   suggestions_with_labels.reserve(n_suggestions);
-  for (SuggestionWithMetadata& s : std::move(suggestions_with_metadata)) {
+  for (SuggestionWithMetadata& s : suggestions_with_metadata) {
     suggestions_with_labels.push_back(std::move(s.suggestion));
   }
 
@@ -322,7 +322,7 @@ std::vector<Suggestion> CreateFillingSuggestions(
                   autofill_field->format_string()));
       const std::u16string normalized_field_content =
           autofill::AutofillProfileComparator::NormalizeForComparison(
-              autofill_field->value(autofill::ValueSemantics::kCurrent));
+              autofill_field->value());
       if (!normalized_attribute.starts_with(normalized_field_content)) {
         continue;
       }

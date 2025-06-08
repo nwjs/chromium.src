@@ -14,6 +14,12 @@ enum DeletedAccountUIConstants {
   static let padding: CGFloat = 8
 }
 
+// Store in NSUserDefaults that the deleted account view appeared.
+func CollectMetricsInfo() {
+  guard let sharedDefaults = AppGroupHelper.groupUserDefaults() else { return }
+  sharedDefaults.set(true, forKey: "DeletedAccountUiDisplayed")
+}
+
 func SmallWidgetDeletedAccountView() -> some View {
   VStack {
     ZStack {
@@ -24,19 +30,18 @@ func SmallWidgetDeletedAccountView() -> some View {
         )
         .foregroundColor(Color("widget_search_bar_color"))
         .overlay(
-          // TODO(crbug.com/408987116): Add string to ios_widget_kit_extension_strings.
-          Text(
-            "Account removed from device. Edit the widget to select a new account."
-          )
-          .font(.subheadline)
-          .foregroundColor(Color("widget_text_color"))
-          .multilineTextAlignment(.center)
-          .padding(DeletedAccountUIConstants.padding)
+          Text("IDS_IOS_WIDGET_KIT_EXTENSION_DELETED_ACCOUNT")
+            .font(.subheadline)
+            .foregroundColor(Color("widget_text_color"))
+            .multilineTextAlignment(.center)
+            .padding(DeletedAccountUIConstants.padding)
         )
     }
   }
   .crContainerBackground(Color("widget_background_color").unredacted())
-
+  .onAppear {
+    CollectMetricsInfo()
+  }
 }
 
 func MediumWidgetDeletedAccountView() -> some View {
@@ -54,18 +59,17 @@ func MediumWidgetDeletedAccountView() -> some View {
               .clipShape(Circle())
               .padding(.top, DeletedAccountUIConstants.padding)
               .unredacted()
-            // TODO(crbug.com/408987116): Add string to ios_widget_kit_extension_strings.
-            Text(
-              "Account removed from device. Edit the widget to select a new account."
-            )
-            .font(.subheadline)
-            .foregroundColor(Color("widget_text_color"))
-            .multilineTextAlignment(.center)
-            .padding(DeletedAccountUIConstants.padding)
+            Text("IDS_IOS_WIDGET_KIT_EXTENSION_DELETED_ACCOUNT")
+              .font(.subheadline)
+              .foregroundColor(Color("widget_text_color"))
+              .multilineTextAlignment(.center)
+              .padding(DeletedAccountUIConstants.padding)
           }
         )
     }
   }
   .crContainerBackground(Color("widget_background_color").unredacted())
-
+  .onAppear {
+    CollectMetricsInfo()
+  }
 }

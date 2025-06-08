@@ -18,6 +18,7 @@
 namespace webnn::dml {
 
 class Adapter;
+class CommandQueue;
 class CommandRecorder;
 class TensorImplDml;
 
@@ -59,6 +60,8 @@ class COMPONENT_EXPORT(WEBNN_SERVICE) ContextImplDml final
   // gracefully terminate the GPU process.
   void HandleContextLostOrCrash(std::string_view message_for_log, HRESULT hr);
 
+  CommandQueue* GetCommandQueue() const;
+
   void RemoveDeviceForTesting();
 
   // The test cases can override the graph/tensor creating behavior by
@@ -85,8 +88,9 @@ class COMPONENT_EXPORT(WEBNN_SERVICE) ContextImplDml final
       mojo::PendingAssociatedReceiver<mojom::WebNNGraph> receiver,
       mojom::GraphInfoPtr graph_info,
       WebNNGraphImpl::ComputeResourceInfo compute_resource_info,
-      base::flat_map<uint64_t, std::unique_ptr<WebNNConstantOperand>>
+      base::flat_map<OperandId, std::unique_ptr<WebNNConstantOperand>>
           constant_operands,
+      base::flat_map<OperandId, WebNNTensorImpl*> constant_tensor_operands,
       CreateGraphImplCallback callback) override;
 
   void CreateTensorImpl(

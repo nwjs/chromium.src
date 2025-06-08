@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import {AnnotationMode, Ink2Manager, UserAction} from 'chrome-extension://mhjfbmdgcfjbbpaeojofohoefgiehjai/pdf_viewer_wrapper.js';
+import {AnnotationMode, PluginController, PluginControllerEventType, UserAction} from 'chrome-extension://mhjfbmdgcfjbbpaeojofohoefgiehjai/pdf_viewer_wrapper.js';
 import {assert} from 'chrome://resources/js/assert.js';
 import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
 import {isVisible, microtasksFinished} from 'chrome://webui-test/test_util.js';
@@ -15,9 +15,8 @@ setupTestMockPluginForInk();
 const mockMetricsPrivate = setupMockMetricsPrivate();
 
 chrome.test.runTests([
-  // Test that PDF annotations and the new ink mode are enabled.
+  // Test that Ink2 mode are enabled.
   function testAnnotationsEnabled() {
-    chrome.test.assertTrue(loadTimeData.getBoolean('pdfAnnotationsEnabled'));
     chrome.test.assertTrue(loadTimeData.getBoolean('pdfInk2Enabled'));
     // When ink2 and annotations are enabled in loadTimeData, the ink2
     // button section displays.
@@ -228,10 +227,12 @@ chrome.test.runTests([
     chrome.test.assertTrue(!!textbox);
     chrome.test.assertFalse(isVisible(textbox));
 
-    // Textbox message from backend makes textbox visible.
-    Ink2Manager.getInstance().dispatchEvent(new CustomEvent(
-        'update-text-box',
-        {detail: {height: 100, locationX: 400, locationY: 300, width: 100}}));
+    // Simulate clicking the plugin. pdf-viewer should notify Ink2Manager to
+    // initialize an annotation, which shows the box.
+    PluginController.getInstance().getEventTarget().dispatchEvent(
+        new CustomEvent(
+            PluginControllerEventType.PLUGIN_MESSAGE,
+            {detail: {type: 'sendClickEvent', x: 50, y: 50}}));
     await microtasksFinished();
     chrome.test.assertTrue(isVisible(textbox));
 

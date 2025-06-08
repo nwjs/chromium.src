@@ -464,32 +464,12 @@ bool IpProtectionCoreHost::CanIpProtectionBeEnabled() {
              switches::kDisableIpProtectionProxy);
 }
 
-bool IpProtectionCoreHost::ShouldDisableIpProtectionForManagedForTesting() {
-  return ShouldDisableIpProtectionForManaged();
+bool IpProtectionCoreHost::ShouldDisableIpProtectionForEnterpriseForTesting() {
+  return ShouldDisableIpProtectionForEnterprise();
 }
 
-bool IpProtectionCoreHost::ShouldDisableIpProtectionForManaged() {
-  if (!tracking_protection_settings_->IsIpProtectionManaged()) {
-    return false;
-  }
-  if (IsLikelyDogfoodClient()) {
-    // For Googler/Dogfood devices we don't want to disable IP Protection by
-    // default so that we can carry out dogfood experiments via Finch
-    // instead of also needing to coordinate internal enterprise policy
-    // rollouts.
-    return false;
-  }
-
-  // If the user's enterprise has a policy for IP, use this regardless of
-  // user UX feature status. Enterprises should have the ability to enable
-  // or disable IPP even when users do not have UX access to the feature.
-  if (pref_service_->IsManagedPreference(prefs::kIpProtectionEnabled)) {
-    return !pref_service_->GetBoolean(prefs::kIpProtectionEnabled);
-  }
-
-  // Disable IP Protection for managed browsers and managed devices when the
-  // admins haven't explicitly opted in to it via enterprise policy.
-  return true;
+bool IpProtectionCoreHost::ShouldDisableIpProtectionForEnterprise() {
+  return tracking_protection_settings_->IsIpProtectionDisabledForEnterprise();
 }
 
 bool IpProtectionCoreHost::IsIpProtectionEnabled() {
@@ -497,7 +477,7 @@ bool IpProtectionCoreHost::IsIpProtectionEnabled() {
     return false;
   }
 
-  if (ShouldDisableIpProtectionForManaged()) {
+  if (ShouldDisableIpProtectionForEnterprise()) {
     return false;
   }
 

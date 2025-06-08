@@ -17,6 +17,12 @@ load("//project.star", "settings")
 ci.defaults.set(
     executable = ci.DEFAULT_EXECUTABLE,
     builder_group = "chromium.android",
+    builder_config_settings = builder_config.ci_settings(
+        retry_failed_shards = True,
+        # Android emulator tasks often flake during emulator start-up, which
+        # leads to the whole shard being marked as invalid.
+        retry_invalid_shards = True,
+    ),
     pool = ci.DEFAULT_POOL,
     cores = 8,
     os = os.LINUX_DEFAULT,
@@ -413,6 +419,9 @@ ci.builder(
     cq_mirrors_console_view = "mirrors",
     contact_team_email = "clank-engprod@google.com",
     execution_timeout = 7 * time.hour,
+    # enable remote link to mitigate bot died https://crbug.com/418817397
+    siso_output_local_strategy = "greedy",
+    siso_remote_linking = True,
 )
 
 ci.builder(
@@ -4482,9 +4491,7 @@ ci.builder(
     targets_settings = targets.settings(
         os_type = targets.os_type.ANDROID,
     ),
-    # TODO(crbug.com/376748979 ): Enable gardening once tests are stable
-    gardener_rotations = args.ignore_default(None),
-    # tree_closing = True,
+    tree_closing = True,
     console_view_entry = consoles.console_view_entry(
         category = "builder_tester|x64",
         short_name = "15T-L",
@@ -4618,176 +4625,6 @@ ci.builder(
     ),
     contact_team_email = "clank-engprod@google.com",
     execution_timeout = 4 * time.hour,
-)
-
-ci.thin_tester(
-    name = "android-15-tablet-x64-dbg-tests",
-    description_html = "Run chromium tests on Android 15 tablet emulators.",
-    triggered_by = ["Android x64 Builder (dbg)"],
-    builder_spec = builder_config.builder_spec(
-        execution_mode = builder_config.execution_mode.TEST,
-        gclient_config = builder_config.gclient_config(
-            config = "chromium",
-            apply_configs = [
-                "android",
-            ],
-        ),
-        chromium_config = builder_config.chromium_config(
-            config = "main_builder",
-            apply_configs = ["mb"],
-            build_config = builder_config.build_config.DEBUG,
-            target_arch = builder_config.target_arch.INTEL,
-            target_bits = 64,
-            target_platform = builder_config.target_platform.ANDROID,
-        ),
-        android_config = builder_config.android_config(
-            config = "base_config",
-        ),
-        build_gs_bucket = "chromium-android-archive",
-    ),
-    targets = targets.bundle(
-        targets = [
-            "android_lff_emulator_gtests",
-        ],
-        mixins = [
-            "15-tablet-x64-emulator",
-            "emulator-8-cores",
-            "has_native_resultdb_integration",
-            "linux-jammy",
-            "x86-64",
-        ],
-        per_test_modifications = {
-            "android_browsertests": targets.mixin(
-                args = [
-                    # https://crbug.com/375086487
-                    "--gtest_filter=-InstallableManagerBrowserTest.CheckManifestWithIconThatIsTooSmall",
-                ],
-                swarming = targets.swarming(
-                    shards = 6,
-                ),
-            ),
-            "base_unittests": targets.mixin(
-                args = [
-                    "--test-launcher-filter-file=../../testing/buildbot/filters/android.emulator_14_15_16.base_unittests.filter",
-                ],
-            ),
-            "content_browsertests": targets.mixin(
-                args = [
-                    "--test-launcher-filter-file=../../testing/buildbot/filters/android.emulator_15_tablet.content_browsertests.filter",
-                ],
-                # TODO(crbug.com/388525813) Remove experiment once suite is stable
-                experiment_percentage = 100,
-                swarming = targets.swarming(
-                    shards = 40,
-                ),
-            ),
-            "chrome_public_test_apk": targets.mixin(
-                args = [
-                    "--test-launcher-filter-file=../../testing/buildbot/filters/android.emulator_15_tablet.chrome_public_test_apk.filter",
-                    "--emulator-debug-tags=all",
-                ],
-            ),
-            "chrome_public_unit_test_apk": targets.mixin(
-                args = [
-                    "--test-launcher-filter-file=../../testing/buildbot/filters/android.emulator_15_tablet.chrome_public_unit_test_apk.filter",
-                ],
-            ),
-            "content_unittests": targets.mixin(
-                args = [
-                    "--test-launcher-filter-file=../../testing/buildbot/filters/android.emulator_15_16.content_unittests.filter",
-                ],
-            ),
-            "perfetto_unittests": targets.mixin(
-                args = [
-                    # TODO(crbug.com/40201873): Fix the failed test
-                    "--gtest_filter=-ScopedDirTest.CloseOutOfScope",
-                ],
-            ),
-            "gl_tests_validating": targets.mixin(
-                args = [
-                    "--test-launcher-filter-file=../../testing/buildbot/filters/android.emulator_12_12l_13.gl_tests.filter",
-                ],
-            ),
-            "gwp_asan_unittests": targets.mixin(
-                args = [
-                    "--test-launcher-filter-file=../../testing/buildbot/filters/android.emulator_15_16.gwp_asan_unittests.filter",
-                ],
-            ),
-            "unit_tests": targets.mixin(
-                args = [
-                    "--test-launcher-filter-file=../../testing/buildbot/filters/android.emulator_14_15_16.unit_tests.filter",
-                ],
-            ),
-        },
-    ),
-    targets_settings = targets.settings(
-        os_type = targets.os_type.ANDROID,
-    ),
-    # TODO(crbug.com/376748979 ): Enable gardening once tests are stable
-    gardener_rotations = args.ignore_default(None),
-    console_view_entry = consoles.console_view_entry(
-        category = "tester|tablet",
-        short_name = "15T",
-    ),
-    contact_team_email = "clank-engprod@google.com",
-)
-
-ci.thin_tester(
-    name = "android-15-tablet-landscape-x64-dbg-tests",
-    description_html = "Run chromium tests on Android 15 tablet emulators " +
-                       "in Landscape mode.",
-    triggered_by = ["Android x64 Builder (dbg)"],
-    builder_spec = builder_config.builder_spec(
-        execution_mode = builder_config.execution_mode.TEST,
-        gclient_config = builder_config.gclient_config(
-            config = "chromium",
-            apply_configs = [
-                "android",
-            ],
-        ),
-        chromium_config = builder_config.chromium_config(
-            config = "main_builder",
-            apply_configs = ["mb"],
-            build_config = builder_config.build_config.DEBUG,
-            target_arch = builder_config.target_arch.INTEL,
-            target_bits = 64,
-            target_platform = builder_config.target_platform.ANDROID,
-        ),
-        android_config = builder_config.android_config(
-            config = "base_config",
-        ),
-        build_gs_bucket = "chromium-android-archive",
-    ),
-    targets = targets.bundle(
-        targets = [
-            "android_lff_landscape_emulator_gtests",
-        ],
-        mixins = [
-            "15-tablet-landscape-x64-emulator",
-            "emulator-8-cores",
-            "has_native_resultdb_integration",
-            "linux-jammy",
-            "x86-64",
-        ],
-        per_test_modifications = {
-            "chrome_public_test_apk": targets.mixin(
-                args = [
-                    "--test-launcher-filter-file=../../testing/buildbot/filters/android.emulator_15_tablet_landscape.chrome_public_test_apk.filter",
-                    "--emulator-debug-tags=all",
-                ],
-            ),
-        },
-    ),
-    targets_settings = targets.settings(
-        os_type = targets.os_type.ANDROID,
-    ),
-    # TODO(crbug.com/376748979 ): Enable gardening once tests are stable
-    gardener_rotations = args.ignore_default(None),
-    console_view_entry = consoles.console_view_entry(
-        category = "tester|tablet",
-        short_name = "15T-L",
-    ),
-    contact_team_email = "clank-engprod@google.com",
 )
 
 ci.builder(

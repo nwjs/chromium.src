@@ -126,16 +126,21 @@ BASE_FEATURE(kBorealis, "Borealis", base::FEATURE_DISABLED_BY_DEFAULT);
 #endif
 
 #if BUILDFLAG(CHROME_ROOT_STORE_CERT_MANAGEMENT_UI)
+// WARNING: These features are launched and the old code paths are in the
+// process of being removed. Attempting to run Chrome with the features
+// disabled will likely break.
+// TODO(crbug.com/390333881): Remove the flags once all references have been
+// cleaned up.
 BASE_FEATURE(kEnableCertManagementUIV2,
-             "EnableCertManagementUIV2",
+             "EnableCertManagementUIV2_LAUNCHED",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kEnableCertManagementUIV2Write,
-             "EnableCertManagementUIV2Write",
+             "EnableCertManagementUIV2Write_LAUNCHED",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kEnableCertManagementUIV2EditCerts,
-             "EnableCertManagementUIV2EditCerts",
+             "EnableCertManagementUIV2EditCerts_LAUNCHED",
              base::FEATURE_ENABLED_BY_DEFAULT);
 #endif
 
@@ -201,6 +206,19 @@ BASE_FEATURE(kDbdRevampDesktop,
 // Whether to allow installed-by-default web apps to be installed or not.
 BASE_FEATURE(kPreinstalledWebAppInstallation,
              "DefaultWebAppInstallation",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+// Whether to force migrate preinstalled web apps whenever the old Chrome app
+// they're replacing is detected, even if the web app is already installed.
+BASE_FEATURE(kPreinstalledWebAppAlwaysMigrate,
+             "PreinstalledWebAppAlwaysMigrate",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Whether to force migrate the calculator preinstalled web app whenever the
+// old Chrome app is detected, even if the calculator web app is already
+// installed.
+BASE_FEATURE(kPreinstalledWebAppAlwaysMigrateCalculator,
+             "PreinstalledWebAppAlwaysMigrateCalculator",
              base::FEATURE_ENABLED_BY_DEFAULT);
 #endif
 
@@ -309,12 +327,14 @@ BASE_FEATURE(kForcedAppRelaunchOnPlaceholderUpdate,
 // of languages.
 BASE_FEATURE(kGeoLanguage, "GeoLanguage", base::FEATURE_DISABLED_BY_DEFAULT);
 
+// Controls whether the actor component of Glic is enabled.
+BASE_FEATURE(kGlicActor, "GlicActor", base::FEATURE_DISABLED_BY_DEFAULT);
+const base::FeatureParam<base::TimeDelta> kGlicActorActorObservationDelay{
+    &kGlicActor, "glic-actor-observation-delay", base::Seconds(3)};
+
 #if BUILDFLAG(ENABLE_GLIC)
 // Controls whether the Glic feature is enabled.
 BASE_FEATURE(kGlic, "Glic", base::FEATURE_DISABLED_BY_DEFAULT);
-
-// Controls whether the actor component of Glic is enabled.
-BASE_FEATURE(kGlicActor, "GlicActor", base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Controls whether the Glic feature is always detached.
 BASE_FEATURE(kGlicDetached, "GlicDetached", base::FEATURE_ENABLED_BY_DEFAULT);
@@ -371,14 +391,25 @@ const base::FeatureParam<std::string> kGlicDefaultHotkey{
 BASE_FEATURE(kGlicURLConfig,
              "GlicURLConfig",
              base::FEATURE_DISABLED_BY_DEFAULT);
-const base::FeatureParam<std::string> kGlicGuestURL{&kGlicURLConfig,
-                                                    "glic-guest-url", ""};
+const base::FeatureParam<std::string> kGlicGuestURL{
+    &kGlicURLConfig, "glic-guest-url",
+#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
+    "https://gemini.google.com/glic"
+#else
+    ""
+#endif
+};
 
 BASE_FEATURE_PARAM(std::string,
                    kGlicUserStatusUrl,
                    &kGlicUserStatusCheck,
                    "glic-user-status-url",
-                   "");
+#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
+                   "https://geminiweb-pa.googleapis.com/v1/glicStatus"
+#else
+                   ""
+#endif
+);
 
 BASE_FEATURE_PARAM(base::TimeDelta,
                    kGlicUserStatusRequestDelay,
@@ -390,8 +421,13 @@ BASE_FEATURE_PARAM(std::string,
                    kGeminiOAuth2Scope,
                    &kGlicUserStatusCheck,
                    "glic-user-status-oauth2-scope",
-                   "");
+                   "https://www.googleapis.com/auth/gemini");
 
+BASE_FEATURE_PARAM(double,
+                   kGlicUserStatusRequestDelayJitter,
+                   &kGlicUserStatusCheck,
+                   "glic-user-status-request-delay-jitter",
+                   0.005);
 BASE_FEATURE(kGlicFreURLConfig,
              "GlicFreURLConfig",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -399,7 +435,12 @@ BASE_FEATURE_PARAM(std::string,
                    kGlicFreURL,
                    &kGlicFreURLConfig,
                    "glic-fre-url",
-                   "");
+#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
+                   "https://gemini.google.com/glic/intro?"
+#else
+                   ""
+#endif
+);
 
 BASE_FEATURE(kGlicLearnMoreURLConfig,
              "GlicLearnMoreURLConfig",
@@ -474,11 +515,10 @@ BASE_FEATURE(kGlicDebugWebview,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kGlicScrollTo, "GlicScrollTo", base::FEATURE_DISABLED_BY_DEFAULT);
-
-// Controls whether the Glic UI container can be resized by the user
-BASE_FEATURE(kGlicUserResize,
-             "GlicUserResize",
-             base::FEATURE_ENABLED_BY_DEFAULT);
+// Controls whether we enforce that documentId (a currently optional parameter)
+// is set (and fail the request if it's not).
+const base::FeatureParam<bool> kGlicScrollToEnforceDocumentId{
+    &kGlicScrollTo, "glic-scroll-to-enforce-document-id", false};
 
 // Controls whether the web client should resize itself to fit the window.
 BASE_FEATURE(kGlicSizingFitWindow,
@@ -511,14 +551,16 @@ BASE_FEATURE(kGlicWarmMultiple,
 
 BASE_FEATURE(kGlicTieredRollout,
              "GlicTieredRollout",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-const base::FeatureParam<std::string> kGlicTieredRolloutAllowedGroup{
-    &kGlicTieredRollout, "glic-tiered-rollout-allowed-group", ""};
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kGlicRollout, "GlicRollout", base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kGlicUserStatusCheck,
              "GlicUserStatusCheck",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kGlicClosedCaptioning,
+             "GlicClosedCaptioning",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kGlicPageContextEligibility,
@@ -531,40 +573,15 @@ const base::FeatureParam<bool> kGlicPageContextEligibilityAllowNoMetadata{
 BASE_FEATURE(kGlicUnloadOnClose,
              "GlicUnloadOnClose",
              base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kGlicApiActivationGating,
+             "GlicApiActivationGating",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kGlicGetUserProfileInfoApiActivationGating,
+             "GlicGetUserProfileInfoApiActivationGating",
+             base::FEATURE_ENABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(ENABLE_GLIC)
-
-BASE_FEATURE(kTabstripComboButton,
-             "TabstripComboButton",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
-bool IsTabSearchMoving() {
-  return base::FeatureList::IsEnabled(features::kTabstripComboButton);
-}
-
-const base::FeatureParam<bool> kTabstripComboButtonHasBackground{
-    &kTabstripComboButton, "has_background", false};
-
-const base::FeatureParam<bool> kTabstripComboButtonHasReverseButtonOrder{
-    &kTabstripComboButton, "reverse_button_order", false};
-
-const base::FeatureParam<bool> kTabSearchToolbarButton{
-    &kTabstripComboButton, "tab_search_toolbar_button", false};
-
-bool HasTabstripComboButtonWithBackground() {
-  return IsTabSearchMoving() &&
-         features::kTabstripComboButtonHasBackground.Get() &&
-         !features::kTabSearchToolbarButton.Get();
-}
-
-bool HasTabstripComboButtonWithReverseButtonOrder() {
-  return IsTabSearchMoving() &&
-         features::kTabstripComboButtonHasReverseButtonOrder.Get() &&
-         !features::kTabSearchToolbarButton.Get();
-}
-
-bool HasTabSearchToolbarButton() {
-  return IsTabSearchMoving() && features::kTabSearchToolbarButton.Get();
-}
 
 // Force Privacy Guide to be available even if it would be unavailable
 // otherwise. This is meant for development and test purposes only.
@@ -833,11 +850,6 @@ BASE_FEATURE(kHttpsFirstDialogUi,
              "HttpsFirstDialogUi",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-// Enables the new interstitial UI for HTTPS-First Mode.
-BASE_FEATURE(kHttpsFirstModeInterstitialAugust2024Refresh,
-             "HttpsFirstModeInterstitialAugust2024Refresh",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 // Kill switch for crbug.com/1414633.
 BASE_FEATURE(kHttpsFirstModeForAdvancedProtectionUsers,
              "HttpsOnlyModeForAdvancedProtectionUsers",
@@ -879,12 +891,6 @@ BASE_FEATURE(kImmersiveFullscreen,
              "ImmersiveFullscreen",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-// Moves the tab strip into the titlebar. kImmersiveFullscreen must be enabled
-// for this feature to have an effect.
-BASE_FEATURE(kImmersiveFullscreenTabs,
-             "ImmersiveFullscreenTabs",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 // Enables immersive fullscreen mode for PWA windows. PWA windows will use
 // immersive fullscreen mode if and only if both this and kImmersiveFullscreen
 // are enabled. PWA windows currently do not use ImmersiveFullscreenTabs even if
@@ -894,20 +900,6 @@ BASE_FEATURE(kImmersiveFullscreenPWAs,
              base::FEATURE_ENABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(IS_MAC)
 
-#if BUILDFLAG(IS_CHROMEOS)
-// Enables scraping of password-expiry information during SAML login flow, which
-// can lead to an in-session flow for changing SAML password if it has expired.
-// This is safe to enable by default since it does not cause the password-expiry
-// information to be stored, or any user-visible change - in order for anything
-// to happen, the domain administrator has to intentionally send this extra
-// info in the SAML response, and enable the InSessionPasswordChange policy.
-// So, this feature is just for disabling the scraping code if it causes
-// any unforeseen issues.
-BASE_FEATURE(kInSessionPasswordChange,
-             "InSessionPasswordChange",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-#endif  // BUILDFLAG(IS_CHROMEOS)
-
 #if BUILDFLAG(IS_WIN)
 // A feature that controls whether Chrome warns about incompatible applications.
 // This feature requires Windows 10 or higher to work because it depends on
@@ -916,11 +908,6 @@ BASE_FEATURE(kIncompatibleApplicationsWarning,
              "IncompatibleApplicationsWarning",
              base::FEATURE_DISABLED_BY_DEFAULT);
 #endif
-
-// Prevents the installation of non-allowlisted Isolated Web Apps.
-BASE_FEATURE(kIsolatedWebAppAllowlist,
-             "IsolatedWebAppAllowlist",
-             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Enables Isolated Web App Developer Mode, which allows developers to
 // install untrusted Isolated Web Apps.
@@ -1095,7 +1082,7 @@ BASE_FEATURE(kOverridePrefetchOnSingleton,
 // Skips requesting the Parent Access Code for reauth.
 BASE_FEATURE(kSkipParentAccessCodeForReauth,
              "SkipParentAccessCodeForReauth",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enable support for "Plugin VMs" on Chrome OS.
 BASE_FEATURE(kPluginVm, "PluginVm", base::FEATURE_DISABLED_BY_DEFAULT);
@@ -1177,6 +1164,70 @@ BASE_FEATURE(kSafetyHubThreeDotDetails,
              "SafetyHubThreeDotDetails",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
+BASE_FEATURE(kSafetyHubDisruptiveNotificationRevocation,
+             "SafetyHubDisruptiveNotificationRevocation",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+constexpr base::FeatureParam<int>
+    kSafetyHubDisruptiveNotificationRevocationExperimentVersion{
+        &kSafetyHubDisruptiveNotificationRevocation,
+        /*name=*/"experiment_version", /*default_value=*/0};
+
+constexpr base::FeatureParam<bool>
+    kSafetyHubDisruptiveNotificationRevocationShadowRun{
+        &kSafetyHubDisruptiveNotificationRevocation,
+        /*name=*/"shadow_run", /*default_value=*/true};
+
+constexpr base::FeatureParam<int>
+    kSafetyHubDisruptiveNotificationRevocationMinNotificationCount{
+        &kSafetyHubDisruptiveNotificationRevocation,
+        /*name=*/"min_notification_count", /*default_value=*/3};
+
+constexpr base::FeatureParam<double>
+    kSafetyHubDisruptiveNotificationRevocationMaxEngagementScore{
+        &kSafetyHubDisruptiveNotificationRevocation,
+        /*name=*/"max_engagement_score", /*default_value=*/0.0};
+
+constexpr base::FeatureParam<base::TimeDelta>
+    kSafetyHubDisruptiveNotificationRevocationWaitingTimeAsProposed{
+        &kSafetyHubDisruptiveNotificationRevocation,
+        /*name=*/"waiting_time_as_proposed", /*default_value=*/base::Days(0)};
+
+constexpr base::FeatureParam<int>
+    kSafetyHubDisruptiveNotificationRevocationNotificationTimeoutSeconds{
+        &kSafetyHubDisruptiveNotificationRevocation,
+        /*name=*/"notification_timeout_seconds",
+        /*default_value=*/7 * 24 * 3600};
+
+constexpr base::FeatureParam<int>
+    kSafetyHubDisruptiveNotificationRevocationMinFalsePositiveCooldown{
+        &kSafetyHubDisruptiveNotificationRevocation,
+        /*name=*/"min_false_positive_cooldown", /*default_value=*/0};
+
+constexpr base::FeatureParam<int>
+    kSafetyHubDisruptiveNotificationRevocationMaxFalsePositivePeriod{
+        &kSafetyHubDisruptiveNotificationRevocation,
+        /*name=*/"max_false_positive_period", /*default_value=*/14};
+
+// TODO(crbug.com/406472515): Site engagement score increase on navigation
+// happens at the same time as us detecting the navigation. If the score delta
+// is 0, the initial navigation won't trigger marking the site as false
+// positive.
+constexpr base::FeatureParam<double>
+    kSafetyHubDisruptiveNotificationRevocationMinSiteEngagementScoreDelta{
+        &kSafetyHubDisruptiveNotificationRevocation,
+        /*name=*/"min_engagement_score_delta", /*default_value=*/0.0};
+
+constexpr base::FeatureParam<int>
+    kSafetyHubDisruptiveNotificationRevocationUserRegrantWaitingPeriod{
+        &kSafetyHubDisruptiveNotificationRevocation,
+        /*name=*/"user_regrant_waiting_period", /*default_value=*/7};
+
+constexpr base::FeatureParam<int>
+    kSafetyHubDisruptiveNotificationRevocationWaitingForMetricsDays{
+        &kSafetyHubDisruptiveNotificationRevocation,
+        /*name=*/"waiting_for_metrics_days", /*default_value=*/7};
+
 #if BUILDFLAG(IS_ANDROID)
 // Enables Safety Hub card in magic stack.
 BASE_FEATURE(kSafetyHubMagicStack,
@@ -1234,7 +1285,7 @@ BASE_FEATURE(kSafetyHubUnifiedPasswordsModule,
 // Enables Safety Hub services on start up feature.
 BASE_FEATURE(kSafetyHubServicesOnStartUp,
              "SafetyHubServicesOnStartUp",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables or disables the Trust Safety Sentiment Survey for Safety Hub.
 BASE_FEATURE(kSafetyHubTrustSafetySentimentSurvey,
@@ -1275,7 +1326,7 @@ const base::FeatureParam<base::TimeDelta> kPasswordCheckOverdueInterval{
 // schedule for Mondays.
 COMPONENT_EXPORT(CHROME_FEATURES)
 const base::FeatureParam<int> kPasswordCheckMonWeight{
-    &kSafetyHub, "password-check-mon-weight", 8};
+    &kSafetyHub, "password-check-mon-weight", 6};
 
 // Weight to randomly schedule for Tuesdays.
 COMPONENT_EXPORT(CHROME_FEATURES)
@@ -1411,6 +1462,14 @@ BASE_FEATURE(kProcessPerSiteSkipDevtoolsUsers,
 BASE_FEATURE(kProcessPerSiteSkipEnterpriseUsers,
              "ProcessPerSiteSkipEnterpriseUsers",
              base::FEATURE_ENABLED_BY_DEFAULT);
+
+// Restricts "ProcessPerSiteUpToMainFrameThreshold" to the default search
+// engine. Has no effect if "ProcessPerSiteUpToMainFrameThreshold" is disabled.
+// Note: The "ProcessPerSiteUpToMainFrameThreshold" feature is defined in
+// //content.
+BASE_FEATURE(kProcessPerSiteForDSE,
+             "ProcessPerSiteForDSE",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 #if BUILDFLAG(IS_CHROMEOS)
 // Enables the SkyVault (cloud-first) changes, some of which are also controlled
@@ -1659,16 +1718,6 @@ BASE_FEATURE(kWebAppManifestPolicyAppIdentityUpdate,
              "WebAppManifestPolicyAppIdentityUpdate",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_CHROMEOS)
-// Enables Web Share (navigator.share)
-BASE_FEATURE(kWebShare, "WebShare", base::FEATURE_ENABLED_BY_DEFAULT);
-#endif
-
-#if BUILDFLAG(IS_MAC)
-// Enables Web Share (navigator.share) for macOS
-BASE_FEATURE(kWebShare, "WebShare", base::FEATURE_ENABLED_BY_DEFAULT);
-#endif
-
 // Restricts the WebUI scripts able to use the generated code cache according to
 // embedder-specified heuristics.
 BASE_FEATURE(kRestrictedWebUICodeCache,
@@ -1711,7 +1760,7 @@ BASE_FEATURE(kSupportsRtcWakeOver24Hours,
 // go/cros-eventbasedlogcollection-dd.
 BASE_FEATURE(kEventBasedLogUpload,
              "EventBasedLogUpload",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // A feature to enable periodic log upload migration. This includes using new
 // mechanism for collecting, exporting and uploading logs. See
@@ -1724,6 +1773,11 @@ BASE_FEATURE(kPeriodicLogUploadMigration,
 // go/teachers-on-chromeos-data.
 BASE_FEATURE(kK12AgeClassificationMetricsProvider,
              "K12AgeClassificationMetricsProvider",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// A feature to enable periodic log class management enabled policy.
+BASE_FEATURE(kClassManagementEnabledMetricsProvider,
+             "ClassManagementEnabledMetricsProvider",
              base::FEATURE_DISABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(IS_CHROMEOS)
 

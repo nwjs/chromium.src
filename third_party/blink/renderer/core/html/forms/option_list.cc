@@ -86,7 +86,7 @@ void OptionListIterator::Retreat(HTMLOptionElement* next) {
   Element* current;
   if (next) {
     DCHECK_EQ(next->OwnerSelectElement(), select_);
-    current = ElementTraversal::PreviousAbsoluteSibling(*next, &select_);
+    current = ElementTraversal::Previous(*next, &select_);
   } else {
     current = ElementTraversal::LastChild(select_);
   }
@@ -169,6 +169,18 @@ HTMLOptionElement* OptionList::FindFocusableOption(HTMLOptionElement& option,
       return &*option_list_iterator;
     }
   }
+}
+
+HTMLOptionElement* OptionList::FirstKeyboardFocusableOption() {
+  if (Empty()) {
+    return nullptr;
+  }
+  for (OptionListIterator it = begin(); it; ++it) {
+    if (it->IsKeyboardFocusableSlow(Element::UpdateBehavior::kStyleAndLayout)) {
+      return &*it;
+    }
+  }
+  return nullptr;
 }
 
 }  // namespace blink

@@ -18,9 +18,6 @@
 #include "third_party/fuzztest/src/fuzztest/domain_core.h"
 #include "third_party/fuzztest/src/fuzztest/fuzztest.h"
 
-namespace {
-constexpr size_t kPlaintextSize = 29;
-}  // namespace
 
 // Fuzz test for creating probabilistic reveal token crypter. Creating crypter
 // de-serializes an Elgamal encryption public key and ciphertext (elliptic curve
@@ -51,22 +48,25 @@ void RandomizeDoesNotCrash(const std::string& plaintext) {
   auto issuer = std::move(maybe_issuer).value();
   base::expected<ip_protection::GetProbabilisticRevealTokenResponse,
                  absl::Status>
-      maybe_response = issuer->Issue({plaintext},
-                                     /*expiration=*/base::Time::Now(),
-                                     /*next_epoch_start=*/base::Time::Now(),
-                                     /*num_tokens_with_signal=*/0,
-                                     /*epoch_id=*/"epoch-id");
+      maybe_response =
+          issuer->IssueByHashingToPoint({plaintext},
+                                        /*expiration=*/base::Time::Now(),
+                                        /*next_epoch_start=*/base::Time::Now(),
+                                        /*num_tokens_with_signal=*/0,
+                                        /*epoch_id=*/"epoch-id");
   ASSERT_TRUE(maybe_response.has_value())
       << "creating tokens failed with error: " << maybe_response.error();
   ASSERT_THAT(issuer->Tokens(), testing::SizeIs(1));
   const ip_protection::ProbabilisticRevealToken& token = issuer->Tokens()[0];
 
-  absl::StatusOr<std::unique_ptr<
-      ip_protection::IpProtectionProbabilisticRevealTokenCrypter>>
+  base::expected<
+      std::unique_ptr<
+          ip_protection::IpProtectionProbabilisticRevealTokenCrypter>,
+      absl::Status>
       maybe_crypter =
           ip_protection::IpProtectionProbabilisticRevealTokenCrypter::Create(
               issuer->GetSerializedPublicKey(), {token});
-  ASSERT_TRUE(maybe_crypter.ok());
+  ASSERT_TRUE(maybe_crypter.has_value());
   auto& crypter = maybe_crypter.value();
   ASSERT_TRUE(crypter->IsTokenAvailable());
   ASSERT_EQ(crypter->NumTokens(), std::size_t(1));
@@ -77,5 +77,4 @@ FUZZ_TEST(IpProtectionProbabilisticRevealTokenCrypterFuzzTests,
           CreateDoesNotCrash);
 
 FUZZ_TEST(IpProtectionProbabilisticRevealTokenCrypterFuzzTests,
-          RandomizeDoesNotCrash)
-    .WithDomains(fuzztest::String().WithSize(kPlaintextSize));
+          RandomizeDoesNotCrash);

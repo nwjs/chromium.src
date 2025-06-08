@@ -214,13 +214,17 @@ DynamicRangeLimit StyleBuilderConverter::ConvertDynamicRangeLimit(
       const DynamicRangeLimit limit =
           ConvertDynamicRangeLimit(state, *mix_value->Limits()[i]);
       const float fraction =
-          0.01f * mix_value->Percentages()[i]->ComputePercentage<float>(
-                      state.CssToLengthConversionData());
+          0.01f *
+          std::clamp(mix_value->Percentages()[i]->ComputePercentage<float>(
+                         state.CssToLengthConversionData()),
+                     0.f, 100.f);
       fraction_sum += fraction;
       standard_mix_sum += fraction * limit.standard_mix;
       constrained_high_mix_sum += fraction * limit.constrained_high_mix;
     }
-    CHECK_NE(fraction_sum, 0.f);
+    if (fraction_sum == 0.f) {
+      return DynamicRangeLimit(cc::PaintFlags::DynamicRangeLimit::kHigh);
+    }
     return DynamicRangeLimit(
         /*standard_mix=*/standard_mix_sum / fraction_sum,
         /*constrained_high_mix=*/constrained_high_mix_sum / fraction_sum);
@@ -316,6 +320,43 @@ FilterOperations StyleBuilderConverter::ConvertOffscreenFilterOperations(
     const CSSValue& value,
     const Font* font) {
   return FilterOperationResolver::CreateOffscreenFilterOperations(value, font);
+}
+
+StyleFlexWrapData StyleBuilderConverter::ConvertFlexWrapData(
+    StyleResolverState& state,
+    const CSSValue& value) {
+  FlexWrapMode wrap_mode = FlexWrapMode::kNowrap;
+  bool is_balanced = false;
+  uint16_t min_line_count = 1u;
+  auto process = [&](const CSSValue& value) {
+    if (const CSSPrimitiveValue* primitive =
+            DynamicTo<CSSPrimitiveValue>(value)) {
+      DCHECK(primitive->IsNumber());
+      min_line_count = ClampTo<uint16_t>(ConvertInteger(state, *primitive));
+      return;
+    }
+    const CSSIdentifierValue& identifier = To<CSSIdentifierValue>(value);
+    if (identifier.GetValueID() == CSSValueID::kBalance) {
+      is_balanced = true;
+    } else {
+      wrap_mode = identifier.ConvertTo<FlexWrapMode>();
+    }
+  };
+
+  if (auto* list = DynamicTo<CSSValueList>(value)) {
+    for (const auto& entry : *list) {
+      process(*entry);
+    }
+  } else {
+    process(value);
+  }
+
+  // Coerce the wrapping value if balanced.
+  if (is_balanced && wrap_mode == FlexWrapMode::kNowrap) {
+    wrap_mode = FlexWrapMode::kWrap;
+  }
+
+  return StyleFlexWrapData(wrap_mode, is_balanced, min_line_count);
 }
 
 static FontDescription::GenericFamilyType ConvertGenericFamily(
@@ -2013,8 +2054,9 @@ ScopedCSSName* StyleBuilderConverter::ConvertCustomIdent(
     const CSSValue& value) {
   state.SetHasTreeScopedReference();
   const CSSCustomIdentValue& custom_ident = To<CSSCustomIdentValue>(value);
-  return MakeGarbageCollected<ScopedCSSName>(custom_ident.Value(),
-                                             custom_ident.GetTreeScope());
+  return MakeGarbageCollected<ScopedCSSName>(
+      custom_ident.ComputeIdent(state.CssToLengthConversionData()),
+      custom_ident.GetTreeScope());
 }
 
 ScopedCSSName* StyleBuilderConverter::ConvertPositionAnchor(
@@ -2641,7 +2683,8 @@ StyleColor ResolveColorValueImpl(const CSSValue& value,
         MakeGarbageCollected<StyleColor::UnresolvedRelativeColor>(
             origin_color, relative_color_value->ColorInterpolationSpace(),
             relative_color_value->Channel0(), relative_color_value->Channel1(),
-            relative_color_value->Channel2(), relative_color_value->Alpha());
+            relative_color_value->Channel2(), relative_color_value->Alpha(),
+            context.length_resolver);
     // https://drafts.csswg.org/css-color-5/#resolving-rcs
     // If the origin color is resolvable at computed-value time, the relative
     // color function should be resolved at computed-value time as well.
@@ -3268,6 +3311,14 @@ static const CSSValue& ComputeRegisteredPropertyValue(
                              *relative_color_value, document, color_scheme);
   }
 
+  if (auto* unresolved_color_value =
+          DynamicTo<cssvalue::CSSUnresolvedColorValue>(value)) {
+    return ComputeColorValue(css_to_length_conversion_data,
+                             *unresolved_color_value, document, color_scheme);
+  }
+  if (auto* custom_ident = DynamicTo<CSSCustomIdentValue>(value)) {
+    return *custom_ident->Resolve(css_to_length_conversion_data);
+  }
   return value;
 }
 
@@ -3867,6 +3918,48 @@ PositionArea StyleBuilderConverter::ConvertPositionArea(
       To<CSSIdentifierValue>(value_pair.Second()).GetValueID());
 
   return PositionArea(span[0], span[1], span[2], span[3]);
+}
+
+FitText StyleBuilderConverter::ConvertFitText(StyleResolverState& state,
+                                              const CSSValue& value) {
+  const auto& list = To<CSSValueList>(value);
+  const auto target_id = To<CSSIdentifierValue>(list.Item(0)).GetValueID();
+  FitTextTarget target = target_id == CSSValueID::kNone ? FitTextTarget::kNone
+                         : target_id == CSSValueID::kPerLine
+                             ? FitTextTarget::kPerLine
+                             : FitTextTarget::kConsistent;
+  std::optional<FitTextMethod> method;
+  wtf_size_t next_index = 1;
+  if (list.length() > next_index && list.Item(next_index).IsIdentifierValue()) {
+    const auto method_id =
+        To<CSSIdentifierValue>(list.Item(next_index)).GetValueID();
+    switch (method_id) {
+      case CSSValueID::kScale:
+        method.emplace(FitTextMethod::kScale);
+        break;
+      case CSSValueID::kFontSize:
+        method.emplace(FitTextMethod::kFontSize);
+        break;
+      case CSSValueID::kScaleInline:
+        method.emplace(FitTextMethod::kScaleInline);
+        break;
+      case CSSValueID::kLetterSpacing:
+        method.emplace(FitTextMethod::kLetterSpacing);
+        break;
+      default:
+        NOTREACHED();
+    }
+    ++next_index;
+  }
+  std::optional<float> size_limit;
+  if (list.length() > next_index) {
+    FontDescription::Size parent_size(FontSizeFunctions::InitialKeywordSize(),
+                                      std::numeric_limits<float>::max(), true);
+    size_limit.emplace(ComputeFontSize(
+        state.CssToLengthConversionData(),
+        To<CSSPrimitiveValue>(list.Item(next_index)), parent_size));
+  }
+  return FitText(target, method, size_limit);
 }
 
 }  // namespace blink

@@ -379,6 +379,8 @@ class PLATFORM_EXPORT ResourceFetcher
   // changed such that the load should no longer be deferred.
   void ReloadImagesIfNotDeferred();
 
+  void MaybeStartSpeculativeImageDecode();
+
   // Populates the provided request's permissions policy.
   void PopulateResourceRequestPermissionsPolicy(
       network::ResourceRequest* request);
@@ -488,7 +490,6 @@ class PLATFORM_EXPORT ResourceFetcher
 
   void MaybeSaveResourceToStrongReference(Resource* resource);
 
-  void MaybeStartSpeculativeImageDecode();
   void SpeculativeImageDecodeFinished();
 
   enum class RevalidationPolicy {
@@ -702,8 +703,7 @@ class PLATFORM_EXPORT ResourceFetcher
   bool allow_stale_resources_ : 1;
   bool image_fetched_ : 1;
   bool stale_while_revalidate_enabled_ : 1;
-  bool speculative_decode_in_flight_ : 1;
-  // 27 bits left (decrease the count when you add bit fields above)
+  // 28 bits left (decrease the count when you add bit fields above)
 
   static constexpr uint32_t kKeepaliveInflightBytesQuota = 64 * 1024;
 

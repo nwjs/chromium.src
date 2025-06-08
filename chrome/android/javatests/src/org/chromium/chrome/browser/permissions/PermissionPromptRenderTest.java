@@ -27,6 +27,7 @@ import org.chromium.base.test.util.ApplicationTestUtils;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.DisabledTest;
 import org.chromium.base.test.util.Feature;
+import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.base.test.util.HistogramWatcher;
 import org.chromium.chrome.browser.ChromeTabbedActivity;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
@@ -52,13 +53,13 @@ import java.util.concurrent.TimeoutException;
 })
 public class PermissionPromptRenderTest {
     @ParameterAnnotations.ClassParameter
-    private static List<ParameterSet> sClassParams =
+    private static final List<ParameterSet> sClassParams =
             new NightModeTestUtils.NightModeParams().getParameters();
 
     private static final String TEST_FILE = "/content/test/data/android/geolocation.html";
     private static final int TEST_PORT = 12345;
 
-    private boolean mNightModeEnabled;
+    private final boolean mNightModeEnabled;
     @Rule public PermissionTestRule mPermissionRule = new PermissionTestRule();
 
     @Rule
@@ -120,6 +121,17 @@ public class PermissionPromptRenderTest {
         LocationProviderOverrider.setLocationProviderImpl(new MockLocationProvider());
         mPermissionRule.setUpUrl(TEST_FILE);
         testPrompt(/* goldenViewId= */ "oneTimePrompt");
+    }
+
+    @Test
+    @MediumTest
+    @Feature({"Prompt", "RenderTest"})
+    @EnableFeatures("ApproximateGeolocationPermission")
+    public void testGeolocationOneTimePromptWithRadioButtons() throws Exception {
+        LocationSettingsTestUtil.setSystemLocationSettingEnabled(true);
+        LocationProviderOverrider.setLocationProviderImpl(new MockLocationProvider());
+        mPermissionRule.setUpUrl(TEST_FILE);
+        testPrompt(/* goldenViewId= */ "oneTimeWithRadioButtonsPrompt");
     }
 
     @Test

@@ -313,9 +313,9 @@ void ClipboardWriter::WriteToSystem(V8UnionBlobOrString* clipboard_item_data) {
     file_reader_->Start(clipboard_item_data->GetAsBlob()->GetBlobDataHandle());
   } else if (clipboard_item_data->IsString()) {
     DCHECK(RuntimeEnabledFeatures::ClipboardItemWithDOMStringSupportEnabled());
-    StartWrite(
-        DOMArrayBuffer::Create(clipboard_item_data->GetAsString().Span8()),
-        clipboard_task_runner_);
+    std::string utf8_string = clipboard_item_data->GetAsString().Utf8();
+    StartWrite(DOMArrayBuffer::Create(base::as_byte_span(utf8_string)),
+               clipboard_task_runner_);
   } else {
     NOTREACHED();
   }

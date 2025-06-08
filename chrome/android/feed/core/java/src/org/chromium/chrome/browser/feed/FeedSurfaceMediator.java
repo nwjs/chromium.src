@@ -282,7 +282,7 @@ public class FeedSurfaceMediator
     private static PrefService sPrefServiceForTest;
     private static final int SPAN_COUNT_SMALL_WIDTH = 1;
     private static final int SPAN_COUNT_LARGE_WIDTH = 2;
-    private static final int SMALL_WIDTH_DP = 600;
+    private static final int SMALL_WIDTH_DP = 700;
 
     private final FeedSurfaceCoordinator mCoordinator;
     private final Context mContext;
@@ -303,12 +303,12 @@ public class FeedSurfaceMediator
 
     private @Nullable RecyclerView.OnScrollListener mStreamScrollListener;
     private final ObserverList<ScrollListener> mScrollListeners = new ObserverList<>();
-    private HasContentListener mHasContentListener;
+    private final HasContentListener mHasContentListener;
     private ContentChangedListener mStreamContentChangedListener;
     private MemoryPressureCallback mMemoryPressureCallback;
     private @Nullable FeedSigninPromo mSigninPromo;
     private @Nullable SignInPromo mLegacySignInPromo;
-    private RecyclerViewAnimationFinishDetector mRecyclerViewAnimationFinishDetector =
+    private final RecyclerViewAnimationFinishDetector mRecyclerViewAnimationFinishDetector =
             new RecyclerViewAnimationFinishDetector();
 
     private boolean mFeedEnabled;
@@ -337,7 +337,7 @@ public class FeedSurfaceMediator
     // Whether we're currently adding the streams. If this is true, streams should not be bound yet.
     // This avoids automatically binding the first stream when it's added.
     private boolean mSettingUpStreams;
-    private boolean mIsNewTabSearchEngineUrlAndroidEnabled;
+    private final boolean mIsNewTabSearchEngineUrlAndroidEnabled;
     private boolean mIsPropertiesInitializedForStream;
     private @ClosedReason int mClosedReason = ClosedReason.SUSPEND_APP;
     private final boolean mIsNewTabPageCustomizationEnabled;
@@ -666,7 +666,7 @@ public class FeedSurfaceMediator
 
         mStreamScrollListener =
                 new RecyclerView.OnScrollListener() {
-                    private RecyclerViewAnimationFinishDetector mAnimationFinishDetector =
+                    private final RecyclerViewAnimationFinishDetector mAnimationFinishDetector =
                             new RecyclerViewAnimationFinishDetector();
 
                     @Override
@@ -1022,17 +1022,18 @@ public class FeedSurfaceMediator
         }
 
         if (mSectionHeaderModel != null) {
-            if (mTabToStreamMap.isEmpty()) return;
-
-            mSectionHeaderModel.get(SectionHeaderListProperties.SECTION_HEADERS_KEY).clear();
-            for (Stream s : mTabToStreamMap.values()) {
-                s.removeOnContentChangedListener(mStreamContentChangedListener);
-                s.destroy();
+            if (!mTabToStreamMap.isEmpty()) {
+                mSectionHeaderModel.get(SectionHeaderListProperties.SECTION_HEADERS_KEY).clear();
+                for (Stream s : mTabToStreamMap.values()) {
+                    s.removeOnContentChangedListener(mStreamContentChangedListener);
+                    s.destroy();
+                }
+                mTabToStreamMap.clear();
             }
-            mTabToStreamMap.clear();
         } else {
-            if (mCurrentStream == null) return;
-            mCurrentStream.removeOnContentChangedListener(mStreamContentChangedListener);
+            if (mCurrentStream != null) {
+                mCurrentStream.removeOnContentChangedListener(mStreamContentChangedListener);
+            }
         }
         mStreamContentChangedListener = null;
         unbindStream();

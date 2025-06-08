@@ -35,7 +35,7 @@ public class FakeMostVisitedSites implements MostVisitedSites {
 
     // CustomLinkOperations -> MostVisitedSites implementation.
     @Override
-    public boolean addCustomLink(String name, @Nullable GURL url) {
+    public boolean addCustomLink(String name, @Nullable GURL url, @Nullable Integer pos) {
         // TODO (crbug.com/397421764): Implement when needed by tests.
         return false;
     }
@@ -54,6 +54,12 @@ public class FakeMostVisitedSites implements MostVisitedSites {
 
     @Override
     public boolean hasCustomLink(GURL keyUrl) {
+        // TODO (crbug.com/397421764): Implement when needed by tests.
+        return false;
+    }
+
+    @Override
+    public boolean reorderCustomLink(GURL keyUrl, int newPos) {
         // TODO (crbug.com/397421764): Implement when needed by tests.
         return false;
     }

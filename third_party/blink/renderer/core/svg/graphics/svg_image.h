@@ -99,7 +99,7 @@ class CORE_EXPORT SVGImage final : public Image {
   gfx::Size SizeWithConfig(SizeConfig) const override;
 
   void CheckLoaded() const;
-  bool CurrentFrameHasSingleSecurityOrigin() const override;
+  bool HasSingleSecurityOrigin() const override;
 
   void StartAnimation() override;
   void ResetAnimation() override;
@@ -171,8 +171,7 @@ class CORE_EXPORT SVGImage final : public Image {
   // to prune because these functions are not implemented yet.
   void DestroyDecodedData() override {}
 
-  // FIXME: Implement this to be less conservative.
-  bool CurrentFrameKnownToBeOpaque() override { return false; }
+  bool IsOpaque() override { return false; }
 
   class DrawInfo {
     STACK_ALLOCATED();

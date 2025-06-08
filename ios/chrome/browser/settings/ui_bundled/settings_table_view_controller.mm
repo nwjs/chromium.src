@@ -27,7 +27,6 @@
 #import "components/prefs/ios/pref_observer_bridge.h"
 #import "components/prefs/pref_member.h"
 #import "components/prefs/pref_service.h"
-#import "components/regional_capabilities/regional_capabilities_service.h"
 #import "components/safe_browsing/core/common/features.h"
 #import "components/safe_browsing/core/common/safe_browsing_prefs.h"
 #import "components/search_engines/search_engines_pref_names.h"
@@ -40,10 +39,10 @@
 #import "components/strings/grit/components_strings.h"
 #import "components/sync/service/sync_service.h"
 #import "components/sync/service/sync_user_settings.h"
-#import "ios/chrome/app/application_delegate/app_state.h"
-#import "ios/chrome/app/profile/profile_state.h"
 #import "ios/chrome/browser/authentication/ui_bundled/cells/table_view_account_item.h"
 #import "ios/chrome/browser/authentication/ui_bundled/change_profile/change_profile_settings_continuation.h"
+#import "ios/chrome/browser/authentication/ui_bundled/continuation.h"
+#import "ios/chrome/browser/authentication/ui_bundled/signin/signin_coordinator.h"
 #import "ios/chrome/browser/authentication/ui_bundled/signin/signin_utils.h"
 #import "ios/chrome/browser/authentication/ui_bundled/signin_presenter.h"
 #import "ios/chrome/browser/bubble/ui_bundled/bubble_constants.h"
@@ -51,10 +50,12 @@
 #import "ios/chrome/browser/commerce/model/push_notification/push_notification_feature.h"
 #import "ios/chrome/browser/content_notification/model/content_notification_util.h"
 #import "ios/chrome/browser/default_browser/model/utils.h"
+#import "ios/chrome/browser/discover_feed/model/discover_feed_visibility_browser_agent.h"
+#import "ios/chrome/browser/discover_feed/model/discover_feed_visibility_observer.h"
+#import "ios/chrome/browser/discover_feed/model/feed_constants.h"
 #import "ios/chrome/browser/feature_engagement/model/tracker_factory.h"
 #import "ios/chrome/browser/language/model/language_model_manager_factory.h"
 #import "ios/chrome/browser/net/model/crurl.h"
-#import "ios/chrome/browser/ntp/model/new_tab_page_util.h"
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_feature.h"
 #import "ios/chrome/browser/passwords/model/ios_chrome_password_check_manager.h"
 #import "ios/chrome/browser/passwords/model/ios_chrome_password_check_manager_factory.h"
@@ -64,7 +65,6 @@
 #import "ios/chrome/browser/photos/model/photos_service_factory.h"
 #import "ios/chrome/browser/push_notification/model/push_notification_client_id.h"
 #import "ios/chrome/browser/push_notification/model/push_notification_settings_util.h"
-#import "ios/chrome/browser/regional_capabilities/model/regional_capabilities_service_factory.h"
 #import "ios/chrome/browser/search_engines/model/search_engine_observer_bridge.h"
 #import "ios/chrome/browser/search_engines/model/template_url_service_factory.h"
 #import "ios/chrome/browser/settings/model/sync/utils/identity_error_util.h"
@@ -101,7 +101,6 @@
 #import "ios/chrome/browser/settings/ui_bundled/table_cell_catalog_view_controller.h"
 #import "ios/chrome/browser/settings/ui_bundled/tabs/tabs_settings_coordinator.h"
 #import "ios/chrome/browser/settings/ui_bundled/voice_search_table_view_controller.h"
-#import "ios/chrome/browser/shared/coordinator/scene/scene_state.h"
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
 #import "ios/chrome/browser/shared/model/browser/browser.h"
 #import "ios/chrome/browser/shared/model/prefs/pref_backed_boolean.h"
@@ -190,6 +189,7 @@ struct EnhancedSafeBrowsingActivePromoData
 
 @interface SettingsTableViewController () <
     BooleanObserver,
+    DiscoverFeedVisibilityObserver,
     DownloadsSettingsCoordinatorDelegate,
     EnhancedSafeBrowsingInlinePromoDelegate,
     GoogleServicesSettingsCoordinatorDelegate,
@@ -223,21 +223,15 @@ struct EnhancedSafeBrowsingActivePromoData
   BOOL _hasRecordedSigninImpression;
   // PrefBackedBoolean for ShowMemoryDebugTools switch.
   PrefBackedBoolean* _showMemoryDebugToolsEnabled;
-  // PrefBackedBoolean for ArticlesForYou switch.
-  PrefBackedBoolean* _articlesEnabled;
   // Preference value for the "Allow Chrome Sign-in" feature.
   PrefBackedBoolean* _allowChromeSigninPreference;
-  // PrefBackedBoolean for ArticlesForYou switch enabling.
-  PrefBackedBoolean* _contentSuggestionPolicyEnabled;
-  // PrefBackedBoolean that overrides ArticlesForYou switch for supervised
-  // users.
-  PrefBackedBoolean* _contentSuggestionForSupervisedUsersEnabled;
   // PrefBackedBoolean for BottomOmnibox switch.
   PrefBackedBoolean* _bottomOmniboxEnabled;
   // The item related to the switch for the show suggestions setting.
   TableViewSwitchItem* _showMemoryDebugToolsItem;
   // The item related to the safety check.
   SettingsCheckItem* _safetyCheckItem;
+  SigninCoordinator* _signinAndHistorySyncCoordinator;
 
   GoogleServicesSettingsCoordinator* _googleServicesSettingsCoordinator;
   ManageSyncSettingsCoordinator* _manageSyncSettingsCoordinator;
@@ -261,6 +255,10 @@ struct EnhancedSafeBrowsingActivePromoData
   raw_ptr<feature_engagement::Tracker> _featureEngagementTracker;
   // Presenter for the signin IPH.
   BubbleViewControllerPresenter* _bubblePresenter;
+
+  // Discover feed visibility browser agent.
+  raw_ptr<DiscoverFeedVisibilityBrowserAgent>
+      _discoverFeedVisibilityBrowserAgent;
 
   // Identity object.
   id<SystemIdentity> _identity;
@@ -378,26 +376,14 @@ struct EnhancedSafeBrowsingActivePromoData
                                               prefName:prefs::kSigninAllowed];
     _allowChromeSigninPreference.observer = self;
 
-    _articlesEnabled = [[PrefBackedBoolean alloc]
-        initWithPrefService:prefService
-                   prefName:prefs::kArticlesForYouEnabled];
-    [_articlesEnabled setObserver:self];
-
     _bottomOmniboxEnabled =
         [[PrefBackedBoolean alloc] initWithPrefService:localState
                                               prefName:prefs::kBottomOmnibox];
     [_bottomOmniboxEnabled setObserver:self];
 
-    _contentSuggestionPolicyEnabled = [[PrefBackedBoolean alloc]
-        initWithPrefService:prefService
-                   prefName:prefs::kNTPContentSuggestionsEnabled];
-    [_contentSuggestionPolicyEnabled setObserver:self];
-
-    _contentSuggestionForSupervisedUsersEnabled = [[PrefBackedBoolean alloc]
-        initWithPrefService:prefService
-                   prefName:prefs::
-                                kNTPContentSuggestionsForSupervisedUserEnabled];
-    [_contentSuggestionForSupervisedUsersEnabled setObserver:self];
+    _discoverFeedVisibilityBrowserAgent =
+        DiscoverFeedVisibilityBrowserAgent::FromBrowser(browser);
+    _discoverFeedVisibilityBrowserAgent->AddObserver(self);
 
     _voiceLocaleCode.Init(prefs::kVoiceSearchLocale, prefService);
 
@@ -423,6 +409,10 @@ struct EnhancedSafeBrowsingActivePromoData
         [[NotificationsSettingsObserver alloc] initWithPrefService:prefService
                                                         localState:localState];
     _notificationsObserver.delegate = self;
+
+    // TODO(crbug.com/41344225): -loadModel should not be called from
+    // initializer. A possible fix is to move this call to -viewDidLoad.
+    [self loadModel];
   }
   return self;
 }
@@ -446,8 +436,6 @@ struct EnhancedSafeBrowsingActivePromoData
 
   self.navigationItem.largeTitleDisplayMode =
       UINavigationItemLargeTitleDisplayModeAlways;
-
-  [self loadModel];
 }
 
 - (void)viewWillAppear:(BOOL)animated {
@@ -518,26 +506,19 @@ struct EnhancedSafeBrowsingActivePromoData
   [model addItem:[self privacyDetailItem]
       toSectionWithIdentifier:SettingsSectionIdentifierAdvanced];
 
-  // Feed is disabled in safe mode.
-  SceneState* sceneState = _browser->GetSceneState();
-  BOOL isSafeMode = [sceneState.profileState.appState resumingFromSafeMode];
-  TemplateURLService* templateURLService =
-      ios::TemplateURLServiceFactory::GetForProfile(_profile);
-  regional_capabilities::RegionalCapabilitiesService* regionalCapabilities =
-      ios::RegionalCapabilitiesServiceFactory::GetForProfile(_profile);
-
-  if (!IsFeedAblationEnabled() && !isSafeMode &&
-      IsContentSuggestionsForSupervisedUserEnabled(_profile->GetPrefs()) &&
-      !ShouldHideFeedWithSearchChoice(templateURLService,
-                                      regionalCapabilities)) {
-    if ([_contentSuggestionPolicyEnabled value]) {
+  DiscoverFeedEligibility discoverFeedEligiblity =
+      _discoverFeedVisibilityBrowserAgent->GetEligibility();
+  switch (discoverFeedEligiblity) {
+    case DiscoverFeedEligibility::kEligible:
       [model addItem:self.feedSettingsItem
           toSectionWithIdentifier:SettingsSectionIdentifierAdvanced];
-
-    } else {
+      break;
+    case DiscoverFeedEligibility::kDisabledByEnterprisePolicy:
       [model addItem:self.managedFeedSettingsItem
           toSectionWithIdentifier:SettingsSectionIdentifierAdvanced];
-    }
+      break;
+    case DiscoverFeedEligibility::kIneligibleReasonUnknown:
+      break;
   }
 
   PhotosService* photosService = PhotosServiceFactory::GetForProfile(_profile);
@@ -941,7 +922,7 @@ struct EnhancedSafeBrowsingActivePromoData
                              symbol:DefaultSettingsRootSymbol(kDiscoverSymbol)
               symbolBackgroundColor:[UIColor colorNamed:kOrange500Color]
             accessibilityIdentifier:kSettingsArticleSuggestionsCellId];
-    _feedSettingsItem.on = [_articlesEnabled value];
+    _feedSettingsItem.on = _discoverFeedVisibilityBrowserAgent->IsEnabled();
   }
   return _feedSettingsItem;
 }
@@ -1371,6 +1352,7 @@ struct EnhancedSafeBrowsingActivePromoData
   }
 
   if (controller) {
+    CHECK(self.navigationController);
     [self configureHandlersForRootViewController:controller];
     [self.navigationController pushViewController:controller animated:YES];
   }
@@ -1450,7 +1432,7 @@ struct EnhancedSafeBrowsingActivePromoData
 
   BOOL newSwitchValue = sender.isOn;
   switchItem.on = newSwitchValue;
-  [_articlesEnabled setValue:newSwitchValue];
+  _discoverFeedVisibilityBrowserAgent->SetEnabled(newSwitchValue);
 }
 
 #if BUILDFLAG(CHROMIUM_BRANDING) && !defined(NDEBUG)
@@ -1471,6 +1453,11 @@ struct EnhancedSafeBrowsingActivePromoData
 
 #pragma mark - Private methods
 
+- (void)stopSigninCoordinator {
+  [_signinAndHistorySyncCoordinator stop];
+  _signinAndHistorySyncCoordinator = nil;
+}
+
 - (void)stopManageSyncSettingsCoordinator {
   [_manageSyncSettingsCoordinator stop];
   _manageSyncSettingsCoordinator.delegate = nil;
@@ -1481,7 +1468,11 @@ struct EnhancedSafeBrowsingActivePromoData
   if (_googleServicesSettingsCoordinator &&
       self.navigationController.topViewController != self) {
     base::debug::DumpWithoutCrashing();
+    return;
   }
+
+  // Stop the coordinator before restarting it, if it exists.
+  [_googleServicesSettingsCoordinator stop];
 
   _googleServicesSettingsCoordinator =
       [[GoogleServicesSettingsCoordinator alloc]
@@ -1494,7 +1485,11 @@ struct EnhancedSafeBrowsingActivePromoData
 - (void)showTabsSettings {
   if (_tabsCoordinator && self.navigationController.topViewController != self) {
     base::debug::DumpWithoutCrashing();
+    return;
   }
+
+  // Stop the coordinator before restarting it, if it exists.
+  [_tabsCoordinator stop];
 
   _tabsCoordinator = [[TabsSettingsCoordinator alloc]
       initWithBaseNavigationController:self.navigationController
@@ -1506,7 +1501,11 @@ struct EnhancedSafeBrowsingActivePromoData
   if (_addressBarPreferenceCoordinator &&
       self.navigationController.topViewController != self) {
     base::debug::DumpWithoutCrashing();
+    return;
   }
+
+  // Stop the coordinator before restarting it, if it exists.
+  [_addressBarPreferenceCoordinator stop];
 
   _addressBarPreferenceCoordinator = [[AddressBarPreferenceCoordinator alloc]
       initWithBaseNavigationController:self.navigationController
@@ -1518,7 +1517,11 @@ struct EnhancedSafeBrowsingActivePromoData
   if (_manageSyncSettingsCoordinator &&
       self.navigationController.topViewController != self) {
     base::debug::DumpWithoutCrashing();
+    return;
   }
+
+  // Stop the coordinator before restarting it, if it exists.
+  [_manageSyncSettingsCoordinator stop];
 
   _manageSyncSettingsCoordinator = [[ManageSyncSettingsCoordinator alloc]
       initWithBaseNavigationController:self.navigationController
@@ -1531,7 +1534,11 @@ struct EnhancedSafeBrowsingActivePromoData
   if (_passwordsCoordinator &&
       self.navigationController.topViewController != self) {
     base::debug::DumpWithoutCrashing();
+    return;
   }
+
+  // Stop the coordinator before restarting it, if it exists.
+  [_passwordsCoordinator stop];
 
   _passwordsCoordinator = [[PasswordsCoordinator alloc]
       initWithBaseNavigationController:self.navigationController
@@ -1545,7 +1552,11 @@ struct EnhancedSafeBrowsingActivePromoData
   if (_safetyCheckCoordinator &&
       self.navigationController.topViewController != self) {
     base::debug::DumpWithoutCrashing();
+    return;
   }
+
+  // Stop the coordinator before restarting it, if it exists.
+  [_safetyCheckCoordinator stop];
 
   _safetyCheckCoordinator = [[SafetyCheckCoordinator alloc]
       initWithBaseNavigationController:self.navigationController
@@ -1602,7 +1613,11 @@ struct EnhancedSafeBrowsingActivePromoData
   if (_notificationsCoordinator &&
       self.navigationController.topViewController != self) {
     base::debug::DumpWithoutCrashing();
+    return;
   }
+
+  // Stop the coordinator before restarting it, if it exists.
+  [_notificationsCoordinator stop];
 
   _notificationsCoordinator = [[NotificationsCoordinator alloc]
       initWithBaseNavigationController:self.navigationController
@@ -1616,7 +1631,11 @@ struct EnhancedSafeBrowsingActivePromoData
   if (_privacyCoordinator &&
       self.navigationController.topViewController != self) {
     base::debug::DumpWithoutCrashing();
+    return;
   }
+
+  // Stop the coordinator before restarting it, if it exists.
+  [_privacyCoordinator stop];
 
   _privacyCoordinator = [[PrivacyCoordinator alloc]
       initWithBaseNavigationController:self.navigationController
@@ -1719,6 +1738,7 @@ struct EnhancedSafeBrowsingActivePromoData
          arrowDirection:BubbleArrowDirectionUp
               alignment:BubbleAlignmentCenter
              bubbleType:BubbleViewTypeDefault
+        pageControlPage:BubblePageControlPageNone
       dismissalCallback:dismissalCallback];
   CGPoint anchorPointInCell = CGPointMake(CGRectGetMidX(accountCell.bounds),
                                           CGRectGetMaxY(accountCell.bounds));
@@ -1870,7 +1890,11 @@ struct EnhancedSafeBrowsingActivePromoData
   if (_downloadsSettingsCoordinator &&
       self.navigationController.topViewController != self) {
     base::debug::DumpWithoutCrashing();
+    return;
   }
+
+  // Stop the coordinator before restarting it, if it exists.
+  [_downloadsSettingsCoordinator stop];
 
   _downloadsSettingsCoordinator = [[DownloadsSettingsCoordinator alloc]
       initWithBaseNavigationController:self.navigationController
@@ -1881,12 +1905,7 @@ struct EnhancedSafeBrowsingActivePromoData
 
 // Returns YES if the Notifications settings should show.
 - (BOOL)shouldShowNotificationsSettings {
-  return base::FeatureList::IsEnabled(kNotificationSettingsMenuItem) &&
-         (IsPriceTrackingEnabled(_profile) ||
-          IsContentNotificationEnabled(_profile) ||
-          IsIOSTipsNotificationsEnabled() ||
-          base::FeatureList::IsEnabled(
-              send_tab_to_self::kSendTabToSelfIOSPushNotifications));
+  return base::FeatureList::IsEnabled(kNotificationSettingsMenuItem);
 }
 
 // Records that the user has reached the impression limit for the enhanced safe
@@ -1997,23 +2016,31 @@ struct EnhancedSafeBrowsingActivePromoData
   __weak __typeof(self) weakSelf = self;
   ChangeProfileContinuationProvider provider =
       base::BindRepeating(&CreateChangeProfileSettingsContinuation);
-  ShowSigninCommand* command = [[ShowSigninCommand alloc]
-                      initWithOperation:AuthenticationOperation::
-                                            kSheetSigninAndHistorySync
-                               identity:nil
-                            accessPoint:signin_metrics::AccessPoint::kSettings
-                            promoAction:signin_metrics::PromoAction::
-                                            PROMO_ACTION_NO_SIGNIN_PROMO
-                             completion:^(
-                                 SigninCoordinatorResult result,
-                                 id<SystemIdentity> completionIdentity) {
-                               [weakSelf didFinishSignin];
-                             }
-      changeProfileContinuationProvider:provider];
-  [self.applicationHandler showSignin:command baseViewController:self];
+
+  SigninContextStyle contextStyle = SigninContextStyle::kDefault;
+  signin_metrics::AccessPoint accessPoint =
+      signin_metrics::AccessPoint::kSettings;
+  signin_metrics::PromoAction promoAction =
+      signin_metrics::PromoAction::PROMO_ACTION_NO_SIGNIN_PROMO;
+  _signinAndHistorySyncCoordinator = [SigninCoordinator
+      signinAndHistorySyncCoordinatorWithBaseViewController:self
+                                                    browser:_browser
+                                               contextStyle:contextStyle
+                                                accessPoint:accessPoint
+                                                promoAction:promoAction
+                                        optionalHistorySync:YES
+                                            fullscreenPromo:NO
+                                       continuationProvider:
+                                           DoNothingContinuationProvider()];
+  _signinAndHistorySyncCoordinator.signinCompletion =
+      ^(SigninCoordinatorResult result, id<SystemIdentity> identity) {
+        [weakSelf didFinishSignin];
+      };
+  [_signinAndHistorySyncCoordinator start];
 }
 
 - (void)didFinishSignin {
+  [self stopSigninCoordinator];
   if (_settingsAreDismissed) {
     return;
   }
@@ -2087,10 +2114,6 @@ struct EnhancedSafeBrowsingActivePromoData
   [_showMemoryDebugToolsEnabled setObserver:nil];
   _showMemoryDebugToolsEnabled = nil;
 
-  [_articlesEnabled stop];
-  [_articlesEnabled setObserver:nil];
-  _articlesEnabled = nil;
-
   [_allowChromeSigninPreference stop];
   [_allowChromeSigninPreference setObserver:nil];
   _allowChromeSigninPreference = nil;
@@ -2099,13 +2122,8 @@ struct EnhancedSafeBrowsingActivePromoData
   [_bottomOmniboxEnabled setObserver:nil];
   _bottomOmniboxEnabled = nil;
 
-  [_contentSuggestionPolicyEnabled stop];
-  [_contentSuggestionPolicyEnabled setObserver:nil];
-  _contentSuggestionPolicyEnabled = nil;
-
-  [_contentSuggestionForSupervisedUsersEnabled stop];
-  [_contentSuggestionForSupervisedUsersEnabled setObserver:nil];
-  _contentSuggestionForSupervisedUsersEnabled = nil;
+  _discoverFeedVisibilityBrowserAgent->RemoveObserver(self);
+  _discoverFeedVisibilityBrowserAgent = nullptr;
 
   // Remove pref changes registrations.
   _prefChangeRegistrar.RemoveAll();
@@ -2121,6 +2139,7 @@ struct EnhancedSafeBrowsingActivePromoData
   _notificationsObserver.delegate = nil;
   [_notificationsObserver disconnect];
   _notificationsObserver = nil;
+  [self stopSigninCoordinator];
 
   // Clear C++ ivars.
   _voiceLocaleCode.Destroy();
@@ -2134,10 +2153,6 @@ struct EnhancedSafeBrowsingActivePromoData
 #pragma mark SyncObserverModelBridge
 
 - (void)onSyncStateChanged {
-  // Feed settings are subject to sign-in status and account type, ensure
-  // that these sections are updated as necessary.
-  [self booleanDidChange:_contentSuggestionPolicyEnabled];
-
   [self updateSigninSection];
   // The Identity section may be added or removed depending on sign-in is
   // allowed. Reload all sections in the model to account for the change.
@@ -2177,57 +2192,6 @@ struct EnhancedSafeBrowsingActivePromoData
     // The Identity section may be added or removed depending on sign-in is
     // allowed. Reload all sections in the model to account for the change.
     [self.tableView reloadData];
-  } else if (observableBoolean == _articlesEnabled) {
-    self.feedSettingsItem.on = [_articlesEnabled value];
-    [self reconfigureCellsForItems:@[ self.feedSettingsItem ]];
-  } else if (observableBoolean == _contentSuggestionPolicyEnabled) {
-    NSIndexPath* itemIndexPath;
-    NSInteger itemTypeToRemove;
-    TableViewItem* itemToAdd;
-    if ([_contentSuggestionPolicyEnabled value]) {
-      if (![self.tableViewModel hasItem:self.managedFeedSettingsItem]) {
-        return;
-      }
-      itemIndexPath =
-          [self.tableViewModel indexPathForItem:self.managedFeedSettingsItem];
-      itemTypeToRemove = SettingsItemTypeManagedArticlesForYou;
-      itemToAdd = self.feedSettingsItem;
-    } else {
-      if (![self.tableViewModel hasItem:self.feedSettingsItem]) {
-        return;
-      }
-      itemIndexPath =
-          [self.tableViewModel indexPathForItem:self.feedSettingsItem];
-      itemTypeToRemove = SettingsItemTypeArticlesForYou;
-      itemToAdd = self.managedFeedSettingsItem;
-    }
-    [self.tableViewModel removeItemWithType:itemTypeToRemove
-                  fromSectionWithIdentifier:SettingsSectionIdentifierAdvanced];
-    [self.tableViewModel insertItem:itemToAdd
-            inSectionWithIdentifier:SettingsSectionIdentifierAdvanced
-                            atIndex:itemIndexPath.row];
-    [self.tableView reloadRowsAtIndexPaths:@[ itemIndexPath ]
-                          withRowAnimation:UITableViewRowAnimationAutomatic];
-  } else if (observableBoolean == _contentSuggestionForSupervisedUsersEnabled) {
-    if ([_contentSuggestionForSupervisedUsersEnabled value]) {
-      // Reset Feed settings back on the content suggestion policy.
-      [self booleanDidChange:_contentSuggestionPolicyEnabled];
-      return;
-    }
-    NSInteger itemTypeToRemove;
-    if ([self.tableViewModel hasItem:self.feedSettingsItem]) {
-      itemTypeToRemove = SettingsItemTypeArticlesForYou;
-    } else if ([self.tableViewModel hasItem:self.managedFeedSettingsItem]) {
-      itemTypeToRemove = SettingsItemTypeManagedArticlesForYou;
-    } else {
-      return;
-    }
-    [self.tableViewModel removeItemWithType:itemTypeToRemove
-                  fromSectionWithIdentifier:SettingsSectionIdentifierAdvanced];
-    NSUInteger index = [self.tableViewModel
-        sectionForSectionIdentifier:SettingsSectionIdentifierAdvanced];
-    [self.tableView reloadSections:[NSIndexSet indexSetWithIndex:index]
-                  withRowAnimation:UITableViewRowAnimationAutomatic];
   } else if (observableBoolean == _bottomOmniboxEnabled) {
     _addressBarPreferenceItem.detailText =
         [_bottomOmniboxEnabled value]
@@ -2236,6 +2200,66 @@ struct EnhancedSafeBrowsingActivePromoData
     [self reconfigureCellsForItems:@[ _addressBarPreferenceItem ]];
   } else {
     NOTREACHED();
+  }
+}
+
+#pragma mark - DiscoverFeedVisibilityObserver
+
+- (void)didChangeDiscoverFeedEligibility {
+  TableViewItem* itemToRemove;
+  TableViewItem* itemToAdd;
+
+  DiscoverFeedEligibility eligibility =
+      _discoverFeedVisibilityBrowserAgent->GetEligibility();
+  switch (eligibility) {
+    case DiscoverFeedEligibility::kEligible:
+      itemToRemove = self.managedFeedSettingsItem;
+      itemToAdd = self.feedSettingsItem;
+      break;
+    case DiscoverFeedEligibility::kDisabledByEnterprisePolicy:
+      itemToRemove = self.feedSettingsItem;
+      itemToAdd = self.managedFeedSettingsItem;
+      break;
+    case DiscoverFeedEligibility::kIneligibleReasonUnknown:
+      if ([self.tableViewModel hasItem:self.feedSettingsItem]) {
+        itemToRemove = self.feedSettingsItem;
+      } else {
+        itemToRemove = self.managedFeedSettingsItem;
+      }
+      break;
+  }
+
+  if (![self.tableViewModel hasItem:itemToRemove]) {
+    if (itemToAdd) {
+      // User used to be ineligible for the feed for unknown reasons (e.g.,
+      // non-Google in DSE) and then becomes eligible. Since there is no
+      // sustainable way to retrieve the index to insert the item, just reload
+      // the whole table.
+      [self reloadData];
+    }
+    return;
+  }
+
+  // Simply remove the feed item, or replace it by a new feed item.
+  NSIndexPath* itemIndexPath =
+      [self.tableViewModel indexPathForItem:itemToRemove];
+  [self.tableViewModel removeItemWithType:itemToRemove.type
+                fromSectionWithIdentifier:SettingsSectionIdentifierAdvanced];
+  if (itemToAdd) {
+    [self.tableViewModel insertItem:itemToAdd
+            inSectionWithIdentifier:SettingsSectionIdentifierAdvanced
+                            atIndex:itemIndexPath.row];
+  }
+  NSUInteger index = [self.tableViewModel
+      sectionForSectionIdentifier:SettingsSectionIdentifierAdvanced];
+  [self.tableView reloadSections:[NSIndexSet indexSetWithIndex:index]
+                withRowAnimation:UITableViewRowAnimationAutomatic];
+}
+
+- (void)didChangeDiscoverFeedVisibility {
+  if ([self.tableViewModel hasItem:self.feedSettingsItem]) {
+    self.feedSettingsItem.on = _discoverFeedVisibilityBrowserAgent->IsEnabled();
+    [self reconfigureCellsForItems:@[ self.feedSettingsItem ]];
   }
 }
 

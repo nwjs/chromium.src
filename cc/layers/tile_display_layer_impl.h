@@ -15,6 +15,7 @@
 #include "cc/base/tiling_data.h"
 #include "cc/cc_export.h"
 #include "cc/layers/layer_impl.h"
+#include "cc/mojom/missing_tile_reason.mojom.h"
 #include "cc/tiles/tile_index.h"
 #include "cc/tiles/tile_priority.h"
 #include "cc/tiles/tiling_coverage_iterator.h"
@@ -31,16 +32,24 @@ namespace cc {
 // layer down to Viz, and this layer uses that information to draw tile quads.
 class CC_EXPORT TileDisplayLayerImpl : public LayerImpl {
  public:
-  struct NoContents {};
+  struct NoContents {
+    mojom::MissingTileReason reason =
+        mojom::MissingTileReason::kResourceNotReady;
+
+    NoContents() = default;
+    explicit NoContents(mojom::MissingTileReason r) : reason(r) {}
+  };
 
   struct CC_EXPORT TileResource {
-    TileResource(const viz::TransferableResource& resource,
+    TileResource(viz::ResourceId resource_id,
+                 gfx::Size resource_size,
                  bool is_checkered);
     TileResource(const TileResource&);
     TileResource& operator=(const TileResource&);
     ~TileResource();
 
-    viz::TransferableResource resource;
+    viz::ResourceId resource_id;
+    gfx::Size resource_size;
     bool is_checkered;
   };
 
@@ -107,7 +116,7 @@ class CC_EXPORT TileDisplayLayerImpl : public LayerImpl {
     void SetTilingRect(const gfx::Rect& rect);
     void SetTileContents(const TileIndex& key,
                          const TileContents& contents,
-                         bool is_incremental_update);
+                         bool update_damage);
 
     CoverageIterator Cover(const gfx::Rect& coverage_rect,
                            float coverage_scale) const;
@@ -130,6 +139,7 @@ class CC_EXPORT TileDisplayLayerImpl : public LayerImpl {
   ~TileDisplayLayerImpl() override;
 
   Tiling& GetOrCreateTilingFromScaleKey(float scale_key);
+  void RemoveTiling(float scale_key);
 
   void SetSolidColor(std::optional<SkColor4f> color) { solid_color_ = color; }
   void SetIsBackdropFilterMask(bool is_backdrop_filter_mask) {
@@ -152,7 +162,6 @@ class CC_EXPORT TileDisplayLayerImpl : public LayerImpl {
 
   void RecordDamage(const gfx::Rect& damage_rect);
 
-  void ImportResource(viz::TransferableResource resource);
   void DiscardResource(viz::ResourceId resource);
 
  private:

@@ -20,7 +20,6 @@ import org.chromium.base.FeatureList;
 import org.chromium.base.supplier.Supplier;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
-import org.chromium.chrome.browser.toolbar.R;
 import org.chromium.chrome.browser.toolbar.adaptive.AdaptiveToolbarFeatures;
 import org.chromium.chrome.browser.user_education.IphCommandBuilder;
 import org.chromium.chrome.browser.user_education.UserEducationHelper;
@@ -109,6 +108,15 @@ public class OptionalButtonCoordinator {
         mMediator.setPaddingStart(paddingStart);
     }
 
+    /**
+     * Sets the collapsed state width of the button, overriding the default value.
+     *
+     * @param width The new collapsed state width.
+     */
+    public void setCollapsedStateWidth(int width) {
+        mMediator.setCollapsedStateWidth(width);
+    }
+
     public void setOnBeforeHideTransitionCallback(Runnable onBeforeHideTransitionCallback) {
         mMediator.setOnBeforeHideTransitionCallback(onBeforeHideTransitionCallback);
     }
@@ -175,12 +183,7 @@ public class OptionalButtonCoordinator {
 
         // Reset background alpha, in case the IPH onDismiss callback doesn't fire.
         mMediator.setBackgroundAlpha(255);
-        if (buttonData != null) {
-            buttonData.setBackgroundResource(
-                    isIncognito
-                            ? R.drawable.default_icon_background_baseline
-                            : R.drawable.default_icon_background);
-        }
+        mMediator.setIsIncognitoBranded(isIncognito);
         mMediator.updateButton(buttonData);
     }
 

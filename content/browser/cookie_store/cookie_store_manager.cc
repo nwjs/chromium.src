@@ -9,7 +9,6 @@
 
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
-#include "base/not_fatal_until.h"
 #include "base/sequence_checker.h"
 #include "content/browser/cookie_store/cookie_change_subscriptions.pb.h"
 #include "content/browser/renderer_host/render_frame_host_impl.h"
@@ -526,7 +525,7 @@ void CookieStoreManager::DeactivateSubscriptions(
     subscription->RemoveFromList();
   }
   auto it = subscriptions_by_url_key_.find(url_key);
-  CHECK(it != subscriptions_by_url_key_.end(), base::NotFatalUntil::M130);
+  CHECK(it != subscriptions_by_url_key_.end());
   if (it->second.empty())
     subscriptions_by_url_key_.erase(it);
 }
@@ -618,7 +617,8 @@ void CookieStoreManager::OnCookieChange(const net::CookieChangeInfo& change) {
               if (content_browser_client && !change.cookie.IsPartitioned() &&
                   !content_browser_client->IsFullCookieAccessAllowed(
                       browser_context, /*web_contents=*/nullptr,
-                      registration->scope(), registration->key())) {
+                      registration->scope(), registration->key(),
+                      /*overrides=*/{})) {
                 return;
               }
 

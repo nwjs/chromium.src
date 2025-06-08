@@ -72,7 +72,7 @@ ImageOrientation GetSourceOrientation(
   if (!params.orientation_from_image) {
     return ImageOrientationEnum::kOriginTopLeft;
   }
-  return source->CurrentFrameOrientation();
+  return source->Orientation();
 }
 
 // Return the oriented size of `source`.
@@ -144,7 +144,7 @@ scoped_refptr<StaticBitmapImage> StaticBitmapImageTransform::ApplyUsingPixmap(
     }
     const auto bm_color_space = options.dest_color_space
                                     ? options.dest_color_space
-                                    : source->GetSkColorSpace();
+                                    : source->GetColorSpace().ToSkColorSpace();
     const auto bm_info = SkImageInfo::Make(
         source_rect.size(),
         GetDestColorType(
@@ -312,7 +312,7 @@ scoped_refptr<StaticBitmapImage> StaticBitmapImageTransform::Apply(
     return nullptr;
   }
 
-  const auto source_color_space = source->GetSkColorSpace();
+  const auto source_color_space = source->GetColorSpace();
   const bool needs_flip = options.flip_y;
   const bool needs_crop =
       options.source_rect != gfx::Rect(GetSourceSize(source, options));
@@ -322,9 +322,7 @@ scoped_refptr<StaticBitmapImage> StaticBitmapImageTransform::Apply(
   const bool needs_convert_color_space =
       options.dest_color_space &&
       !SkColorSpace::Equals(options.dest_color_space.get(),
-                            source_color_space
-                                ? source_color_space.get()
-                                : SkColorSpace::MakeSRGB().get());
+                            source_color_space.ToSkColorSpace().get());
   const bool needs_alpha_change =
       (source->GetAlphaType() == kUnpremul_SkAlphaType) !=
       (!options.premultiply_alpha);

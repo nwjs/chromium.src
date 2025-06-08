@@ -360,7 +360,6 @@ ChannelLayout GetChannelLayout(
              << mix_format->nChannels;
     channel_layout = GuessChannelLayout(mix_format->nChannels);
   }
-  DVLOG(1) << "channel layout: " << ChannelLayoutToString(channel_layout);
 
   return channel_layout;
 }
@@ -396,7 +395,8 @@ ComPtr<IMMDevice> CreateDeviceInternal(const std::string& device_id,
   // In loopback mode, a client of WASAPI can capture the audio stream that
   // is being played by a rendering endpoint device.
   // See https://crbug.com/956526 for why we use both a DCHECK and then deal
-  // with the error here and below.
+  // with the error here and below. Also, see comments in CreateDeviceByID() for
+  // more details.
   DCHECK(!(AudioDeviceDescription::IsLoopbackDevice(device_id) &&
            data_flow != eCapture));
   if (AudioDeviceDescription::IsLoopbackDevice(device_id) &&
@@ -449,6 +449,10 @@ ComPtr<IMMDevice> CreateDeviceInternal(const std::string& device_id,
 // corresponding audio device.
 ComPtr<IMMDevice> CreateDeviceByID(const std::string& device_id,
                                    bool is_output_device) {
+  // Loopback devices are only supported for capture streams. If a loopback
+  // device is requested for a render stream, the default render device will be
+  // used instead.
+  // See https://crbug.com/956526 for more details.
   if (AudioDeviceDescription::IsLoopbackDevice(device_id)) {
     DCHECK(!is_output_device);
     return CreateDeviceInternal(AudioDeviceDescription::kDefaultDeviceId,
@@ -548,8 +552,6 @@ HRESULT GetPreferredAudioParametersInternal(IAudioClient* client,
         default_frames_per_buffer = default_period_frames;
         frames_per_buffer = default_period_frames;
       }
-      DVLOG(1) << "IAudioClient3 => min_period_frames: " << min_period_frames;
-      DVLOG(1) << "IAudioClient3 => frames_per_buffer: " << frames_per_buffer;
     }
 
     // If the call to GetSharedModeEnginePeriod() fails we fall back to
@@ -1050,9 +1052,13 @@ HRESULT CoreAudioUtil::GetPreferredAudioParameters(const std::string& device_id,
                                                    bool is_output_device,
                                                    AudioParameters* params,
                                                    bool is_offload_stream) {
-  // Loopback audio streams must be input streams.
-  DCHECK(!(AudioDeviceDescription::IsLoopbackDevice(device_id) &&
-           is_output_device));
+  // Loopback capture audio streams must be input streams. If an output device
+  // is requested for a loopback device, the default output device will be used
+  // instead. See https://crbug.com/956526 for more details.
+  // TODO(crbug.com/40947205): figure out which parameters to use for process
+  // loopback capture.
+  DCHECK(!(is_output_device &&
+           (AudioDeviceDescription::IsLoopbackDevice(device_id))));
   if (AudioDeviceDescription::IsLoopbackDevice(device_id) && is_output_device) {
     LOG(WARNING) << "Loopback device must be an input device";
     return E_FAIL;

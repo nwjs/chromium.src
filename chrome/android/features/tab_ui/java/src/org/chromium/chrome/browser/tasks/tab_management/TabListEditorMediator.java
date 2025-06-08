@@ -21,7 +21,6 @@ import org.chromium.base.supplier.ObservableSupplierImpl;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabCreationState;
-import org.chromium.chrome.browser.tab.TabId;
 import org.chromium.chrome.browser.tab.TabLaunchType;
 import org.chromium.chrome.browser.tab.TabSelectionType;
 import org.chromium.chrome.browser.tab_ui.RecyclerViewPosition;
@@ -62,7 +61,7 @@ class TabListEditorMediator
     private final @NonNull ValueChangedCallback<TabGroupModelFilter> mOnTabGroupModelFilterChanged =
             new ValueChangedCallback<>(this::onTabGroupModelFilterChanged);
     private final PropertyModel mModel;
-    private final SelectionDelegate<Integer> mSelectionDelegate;
+    private final SelectionDelegate<TabListEditorItemSelectionId> mSelectionDelegate;
     private final boolean mActionOnRelatedTabs;
     private final TabModelObserver mTabModelObserver;
     private final ObservableSupplierImpl<Boolean> mBackPressChangedSupplier =
@@ -78,8 +77,8 @@ class TabListEditorMediator
     private @Nullable PropertyListModel<PropertyModel, PropertyKey> mActionListModel;
     private ListModelChangeProcessor mActionChangeProcessor;
     private TabListEditorMenu mTabListEditorMenu;
-    private SnackbarManager mSnackbarManager;
-    private BottomSheetController mBottomSheetController;
+    private final SnackbarManager mSnackbarManager;
+    private final BottomSheetController mBottomSheetController;
     private TabListEditorToolbar mTabListEditorToolbar;
     private TabListEditorCoordinator.NavigationProvider mNavigationProvider;
     private @TabActionState int mTabActionState;
@@ -98,7 +97,7 @@ class TabListEditorMediator
             Context context,
             @NonNull ObservableSupplier<TabGroupModelFilter> currentTabGroupModelFilterSupplier,
             PropertyModel model,
-            SelectionDelegate<Integer> selectionDelegate,
+            SelectionDelegate<TabListEditorItemSelectionId> selectionDelegate,
             boolean actionOnRelatedTabs,
             SnackbarManager snackbarManager,
             BottomSheetController bottomSheetController,
@@ -218,9 +217,9 @@ class TabListEditorMediator
         if (mActionOnRelatedTabs) {
             mModel.set(
                     TabListEditorProperties.RELATED_TAB_COUNT_PROVIDER,
-                    (tabIdList) -> {
+                    (itemIdList) -> {
                         return TabListEditorAction.getTabCountIncludingRelatedTabs(
-                                mCurrentTabGroupModelFilterSupplier.get(), tabIdList);
+                                mCurrentTabGroupModelFilterSupplier.get(), itemIdList);
                     });
         }
         updateColors(mCurrentTabGroupModelFilterSupplier.get().getTabModel().isIncognito());
@@ -384,20 +383,18 @@ class TabListEditorMediator
 
     @Override
     public void selectAll() {
-        // TODO(crbug.com/412786011): Update this logic to select visible tab groups once the
-        // selection delegate for the TabListEditor supports synced tab groups.
-        Set<@TabId Integer> selectedTabIds = mSelectionDelegate.getSelectedItems();
+        Set<TabListEditorItemSelectionId> selectedItemIds = mSelectionDelegate.getSelectedItems();
         for (Tab tab : mVisibleTabs) {
-            selectedTabIds.add(tab.getId());
+            selectedItemIds.add(TabListEditorItemSelectionId.createTabId(tab.getId()));
         }
-        selectTabs(selectedTabIds);
+        selectTabs(selectedItemIds);
     }
 
     @Override
     public void deselectAll() {
-        Set<Integer> selectedTabIds = mSelectionDelegate.getSelectedItems();
-        selectedTabIds.clear();
-        mSelectionDelegate.setSelectedItems(selectedTabIds);
+        Set<TabListEditorItemSelectionId> selectedItemIds = mSelectionDelegate.getSelectedItems();
+        selectedItemIds.clear();
+        mSelectionDelegate.setSelectedItems(selectedItemIds);
         mResetHandler.resetWithListOfTabs(
                 mVisibleTabs,
                 mVisibleTabGroups.isEmpty() ? null : mVisibleTabGroups,
@@ -407,9 +404,8 @@ class TabListEditorMediator
 
     @Override
     public boolean areAllTabsSelected() {
-        // TODO(crbug.com/412786011): Update this logic to include visible tab groups.
-        Set<Integer> selectedTabIds = mSelectionDelegate.getSelectedItems();
-        return selectedTabIds.size() == mVisibleTabs.size();
+        Set<TabListEditorItemSelectionId> selectedItemIds = mSelectionDelegate.getSelectedItems();
+        return selectedItemIds.size() == mVisibleTabs.size();
     }
 
     @Override
@@ -429,10 +425,10 @@ class TabListEditorMediator
     }
 
     @Override
-    public void selectTabs(Set<@TabId Integer> tabIds) {
+    public void selectTabs(Set<TabListEditorItemSelectionId> itemIds) {
         // Protects selection delegate from immutable sets.
-        Set<@TabId Integer> tabIdsModifiable = new HashSet<>(tabIds);
-        mSelectionDelegate.setSelectedItems(tabIdsModifiable);
+        Set<TabListEditorItemSelectionId> itemIdsModifiable = new HashSet<>(itemIds);
+        mSelectionDelegate.setSelectedItems(itemIdsModifiable);
         mResetHandler.resetWithListOfTabs(
                 mVisibleTabs,
                 mVisibleTabGroups.isEmpty() ? null : mVisibleTabGroups,

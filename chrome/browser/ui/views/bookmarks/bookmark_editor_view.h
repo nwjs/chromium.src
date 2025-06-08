@@ -123,6 +123,9 @@ class BookmarkEditorView : public BookmarkEditor,
       const gfx::Point& point,
       ui::mojom::MenuSourceType source_type) override;
 
+  // Returns true if the new folder button is enabled.
+  bool IsNewFolderButtonEnabledForTesting() const;
+
  private:
   friend class BookmarkEditorViewTest;
 
@@ -143,7 +146,7 @@ class BookmarkEditorView : public BookmarkEditor,
                            const base::Location& location) override;
   void BookmarkAllUserNodesRemoved(const std::set<GURL>& removed_urls,
                                    const base::Location& location) override;
-  void BookmarkNodeChanged(const bookmarks::BookmarkNode* node) override {}
+  void BookmarkNodeChanged(const bookmarks::BookmarkNode* node) override;
   void BookmarkNodeChildrenReordered(
       const bookmarks::BookmarkNode* node) override;
   void BookmarkNodeFaviconChanged(
@@ -158,7 +161,9 @@ class BookmarkEditorView : public BookmarkEditor,
 
   // Expands all the nodes in the tree and selects the parent node of the
   // url we're editing or the most recent parent if the url being editted isn't
-  // starred.
+  // starred. If the feature flag `SyncEnableBookmarksInTransportMode`, this
+  // only expands the nodes leading up to the parent node. All others remain
+  // collapsed.
   void ExpandAndSelect();
 
   // Returns true if a bookmark folder is currently selected.

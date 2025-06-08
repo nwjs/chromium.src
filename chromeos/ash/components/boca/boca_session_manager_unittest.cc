@@ -21,12 +21,14 @@
 #include "base/types/expected.h"
 #include "chromeos/ash/components/boca/babelorca/soda_testing_utils.h"
 #include "chromeos/ash/components/boca/boca_app_client.h"
+#include "chromeos/ash/components/boca/boca_metrics_util.h"
 #include "chromeos/ash/components/boca/boca_role_util.h"
 #include "chromeos/ash/components/boca/proto/session.pb.h"
 #include "chromeos/ash/components/boca/session_api/constants.h"
 #include "chromeos/ash/components/boca/session_api/get_session_request.h"
 #include "chromeos/ash/components/boca/session_api/student_heartbeat_request.h"
 #include "chromeos/ash/components/boca/session_api/update_student_activities_request.h"
+#include "chromeos/ash/components/boca/spotlight/fake_spotlight_oauth_token_fetcher.h"
 #include "chromeos/ash/components/network/network_ui_data.h"
 #include "chromeos/ash/components/settings/cros_settings.h"
 #include "chromeos/ash/components/settings/fake_cros_settings_provider.h"
@@ -1319,13 +1321,12 @@ TEST_F(BocaSessionManagerTest,
   EXPECT_CALL(*observer(), OnSessionStarted(kInitialSessionId, _)).Times(1);
   task_environment()->FastForwardBy(kDefaultInSessionPollingInterval * 2 +
                                     base::Seconds(1));
-  histogram_tester.ExpectTotalCount(BocaSessionManager::kPollingResultHistName,
-                                    2);
+  histogram_tester.ExpectTotalCount(boca::kPollingResult, 2);
   histogram_tester.ExpectBucketCount(
-      BocaSessionManager::kPollingResultHistName,
-      BocaSessionManager::BocaPollingResult::kSessionEnd, 1);
+      boca::kPollingResult, BocaSessionManager::BocaPollingResult::kSessionEnd,
+      1);
   histogram_tester.ExpectBucketCount(
-      BocaSessionManager::kPollingResultHistName,
+      boca::kPollingResult,
       BocaSessionManager::BocaPollingResult::kSessionStart, 1);
 }
 
@@ -1342,11 +1343,10 @@ TEST_F(BocaSessionManagerTest, RecordMetricsIfNoSessionUpdateFromPolling) {
 
   task_environment()->FastForwardBy(kDefaultInSessionPollingInterval * 1 +
                                     base::Seconds(1));
-  histogram_tester.ExpectTotalCount(BocaSessionManager::kPollingResultHistName,
-                                    1);
+  histogram_tester.ExpectTotalCount(boca::kPollingResult, 1);
   histogram_tester.ExpectBucketCount(
-      BocaSessionManager::kPollingResultHistName,
-      BocaSessionManager::BocaPollingResult::kNoUpdate, 1);
+      boca::kPollingResult, BocaSessionManager::BocaPollingResult::kNoUpdate,
+      1);
 }
 
 TEST_F(BocaSessionManagerTest, RecordMetricsIfInSessionUpdateFromPolling) {
@@ -1373,10 +1373,9 @@ TEST_F(BocaSessionManagerTest, RecordMetricsIfInSessionUpdateFromPolling) {
   EXPECT_CALL(*observer(), OnSessionCaptionConfigUpdated).Times(0);
   task_environment()->FastForwardBy(kDefaultInSessionPollingInterval * 1 +
                                     base::Seconds(1));
-  histogram_tester.ExpectTotalCount(BocaSessionManager::kPollingResultHistName,
-                                    1);
+  histogram_tester.ExpectTotalCount(boca::kPollingResult, 1);
   histogram_tester.ExpectBucketCount(
-      BocaSessionManager::kPollingResultHistName,
+      boca::kPollingResult,
       BocaSessionManager::BocaPollingResult::kInSessionUpdate, 1);
 }
 
@@ -1602,6 +1601,16 @@ TEST_F(BocaSessionManagerTest,
   EXPECT_CALL(*observer(), OnSessionCaptionClosed).Times(0);
   EXPECT_CALL(*observer(), OnLocalCaptionClosed).Times(0);
   device_session_manger_.SetSessionState(session_manager::SessionState::ACTIVE);
+}
+
+TEST_F(BocaSessionManagerTest, SetsSpotlightOAuthTokenRequester) {
+  ASSERT_FALSE(boca_session_manager()->HasSpotlightTokenFetcher());
+
+  std::unique_ptr<FakeSpotlightOAuthTokenFetcher> token_manager =
+      std::make_unique<FakeSpotlightOAuthTokenFetcher>("token", "robot_email");
+  boca_session_manager()->set_spotlight_token_fetcher(token_manager.get());
+  ASSERT_TRUE(boca_session_manager()->HasSpotlightTokenFetcher());
+  boca_session_manager()->Reset();
 }
 
 class BocaSessionManagerSodaTest : public BocaSessionManagerTestBase {

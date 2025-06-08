@@ -90,12 +90,8 @@ HistoryDatabase::HistoryDatabase(
               // TODO(crbug.com/40159106) Remove this dependency on normal
               // locking mode.
               .set_exclusive_locking(false)
-              .set_preload(base::FeatureList::IsEnabled(
-                  sql::features::kPreOpenPreloadDatabase))
-              // Set the database page size to something a little larger to give
-              // us better performance (we're typically seek rather than
-              // bandwidth limited). Must be a power of 2 and a max of 65536.
-              .set_page_size(4096)
+              // Prime the cache.
+              .set_preload(true)
               // Set the cache size. The page size, plus a little extra, times
               // this value, tells us how much memory the cache will use
               // maximum. 1000 * 4kB = 4MB
@@ -119,11 +115,6 @@ sql::InitStatus HistoryDatabase::Init(const base::FilePath& history_name) {
   // Exclude the history file from backups.
   base::apple::SetBackupExclusion(history_name);
 #endif
-
-  // Prime the cache.
-  if (!base::FeatureList::IsEnabled(sql::features::kPreOpenPreloadDatabase)) {
-    db_.Preload();
-  }
 
   // Create the tables and indices. If you add something here, also add it to
   // `RecreateAllTablesButURL()`.
@@ -436,6 +427,9 @@ std::string HistoryDatabase::GetDiagnosticInfo(
     int extended_error,
     sql::Statement* statement,
     sql::DatabaseDiagnostics* diagnostics) {
+  if (!db_.is_open()) {
+    return "Database is not opened.";
+  }
   return db_.GetDiagnosticInfo(extended_error, statement, diagnostics);
 }
 

@@ -122,24 +122,16 @@ pub fn readme_file_from_package<'a>(
     };
 
     if license_files.is_empty() {
-        // Exceptions for https://crbug.com/369075726 can only apply to crates that are not
-        // shipped.
-        let does_crbug_369075726_apply = !shipped
-            && crate_config
-                .as_ref()
-                .is_some_and(|cfg| cfg.no_license_file_tracked_in_crbug_369075726);
-        if !does_crbug_369075726_apply {
-            bail!(
-                "License file not found for crate {name}.\n
-                 \n
-                 You can specify the `license_files` in `crate.{name}]` \
-                 section of the `gnrt_config.toml` to manually point out \
-                 a license file relative to the crate's root. \
-                 (Alternatively you can tweak `gnrt`'s source code to improve \
-                 its ability to recognize license files based on their name).",
-                name = package.name()
-            );
-        }
+        bail!(
+            "License file not found for crate {name}.\n
+             \n
+             You can specify the `license_files` in `crate.{name}]` \
+             section of the `gnrt_config.toml` to manually point out \
+             a license file relative to the crate's root. \
+             (Alternatively you can tweak `gnrt`'s source code to improve \
+             its ability to recognize license files based on their name).",
+            name = package.name()
+        );
     }
 
     let revision = {
@@ -316,7 +308,7 @@ fn find_license_files_for_kinds(
         // Safe to unwrap because if a LicenseKind isn't in
         // LICENSE_KIND_TO_LICENSE_FILES, it's a bug in gnrt's implementation.
         let possible_files = LICENSE_KIND_TO_LICENSE_FILES.get(kind).unwrap_or_else(|| {
-            panic!("Bug in gnrt: License kind {:?} not in LICENSE_KIND_TO_LICENSE_FILES", kind)
+            panic!("Bug in gnrt: License kind {kind:?} not in LICENSE_KIND_TO_LICENSE_FILES")
         });
 
         // Try each possible file in priority order.

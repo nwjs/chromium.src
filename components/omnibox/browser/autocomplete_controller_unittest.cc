@@ -19,6 +19,7 @@
 #include "build/build_config.h"
 #include "components/omnibox/browser/actions/omnibox_answer_action.h"
 #include "components/omnibox/browser/autocomplete_controller.h"
+#include "components/omnibox/browser/autocomplete_enums.h"
 #include "components/omnibox/browser/autocomplete_match.h"
 #include "components/omnibox/browser/autocomplete_match_test_util.h"
 #include "components/omnibox/browser/autocomplete_match_type.h"
@@ -740,7 +741,7 @@ TEST_F(AutocompleteControllerTest, UpdateResult_ZPSEnabledAndShownInSession) {
   }
   {
     SCOPED_TRACE("Stop with clear_result=false is called due to user idleness");
-    controller_.Stop(/*clear_result=*/false);
+    controller_.Stop(AutocompleteStopReason::kInteraction);
     // Stop with clear_result=false does not clear the internal result set and
     // does not notify `OnResultChanged()`.
     EXPECT_FALSE(controller_.internal_result_.empty());
@@ -799,7 +800,7 @@ TEST_F(AutocompleteControllerTest, UpdateResult_ZPSEnabledAndShownInSession) {
   }
   {
     SCOPED_TRACE("Stop with clear_result=true is called due to popup closing");
-    controller_.Stop(/*clear_result=*/true);
+    controller_.Stop(AutocompleteStopReason::kClobbered);
     // Stop with clear_result=true clears the internal result set and notifies
     // `OnResultChanged()`.
     EXPECT_TRUE(controller_.internal_result_.empty());
@@ -1875,34 +1876,34 @@ TEST_F(AutocompleteControllerTest, ExplicitStop) {
 
   {
     SCOPED_TRACE(
-        "Stop with clear_result=false and no pending changes should not notify"
+        "Stop with `kInteraction` and no pending changes should not notify "
         "`OnResultChanged()` - there's no change to notify of.");
     controller_.SimulateAutocompletePass(true, false, matches);
-    controller_.Stop(false);
+    controller_.Stop(AutocompleteStopReason::kInteraction);
     controller_.ExpectStopAfter(0, true);
     EXPECT_FALSE(controller_.published_result_.empty());
     controller_.ExpectNoNotificationOrStop();
   }
   {
     SCOPED_TRACE(
-        "Stop with clear_result=false and pending changes should not notify"
-        "`OnResultChanged()` - the last pending change should be abandoned to "
-        "avoid changes as the user's e.g. down arrowing..");
+        "Stop with `kInteraction` and pending changes should not notify "
+        "`OnResultChanged()` - the last pending change should be "
+        "abandoned to avoid changes as the user's e.g. down arrowing.");
     controller_.SimulateAutocompletePass(true, false, matches);
     controller_.SimulateAutocompletePass(false, false, matches);
-    controller_.Stop(false);
+    controller_.Stop(AutocompleteStopReason::kInteraction);
     EXPECT_FALSE(controller_.published_result_.empty());
     controller_.ExpectStopAfter(0, true);
     controller_.ExpectNoNotificationOrStop();
   }
   {
     SCOPED_TRACE(
-        "Stop with clear_result=true and no pending notifications should "
-        "notify `OnResultChanged()` - observers should know the results were "
+        "Stop with `kClobbered` and no pending notifications should notify "
+        "`OnResultChanged()` - observers should know the results were "
         "cleared.");
     controller_.SimulateAutocompletePass(true, false, matches);
     controller_.observer_->last_default_match_changed = true;
-    controller_.Stop(true);
+    controller_.Stop(AutocompleteStopReason::kClobbered);
     EXPECT_TRUE(controller_.published_result_.empty());
     controller_.ExpectOnResultChanged(
         0, AutocompleteController::UpdateType::kStop);
@@ -1911,13 +1912,13 @@ TEST_F(AutocompleteControllerTest, ExplicitStop) {
   }
   {
     SCOPED_TRACE(
-        "Stop with clear_result=true and pending notifications should notify "
-        "`OnResultChanged()` - observers should know the results were "
+        "Stop with `kClobbered` and pending notifications should notify "
+        "`OnResultChanged()` - observers should know the results were cleared."
         "cleared.");
     controller_.SimulateAutocompletePass(true, false, matches);
     controller_.SimulateAutocompletePass(false, false, matches);
     controller_.observer_->last_default_match_changed = true;
-    controller_.Stop(true);
+    controller_.Stop(AutocompleteStopReason::kClobbered);
     EXPECT_TRUE(controller_.published_result_.empty());
     controller_.ExpectOnResultChanged(
         0, AutocompleteController::UpdateType::kStop);
@@ -2014,6 +2015,108 @@ TEST_F(AutocompleteControllerTest, UpdateResult_ForceAllowedToBeDefault) {
         }));
   }
 }
+
+// Feature not enabled on Android and iOS.
+#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
+TEST_F(AutocompleteControllerTest, UpdateResult_ContextualSuggestionsAndLens) {
+  // Enable contextual suggestions.
+  omnibox_feature_configs::ScopedConfigForTesting<
+      omnibox_feature_configs::ContextualSearch>
+      contextual_search_config;
+  contextual_search_config.Get().contextual_zps_limit = 3;
+  contextual_search_config.Get().show_open_lens_action = true;
+  contextual_search_config.Get().use_apc_paywall_signal = true;
+
+  // Populate TemplateURLService with a keyword.
+  TemplateURLData turl_data;
+  turl_data.SetShortName(u"Keyword");
+  turl_data.SetKeyword(u"keyword");
+  turl_data.SetURL("https://google.com/search?q={searchTerms}");
+  controller_.template_url_service_->Add(
+      std::make_unique<TemplateURL>(turl_data));
+
+  // Create a zero-suggest input.
+  AutocompleteInput zps_input(u"", 0u, metrics::OmniboxEventProto::OTHER,
+                              TestSchemeClassifier());
+  zps_input.set_focus_type(metrics::OmniboxFocusType::INTERACTION_FOCUS);
+
+  std::vector<AutocompleteMatch> provider_matches = {
+      CreatePersonalizedZeroPrefixMatch("zps_base", 1450),
+      CreateContextualSearchMatch(u"zps_contextual 1"),
+      CreateContextualSearchMatch(u"zps_contextual 2"),
+      CreateLensActionMatch(u"lens")};
+
+  // Helper to check results
+  auto check_results = [&](bool expect_contextual, bool expect_lens) {
+    bool actual_contextual = false;
+    bool actual_lens = false;
+    for (const auto& match : controller_.published_result_) {
+      if (match.subtypes.count(omnibox::SUBTYPE_CONTEXTUAL_SEARCH)) {
+        actual_contextual = true;
+      }
+      if (match.takeover_action &&
+          match.takeover_action->ActionId() ==
+              OmniboxActionId::CONTEXTUAL_SEARCH_OPEN_LENS) {
+        actual_lens = true;
+      }
+    }
+    EXPECT_EQ(actual_contextual, expect_contextual);
+    EXPECT_EQ(actual_lens, expect_lens);
+  };
+
+  // Lens is active. No contextual suggestions nor Lens entrypoint.
+  {
+    SCOPED_TRACE("Lens is active");
+    EXPECT_CALL(*provider_client(), AreLensEntrypointsVisible())
+        .WillRepeatedly(testing::Return(false));
+    EXPECT_CALL(*provider_client(), IsPagePaywalled())
+        .WillRepeatedly(testing::Return(false));
+
+    controller_.SimulateAutocompletePass(/*sync=*/true, /*done=*/true,
+                                         provider_matches, zps_input);
+    check_results(/*expect_contextual=*/false, /*expect_lens=*/false);
+  }
+
+  // Lens is inactive. Contextual suggestions and Lens entrypoint.
+  {
+    SCOPED_TRACE("Lens is inactive");
+    EXPECT_CALL(*provider_client(), AreLensEntrypointsVisible())
+        .WillRepeatedly(testing::Return(true));
+    EXPECT_CALL(*provider_client(), IsPagePaywalled())
+        .WillRepeatedly(testing::Return(false));
+
+    controller_.SimulateAutocompletePass(/*sync=*/true, /*done=*/true,
+                                         provider_matches, zps_input);
+    check_results(/*expect_contextual=*/true, /*expect_lens=*/true);
+  }
+
+  // Page is paywalled. No contextual suggestions but has Lens entrypoint.
+  {
+    SCOPED_TRACE("Page is paywalled");
+    EXPECT_CALL(*provider_client(), AreLensEntrypointsVisible())
+        .WillRepeatedly(testing::Return(true));
+    EXPECT_CALL(*provider_client(), IsPagePaywalled())
+        .WillRepeatedly(testing::Return(true));
+
+    controller_.SimulateAutocompletePass(/*sync=*/true, /*done=*/true,
+                                         provider_matches, zps_input);
+    check_results(/*expect_contextual=*/false, /*expect_lens=*/true);
+  }
+
+  // Paywall is unknown. No contextual suggestions but has Lens entrypoint.
+  {
+    SCOPED_TRACE("Paywall statis is unknown");
+    EXPECT_CALL(*provider_client(), AreLensEntrypointsVisible())
+        .WillRepeatedly(testing::Return(true));
+    EXPECT_CALL(*provider_client(), IsPagePaywalled())
+        .WillRepeatedly(testing::Return(std::nullopt));
+
+    controller_.SimulateAutocompletePass(/*sync=*/true, /*done=*/true,
+                                         provider_matches, zps_input);
+    check_results(/*expect_contextual=*/false, /*expect_lens=*/true);
+  }
+}
+#endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
 
 TEST_F(AutocompleteControllerTest, ExtraHeaders) {
   // Populate TemplateURLService with a keyword.
@@ -2445,7 +2548,7 @@ TEST_F(AutocompleteControllerTest, UpdateSearchboxStatsForAnswerAction) {
   AutocompleteMatch match1 = CreateSearchMatch("match1", true, 1300);
   match1.actions.push_back(answer_action);
 
-  controller_.Stop(true);
+  controller_.Stop(AutocompleteStopReason::kClobbered);
   EXPECT_THAT(controller_.SimulateAutocompletePass(
                   /*sync=*/true, /*done=*/true,
                   {match1, CreateSearchMatch("match2", true, 1200),
@@ -2561,11 +2664,11 @@ TEST_F(AutocompleteControllerTest,
   controller_.AttachActions();
 
   // The takeover action should be for the contextual search action, not pedals.
-  EXPECT_TRUE(controller_.internal_result_.match_at(0)->takeover_action);
+  ASSERT_TRUE(controller_.internal_result_.match_at(0)->takeover_action);
   EXPECT_EQ(
       OmniboxActionId::CONTEXTUAL_SEARCH_FULFILLMENT,
       controller_.internal_result_.match_at(0)->takeover_action->ActionId());
-  EXPECT_TRUE(controller_.internal_result_.match_at(1)->takeover_action);
+  ASSERT_TRUE(controller_.internal_result_.match_at(1)->takeover_action);
   EXPECT_EQ(
       OmniboxActionId::CONTEXTUAL_SEARCH_FULFILLMENT,
       controller_.internal_result_.match_at(1)->takeover_action->ActionId());
@@ -2576,6 +2679,9 @@ TEST_F(AutocompleteControllerTest,
   base::test::ScopedFeatureList feature_list;
   feature_list.InitAndEnableFeature(omnibox_feature_configs::ContextualSearch::
                                         kContextualZeroSuggestLensFulfillment);
+
+  EXPECT_CALL(*provider_client(), IsLensEnabled())
+      .WillRepeatedly(testing::Return(true));
 
   // Create a pedal provider to ensure that the contextual search action takes
   // precedence over the pedal.
@@ -2619,11 +2725,11 @@ TEST_F(AutocompleteControllerTest,
   EXPECT_FALSE(controller_.internal_result_.match_at(0)->takeover_action);
   EXPECT_FALSE(controller_.internal_result_.match_at(3)->takeover_action);
 
-  EXPECT_TRUE(controller_.internal_result_.match_at(1)->takeover_action);
+  ASSERT_TRUE(controller_.internal_result_.match_at(1)->takeover_action);
   EXPECT_EQ(
       OmniboxActionId::CONTEXTUAL_SEARCH_FULFILLMENT,
       controller_.internal_result_.match_at(1)->takeover_action->ActionId());
-  EXPECT_TRUE(controller_.internal_result_.match_at(2)->takeover_action);
+  ASSERT_TRUE(controller_.internal_result_.match_at(2)->takeover_action);
   EXPECT_EQ(
       OmniboxActionId::CONTEXTUAL_SEARCH_FULFILLMENT,
       controller_.internal_result_.match_at(2)->takeover_action->ActionId());

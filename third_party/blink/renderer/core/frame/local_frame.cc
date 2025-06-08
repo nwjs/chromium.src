@@ -356,32 +356,6 @@ mojom::blink::BlockingDetailsPtr CreateBlockingDetailsMojom(
   return feature_location_to_report;
 }
 
-bool IsNavigationBlockedByCoopRestrictProperties(
-    const LocalFrame& accessing_frame,
-    const Frame& target_frame) {
-  // If the two windows are not in the same CoopRelatedGroup, we should not
-  // block one window from navigating the other. This prevents restricting
-  // things that were not meant to. These are the cross browsing context group
-  // accesses that already existed before COOP: restrict-properties.
-  // TODO(https://crbug.com/1464618): Is there actually any scenario where cross
-  // browsing context group was allowed before COOP: restrict-properties? Verify
-  // that we need to have this check.
-  if (accessing_frame.GetPage()->CoopRelatedGroupToken() !=
-      target_frame.GetPage()->CoopRelatedGroupToken()) {
-    return false;
-  }
-
-  // If we're dealing with an actual COOP: restrict-properties case, then
-  // compare the browsing context group tokens. If they are different, the
-  // navigation should not be permitted.
-  if (accessing_frame.GetPage()->BrowsingContextGroupToken() !=
-      target_frame.GetPage()->BrowsingContextGroupToken()) {
-    return true;
-  }
-
-  return false;
-}
-
 // TODO: b/338175253 - remove the need for this conversion
 mojom::blink::StorageTypeAccessed ToMojoStorageType(
     blink::WebContentSettingsClient::StorageType storage_type) {
@@ -724,7 +698,7 @@ bool LocalFrame::DetachImpl(FrameDetachType type) {
       GetDocument());
 
   loader_.DispatchUnloadEventAndFillOldDocumentInfoIfNeeded(
-      type == FrameDetachType::kSwap);
+      type != FrameDetachType::kRemove);
   if (evict_cached_session_storage_on_freeze_or_unload_) {
     // Evicts the cached data of Session Storage to avoid reusing old data in
     // the cache after the session storage has been modified by another renderer
@@ -1000,11 +974,11 @@ void LocalFrame::OnFirstPaint(bool text_painted, bool image_painted) {
     // approach assumes that the background won't be changed after the first
     // text or image is painted, otherwise, the document will have a jarring
     // flash which should be avoid by most pages.
-    double h, s, l;
-    View()->DocumentBackgroundColor().GetHSL(h, s, l);
+    const float l =
+        View()->DocumentBackgroundColor().GetLightness(Color::ColorSpace::kHSL);
     GetLocalFrameHostRemote().DidInferColorScheme(
-        l < 0.5 ? mojom::blink::PreferredColorScheme::kDark
-                : mojom::blink::PreferredColorScheme::kLight);
+        l < 0.5f ? mojom::blink::PreferredColorScheme::kDark
+                 : mojom::blink::PreferredColorScheme::kLight);
     notified_color_scheme_ = true;
   }
 }
@@ -1562,7 +1536,7 @@ void LocalFrame::SetInvalidationForCapture(bool capturing) {
   // applied to the frame level scroller.
   layout_view->SetNeedsPaintPropertyUpdate();
 
-  if (!GetPage()->GetScrollbarTheme().UsesOverlayScrollbars()) {
+  if (!GetDocument()->AreScrollbarsAllowedInPaintPreview()) {
     // During CapturePaintPreview, the LayoutView thinks it should not have
     // scrollbars. So if scrollbars affect layout, we should force relayout
     // when entering and exiting paint preview.
@@ -2043,12 +2017,6 @@ bool LocalFrame::CanNavigate(const Frame& target_frame,
           SecurityOrigin::Create(destination_url).get())) {
     UseCounter::Count(GetDocument(),
                       WebFeature::kOpenerNavigationWithoutGesture);
-  }
-
-  // Frames from different browsing context groups in the same CoopRelatedGroup
-  // should not be able navigate one another.
-  if (IsNavigationBlockedByCoopRestrictProperties(*this, target_frame)) {
-    return false;
   }
 
   if (destination_url.ProtocolIsJavaScript() &&
@@ -2848,6 +2816,10 @@ void LocalFrame::SetHadUserInteraction(bool had_user_interaction) {
   GetFrameScheduler()->SetHadUserActivation(had_user_interaction);
 }
 
+void LocalFrame::SetStorageAccessApiStatus(net::StorageAccessApiStatus status) {
+  GetLocalFrameHostRemote().SetStorageAccessApiStatus(status);
+}
+
 namespace {
 
 class FrameColorOverlay final : public FrameOverlay::Delegate {
@@ -3511,6 +3483,14 @@ void LocalFrame::NotifyContextMenuInsetsObservers(
   for (ContextMenuInsetsChangedObserver* observer : observers) {
     observer->ContextMenuInsetsChanged(safe_area.IsEmpty() ? nullptr : &insets);
   }
+}
+
+void LocalFrame::ShowInterestInElement(int nodeID) const {
+  Element* element = DynamicTo<Element>(DOMNodeIds::NodeForId(nodeID));
+  if (!element) {
+    return;
+  }
+  element->ShowInterestNow();
 }
 
 void LocalFrame::AddInspectorIssue(AuditsIssue info) {

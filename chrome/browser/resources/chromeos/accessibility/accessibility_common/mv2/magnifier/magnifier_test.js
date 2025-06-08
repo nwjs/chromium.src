@@ -53,6 +53,7 @@ MagnifierMV2E2ETest = class extends E2ETestBase {
       enabled: [
         'features::kAccessibilityMagnifierFollowsChromeVox',
       ],
+      disabled: ['features::kAccessibilityManifestV3AccessibilityCommon']
     };
   }
 };
@@ -430,8 +431,10 @@ TEST_F(
       })();
     });
 
+// TODO(crbug.com/417125183): Test is flaky.
 TEST_F(
-    'MagnifierMV2E2ETest', 'ScreenMagnifierChromeVoxFollowingPref', function() {
+    'MagnifierMV2E2ETest', 'DISABLED_ScreenMagnifierChromeVoxFollowingPref',
+    function() {
       this.newCallback(async () => {
         // Disable ChromeVox following for full screen magnifier, and
         // verify prefs and state.

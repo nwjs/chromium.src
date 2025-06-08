@@ -266,16 +266,10 @@ class SavedTabGroupSyncBridgeTest : public ::testing::Test {
   }
 
   void VerifyEntriesCount(size_t expected_count) {
-    std::unique_ptr<syncer::DataTypeStore::RecordList> entries;
-    store_->ReadAllData(base::BindLambdaForTesting(
-        [&](const std::optional<syncer::ModelError>& error,
-            std::unique_ptr<syncer::DataTypeStore::RecordList> data) {
-          entries = std::move(data);
-        }));
-    task_environment_.RunUntilIdle();
+    const syncer::DataTypeStore::RecordList records =
+        syncer::DataTypeStoreTestUtil::ReadAllDataAndWait(*store_);
 
-    ASSERT_TRUE(entries);
-    EXPECT_EQ(expected_count, entries->size());
+    EXPECT_EQ(expected_count, records.size());
   }
 
   std::optional<proto::SavedTabGroupData> ReadSavedTabGroupDataFromStore(
@@ -473,9 +467,9 @@ TEST_F(SavedTabGroupSyncBridgeTest, MergeFullSyncDataWithExistingData) {
   base::Uuid group_guid = group.saved_guid();
   base::Uuid tab_1_guid = tab_1.saved_tab_guid();
   base::Uuid tab_2_guid = tab_2.saved_tab_guid();
-  base::Time group_creation_time = group.creation_time_windows_epoch_micros();
-  base::Time tab_1_creation_time = tab_1.creation_time_windows_epoch_micros();
-  base::Time tab_2_creation_time = tab_2.creation_time_windows_epoch_micros();
+  base::Time group_creation_time = group.creation_time();
+  base::Time tab_1_creation_time = tab_1.creation_time();
+  base::Time tab_2_creation_time = tab_2.creation_time();
 
   saved_tab_group_model_.AddedLocally(std::move(group));
 
@@ -637,8 +631,7 @@ TEST_F(SavedTabGroupSyncBridgeTest, OprhanedTabDiscardedAfter30Days) {
   base::Uuid orphaned_guid = base::Uuid::GenerateRandomV4();
   SavedTabGroupTab orphaned_tab(GURL("https://mail.google.com"), u"Mail",
                                 orphaned_guid, /*position=*/0);
-  orphaned_tab.SetUpdateTimeWindowsEpochMicros(base::Time::Now() -
-                                               kDiscardOrphanedTabsThreshold);
+  orphaned_tab.SetUpdateTime(base::Time::Now() - kDiscardOrphanedTabsThreshold);
 
   syncer::EntityChangeList orphaned_tab_change_list;
   orphaned_tab_change_list.push_back(CreateEntityChange(
@@ -693,8 +686,7 @@ TEST_F(SavedTabGroupSyncBridgeTest, OprhanedTabGroupFoundAfter30Days) {
 
   SavedTabGroupTab orphaned_tab(GURL("https://mail.google.com"), u"Mail",
                                 orphaned_guid, /*position=*/0);
-  orphaned_tab.SetUpdateTimeWindowsEpochMicros(base::Time::Now() -
-                                               kDiscardOrphanedTabsThreshold);
+  orphaned_tab.SetUpdateTime(base::Time::Now() - kDiscardOrphanedTabsThreshold);
   syncer::EntityChangeList orphaned_tab_change_list;
   orphaned_tab_change_list.push_back(CreateEntityChange(
       SavedTabGroupSyncBridge::SavedTabGroupTabToSpecificsForTest(orphaned_tab),
@@ -1292,20 +1284,13 @@ TEST_F(
   task_environment_.RunUntilIdle();
 
   // Read the migrated data from the store.
-  std::unique_ptr<syncer::DataTypeStore::RecordList> entries;
-  store_->ReadAllData(base::BindLambdaForTesting(
-      [&](const std::optional<syncer::ModelError>& error,
-          std::unique_ptr<syncer::DataTypeStore::RecordList> data) {
-        entries = std::move(data);
-      }));
-  task_environment_.RunUntilIdle();
+  const std::map<std::string, proto::SavedTabGroupData> data =
+      syncer::DataTypeStoreTestUtil::ReadAllDataAsProtoAndWait<
+          proto::SavedTabGroupData>(*store_);
 
   // Verify the migrated data
-  ASSERT_TRUE(entries);
-  EXPECT_EQ(entries->size(), 1u);
-  const syncer::DataTypeStore::Record& record = entries->at(0);
-  proto::SavedTabGroupData migrated_data;
-  ASSERT_TRUE(migrated_data.ParseFromString(record.value));
+  ASSERT_EQ(data.size(), 1u);
+  const proto::SavedTabGroupData& migrated_data = data.begin()->second;
 
   EXPECT_TRUE(AreGroupSpecificsEqual(migrated_data.specifics(), old_specifics));
 
@@ -1341,17 +1326,11 @@ TEST_F(
   task_environment_.RunUntilIdle();
 
   // Read the migrated data from the store.
-  std::unique_ptr<syncer::DataTypeStore::RecordList> entries;
-  store_->ReadAllData(base::BindLambdaForTesting(
-      [&](const std::optional<syncer::ModelError>& error,
-          std::unique_ptr<syncer::DataTypeStore::RecordList> data) {
-        entries = std::move(data);
-      }));
-  task_environment_.RunUntilIdle();
+  const syncer::DataTypeStore::RecordList entries =
+      syncer::DataTypeStoreTestUtil::ReadAllDataAndWait(*store_);
 
   // Verify the migrated data
-  ASSERT_TRUE(entries);
-  EXPECT_EQ(entries->size(), 2u);
+  ASSERT_EQ(entries.size(), 2u);
   EXPECT_EQ(1u, saved_tab_group_model_.saved_tab_groups().size());
 
   // Verify the migrated data in the model.
@@ -1418,18 +1397,12 @@ TEST_F(SavedTabGroupSyncBridgeMigrationTest,
   task_environment_.RunUntilIdle();
 
   // Read the migrated data from the store.
-  std::unique_ptr<syncer::DataTypeStore::RecordList> entries;
-  store_->ReadAllData(base::BindLambdaForTesting(
-      [&](const std::optional<syncer::ModelError>& error,
-          std::unique_ptr<syncer::DataTypeStore::RecordList> data) {
-        entries = std::move(data);
-      }));
-  task_environment_.RunUntilIdle();
+  const syncer::DataTypeStore::RecordList entries =
+      syncer::DataTypeStoreTestUtil::ReadAllDataAndWait(*store_);
 
   // Verify the migrated data. It should match the original.
-  ASSERT_TRUE(entries);
-  EXPECT_EQ(entries->size(), 1u);
-  const syncer::DataTypeStore::Record& record = entries->at(0);
+  ASSERT_EQ(entries.size(), 1u);
+  const syncer::DataTypeStore::Record& record = entries.at(0);
   proto::SavedTabGroupData migrated_data;
   EXPECT_EQ(group_data.SerializeAsString(), record.value);
   ASSERT_TRUE(migrated_data.ParseFromString(record.value));
@@ -1459,18 +1432,12 @@ TEST_F(SavedTabGroupSyncBridgeMigrationTest,
   task_environment_.RunUntilIdle();
 
   // Read the migrated data from the store.
-  std::unique_ptr<syncer::DataTypeStore::RecordList> entries;
-  store_->ReadAllData(base::BindLambdaForTesting(
-      [&](const std::optional<syncer::ModelError>& error,
-          std::unique_ptr<syncer::DataTypeStore::RecordList> data) {
-        entries = std::move(data);
-      }));
-  task_environment_.RunUntilIdle();
+  const syncer::DataTypeStore::RecordList entries =
+      syncer::DataTypeStoreTestUtil::ReadAllDataAndWait(*store_);
 
   // Verify the migrated data. It should match the original.
-  ASSERT_TRUE(entries);
-  EXPECT_EQ(entries->size(), 1u);
-  const syncer::DataTypeStore::Record& record = entries->at(0);
+  ASSERT_EQ(entries.size(), 1u);
+  const syncer::DataTypeStore::Record& record = entries.at(0);
   proto::SavedTabGroupData migrated_data;
   EXPECT_EQ(group_data.SerializeAsString(), record.value);
   ASSERT_TRUE(migrated_data.ParseFromString(record.value));
@@ -1508,17 +1475,11 @@ TEST_F(
   task_environment_.RunUntilIdle();
 
   // Read the migrated data from the store.
-  std::unique_ptr<syncer::DataTypeStore::RecordList> entries;
-  store_->ReadAllData(base::BindLambdaForTesting(
-      [&](const std::optional<syncer::ModelError>& error,
-          std::unique_ptr<syncer::DataTypeStore::RecordList> data) {
-        entries = std::move(data);
-      }));
-  task_environment_.RunUntilIdle();
+  const syncer::DataTypeStore::RecordList entries =
+      syncer::DataTypeStoreTestUtil::ReadAllDataAndWait(*store_);
 
   // Verify the migrated data
-  ASSERT_TRUE(entries);
-  EXPECT_EQ(entries->size(), 2u);
+  ASSERT_EQ(entries.size(), 2u);
   EXPECT_EQ(1u, saved_tab_group_model_.saved_tab_groups().size());
 
   // Verify the migrated data in the model.
@@ -1551,7 +1512,7 @@ TEST_F(SavedTabGroupSyncBridgeTest, NewlyOrphanedGroupsDontGetDestroyed) {
   // position must be set or the update time will be overridden during model
   // save.
   group.SetPosition(0);
-  group.SetUpdateTimeWindowsEpochMicros(base::Time::Now());
+  group.SetUpdateTime(base::Time::Now());
 
   saved_tab_group_model_.AddedLocally(std::move(group));
   EXPECT_EQ(1u, saved_tab_group_model_.saved_tab_groups().size());
@@ -1568,8 +1529,8 @@ TEST_F(SavedTabGroupSyncBridgeTest, OldOrphanedGroupsGetDestroyed) {
   // save.
   group.SetPosition(0);
 
-  group.SetUpdateTimeWindowsEpochMicros(
-      (base::Time::Now() - kDiscardOrphanedTabsThreshold) - base::Days(1));
+  group.SetUpdateTime((base::Time::Now() - kDiscardOrphanedTabsThreshold) -
+                      base::Days(1));
 
   saved_tab_group_model_.AddedLocally(std::move(group));
   EXPECT_EQ(1u, saved_tab_group_model_.saved_tab_groups().size());

@@ -16,6 +16,7 @@ import static org.robolectric.Shadows.shadowOf;
 import android.graphics.Rect;
 import android.os.Build;
 import android.os.Looper;
+import android.view.View;
 
 import org.junit.Before;
 import org.junit.Rule;
@@ -30,11 +31,18 @@ import org.robolectric.shadows.ShadowLooper;
 
 import org.chromium.base.supplier.ObservableSupplierImpl;
 import org.chromium.base.test.BaseRobolectricTestRunner;
+import org.chromium.base.test.util.HistogramWatcher;
+import org.chromium.blink.mojom.DisplayMode;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.tab.Tab;
+import org.chromium.chrome.browser.theme.ThemeColorProvider;
+import org.chromium.chrome.browser.ui.web_app_header.WebAppHeaderUtils.BackEvent;
+import org.chromium.chrome.browser.ui.web_app_header.WebAppHeaderUtils.ReloadType;
 import org.chromium.components.browser_ui.desktop_windowing.AppHeaderState;
 import org.chromium.components.browser_ui.desktop_windowing.DesktopWindowStateManager;
+import org.chromium.components.browser_ui.widget.scrim.ScrimManager;
 import org.chromium.ui.modelutil.PropertyModel;
+import org.chromium.ui.util.TokenHolder;
 
 import java.util.List;
 
@@ -45,10 +53,13 @@ public class WebAppHeaderLayoutMediatorTest {
     private static final int SCREEN_WIDTH = 800;
     private static final int SCREEN_HEIGHT = 1600;
     private static final int SYS_APP_HEADER_HEIGHT = 40;
+    private static final int HEADER_BUTTON_HEIGHT = 46;
     private static final int LEFT_INSET = 50;
     private static final int RIGHT_INSET = 60;
     private static final Rect WIDEST_UNOCCLUDED_RECT =
             new Rect(LEFT_INSET, 0, SCREEN_WIDTH - RIGHT_INSET, SYS_APP_HEADER_HEIGHT);
+    private static final int LIGHT_COLOR = 0xfffff;
+    private static final int DARK_COLOR = 0x000000;
 
     @Rule public MockitoRule mockitoRule = MockitoJUnit.rule();
 
@@ -57,7 +68,11 @@ public class WebAppHeaderLayoutMediatorTest {
     private ObservableSupplierImpl<Tab> mTabSupplier;
     private ObservableSupplierImpl<List<Rect>> mNonDraggableAreasSupplier;
     @Mock public DesktopWindowStateManager mDesktopWindowStateManager;
+    @Mock public ThemeColorProvider mThemeColorProvider;
+    @Mock public ScrimManager mScrimManager;
+    @Mock public WebAppHeaderDelegate mHeaderDelegate;
     @Mock public Tab mTab;
+    private ObservableSupplierImpl<Boolean> mScrimVisibilitySupplier;
     private @Nullable AppHeaderState mAppHeaderState;
     private ShadowLooper mShadowLooper;
 
@@ -65,6 +80,10 @@ public class WebAppHeaderLayoutMediatorTest {
     public void setup() {
         mShadowLooper = shadowOf(Looper.getMainLooper());
         when(mDesktopWindowStateManager.getAppHeaderState()).thenReturn(null);
+        when(mThemeColorProvider.getThemeColor()).thenReturn(LIGHT_COLOR);
+
+        mScrimVisibilitySupplier = new ObservableSupplierImpl<>();
+        when(mScrimManager.getScrimVisibilitySupplier()).thenReturn(mScrimVisibilitySupplier);
 
         mTabSupplier = new ObservableSupplierImpl<>();
         mNonDraggableAreasSupplier = new ObservableSupplierImpl<>();
@@ -72,10 +91,15 @@ public class WebAppHeaderLayoutMediatorTest {
         mMediator =
                 new WebAppHeaderLayoutMediator(
                         mModel,
+                        mHeaderDelegate,
                         mDesktopWindowStateManager,
+                        mScrimManager,
                         mTabSupplier,
                         mNonDraggableAreasSupplier,
-                        SYS_APP_HEADER_HEIGHT);
+                        mThemeColorProvider,
+                        SYS_APP_HEADER_HEIGHT,
+                        HEADER_BUTTON_HEIGHT,
+                        DisplayMode.MINIMAL_UI);
 
         mShadowLooper.idle();
     }
@@ -90,15 +114,72 @@ public class WebAppHeaderLayoutMediatorTest {
     }
 
     @Test
+    public void testInitialization() {
+        verify(mDesktopWindowStateManager).addObserver(mMediator);
+        verify(mThemeColorProvider).addThemeColorObserver(mMediator);
+    }
+
+    @Test
+    public void testButtonBottomInset_headerHeightEqualButtonHeight() {
+        Rect widestUnoccludedRect =
+                new Rect(LEFT_INSET, 0, SCREEN_WIDTH - RIGHT_INSET, HEADER_BUTTON_HEIGHT);
+        setupDesktopWindowing(/* isInDesktopWindow= */ true, widestUnoccludedRect);
+        mMediator.onAppHeaderStateChanged(mAppHeaderState);
+
+        assertEquals(
+                "Button bottom inset should be zero.",
+                0,
+                mMediator.getButtonBottomInsetForTesting());
+    }
+
+    @Test
+    public void testButtonBottomInset_headerHeightLessThanButtonHeight() {
+        setupDesktopWindowing(/* isInDesktopWindow= */ true, WIDEST_UNOCCLUDED_RECT);
+        mMediator.onAppHeaderStateChanged(mAppHeaderState);
+
+        assertEquals(
+                "Button bottom inset should cover the extra height needed to fit the button.",
+                HEADER_BUTTON_HEIGHT - SYS_APP_HEADER_HEIGHT,
+                mMediator.getButtonBottomInsetForTesting());
+    }
+
+    @Test
+    public void testButtonBottomInset_adjustedHeaderHeightLessThanButtonHeight() {
+        final int statusBarHeight = HEADER_BUTTON_HEIGHT - SYS_APP_HEADER_HEIGHT;
+
+        // The caption bar is large enough to fit the buttons, but part of the caption bar is
+        // occupied by the status bar.
+        final Rect widestUnoccludedRect =
+                new Rect(
+                        LEFT_INSET,
+                        statusBarHeight,
+                        SCREEN_WIDTH - RIGHT_INSET,
+                        HEADER_BUTTON_HEIGHT);
+
+        setupDesktopWindowing(/* isInDesktopWindow= */ true, widestUnoccludedRect);
+        mMediator.onAppHeaderStateChanged(mAppHeaderState);
+
+        assertEquals(
+                "Button bottom inset should cover the extra height needed to fit the button.",
+                statusBarHeight,
+                mMediator.getButtonBottomInsetForTesting());
+    }
+
+    @Test
     public void testHasAppHeaderStateOnInit_setPaddingsMatchingInsets() {
         setupDesktopWindowing(/* isInDesktopWindow= */ true, WIDEST_UNOCCLUDED_RECT);
         mMediator =
                 new WebAppHeaderLayoutMediator(
                         mModel,
+                        mHeaderDelegate,
                         mDesktopWindowStateManager,
+                        mScrimManager,
                         mTabSupplier,
                         mNonDraggableAreasSupplier,
-                        SYS_APP_HEADER_HEIGHT);
+                        mThemeColorProvider,
+                        SYS_APP_HEADER_HEIGHT,
+                        HEADER_BUTTON_HEIGHT,
+                        DisplayMode.MINIMAL_UI);
 
         assertEquals(
                 "Header min height should match app header height",
@@ -139,10 +220,15 @@ public class WebAppHeaderLayoutMediatorTest {
         mMediator =
                 new WebAppHeaderLayoutMediator(
                         mModel,
+                        mHeaderDelegate,
                         mDesktopWindowStateManager,
+                        mScrimManager,
                         mTabSupplier,
                         mNonDraggableAreasSupplier,
-                        SYS_APP_HEADER_HEIGHT);
+                        mThemeColorProvider,
+                        SYS_APP_HEADER_HEIGHT,
+                        HEADER_BUTTON_HEIGHT,
+                        DisplayMode.MINIMAL_UI);
         assertEquals(
                 "Header paddings should match updated system insets",
                 new Rect(0, 0, 0, 0),
@@ -180,6 +266,52 @@ public class WebAppHeaderLayoutMediatorTest {
     }
 
     @Test
+    public void testHeaderInitiallyHidden_WidthSupplierUpdatesOnVisibilityChange() {
+        setupDesktopWindowing(/* isInDesktopWindow= */ true, WIDEST_UNOCCLUDED_RECT);
+
+        mMediator =
+                new WebAppHeaderLayoutMediator(
+                        mModel,
+                        mHeaderDelegate,
+                        mDesktopWindowStateManager,
+                        mScrimManager,
+                        mTabSupplier,
+                        mNonDraggableAreasSupplier,
+                        mThemeColorProvider,
+                        SYS_APP_HEADER_HEIGHT,
+                        HEADER_BUTTON_HEIGHT,
+                        DisplayMode.MINIMAL_UI);
+        mShadowLooper.idle();
+
+        mModel.get(WebAppHeaderLayoutProperties.WIDTH_CHANGED_CALLBACK).onResult(SCREEN_WIDTH);
+
+        // View starts off visible.
+        assertTrue(
+                "IS_VISIBLE property should be true.",
+                mModel.get(WebAppHeaderLayoutProperties.IS_VISIBLE));
+        assertEquals(
+                "Width supplier should report SCREEN_WIDTH.",
+                Integer.valueOf(SCREEN_WIDTH),
+                mMediator.getWidthSupplierForTesting().get());
+
+        // Change the app header state to have a View.GONE app header view.
+        AppHeaderState goneState =
+                new AppHeaderState(
+                        WIDEST_UNOCCLUDED_RECT,
+                        WIDEST_UNOCCLUDED_RECT,
+                        /* isInDesktopWindow= */ false);
+        mMediator.onAppHeaderStateChanged(goneState);
+        mModel.get(WebAppHeaderLayoutProperties.VISIBILITY_CHANGED_CALLBACK).onResult(View.GONE);
+        assertFalse(
+                "IS_VISIBLE property should be false.",
+                mModel.get(WebAppHeaderLayoutProperties.IS_VISIBLE));
+        assertEquals(
+                "Width supplier should be zero.",
+                Integer.valueOf(0),
+                mMediator.getWidthSupplierForTesting().get());
+    }
+
+    @Test
     public void testAppHeaderHeightIsLessThanMin_noTopPaddingsSet() {
         setupDesktopWindowing(/* isInDesktopWindow= */ true, WIDEST_UNOCCLUDED_RECT);
 
@@ -195,10 +327,11 @@ public class WebAppHeaderLayoutMediatorTest {
     }
 
     @Test
-    public void testAppHeaderHeightIsGreaterThanMin_setTopPaddingEqualExceedingSize() {
-        final int headerHeight = SYS_APP_HEADER_HEIGHT + 10;
+    public void testAppHeaderHeightIsGreaterThanMin_setTopPaddingEqualStatusBarHeight() {
+        final int statusBarHeight = 10;
+        final int headerHeight = SYS_APP_HEADER_HEIGHT + statusBarHeight;
         final Rect widestUnoccludedRect =
-                new Rect(LEFT_INSET, 0, SCREEN_WIDTH - RIGHT_INSET, headerHeight);
+                new Rect(LEFT_INSET, statusBarHeight, SCREEN_WIDTH - RIGHT_INSET, headerHeight);
         setupDesktopWindowing(/* isInDesktopWindow= */ true, widestUnoccludedRect);
         WebAppHeaderLayoutMediator.setMinHeightForTesting(SYS_APP_HEADER_HEIGHT);
 
@@ -215,26 +348,78 @@ public class WebAppHeaderLayoutMediatorTest {
 
     @Test
     public void testGoBackWithHistory_shouldGoBack() {
+        var watcher =
+                HistogramWatcher.newSingleRecordWatcher(
+                        "CustomTabs.WebAppHeader.BackButtonEvent", BackEvent.BACK);
         mTabSupplier.set(mTab);
         when(mTab.canGoBack()).thenReturn(true);
 
         mMediator.goBack();
         verify(mTab).goBack();
+        watcher.assertExpected("Back event should be recorded.");
     }
 
     @Test
     public void testGoBackNoHistory_shouldNotGoBack() {
+        var watcher =
+                HistogramWatcher.newSingleRecordWatcher(
+                        "CustomTabs.WebAppHeader.BackButtonEvent", BackEvent.INVALID);
         mTabSupplier.set(mTab);
         when(mTab.canGoBack()).thenReturn(false);
 
         mMediator.goBack();
         verify(mTab, never()).goBack();
+        watcher.assertExpected("Invalid event should be recorded.");
     }
 
     @Test
     public void testGoBackNoTab_shouldNotGoBack() {
+        var watcher =
+                HistogramWatcher.newSingleRecordWatcher(
+                        "CustomTabs.WebAppHeader.BackButtonEvent", BackEvent.INVALID);
         mMediator.goBack();
         verify(mTab, never()).goBack();
+        watcher.assertExpected("Invalid event should be recorded.");
+    }
+
+    @Test
+    public void testReload_shouldReloadTab() {
+        var watcher =
+                HistogramWatcher.newSingleRecordWatcher(
+                        "CustomTabs.WebAppHeader.ReloadButtonEvent", ReloadType.RELOAD_FROM_CACHE);
+        when(mTab.isLoading()).thenReturn(false);
+        mTabSupplier.set(mTab);
+
+        mMediator.refreshTab(false);
+        verify(mTab).reload();
+        watcher.assertExpected("Reload from cache should be recorded.");
+    }
+
+    @Test
+    public void testReloadWhileReloading_shouldStopReloading() {
+        var watcher =
+                HistogramWatcher.newSingleRecordWatcher(
+                        "CustomTabs.WebAppHeader.ReloadButtonEvent", ReloadType.STOP_RELOAD);
+        when(mTab.isLoading()).thenReturn(true);
+        mTabSupplier.set(mTab);
+
+        mMediator.refreshTab(false);
+        verify(mTab).stopLoading();
+        watcher.assertExpected("Stop reloading should be recorded.");
+    }
+
+    @Test
+    public void testReloadTabIgnoringCache_shouldReloadIgnoringCache() {
+        var watcher =
+                HistogramWatcher.newSingleRecordWatcher(
+                        "CustomTabs.WebAppHeader.ReloadButtonEvent",
+                        ReloadType.RELOAD_IGNORE_CACHE);
+        when(mTab.isLoading()).thenReturn(false);
+        mTabSupplier.set(mTab);
+
+        mMediator.refreshTab(true);
+        verify(mTab).reloadIgnoringCache();
+        watcher.assertExpected("Reload ignoring cache should be recorded.");
     }
 
     @Test
@@ -254,7 +439,10 @@ public class WebAppHeaderLayoutMediatorTest {
     public void testInDWButNotInWindow_AllAreaIsDraggable() {
         setupDesktopWindowing(/* isInDesktopWindow= */ false, WIDEST_UNOCCLUDED_RECT);
 
+        final var nonDraggableAreas = List.of(new Rect(0, 0, 10, 10), new Rect(10, 0, 10, 10));
+        mNonDraggableAreasSupplier.set(nonDraggableAreas);
         mMediator.onAppHeaderStateChanged(mAppHeaderState);
+
         mModel.get(WebAppHeaderLayoutProperties.WIDTH_CHANGED_CALLBACK).onResult(SCREEN_WIDTH);
 
         final var areas = mModel.get(WebAppHeaderLayoutProperties.NON_DRAGGABLE_AREAS);
@@ -282,5 +470,94 @@ public class WebAppHeaderLayoutMediatorTest {
                 "Non draggable areas from supplier should match model areas",
                 areas.toArray(),
                 mModel.get(WebAppHeaderLayoutProperties.NON_DRAGGABLE_AREAS).toArray());
+    }
+
+    @Test
+    public void testInDwLayoutStructureChanges_SetNonDraggableAreaOnEachUpdate() {
+        setupDesktopWindowing(/* isInDesktopWindow= */ true, WIDEST_UNOCCLUDED_RECT);
+
+        // Setup layout without children.
+        final List<Rect> initialNonDraggableArea = List.of();
+        mNonDraggableAreasSupplier.set(initialNonDraggableArea);
+        mMediator.onAppHeaderStateChanged(mAppHeaderState);
+        mModel.get(WebAppHeaderLayoutProperties.WIDTH_CHANGED_CALLBACK).onResult(SCREEN_WIDTH);
+
+        // Verify area is empty.
+        var areas = mModel.get(WebAppHeaderLayoutProperties.NON_DRAGGABLE_AREAS);
+        assertEquals("There should be only one area in the list", 1, areas.size());
+        assertEquals(
+                "The area should be an empty area that allows to drag everywhere",
+                new Rect(0, 0, 0, 0),
+                areas.get(0));
+
+        // Children has laid out and layout update is sent with the same width.
+        final var nonDraggableAreas = List.of(new Rect(0, 0, 10, 10), new Rect(10, 0, 10, 10));
+        mNonDraggableAreasSupplier.set(nonDraggableAreas);
+        mModel.get(WebAppHeaderLayoutProperties.WIDTH_CHANGED_CALLBACK).onResult(SCREEN_WIDTH);
+
+        // Verify non-draggable area is updated.
+        areas = mModel.get(WebAppHeaderLayoutProperties.NON_DRAGGABLE_AREAS);
+        assertEquals("There should be only 2 non draggable areas", 2, areas.size());
+        assertArrayEquals(
+                "Non draggable areas from supplier should match model areas",
+                areas.toArray(),
+                mModel.get(WebAppHeaderLayoutProperties.NON_DRAGGABLE_AREAS).toArray());
+    }
+
+    @Test
+    public void testSetInitialTheme() {
+        setupDesktopWindowing(/* isInDesktopWindow= */ true, WIDEST_UNOCCLUDED_RECT);
+        assertEquals(
+                "Light color should be set initially",
+                LIGHT_COLOR,
+                mModel.get(WebAppHeaderLayoutProperties.BACKGROUND_COLOR));
+        verify(mDesktopWindowStateManager).updateForegroundColor(LIGHT_COLOR);
+    }
+
+    @Test
+    public void testThemeChanges_SetNewTheme() {
+        setupDesktopWindowing(/* isInDesktopWindow= */ true, WIDEST_UNOCCLUDED_RECT);
+        when(mThemeColorProvider.getThemeColor()).thenReturn(DARK_COLOR);
+
+        mMediator.onThemeColorChanged(DARK_COLOR, /* shouldAnimate= */ false);
+        assertEquals(
+                "Dark color should be set initially",
+                DARK_COLOR,
+                mModel.get(WebAppHeaderLayoutProperties.BACKGROUND_COLOR));
+        verify(mDesktopWindowStateManager).updateForegroundColor(DARK_COLOR);
+    }
+
+    @Test
+    public void testScrimOverlaysWebContent_DisableHeaderControls() {
+        setupDesktopWindowing(/* isInDesktopWindow= */ true, WIDEST_UNOCCLUDED_RECT);
+        mMediator.getScrimVisibilityObserver().onResult(true);
+        verify(mHeaderDelegate).disableControlsAndClearOldToken(TokenHolder.INVALID_TOKEN);
+    }
+
+    @Test
+    public void testClearPreviousTokenAndAcquireNewOnSecondScrimOverlay() {
+        setupDesktopWindowing(/* isInDesktopWindow= */ true, WIDEST_UNOCCLUDED_RECT);
+        when(mHeaderDelegate.disableControlsAndClearOldToken(TokenHolder.INVALID_TOKEN))
+                .thenReturn(0);
+        mMediator.getScrimVisibilityObserver().onResult(true);
+        verify(mHeaderDelegate).disableControlsAndClearOldToken(TokenHolder.INVALID_TOKEN);
+
+        when(mHeaderDelegate.disableControlsAndClearOldToken(TokenHolder.INVALID_TOKEN))
+                .thenReturn(1);
+        mMediator.getScrimVisibilityObserver().onResult(true);
+        verify(mHeaderDelegate).disableControlsAndClearOldToken(0);
+    }
+
+    @Test
+    public void testScrimOverlaysAndThenHides_EnableHeaderControls() {
+        setupDesktopWindowing(/* isInDesktopWindow= */ true, WIDEST_UNOCCLUDED_RECT);
+        when(mHeaderDelegate.disableControlsAndClearOldToken(TokenHolder.INVALID_TOKEN))
+                .thenReturn(0);
+
+        mMediator.getScrimVisibilityObserver().onResult(true);
+        verify(mHeaderDelegate).disableControlsAndClearOldToken(TokenHolder.INVALID_TOKEN);
+
+        mMediator.getScrimVisibilityObserver().onResult(false);
+        verify(mHeaderDelegate).releaseDisabledControlsToken(0);
     }
 }

@@ -26,6 +26,13 @@
 #include "components/autofill/core/common/autofill_features.h"
 
 namespace autofill {
+namespace {
+
+// The list of countries where the fallback parsing is not supported.
+static constexpr auto countries_not_supporting_fallback_parsing =
+    base::MakeFixedFlatSet<AddressCountryCode>({AddressCountryCode("IN")});
+
+}  // namespace
 
 bool IsLessSignificantVerificationStatus(VerificationStatus left,
                                          VerificationStatus right) {
@@ -490,7 +497,11 @@ void AddressComponent::ParseValueAndAssignSubcomponents() {
   }
 
   // As a final fallback, parse using the fallback method.
-  ParseValueAndAssignSubcomponentsByFallbackMethod();
+  // In some countries (e.g. India), the parsing cannot be reliably implemented
+  // and the fallback method does more harm than good.
+  if (!countries_not_supporting_fallback_parsing.contains(GetCountryCode())) {
+    ParseValueAndAssignSubcomponentsByFallbackMethod();
+  }
 }
 
 bool AddressComponent::ParseValueAndAssignSubcomponentsByI18nParsingRules() {
@@ -1052,13 +1063,12 @@ bool AddressComponent::IsMergeableWithComponent(
     if (subcomponents_.size() != newer_component.subcomponents_.size()) {
       return false;
     }
-    for (auto [subcomponent, newer_subcomponent] :
-         base::zip(subcomponents_, newer_component.subcomponents_)) {
-      if (!subcomponent->IsMergeableWithComponent(*newer_subcomponent)) {
-        return false;
-      }
-    }
-    return true;
+    return std::ranges::all_of(
+        base::zip(subcomponents_, newer_component.subcomponents_),
+        [](const auto& p) {
+          auto [subcomponent, newer_subcomponent] = p;
+          return subcomponent->IsMergeableWithComponent(*newer_subcomponent);
+        });
   }
   return false;
 }
@@ -1251,13 +1261,14 @@ bool AddressComponent::MergeWithComponent(
   // If the corresponding mode is active, ignore this mode and pair-wise merge
   // the child tokens. Reformat this nodes from its children after the merge.
   if (merge_mode_ & kMergeChildrenAndReformatIfNeeded) {
-    CHECK_EQ(newer_component.subcomponents_.size(), subcomponents_.size());
-    for (auto [subcomponent, newer_subcomponent] :
-         base::zip(subcomponents_, newer_component.subcomponents_)) {
-      if (!subcomponent->MergeWithComponent(*newer_subcomponent,
-                                            newer_was_more_recently_used)) {
-        return false;
-      }
+    if (std::ranges::any_of(
+            base::zip(subcomponents_, newer_component.subcomponents_),
+            [&](const auto& p) {
+              auto [subcomponent, newer_subcomponent] = p;
+              return !subcomponent->MergeWithComponent(
+                  *newer_subcomponent, newer_was_more_recently_used);
+            })) {
+      return false;
     }
 
     // If the two values are already token equivalent, use the value of the

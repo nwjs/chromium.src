@@ -8,9 +8,9 @@
 #include <cstdint>
 
 #include "base/memory/raw_ref.h"
+#include "base/types/expected.h"
 #include "chrome/common/actor.mojom.h"
 #include "chrome/renderer/actor/tool_base.h"
-#include "third_party/blink/public/common/input/web_input_event.h"
 
 namespace blink {
 class WebMouseEvent;
@@ -37,13 +37,8 @@ class ClickTool : public ToolBase {
   std::string DebugString() const override;
 
  private:
-  std::optional<gfx::PointF> ValidateAndGetClickPoint() const;
-
-  blink::WebMouseEvent CreateClickMouseEvent(
-      const mojom::ClickAction::Type type,
-      const mojom::ClickAction::Count count,
-      blink::WebInputEvent::Type event_type,
-      const gfx::PointF& click_point);
+  using ValidatedResult = base::expected<gfx::PointF, mojom::ActionResultPtr>;
+  ValidatedResult Validate() const;
 
   void SendMouseUp(blink::WebMouseEvent mouse_event,
                    ToolFinishedCallback callback);

@@ -47,6 +47,7 @@ Dinge om in ag te neem:
 <translation id="1917964099031477364">Hierdie rekening en enige ongstoorde data sal uit Chrome en ander Google-programme op hierdie toestel verwyder word.</translation>
 <translation id="1919130412786645364">Laat Chrome-aanmelding toe</translation>
 <translation id="1965935827552890526">Voltooi wat jy besig was om in jou ander oop Chrome-venster te doen.</translation>
+<translation id="1966638102563776885">Chrome-wenk: Kry jou wagwoorde in enige app</translation>
 <translation id="1973910962341002002">Wissel “Chrome” aan in die “<ph name="TEXT_OF_THE_SETTINGS_MENU_ITEM" />”-instellings</translation>
 <translation id="1984705450038014246">Sinkroniseer jou Chrome-data</translation>
 <translation id="1987779152850321833">Voltooi die voorgestelde handelinge hier onder om Chrome ten beste te benut.</translation>
@@ -114,7 +115,6 @@ Probeer om ’n paar minute te wag voordat jy afmeld. As jy nou afmeld, sal hier
 <translation id="3655656110921623717">Dit beteken dat Chrome elke keer die mobiele werf sal versoek.</translation>
 <translation id="3740397331642243698">Maak die URL'e wat by Google Chrome ingevoer word in Incognitomodus oop.</translation>
 <translation id="3741995255368156336">Maak die Chrome-leeslys oop.</translation>
-<translation id="3808570423967020928">Kry vinniger toegang tot Chrome vanaf jou Tuisskerm-dok.</translation>
 <translation id="3827545470516145620">Jy kry tans standaardsekuriteitbeskerming op hierdie toestel</translation>
 <translation id="384394811301901750">Google Chrome kan nie jou kamera nou gebruik nie</translation>
 <translation id="3863841106411295595">Voeg die ingevoerde URL’s by jou leeslys in Chrome.</translation>
@@ -138,6 +138,7 @@ Probeer om ’n paar minute te wag voordat jy afmeld. As jy nou afmeld, sal hier
 <translation id="4724297637870447613">Gebruik Chrome oral</translation>
 <translation id="4738647308035481133">Google Chrome-bladsy</translation>
 <translation id="4742795653798179840">Chrome-data is uitgevee</translation>
+<translation id="4749294594657945639">Kies Chrome vir Outovul om jou gestoorde wagwoorde maklik in ander apps te kry.</translation>
 <translation id="4761869838909035636">Doen Chrome-veiligheidskontrole</translation>
 <translation id="4798859546468762093">Sluit Chrome by <ph name="FEATURE_NAME_1" /> en <ph name="FEATURE_NAME_2" /> in om personalisering en ander kenmerke te kry</translation>
 <translation id="4819268619367838612">Chrome stuur gebruik- en omvaldata na Google toe om te help om die app beter te maak. <ph name="BEGIN_LINK" />Bestuur<ph name="END_LINK" /></translation>
@@ -233,7 +234,6 @@ Gaan na <ph name="BEGIN_LINK" />Google-dienste<ph name="END_LINK" /> vir meer in
 <translation id="6975725306479268850">Kies Chrome vir Outovul</translation>
 <translation id="7056826488869329999">Maak veiligheidskontrole in Chrome oop en laat dit loop.</translation>
 <translation id="7061455974939528301">Druk en hou die Chrome-ikoon en klik “Wysig tuisskerm”</translation>
-<translation id="7065813315247345131">Skuif Chrome na die dok</translation>
 <translation id="7124339256045485976">Hou Chrome op datum</translation>
 <translation id="7145599899567697473">Stoor en outovul wagwoorde in Chrome</translation>
 <translation id="7161390184744336561">Google Chrome is verouderd</translation>
@@ -317,10 +317,10 @@ Jou data is op <ph name="TIME" /> met jou wagfrase geënkripteer. Voer dit in om
 <translation id="8603022514504485810">Google Wagwoordbestuurder kon nie alle wagwoorde nagaan nie. Probeer môre weer of <ph name="BEGIN_LINK" />gaan wagwoorde in jou Google-rekening na<ph name="END_LINK" />.</translation>
 <translation id="8630122478628016441">Skakel “Sluit Incognito-oortjies wanneer jy Chrome toemaak” aan.</translation>
 <translation id="8673726683583791503">Doen inkopies met Google Lens</translation>
-<translation id="8727043961453758442">Benut Chrome ten beste</translation>
 <translation id="8765470054473112089">Wanneer jy iets in die adresbalk of soekkassie tik, stuur Chrome wat jy tik na jou versteksoekenjin toe om beter voorstelle te kry. Dit is af in Incognito.</translation>
 <translation id="8772179140489533211">Wys porboodskappe om by Chrome aan te meld.</translation>
 <translation id="8788269841521769222">Jy hoef nie hierdie wagwoord te onthou nie. Dit sal vir <ph name="EMAIL" /> in Google Wagwoordbestuurder gestoor word</translation>
+<translation id="8796490717897731471"><ph name="EMAIL" />. Chrome word bestuur.</translation>
 <translation id="880967149107462122">Gaan na Chrome-instellings</translation>
 <translation id="8842132678697187091">Jy kan Google Lens hier oopmaak.</translation>
 <translation id="8850736900032787670">Meld by Chrome aan om gepersonaliseerde inhoud op grond van jou belangstellings te ontvang.</translation>

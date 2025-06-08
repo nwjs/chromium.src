@@ -77,6 +77,7 @@ const base::Feature* const kAllFeatures[] = {
     &kIPHPreviewsOmniboxUIFeature,
     &kIPHReadAloudAppMenuFeature,
     &kIPHReadAloudExpandedPlayerFeature,
+    &kIPHReadAloudPlaybackModeFeature,
     &kIPHReadLaterContextMenuFeature,
     &kIPHReadLaterAppMenuBookmarkThisPageFeature,
     &kIPHReadLaterAppMenuBookmarksFeature,
@@ -119,6 +120,7 @@ const base::Feature* const kAllFeatures[] = {
     &kIPHSharingHubWebnotesStylizeFeature,
     &kIPHRestoreTabsOnFREFeature,
     &kIPHRtlGestureNavigationFeature,
+    &kIPHTabSwitcherXR,
 #endif  // BUILDFLAG(IS_ANDROID)
 
 #if BUILDFLAG(IS_IOS) || BUILDFLAG(IS_ANDROID)
@@ -184,6 +186,7 @@ const base::Feature* const kAllFeatures[] = {
     &kIPHiOSSettingsInOverflowMenuBubbleFeature,
     &kIPHiOSSwitchAccountsWithNTPAccountParticleDiscFeature,
     &kIPHiOSWelcomeBackFeature,
+    &kIPHIOSGLICPromoFeature,
 #endif  // BUILDFLAG(IS_IOS)
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_APPLE) || BUILDFLAG(IS_LINUX) || \
     BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_FUCHSIA)
@@ -208,6 +211,7 @@ const base::Feature* const kAllFeatures[] = {
 #if BUILDFLAG(ENABLE_EXTENSIONS)
     &kIPHExtensionsMenuFeature,
     &kIPHExtensionsRequestAccessButtonFeature,
+    &kIPHExtensionsZeroStatePromoFeature,
 #endif
     &kIPHFocusHelpBubbleScreenReaderPromoFeature,
     &kIPHGMCCastStartStopFeature,
@@ -250,7 +254,6 @@ const base::Feature* const kAllFeatures[] = {
     &kIPHTabOrganizationSuccessFeature,
     &kIPHTabSearchFeature,
     &kIPHTabSearchToolbarButtonFeature,
-    &kIPHWebUITabStripFeature,
     &kIPHDesktopPwaInstallFeature,
     &kIPHProfileSwitchFeature,
     &kIPHDesktopSharedHighlightingFeature,

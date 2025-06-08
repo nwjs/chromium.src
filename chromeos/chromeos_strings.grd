@@ -7175,10 +7175,10 @@
         Class Tools
       </message>
       <message name="IDS_ON_TASK_ENTER_LOCKED_MODE_COUNTDOWN_NOTIFICATION_MESSAGE" desc="Message signaling the countdown before the teachers lock students' screen.">
-        Your teacher will lock your screen in <ph name="NUM_SECONDS">$1<ex>5</ex></ph> seconds
+        You will only be able to use Class Tools in <ph name="NUM_SECONDS">$1<ex>5</ex></ph> seconds
       </message>
       <message name="IDS_ON_TASK_ENTER_LOCKED_MODE_NOTIFICATION_MESSAGE" desc="Notification message telling students that their teachers have locked their screen.">
-        Your teacher has locked your screen
+        You're now only able to use Class Tools
       </message>
       <message name="IDS_ON_TASK_SESSION_END_NOTIFICATION_MESSAGE" desc="Notification message telling students that their class session ended.">
         Class Tools session has ended for you
@@ -7191,6 +7191,9 @@
       </message>
       <message name="IDS_ON_TASK_BUNDLE_CONTENT_REMOVED_MESSAGE" desc="Notification message telling students that their teacher has removed content from the bundle.">
         Your teacher has removed content in Class Tools
+      </message>
+      <message name="IDS_ON_TASK_CANNOT_OPEN_UNSUPPORTED_RESOURCES_IN_LOCKED_MODE_MESSAGE" desc="Notification message telling students that the provided resource is unsupported in locked mode. Let the students tell the teacher the issue.">
+        Your teacher has sent an unsupported resource. Let them know.
       </message>
 
       <!-- Strings for the OnTask pod -->
@@ -7250,6 +7253,14 @@
       </message>
       <message name="IDS_BOCA_SPOTLIGHT_PERSISTENT_NOTIFICATION_MESSAGE" desc="Message of the notiification telling users their screen is currently being viewed.">
        <ph name="TEACHER_NAME">$1<ex>John Doe</ex></ph> is viewing your screen
+      </message>
+
+      <!-- Strings for Class Tools caption bubble -->
+      <message name="IDS_BOCA_CAPTIONS_TRANSLATION_AVAILABLE_BUTTON_TEXT" desc="Text for the button to start captions translation.">
+        Translation available
+      </message>
+      <message name="IDS_BOCA_CAPTIONS_STOP_TRANSLATING_BUTTON_TEXT" desc="Text for the button to stop captions translation.">
+        Stop translating
       </message>
     </messages>
   </release>

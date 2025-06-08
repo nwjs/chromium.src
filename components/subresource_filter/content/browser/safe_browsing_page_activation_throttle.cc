@@ -14,7 +14,6 @@
 #include "base/check_op.h"
 #include "base/functional/bind.h"
 #include "base/metrics/histogram_macros.h"
-#include "base/not_fatal_until.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/timer/timer.h"
 #include "base/trace_event/trace_event.h"
@@ -71,19 +70,19 @@ std::optional<RedirectPosition> GetEnforcementRedirectPosition(
 }  // namespace
 
 SafeBrowsingPageActivationThrottle::SafeBrowsingPageActivationThrottle(
-    content::NavigationHandle* handle,
+    content::NavigationThrottleRegistry& registry,
     SafeBrowsingPageActivationThrottle::Delegate* delegate,
     scoped_refptr<safe_browsing::SafeBrowsingDatabaseManager> database_manager)
-    : NavigationThrottle(handle),
+    : NavigationThrottle(registry),
       database_client_(nullptr),
       delegate_(delegate) {
   database_client_.reset(new SubresourceFilterSafeBrowsingClient(
       std::move(database_manager), this,
       base::SingleThreadTaskRunner::GetCurrentDefault()));
 
-  CHECK(IsInSubresourceFilterRoot(handle), base::NotFatalUntil::M129);
+  CHECK(IsInSubresourceFilterRoot(&registry.GetNavigationHandle()));
   CheckCurrentUrl();
-  CHECK(!check_results_.empty(), base::NotFatalUntil::M129);
+  CHECK(!check_results_.empty());
 }
 
 SafeBrowsingPageActivationThrottle::~SafeBrowsingPageActivationThrottle() =
@@ -114,9 +113,9 @@ const char* SafeBrowsingPageActivationThrottle::GetNameForLogging() {
 
 void SafeBrowsingPageActivationThrottle::OnCheckUrlResultOnUI(
     const SubresourceFilterSafeBrowsingClient::CheckResult& result) {
-  CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M129);
+  CHECK_CURRENTLY_ON(content::BrowserThread::UI);
   size_t request_id = result.request_id;
-  CHECK_LT(request_id, check_results_.size(), base::NotFatalUntil::M129);
+  CHECK_LT(request_id, check_results_.size());
 
   auto& stored_result = check_results_.at(request_id);
   CHECK(!stored_result.finished);
@@ -150,7 +149,7 @@ SafeBrowsingPageActivationThrottle::ConfigResult::ConfigResult(
 SafeBrowsingPageActivationThrottle::ConfigResult::~ConfigResult() = default;
 
 void SafeBrowsingPageActivationThrottle::CheckCurrentUrl() {
-  CHECK(database_client_, base::NotFatalUntil::M129);
+  CHECK(database_client_);
   check_results_.emplace_back();
   size_t id = check_results_.size() - 1;
   database_client_->CheckUrl(navigation_handle()->GetURL(), id,
@@ -160,7 +159,7 @@ void SafeBrowsingPageActivationThrottle::CheckCurrentUrl() {
 void SafeBrowsingPageActivationThrottle::NotifyResult() {
   TRACE_EVENT0(TRACE_DISABLED_BY_DEFAULT("loading"),
                "SafeBrowsingPageActivationThrottle::NotifyResult");
-  CHECK(!check_results_.empty(), base::NotFatalUntil::M129);
+  CHECK(!check_results_.empty());
 
   // Determine which results to consider for safebrowsing/abusive enforcement.
   // We only consider the final check result in a redirect chain.
@@ -172,8 +171,7 @@ void SafeBrowsingPageActivationThrottle::NotifyResult() {
 
   // Get the activation decision with the associated ConfigResult.
   ActivationDecision activation_decision = GetActivationDecision(selection);
-  CHECK_NE(activation_decision, ActivationDecision::UNKNOWN,
-           base::NotFatalUntil::M129);
+  CHECK_NE(activation_decision, ActivationDecision::UNKNOWN);
 
   // Notify the observers of the check results.
   SubresourceFilterObserverManager::FromWebContents(
@@ -222,7 +220,7 @@ void SafeBrowsingPageActivationThrottle::LogMetricsOnChecksComplete(
     ActivationList matched_list,
     ActivationDecision decision,
     mojom::ActivationLevel level) const {
-  CHECK(HasFinishedAllSafeBrowsingChecks(), base::NotFatalUntil::M129);
+  CHECK(HasFinishedAllSafeBrowsingChecks());
 
   base::TimeDelta delay = defer_time_.is_null()
                               ? base::Milliseconds(0)
@@ -234,8 +232,7 @@ void SafeBrowsingPageActivationThrottle::LogMetricsOnChecksComplete(
   ukm::builders::SubresourceFilter builder(source_id);
   builder.SetActivationDecision(static_cast<int64_t>(decision));
   if (level == mojom::ActivationLevel::kDryRun) {
-    CHECK_EQ(ActivationDecision::ACTIVATED, decision,
-             base::NotFatalUntil::M129);
+    CHECK_EQ(ActivationDecision::ACTIVATED, decision);
     builder.SetDryRun(true);
   }
 
@@ -266,7 +263,7 @@ bool SafeBrowsingPageActivationThrottle::HasFinishedAllSafeBrowsingChecks()
 SafeBrowsingPageActivationThrottle::ConfigResult
 SafeBrowsingPageActivationThrottle::GetHighestPriorityConfiguration(
     const SubresourceFilterSafeBrowsingClient::CheckResult& result) {
-  CHECK(result.finished, base::NotFatalUntil::M129);
+  CHECK(result.finished);
   Configuration selected_config;
   bool warning = false;
   bool matched = false;

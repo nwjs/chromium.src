@@ -16,6 +16,11 @@ namespace password_manager::features {
 // All features in alphabetical order. The features should be documented
 // alongside the definition of their values in the .cc file.
 
+#if BUILDFLAG(IS_ANDROID)
+// Enables filling of OTPs received via SMS on Android.
+BASE_DECLARE_FEATURE(kAndroidSmsOtpFilling);
+#endif  // BUILDFLAG(IS_ANDROID)
+
 // When enabled, updates to shared existing passwords from the same sender are
 // auto-approved.
 BASE_DECLARE_FEATURE(kAutoApproveSharedPasswordUpdatesFromSameSender);
@@ -61,6 +66,11 @@ BASE_DECLARE_FEATURE(kFetchGaiaHashOnSignIn);
 // selection, rather than autofilling on page load, with highlighting of fields.
 BASE_DECLARE_FEATURE(kFillOnAccountSelect);
 
+#if BUILDFLAG(IS_ANDROID)
+// Allows filling from a secondary recovery password saved as a backup.
+BASE_DECLARE_FEATURE(kFillRecoveryPassword);
+#endif
+
 #if BUILDFLAG(IS_IOS)
 
 // Enables the clean up of hanging form extraction requests made by the
@@ -73,10 +83,6 @@ BASE_DECLARE_FEATURE(kIosCleanupHangingPasswordFormExtractionRequests);
 // milliseconds before the form extraction request times out.
 extern const base::FeatureParam<int>
     kIosPasswordFormExtractionRequestsTimeoutMs;
-
-// Enables improving detecting the password fields when retrieving password
-// suggestions for filling.
-BASE_DECLARE_FEATURE(kIOSImprovePasswordFieldDetectionForFilling);
 
 // Enables the second version of the bottom sheet to fix a few bugs that we've
 // seen in production since the launch of the V1 of the feature.
@@ -98,18 +104,13 @@ BASE_DECLARE_FEATURE(kPasswordFormGroupedAffiliations);
 // Enables "chunking" generated passwords by adding hyphens every 4 characters
 // to make them more readable.
 BASE_DECLARE_FEATURE(kPasswordGenerationChunking);
+// Enables triggering password suggestions through the context menu.
+BASE_DECLARE_FEATURE(kPasswordManualFallbackAvailable);
 #endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
 
 // Enables logging the content of chrome://password-manager-internals to the
 // terminal.
 BASE_DECLARE_FEATURE(kPasswordManagerLogToTerminal);
-
-// Enables triggering password suggestions through the context menu.
-BASE_DECLARE_FEATURE(kPasswordManualFallbackAvailable);
-
-// Enables postponing detecting a successful submission and showing the
-// save/update UI by a fixed time.
-BASE_DECLARE_FEATURE(kPostponeOnLoginSuccessful);
 
 // Detects password reuse based on hashed password values.
 BASE_DECLARE_FEATURE(kReuseDetectionBasedOnPasswordHashes);

@@ -11,8 +11,8 @@
 #include <vector>
 
 #include "base/containers/flat_map.h"
+#include "base/containers/flat_set.h"
 #include "base/containers/span.h"
-#include "base/feature_list.h"
 #include "base/functional/callback.h"
 #include "base/observer_list.h"
 #include "base/observer_list_types.h"
@@ -33,9 +33,6 @@ namespace web_app {
 
 class IwaInternalsHandler;
 
-// Enables the key distribution dev mode UI on chrome://web-app-internals.
-BASE_DECLARE_FEATURE(kIwaKeyDistributionDevMode);
-
 // This class is a singleton responsible for processing the IWA Key Distribution
 // Component data.
 class IwaKeyDistributionInfoProvider {
@@ -52,15 +49,45 @@ class IwaKeyDistributionInfoProvider {
     std::optional<PublicKeyData> public_key;
   };
 
+  struct SpecialAppPermissionsInfo {
+    base::Value AsDebugValue() const;
+
+    bool skip_capture_started_notification;
+  };
+
   using KeyRotations = base::flat_map<std::string, KeyRotationInfo>;
+  using ManagedAllowlist = base::flat_set<std::string>;
+  using SpecialAppPermissions =
+      base::flat_map<std::string, SpecialAppPermissionsInfo>;
+  using KeyDistributionData =
+      std::tuple<KeyRotations, SpecialAppPermissions, ManagedAllowlist>;
+
   using QueueOnDemandUpdateCallback = base::RepeatingCallback<bool(
       base::PassKey<IwaKeyDistributionInfoProvider>)>;
+
   class Observer : public base::CheckedObserver {
    public:
     virtual void OnComponentUpdateSuccess(const base::Version& version,
                                           bool is_preloaded) {}
     virtual void OnComponentUpdateError(const base::Version& version,
                                         IwaComponentUpdateError error) {}
+  };
+
+  struct ComponentData {
+    ComponentData(base::Version version,
+                  KeyRotations key_rotations,
+                  SpecialAppPermissions special_app_permissions,
+                  ManagedAllowlist managed_allowlist,
+                  bool is_preloaded);
+    ~ComponentData();
+    ComponentData(const ComponentData&);
+
+    base::Version version;
+    KeyRotations key_rotations;
+    SpecialAppPermissions special_app_permissions;
+    ManagedAllowlist managed_allowlist;
+
+    bool is_preloaded = false;
   };
 
   static IwaKeyDistributionInfoProvider* GetInstance();
@@ -75,6 +102,12 @@ class IwaKeyDistributionInfoProvider {
 
   const KeyRotationInfo* GetKeyRotationInfo(
       const std::string& web_bundle_id) const;
+  const SpecialAppPermissionsInfo* GetSpecialAppPermissionsInfo(
+      const std::string& web_bundle_id) const;
+  std::vector<std::string> GetSkipMultiCaptureNotificationBundleIds() const;
+
+  // Only bundles present in the managed allowlist can be installed and updated.
+  bool IsManagedInstallPermitted(std::string_view web_bundle_id) const;
 
   // Sets up the `IwaKeyDistributionInfoProvider`, i.e. adds the capability to
   // schedule on demand callbacks.
@@ -115,21 +148,9 @@ class IwaKeyDistributionInfoProvider {
   base::OneShotEvent& OnMaybeDownloadedComponentDataReady();
 
   std::optional<bool> IsPreloadedForTesting() const;
+  void SetComponentDataForTesting(ComponentData component_data);
 
  private:
-  struct ComponentData {
-    ComponentData(base::Version version,
-                  KeyRotations key_rotations,
-                  bool is_preloaded);
-    ~ComponentData();
-    ComponentData(const ComponentData&);
-
-    base::Version version;
-    KeyRotations key_rotations;
-
-    bool is_preloaded = false;
-  };
-
   IwaKeyDistributionInfoProvider();
 
   // Posts `MaybeQueueComponentUpdate()` onto `any_data_ready_` once.
@@ -147,7 +168,7 @@ class IwaKeyDistributionInfoProvider {
   void OnKeyDistributionDataLoaded(
       const base::Version& version,
       bool is_preloaded,
-      base::expected<KeyRotations, IwaComponentUpdateError>);
+      base::expected<KeyDistributionData, IwaComponentUpdateError>);
 
   void DispatchComponentUpdateSuccess(const base::Version& version,
                                       bool is_preloaded);

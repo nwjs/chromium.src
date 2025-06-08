@@ -31,7 +31,6 @@
 #include "base/logging.h"
 #include "base/memory/raw_ptr.h"
 #include "base/metrics/histogram_macros.h"
-#include "base/not_fatal_until.h"
 #include "base/notreached.h"
 #include "base/numerics/safe_conversions.h"
 #include "base/scoped_observation.h"
@@ -1835,6 +1834,10 @@ bool View::CanHandleAccelerators() const {
   return true;
 }
 
+base::span<const ui::Accelerator> View::GetAccelerators() const {
+  return accelerators_ ? *accelerators_ : base::span<const ui::Accelerator>();
+}
+
 // Focus -----------------------------------------------------------------------
 
 bool View::HasFocus() const {
@@ -3287,7 +3290,7 @@ void View::RemoveDescendantToNotify(View* view) {
   DCHECK(view);
   DCHECK(descendants_to_notify_);
   auto i = std::ranges::find(*descendants_to_notify_, view);
-  CHECK(i != descendants_to_notify_->end(), base::NotFatalUntil::M130);
+  CHECK(i != descendants_to_notify_->end());
   descendants_to_notify_->erase(i);
   if (descendants_to_notify_->empty()) {
     descendants_to_notify_.reset();

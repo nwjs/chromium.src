@@ -143,6 +143,8 @@ class StyleBuilderConverter {
   // converted to zero.
   template <typename T, CSSValueID ZeroValue = CSSValueID::kNone>
   static T ConvertFlags(StyleResolverState&, const CSSValue&);
+  static StyleFlexWrapData ConvertFlexWrapData(StyleResolverState&,
+                                               const CSSValue&);
   static FontDescription::FamilyDescription ConvertFontFamily(
       StyleResolverState&,
       const CSSValue&);
@@ -419,6 +421,7 @@ class StyleBuilderConverter {
                                                  const CSSValue&);
 
   static PositionArea ConvertPositionArea(StyleResolverState&, const CSSValue&);
+  static FitText ConvertFitText(StyleResolverState&, const CSSValue&);
 };
 
 template <typename T>

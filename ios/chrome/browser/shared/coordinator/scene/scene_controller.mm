@@ -16,12 +16,13 @@
 #import "base/metrics/histogram_macros.h"
 #import "base/metrics/user_metrics.h"
 #import "base/metrics/user_metrics_action.h"
+#import "base/strings/stringprintf.h"
 #import "base/strings/sys_string_conversions.h"
 #import "base/time/time.h"
 #import "components/autofill/core/browser/data_model/addresses/autofill_profile.h"
 #import "components/autofill/core/browser/data_model/payments/credit_card.h"
 #import "components/breadcrumbs/core/breadcrumbs_status.h"
-#import "components/data_sharing/public/data_sharing_service.h"
+#import "components/data_sharing/public/data_sharing_utils.h"
 #import "components/feature_engagement/public/event_constants.h"
 #import "components/feature_engagement/public/tracker.h"
 #import "components/infobars/core/infobar_manager.h"
@@ -44,6 +45,7 @@
 #import "ios/chrome/app/application_delegate/url_opener.h"
 #import "ios/chrome/app/application_delegate/url_opener_params.h"
 #import "ios/chrome/app/application_mode.h"
+#import "ios/chrome/app/change_profile_commands.h"
 #import "ios/chrome/app/chrome_overlay_window.h"
 #import "ios/chrome/app/deferred_initialization_runner.h"
 #import "ios/chrome/app/deferred_initialization_task_names.h"
@@ -54,17 +56,20 @@
 #import "ios/chrome/browser/app_store_rating/ui_bundled/app_store_rating_scene_agent.h"
 #import "ios/chrome/browser/app_store_rating/ui_bundled/features.h"
 #import "ios/chrome/browser/appearance/ui_bundled/appearance_customization.h"
+#import "ios/chrome/browser/authentication/ui_bundled/account_menu/account_menu_constants.h"
+#import "ios/chrome/browser/authentication/ui_bundled/account_menu/account_menu_coordinator.h"
+#import "ios/chrome/browser/authentication/ui_bundled/account_menu/account_menu_coordinator_delegate.h"
 #import "ios/chrome/browser/authentication/ui_bundled/authentication_flow/authentication_flow.h"
+#import "ios/chrome/browser/authentication/ui_bundled/change_profile/change_profile_authentication_continuation.h"
 #import "ios/chrome/browser/authentication/ui_bundled/change_profile/change_profile_load_url.h"
 #import "ios/chrome/browser/authentication/ui_bundled/continuation.h"
-#import "ios/chrome/browser/authentication/ui_bundled/signin/account_menu/account_menu_constants.h"
 #import "ios/chrome/browser/authentication/ui_bundled/signin/features.h"
 #import "ios/chrome/browser/authentication/ui_bundled/signin/promo/signin_fullscreen_promo_scene_agent.h"
 #import "ios/chrome/browser/authentication/ui_bundled/signin/signin_constants.h"
 #import "ios/chrome/browser/authentication/ui_bundled/signin/signin_coordinator.h"
+#import "ios/chrome/browser/authentication/ui_bundled/signin/signin_in_progress.h"
 #import "ios/chrome/browser/authentication/ui_bundled/signin/signin_utils.h"
 #import "ios/chrome/browser/authentication/ui_bundled/signin_notification_infobar_delegate.h"
-#import "ios/chrome/browser/authentication/ui_bundled/signout_action_sheet/signout_action_sheet_coordinator.h"
 #import "ios/chrome/browser/browser_view/ui_bundled/browser_view_controller.h"
 #import "ios/chrome/browser/browsing_data/model/browsing_data_remove_mask.h"
 #import "ios/chrome/browser/browsing_data/model/browsing_data_remover.h"
@@ -89,6 +94,8 @@
 #import "ios/chrome/browser/incognito_interstitial/ui_bundled/incognito_interstitial_coordinator_delegate.h"
 #import "ios/chrome/browser/incognito_reauth/ui_bundled/incognito_reauth_scene_agent.h"
 #import "ios/chrome/browser/infobars/model/infobar_manager_impl.h"
+#import "ios/chrome/browser/intelligence/features/features.h"
+#import "ios/chrome/browser/intelligence/gemini/coordinator/glic_promo_scene_agent.h"
 #import "ios/chrome/browser/intents/model/user_activity_browser_agent.h"
 #import "ios/chrome/browser/lens/ui_bundled/lens_entrypoint.h"
 #import "ios/chrome/browser/lens_overlay/coordinator/lens_overlay_availability.h"
@@ -140,6 +147,7 @@
 #import "ios/chrome/browser/shared/model/browser/browser_list_factory.h"
 #import "ios/chrome/browser/shared/model/browser/browser_provider_interface.h"
 #import "ios/chrome/browser/shared/model/prefs/pref_names.h"
+#import "ios/chrome/browser/shared/model/profile/features.h"
 #import "ios/chrome/browser/shared/model/profile/profile_attributes_storage_ios.h"
 #import "ios/chrome/browser/shared/model/profile/profile_ios.h"
 #import "ios/chrome/browser/shared/model/profile/profile_manager_ios.h"
@@ -180,6 +188,7 @@
 #import "ios/chrome/browser/start_surface/ui_bundled/start_surface_recent_tab_browser_agent.h"
 #import "ios/chrome/browser/start_surface/ui_bundled/start_surface_scene_agent.h"
 #import "ios/chrome/browser/start_surface/ui_bundled/start_surface_util.h"
+#import "ios/chrome/browser/sync/model/sync_service_factory.h"
 #import "ios/chrome/browser/tab_insertion/model/tab_insertion_browser_agent.h"
 #import "ios/chrome/browser/tab_switcher/ui_bundled/tab_grid/tab_grid_coordinator.h"
 #import "ios/chrome/browser/tab_switcher/ui_bundled/tab_grid/tab_grid_coordinator_delegate.h"
@@ -191,7 +200,6 @@
 #import "ios/chrome/browser/web_state_list/model/session_metrics.h"
 #import "ios/chrome/browser/web_state_list/model/web_usage_enabler/web_usage_enabler_browser_agent.h"
 #import "ios/chrome/browser/whats_new/coordinator/promo/whats_new_scene_agent.h"
-#import "ios/chrome/browser/widget_kit/model/features.h"
 #import "ios/chrome/browser/window_activities/model/window_activity_helpers.h"
 #import "ios/chrome/browser/youtube_incognito/coordinator/youtube_incognito_coordinator.h"
 #import "ios/chrome/browser/youtube_incognito/coordinator/youtube_incognito_coordinator_delegate.h"
@@ -213,10 +221,6 @@
 #import "net/base/url_util.h"
 #import "services/network/public/cpp/shared_url_loader_factory.h"
 #import "ui/base/l10n/l10n_util.h"
-
-#if BUILDFLAG(ENABLE_WIDGETS_FOR_MIM)
-#import "ios/chrome/browser/widget_kit/model/model_swift.h"  // nogncheck
-#endif
 
 namespace {
 
@@ -248,6 +252,20 @@ enum class TabSwitcherDismissalMode { NONE, NORMAL, INCOGNITO };
 // Key of the UMA IOS.MultiWindow.OpenInNewWindow histogram.
 const char kMultiWindowOpenInNewWindowHistogram[] =
     "IOS.MultiWindow.OpenInNewWindow";
+
+// Histogram key used to log the number of contexts to open that the app
+// received.
+const char kContextsToOpen[] = "IOS.NumberOfContextsToOpen";
+
+// Enum for IOS.NumberOfContextsToOpen histogram.
+// Keep in sync with "ContextsToOpen" in tools/metrics/histograms/enums.xml.
+enum class ContextsToOpen {
+  kNoContexts = 0,
+  kOneContext = 1,
+  kMoreThanOneContext = 2,
+  kMoreThanOneContextWithAccountChange = 3,
+  kMaxValue = kMoreThanOneContextWithAccountChange,
+};
 
 // TODO(crbug.com/40788009): Use the Authentication Service sign-in status API
 // instead of this when available.
@@ -356,17 +374,11 @@ void OnListFamilyMembersResponse(
   }
 }
 
-// Callback for SystemIdentityManager::IterateOverIdentities().
-SystemIdentityManager::IteratorResult IdentitiesOnDevice(
-    NSMutableArray<id<SystemIdentity>>* identities,
-    id<SystemIdentity> identity) {
-  [identities addObject:identity];
-  return SystemIdentityManager::IteratorResult::kContinueIteration;
-}
-
 }  // namespace
 
-@interface SceneController () <HistoryCoordinatorDelegate,
+@interface SceneController () <AccountMenuCoordinatorDelegate,
+                               AuthenticationFlowDelegate,
+                               HistoryCoordinatorDelegate,
                                IncognitoInterstitialCoordinatorDelegate,
                                PasswordCheckupCoordinatorDelegate,
                                PolicyWatcherBrowserAgentObserving,
@@ -376,8 +388,7 @@ SystemIdentityManager::IteratorResult IdentitiesOnDevice(
                                SettingsNavigationControllerDelegate,
                                TabGridCoordinatorDelegate,
                                WebStateListObserving,
-                               YoutubeIncognitoCoordinatorDelegate,
-                               SignoutActionSheetCoordinatorDelegate> {
+                               YoutubeIncognitoCoordinatorDelegate> {
   std::unique_ptr<WebStateListObserverBridge> _webStateListForwardingObserver;
   std::unique_ptr<PolicyWatcherBrowserAgentObserverBridge>
       _policyWatcherObserverBridge;
@@ -403,6 +414,9 @@ SystemIdentityManager::IteratorResult IdentitiesOnDevice(
   // Fetches the Family Link member role asynchronously from KidsManagement API.
   std::unique_ptr<supervised_user::ListFamilyMembersFetcher>
       _familyMembersFetcher;
+  AccountMenuCoordinator* _accountMenuCoordinator;
+  // The authentication flow, if one is currently running.
+  AuthenticationFlow* _authenticationFlow;
 }
 
 // Navigation View controller for the settings.
@@ -445,9 +459,8 @@ SystemIdentityManager::IteratorResult IdentitiesOnDevice(
 @property(nonatomic, readwrite)
     TabOpeningPostOpeningAction NTPActionAfterTabSwitcherDismissal;
 
-// The main coordinator, lazily created the first time it is accessed. Manages
-// the main view controller. This property should not be accessed before the
-// browser has started up to the FOREGROUND stage.
+// The main coordinator to manage the main view controller. This property should
+// not be accessed before the browser has started up to the FOREGROUND stage.
 @property(nonatomic, strong) TabGridCoordinator* mainCoordinator;
 
 // YES while activating a new browser (often leading to dismissing the tab
@@ -467,14 +480,6 @@ SystemIdentityManager::IteratorResult IdentitiesOnDevice(
 // the coordinator.
 @property(nonatomic, strong) SigninCoordinator* signinCoordinator;
 
-// YES if the process of dismissing the sign-in prompt is from an external
-// trigger and is currently ongoing. An external trigger isn't done from the
-// signin prompt itself (i.e., tapping a button in the sign-in prompt that
-// dismisses the prompt). For example, the -dismissModalDialogswithCompletion
-// command is considered as an external trigger because it comes from something
-// outside the sign-in prompt UI.
-@property(nonatomic, assign) BOOL dismissingSigninPromptFromExternalTrigger;
-
 // The coordinator used to present the Incognito interstitial on Incognito
 // third-party intents. Created in
 // `showIncognitoInterstitialWithUrlLoadParams:dismissOmnibox:completion:`
@@ -491,10 +496,6 @@ SystemIdentityManager::IteratorResult IdentitiesOnDevice(
 
 @property(nonatomic, strong)
     YoutubeIncognitoCoordinator* youtubeIncognitoCoordinator;
-
-// The coordinator for the action sheet to sign out.
-@property(nonatomic, strong)
-    SignoutActionSheetCoordinator* signoutActionSheetCoordinator;
 
 @end
 
@@ -543,7 +544,9 @@ SystemIdentityManager::IteratorResult IdentitiesOnDevice(
   [_sceneState addAgent:[[IncognitoBlockerSceneAgent alloc] init]];
   [_sceneState
       addAgent:[[IncognitoReauthSceneAgent alloc]
-                   initWithReauthModule:[[ReauthenticationModule alloc] init]]];
+                         initWithReauthModule:[[ReauthenticationModule alloc]
+                                                  init]
+                   applicationCommandsHandler:self]];
   [_sceneState addAgent:[[StartSurfaceSceneAgent alloc] init]];
   [_sceneState addAgent:[[SessionSavingSceneAgent alloc] init]];
   [_sceneState addAgent:[[LayoutGuideSceneAgent alloc] init]];
@@ -554,20 +557,6 @@ SystemIdentityManager::IteratorResult IdentitiesOnDevice(
 }
 
 #pragma mark - Setters and getters
-
-- (TabGridCoordinator*)mainCoordinator {
-  if (!_mainCoordinator) {
-    // Lazily create the main coordinator.
-    TabGridCoordinator* tabGridCoordinator = [[TabGridCoordinator alloc]
-        initWithApplicationCommandEndpoint:self
-                            regularBrowser:self.mainInterface.browser
-                           inactiveBrowser:self.mainInterface.inactiveBrowser
-                          incognitoBrowser:self.incognitoInterface.browser];
-    tabGridCoordinator.delegate = self;
-    _mainCoordinator = tabGridCoordinator;
-  }
-  return _mainCoordinator;
-}
 
 - (WrangledBrowser*)mainInterface {
   return self.browserViewWrangler.mainInterface;
@@ -632,6 +621,14 @@ SystemIdentityManager::IteratorResult IdentitiesOnDevice(
   ProfileState* profileState = self.sceneState.profileState;
   [self transitionToSceneActivationLevel:level
                         profileInitStage:profileState.initStage];
+}
+
+- (void)signinDidEnd:(SceneState*)sceneState {
+  if (IsSigninForcedByPolicy()) {
+    // Handle intents after sign-in is done when the forced sign-in policy
+    // is enabled.
+    [self handleExternalIntents];
+  }
 }
 
 - (void)handleExternalIntents {
@@ -842,60 +839,94 @@ SystemIdentityManager::IteratorResult IdentitiesOnDevice(
                         profileInitStage:nextInitStage];
 }
 
-#pragma mark - SignoutActionSheetCoordinatorDelegate
-
-- (void)signoutActionSheetCoordinatorPreventUserInteraction:
-    (SignoutActionSheetCoordinator*)coordinator {
-  UIViewController* viewController = [self activeViewController];
-  viewController.view.userInteractionEnabled = NO;
-}
-
-- (void)signoutActionSheetCoordinatorAllowUserInteraction:
-    (SignoutActionSheetCoordinator*)coordinator {
-  UIViewController* viewController = [self activeViewController];
-  viewController.view.userInteractionEnabled = YES;
-}
-
 #pragma mark - private
+
+- (void)stopAccountMenu {
+  [_accountMenuCoordinator stop];
+  _accountMenuCoordinator.delegate = nil;
+  _accountMenuCoordinator = nil;
+}
 
 - (void)handleURLContextsToOpen {
   if (self.sceneState.URLContextsToOpen.count == 0) {
+    base::UmaHistogramEnumeration(kContextsToOpen, ContextsToOpen::kNoContexts);
     return;
   }
+  ContextsToOpen contextInfo = self.sceneState.URLContextsToOpen.count == 1
+                                   ? ContextsToOpen::kOneContext
+                                   : ContextsToOpen::kMoreThanOneContext;
+  base::UmaHistogramEnumeration(kContextsToOpen, contextInfo);
 
   NSSet<UIOpenURLContext*>* contexts = self.sceneState.URLContextsToOpen;
+  if ([self multipleAccountSwitchesRequired:contexts]) {
+    // If more than one context require a potental account change only open the
+    // first context and discard the others to avoid looping between acocunt
+    // changes.
+    NSEnumerator<UIOpenURLContext*>* enumerator = [contexts objectEnumerator];
+    contexts = [NSSet setWithObject:[enumerator nextObject]];
+    base::UmaHistogramEnumeration(
+        kContextsToOpen, ContextsToOpen::kMoreThanOneContextWithAccountChange);
+  }
   self.sceneState.URLContextsToOpen = nil;
 
-#if BUILDFLAG(ENABLE_WIDGETS_FOR_MIM)
-  // TODO(crbug.com/388520520): Add code handling multiple incompatible
-  // requests.
-  // Find the first context that requires an account change.
-  WidgetContext* context = [self findContextRequiringAccountChange:contexts];
-  if (context) {
-    // This may destroy `self`, so nothing should happen after this
-    // method call.
-    [self changeAccountForContext:context];
-    return;
+  if (IsWidgetsForMultiprofileEnabled()) {
+    // Find the first context that requires an account change.
+    WidgetContext* context = [self findContextRequiringAccountChange:contexts];
+    if (context) {
+      // Perform profile switching if needed.
+      id<ChangeProfileCommands> changeProfileHandler = HandlerForProtocol(
+          self.sceneState.profileState.appState.appCommandDispatcher,
+          ChangeProfileCommands);
+
+      std::optional<std::string> profileName;
+
+      if ([context.gaiaID isEqualToString:@"Default"]) {
+        // Use the personal profile name if there is no GaiaID (this happens in
+        // the sign-out scenario).
+        profileName = GetApplicationContext()
+                          ->GetProfileManager()
+                          ->GetProfileAttributesStorage()
+                          ->GetPersonalProfileName();
+      } else {
+        profileName = GetApplicationContext()
+                          ->GetAccountProfileMapper()
+                          ->FindProfileNameForGaiaID(GaiaId(context.gaiaID));
+      }
+      if (profileName.has_value()) {
+        [changeProfileHandler
+            changeProfile:*profileName
+                 forScene:self.sceneState
+                   reason:ChangeProfileReason::kSwitchAccountsFromWidget
+             continuation:CreateChangeProfileAuthenticationContinuation(
+                              context, contexts)];
+        return;
+      }
+    }
   }
-#endif
 
   [self openURLContexts:contexts];
 }
 
-- (void)changeAccountForContext:(WidgetContext*)context {
-#if BUILDFLAG(ENABLE_WIDGETS_FOR_MIM)
-  if (context.type == AccountSwitchType::kSignOut) {
-    [self signoutForContext:context];
-  } else {
-    [self signinForContext:context];
+- (BOOL)multipleAccountSwitchesRequired:(NSSet<UIOpenURLContext*>*)URLContexts {
+  if (URLContexts.count == 1) {
+    return NO;
   }
-#endif
+
+  // Store the number of URLs that may require an account change.
+  int accountChanges = 0;
+  for (UIOpenURLContext* context : URLContexts) {
+    std::string newGaia;
+    if (net::GetValueForKeyInQuery(net::GURLWithNSURL(context.URL), "gaia_id",
+                                   &newGaia)) {
+      accountChanges++;
+    }
+  }
+  return accountChanges > 1 ? YES : NO;
 }
 
 - (WidgetContext*)findContextRequiringAccountChange:
     (NSSet<UIOpenURLContext*>*)URLContexts {
   NSString* gaiaInApp = nil;
-  BOOL retrievedGaiaInApp = NO;
 
   for (UIOpenURLContext* context : URLContexts) {
     // Check that this URL is coming from a widget.
@@ -911,14 +942,12 @@ SystemIdentityManager::IteratorResult IdentitiesOnDevice(
     }
     NSString* newGaiaID = base::SysUTF8ToNSString(newGaia);
 
-    if (!retrievedGaiaInApp) {
-      AuthenticationService* authService =
-          AuthenticationServiceFactory::GetForProfile(
-              self.sceneState.profileState.profile);
-      id<SystemIdentity> identityOnDevice =
-          authService->GetPrimaryIdentity(signin::ConsentLevel::kSignin);
-      gaiaInApp = identityOnDevice.gaiaID;
-    }
+    AuthenticationService* authService =
+        AuthenticationServiceFactory::GetForProfile(
+            self.sceneState.profileState.profile);
+    id<SystemIdentity> identityOnDevice =
+        authService->GetPrimaryIdentity(signin::ConsentLevel::kSignin);
+    gaiaInApp = identityOnDevice.gaiaID;
 
     // Only switch account if the gaia in the widget is different from the gaia
     // in the app.
@@ -942,80 +971,14 @@ SystemIdentityManager::IteratorResult IdentitiesOnDevice(
   return nil;
 }
 
-// Sign out profile to open widget context.
-- (void)signoutForContext:(WidgetContext*)context {
-  DCHECK(!self.signoutActionSheetCoordinator);
-
-  UIViewController* viewController = [self activeViewController];
-
-  __weak SceneController* weakSelf = self;
-  self.signoutActionSheetCoordinator = [[SignoutActionSheetCoordinator alloc]
-      initWithBaseViewController:viewController
-                         browser:self.sceneState.browserProviderInterface
-                                     .currentBrowserProvider.browser
-                            rect:viewController.view.frame
-                            view:viewController.view
-        forceSnackbarOverToolbar:NO
-                      withSource:signin_metrics::ProfileSignout::
-                                     kSignoutFromWidgets
-                      completion:^(BOOL success, SceneState* scene_state) {
-                        [weakSelf handleAuthenticationOperationDidFinish];
-                      }];
-
-  self.signoutActionSheetCoordinator.delegate = self;
-  [self.signoutActionSheetCoordinator start];
-  // TODO(crbug.com/376679167): Handle URL opening when account is switched.
-}
-
-// Sign in profile to open widget context.
-- (void)signinForContext:(WidgetContext*)context {
-  // Iterate over all identities on device because the newGaia could
-  // be in a different profile.
-  id<SystemIdentity> newIdentity;
-  NSMutableArray<id<SystemIdentity>>* identities =
-      [[NSMutableArray alloc] init];
-  GetApplicationContext()->GetSystemIdentityManager()->IterateOverIdentities(
-      base::BindRepeating(&IdentitiesOnDevice, identities));
-  for (id<SystemIdentity> identity in identities) {
-    if ([identity.gaiaID isEqualToString:context.gaiaID]) {
-      newIdentity = identity;
-    }
-  }
-  // Don't perform sign-in if the new identity is not found.
-  if (!newIdentity) {
-    return;
-  }
-
-  UIViewController* viewController = [self activeViewController];
-
-  AuthenticationFlow* authenticationFlow = [[AuthenticationFlow alloc]
-               initWithBrowser:self.sceneState.browserProviderInterface
-                                   .currentBrowserProvider.browser
-                      identity:newIdentity
-                   accessPoint:signin_metrics::AccessPoint::kWidget
-          precedingHistorySync:YES
-             postSignInActions:
-                 {PostSignInAction::kShowIdentityConfirmationSnackbar}
-      presentingViewController:viewController
-                    anchorView:nil
-                    anchorRect:viewController.view.frame];
-
-  [authenticationFlow startSignIn];
-  // TODO(crbug.com/376679167): Handle URL opening when account is switched.
-}
-
-// Stops the signout coordinator.
-- (void)handleAuthenticationOperationDidFinish {
-  DCHECK(self.signoutActionSheetCoordinator);
-  [self.signoutActionSheetCoordinator stop];
-  self.signoutActionSheetCoordinator = nil;
-}
-
 // Stops the signin coordinator.
 // TODO(crbug.com/381444097): always use the animated.
 - (void)stopSigninCoordinatorAnimated:(BOOL)animated {
-  [self.signinCoordinator stopAnimated:animated];
+  // This ensure that when the SceneController receives the `signinFinished`
+  // command, it does not detect the SigninCoordinator as still presented.
+  SigninCoordinator* signinCoordinator = self.signinCoordinator;
   self.signinCoordinator = nil;
+  [signinCoordinator stopAnimated:animated];
 }
 
 // Creates, if needed, and presents saved passwords settings. Assumes all modal
@@ -1295,7 +1258,19 @@ SystemIdentityManager::IteratorResult IdentitiesOnDevice(
                            initWithPromosManager:promosManager]];
 
   if (IsFullscreenSigninPromoManagerMigrationEnabled()) {
-    [sceneState addAgent:[[SigninFullscreenPromoSceneAgent alloc]
+    [sceneState
+        addAgent:
+            [[SigninFullscreenPromoSceneAgent alloc]
+                initWithPromosManager:promosManager
+                          authService:authService
+                      identityManager:IdentityManagerFactory::GetForProfile(
+                                          profile)
+                          syncService:SyncServiceFactory::GetForProfile(profile)
+                          prefService:prefService]];
+  }
+
+  if (IsPageActionMenuEnabled()) {
+    [sceneState addAgent:[[GLICPromoSceneAgent alloc]
                              initWithPromosManager:promosManager]];
   }
 }
@@ -1365,8 +1340,14 @@ SystemIdentityManager::IteratorResult IdentitiesOnDevice(
     [self.sceneState setRootViewControllerKeyAndVisible];
   }
 
-  // Lazy init of mainCoordinator.
-  [self.mainCoordinator start];
+  _mainCoordinator = [[TabGridCoordinator alloc]
+      initWithApplicationCommandEndpoint:self
+                          regularBrowser:self.mainInterface.browser
+                         inactiveBrowser:self.mainInterface.inactiveBrowser
+                        incognitoBrowser:self.incognitoInterface.browser];
+  _mainCoordinator.delegate = self;
+
+  [_mainCoordinator start];
 
   if (!base::FeatureList::IsEnabled(
           kMakeKeyAndVisibleBeforeMainCoordinatorStart)) {
@@ -1437,15 +1418,9 @@ SystemIdentityManager::IteratorResult IdentitiesOnDevice(
 
 - (void)teardownUI {
   // The UI should be stopped before the models they observe are stopped.
-  [self stopSigninCoordinatorAnimated:NO fromExternalTrigger:NO];
+  [self stopSigninCoordinatorWithCompletionAnimated:NO];
   DCHECK(!self.signinCoordinator)
       << base::SysNSStringToUTF8([self.signinCoordinator description]);
-
-  // SignoutActionSheetCoordinator may be deallocated before the sign-out
-  // completion is run (for example when switching profile), make sure that the
-  // coordintor is correctly stopped also in this scenario.
-  [self.signoutActionSheetCoordinator stop];
-  self.signoutActionSheetCoordinator = nil;
 
   [self.historyCoordinator stop];
   self.historyCoordinator = nil;
@@ -1457,6 +1432,8 @@ SystemIdentityManager::IteratorResult IdentitiesOnDevice(
 
   [_mainCoordinator stop];
   _mainCoordinator = nil;
+
+  [self stopAccountMenu];
 
   _incognitoWebStateObserver.reset();
   _mainWebStateObserver.reset();
@@ -1652,9 +1629,9 @@ SystemIdentityManager::IteratorResult IdentitiesOnDevice(
   }
 
   if (IsSigninForcedByPolicy()) {
-    if (self.signinCoordinator) {
-      // Return NO because intents cannot be handled when using
-      // `self.signinCoordinator` for the forced sign-in prompt.
+    if (self.sceneState.signinInProgress) {
+      // Return NO because intents cannot be handled when a sign-in is in
+      // progress.
       return NO;
     }
     if (![self isSignedIn]) {
@@ -1754,6 +1731,7 @@ SystemIdentityManager::IteratorResult IdentitiesOnDevice(
       << "self.signinCoordinator: "
       << base::SysNSStringToUTF8([self.signinCoordinator description]);
   Browser* browser = self.mainInterface.browser;
+  [self stopSigninCoordinatorWithCompletionAnimated:NO];
   self.signinCoordinator = [SigninCoordinator
       upgradeSigninPromoCoordinatorWithBaseViewController:self.mainInterface
                                                               .viewController
@@ -2112,116 +2090,16 @@ using UserFeedbackDataCallback =
     return;
   }
   Browser* mainBrowser = self.mainInterface.browser;
-
-  switch (command.operation) {
-    case AuthenticationOperation::kPrimaryAccountReauth:
-      self.signinCoordinator = [SigninCoordinator
-          primaryAccountReauthCoordinatorWithBaseViewController:
-              baseViewController
-                                                        browser:mainBrowser
-                                                   contextStyle:
-                                                       command.contextStyle
-
-                                                    accessPoint:command
-                                                                    .accessPoint
-                                                    promoAction:command
-                                                                    .promoAction
-                                           continuationProvider:
-                                               command
-                                                   .changeProfileContinuationProvider];
-      break;
-    case AuthenticationOperation::kResignin:
-      self.signinCoordinator = [SigninCoordinator
-          signinAndSyncReauthCoordinatorWithBaseViewController:
-              baseViewController
-                                                       browser:mainBrowser
-                                                  contextStyle:command
-                                                                   .contextStyle
-                                                   accessPoint:command
-                                                                   .accessPoint
-                                                   promoAction:command
-                                                                   .promoAction
-                                          continuationProvider:
-                                              command
-                                                  .changeProfileContinuationProvider];
-      break;
-    case AuthenticationOperation::kSigninOnly: {
-      auto& provider = command.changeProfileContinuationProvider;
-      self.signinCoordinator = [SigninCoordinator
-          consistencyPromoSigninCoordinatorWithBaseViewController:
-              baseViewController
-                                                          browser:mainBrowser
-                                                     contextStyle:
-                                                         command.contextStyle
-                                                      accessPoint:
-                                                          command.accessPoint
-                                             prepareChangeProfile:
-                                                 command.prepareChangeProfile
-                                             continuationProvider:provider];
-      break;
-    }
-    case AuthenticationOperation::kAddAccount:
-      self.signinCoordinator = [SigninCoordinator
-          addAccountCoordinatorWithBaseViewController:baseViewController
+  [self stopSigninCoordinatorWithCompletionAnimated:NO];
+  self.signinCoordinator =
+      [SigninCoordinator signinCoordinatorWithCommand:command
                                               browser:mainBrowser
-                                         contextStyle:command.contextStyle
-                                          accessPoint:command.accessPoint
-                                 continuationProvider:
-                                     command.changeProfileContinuationProvider];
-      break;
-    case AuthenticationOperation::kForcedSigninAndSync:
-      self.signinCoordinator = [SigninCoordinator
-          fullscreenSigninCoordinatorWithBaseViewController:baseViewController
-                                                    browser:mainBrowser
-                                               contextStyle:command.contextStyle
-                                                accessPoint:command.accessPoint
-                          changeProfileContinuationProvider:
-                              command.changeProfileContinuationProvider];
-      break;
-    case AuthenticationOperation::kInstantSignin:
-      self.signinCoordinator = [SigninCoordinator
-          instantSigninCoordinatorWithBaseViewController:baseViewController
-                                                 browser:mainBrowser
-                                                identity:command.identity
-                                            contextStyle:command.contextStyle
-                                             accessPoint:command.accessPoint
-                                             promoAction:command.promoAction
-                                    continuationProvider:
-                                        command
-                                            .changeProfileContinuationProvider];
-      break;
-    case AuthenticationOperation::kSheetSigninAndHistorySync: {
-      auto& provider = command.changeProfileContinuationProvider;
-      self.signinCoordinator = [SigninCoordinator
-          signinAndHistorySyncCoordinatorWithBaseViewController:
-              baseViewController
-                                                        browser:mainBrowser
-                                                   contextStyle:
-                                                       command.contextStyle
-                                                    accessPoint:command
-                                                                    .accessPoint
-                                                    promoAction:command
-                                                                    .promoAction
-                                            optionalHistorySync:
-                                                command.optionalHistorySync
-                                                fullscreenPromo:
-                                                    command.fullScreenPromo
-                                           continuationProvider:provider];
-      break;
-    }
-    case AuthenticationOperation::kHistorySync:
-      self.signinCoordinator = [SigninCoordinator
-          historySyncCoordinatorWithBaseViewController:baseViewController
-                                               browser:mainBrowser
-                                          contextStyle:command.contextStyle
-                                           accessPoint:command.accessPoint
-                                           promoAction:command.promoAction];
-      break;
-  }
+                                   baseViewController:baseViewController];
   [self startSigninCoordinatorWithCompletion:command.completion];
 }
 
-- (void)showAccountMenuFromAccessPoint:(AccountMenuAccessPoint)accessPoint {
+- (void)showAccountMenuFromAccessPoint:(AccountMenuAccessPoint)accessPoint
+                                   URL:(const GURL&)url {
   if (![self isTabAvailableToPresentViewController]) {
     return;
   }
@@ -2230,62 +2108,16 @@ using UserFeedbackDataCallback =
       << base::SysNSStringToUTF8([self.signinCoordinator description]);
   Browser* browser = self.mainInterface.browser;
   UIViewController* baseViewController = self.mainInterface.viewController;
-  SigninCoordinator* accountMenuCoordinator = [SigninCoordinator
-      accountMenuCoordinatorWithBaseViewController:baseViewController
-                                           browser:browser
-                                      contextStyle:SigninContextStyle::kDefault
-                                        anchorView:nil
-                                       accessPoint:accessPoint];
-  self.signinCoordinator = accountMenuCoordinator;
+  _accountMenuCoordinator = [[AccountMenuCoordinator alloc]
+      initWithBaseViewController:baseViewController
+                         browser:browser
+                      anchorView:nil
+                     accessPoint:AccountMenuAccessPoint::kWeb
+                             URL:url];
+  _accountMenuCoordinator.delegate = self;
   // TODO(crbug.com/336719423): Record signin metrics based on the
   // selected action from the account switcher.
-  [self startSigninCoordinatorWithCompletion:nil];
-}
-
-- (void)
-    showTrustedVaultReauthForFetchKeysFromViewController:
-        (UIViewController*)viewController
-                                        securityDomainID:
-                                            (trusted_vault::SecurityDomainId)
-                                                securityDomainID
-                                                 trigger:
-                                                     (syncer::
-                                                          TrustedVaultUserActionTriggerForUMA)
-                                                         trigger
-                                             accessPoint:
-                                                 (signin_metrics::AccessPoint)
-                                                     accessPoint {
-  [self
-      showTrustedVaultDialogFromViewController:viewController
-                                        intent:
-                                            SigninTrustedVaultDialogIntentFetchKeys
-                              securityDomainID:securityDomainID
-                                       trigger:trigger
-                                   accessPoint:accessPoint];
-}
-
-- (void)
-    showTrustedVaultReauthForDegradedRecoverabilityFromViewController:
-        (UIViewController*)viewController
-                                                     securityDomainID:
-                                                         (trusted_vault::
-                                                              SecurityDomainId)
-                                                             securityDomainID
-                                                              trigger:
-                                                                  (syncer::
-                                                                       TrustedVaultUserActionTriggerForUMA)
-                                                                      trigger
-                                                          accessPoint:
-                                                              (signin_metrics::
-                                                                   AccessPoint)
-                                                                  accessPoint {
-  [self
-      showTrustedVaultDialogFromViewController:viewController
-                                        intent:
-                                            SigninTrustedVaultDialogIntentDegradedRecoverability
-                              securityDomainID:securityDomainID
-                                       trigger:trigger
-                                   accessPoint:accessPoint];
+  [_accountMenuCoordinator start];
 }
 
 - (void)showWebSigninPromoFromViewController:
@@ -2307,6 +2139,7 @@ using UserFeedbackDataCallback =
   };
   ChangeProfileContinuationProvider provider =
       base::BindRepeating(&CreateChangeProfileOpensURLContinuation, url);
+  [self stopSigninCoordinatorWithCompletionAnimated:NO];
   self.signinCoordinator = [SigninCoordinator
       consistencyPromoSigninCoordinatorWithBaseViewController:baseViewController
                                                       browser:self.mainInterface
@@ -2432,7 +2265,7 @@ using UserFeedbackDataCallback =
 }
 
 - (void)showPriceTrackingNotificationsSettings {
-  CHECK(!self.signinCoordinator, base::NotFatalUntil::M134);
+  CHECK(!self.signinCoordinator);
   if (self.settingsNavigationController) {
     __weak SceneController* weakSelf = self;
     [self closePresentedViews:NO
@@ -2485,7 +2318,8 @@ using UserFeedbackDataCallback =
   }
 }
 
-- (void)prepareToPresentModal:(ProceduralBlock)completion {
+- (void)prepareToPresentModalWithSnackbarDismissal:(BOOL)dismissSnackbars
+                                        completion:(ProceduralBlock)completion {
   __weak __typeof(self) weakSelf = self;
   ProceduralBlock ensureNTP = ^{
     [weakSelf ensureNTP];
@@ -2499,12 +2333,14 @@ using UserFeedbackDataCallback =
                    }];
     return;
   }
-  [self dismissModalDialogsWithCompletion:ensureNTP];
+  [self dismissModalDialogsWithCompletion:ensureNTP
+                           dismissOmnibox:YES
+                         dismissSnackbars:dismissSnackbars];
 }
 
 // Returns YES if the current Tab is available to present a view controller.
 - (BOOL)isTabAvailableToPresentViewController {
-  if (self.signinCoordinator) {
+  if (self.sceneState.signinInProgress) {
     return NO;
   }
   if (self.settingsNavigationController) {
@@ -2917,15 +2753,22 @@ using UserFeedbackDataCallback =
 }
 
 - (void)showNotificationsSettings {
+  [self showNotificationsSettingsAndHighlightClient:std::nullopt];
+}
+
+- (void)showNotificationsSettingsAndHighlightClient:
+    (std::optional<PushNotificationClientId>)clientID {
   UIViewController* baseViewController = self.currentInterface.viewController;
   if (self.settingsNavigationController) {
-    [self.settingsNavigationController showNotificationsSettings];
+    [self.settingsNavigationController
+        showNotificationsSettingsAndHighlightClient:clientID];
     return;
   }
 
   Browser* browser = self.mainInterface.browser;
   self.settingsNavigationController = [SettingsNavigationController
       notificationsSettingsControllerForBrowser:browser
+                                         client:clientID
                                        delegate:self];
   [baseViewController presentViewController:self.settingsNavigationController
                                    animated:YES
@@ -3288,20 +3131,28 @@ using UserFeedbackDataCallback =
 }
 
 - (void)openClearBrowsingDataDialog {
-  if (!self.currentInterface.browser) {
+  if (!self.mainInterface.browser || [self isIncognitoForced]) {
     return;
   }
 
-  CommandDispatcher* dispatcher =
-      self.currentInterface.browser->GetCommandDispatcher();
-  if (IsIosQuickDeleteEnabled()) {
-    id<QuickDeleteCommands> quickDeleteHandler =
-        HandlerForProtocol(dispatcher, QuickDeleteCommands);
-    [quickDeleteHandler showQuickDeleteAndCanPerformTabsClosureAnimation:YES];
+  __weak CommandDispatcher* weakDispatcher =
+      self.mainInterface.browser->GetCommandDispatcher();
+  ProceduralBlock openQuickDeleteBlock = ^{
+    if (IsIosQuickDeleteEnabled()) {
+      id<QuickDeleteCommands> quickDeleteHandler =
+          HandlerForProtocol(weakDispatcher, QuickDeleteCommands);
+      [quickDeleteHandler showQuickDeleteAndCanPerformTabsClosureAnimation:YES];
+    } else {
+      id<SettingsCommands> settingsHandler =
+          HandlerForProtocol(weakDispatcher, SettingsCommands);
+      [settingsHandler showClearBrowsingDataSettings];
+    }
+  };
+
+  if (self.currentInterface.incognito) {
+    [self openNonIncognitoTab:openQuickDeleteBlock];
   } else {
-    id<SettingsCommands> settingsHandler =
-        HandlerForProtocol(dispatcher, SettingsCommands);
-    [settingsHandler showClearBrowsingDataSettings];
+    openQuickDeleteBlock();
   }
 }
 
@@ -3500,8 +3351,18 @@ using UserFeedbackDataCallback =
   [self activateBVCAndMakeCurrentBVCPrimary];
 }
 
+// Helper method to call `-dismissModalDialogsWithCompletion:` with default
+// snackbar dismissal behavior.
 - (void)dismissModalDialogsWithCompletion:(ProceduralBlock)completion
                            dismissOmnibox:(BOOL)dismissOmnibox {
+  [self dismissModalDialogsWithCompletion:completion
+                           dismissOmnibox:dismissOmnibox
+                         dismissSnackbars:YES];
+}
+
+- (void)dismissModalDialogsWithCompletion:(ProceduralBlock)completion
+                           dismissOmnibox:(BOOL)dismissOmnibox
+                         dismissSnackbars:(BOOL)dismissSnackbars {
   // Disconnected scenes should no-op, since browser objects may not exist.
   // See crbug.com/371847600.
   if (self.sceneState.activationLevel == SceneActivationLevelDisconnected) {
@@ -3518,10 +3379,12 @@ using UserFeedbackDataCallback =
   // they are not visible.
   ios::provider::HideModalViewStack();
 
-  // Dismiss all snackbars.
-  id<SnackbarCommands> snackbarHandler = HandlerForProtocol(
-      self.mainInterface.browser->GetCommandDispatcher(), SnackbarCommands);
-  [snackbarHandler dismissAllSnackbars];
+  // Conditionally dismiss all snackbars.
+  if (dismissSnackbars) {
+    id<SnackbarCommands> snackbarHandler = HandlerForProtocol(
+        self.mainInterface.browser->GetCommandDispatcher(), SnackbarCommands);
+    [snackbarHandler dismissAllSnackbars];
+  }
 
   // Exit fullscreen mode for web page when we re-enter app through external
   // intents.
@@ -3862,12 +3725,8 @@ using UserFeedbackDataCallback =
     }
   }
 
-  data_sharing::DataSharingService* dataSharingService =
-      data_sharing::DataSharingServiceFactory::GetForProfile(targetProfile);
-
   BOOL isSharedTabGroupJoinURL =
-      dataSharingService &&
-      dataSharingService->ShouldInterceptNavigationForShareURL(
+      data_sharing::DataSharingUtils::ShouldInterceptNavigationForShareURL(
           urlLoadParams.web_params.url);
 
   CHECK(!(isSharedTabGroupJoinURL && alwaysInsertNewTab));
@@ -3925,38 +3784,6 @@ using UserFeedbackDataCallback =
 
 #pragma mark - Sign In UI presentation
 
-// Show trusted vault dialog.
-// `intent` Dialog to present.
-// `trigger` UI elements where the trusted vault reauth has been triggered.
-- (void)
-    showTrustedVaultDialogFromViewController:(UIViewController*)viewController
-                                      intent:
-                                          (SigninTrustedVaultDialogIntent)intent
-                            securityDomainID:(trusted_vault::SecurityDomainId)
-                                                 securityDomainID
-                                     trigger:
-                                         (syncer::
-                                              TrustedVaultUserActionTriggerForUMA)
-                                             trigger
-                                 accessPoint:
-                                     (signin_metrics::AccessPoint)accessPoint {
-  DCHECK(!self.signinCoordinator)
-      << "self.signinCoordinator: "
-      << base::SysNSStringToUTF8([self.signinCoordinator description]);
-  Browser* mainBrowser = self.mainInterface.browser;
-  self.signinCoordinator = [SigninCoordinator
-      trustedVaultReAuthenticationCoordinatorWithBaseViewController:
-          viewController
-                                                            browser:mainBrowser
-                                                             intent:intent
-                                                   securityDomainID:
-                                                       securityDomainID
-                                                            trigger:trigger
-                                                        accessPoint:
-                                                            accessPoint];
-  [self startSigninCoordinatorWithCompletion:nil];
-}
-
 // Close Settings, or Signin or the 3rd-party intents Incognito interstitial.
 - (void)closePresentedViews:(BOOL)animated
                  completion:(ProceduralBlock)completion {
@@ -3969,7 +3796,6 @@ using UserFeedbackDataCallback =
   self.historyCoordinator = nil;
 
   __weak __typeof(self) weakSelf = self;
-  BOOL resetSigninState = self.signinCoordinator != nil;
   ProceduralBlock resetAndDismiss = ^{
     __typeof(self) strongSelf = weakSelf;
     // Cleanup settings resources after dismissal.
@@ -3977,10 +3803,6 @@ using UserFeedbackDataCallback =
     if (completion) {
       completion();
     }
-    if (resetSigninState) {
-      strongSelf.sceneState.signinInProgress = NO;
-    }
-    strongSelf.dismissingSigninPromptFromExternalTrigger = NO;
   };
 
   if (self.settingsNavigationController && !self.dismissingSettings) {
@@ -3990,7 +3812,7 @@ using UserFeedbackDataCallback =
     // to be closed first.
     // If signinCoordinator is already dismissing, completion execution will
     // happen when it is done animating.
-    [self stopSigninCoordinatorAnimated:animated fromExternalTrigger:YES];
+    [self stopSigninCoordinatorWithCompletionAnimated:animated];
     UIViewController* presentingViewController =
         self.settingsNavigationController.presentingViewController;
     if (presentingViewController) {
@@ -4004,20 +3826,17 @@ using UserFeedbackDataCallback =
   } else {
     // `self.signinCoordinator` can be presented without settings, from the
     // bookmarks or the recent tabs view.
-    [self stopSigninCoordinatorAnimated:animated fromExternalTrigger:YES];
+    [self stopSigninCoordinatorWithCompletionAnimated:animated];
     resetAndDismiss();
   }
 }
 
 // Stops the sign-in coordinator actions and dismisses its views either
-// with or without animation.
-- (void)stopSigninCoordinatorAnimated:(BOOL)animated
-                  fromExternalTrigger:(BOOL)external {
+// with or without animation. Executes its signinCompletion. It’s expected to be
+// not already executed.
+- (void)stopSigninCoordinatorWithCompletionAnimated:(BOOL)animated {
   if (!self.signinCoordinator) {
     return;
-  }
-  if (external) {
-    self.dismissingSigninPromptFromExternalTrigger = YES;
   }
 
   [self.signinCoordinator stopAnimated:animated];
@@ -4075,16 +3894,12 @@ using UserFeedbackDataCallback =
     self.signinCoordinator = nil;
     return;
   }
-  self.sceneState.signinInProgress = YES;
 
-  __block std::unique_ptr<ScopedUIBlocker> uiBlocker =
-      std::make_unique<ScopedUIBlocker>(self.sceneState);
   __weak __typeof(self) weakSelf = self;
   self.signinCoordinator.signinCompletion =
       ^(SigninCoordinatorResult result, id<SystemIdentity> identity) {
         [weakSelf signinCompletedWithResult:result
                                    identity:identity
-                                  uiBlocker:std::move(uiBlocker)
                                  completion:completion];
       };
 
@@ -4094,29 +3909,12 @@ using UserFeedbackDataCallback =
 // Completion block for Signin coordinators.
 - (void)signinCompletedWithResult:(SigninCoordinatorResult)result
                          identity:(id<SystemIdentity>)identity
-                        uiBlocker:(std::unique_ptr<ScopedUIBlocker>)uiBlocker
                        completion:
                            (SigninCoordinatorCompletionCallback)completion {
   [self stopSigninCoordinatorAnimated:YES];
-  uiBlocker.reset();
 
   if (completion) {
     completion(result, identity);
-  }
-
-  if (!self.dismissingSigninPromptFromExternalTrigger) {
-    // If the coordinator isn't stopped by an external trigger, sign-in
-    // is done. Otherwise, there might be extra steps to be done before
-    // considering sign-in as done. This is up to the handler that sets
-    // `self.dismissingSigninPromptFromExternalTrigger` to YES to set
-    // back `signinInProgress` to NO.
-    self.sceneState.signinInProgress = NO;
-  }
-
-  if (IsSigninForcedByPolicy()) {
-    // Handle intents after sign-in is done when the forced sign-in policy
-    // is enabled.
-    [self handleExternalIntents];
   }
 }
 
@@ -4587,7 +4385,7 @@ using UserFeedbackDataCallback =
     (PolicyWatcherBrowserAgent*)policyWatcher {
 
   if (self.signinCoordinator) {
-    [self stopSigninCoordinatorAnimated:YES fromExternalTrigger:YES];
+    [self stopSigninCoordinatorWithCompletionAnimated:YES];
     UMA_HISTOGRAM_BOOLEAN(
         "Enterprise.BrowserSigninIOS.SignInInterruptedByPolicy", true);
     policyWatcher->SignInUIDismissed();
@@ -4615,6 +4413,28 @@ using UserFeedbackDataCallback =
 
 - (void)closeHistory {
   [self closeHistoryWithCompletion:nil];
+}
+
+#pragma mark - AccountMenuCoordinatorDelegate
+
+// Update the state, to take into account that the account menu coordinator is
+// stopped.
+- (void)accountMenuCoordinatorWantsToBeStopped:
+    (AccountMenuCoordinator*)coordinator {
+  CHECK_EQ(_accountMenuCoordinator, coordinator, base::NotFatalUntil::M140);
+  [self stopAccountMenu];
+}
+
+#pragma mark - AuthenticationFlowDelegate
+
+- (void)authenticationFlowDidSignInInSameProfileWithResult:
+    (SigninCoordinatorResult)result {
+  _authenticationFlow = nil;
+}
+
+- (ChangeProfileContinuation)authenticationFlowWillChangeProfile {
+  _authenticationFlow = nil;
+  return DoNothingContinuation();
 }
 
 @end

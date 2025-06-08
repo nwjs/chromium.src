@@ -44,8 +44,11 @@
 #import "ios/chrome/browser/authentication/ui_bundled/enterprise/enterprise_prompt/enterprise_prompt_coordinator.h"
 #import "ios/chrome/browser/authentication/ui_bundled/enterprise/enterprise_prompt/enterprise_prompt_type.h"
 #import "ios/chrome/browser/authentication/ui_bundled/signin/signin_constants.h"
+#import "ios/chrome/browser/authentication/ui_bundled/signin/signin_coordinator.h"
 #import "ios/chrome/browser/authentication/ui_bundled/signin_presenter.h"
 #import "ios/chrome/browser/authentication/ui_bundled/signin_promo/coordinator/non_modal_signin_promo_coordinator.h"
+#import "ios/chrome/browser/authentication/ui_bundled/trusted_vault_reauthentication/trusted_vault_reauthentication_coordinator.h"
+#import "ios/chrome/browser/authentication/ui_bundled/trusted_vault_reauthentication/trusted_vault_reauthentication_coordinator_delegate.h"
 #import "ios/chrome/browser/autofill/model/bottom_sheet/autofill_bottom_sheet_tab_helper.h"
 #import "ios/chrome/browser/autofill/ui_bundled/authentication/card_unmask_authentication_coordinator.h"
 #import "ios/chrome/browser/autofill/ui_bundled/bottom_sheet/autofill_edit_profile_bottom_sheet_coordinator.h"
@@ -121,6 +124,8 @@
 #import "ios/chrome/browser/infobars/model/infobar_manager_impl.h"
 #import "ios/chrome/browser/intelligence/enhanced_calendar/coordinator/enhanced_calendar_coordinator.h"
 #import "ios/chrome/browser/intelligence/enhanced_calendar/model/enhanced_calendar_configuration.h"
+#import "ios/chrome/browser/intelligence/features/features.h"
+#import "ios/chrome/browser/intelligence/gemini/coordinator/glic_coordinator.h"
 #import "ios/chrome/browser/intelligence/page_action_menu/coordinator/page_action_menu_coordinator.h"
 #import "ios/chrome/browser/intents/model/intents_donation_helper.h"
 #import "ios/chrome/browser/lens/ui_bundled/lens_coordinator.h"
@@ -162,6 +167,7 @@
 #import "ios/chrome/browser/promos_manager/ui_bundled/promos_manager_coordinator.h"
 #import "ios/chrome/browser/qr_scanner/ui_bundled/qr_scanner_legacy_coordinator.h"
 #import "ios/chrome/browser/reader_mode/coordinator/reader_mode_coordinator.h"
+#import "ios/chrome/browser/reader_mode/model/reader_mode_browser_agent.h"
 #import "ios/chrome/browser/reader_mode/model/reader_mode_tab_helper.h"
 #import "ios/chrome/browser/reading_list/model/reading_list_browser_agent.h"
 #import "ios/chrome/browser/reading_list/ui_bundled/reading_list_coordinator.h"
@@ -173,7 +179,10 @@
 #import "ios/chrome/browser/safe_browsing/ui_bundled/safe_browsing_coordinator.h"
 #import "ios/chrome/browser/save_to_drive/ui_bundled/save_to_drive_coordinator.h"
 #import "ios/chrome/browser/save_to_photos/ui_bundled/save_to_photos_coordinator.h"
+#import "ios/chrome/browser/saved_tab_groups/model/ios_tab_group_sync_util.h"
+#import "ios/chrome/browser/saved_tab_groups/model/tab_group_service.h"
 #import "ios/chrome/browser/saved_tab_groups/model/tab_group_service_factory.h"
+#import "ios/chrome/browser/saved_tab_groups/model/tab_group_sync_service_factory.h"
 #import "ios/chrome/browser/send_tab_to_self/ui_bundled/send_tab_to_self_coordinator.h"
 #import "ios/chrome/browser/settings/ui_bundled/autofill/autofill_add_credit_card_coordinator.h"
 #import "ios/chrome/browser/settings/ui_bundled/autofill/autofill_add_credit_card_coordinator_delegate.h"
@@ -193,6 +202,7 @@
 #import "ios/chrome/browser/shared/model/profile/profile_ios.h"
 #import "ios/chrome/browser/shared/model/url/chrome_url_constants.h"
 #import "ios/chrome/browser/shared/model/web_state_list/tab_group.h"
+#import "ios/chrome/browser/shared/model/web_state_list/tab_utils.h"
 #import "ios/chrome/browser/shared/public/commands/activity_service_commands.h"
 #import "ios/chrome/browser/shared/public/commands/activity_service_share_url_command.h"
 #import "ios/chrome/browser/shared/public/commands/add_contacts_commands.h"
@@ -210,6 +220,7 @@
 #import "ios/chrome/browser/shared/public/commands/enhanced_calendar_commands.h"
 #import "ios/chrome/browser/shared/public/commands/feed_commands.h"
 #import "ios/chrome/browser/shared/public/commands/find_in_page_commands.h"
+#import "ios/chrome/browser/shared/public/commands/glic_commands.h"
 #import "ios/chrome/browser/shared/public/commands/google_one_commands.h"
 #import "ios/chrome/browser/shared/public/commands/help_commands.h"
 #import "ios/chrome/browser/shared/public/commands/lens_overlay_commands.h"
@@ -237,6 +248,8 @@
 #import "ios/chrome/browser/shared/public/commands/save_to_photos_commands.h"
 #import "ios/chrome/browser/shared/public/commands/settings_commands.h"
 #import "ios/chrome/browser/shared/public/commands/share_highlight_command.h"
+#import "ios/chrome/browser/shared/public/commands/shared_tab_group_last_tab_closed_alert_command.h"
+#import "ios/chrome/browser/shared/public/commands/shared_tab_group_last_tab_closed_alert_commands.h"
 #import "ios/chrome/browser/shared/public/commands/show_signin_command.h"
 #import "ios/chrome/browser/shared/public/commands/text_zoom_commands.h"
 #import "ios/chrome/browser/shared/public/commands/toolbar_commands.h"
@@ -267,6 +280,7 @@
 #import "ios/chrome/browser/supervised_user/coordinator/parent_access_coordinator.h"
 #import "ios/chrome/browser/sync/model/sync_error_browser_agent.h"
 #import "ios/chrome/browser/tab_insertion/model/tab_insertion_browser_agent.h"
+#import "ios/chrome/browser/tab_switcher/ui_bundled/tab_group_confirmation_coordinator.h"
 #import "ios/chrome/browser/tab_switcher/ui_bundled/tab_strip/coordinator/tab_strip_coordinator.h"
 #import "ios/chrome/browser/tabs/model/tab_title_util.h"
 #import "ios/chrome/browser/text_zoom/ui_bundled/text_zoom_coordinator.h"
@@ -274,6 +288,7 @@
 #import "ios/chrome/browser/tips_manager/model/tips_manager_ios_factory.h"
 #import "ios/chrome/browser/tips_notifications/coordinator/enhanced_safe_browsing_promo_coordinator.h"
 #import "ios/chrome/browser/tips_notifications/coordinator/lens_promo_coordinator.h"
+#import "ios/chrome/browser/tips_notifications/coordinator/search_what_you_see_promo_coordinator.h"
 #import "ios/chrome/browser/toolbar/ui_bundled/accessory/toolbar_accessory_coordinator_delegate.h"
 #import "ios/chrome/browser/toolbar/ui_bundled/accessory/toolbar_accessory_presenter.h"
 #import "ios/chrome/browser/toolbar/ui_bundled/toolbar_coordinator.h"
@@ -345,6 +360,7 @@ enum class ToolbarKind {
     EditMenuBuilder,
     EnterprisePromptCoordinatorDelegate,
     FormInputAccessoryCoordinatorNavigator,
+    GlicCommands,
     GoogleOneCommands,
     MiniMapCommands,
     NetExportTabHelperDelegate,
@@ -378,6 +394,7 @@ enum class ToolbarKind {
     SnapshotGeneratorDelegate,
     StoreKitCoordinatorDelegate,
     ToolbarAccessoryCoordinatorDelegate,
+    TrustedVaultReauthenticationCoordinatorDelegate,
     UnitConversionCommands,
     URLLoadingDelegate,
     WebContentCommands,
@@ -613,6 +630,7 @@ enum class ToolbarKind {
 @end
 
 @implementation BrowserCoordinator {
+  SigninCoordinator* _signinCoordinator;
   BrowserViewControllerDependencies _viewControllerDependencies;
   KeyCommandsProvider* _keyCommandsProvider;
   BubblePresenterCoordinator* _bubblePresenterCoordinator;
@@ -665,12 +683,24 @@ enum class ToolbarKind {
   LensPromoCoordinator* _lensPromoCoordinator;
   EnhancedSafeBrowsingPromoCoordinator* _enhancedSafeBrowsingPromoCoordinator;
   AutoDeletionCoordinator* _autoDeletionCoordinator;
+  TrustedVaultReauthenticationCoordinator*
+      _trustedVaultReauthenticationCoordinator;
 
   // The coordinator for the Enhanced Calendar feature UI (bottom sheet).
   EnhancedCalendarCoordinator* _enhancedCalendarCoordinator;
 
   // The coordinator for the page action menu.
   PageActionMenuCoordinator* _pageActionMenuCoordinator;
+
+  // Coordinator that handles confirmation dialog when the last tab of a shared
+  // group is closed.
+  TabGroupConfirmationCoordinator* _lastTabClosingAlert;
+
+  // The coordinator for GLIC related logic.
+  GLICCoordinator* _glicCoordinator;
+
+  // The coordinator for the Search What You See promo.
+  SearchWhatYouSeePromoCoordinator* _searchWhatYouSeePromoCoordinator;
 }
 
 #pragma mark - ChromeCoordinator
@@ -728,6 +758,7 @@ enum class ToolbarKind {
   self.started = NO;
   [super stop];
   self.active = NO;
+  [self stopSigninCoordinator];
   [self uninstallDelegatesForBrowserState];
   [self uninstallDelegatesForBrowser];
   [self.tabEventsMediator disconnect];
@@ -866,22 +897,36 @@ enum class ToolbarKind {
   [_countryCodePickerCoordinator stop];
   _countryCodePickerCoordinator = nil;
 
+  [_lastTabClosingAlert stop];
+  _lastTabClosingAlert = nil;
+
   [self hideGoogleOne];
   [self updateLensUIForBackground];
 
   [self dismissLensPromo];
   [self dismissEnhancedSafeBrowsingPromo];
-
-  [self dismissAccountMenu];
   [self dismissAutoDeletionActionSheet];
+  [self dismissSearchWhatYouSeePromo];
 
   [self cancelCollaborationFlows];
+  [self.NTPCoordinator clearPresentedState];
 
   [self.viewController clearPresentedStateWithCompletion:completion
                                           dismissOmnibox:dismissOmnibox];
 }
 
 #pragma mark - Private
+
+- (void)stopSigninCoordinator {
+  [_signinCoordinator stop];
+  _signinCoordinator = nil;
+}
+
+- (void)stopTrustedVaultReauthentication {
+  [_trustedVaultReauthenticationCoordinator stop];
+  _trustedVaultReauthenticationCoordinator.delegate = nil;
+  _trustedVaultReauthenticationCoordinator = nil;
+}
 
 // The Lens UI takes the necessary steps before being backgrounded.
 - (void)updateLensUIForBackground {
@@ -964,13 +1009,6 @@ enum class ToolbarKind {
   [self.passwordSettingsCoordinator stop];
   self.passwordSettingsCoordinator.delegate = nil;
   self.passwordSettingsCoordinator = nil;
-}
-
-// Dismisses the account menu.
-- (void)dismissAccountMenu {
-  if (!_NTPCoordinator) {
-    return;
-  }
 }
 
 - (void)setWebUsageEnabled:(BOOL)webUsageEnabled {
@@ -1072,6 +1110,7 @@ enum class ToolbarKind {
     @protocol(FeedCommands),
     @protocol(PromosManagerCommands),
     @protocol(FindInPageCommands),
+    @protocol(GlicCommands),
     @protocol(ReaderModeCommands),
     @protocol(NewTabPageCommands),
     @protocol(NonModalSignInPromoCommands),
@@ -1085,6 +1124,7 @@ enum class ToolbarKind {
     @protocol(QuickDeleteCommands),
     @protocol(SaveToDriveCommands),
     @protocol(SaveToPhotosCommands),
+    @protocol(SharedTabGroupLastTabAlertCommands),
     @protocol(TextZoomCommands),
     @protocol(WebContentCommands),
     @protocol(DefaultBrowserGenericPromoCommands),
@@ -1514,6 +1554,7 @@ enum class ToolbarKind {
     _lensOverlayCoordinator = [[LensOverlayCoordinator alloc]
         initWithBaseViewController:self.viewController
                            browser:self.browser];
+    _lensOverlayCoordinator.presentationEnvironment = self.viewController;
     [_lensOverlayCoordinator start];
   }
 }
@@ -1665,6 +1706,12 @@ enum class ToolbarKind {
   [_enhancedCalendarCoordinator stop];
   _enhancedCalendarCoordinator = nil;
 
+  [_lastTabClosingAlert stop];
+  _lastTabClosingAlert = nil;
+
+  [_glicCoordinator stop];
+  _glicCoordinator = nil;
+
   [self hideDriveFilePicker];
   [self hideContextualSheet];
   [self dismissEditAddressBottomSheet];
@@ -1672,6 +1719,8 @@ enum class ToolbarKind {
   [self dismissEnhancedSafeBrowsingPromo];
   [self dismissAutoDeletionActionSheet];
   [self hideGoogleOne];
+  [self stopTrustedVaultReauthentication];
+  [self dismissSearchWhatYouSeePromo];
 }
 
 // Starts independent mediators owned by this coordinator.
@@ -1901,13 +1950,14 @@ enum class ToolbarKind {
 
 - (void)presentAutoDeletionActionSheetWithDownloadTask:
     (web::DownloadTask*)task {
-  // Do not present the action sheet if it is already being presented.
-  if (_autoDeletionCoordinator) {
+  // Do not present the action sheet if it is already being presented or the
+  // DownloadManagerCoordinator is null.
+  if (_autoDeletionCoordinator || !self.downloadManagerCoordinator) {
     return;
   }
 
   _autoDeletionCoordinator = [[AutoDeletionCoordinator alloc]
-      initWithBaseViewController:self.viewController
+      initWithBaseViewController:self.downloadManagerCoordinator.viewController
                          browser:self.browser
                     downloadTask:task];
   [_autoDeletionCoordinator start];
@@ -2266,6 +2316,28 @@ enum class ToolbarKind {
     return;
   }
 
+  TabGroupService* groupService =
+      TabGroupServiceFactory::GetForProfile(self.profile);
+  const TabGroup* group = webStateList->GetGroupOfWebStateAt(active_index);
+  if (groupService && groupService->ShouldDisplayLastTabCloseAlert(group)) {
+    web::WebState* webState = webStateList->GetWebStateAt(active_index);
+    BOOL isTablet = ui::GetDeviceFormFactor() == ui::DEVICE_FORM_FACTOR_TABLET;
+    SharedTabGroupLastTabAlertCommand* command =
+        [[SharedTabGroupLastTabAlertCommand alloc]
+                 initWithTabID:webState->GetUniqueIdentifier()
+                       browser:self.browser
+                         group:group
+            baseViewController:self.viewController
+                    sourceView:isTablet ? nil : self.viewController.view
+                       closing:YES];
+
+    id<SharedTabGroupLastTabAlertCommands> lastTabAlertHandler =
+        HandlerForProtocol(self.browser->GetCommandDispatcher(),
+                           SharedTabGroupLastTabAlertCommands);
+    [lastTabAlertHandler showLastTabInSharedGroupAlert:command];
+    return;
+  }
+
   BOOL canShowTabStrip = IsRegularXRegularSizeClass(self.viewController);
 
   UIView* contentArea = self.browserContainerCoordinator.viewController.view;
@@ -2369,6 +2441,19 @@ enum class ToolbarKind {
   _enhancedSafeBrowsingPromoCoordinator = nil;
 }
 
+- (void)showSearchWhatYouSeePromo {
+  [_searchWhatYouSeePromoCoordinator stop];
+  _searchWhatYouSeePromoCoordinator = [[SearchWhatYouSeePromoCoordinator alloc]
+      initWithBaseViewController:self.viewController
+                         browser:self.browser];
+  [_searchWhatYouSeePromoCoordinator start];
+}
+
+- (void)dismissSearchWhatYouSeePromo {
+  [_searchWhatYouSeePromoCoordinator stop];
+  _searchWhatYouSeePromoCoordinator = nil;
+}
+
 #pragma mark - ContextualPanelEntrypointIPHCommands
 
 - (BOOL)showContextualPanelEntrypointIPHWithConfig:
@@ -2405,6 +2490,7 @@ enum class ToolbarKind {
                  bubbleType:ShouldShowRichContextualPanelEntrypointIPH()
                                 ? BubbleViewTypeRich
                                 : BubbleViewTypeDefault
+            pageControlPage:BubblePageControlPageNone
           dismissalCallback:dismissalCallback];
 
   _contextualPanelEntrypointHelpPresenter.voiceOverAnnouncement =
@@ -2566,22 +2652,6 @@ enum class ToolbarKind {
 #pragma mark - ReaderModeCommands
 
 - (void)showReaderMode {
-  web::WebState* activeWebState = self.activeWebState;
-  if (!activeWebState) {
-    return;
-  }
-  ReaderModeTabHelper* tabHelper =
-      ReaderModeTabHelper::FromWebState(activeWebState);
-  if (!tabHelper) {
-    return;
-  }
-  if (!tabHelper->IsActive()) {
-    // If Reader mode is not active yet in this tab, activate it first. When the
-    // distilled page is ready, -showReaderMode will be called again and the
-    // Reader mode UI can be presented.
-    tabHelper->SetActive(true);
-    return;
-  }
   if (_readerModeCoordinator) {
     // If the Reader mode UI is already presented then there is nothing to do.
     return;
@@ -2593,46 +2663,12 @@ enum class ToolbarKind {
 }
 
 - (void)hideReaderMode {
-  web::WebState* activeWebState = self.activeWebState;
-  if (!activeWebState) {
-    return;
-  }
-  ReaderModeTabHelper* tabHelper =
-      ReaderModeTabHelper::FromWebState(activeWebState);
-  if (!tabHelper) {
-    return;
-  }
-  if (tabHelper->IsActive()) {
-    // If Reader mode is active in this tab, deactivate it first. When it has
-    // been deactivated, -hideReaderMode will be called again and the Reader
-    // mode UI can be dismissed.
-    tabHelper->SetActive(false);
-    return;
-  }
   if (!_readerModeCoordinator) {
     // If the Reader mode UI is already dismissed then there is nothing to do.
     return;
   }
   [_readerModeCoordinator stop];
   _readerModeCoordinator = nil;
-}
-
-- (void)toggleReaderMode {
-  web::WebState* activeWebState = self.activeWebState;
-  if (!activeWebState) {
-    return;
-  }
-  ReaderModeTabHelper* tabHelper =
-      ReaderModeTabHelper::FromWebState(activeWebState);
-  if (!tabHelper) {
-    return;
-  }
-  // If Reader mode is active in the current tab, hide it. Otherwise, show it.
-  if (tabHelper->IsActive()) {
-    [self hideReaderMode];
-  } else {
-    [self showReaderMode];
-  }
 }
 
 #pragma mark - FindInPageCommands
@@ -2817,6 +2853,21 @@ enum class ToolbarKind {
   _countryCodePickerCoordinator = nil;
 }
 
+#pragma mark - GlicCommands
+
+- (void)startGlicFlow {
+  _glicCoordinator =
+      [[GLICCoordinator alloc] initWithBaseViewController:self.viewController
+                                                  browser:self.browser];
+
+  [_glicCoordinator start];
+}
+
+- (void)dismissGlicFlow {
+  [_glicCoordinator stop];
+  _glicCoordinator = nil;
+}
+
 #pragma mark - PromosManagerCommands
 
 - (void)showPromo {
@@ -2901,6 +2952,15 @@ enum class ToolbarKind {
                                              id<SystemIdentity>) {
         [self.promosManagerCoordinator promoWasDismissed];
       }];
+}
+
+- (void)showGLICPromo {
+  if (IsPageActionMenuEnabled()) {
+    _glicCoordinator =
+        [[GLICCoordinator alloc] initWithBaseViewController:self.viewController
+                                                    browser:self.browser];
+    [_glicCoordinator start];
+  }
 }
 
 #pragma mark - PageActionMenuCommands
@@ -3140,6 +3200,13 @@ enum class ToolbarKind {
             static_cast<id<SnackbarCommands>>(commandDispatcher),
             HandlerForProtocol(commandDispatcher, FeedCommands));
   }
+
+  ReaderModeBrowserAgent* readerModeBrowserAgent =
+      ReaderModeBrowserAgent::FromBrowser(self.browser);
+  if (readerModeBrowserAgent) {
+    readerModeBrowserAgent->SetReaderModeHandler(HandlerForProtocol(
+        self.browser->GetCommandDispatcher(), ReaderModeCommands));
+  }
 }
 
 // Installs delegates for self.profile
@@ -3174,6 +3241,12 @@ enum class ToolbarKind {
 
   if (FollowBrowserAgent::FromBrowser(self.browser)) {
     FollowBrowserAgent::FromBrowser(self.browser)->ClearUIProviders();
+  }
+
+  ReaderModeBrowserAgent* readerModeBrowserAgent =
+      ReaderModeBrowserAgent::FromBrowser(self.browser);
+  if (readerModeBrowserAgent) {
+    readerModeBrowserAgent->SetReaderModeHandler(nil);
   }
 }
 
@@ -3383,6 +3456,100 @@ enum class ToolbarKind {
   self.saveToPhotosCoordinator = nil;
 }
 
+#pragma mark - SharedTabGroupLastTabAlertCommands
+
+- (void)showLastTabInSharedGroupAlert:
+    (SharedTabGroupLastTabAlertCommand*)command {
+  UIViewController* viewController = command.baseViewController
+                                         ? command.baseViewController
+                                         : self.viewController;
+  UIView* sourceView =
+      command.sourceView ? command.sourceView : self.viewController.view;
+
+  _lastTabClosingAlert = [[TabGroupConfirmationCoordinator alloc]
+      initWithBaseViewController:viewController
+                         browser:self.browser
+                      actionType:command.actionType
+                      sourceView:sourceView];
+
+  __weak BrowserCoordinator* weakSelf = self;
+  _lastTabClosingAlert.primaryAction = ^{
+    [weakSelf runLeaveOrDeleteCompletion:command.group
+                          viewController:viewController];
+  };
+  _lastTabClosingAlert.secondaryAction = ^{
+    if (command.closing) {
+      [weakSelf runKeepGroup:command.group lastTabID:command.tabID];
+    }
+  };
+
+  _lastTabClosingAlert.tabGroupName = command.groupTitle;
+  _lastTabClosingAlert.showAsAlert = command.displayAsAlert;
+  _lastTabClosingAlert.canCancel = command.canCancel;
+  [_lastTabClosingAlert start];
+}
+
+#pragma mark - SharedTabGroupLastTabAlertCommands helpers
+
+// Runs `leaveOrDeleteCompletion`. If not nil, calls it with `kSuccess`.
+- (void)runLeaveOrDeleteCompletion:(const TabGroup*)group
+                    viewController:(UIViewController*)viewController {
+  __weak BrowserCoordinator* weakSelf = self;
+  base::OnceCallback<void(
+      collaboration::CollaborationControllerDelegate::ResultCallback)>
+      completionCallback = base::BindOnce(
+          ^(collaboration::CollaborationControllerDelegate::ResultCallback
+                resultCallback) {
+            BrowserCoordinator* strongSelf = weakSelf;
+            if (!strongSelf) {
+              std::move(resultCallback)
+                  .Run(collaboration::CollaborationControllerDelegate::Outcome::
+                           kCancel);
+              return;
+            }
+            std::move(resultCallback)
+                .Run(collaboration::CollaborationControllerDelegate::Outcome::
+                         kSuccess);
+          });
+
+  std::unique_ptr<collaboration::IOSCollaborationControllerDelegate> delegate =
+      std::make_unique<collaboration::IOSCollaborationControllerDelegate>(
+          self.browser, CreateControllerDelegateParamsFromProfile(
+                            self.profile, viewController,
+                            collaboration::FlowType::kLeaveOrDelete));
+  delegate->SetLeaveOrDeleteConfirmationCallback(std::move(completionCallback));
+
+  collaboration::CollaborationService* collaborationService =
+      collaboration::CollaborationServiceFactory::GetForProfile(self.profile);
+  collaboration::CollaborationServiceLeaveOrDeleteEntryPoint entryPoint =
+      collaboration::CollaborationServiceLeaveOrDeleteEntryPoint::kUnknown;
+  collaborationService->StartLeaveOrDeleteFlow(
+      std::move(delegate), group->tab_group_id(), entryPoint);
+  _lastTabClosingAlert = nil;
+}
+
+// Replaces the last tab with a New Tab Page (NTP).
+- (void)runKeepGroup:(const TabGroup*)group lastTabID:(web::WebStateID)tabID {
+  TabGroupService* groupService =
+      TabGroupServiceFactory::GetForProfile(self.profile);
+  WebStateList* webStateList = self.browser->GetWebStateList();
+  std::unique_ptr<web::WebState> webState =
+      groupService->WebStateToAddToEmptyGroup();
+  webStateList->InsertWebState(
+      std::move(webState),
+      WebStateList::InsertionParams::Automatic().Activate().InGroup(group));
+
+  const WebStateSearchCriteria& searchCriteria = WebStateSearchCriteria{
+      .identifier = tabID,
+  };
+
+  int index = GetWebStateIndex(webStateList, searchCriteria);
+  if (index != WebStateList::kInvalidIndex) {
+    webStateList->CloseWebStateAt(index, WebStateList::CLOSE_USER_ACTION);
+  }
+  _lastTabClosingAlert = nil;
+}
+
 #pragma mark - WebContentCommands
 
 - (void)showAppStoreWithParameters:(NSDictionary*)productParameters {
@@ -3522,39 +3689,53 @@ enum class ToolbarKind {
 
 - (void)showTrustedVaultReauthForFetchKeysWithTrigger:
     (syncer::TrustedVaultUserActionTriggerForUMA)trigger {
-  [HandlerForProtocol(self.dispatcher, ApplicationCommands)
-      showTrustedVaultReauthForFetchKeysFromViewController:self.viewController
-                                          securityDomainID:
-                                              trusted_vault::SecurityDomainId::
-                                                  kChromeSync
-                                                   trigger:trigger
-                                               accessPoint:signin_metrics::
-                                                               AccessPoint::
-                                                                   kSettings];
+  CHECK(!_trustedVaultReauthenticationCoordinator, base::NotFatalUntil::M145);
+  _trustedVaultReauthenticationCoordinator =
+      [[TrustedVaultReauthenticationCoordinator alloc]
+          initWithBaseViewController:self.viewController
+                             browser:self.browser
+                              intent:SigninTrustedVaultDialogIntentFetchKeys
+                    securityDomainID:trusted_vault::SecurityDomainId::
+                                         kChromeSync
+                             trigger:trigger];
+  _trustedVaultReauthenticationCoordinator.delegate = self;
+  [_trustedVaultReauthenticationCoordinator start];
 }
 
 - (void)showTrustedVaultReauthForDegradedRecoverabilityWithTrigger:
     (syncer::TrustedVaultUserActionTriggerForUMA)trigger {
-  [HandlerForProtocol(self.dispatcher, ApplicationCommands)
-      showTrustedVaultReauthForDegradedRecoverabilityFromViewController:
-          self.viewController
-                                                       securityDomainID:
-                                                           trusted_vault::
-                                                               SecurityDomainId::
-                                                                   kChromeSync
-                                                                trigger:trigger
-                                                            accessPoint:
-                                                                signin_metrics::
-                                                                    AccessPoint::
-                                                                        kSettings];
+  SigninTrustedVaultDialogIntent intent =
+      SigninTrustedVaultDialogIntentDegradedRecoverability;
+  CHECK(!_trustedVaultReauthenticationCoordinator, base::NotFatalUntil::M145);
+  _trustedVaultReauthenticationCoordinator =
+      [[TrustedVaultReauthenticationCoordinator alloc]
+          initWithBaseViewController:self.viewController
+                             browser:self.browser
+                              intent:intent
+                    securityDomainID:trusted_vault::SecurityDomainId::
+                                         kChromeSync
+                             trigger:trigger];
+  _trustedVaultReauthenticationCoordinator.delegate = self;
+  [_trustedVaultReauthenticationCoordinator start];
 }
 
 #pragma mark - SigninPresenter
 
 - (void)showSignin:(ShowSigninCommand*)command {
-  [HandlerForProtocol(self.dispatcher, ApplicationCommands)
-              showSignin:command
-      baseViewController:self.viewController];
+  _signinCoordinator =
+      [SigninCoordinator signinCoordinatorWithCommand:command
+                                              browser:self.browser
+                                   baseViewController:self.viewController];
+  __weak __typeof(self) weakSelf = self;
+  _signinCoordinator.signinCompletion =
+      ^(SigninCoordinatorResult result, id<SystemIdentity> identity) {
+        SigninCoordinatorCompletionCallback completion = command.completion;
+        if (completion) {
+          completion(result, identity);
+        }
+        [weakSelf stopSigninCoordinator];
+      };
+  [_signinCoordinator start];
 }
 
 #pragma mark - SnapshotGeneratorDelegate methods
@@ -3708,6 +3889,11 @@ enum class ToolbarKind {
     [overlays addObject:sadTabView];
   }
 
+  UIView* readerModeView = _readerModeCoordinator.viewForSnapshot;
+  if (readerModeView) {
+    [overlays addObject:readerModeView];
+  }
+
   BrowserContainerViewController* browserContainerViewController =
       self.browserContainerCoordinator.viewController;
   // The overlay container view controller is presenting something if it has
@@ -3808,9 +3994,11 @@ enum class ToolbarKind {
 - (void)presentLensIconBubble {
   __weak NewTabPageCoordinator* weakNTPCoordinator = _NTPCoordinator;
   [HandlerForProtocol(self.dispatcher, ApplicationCommands)
-      prepareToPresentModal:^{
-        [weakNTPCoordinator presentLensIconBubble];
-      }];
+      prepareToPresentModalWithSnackbarDismissal:YES
+                                      completion:^{
+                                        [weakNTPCoordinator
+                                            presentLensIconBubble];
+                                      }];
 }
 
 - (void)presentFeedSwipeFirstRunBubble {
@@ -4162,15 +4350,11 @@ enum class ToolbarKind {
 - (void)stopQuickDeleteForAnimationWithCompletion:(ProceduralBlock)completion {
   CHECK(IsIosQuickDeleteEnabled());
 
-  // If BrowserViewController has not presented any view controller, then
-  // trigger `completion` immediately.
-  if (!self.viewController.presentedViewController) {
-    // TODO(crbug.com/335387869): Remove NotFatalUntil when we're sure this code
-    // path is infeasible. If Quick Delete is not visible because it was
-    // dismissed while the deletion was occuring, then the tab grid should be
-    // visible.
-    CHECK(self.sceneState.controller.isTabGridVisible,
-          base::NotFatalUntil::M139);
+  // If BrowserViewController has not presented any view controller (i.e. QD has
+  // been dismissed) and the tab grid is also not visible, then just trigger
+  // `completion` immediately.
+  if (!self.viewController.presentedViewController &&
+      !self.sceneState.controller.isTabGridVisible) {
     if (completion) {
       completion();
     }
@@ -4273,13 +4457,21 @@ enum class ToolbarKind {
 
   std::unique_ptr<collaboration::IOSCollaborationControllerDelegate> delegate =
       std::make_unique<collaboration::IOSCollaborationControllerDelegate>(
-          browser, self.viewController,
-          TabGroupServiceFactory::GetForProfile(browser->GetProfile()),
-          collaboration::FlowType::kShareOrManage);
+          browser, CreateControllerDelegateParamsFromProfile(
+                       self.profile, self.viewController,
+                       collaboration::FlowType::kShareOrManage));
   collaboration::CollaborationService* collaborationService =
       collaboration::CollaborationServiceFactory::GetForProfile(self.profile);
   collaborationService->StartShareOrManageFlow(
       std::move(delegate), tabGroup->tab_group_id(), entryPoint);
+}
+
+#pragma mark - TrustedVaultReauthenticationCoordinatorDelegate
+
+- (void)trustedVaultReauthenticationCoordinatorWantsToBeStopped:
+    (TrustedVaultReauthenticationCoordinator*)coordinator {
+  CHECK_EQ(coordinator, _trustedVaultReauthenticationCoordinator);
+  [self stopTrustedVaultReauthentication];
 }
 
 @end

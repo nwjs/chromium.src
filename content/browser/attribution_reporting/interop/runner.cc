@@ -29,6 +29,7 @@
 #include "base/memory/scoped_refptr.h"
 #include "base/sequence_checker.h"
 #include "base/strings/strcat.h"
+#include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/task/task_traits.h"
@@ -46,6 +47,7 @@
 #include "components/attribution_reporting/attribution_scopes_data.h"
 #include "components/attribution_reporting/eligibility.h"
 #include "components/attribution_reporting/event_level_epsilon.h"
+#include "components/attribution_reporting/max_event_level_reports.h"
 #include "components/attribution_reporting/privacy_math.h"
 #include "components/attribution_reporting/registration_eligibility.mojom-forward.h"
 #include "components/attribution_reporting/source_type.mojom-forward.h"
@@ -56,7 +58,6 @@
 #include "content/browser/aggregation_service/public_key.h"
 #include "content/browser/attribution_reporting/attribution_background_registrations_id.h"
 #include "content/browser/attribution_reporting/attribution_data_host_manager.h"
-#include "content/browser/attribution_reporting/attribution_features.h"
 #include "content/browser/attribution_reporting/attribution_manager_impl.h"
 #include "content/browser/attribution_reporting/attribution_os_level_manager.h"
 #include "content/browser/attribution_reporting/attribution_report.h"
@@ -300,7 +301,9 @@ class ControllableStorageDelegate : public AttributionResolverDelegateImpl {
   // AttributionResolverDelegateImpl:
   GetRandomizedResponseResult GetRandomizedResponse(
       const attribution_reporting::mojom::SourceType source_type,
-      const attribution_reporting::TriggerSpecs& trigger_specs,
+      const attribution_reporting::TriggerDataSet& trigger_data,
+      const attribution_reporting::EventReportWindows& event_report_windows,
+      const attribution_reporting::MaxEventLevelReports max_event_level_reports,
       const attribution_reporting::EventLevelEpsilon epsilon,
       const std::optional<attribution_reporting::AttributionScopesData>&
           scopes_data) override {
@@ -308,7 +311,8 @@ class ControllableStorageDelegate : public AttributionResolverDelegateImpl {
 
     ASSIGN_OR_RETURN(auto response_data,
                      AttributionResolverDelegateImpl::GetRandomizedResponse(
-                         source_type, trigger_specs, epsilon, scopes_data));
+                         source_type, trigger_data, event_report_windows,
+                         max_event_level_reports, epsilon, scopes_data));
 
     auto it = randomized_responses_.find(base::Time::Now());
     if (it == randomized_responses_.end()) {
@@ -317,9 +321,11 @@ class ControllableStorageDelegate : public AttributionResolverDelegateImpl {
 
     // Avoid crashing in `AttributionStorageSql::StoreSource()` by returning an
     // arbitrary error here, which will manifest as unexpected test output.
-    if (!attribution_reporting::IsValid(it->second, trigger_specs)) {
-      LOG(ERROR) << "invalid randomized response with trigger_specs="
-                 << trigger_specs;
+    if (!attribution_reporting::IsValid(it->second, trigger_data,
+                                        event_report_windows,
+                                        max_event_level_reports)) {
+      LOG(ERROR) << "invalid randomized response with trigger_data="
+                 << trigger_data;
       return base::unexpected(attribution_reporting::RandomizedResponseError::
                                   kExceedsChannelCapacityLimit);
     }
@@ -352,14 +358,13 @@ class ControllableStorageDelegate : public AttributionResolverDelegateImpl {
 };
 
 void Handle(const AttributionSimulationEvent::StartRequest& event,
-            AttributionManager& manager) {
+            AttributionDataHostManager& data_host_manager) {
   std::optional<RegistrationEligibility> eligibility =
       attribution_reporting::GetRegistrationEligibility(event.eligibility);
   if (!eligibility.has_value()) {
     return;
   }
 
-  auto& data_host_manager = *manager.GetDataHostManager();
   auto suitable_context = AttributionSuitableContext::CreateForTesting(
       event.context_origin, event.fenced, kFrameId,
       /*last_navigation_id=*/kNavigationId);
@@ -384,21 +389,16 @@ void Handle(const AttributionSimulationEvent::StartRequest& event,
 }
 
 void Handle(const AttributionSimulationEvent::Response& event,
-            AttributionManager& manager) {
-  manager.GetDataHostManager()->NotifyBackgroundRegistrationData(
+            AttributionDataHostManager& data_host_manager) {
+  data_host_manager.NotifyBackgroundRegistrationData(
       BackgroundRegistrationsId(event.request_id), event.response_headers.get(),
       event.url);
 }
 
 void Handle(const AttributionSimulationEvent::EndRequest& event,
-            AttributionManager& manager) {
-  manager.GetDataHostManager()->NotifyBackgroundRegistrationCompleted(
+            AttributionDataHostManager& data_host_manager) {
+  data_host_manager.NotifyBackgroundRegistrationCompleted(
       BackgroundRegistrationsId(event.request_id));
-}
-
-void Handle(const AttributionSimulationEvent::Navigation& event,
-            AttributionManager& manager) {
-  manager.UpdateLastNavigationTime(base::Time::Now());
 }
 
 void FastForwardUntilReportsConsumed(AttributionManager& manager,
@@ -421,7 +421,6 @@ void FastForwardUntilReportsConsumed(AttributionManager& manager,
     run_loop.Run();
 
     if (delta.is_negative()) {
-      task_environment.FastForwardBy(base::TimeDelta());
       break;
     }
     task_environment.FastForwardBy(delta);
@@ -449,10 +448,6 @@ RunAttributionInteropSimulation(
       scoped_api_state;
   if (run.config.needs_cross_app_web) {
     scoped_api_state.emplace(AttributionOsLevelManager::ApiState::kEnabled);
-  }
-
-  if (run.config.needs_delivery_after_new_navigation) {
-    enabled_features.emplace_back(kAttributionReportDeliveryOnNewNavigation);
   }
 
   base::test::ScopedFeatureList scoped_feature_list;
@@ -563,7 +558,10 @@ RunAttributionInteropSimulation(
 
   for (const auto& event : run.events) {
     task_environment.FastForwardBy(event.time - base::Time::Now());
-    std::visit([&](const auto& data) { Handle(data, *manager); }, event.data);
+
+    std::visit(
+        [&](const auto& data) { Handle(data, *manager->GetDataHostManager()); },
+        event.data);
   }
 
   FastForwardUntilReportsConsumed(*manager, task_environment);

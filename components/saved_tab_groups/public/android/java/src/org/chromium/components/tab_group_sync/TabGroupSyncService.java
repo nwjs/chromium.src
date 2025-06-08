@@ -291,7 +291,7 @@ public interface TabGroupSyncService {
      * @param syncCacheGuid A sync cache guid. Typically obtained from a tab group or tab
      *     attribution metadata.
      */
-    boolean isRemoteDevice(String syncCacheGuid);
+    boolean isRemoteDevice(@Nullable String syncCacheGuid);
 
     /**
      * Returns whether a tab group with the given `sync_tab_group_id` was previously closed on this
@@ -316,4 +316,12 @@ public interface TabGroupSyncService {
      * @param archivalStatus Whether the tab group should be archived locally or not.
      */
     void updateArchivalStatus(String syncTabGroupId, boolean archivalStatus);
+
+    /**
+     * For testing only. This is needed to test shared tab groups flow without depending on real
+     * people groups from data sharing service backend.
+     *
+     * @param collaborationId Collaboration ID with which the collaboration group is associated.
+     */
+    void setCollaborationAvailableInFinderForTesting(String collaborationId);
 }

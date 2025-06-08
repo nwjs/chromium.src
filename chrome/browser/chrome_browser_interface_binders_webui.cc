@@ -23,6 +23,7 @@
 #include "chrome/browser/ui/webui/media/media_engagement_ui.h"
 #include "chrome/browser/ui/webui/omnibox/omnibox_internals.mojom.h"
 #include "chrome/browser/ui/webui/omnibox/omnibox_ui.h"
+#include "chrome/browser/ui/webui/privacy_sandbox/base_dialog_ui.h"
 #include "chrome/browser/ui/webui/privacy_sandbox/privacy_sandbox_internals_ui.h"
 #include "chrome/browser/ui/webui/segmentation_internals/segmentation_internals_ui.h"
 #include "chrome/browser/ui/webui/suggest_internals/suggest_internals.mojom.h"
@@ -42,7 +43,6 @@
 #include "components/safe_browsing/buildflags.h"
 #include "components/services/on_device_translation/buildflags/buildflags.h"
 #include "components/site_engagement/core/mojom/site_engagement_details.mojom.h"
-#include "components/webui/chrome_urls/features.h"
 #include "content/public/browser/render_process_host.h"
 #include "content/public/browser/web_ui_browser_interface_broker_registry.h"
 #include "content/public/browser/web_ui_controller_interface_binder.h"
@@ -90,11 +90,14 @@
 #include "chrome/browser/ui/webui/app_service_internals/app_service_internals_ui.h"
 #include "chrome/browser/ui/webui/commerce/product_specifications_ui.h"
 #include "chrome/browser/ui/webui/commerce/shopping_insights_side_panel_ui.h"
+#include "chrome/browser/ui/webui/customize_buttons/customize_buttons.mojom.h"
 #include "chrome/browser/ui/webui/data_sharing/data_sharing.mojom.h"
 #include "chrome/browser/ui/webui/data_sharing/data_sharing_ui.h"
 #include "chrome/browser/ui/webui/downloads/downloads.mojom.h"
 #include "chrome/browser/ui/webui/downloads/downloads_ui.h"
 #include "chrome/browser/ui/webui/history/history_ui.h"
+#include "chrome/browser/ui/webui/infobar_internals/infobar_internals.mojom.h"
+#include "chrome/browser/ui/webui/infobar_internals/infobar_internals_ui.h"
 #include "chrome/browser/ui/webui/metrics_reporter/metrics_reporter_service.h"
 #include "chrome/browser/ui/webui/new_tab_footer/new_tab_footer.mojom.h"
 #include "chrome/browser/ui/webui/new_tab_footer/new_tab_footer_ui.h"
@@ -133,7 +136,7 @@
 #include "components/search/ntp_features.h"
 #include "ui/webui/resources/cr_components/color_change_listener/color_change_listener.mojom.h"
 #include "ui/webui/resources/cr_components/customize_color_scheme_mode/customize_color_scheme_mode.mojom.h"
-#include "ui/webui/resources/cr_components/help_bubble/help_bubble.mojom.h"
+#include "ui/webui/resources/cr_components/help_bubble/custom_help_bubble.mojom.h"
 #include "ui/webui/resources/cr_components/history/history.mojom.h"
 #include "ui/webui/resources/cr_components/history_clusters/history_clusters.mojom.h"
 #include "ui/webui/resources/cr_components/history_embeddings/history_embeddings.mojom.h"
@@ -169,6 +172,7 @@
 #include "ash/webui/common/mojom/accessibility_features.mojom.h"
 #include "ash/webui/common/mojom/sea_pen.mojom.h"
 #include "ash/webui/common/mojom/shortcut_input_provider.mojom.h"
+#include "ash/webui/common/mojom/webui_syslog_emitter.mojom.h"
 #include "ash/webui/connectivity_diagnostics/connectivity_diagnostics_ui.h"
 #include "ash/webui/demo_mode_app_ui/demo_mode_app_untrusted_ui.h"
 #include "ash/webui/diagnostics_ui/diagnostics_ui.h"
@@ -256,6 +260,7 @@
 #include "chrome/browser/ui/webui/ash/enterprise_reporting/enterprise_reporting_ui.h"
 #include "chrome/browser/ui/webui/ash/extended_updates/extended_updates.mojom.h"
 #include "chrome/browser/ui/webui/ash/extended_updates/extended_updates_ui.h"
+#include "chrome/browser/ui/webui/ash/floating_workspace/floating_workspace_ui.h"
 #include "chrome/browser/ui/webui/ash/internet/internet_config_dialog.h"
 #include "chrome/browser/ui/webui/ash/internet/internet_detail_dialog.h"
 #include "chrome/browser/ui/webui/ash/launcher_internals/launcher_internals.mojom.h"
@@ -357,6 +362,7 @@
 #endif
 
 #if BUILDFLAG(ENABLE_WEBUI_TAB_STRIP)
+#include "chrome/browser/ui/tabs/tab_strip_api/tab_strip_api.mojom.h"
 #include "chrome/browser/ui/webui/tab_strip/tab_strip.mojom.h"
 #include "chrome/browser/ui/webui/tab_strip/tab_strip_ui.h"
 #endif
@@ -365,6 +371,10 @@
 #include "chrome/browser/ui/webui/reset_password/reset_password.mojom.h"
 #include "chrome/browser/ui/webui/reset_password/reset_password_ui.h"
 #endif  // BUILDFLAG(FULL_SAFE_BROWSING)
+
+#if BUILDFLAG(ENABLE_EXTENSIONS)
+#include "chrome/browser/ui/webui/extensions_zero_state_promo/zero_state_promo_ui.h"
+#endif
 
 namespace chrome::internal {
 
@@ -429,10 +439,8 @@ void PopulateChromeWebUIFrameBinders(
       commerce::mojom::CommerceInternalsHandlerFactory,
       commerce::CommerceInternalsUI>(map);
 
-  if (base::FeatureList::IsEnabled(chrome_urls::kInternalOnlyUisPref)) {
-    RegisterWebUIControllerInterfaceBinder<
-        chrome_urls::mojom::PageHandlerFactory, chrome_urls::ChromeUrlsUI>(map);
-  }
+  RegisterWebUIControllerInterfaceBinder<chrome_urls::mojom::PageHandlerFactory,
+                                         chrome_urls::ChromeUrlsUI>(map);
 
   RegisterWebUIControllerInterfaceBinder<
       data_sharing_internals::mojom::PageHandlerFactory,
@@ -524,7 +532,12 @@ void PopulateChromeWebUIFrameBinders(
       NewTabPageUI, OmniboxPopupUI, BookmarksSidePanelUI, CustomizeChromeUI,
       UserEducationInternalsUI, ReadingListUI, TabSearchUI, WebuiGalleryUI,
       HistoryClustersSidePanelUI, ShoppingInsightsSidePanelUI,
-      media_router::AccessCodeCastUI, commerce::ProductSpecificationsUI>(map);
+      media_router::AccessCodeCastUI, commerce::ProductSpecificationsUI,
+      NewTabFooterUI>(map);
+
+  RegisterWebUIControllerInterfaceBinder<
+      customize_buttons::mojom::CustomizeButtonsHandlerFactory, NewTabPageUI,
+      NewTabFooterUI>(map);
 
   RegisterWebUIControllerInterfaceBinder<
       new_tab_page::mojom::PageHandlerFactory, NewTabPageUI>(map);
@@ -543,6 +556,9 @@ void PopulateChromeWebUIFrameBinders(
     RegisterWebUIControllerInterfaceBinder<history::mojom::PageHandler,
                                            HistoryUI>(map);
   }
+
+  RegisterWebUIControllerInterfaceBinder<
+      infobar_internals::mojom::PageHandlerFactory, InfoBarInternalsUI>(map);
 
   auto* history_clusters_service =
       HistoryClustersServiceFactory::GetForBrowserContext(
@@ -757,6 +773,8 @@ void PopulateChromeWebUIFrameBinders(
 #if BUILDFLAG(ENABLE_WEBUI_TAB_STRIP)
   RegisterWebUIControllerInterfaceBinder<tab_strip::mojom::PageHandlerFactory,
                                          TabStripUI>(map);
+  RegisterWebUIControllerInterfaceBinder<tabs_api::mojom::TabStripService,
+                                         TabStripUI>(map);
 #endif
 
 #if BUILDFLAG(IS_CHROMEOS)
@@ -805,6 +823,9 @@ void PopulateChromeWebUIFrameBinders(
 
   RegisterWebUIControllerInterfaceBinder<ash::common::mojom::AcceleratorFetcher,
                                          ash::settings::OSSettingsUI>(map);
+
+  RegisterWebUIControllerInterfaceBinder<ash::common::mojom::WebUiSyslogEmitter,
+                                         ash::OobeUI>(map);
 
   RegisterWebUIControllerInterfaceBinder<
       ash::common::mojom::ShortcutInputProvider, ash::settings::OSSettingsUI,
@@ -868,7 +889,7 @@ void PopulateChromeWebUIFrameBinders(
       chromeos::network_config::mojom::CrosNetworkConfig,
       ash::InternetConfigDialogUI, ash::InternetDetailDialogUI, ash::NetworkUI,
       ash::OobeUI, ash::settings::OSSettingsUI, ash::LockScreenNetworkUI,
-      ash::ShimlessRMADialogUI>(map);
+      ash::FloatingWorkspaceUI, ash::ShimlessRMADialogUI>(map);
 
   RegisterWebUIControllerInterfaceBinder<
       chromeos::connectivity::mojom::PasspointService,
@@ -1216,6 +1237,10 @@ void PopulateChromeWebUIFrameBinders(
         private_state_tokens::mojom::PrivateStateTokensPageHandler,
         privacy_sandbox_internals::PrivacySandboxInternalsUI>(map);
   }
+
+  RegisterWebUIControllerInterfaceBinder<
+      privacy_sandbox::dialog::mojom::BaseDialogPageHandlerFactory,
+      privacy_sandbox::BaseDialogUI>(map);
 #endif
 
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
@@ -1240,6 +1265,15 @@ void PopulateChromeWebUIFrameBinders(
         ash::graduation::GraduationUI>(map);
   }
 #endif  // BUILDFLAG(IS_CHROMEOS)
+
+#if BUILDFLAG(ENABLE_EXTENSIONS)
+  RegisterWebUIControllerInterfaceBinder<
+      zero_state_promo::mojom::PageHandlerFactory,
+      extensions::ZeroStatePromoController>(map);
+  RegisterWebUIControllerInterfaceBinder<
+      custom_help_bubble::mojom::CustomHelpBubbleHandlerFactory,
+      extensions::ZeroStatePromoController>(map);
+#endif
 }
 
 void PopulateChromeWebUIFrameInterfaceBrokers(

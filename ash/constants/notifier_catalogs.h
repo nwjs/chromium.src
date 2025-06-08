@@ -214,7 +214,9 @@ enum class NotificationCatalogName {
   kDownloadImageFromLobster = 195,
   kBocaSpotlightStarted = 196,
   kFaceGazeActive = 197,
-  kMaxValue = kFaceGazeActive
+  kUsbPeripheralDeviceOrEndpointLimit = 198,
+  kOnTaskResourceNotSupported = 199,
+  kMaxValue = kOnTaskResourceNotSupported
 };
 
 // A living catalog that registers system nudges.
@@ -265,7 +267,8 @@ enum class NudgeCatalogName {
   kVideoConferenceTraySidetoneEnabled = 37,
   kGraduationAppEnabled = 38,
   kSunfishLauncherNudge = 39,
-  kMaxValue = kSunfishLauncherNudge
+  kSunfishIncognitoNudge = 40,
+  kMaxValue = kSunfishIncognitoNudge
 };
 
 // A living catalog that registers toasts.

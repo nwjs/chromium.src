@@ -5,6 +5,8 @@
 #ifndef CHROME_BROWSER_UI_VIEWS_SIDE_PANEL_CUSTOMIZE_CHROME_CUSTOMIZE_CHROME_UTILS_H_
 #define CHROME_BROWSER_UI_VIEWS_SIDE_PANEL_CUSTOMIZE_CHROME_CUSTOMIZE_CHROME_UTILS_H_
 
+#include "chrome/browser/profiles/profile.h"
+
 namespace content {
 class BrowserContext;
 }

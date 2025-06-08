@@ -206,6 +206,7 @@
 <translation id="1758018619400202187">EAP-TLS</translation>
 <translation id="1758459542619182298"><ph name="CONTROL_TYPE" /> <ph name="KEY_LIST" /></translation>
 <translation id="1759842336958782510">Chrome</translation>
+<translation id="1762353673362288306">Hiện bạn chỉ có thể sử dụng Công cụ cho lớp học</translation>
 <translation id="1762483337755424125">Bản chép lời</translation>
 <translation id="1765169783255151332">Chuyển đổi phím nhanh chóng</translation>
 <translation id="1768959921651994223">Loại xác thực</translation>
@@ -220,6 +221,7 @@
 <translation id="181434555916624618">Hiện tại, các kết quả về con người sẽ không hiển thị. Hãy thử một câu lệnh khác.</translation>
 <translation id="1815850098929213707">Phím được chọn là <ph name="KEYS" />. Nhấn vào nút này để chỉnh sửa chế độ điều khiển</translation>
 <translation id="1818174214124933000">Khi bạn chọn "Gửi", nội dung và ý kiến phản hồi của bạn (như hiển thị bên dưới) sẽ được gửi đến Google, trải qua quy trình đánh giá do con người thực hiện, dùng để đào tạo hoặc cải thiện các sản phẩm cũng như dịch vụ của chúng tôi theo <ph name="LINK_POLICY_BEGIN" />Chính sách quyền riêng tư<ph name="LINK_POLICY_END" /> và <ph name="LINK_TERMS_OF_SERVICE_BEGIN" />Điều khoản dịch vụ của Google<ph name="LINK_TERMS_OF_SERVICE_END" />.</translation>
+<translation id="1821075635029692203">Giáo viên của bạn đã gửi một tài nguyên không được hỗ trợ. Hãy báo cho giáo viên.</translation>
 <translation id="1823120442877418684">Chủ đề</translation>
 <translation id="1827738518074806965">Phòng tranh</translation>
 <translation id="183287940576828840">Phản cảm/Không an toàn</translation>
@@ -476,6 +478,7 @@
 <translation id="3091839911843451378">Không thành công – Đã dừng</translation>
 <translation id="3102119246920354026">Bộ nhớ đệm</translation>
 <translation id="3103783611481501187">huyền ảo</translation>
+<translation id="3119672627216736407">Có bản dịch</translation>
 <translation id="3122464029669770682">CPU</translation>
 <translation id="3122614491980756867">hồ nước</translation>
 <translation id="3122883569442693641">Thông tin chi tiết khác</translation>
@@ -1136,6 +1139,7 @@
 <translation id="6058625436358447366">Để hoàn tất, hãy nhập cả mật khẩu cũ và mật khẩu mới của bạn</translation>
 <translation id="6061772781719867950">Yêu cầu HTTP không thành công</translation>
 <translation id="6073292342939316679">giảm độ sáng đèn bàn phím</translation>
+<translation id="6074608334942655098">Ngừng dịch</translation>
 <translation id="6074752328838739425">Ẩn bản tóm tắt</translation>
 <translation id="6075872808778243331">(Android) Độ trễ của yêu cầu HTTP</translation>
 <translation id="6078323886959318429">Thêm lối tắt</translation>
@@ -1459,7 +1463,6 @@ Hãy tải mô hình chép lời xuống (tối đa 100 MB) để nhận các b�
 <translation id="7388345524791662148">Lựa chọn khác cho <ph name="RECORDING_NAME" /></translation>
 <translation id="7388959671917308825">Bàn di chuột tích hợp sẵn</translation>
 <translation id="7397270852490618635">Tắt giao diện sáng</translation>
-<translation id="7400166052988585408">Giáo viên sẽ khoá màn hình của bạn sau <ph name="NUM_SECONDS" /> giây</translation>
 <translation id="7401543881546089382">Xóa phím tắt</translation>
 <translation id="7405493795721832710">Bạn đã có thể cập nhật <ph name="DEVICE_NAME" /></translation>
 <translation id="741244894080940828">chuyển đổi</translation>
@@ -1614,7 +1617,7 @@ Hãy tải mô hình chép lời xuống (tối đa 100 MB) để nhận các b�
 <translation id="8088963492174775412">Nhấn để ghi</translation>
 <translation id="8094062939584182041">Cho phép Google gửi email về vấn đề này cho bạn</translation>
 <translation id="8104083085214006426">Bạn đang dùng mạng mở và không an toàn</translation>
-<translation id="8110942816572072814">Giáo viên đã khoá màn hình của bạn</translation>
+<translation id="8108879170356113798">Sau <ph name="NUM_SECONDS" /> giây nữa, bạn sẽ chỉ có thể sử dụng Công cụ cho lớp học</translation>
 <translation id="811820734797650957">(Android) Có thể ping cổng vào</translation>
 <translation id="8129620843620772246"><ph name="TEMPERATURE_C" />°C</translation>
 <translation id="8131740175452115882">Xác nhận</translation>

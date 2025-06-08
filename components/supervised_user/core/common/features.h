@@ -68,6 +68,14 @@ BASE_DECLARE_FEATURE(kUncredentialedFilteringFallbackForSupervisedUsers);
 // ClassifyUrl fetches.
 BASE_DECLARE_FEATURE(kWaitUntilAccessTokenAvailableForClassifyUrl);
 
+// Manages kSupervisedUserSafeSites exclusively within managed user pref store,
+// while keeping the default value neutral.
+BASE_DECLARE_FEATURE(kAlignSafeSitesValueWithBrowserDefault);
+
+// Allows reading SafeSites setting without extra supervised user guard. Can be
+// enabled iff kAlignSafeSitesValueWithBrowserDefault is also enabled.
+BASE_DECLARE_FEATURE(kDecoupleSafeSitesFromMainSwitch);
+
 // Returns whether the V3 version of the URL filter interstitial is
 // enabled.
 bool IsBlockInterstitialV3Enabled();

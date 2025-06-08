@@ -17,7 +17,6 @@
 #include "chrome/browser/ui/tabs/public/tab_features.h"
 #include "chrome/browser/ui/tabs/saved_tab_groups/collaboration_messaging_tab_data.h"
 #include "chrome/browser/ui/tabs/saved_tab_groups/saved_tab_group_utils.h"
-#include "chrome/browser/ui/tabs/saved_tab_groups/saved_tab_group_web_contents_listener.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_model_delegate.h"
 #include "chrome/browser/ui/tabs/tab_utils.h"
@@ -76,24 +75,11 @@ TabRendererData TabRendererData::FromTabInModel(const TabStripModel* model,
       !security_interstitial_tab_helper->IsDisplayingInterstitial() ||
       security_interstitial_tab_helper->ShouldDisplayURL();
   TabRendererData data;
-  TabUIHelper* const tab_ui_helper = TabUIHelper::FromWebContents(contents);
 
+  tabs::TabFeatures* const features = tab->GetTabFeatures();
+  TabUIHelper* const tab_ui_helper = features->tab_ui_helper();
   data.favicon = tab_ui_helper->GetFavicon();
   data.title = tab_ui_helper->GetTitle();
-
-  // If the tab is in a deferred state, override favicon and title data.
-  const tabs::TabFeatures* features = tab->GetTabFeatures();
-  if (features) {
-    const tab_groups::SavedTabGroupWebContentsListener* wc_listener =
-        features->saved_tab_group_web_contents_listener();
-    if (wc_listener) {
-      if (const std::optional<tab_groups::DeferredTabState>&
-              deferred_tab_state = wc_listener->deferred_tab_state()) {
-        data.favicon = deferred_tab_state.value().favicon();
-        data.title = deferred_tab_state.value().title();
-      }
-    }
-  }
 
   // Tabbed web apps should use the app icon on the home tab.
   BrowserWindowInterface* browser = tab->GetBrowserWindowInterface();
@@ -165,11 +151,13 @@ TabRendererData TabRendererData::FromTabInModel(const TabStripModel* model,
         memory_saver::GetDiscardedMemorySavingsInBytes(contents);
   }
 
-  const auto* const resource_tab_helper =
-      TabResourceUsageTabHelper::FromWebContents(contents);
-  if (resource_tab_helper) {
+  if (const auto* const resource_tab_helper =
+          tab->GetTabFeatures()->resource_usage_helper()) {
     data.tab_resource_usage = resource_tab_helper->resource_usage();
   }
+
+  // Attach the weak pointer to the TabInterface
+  data.tab_interface = tab->GetWeakPtr();
 
   return data;
 }
@@ -199,7 +187,9 @@ bool TabRendererData::operator==(const TabRendererData& other) const {
          should_show_discard_status == other.should_show_discard_status &&
          discarded_memory_savings_in_bytes ==
              other.discarded_memory_savings_in_bytes &&
-         tab_resource_usage == other.tab_resource_usage;
+         tab_resource_usage == other.tab_resource_usage &&
+         is_monochrome_favicon == other.is_monochrome_favicon &&
+         tab_interface.get() == other.tab_interface.get();
 }
 
 bool TabRendererData::IsCrashed() const {

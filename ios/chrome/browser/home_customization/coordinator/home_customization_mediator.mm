@@ -9,8 +9,12 @@
 #import "base/strings/sys_string_conversions.h"
 #import "base/strings/utf_string_conversions.h"
 #import "components/commerce/core/commerce_feature_list.h"
+#import "components/image_fetcher/core/image_fetcher.h"
+#import "components/image_fetcher/core/image_fetcher_service.h"
 #import "components/prefs/pref_service.h"
 #import "ios/chrome/browser/content_suggestions/ui_bundled/set_up_list/utils.h"
+#import "ios/chrome/browser/discover_feed/model/discover_feed_visibility_browser_agent.h"
+#import "ios/chrome/browser/discover_feed/model/feed_constants.h"
 #import "ios/chrome/browser/home_customization/coordinator/home_customization_navigation_delegate.h"
 #import "ios/chrome/browser/home_customization/model/background_customization_configuration.h"
 #import "ios/chrome/browser/home_customization/ui/home_customization_discover_consumer.h"
@@ -19,21 +23,33 @@
 #import "ios/chrome/browser/home_customization/utils/home_customization_constants.h"
 #import "ios/chrome/browser/home_customization/utils/home_customization_helper.h"
 #import "ios/chrome/browser/home_customization/utils/home_customization_metrics_recorder.h"
-#import "ios/chrome/browser/ntp/shared/metrics/feed_metrics_utils.h"
 #import "ios/chrome/browser/parcel_tracking/features.h"
 #import "ios/chrome/browser/shared/model/prefs/pref_names.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
+#import "ui/gfx/image/image.h"
 #import "url/gurl.h"
 
 @implementation HomeCustomizationMediator {
   // Pref service to handle preference changes.
   raw_ptr<PrefService> _prefService;
+  // Browser agent to be notified of Discover eligibility.
+  raw_ptr<DiscoverFeedVisibilityBrowserAgent>
+      _discoverFeedVisibilityBrowserAgent;
+  // The image fetcher used to download individual background images.
+  raw_ptr<image_fetcher::ImageFetcher> _imageFetcher;
 }
 
-- (instancetype)initWithPrefService:(PrefService*)prefService {
+- (instancetype)initWithPrefService:(PrefService*)prefService
+    discoverFeedVisibilityBrowserAgent:
+        (DiscoverFeedVisibilityBrowserAgent*)discoverFeedVisibilityBrowserAgent
+                   imageFetcherService:(image_fetcher::ImageFetcherService*)
+                                           imageFetcherService {
   self = [super init];
   if (self) {
     _prefService = prefService;
+    _discoverFeedVisibilityBrowserAgent = discoverFeedVisibilityBrowserAgent;
+    _imageFetcher = imageFetcherService->GetImageFetcher(
+        image_fetcher::ImageFetcherConfig::kDiskCacheOnly);
   }
   return self;
 }
@@ -41,20 +57,18 @@
 #pragma mark - Public
 
 - (void)configureMainPageData {
-  std::map<CustomizationToggleType, BOOL> toggleMap = {};
-  if (!ShouldPutMostVisitedSitesInMagicStack(
-          FeedActivityBucketForPrefs(_prefService))) {
-    toggleMap.insert(
-        {CustomizationToggleType::kMostVisited,
-         [self isModuleEnabledForType:CustomizationToggleType::kMostVisited]});
-  }
-  toggleMap.insert(
+  std::map<CustomizationToggleType, BOOL> toggleMap = {
+      {CustomizationToggleType::kMostVisited,
+       [self isModuleEnabledForType:CustomizationToggleType::kMostVisited]},
       {CustomizationToggleType::kMagicStack,
-       [self isModuleEnabledForType:CustomizationToggleType::kMagicStack]});
-  toggleMap.insert(
-      {CustomizationToggleType::kDiscover,
-       [self isModuleEnabledForType:CustomizationToggleType::kDiscover]});
-
+       [self isModuleEnabledForType:CustomizationToggleType::kMagicStack]},
+  };
+  if (_discoverFeedVisibilityBrowserAgent->GetEligibility() ==
+      DiscoverFeedEligibility::kEligible) {
+    toggleMap.insert(
+        {CustomizationToggleType::kDiscover,
+         [self isModuleEnabledForType:CustomizationToggleType::kDiscover]});
+  }
   [self.mainPageConsumer populateToggles:toggleMap];
 
   if (IsNTPBackgroundCustomizationEnabled()) {
@@ -82,16 +96,17 @@
 }
 
 - (void)configureMagicStackPageData {
-  std::map<CustomizationToggleType, BOOL> toggleMap = {};
-  toggleMap.insert({CustomizationToggleType::kSetUpList,
-                    [self isMagicStackCardEnabledForType:
-                              CustomizationToggleType::kSetUpList]});
-  toggleMap.insert({CustomizationToggleType::kSafetyCheck,
-                    [self isMagicStackCardEnabledForType:
-                              CustomizationToggleType::kSafetyCheck]});
-  toggleMap.insert({CustomizationToggleType::kTapResumption,
-                    [self isMagicStackCardEnabledForType:
-                              CustomizationToggleType::kTapResumption]});
+  std::map<CustomizationToggleType, BOOL> toggleMap = {
+      {CustomizationToggleType::kSetUpList,
+       [self
+           isMagicStackCardEnabledForType:CustomizationToggleType::kSetUpList]},
+      {CustomizationToggleType::kSafetyCheck,
+       [self isMagicStackCardEnabledForType:CustomizationToggleType::
+                                                kSafetyCheck]},
+      {CustomizationToggleType::kTapResumption,
+       [self isMagicStackCardEnabledForType:CustomizationToggleType::
+                                                kTapResumption]},
+  };
   if (IsIOSParcelTrackingEnabled()) {
     toggleMap.insert({CustomizationToggleType::kParcelTracking,
                       [self isMagicStackCardEnabledForType:
@@ -101,12 +116,6 @@
     toggleMap.insert(
         {CustomizationToggleType::kTips,
          [self isMagicStackCardEnabledForType:CustomizationToggleType::kTips]});
-  }
-  if (ShouldPutMostVisitedSitesInMagicStack(
-          FeedActivityBucketForPrefs(_prefService))) {
-    toggleMap.insert({CustomizationToggleType::kMostVisited,
-                      [self isMagicStackCardEnabledForType:
-                                CustomizationToggleType::kMostVisited]});
   }
   if (commerce::kShopCardVariation.Get() == commerce::kShopCardArm1 ||
       commerce::kShopCardVariation.Get() == commerce::kShopCardArm2) {
@@ -123,15 +132,13 @@
 - (BOOL)isModuleEnabledForType:(CustomizationToggleType)type {
   switch (type) {
     case CustomizationToggleType::kMostVisited:
-      CHECK(!ShouldPutMostVisitedSitesInMagicStack(
-          FeedActivityBucketForPrefs(_prefService)));
       return _prefService->GetBoolean(
           prefs::kHomeCustomizationMostVisitedEnabled);
     case CustomizationToggleType::kMagicStack:
       return _prefService->GetBoolean(
           prefs::kHomeCustomizationMagicStackEnabled);
     case CustomizationToggleType::kDiscover:
-      return _prefService->GetBoolean(prefs::kArticlesForYouEnabled);
+      return _discoverFeedVisibilityBrowserAgent->IsEnabled();
     default:
       NOTREACHED();
   }
@@ -158,11 +165,6 @@
       return _prefService->GetBoolean(
           prefs::kHomeCustomizationMagicStackTipsEnabled);
     }
-    case CustomizationToggleType::kMostVisited:
-      CHECK(ShouldPutMostVisitedSitesInMagicStack(
-          FeedActivityBucketForPrefs(_prefService)));
-      return _prefService->GetBoolean(
-          prefs::kHomeCustomizationMostVisitedEnabled);
     case CustomizationToggleType::kShopCard:
       if (commerce::kShopCardVariation.Get() == commerce::kShopCardArm1) {
         return _prefService->GetBoolean(
@@ -195,7 +197,7 @@
                                enabled);
       break;
     case CustomizationToggleType::kDiscover:
-      _prefService->SetBoolean(prefs::kArticlesForYouEnabled, enabled);
+      _discoverFeedVisibilityBrowserAgent->SetEnabled(enabled);
       break;
 
     // Magic Stack page toggles.
@@ -266,6 +268,27 @@
 - (void)applyBackgroundForConfiguration:
     (BackgroundCustomizationConfiguration*)backgroundConfiguration {
   // TODO(crbug.com/408243803): apply NTP background configuration to NTP.
+}
+
+- (void)fetchBackgroundCustomizationThumbnailURLImage:(GURL)thumbnailURL
+                                           completion:
+                                               (void (^)(UIImage*))completion {
+  CHECK(!thumbnailURL.is_empty());
+  CHECK(thumbnailURL.is_valid());
+
+  _imageFetcher->FetchImage(
+      thumbnailURL,
+      base::BindOnce(^(const gfx::Image& image,
+                       const image_fetcher::RequestMetadata& metadata) {
+        if (!image.IsEmpty()) {
+          UIImage* uiImage = image.ToUIImage();
+          if (completion) {
+            completion(uiImage);
+          }
+        }
+      }),
+      // TODO (crbug.com/417234848): Add annotation.
+      image_fetcher::ImageFetcherParams(NO_TRAFFIC_ANNOTATION_YET, "Test"));
 }
 
 @end

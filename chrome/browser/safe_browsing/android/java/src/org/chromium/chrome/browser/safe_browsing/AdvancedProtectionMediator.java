@@ -10,8 +10,10 @@ import android.os.Bundle;
 
 import androidx.fragment.app.Fragment;
 
+import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.shared_preferences.SharedPreferencesManager;
 import org.chromium.build.annotations.NullMarked;
+import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.preferences.ChromePreferenceKeys;
 import org.chromium.chrome.browser.preferences.ChromeSharedPreferences;
 import org.chromium.chrome.browser.privacy.settings.PrivacySettingsNavigation;
@@ -25,8 +27,8 @@ import org.chromium.ui.base.WindowAndroid;
 /** A class for showing UI whenever the Android-OS-supplied advanced-protection state changes. */
 @NullMarked
 public class AdvancedProtectionMediator implements OsAdditionalSecurityPermissionProvider.Observer {
-    private WindowAndroid mWindowAndroid;
-    private Class<? extends Fragment> mPrivacySettingsFragmentClass;
+    private final WindowAndroid mWindowAndroid;
+    private final Class<? extends Fragment> mPrivacySettingsFragmentClass;
     private boolean mShouldShowMessageOnStartup;
 
     public AdvancedProtectionMediator(
@@ -49,6 +51,8 @@ public class AdvancedProtectionMediator implements OsAdditionalSecurityPermissio
                 mShouldShowMessageOnStartup = advancedProtectionSetting;
             }
         }
+
+        recordStartupHistograms(provider);
     }
 
     public void destroy() {
@@ -111,5 +115,12 @@ public class AdvancedProtectionMediator implements OsAdditionalSecurityPermissio
         preferences.writeLong(
                 ChromePreferenceKeys.OS_ADVANCED_PROTECTION_SETTING_UPDATED_TIME,
                 System.currentTimeMillis());
+    }
+
+    private void recordStartupHistograms(
+            @Nullable OsAdditionalSecurityPermissionProvider provider) {
+        RecordHistogram.recordBooleanHistogram(
+                "SafeBrowsing.Android.AdvancedProtection.Enabled",
+                provider != null && provider.isAdvancedProtectionRequestedByOs());
     }
 }

@@ -75,7 +75,7 @@ BnplManager::GetSupportedBnplIssuerIds() {
   return kBnplIssuers;
 }
 
-void BnplManager::InitBnplFlow(
+void BnplManager::OnDidAcceptBnplSuggestion(
     uint64_t final_checkout_amount,
     OnBnplVcnFetchedCallback on_bnpl_vcn_fetched_callback) {
   ongoing_flow_state_ = std::make_unique<OngoingFlowState>();
@@ -547,9 +547,8 @@ std::vector<BnplIssuerContext> BnplManager::GetSortedBnplIssuerContext() {
 
         BnplIssuerEligibilityForPage eligibility;
 
-        if (!autofill_optimization_guide
-                 ->IsUrlEligibleForCheckoutAmountSearchForIssuerId(
-                     issuer.issuer_id(), merchant_url)) {
+        if (!autofill_optimization_guide->IsUrlEligibleForBnplIssuer(
+                issuer.issuer_id(), merchant_url)) {
           eligibility = BnplIssuerEligibilityForPage::
               kNotEligibleIssuerDoesNotSupportMerchant;
         } else if (ongoing_flow_state_->final_checkout_amount <
@@ -593,6 +592,24 @@ std::vector<BnplIssuerContext> BnplManager::GetSortedBnplIssuerContext() {
       });
 
   return result;
+}
+
+bool BnplManager::IsEligibleForBnpl() const {
+  AutofillOptimizationGuide* autofill_optimization_guide =
+      browser_autofill_manager_->client().GetAutofillOptimizationGuide();
+  if (!autofill_optimization_guide) {
+    return false;
+  }
+
+  const GURL& url =
+      browser_autofill_manager_->client().GetLastCommittedPrimaryMainFrameURL();
+
+  return std::ranges::any_of(
+      payments_autofill_client().GetPaymentsDataManager().GetBnplIssuers(),
+      [&autofill_optimization_guide, &url](const BnplIssuer& bnpl_issuer) {
+        return autofill_optimization_guide->IsUrlEligibleForBnplIssuer(
+            bnpl_issuer.issuer_id(), url);
+      });
 }
 
 }  // namespace autofill::payments

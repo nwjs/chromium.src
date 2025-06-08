@@ -206,6 +206,7 @@
 <translation id="1758018619400202187">EAP-TLS</translation>
 <translation id="1758459542619182298"><ph name="CONTROL_TYPE" /> <ph name="KEY_LIST" /></translation>
 <translation id="1759842336958782510">Chrome</translation>
+<translation id="1762353673362288306">ನೀವು ಈಗ ಕ್ಲಾಸ್ ಟೂಲ್‌ಗಳನ್ನು ಮಾತ್ರ ಬಳಸಲು ಸಾಧ್ಯವಾಗುತ್ತದೆ</translation>
 <translation id="1762483337755424125">ಟ್ರಾನ್ಸ್‌ಕ್ರಿಪ್ಟ್</translation>
 <translation id="1765169783255151332">ಕೀಗಳನ್ನು ತ್ವರಿತವಾಗಿ ಬದಲಿಸಿ</translation>
 <translation id="1768959921651994223">ಪ್ರಮಾಣೀಕರಣದ ಪ್ರಕಾರ</translation>
@@ -220,6 +221,7 @@
 <translation id="181434555916624618">ಸದ್ಯಕ್ಕೆ, ಜನರನ್ನು ಹೊಂದಿರುವ ಫಲಿತಾಂಶಗಳನ್ನು ತೋರಿಸಲಾಗುವುದಿಲ್ಲ. ಬೇರೆ ಪ್ರಾಂಪ್ಟ್‌ ಅನ್ನು ಬಳಸಿ ನೋಡಿ.</translation>
 <translation id="1815850098929213707">ಆಯ್ಕೆಮಾಡಿರುವ ಕೀ <ph name="KEYS" /> ಆಗಿದೆ. ನಿಯಂತ್ರಣವನ್ನು ಎಡಿಟ್ ಮಾಡಲು ಬಟನ್ ಮೇಲೆ ಟ್ಯಾಪ್ ಮಾಡಿ</translation>
 <translation id="1818174214124933000">ನೀವು ಕಳುಹಿಸಿ ಅನ್ನು ಆಯ್ಕೆಮಾಡಿದಾಗ, ನಿಮ್ಮ ಫೀಡ್‌ಬ್ಯಾಕ್ ಮತ್ತು ಕಂಟೆಂಟ್ ಅನ್ನು (ಕೆಳಗೆ ತೋರಿಸಲಾಗಿದೆ) Google ಗೆ ಕಳುಹಿಸಲಾಗುತ್ತದೆ, ಮಾನವರಿಂದ ಪರಿಶೀಲಿಸಲಾಗುತ್ತದೆ ಮತ್ತು <ph name="LINK_POLICY_BEGIN" />ಗೌಪ್ಯತೆ ನೀತಿ<ph name="LINK_POLICY_END" /> ಮತ್ತು <ph name="LINK_TERMS_OF_SERVICE_BEGIN" />Google ಸೇವಾ ನಿಯಮಗಳಿಗೆ<ph name="LINK_TERMS_OF_SERVICE_END" /> ಒಳಪಟ್ಟು ನಮ್ಮ ಉತ್ಪನ್ನಗಳು ಮತ್ತು ಸೇವೆಗಳನ್ನು ತರಬೇತಿಗೊಳಿಸಲು ಅಥವಾ ಸುಧಾರಿಸಲು ಬಳಸಲಾಗುತ್ತದೆ.</translation>
+<translation id="1821075635029692203">ನಿಮ್ಮ ಶಿಕ್ಷಕರು ಬೆಂಬಲಿತವಲ್ಲದ ಮಾಹಿತಿಯ ಮೂಲನ್ನು ಕಳುಹಿಸಿದ್ದಾರೆ. ಅವರಿಗೆ ತಿಳಿಸಿ.</translation>
 <translation id="1823120442877418684">ಪಾತ್ರಗಳು</translation>
 <translation id="1827738518074806965">ಆರ್ಟ್ ಗ್ಯಾಲರಿ</translation>
 <translation id="183287940576828840">ಆಕ್ಷೇಪಾರ್ಹ/ಅಸುರಕ್ಷಿತವಾಗಿದೆ</translation>
@@ -476,6 +478,7 @@
 <translation id="3091839911843451378">ವಿಫಲವಾಗಿದೆ - ನಿಲ್ಲಿಸಲಾಗಿದೆ</translation>
 <translation id="3102119246920354026">ಸಂಗ್ರಹ</translation>
 <translation id="3103783611481501187">ಅತಿವಾಸ್ತವಿಕವಾದ</translation>
+<translation id="3119672627216736407">ಅನುವಾದವು ಲಭ್ಯವಿದೆ</translation>
 <translation id="3122464029669770682">CPU</translation>
 <translation id="3122614491980756867">ಪೂಲ್‌ಗಳು</translation>
 <translation id="3122883569442693641">ಇನ್ನಷ್ಟು ವಿವರಗಳು</translation>
@@ -1136,6 +1139,7 @@
 <translation id="6058625436358447366">ಪೂರ್ಣಗೊಳಿಸಲು, ನಿಮ್ಮ ಹಳೆಯ ಹಾಗೂ ಹೊಸ ಪಾಸ್‌ವರ್ಡ್‌ಗಳನ್ನು ನಮೂದಿಸಿ</translation>
 <translation id="6061772781719867950">HTTP ವಿನಂತಿಗಳು ವಿಫಲವಾಗಿವೆ</translation>
 <translation id="6073292342939316679">ಕೀಬೋರ್ಡ್ ಪ್ರಖರತೆಯನ್ನು ಕಡಿಮೆ ಮಾಡಿ</translation>
+<translation id="6074608334942655098">ಅನುವಾದಿಸುವುದನ್ನು ನಿಲ್ಲಿಸಿ</translation>
 <translation id="6074752328838739425">ಸಾರಾಂಶವನ್ನು ಮರೆಮಾಡಿ</translation>
 <translation id="6075872808778243331">(Android) HTTP ವಿಳಂಬ</translation>
 <translation id="6078323886959318429">ಶಾರ್ಟ್‌ಕಟ್ ಸೇರಿಸಿ</translation>
@@ -1459,7 +1463,6 @@
 <translation id="7388345524791662148"><ph name="RECORDING_NAME" /> ಗೆ ಇನ್ನಷ್ಟು ಆಯ್ಕೆಗಳು</translation>
 <translation id="7388959671917308825">ಬಿಲ್ಟ್-ಇನ್ ಟಚ್‌ಪ್ಯಾಡ್</translation>
 <translation id="7397270852490618635">ಲೈಟ್ ಥೀಮ್‌ ಆಫ್ ಮಾಡಿ</translation>
-<translation id="7400166052988585408">ನಿಮ್ಮ ಶಿಕ್ಷಕರು ನಿಮ್ಮ ಸ್ಕ್ರೀನ್ ಅನ್ನು <ph name="NUM_SECONDS" /> ಸೆಕೆಂಡುಗಳಲ್ಲಿ ಲಾಕ್ ಮಾಡುತ್ತಾರೆ</translation>
 <translation id="7401543881546089382">ಶಾರ್ಟ್‌ಕಟ್ ಅಳಿಸಿ</translation>
 <translation id="7405493795721832710"><ph name="DEVICE_NAME" /> ಅಪ್‌ಡೇಟ್‌ ಆಗಲು ಸಿದ್ಧವಾಗಿದೆ</translation>
 <translation id="741244894080940828">ಪರಿವರ್ತನೆ</translation>
@@ -1614,7 +1617,7 @@
 <translation id="8088963492174775412">ರೆಕಾರ್ಡ್ ಮಾಡಲು ಒತ್ತಿರಿ</translation>
 <translation id="8094062939584182041">ಈ ಸಮಸ್ಯೆಯ ಕುರಿತು ನಿಮಗೆ ಇಮೇಲ್ ಮಾಡಲು Google ಗೆ ಅನುಮತಿಸಿ</translation>
 <translation id="8104083085214006426">ನೀವು ಓಪನ್ ಮತ್ತು ಸುರಕ್ಷಿತವಲ್ಲದ ನೆಟ್‌ವರ್ಕ್ ಅನ್ನು ಬಳಸುತ್ತಿರುವಿರಿ</translation>
-<translation id="8110942816572072814">ನಿಮ್ಮ ಶಿಕ್ಷಕರು ನಿಮ್ಮ ಸ್ಕ್ರೀನ್ ಅನ್ನು ಲಾಕ್ ಮಾಡಿದ್ದಾರೆ</translation>
+<translation id="8108879170356113798">ನೀವು ಕ್ಲಾಸ್ ಟೂಲ್‌ಗಳನ್ನು <ph name="NUM_SECONDS" /> ಸೆಕೆಂಡುಗಳಲ್ಲಿ ಮಾತ್ರ ಬಳಸಲು ಸಾಧ್ಯವಾಗುತ್ತದೆ</translation>
 <translation id="811820734797650957">(Android) ಗೇಟ್‌ವೇ ಅನ್ನು ಪಿಂಗ್ ಮಾಡಬಹುದು</translation>
 <translation id="8129620843620772246"><ph name="TEMPERATURE_C" />° C</translation>
 <translation id="8131740175452115882">ದೃಢೀಕರಿಸು</translation>

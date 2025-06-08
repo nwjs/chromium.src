@@ -214,7 +214,10 @@ public class CronetUrlRequestTest {
         testSimpleGet();
         mTestLogger.waitForLogCronetTrafficInfo();
         assertThat(mTestLogger.getLastCronetTrafficInfo().getCronetSource())
-                .isEqualTo(CronetSource.CRONET_SOURCE_STATICALLY_LINKED);
+                .isEqualTo(
+                        BuildConfig.CRONET_FOR_AOSP_BUILD
+                                ? CronetSource.CRONET_SOURCE_PLATFORM
+                                : CronetSource.CRONET_SOURCE_STATICALLY_LINKED);
     }
 
     @Test
@@ -756,6 +759,35 @@ public class CronetUrlRequestTest {
         TestUrlRequestCallback callback = new TestUrlRequestCallback();
         String refererName = "Referer";
         String refererValue = "http://example.com/";
+        UrlRequest.Builder builder =
+                mTestRule
+                        .getTestFramework()
+                        .getEngine()
+                        .newUrlRequestBuilder(
+                                NativeTestServer.getEchoHeaderURL(refererName),
+                                callback,
+                                callback.getExecutor());
+        builder.addHeader(refererName, refererValue);
+        builder.build().start();
+        callback.blockForDone();
+        assertThat(callback.getResponseInfoWithChecks()).hasHttpStatusCodeThat().isEqualTo(200);
+        assertThat(callback.mResponseAsString).isEqualTo(refererValue);
+    }
+
+    @Test
+    @SmallTest
+    // Regression test for https://crbug.com/415825189.
+    @IgnoreFor(
+            implementations = {CronetImplementation.AOSP_PLATFORM},
+            reason = "Emulators do not contain an up-to-date version of HttpEngine")
+    public void testHttpsRefererToHttpDestitation_notDropped() throws Exception {
+        TestUrlRequestCallback callback = new TestUrlRequestCallback();
+        String refererName = "Referer";
+        String refererValue = "https://example.com/";
+        String url = NativeTestServer.getEchoHeaderURL(refererName);
+        // This tests is explicitly testing referrer to HTTPS while destination is HTTP. Make sure
+        // that changes to NativeTestServer don't break this assumption.
+        assertThat(url).startsWith("http://");
         UrlRequest.Builder builder =
                 mTestRule
                         .getTestFramework()
@@ -2602,7 +2634,7 @@ public class CronetUrlRequestTest {
         class HangingUploadDataProvider extends UploadDataProvider {
             UploadDataSink mUploadDataSink;
             ByteBuffer mByteBuffer;
-            ConditionVariable mReadCalled = new ConditionVariable(false);
+            final ConditionVariable mReadCalled = new ConditionVariable(false);
 
             @Override
             public long getLength() {

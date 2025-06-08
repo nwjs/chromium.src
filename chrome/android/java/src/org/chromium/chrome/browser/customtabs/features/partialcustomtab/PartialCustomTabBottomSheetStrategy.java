@@ -50,6 +50,7 @@ import org.chromium.chrome.browser.browserservices.intents.BrowserServicesIntent
 import org.chromium.chrome.browser.customtabs.features.partialcustomtab.ContentGestureListener.GestureState;
 import org.chromium.chrome.browser.customtabs.features.toolbar.CustomTabToolbar;
 import org.chromium.chrome.browser.customtabs.features.toolbar.CustomTabToolbarButtonsCoordinator;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.fullscreen.FullscreenManager;
 import org.chromium.chrome.browser.fullscreen.FullscreenOptions;
 import org.chromium.chrome.browser.lifecycle.ActivityLifecycleDispatcher;
@@ -110,7 +111,7 @@ public class PartialCustomTabBottomSheetStrategy extends PartialCustomTabBaseStr
     private GestureDetector mGestureDetector;
     private ContentGestureListener mGestureHandler;
 
-    private TabAnimator mTabAnimator;
+    private final TabAnimator mTabAnimator;
 
     private @HeightStatus int mStatus = HeightStatus.INITIAL_HEIGHT;
 
@@ -119,7 +120,7 @@ public class PartialCustomTabBottomSheetStrategy extends PartialCustomTabBaseStr
     private Runnable mSoftKeyboardRunnable;
     private boolean mStopShowingSpinner;
     private boolean mRestoreAfterFindPage;
-    private boolean mContentScrollMayResizeTab;
+    private final boolean mContentScrollMayResizeTab;
 
     // Y offset when a dragging gesture/animation starts.
     private int mMoveStartY;
@@ -346,7 +347,11 @@ public class PartialCustomTabBottomSheetStrategy extends PartialCustomTabBaseStr
                 new PartialCustomTabHandleStrategy(
                         mActivity, this::isFullHeight, () -> mStatus, this);
         toolbar.setHandleStrategy(mHandleStrategy);
-        toolbar.setMinimizeButtonEnabled(false);
+        if (ChromeFeatureList.sCctToolbarRefactor.isEnabled()) {
+            toolbarButtonsCoordinator.setMinimizeButtonEnabled(false);
+        } else {
+            toolbar.setMinimizeButtonEnabled(false);
+        }
         CustomTabDragBar dragBar = mActivity.findViewById(R.id.drag_bar);
         dragBar.setHandleStrategy(mHandleStrategy);
         View dragHandle = mActivity.findViewById(R.id.drag_handle);

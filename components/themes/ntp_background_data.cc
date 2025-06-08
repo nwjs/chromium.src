@@ -4,15 +4,44 @@
 
 #include "components/themes/ntp_background_data.h"
 
+#include "build/build_config.h"
+
 namespace {
-// The options to be added to a thumbnail image URL, specifying resolution,
+#if BUILDFLAG(IS_IOS)
+// iOS label added to request to filter out unwanted collections.
+constexpr char kFilteringLabel[] = "chrome_ios_ntp";
+// The iOS options to be added to a thumbnail image URL, specifying resolution,
 // cropping, etc. Options appear on an image URL after the '=' character. This
 // resolution matches the height an width of bg-sel-tile.
+constexpr char kThumbnailImageOptions[] = "=s639-k-no-nd";
+// The iOS options to be added to an image URL, specifying resolution, cropping,
+// etc. Options appear on an image URL after the '=' character.
+constexpr char kImageOptions[] = "=s2556-k-no-nd";
+#else
+// Desktop label added to request to filter out unwanted collections.
+constexpr char kFilteringLabel[] = "chrome_desktop_ntp";
+// The desktop options to be added to a thumbnail image URL, specifying
+// resolution, cropping, etc. Options appear on an image URL after the '='
+// character. This resolution matches the height an width of bg-sel-tile.
 constexpr char kThumbnailImageOptions[] = "=w156-h117-p-k-no-nd-mv";
+// The desktop options to be added to an image URL, specifying resolution,
+// cropping, etc. Options appear on an image URL after the '=' character.
+// TODO(crbug.com/41408116): Set options based on display resolution capability.
+constexpr char kImageOptions[] = "=w3840-h2160-p-k-no-nd-mv";
+#endif
+
 }  // namespace
 
 std::string GetThumbnailImageOptions() {
   return kThumbnailImageOptions;
+}
+
+std::string GetFilteringLabel() {
+  return kFilteringLabel;
+}
+
+std::string GetImageOptions() {
+  return kImageOptions;
 }
 
 GURL AddOptionsToImageURL(const std::string& image_url,
@@ -34,10 +63,6 @@ bool operator==(const CollectionInfo& lhs, const CollectionInfo& rhs) {
   return lhs.collection_id == rhs.collection_id &&
          lhs.collection_name == rhs.collection_name &&
          lhs.preview_image_url == rhs.preview_image_url;
-}
-
-bool operator!=(const CollectionInfo& lhs, const CollectionInfo& rhs) {
-  return !(lhs == rhs);
 }
 
 CollectionInfo CollectionInfo::CreateFromProto(
@@ -67,10 +92,6 @@ bool operator==(const CollectionImage& lhs, const CollectionImage& rhs) {
          lhs.thumbnail_image_url == rhs.thumbnail_image_url &&
          lhs.image_url == rhs.image_url && lhs.attribution == rhs.attribution &&
          lhs.attribution_action_url == rhs.attribution_action_url;
-}
-
-bool operator!=(const CollectionImage& lhs, const CollectionImage& rhs) {
-  return !(lhs == rhs);
 }
 
 CollectionImage CollectionImage::CreateFromProto(

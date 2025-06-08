@@ -47,6 +47,7 @@ Hal-hal yang perlu dipertimbangkan:
 <translation id="1917964099031477364">Akun ini dan semua data yang tidak disimpan akan dihapus dari Chrome dan Google app lainnya di perangkat ini.</translation>
 <translation id="1919130412786645364">Izinkan login Chrome</translation>
 <translation id="1965935827552890526">Selesaikan yang Anda kerjakan di jendela Chrome lain yang terbuka.</translation>
+<translation id="1966638102563776885">Tips Chrome: Dapatkan sandi Anda di aplikasi apa pun</translation>
 <translation id="1973910962341002002">Dari setelan "<ph name="TEXT_OF_THE_SETTINGS_MENU_ITEM" />", aktifkan "Chrome"</translation>
 <translation id="1984705450038014246">Sinkronkan data Chrome Anda</translation>
 <translation id="1987779152850321833">Selesaikan tindakan yang disarankan berikut untuk mengoptimalkan Chrome.</translation>
@@ -114,7 +115,6 @@ Coba tunggu beberapa menit sebelum logout. Jika Anda logout sekarang, data ini a
 <translation id="3655656110921623717">Artinya, Chrome akan selalu meminta situs seluler.</translation>
 <translation id="3740397331642243698">Membuka URL yang diinput di Google Chrome dalam mode Samaran.</translation>
 <translation id="3741995255368156336">Membuka Daftar Bacaan Chrome.</translation>
-<translation id="3808570423967020928">Akses Chrome lebih cepat dari Dok Layar Utama Anda.</translation>
 <translation id="3827545470516145620">Anda mendapatkan perlindungan keamanan standar di perangkat ini</translation>
 <translation id="384394811301901750">Google Chrome saat ini tidak dapat menggunakan kamera</translation>
 <translation id="3863841106411295595">Menambahkan URL yang diinput ke daftar bacaan Anda di Chrome.</translation>
@@ -138,6 +138,7 @@ Coba tunggu beberapa menit sebelum logout. Jika Anda logout sekarang, data ini a
 <translation id="4724297637870447613">Gunakan Chrome di mana saja</translation>
 <translation id="4738647308035481133">Halaman Google Chrome</translation>
 <translation id="4742795653798179840">Data Chrome berhasil dihapus</translation>
+<translation id="4749294594657945639">Untuk mendapatkan sandi tersimpan dengan mudah di aplikasi lain, pilih Chrome untuk Isi Otomatis.</translation>
 <translation id="4761869838909035636">Jalankan Pemeriksaan Keamanan Chrome</translation>
 <translation id="4798859546468762093">Untuk mendapatkan personalisasi dan fitur lainnya, sertakan Chrome di <ph name="FEATURE_NAME_1" /> dan <ph name="FEATURE_NAME_2" /></translation>
 <translation id="4819268619367838612">Untuk membantu meningkatkan kualitas aplikasi, Chrome akan mengirimkan data penggunaan dan error ke Google. <ph name="BEGIN_LINK" />Kelola<ph name="END_LINK" /></translation>
@@ -233,7 +234,6 @@ Untuk setelan lainnya yang menggunakan data guna meningkatkan pengalaman Chrome 
 <translation id="6975725306479268850">Pilih Chrome untuk Isi Otomatis</translation>
 <translation id="7056826488869329999">Membuka dan Menjalankan Pemeriksaan Keamanan di Chrome.</translation>
 <translation id="7061455974939528301">Tekan lama ikon Chrome, lalu klik "Edit layar utama"</translation>
-<translation id="7065813315247345131">Pindahkan Chrome ke Dok</translation>
 <translation id="7124339256045485976">Pastikan Chrome selalu terupdate</translation>
 <translation id="7145599899567697473">Simpan dan isi otomatis sandi di Chrome</translation>
 <translation id="7161390184744336561">Versi Google Chrome sudah usang</translation>
@@ -317,10 +317,10 @@ Data Anda dienkripsi dengan frasa sandi pada <ph name="TIME" />. Masukkan frasa 
 <translation id="8603022514504485810">Pengelola Sandi Google tidak dapat memeriksa semua sandi. Coba lagi besok atau <ph name="BEGIN_LINK" />periksa sandi di Akun Google Anda<ph name="END_LINK" />.</translation>
 <translation id="8630122478628016441">Aktifkan "Kunci tab Samaran saat Anda menutup Chrome".</translation>
 <translation id="8673726683583791503">Belanja dengan Google Lens</translation>
-<translation id="8727043961453758442">Maksimalkan penggunaan Chrome</translation>
 <translation id="8765470054473112089">Saat Anda mengetik di kolom URL atau kotak penelusuran, Chrome akan mengirimkan hal yang Anda ketik ke mesin telusur default untuk mendapatkan saran yang lebih baik. Fitur ini nonaktif dalam mode Samaran.</translation>
 <translation id="8772179140489533211">Menampilkan perintah untuk login ke Chrome.</translation>
 <translation id="8788269841521769222">Anda tidak perlu mengingat sandi ini. Sandi akan disimpan ke Pengelola Sandi Google untuk <ph name="EMAIL" /></translation>
+<translation id="8796490717897731471"><ph name="EMAIL" />. Chrome dikelola.</translation>
 <translation id="880967149107462122">Buka Setelan Chrome</translation>
 <translation id="8842132678697187091">Anda dapat membuka Google Lens di sini.</translation>
 <translation id="8850736900032787670">Untuk menerima konten yang dipersonalisasi berdasarkan minat Anda, login ke Chrome.</translation>

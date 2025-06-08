@@ -184,12 +184,8 @@ void CookiesEventRouter::CookieChangeListener::OnCookieChange(
 
 CookiesEventRouter::CookiesEventRouter(content::BrowserContext* context)
     : profile_(Profile::FromBrowserContext(context)),
-      profile_observation_(this)
-#if !BUILDFLAG(IS_ANDROID)
-      ,
-      otr_profile_observation_(this)
-#endif
-{
+      profile_observation_(this),
+      otr_profile_observation_(this) {
   MaybeStartListening();
   profile_observation_.Observe(profile_);
 }
@@ -213,11 +209,8 @@ void CookiesEventRouter::OnCookieChange(bool otr,
       otr ? profile_->GetPrimaryOTRProfile(/*create_if_needed=*/false)
           : profile_->GetOriginalProfile();
   // TODO(407373848): OTR profile must exist when the cookie change event
-  // arrived. Change this to CHECK once this is merged.
-  DCHECK(profile);
-  if (!profile) {
-    return;
-  }
+  // arrived.
+  CHECK(profile);
 
   api::cookies::Cookie cookie = cookies_helpers::CreateCookie(
       change.cookie, cookies_helpers::GetStoreIdFromProfile(profile));
@@ -266,13 +259,17 @@ void CookiesEventRouter::OnOffTheRecordProfileCreated(Profile* off_the_record) {
   // When an off-the-record spinoff of |profile_| is created, start listening
   // for cookie changes there. The OTR receiver should never be bound, since
   // there wasn't previously an OTR profile.
-  if (off_the_record->IsPrimaryOTRProfile()) {
-    DCHECK(!otr_receiver_.is_bound());
-#if !BUILDFLAG(IS_ANDROID)
-    otr_profile_observation_.Observe(off_the_record);
-#endif
-    BindToCookieManager(&otr_receiver_, off_the_record);
+  // TODO(crbug.com/417228685): Clank allows for multiple OTR profiles, unlike
+  // desktop Chrome. Extensions APIs may have built-in assumptions that there
+  // will only be one OTR profile. We need to determine how this will be handled
+  // in Desktop Android.
+  if (!off_the_record->IsPrimaryOTRProfile()) {
+    return;
   }
+
+  DCHECK(!otr_receiver_.is_bound());
+  otr_profile_observation_.Observe(off_the_record);
+  BindToCookieManager(&otr_receiver_, off_the_record);
 }
 
 void CookiesEventRouter::OnProfileWillBeDestroyed(Profile* profile) {
@@ -282,9 +279,7 @@ void CookiesEventRouter::OnProfileWillBeDestroyed(Profile* profile) {
           ? original_profile->GetPrimaryOTRProfile(/*create_if_needed=*/true)
           : nullptr;
   if (profile == otr_profile) {
-#if !BUILDFLAG(IS_ANDROID)
     otr_profile_observation_.Reset();
-#endif
     otr_receiver_.reset();
   }
 }
@@ -304,9 +299,7 @@ void CookiesEventRouter::MaybeStartListening() {
   }
 
   if (!otr_receiver_.is_bound() && otr_profile) {
-#if !BUILDFLAG(IS_ANDROID)
     otr_profile_observation_.Observe(otr_profile);
-#endif
     BindToCookieManager(&otr_receiver_, otr_profile);
   }
 }

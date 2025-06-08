@@ -16,6 +16,7 @@
 #include "third_party/blink/renderer/core/animation/element_animations.h"
 #include "third_party/blink/renderer/core/css/clip_path_paint_image_generator.h"
 #include "third_party/blink/renderer/core/dom/dom_node_ids.h"
+#include "third_party/blink/renderer/core/dom/pseudo_element.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
 #include "third_party/blink/renderer/core/frame/local_frame_client.h"
 #include "third_party/blink/renderer/core/frame/local_frame_view.h"
@@ -269,6 +270,8 @@ class FragmentPaintPropertyTreeBuilder {
   ALWAYS_INLINE void UpdateViewTransitionSubframeRootEffect();
   ALWAYS_INLINE void UpdateViewTransitionEffect();
   ALWAYS_INLINE void UpdateViewTransitionClip();
+  ALWAYS_INLINE const EffectPaintPropertyNodeOrAlias*
+  ParentForViewTransitionPseudoEffect() const;
   ALWAYS_INLINE void UpdateEffect();
   ALWAYS_INLINE void UpdateElementCaptureEffect();
   ALWAYS_INLINE void UpdateFilter();
@@ -1560,7 +1563,21 @@ bool FragmentPaintPropertyTreeBuilder::NeedsEffectFor2DScaleTransform() const {
     return false;
   }
 
-  return has_scale2d_transform_ && !has_non_scale2d_transform_;
+  if (!has_scale2d_transform_ || has_non_scale2d_transform_) {
+    return false;
+  }
+
+  if (To<LayoutBoxModelObject>(object_)
+          .Layer()
+          ->HasBackdropFilterDescendant()) {
+    return false;
+  }
+
+  if (object_.StyleRef().HasNonInitialBackdropFilter()) {
+    return false;
+  }
+
+  return true;
 }
 
 static bool NeedsEffectIgnoringClipPathAnd2DScale(
@@ -1679,6 +1696,47 @@ bool FragmentPaintPropertyTreeBuilder::EffectCanUseCurrentClipAsOutputClip()
   return true;
 }
 
+const EffectPaintPropertyNodeOrAlias*
+FragmentPaintPropertyTreeBuilder::ParentForViewTransitionPseudoEffect() const {
+  PseudoElement* pseudo = To<PseudoElement>(object_.GetNode());
+  DCHECK(pseudo);
+
+  Element& scope = pseudo->UltimateOriginatingElement();
+  if (scope.IsDocumentElement()) {
+    // The transition pseudo element doesn't draw into the LayoutView's
+    // effect, but rather as its sibling. So this re-parents the effect to
+    // whatever the grand-parent effect was. Note that it doesn't matter
+    // whether the grand-parent is the root stacking context or something
+    // intermediate, as long as it is a sibling of the LayoutView context.
+    // This makes it possible to capture the output of the LayoutView context
+    // into one of the transition contexts. We also want that capture to be
+    // without any additional effects, such as overscroll elasticity effects.
+    if (IsInLocalSubframe(object_)) {
+      return object_.GetDocument()
+          .GetLayoutView()
+          ->FirstFragment()
+          .PaintProperties()
+          ->ViewTransitionSubframeRootEffect();
+    } else {
+      return &EffectPaintPropertyNode::Root();
+    }
+  }
+
+  DCHECK(!scope.IsDocumentElement());
+  auto* scope_properties =
+      scope.GetLayoutObject()->FirstFragment().PaintProperties();
+  if (!scope_properties) {
+    return context_.current_effect;
+  }
+
+  // Make the effect node for the ::view-transition pseudo element a sibling of
+  // the ViewTransitionEffect for the scope element. The ViewTransitionEffect is
+  // guaranteed to exist (see ViewTransition::NeedsViewTransitionEffectNode).
+  auto* scope_vt_effect = scope_properties->ViewTransitionEffect();
+  CHECK(scope_vt_effect && scope_vt_effect->Parent());
+  return scope_vt_effect->Parent();
+}
+
 void FragmentPaintPropertyTreeBuilder::UpdateEffect() {
   DCHECK(properties_);
   // Since we're doing a full update, clear list of objects waiting for a
@@ -1737,7 +1795,8 @@ void FragmentPaintPropertyTreeBuilder::UpdateEffect() {
         }
       }
 
-      state.has_2d_scale_transform = NeedsEffectFor2DScaleTransform();
+      state.needs_effect_for_2d_scale_transform =
+          NeedsEffectFor2DScaleTransform();
 
       state.direct_compositing_reasons =
           full_context_.direct_compositing_reasons &
@@ -1775,26 +1834,9 @@ void FragmentPaintPropertyTreeBuilder::UpdateEffect() {
           style.IsRunningBackdropFilterAnimationOnCompositor();
 
       const auto* parent_effect = context_.current_effect;
-      // The transition pseudo element doesn't draw into the LayoutView's
-      // effect, but rather as its sibling. So this re-parents the effect to
-      // whatever the grand-parent effect was. Note that it doesn't matter
-      // whether the grand-parent is the root stacking context or something
-      // intermediate, as long as it is a sibling of the LayoutView context.
-      // This makes it possible to capture the output of the LayoutView context
-      // into one of the transition contexts. We also want that capture to be
-      // without any additional effects, such as overscroll elasticity effects.
       if (object_.GetNode() &&
           object_.GetNode()->GetPseudoId() == kPseudoIdViewTransition) {
-        if (IsInLocalSubframe(object_)) {
-          parent_effect = object_.GetDocument()
-                              .GetLayoutView()
-                              ->FirstFragment()
-                              .PaintProperties()
-                              ->ViewTransitionSubframeRootEffect();
-        } else {
-          parent_effect = &EffectPaintPropertyNode::Root();
-        }
-        DCHECK(parent_effect);
+        parent_effect = ParentForViewTransitionPseudoEffect();
       }
       DCHECK(parent_effect);
 
@@ -2538,7 +2580,7 @@ void FragmentPaintPropertyTreeBuilder::UpdateBackgroundClip() {
 static void AdjustRoundedClipForOverflowClipMargin(
     const LayoutBox& box,
     gfx::RectF& layout_clip_rect,
-    FloatRoundedRect& paint_clip_rect) {
+    ContouredRect& paint_clip_rect) {
   const auto& style = box.StyleRef();
   auto overflow_clip_margin = style.OverflowClipMargin();
   if (!overflow_clip_margin || !box.ShouldApplyOverflowClipMargin())
@@ -2587,14 +2629,11 @@ void FragmentPaintPropertyTreeBuilder::UpdateInnerBorderRadiusClip() {
       gfx::Vector2dF offset(-OffsetInStitchedFragments(BoxFragment()));
       layout_clip_rect.Offset(offset);
       paint_clip_rect.Move(offset);
-
-      FloatRoundedRect rounded_rect = paint_clip_rect.AsRoundedRect();
-
-      // TODO(crbug.com/397459628) Apply corner-shape to overflow-clip-margin
       AdjustRoundedClipForOverflowClipMargin(box, layout_clip_rect,
-                                             rounded_rect);
+                                             paint_clip_rect);
       ClipPaintPropertyNode::State state(*context_.current.transform,
-                                         layout_clip_rect, rounded_rect);
+                                         layout_clip_rect,
+                                         paint_clip_rect.AsRoundedRect());
       if (!paint_clip_rect.HasRoundCurvature()) {
         state.SetClipRect(layout_clip_rect,
                           FloatRoundedRect(paint_clip_rect.Rect()));
@@ -3666,21 +3705,16 @@ FragmentData& PaintPropertyTreeBuilder::GetFragmentData() const {
 
 void PaintPropertyTreeBuilder::UpdateFragmentData() {
   FragmentData& fragment = GetFragmentData();
-  if (IsInNGFragmentTraversal()) {
-    context_.fragment_context.current.fragmentainer_idx =
-        pre_paint_info_->fragmentainer_idx;
-  } else {
+  if (!IsInNGFragmentTraversal()) {
     DCHECK_EQ(&fragment, &object_.FirstFragment());
     const FragmentDataList& fragment_list =
         object_.GetMutableForPainting().FragmentList();
     wtf_size_t old_fragment_count = fragment_list.size();
     object_.GetMutableForPainting().FragmentList().Shrink(1);
 
-    if (context_.fragment_context.current.fragmentainer_idx == WTF::kNotFound) {
-      // We're not fragmented, but we may have been previously.
-      if (old_fragment_count > 1u) {
-        object_.GetMutableForPainting().FragmentCountChanged();
-      }
+    // We're not fragmented, but we may have been previously.
+    if (old_fragment_count > 1u) {
+      object_.GetMutableForPainting().FragmentCountChanged();
     }
   }
 }
@@ -3721,6 +3755,9 @@ static bool NeedsRootElementGroupForViewBackground(const LayoutObject& object) {
         return true;
       }
       if (NeedsClipPathClipOrMask(*root_object)) {
+        return true;
+      }
+      if (root_object->StyleRef().HasFilter()) {
         return true;
       }
     }
@@ -4075,7 +4112,7 @@ bool PaintPropertyTreeBuilder::CanDoDeferredTransformNodeUpdate(
     // the fast path. (However, we intentionally allow the fast path to
     // happen when changing *to* a scale transform, to avoid performance
     // problems detecting this situation.
-    if (effect->Has2DScaleTransform()) {
+    if (effect->NeedsEffectFor2DScaleTransform()) {
       return false;
     }
   }

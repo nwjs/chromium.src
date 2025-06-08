@@ -61,6 +61,7 @@
 #include "components/sync/base/features.h"
 #include "sql/sqlite_result_code_values.h"
 #include "sql/test/test_helpers.h"
+#include "sql/transaction.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/skia/include/core/SkBitmap.h"
@@ -233,6 +234,7 @@ class TestHistoryBackend : public HistoryBackend {
   using HistoryBackend::expirer_;
   using HistoryBackend::favicon_backend_;
   using HistoryBackend::recent_redirects_;
+  using HistoryBackend::singleton_transaction_;
 
   VisitTracker& visit_tracker() { return tracker_; }
 
@@ -3277,6 +3279,22 @@ TEST_F(HistoryBackendTest, DatabaseErrorSynchronouslyKillAndNotifyBridge) {
                                  /*user_initiated*/ true);
 }
 
+// Tests for https://crbug.com/420369590.
+TEST_F(HistoryBackendTest, DatabaseErrorOnClosedDatabase) {
+  // Clear the pending transaction to avoid DCHECKs to trigger. This is required
+  // since we are closing the raw sqlite database.
+  backend_->singleton_transaction_.reset();
+
+  // Close the database. This is simulating a case where the open failed but
+  // the database is not poisoned.
+  backend_->db()->GetDBForTesting().Close();
+
+  // Retrieve the error diagnostic information.
+  std::string result = backend_->db()->GetDiagnosticInfo(
+      static_cast<int>(sql::SqliteResultCode::kCorrupt), nullptr, nullptr);
+  EXPECT_EQ(result, "Database is not opened.");
+}
+
 // Tests that a typed navigation which results in a redirect from HTTP to HTTPS
 // will cause the HTTPS URL to accrue the typed count, and the HTTP URL to not.
 TEST_F(HistoryBackendTest, RedirectScoring) {
@@ -5600,13 +5618,12 @@ class HistoryBackendTestForVisitedLinks
   }
 
   VisitID AddPageVisit(const GURL& link_url,
-                       ui::PageTransition transition,
                        std::optional<GURL> top_level_url,
                        std::optional<GURL> frame_url) {
     return backend_
         ->AddPageVisit(link_url, base::Time::Now(),
                        /*referring_visit=*/kInvalidVisitID,
-                       /*external_referrer_url=*/GURL(), transition,
+                       /*external_referrer_url=*/GURL(), link_transition_,
                        /*hidden=*/false, SOURCE_BROWSED,
                        /*should_increment_typed_count=*/false,
                        /*opener_visit=*/kInvalidVisitID,
@@ -5618,14 +5635,13 @@ class HistoryBackendTestForVisitedLinks
   }
 
   VisitID AddPageVisit(const GURL& link_url,
-                       ui::PageTransition transition,
                        std::optional<GURL> top_level_url,
                        std::optional<GURL> frame_url,
                        bool is_ephemeral) {
     return backend_
         ->AddPageVisit(link_url, base::Time::Now(),
                        /*referring_visit=*/kInvalidVisitID,
-                       /*external_referrer_url=*/GURL(), transition,
+                       /*external_referrer_url=*/GURL(), link_transition_,
                        /*hidden=*/false, SOURCE_BROWSED,
                        /*should_increment_typed_count=*/false,
                        /*opener_visit=*/kInvalidVisitID,
@@ -5663,8 +5679,7 @@ TEST_P(HistoryBackendTestForVisitedLinks, AddPageAndSyncedVisit) {
   const GURL top_level_url("https://local2.url");
   const GURL frame_url("https://local3.url");
   // Setup: Add to the HistoryDatabase via AddPageVisit().
-  VisitID local_visit_id =
-      AddPageVisit(link_url, link_transition_, top_level_url, frame_url);
+  VisitID local_visit_id = AddPageVisit(link_url, top_level_url, frame_url);
 
   // Ensure the local visit is added to the VisitDatabase.
   EXPECT_NE(local_visit_id, kInvalidVisitID);
@@ -5718,10 +5733,8 @@ TEST_P(HistoryBackendTestForVisitedLinks, IncreaseVisitCount) {
   const GURL top_level_url("https://local2.url");
   const GURL frame_url("https://local3.url");
   // Setup: Add to the HistoryDatabase via AddPageVisit().
-  VisitID visit1_id = AddPageVisit(link_url, man_subframe_transition_,
-                                   top_level_url, frame_url);
-  VisitID visit2_id = AddPageVisit(link_url, man_subframe_transition_,
-                                   top_level_url, frame_url);
+  VisitID visit1_id = AddPageVisit(link_url, top_level_url, frame_url);
+  VisitID visit2_id = AddPageVisit(link_url, top_level_url, frame_url);
 
   // Ensure the visits are added to the VisitDatabase.
   EXPECT_NE(visit1_id, kInvalidVisitID);
@@ -5747,15 +5760,14 @@ TEST_P(HistoryBackendTestForVisitedLinks, IncreaseVisitCount) {
 
 TEST_P(HistoryBackendTestForVisitedLinks, OnlyAddValidVisitedLinks) {
   // In AddPageVisit(), visits are only added to the VisitedLinkDatabase
-  // if they contain a valid top-level url and frame url, and the transition
-  // type is a context where we can accurately construct a triple partition key.
+  // if they contain a valid top-level url and frame url.
   const GURL link_url("https://local1.url");
   const GURL top_level_url("https://local2.url");
   const GURL frame_url("https://local3.url");
 
   // Add a local visit without a top_level_url.
   VisitID no_top_level_id =
-      AddPageVisit(link_url, link_transition_,
+      AddPageVisit(link_url,
                    /*top_level_url=*/std::nullopt, frame_url);
 
   // Ensure the visit is added to the VisitDatabase but NOT to the
@@ -5766,7 +5778,7 @@ TEST_P(HistoryBackendTestForVisitedLinks, OnlyAddValidVisitedLinks) {
   EXPECT_EQ(no_top_level_visit.visited_link_id, kInvalidVisitedLinkID);
 
   // Add a local visit without a frame_origin.
-  VisitID no_frame_id = AddPageVisit(link_url, link_transition_, top_level_url,
+  VisitID no_frame_id = AddPageVisit(link_url, top_level_url,
                                      /*frame_url=*/std::nullopt);
 
   // Ensure the visit is added to the VisitDatabase but NOT to the
@@ -5776,22 +5788,27 @@ TEST_P(HistoryBackendTestForVisitedLinks, OnlyAddValidVisitedLinks) {
   EXPECT_TRUE(backend_->GetVisitByID(no_frame_id, &no_frame_visit));
   EXPECT_EQ(no_frame_visit.visited_link_id, kInvalidVisitedLinkID);
 
-  // Add a local visit with a transition type the VisitedLinkDatabase doesn't
-  // accept.
-  VisitID transition_id =
-      AddPageVisit(link_url, typed_transition_, top_level_url, frame_url);
+  // Add a local visit that is ephemeral.
+  VisitID ephemeral_id = AddPageVisit(link_url, top_level_url, frame_url,
+                                      /*is_ephemeral=*/true);
+
   // Ensure the visit is added to the VisitDatabase but NOT to the
-  // VisitedLinkDatabase.
-  EXPECT_NE(transition_id, kInvalidVisitID);
-  VisitRow transition_visit;
-  EXPECT_TRUE(backend_->GetVisitByID(transition_id, &transition_visit));
-  EXPECT_EQ(transition_visit.visited_link_id, kInvalidVisitedLinkID);
-  VisitedLinkRow transition_visited_link;
-  VisitedLinkID transition_visited_link_id =
-      backend_->db()->GetRowForVisitedLink(transition_visit.url_id,
-                                           top_level_url, frame_url,
-                                           transition_visited_link);
-  EXPECT_EQ(transition_visited_link_id, transition_visit.visited_link_id);
+  // VisitedLlinkDatabase.
+  EXPECT_NE(ephemeral_id, kInvalidVisitID);
+  VisitRow ephemeral_visit;
+  EXPECT_TRUE(backend_->GetVisitByID(ephemeral_id, &ephemeral_visit));
+  EXPECT_EQ(ephemeral_visit.visited_link_id, kInvalidVisitedLinkID);
+
+  // Add a local visit that has all valid triple-key components.
+  VisitID valid_id = AddPageVisit(link_url, top_level_url, frame_url,
+                                  /*is_ephemeral=*/false);
+
+  // Ensure the visit is added to the VisitedLinkDatabase.
+  EXPECT_NE(valid_id, kInvalidVisitID);
+  VisitRow valid_visit;
+  EXPECT_TRUE(backend_->GetVisitByID(valid_id, &valid_visit));
+  EXPECT_EQ(valid_visit.visited_link_id != kInvalidVisitedLinkID,
+            is_database_enabled_);
 }
 
 TEST_P(HistoryBackendTestForVisitedLinks, AddWholeRedirectChain) {
@@ -5837,14 +5854,11 @@ TEST_P(HistoryBackendTestForVisitedLinks, DecreaseVisitCount) {
   const GURL top_level_url("https://local2.url");
   const GURL frame_url("https://local3.url");
   // Setup: Add to the HistoryDatabase via AddPageVisit().
-  VisitID visit1_id =
-      AddPageVisit(link_url1, link_transition_, top_level_url, frame_url);
-  VisitID visit2_id =
-      AddPageVisit(link_url2, link_transition_, top_level_url, frame_url);
+  VisitID visit1_id = AddPageVisit(link_url1, top_level_url, frame_url);
+  VisitID visit2_id = AddPageVisit(link_url2, top_level_url, frame_url);
   // Visit #3 is identical to visit #2 - we want the VisitedLink visit_count to
   // be more than one.
-  VisitID visit3_id =
-      AddPageVisit(link_url2, link_transition_, top_level_url, frame_url);
+  VisitID visit3_id = AddPageVisit(link_url2, top_level_url, frame_url);
 
   // Ensure the visits are added to the VisitDatabase.
   EXPECT_NE(visit1_id, kInvalidVisitID);
@@ -5915,14 +5929,11 @@ TEST_P(HistoryBackendTestForVisitedLinks, DeleteAllVisitedLinksHistory) {
   const GURL top_level_url("https://local2.url");
   const GURL frame_url("https://local3.url");
   // Setup: Add to the HistoryDatabase via AddPageVisit().
-  VisitID visit1_id =
-      AddPageVisit(link_url1, link_transition_, top_level_url, frame_url);
-  VisitID visit2_id =
-      AddPageVisit(link_url2, link_transition_, top_level_url, frame_url);
+  VisitID visit1_id = AddPageVisit(link_url1, top_level_url, frame_url);
+  VisitID visit2_id = AddPageVisit(link_url2, top_level_url, frame_url);
   // Visit #3 is identical to visit #2 - we want the VisitedLink visit_count to
   // be more than one.
-  VisitID visit3_id =
-      AddPageVisit(link_url2, link_transition_, top_level_url, frame_url);
+  VisitID visit3_id = AddPageVisit(link_url2, top_level_url, frame_url);
 
   // Ensure the visits are added to the VisitDatabase.
   EXPECT_NE(visit1_id, kInvalidVisitID);
@@ -6000,48 +6011,6 @@ TEST_P(HistoryBackendTestForVisitedLinks, NotifyVisitedLinksAdded) {
   ASSERT_TRUE(added_links[0].top_level_url.has_value());
   EXPECT_EQ(added_links[0].top_level_url.value(), top_level_url);
   EXPECT_EQ(added_links[0].referrer, frame_url);
-}
-
-// Due to layering constraints, any code found in components/history/core/ is
-// unable to access blink::feature flags. Therefore, a false and a true case for
-// is_ephemeral was implemented for proper test coverage.
-TEST_P(HistoryBackendTestForVisitedLinks, IsEphemeralArgsSkipsDB) {
-  // Setup: to be stored in the VisitedLinkDatabase, visits must contain a valid
-  // top-level url and frame url, and come from a LINK or MANUAL_SUBFRAME
-  // transition type.
-  const GURL link_url("https://local1.url");
-  const GURL top_level_url("https://local2.url");
-  const GURL frame_url("https://local3.url");
-  // Setup: Add to the HistoryDatabase via AddPageVisit().
-  // By setting is_ephemeral to false, it accounts for the case that either
-  // PartitionVisitedLinkDatabase or PartitionVisitedLinkDatabaseWithSelfLink
-  // flag isn't toggled or the frame isn't ephemeral. When is_ephemeral is true,
-  // it accounts for the case when one of the flags are toggled and the frame
-  // holds state, or is ephemeral.
-  VisitID local_visit_id_1 =
-      AddPageVisit(link_url, link_transition_, top_level_url, frame_url,
-                   /* is_ephemeral= */ false);
-  VisitID local_visit_id_2 =
-      AddPageVisit(link_url, link_transition_, top_level_url, frame_url,
-                   /* is_ephemeral= */ true);
-
-  // Ensure the local visit is added to the VisitDatabase.
-  EXPECT_NE(local_visit_id_1, kInvalidVisitID);
-  EXPECT_NE(local_visit_id_2, kInvalidVisitID);
-  VisitRow local_visit_1, local_visit_2;
-  EXPECT_TRUE(backend_->GetVisitByID(local_visit_id_1, &local_visit_1));
-  EXPECT_TRUE(backend_->GetVisitByID(local_visit_id_2, &local_visit_2));
-
-  // Ensure that while is_ephemeral is false, the local visited link is added to
-  // the VisitedLinkDatabase if the flag is enabled. It is not added when the
-  // flag is disabled.
-  VisitedLinkID local_visited_link_id_1 = local_visit_1.visited_link_id;
-  EXPECT_EQ(local_visited_link_id_1 != kInvalidVisitedLinkID,
-            is_database_enabled_);
-  // Ensure that when the frame is_ephemeral, the local visited link isn't added
-  // to the VisitedLinkDatabase and no valid VisitedLinkID is returned.
-  VisitedLinkID local_visited_link_id_2 = local_visit_2.visited_link_id;
-  EXPECT_EQ(local_visited_link_id_2, kInvalidVisitedLinkID);
 }
 
 // A HistoryDBTask that runs for a specified number of iterations (returning

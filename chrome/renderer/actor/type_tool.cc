@@ -12,7 +12,9 @@
 #include "base/strings/to_string.h"
 #include "base/time/time.h"
 #include "chrome/common/actor.mojom-shared.h"
+#include "chrome/common/actor/action_result.h"
 #include "chrome/common/actor/actor_logging.h"
+#include "chrome/renderer/actor/click_tool.h"
 #include "chrome/renderer/actor/tool_utils.h"
 #include "content/public/renderer/render_frame.h"
 #include "third_party/abseil-cpp/absl/strings/str_format.h"
@@ -22,6 +24,7 @@
 #include "third_party/blink/public/platform/web_input_event_result.h"
 #include "third_party/blink/public/web/web_element.h"
 #include "third_party/blink/public/web/web_frame_widget.h"
+#include "third_party/blink/public/web/web_hit_test_result.h"
 #include "third_party/blink/public/web/web_input_element.h"
 #include "third_party/blink/public/web/web_local_frame.h"
 #include "third_party/blink/public/web/web_node.h"
@@ -31,6 +34,16 @@
 #include "ui/latency/latency_info.h"
 
 namespace actor {
+
+using ::blink::WebCoalescedInputEvent;
+using ::blink::WebElement;
+using ::blink::WebInputEvent;
+using ::blink::WebInputEventResult;
+using ::blink::WebKeyboardEvent;
+using ::blink::WebLocalFrame;
+using ::blink::WebMouseEvent;
+using ::blink::WebNode;
+using ::blink::WebString;
 
 namespace {
 
@@ -90,6 +103,18 @@ const std::unordered_map<char, KeyInfo>& GetKeyInfoMap() {
   return *key_info_map;
 }
 
+bool PrepareTargetForMode(WebLocalFrame& frame,
+                          mojom::TypeAction::Mode mode,
+                          bool is_target_editable) {
+  // Skip prepration if target is not editable.
+  if (is_target_editable) {
+    // TODO(crbug.com/409570203): Use DELETE_EXISTING regardless of `mode` but
+    // we'll have to implement the different insertion modes.
+    frame.ExecuteCommand(WebString::FromUTF8("SelectAll"));
+  }
+  return true;
+}
+
 }  // namespace
 
 TypeTool::TypeTool(mojom::TypeActionPtr action, content::RenderFrame& frame)
@@ -132,7 +157,7 @@ std::optional<TypeTool::KeyParams> TypeTool::GetKeyParamsForChar(char c) {
     // dom_key is already set correctly (it's the uppercase char)
     // Unmodified is lowercase
     params.unmodified_text = base::ToLowerASCII(c);
-    params.modifiers = blink::WebInputEvent::kShiftKey;
+    params.modifiers = WebInputEvent::kShiftKey;
   } else if (c >= '0' && c <= '9') {
     // ASCII Digits
     params.windows_key_code = ui::VKEY_0 + (c - '0');
@@ -153,7 +178,7 @@ std::optional<TypeTool::KeyParams> TypeTool::GetKeyParamsForChar(char c) {
 
     // Check if this character requires shift
     if (info.unmodified_char != 0) {
-      params.modifiers = blink::WebInputEvent::kShiftKey;
+      params.modifiers = WebInputEvent::kShiftKey;
       params.unmodified_text = info.unmodified_char;
     }
   }
@@ -165,10 +190,10 @@ std::optional<TypeTool::KeyParams> TypeTool::GetKeyParamsForChar(char c) {
   return params;
 }
 
-bool TypeTool::CreateAndDispatchKeyEvent(blink::WebInputEvent::Type type,
-                                         KeyParams key_params) {
-  blink::WebKeyboardEvent key_event(type, key_params.modifiers,
-                                    ui::EventTimeForNow());
+WebInputEventResult TypeTool::CreateAndDispatchKeyEvent(
+    WebInputEvent::Type type,
+    KeyParams key_params) {
+  WebKeyboardEvent key_event(type, key_params.modifiers, ui::EventTimeForNow());
   key_event.windows_key_code = key_params.windows_key_code;
   key_event.native_key_code = key_params.native_key_code;
   key_event.dom_code = static_cast<int>(
@@ -178,97 +203,136 @@ bool TypeTool::CreateAndDispatchKeyEvent(blink::WebInputEvent::Type type,
   key_event.text[0] = key_params.text;
   key_event.unmodified_text[0] = key_params.unmodified_text;
 
-  blink::WebInputEventResult result =
+  WebInputEventResult result =
       frame_->GetWebFrame()->FrameWidget()->HandleInputEvent(
-          blink::WebCoalescedInputEvent(key_event, ui::LatencyInfo()));
+          WebCoalescedInputEvent(key_event, ui::LatencyInfo()));
 
-  if (result == blink::WebInputEventResult::kHandledSuppressed) {
-    ACTOR_LOG() << "Keyboard event (" << type << ") for key "
-                << key_event.dom_key << " suppressed.";
-    return false;
-  }
-  return true;
+  return result;
 }
 
 bool TypeTool::SimulateKeyPress(TypeTool::KeyParams params) {
   // TODO(crbug.com/402082693): Maybe add slight delay between events?
-  bool overall_success = CreateAndDispatchKeyEvent(
-      blink::WebInputEvent::Type::kRawKeyDown, params);
+  WebInputEventResult down_result =
+      CreateAndDispatchKeyEvent(WebInputEvent::Type::kRawKeyDown, params);
 
-  overall_success &=
-      CreateAndDispatchKeyEvent(blink::WebInputEvent::Type::kChar, params);
+  // Only the KeyDown event will check for and report failure. The reason the
+  // other events don't is that if the KeyDown event was dispatched to the page,
+  // the key input was observable to the page and it may mutate itself in a way
+  // that subsequent Char and KeyUp events are suppressed (e.g. mutating the DOM
+  // tree, removing frames, etc). These "failure" cases can be considered
+  // successful in terms that the tool has acted on the page. In particular, a
+  // preventDefault()'ed KeyDown event will force suppressing the following Char
+  // event but this is expected and common.
+  if (down_result == WebInputEventResult::kHandledSuppressed) {
+    ACTOR_LOG() << "KeyDown event for key " << params.dom_key << " suppressed.";
+    return false;
+  }
 
-  overall_success &=
-      CreateAndDispatchKeyEvent(blink::WebInputEvent::Type::kKeyUp, params);
-  return overall_success;
-}
+  WebInputEventResult char_result =
+      CreateAndDispatchKeyEvent(WebInputEvent::Type::kChar, params);
+  if (char_result == WebInputEventResult::kHandledSuppressed) {
+    ACTOR_LOG() << "Warning: Char event for key " << params.dom_key
+                << " suppressed.";
+  }
 
-bool TypeTool::PrepareTargetForMode(const blink::WebNode& node,
-                                    mojom::TypeAction::Mode mode) {
-  // TODO(crbug.com/409570203): Implement.
+  WebInputEventResult up_result =
+      CreateAndDispatchKeyEvent(WebInputEvent::Type::kKeyUp, params);
+  if (up_result == WebInputEventResult::kHandledSuppressed) {
+    ACTOR_LOG() << "Warning: KeyUp event for key " << params.dom_key
+                << " suppressed.";
+  }
   return true;
 }
 
 void TypeTool::Execute(ToolFinishedCallback callback) {
   if (!frame_->GetWebFrame() || !frame_->GetWebFrame()->FrameWidget()) {
     ACTOR_LOG() << "RenderFrame or FrameWidget is invalid.";
-    std::move(callback).Run(false);
+    std::move(callback).Run(MakeErrorResult());
     return;
   }
 
   mojom::ToolTargetPtr& target = action_->target;
   CHECK(target);
 
+  bool is_target_editable;
+
   if (target->is_coordinate()) {
-    NOTIMPLEMENTED() << "Coordinate-based target not yet supported.";
-    std::move(callback).Run(false);
-    return;
-  }
-  int32_t dom_node_id = target->get_dom_node_id();
-
-  blink::WebNode node = GetNodeFromId(frame_.get(), dom_node_id);
-  if (node.IsNull()) {
-    ACTOR_LOG() << "Cannot find dom node with id " << dom_node_id;
-    std::move(callback).Run(false);
-    return;
-  }
-
-  // Validate Node is an editable element
-  if (!node.IsElementNode()) {
-    ACTOR_LOG() << "Target node " << node << " is not an element.";
-    std::move(callback).Run(false);
-    return;
-  }
-  blink::WebElement element = node.To<blink::WebElement>();
-  if (!element.IsEditable()) {
-    ACTOR_LOG() << "Target element " << element << " is not editable.";
-    std::move(callback).Run(false);
-    return;
-  }
-
-  // Check and set focus if needed.
-  if (!IsNodeFocused(frame_.get(), node)) {
-    if (element.IsFocusable()) {
-      element.Focus();
-    } else {
-      ACTOR_LOG() << "Target element " << element
-                  << " is not focusable for typing.";
-      std::move(callback).Run(false);
+    // Injecting a click first at the coordinate.
+    gfx::PointF click_point(target->get_coordinate());
+    if (!IsPointWithinViewport(click_point, frame_.get())) {
+      std::move(callback).Run(
+          MakeResult(mojom::ActionResultCode::kCoordinatesOutOfBounds));
       return;
     }
+    mojom::ActionResultPtr result = CreateAndDispatchClick(
+        blink::WebMouseEvent::Button::kLeft, 1, click_point,
+        frame_->GetWebFrame()->FrameWidget());
+    // Cancel rest of typing if initial click failed.
+    if (!IsOk(*result)) {
+      std::move(callback).Run(std::move(result));
+      return;
+    }
+    blink::WebHitTestResult htresult =
+        frame_->GetWebFrame()->FrameWidget()->HitTestResultAt(click_point);
+    // Only prepare target if the hit test result indicates the node is
+    // editable.
+    is_target_editable = htresult.IsContentEditable();
+  } else {
+    int32_t dom_node_id = target->get_dom_node_id();
+    WebNode node = GetNodeFromId(frame_.get(), dom_node_id);
+    if (node.IsNull()) {
+      ACTOR_LOG() << "Cannot find dom node with id " << dom_node_id;
+      std::move(callback).Run(MakeErrorResult());
+      return;
+    }
+
+    // Validate Node is an editable element
+    // TODO(crbug.com/414398425): This seems too restrictive for non-input
+    // cases.
+    if (!node.IsElementNode()) {
+      ACTOR_LOG() << "Target node " << node << " is not an element.";
+      std::move(callback).Run(MakeErrorResult());
+      return;
+    }
+    WebElement element = node.To<WebElement>();
+    if (!element.IsEditable()) {
+      ACTOR_LOG() << "Target element " << element << " is not editable.";
+      std::move(callback).Run(MakeErrorResult());
+      return;
+    }
+
+    // Check and set focus if needed.
+    if (!IsNodeFocused(frame_.get(), node)) {
+      if (element.IsFocusable()) {
+        element.Focus();
+      } else {
+        ACTOR_LOG() << "Target element " << element
+                    << " is not focusable for typing.";
+        std::move(callback).Run(MakeErrorResult());
+        return;
+      }
+    }
+    is_target_editable = true;
   }
 
-  if (!PrepareTargetForMode(node, action_->mode)) {
+  if (!PrepareTargetForMode(*frame_->GetWebFrame(), action_->mode,
+                            is_target_editable)) {
     ACTOR_LOG() << "Failed to prepare target element based on mode: "
                 << action_->mode;
-    std::move(callback).Run(false);
+    std::move(callback).Run(MakeErrorResult());
     return;
   }
+
+  // Note: Focus and preparing the target performs actions which lead to
+  // script execution so `node` may no longer be focused (it or its frame
+  // could be disconnected). However, sites sometimes do unexpected things to
+  // work around issues so to keep those working we proceed to key dispatch
+  // without checking this.
 
   if (!base::IsStringASCII(action_->text)) {
     // TODO(crbug.com/409032824): Add support beyond ASCII.
     ACTOR_LOG() << "Characters beyond ASCII not supported" << action_->text;
-    std::move(callback).Run(false);
+    std::move(callback).Run(MakeErrorResult());
     return;
   }
 
@@ -280,7 +344,7 @@ void TypeTool::Execute(ToolFinishedCallback callback) {
     std::optional<KeyParams> params = GetKeyParamsForChar(c);
     if (!params.has_value()) {
       ACTOR_LOG() << "Failed to map char to key " << c;
-      std::move(callback).Run(false);
+      std::move(callback).Run(MakeErrorResult());
       return;
     }
     key_sequence.push_back(params.value());
@@ -292,12 +356,12 @@ void TypeTool::Execute(ToolFinishedCallback callback) {
   for (const auto& param : key_sequence) {
     if (!SimulateKeyPress(param)) {
       ACTOR_LOG() << "Failed to simulate key press for " << param.dom_key;
-      std::move(callback).Run(false);
+      std::move(callback).Run(MakeErrorResult());
       return;
     }
   }
 
-  std::move(callback).Run(true);
+  std::move(callback).Run(MakeOkResult());
 }
 
 std::string TypeTool::DebugString() const {

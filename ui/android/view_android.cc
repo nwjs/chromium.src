@@ -10,12 +10,9 @@
 
 #include "base/android/jni_android.h"
 #include "base/android/jni_string.h"
-#include "base/auto_reset.h"
 #include "base/containers/adapters.h"
 #include "base/containers/contains.h"
-#include "base/debug/dump_without_crashing.h"
 #include "base/memory/raw_ptr.h"
-#include "base/not_fatal_until.h"
 #include "cc/slim/layer.h"
 #include "components/viz/common/frame_sinks/copy_output_request.h"
 #include "third_party/skia/include/core/SkBitmap.h"
@@ -189,7 +186,7 @@ bool ViewAndroid::SubtreeHasEventForwarder(ViewAndroid* view) {
 void ViewAndroid::MoveToFront(ViewAndroid* child) {
   DCHECK(child);
   auto it = std::ranges::find(children_, child);
-  CHECK(it != children_.end(), base::NotFatalUntil::M130);
+  CHECK(it != children_.end());
 
   // Top element is placed at the end of the list.
   if (*it != children_.back())
@@ -199,7 +196,7 @@ void ViewAndroid::MoveToFront(ViewAndroid* child) {
 void ViewAndroid::MoveToBack(ViewAndroid* child) {
   DCHECK(child);
   auto it = std::ranges::find(children_, child);
-  CHECK(it != children_.end(), base::NotFatalUntil::M130);
+  CHECK(it != children_.end());
 
   // Bottom element is placed at the beginning of the list.
   if (*it != children_.front())
@@ -277,12 +274,6 @@ gfx::PointF ViewAndroid::GetLocationOnScreen(float x, float y) {
 }
 
 void ViewAndroid::RemoveAllChildren(bool attached_to_window) {
-  // Modifying children during hit testing can cause issues
-  // (crbug.com/407571917). Log a non-fatal report if this happens.
-  if (is_hit_testing_) {
-    base::debug::DumpWithoutCrashing();
-  }
-
   auto it = children_.begin();
   while (it != children_.end()) {
     if (attached_to_window)
@@ -301,12 +292,7 @@ void ViewAndroid::RemoveChild(ViewAndroid* child) {
     child->OnDetachedFromWindow();
   std::list<raw_ptr<ViewAndroid, CtnExperimental>>::iterator it =
       std::ranges::find(children_, child);
-  CHECK(it != children_.end(), base::NotFatalUntil::M130);
-  // Modifying children during hit testing can cause issues
-  // (crbug.com/407571917). Log a non-fatal report if this happens.
-  if (is_hit_testing_) {
-    base::debug::DumpWithoutCrashing();
-  }
+  CHECK(it != children_.end());
   children_.erase(it);
   child->parent_ = nullptr;
 }
@@ -713,6 +699,15 @@ void ViewAndroid::NotifyContextMenuInsetsObservers(const gfx::Rect& safe_area) {
   }
 }
 
+void ViewAndroid::ShowInterestInElement(int nodeID) {
+  if (event_handler_) {
+    event_handler_->ShowInterestInElement(nodeID);
+  }
+  for (ViewAndroid* child : children_) {
+    child->ShowInterestInElement(nodeID);
+  }
+}
+
 template <typename E>
 bool ViewAndroid::HitTest(EventHandlerCallback<E> handler_callback,
                           const E& event,
@@ -727,8 +722,6 @@ bool ViewAndroid::HitTest(EventHandlerCallback<E> handler_callback,
         return true;
     }
   }
-
-  base::AutoReset<bool> reset_is_hit_testing(&is_hit_testing_, true);
 
   if (!children_.empty()) {
     gfx::PointF offset_point(point);

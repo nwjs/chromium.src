@@ -16,6 +16,7 @@
 #if BUILDFLAG(IS_ANDROID)
 #include "components/browser_ui/util/android/url_constants.h"
 #endif
+#include "components/omnibox/browser/autocomplete_enums.h"
 #include "components/omnibox/browser/autocomplete_input.h"
 #include "components/omnibox/browser/autocomplete_match.h"
 #include "components/omnibox/browser/autocomplete_match_classification.h"
@@ -82,7 +83,7 @@ TabGroupProvider::~TabGroupProvider() = default;
 // TODO(crbug.com/412433887): Make the TabGroupProvider async.
 void TabGroupProvider::Start(const AutocompleteInput& input,
                              bool minimal_changes) {
-  Stop(true, false);
+  Stop(AutocompleteStopReason::kClobbered);
   if (input.current_page_classification() !=
       ::metrics::OmniboxEventProto::ANDROID_HUB) {
     return;
@@ -124,7 +125,7 @@ AutocompleteMatch TabGroupProvider::CreateTabGroupMatch(
   match.contents_class = ClassifyTermMatches(
       contents_terms, match.contents.size(), ACMatchClassification::MATCH,
       ACMatchClassification::NONE);
-  // TODO(crbug.com/410574178): Plumb tab group id through match.
+  match.matching_tab_group_uuid = group.saved_guid();
   match.suggestion_group_id = omnibox::GROUP_MOBILE_OPEN_TABS;
 
   return match;

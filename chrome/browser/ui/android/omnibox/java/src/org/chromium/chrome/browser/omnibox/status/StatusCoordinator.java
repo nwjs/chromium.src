@@ -33,6 +33,7 @@ import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.ui.theme.BrandedColorScheme;
 import org.chromium.chrome.browser.user_education.UserEducationHelper;
+import org.chromium.components.omnibox.OmniboxFeatures;
 import org.chromium.components.permissions.PermissionDialogController;
 import org.chromium.components.search_engines.TemplateUrlService;
 import org.chromium.ui.base.WindowAndroid;
@@ -48,6 +49,7 @@ import java.util.List;
  */
 @NullMarked
 public class StatusCoordinator implements View.OnClickListener, LocationBarDataProvider.Observer {
+
     /** Interface for displaying page info popup on omnibox. */
     public interface PageInfoAction {
         /**
@@ -184,11 +186,9 @@ public class StatusCoordinator implements View.OnClickListener, LocationBarDataP
         mMediator.setStatusClickListener(listener != null ? listener : this);
     }
 
-    /**
-     * @param show Whether the status icon should be VISIBLE, otherwise GONE.
-     */
-    public void setStatusIconShown(boolean show) {
-        mMediator.setStatusIconShown(show);
+    /** Toggle whether the status icon should be hidden for secure origins. */
+    public void setHideStatusIconForSecureOrigins(boolean hideStatusIconForSecureOrigins) {
+        mMediator.setHideStatusIconForSecureOrigins(hideStatusIconForSecureOrigins);
     }
 
     /**
@@ -260,11 +260,6 @@ public class StatusCoordinator implements View.OnClickListener, LocationBarDataP
     }
 
     @Override
-    public void onPageLoadStopped() {
-        mMediator.onPageLoadStopped();
-    }
-
-    @Override
     public void onTabCrashed() {
         mMediator.onTabCrashed();
     }
@@ -309,13 +304,6 @@ public class StatusCoordinator implements View.OnClickListener, LocationBarDataP
         return mModel.get(StatusProperties.STATUS_ICON_RESOURCE) == null
                 ? 0
                 : mModel.get(StatusProperties.STATUS_ICON_RESOURCE).getIconResForTesting();
-    }
-
-    /** Returns the icon identifier used for custom resources. */
-    public @Nullable String getSecurityIconIdentifierForTesting() {
-        return mModel.get(StatusProperties.STATUS_ICON_RESOURCE) == null
-                ? null
-                : mModel.get(StatusProperties.STATUS_ICON_RESOURCE).getIconIdentifierForTesting();
     }
 
     /**
@@ -404,7 +392,8 @@ public class StatusCoordinator implements View.OnClickListener, LocationBarDataP
      */
     public void populateFadeAnimation(
             List<Animator> animators, long startDelayMs, long durationMs, float targetAlpha) {
-        if (mLocationBarDataProvider.isIncognitoBranded()) {
+        if (mLocationBarDataProvider.isIncognitoBranded()
+                && !OmniboxFeatures.sOmniboxMobileParityUpdate.isEnabled()) {
             Animator animator =
                     PropertyModelAnimatorFactory.ofFloat(
                                     mModel, StatusProperties.ALPHA, targetAlpha)
@@ -412,13 +401,5 @@ public class StatusCoordinator implements View.OnClickListener, LocationBarDataP
             animator.setStartDelay(startDelayMs);
             animators.add(animator);
         }
-    }
-
-    /**
-     * Set whether the status view should be shown. If the view is not shown, the status view will
-     * be permanently gone until it is updated through this method during the current lifecycle.
-     */
-    public void setShowStatusView(boolean show) {
-        mMediator.setShowStatusView(show);
     }
 }

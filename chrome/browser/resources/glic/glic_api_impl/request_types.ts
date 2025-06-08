@@ -79,7 +79,25 @@ export declare interface HostRequestTypes {
       actInFocusedTabResult: ActInFocusedTabResultPrivate,
     },
   };
-  glicBrowserStopActorTask: {};
+  glicBrowserStopActorTask: {
+    request: {
+      taskId: number,
+    },
+  };
+  glicBrowserPauseActorTask: {
+    request: {
+      taskId: number,
+    },
+  };
+  glicBrowserResumeActorTask: {
+    request: {
+      taskId: number,
+      tabContextOptions: TabContextOptions,
+    },
+    response: {
+      tabContextResult: TabContextResultPrivate,
+    },
+  };
   glicBrowserCaptureScreenshot: {
     response: {
       screenshot: Screenshot,
@@ -129,6 +147,11 @@ export declare interface HostRequestTypes {
       enabled: boolean,
     },
   };
+  glicBrowserSetClosedCaptioningSetting: {
+    request: {
+      enabled: boolean,
+    },
+  };
   glicBrowserSetContextAccessIndicator: {
     request: {
       show: boolean,
@@ -167,6 +190,7 @@ export declare interface HostRequestTypes {
   glicBrowserScrollTo: {
     request: {params: ScrollToParams},
   };
+  glicBrowserDropScrollToHighlight: {};
   glicBrowserSetSyntheticExperimentState: {
     request: {
       trialName: string,
@@ -231,6 +255,11 @@ export declare interface WebClientRequestTypes {
       enabled: boolean,
     },
   };
+  glicWebClientNotifyClosedCaptioningSettingChanged: {
+    request: {
+      enabled: boolean,
+    },
+  };
   glicWebClientNotifyFocusedTabChanged: {
     request: {
       focusedTabDataPrivate: FocusedTabDataPrivate,
@@ -281,6 +310,8 @@ type HostRequestEnumNamesType = {
     GetContextFromFocusedTab: 0,
     ActInFocusedTab: 0,
     StopActorTask: 0,
+    PauseActorTask: 0,
+    ResumeActorTask: 0,
     CaptureScreenshot: 0,
     ResizeWindow: 0,
     EnableDragResize: 0,
@@ -305,6 +336,8 @@ type HostRequestEnumNamesType = {
     OpenOsPermissionSettingsMenu: 0,
     GetOsMicrophonePermissionStatus: 0,
     GetZeroStateSuggestionsForFocusedTab: 0,
+    SetClosedCaptioningSetting: 0,
+    DropScrollToHighlight: 0,
   };
   return apiRequestTypes;
   // LINT.ThenChange(//tools/metrics/histograms/metadata/glic/histograms.xml:ApiRequestType)

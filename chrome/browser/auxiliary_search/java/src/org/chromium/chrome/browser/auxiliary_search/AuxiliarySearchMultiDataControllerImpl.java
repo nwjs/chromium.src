@@ -4,6 +4,7 @@
 
 package org.chromium.chrome.browser.auxiliary_search;
 
+import static org.chromium.build.NullUtil.assumeNonNull;
 import static org.chromium.chrome.browser.flags.ChromeFeatureList.sAndroidAppIntegrationMultiDataSourceHistoryContentTtlHours;
 
 import android.content.Context;
@@ -31,7 +32,7 @@ import java.util.concurrent.TimeUnit;
  */
 @NullMarked
 public class AuxiliarySearchMultiDataControllerImpl extends AuxiliarySearchControllerImpl
-        implements AuxiliarySearchProvider.Observer {
+        implements AuxiliarySearchTopSiteProviderBridge.Observer {
     private final long mHistoryTtlMillis;
 
     // Whether this controller is observing most visited sites.
@@ -44,8 +45,10 @@ public class AuxiliarySearchMultiDataControllerImpl extends AuxiliarySearchContr
     private boolean mExpectDonating;
 
     // A set of ActivityLifecycleDispatcher that this controller tracks.
-    private Set<ActivityLifecycleDispatcher> mActivityLifecycleDispatcherSet;
+    private final Set<ActivityLifecycleDispatcher> mActivityLifecycleDispatcherSet;
 
+    // It is null when the controller doesn't observe top sites changes.
+    private @Nullable AuxiliarySearchTopSiteProviderBridge mAuxiliarySearchTopSiteProviderBridge;
     private @Nullable List<AuxiliarySearchDataEntry> mCurrentSiteSuggestionEntries;
 
     /**
@@ -62,7 +65,8 @@ public class AuxiliarySearchMultiDataControllerImpl extends AuxiliarySearchContr
                         context, profile, /* tabModelSelector= */ null, hostType),
                 AuxiliarySearchDonor.getInstance(),
                 new FaviconHelper(),
-                hostType);
+                hostType,
+                new AuxiliarySearchTopSiteProviderBridge(profile));
     }
 
     @VisibleForTesting
@@ -72,7 +76,8 @@ public class AuxiliarySearchMultiDataControllerImpl extends AuxiliarySearchContr
             AuxiliarySearchProvider auxiliarySearchProvider,
             AuxiliarySearchDonor auxiliarySearchDonor,
             FaviconHelper faviconHelper,
-            @AuxiliarySearchHostType int hostType) {
+            @AuxiliarySearchHostType int hostType,
+            AuxiliarySearchTopSiteProviderBridge auxiliarySearchTopSiteProviderBridge) {
         super(
                 context,
                 profile,
@@ -81,6 +86,7 @@ public class AuxiliarySearchMultiDataControllerImpl extends AuxiliarySearchContr
                 faviconHelper,
                 hostType);
 
+        mAuxiliarySearchTopSiteProviderBridge = auxiliarySearchTopSiteProviderBridge;
         mExpectDonating = true;
         mHistoryTtlMillis =
                 TimeUnit.HOURS.toMillis(
@@ -129,7 +135,11 @@ public class AuxiliarySearchMultiDataControllerImpl extends AuxiliarySearchContr
     public void onDeferredStartup() {
         if (mHostType == AuxiliarySearchHostType.CTA && !mIsObservingTopSites) {
             mIsObservingTopSites = true;
-            mAuxiliarySearchProvider.setObserver(this);
+            if (mAuxiliarySearchTopSiteProviderBridge == null) {
+                mAuxiliarySearchTopSiteProviderBridge =
+                        new AuxiliarySearchTopSiteProviderBridge(mProfile);
+            }
+            mAuxiliarySearchTopSiteProviderBridge.setObserver(this);
         }
     }
 
@@ -142,7 +152,9 @@ public class AuxiliarySearchMultiDataControllerImpl extends AuxiliarySearchContr
 
         if (mActivityLifecycleDispatcherSet.isEmpty()) {
             if (mIsObservingTopSites) {
-                mAuxiliarySearchProvider.setObserver(null);
+                assumeNonNull(mAuxiliarySearchTopSiteProviderBridge);
+                mAuxiliarySearchTopSiteProviderBridge.destroy();
+                mAuxiliarySearchTopSiteProviderBridge = null;
                 mIsObservingTopSites = false;
             }
         }
@@ -207,16 +219,33 @@ public class AuxiliarySearchMultiDataControllerImpl extends AuxiliarySearchContr
             return donationList;
         }
 
+        // It is possible that mCurrentSiteSuggestionEntries has duplicated URLs which are also in
+        // the historyEntryList, filters out from the mCurrentSiteSuggestionEntries now.
+        Set<GURL> urlSet = new HashSet<>();
+        for (var entry : historyEntryList) {
+            urlSet.add(entry.url);
+        }
+        List<AuxiliarySearchDataEntry> refinedSiteSuggestionEntries = new ArrayList<>();
+        for (var entry : mCurrentSiteSuggestionEntries) {
+            if (!urlSet.contains(entry.url)) {
+                refinedSiteSuggestionEntries.add(entry);
+            }
+        }
+
         // Adds the most visited site suggestion with the highest score as the first one in
         // tht list to donate. This allows to include at least one most visited site
         // suggestion in the first five entries to fetch icons.
-        donationList.add(mCurrentSiteSuggestionEntries.get(0));
+        if (refinedSiteSuggestionEntries.size() >= 1) {
+            donationList.add(refinedSiteSuggestionEntries.get(0));
+        }
         // Adds the Tabs and Custom Tabs.
         donationList.addAll(historyEntryList);
         // Adds the remaining most visited sites suggestions.
-        for (int i = 1; i < mCurrentSiteSuggestionEntries.size(); i++) {
-            donationList.add(mCurrentSiteSuggestionEntries.get(i));
+        for (int i = 1; i < refinedSiteSuggestionEntries.size(); i++) {
+            donationList.add(refinedSiteSuggestionEntries.get(i));
         }
+
+        urlSet.clear();
         return donationList;
     }
 
@@ -226,5 +255,10 @@ public class AuxiliarySearchMultiDataControllerImpl extends AuxiliarySearchContr
 
     boolean getExpectDonatingForTesting() {
         return mExpectDonating;
+    }
+
+    @Nullable
+    AuxiliarySearchTopSiteProviderBridge getAuxiliarySearchTopSiteProviderBridgeForTesting() {
+        return mAuxiliarySearchTopSiteProviderBridge;
     }
 }

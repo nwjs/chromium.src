@@ -206,6 +206,7 @@
 <translation id="1758018619400202187">EAP-TLS</translation>
 <translation id="1758459542619182298"><ph name="CONTROL_TYPE" /> <ph name="KEY_LIST" /></translation>
 <translation id="1759842336958782510">Chrome</translation>
+<translation id="1762353673362288306">Anda hanya boleh menggunakan Alatan Pembelajaran pada masa ini</translation>
 <translation id="1762483337755424125">Transkrip</translation>
 <translation id="1765169783255151332">Tukar kekunci dengan pantas</translation>
 <translation id="1768959921651994223">Jenis pengesahan</translation>
@@ -220,6 +221,7 @@
 <translation id="181434555916624618">Pada masa ini, hasil janaan orang tidak akan dipaparkan. Cuba gesaan lain.</translation>
 <translation id="1815850098929213707">Kunci yang dipilih ialah <ph name="KEYS" />. Ketik butang untuk mengedit kawalan</translation>
 <translation id="1818174214124933000">Apabila anda memilih hantar, maklum balas anda dan kandungan (yang ditunjukkan di bawah) akan dihantar kepada Google, disemak oleh jurusemak dan digunakan untuk melatih atau meningkatkan produk dan perkhidmatan kami tertakluk pada <ph name="LINK_POLICY_BEGIN" />Dasar Privasi<ph name="LINK_POLICY_END" /> dan <ph name="LINK_TERMS_OF_SERVICE_BEGIN" />Syarat Perkhidmatan Google<ph name="LINK_TERMS_OF_SERVICE_END" />.</translation>
+<translation id="1821075635029692203">Guru anda telah menghantar sumber yang tidak disokong. Beritahu mereka.</translation>
 <translation id="1823120442877418684">Aksara</translation>
 <translation id="1827738518074806965">Galeri seni</translation>
 <translation id="183287940576828840">Menyinggung/Tidak selamat</translation>
@@ -476,6 +478,7 @@
 <translation id="3091839911843451378">Gagal - Dihentikan</translation>
 <translation id="3102119246920354026">Cache</translation>
 <translation id="3103783611481501187">di luar alam nyata</translation>
+<translation id="3119672627216736407">Terjemahan tersedia</translation>
 <translation id="3122464029669770682">CPU</translation>
 <translation id="3122614491980756867">kolam renang</translation>
 <translation id="3122883569442693641">Lagi butiran</translation>
@@ -1136,6 +1139,7 @@
 <translation id="6058625436358447366">Untuk menyelesaikan proses ini, masukkan kata laluan lama dan baharu</translation>
 <translation id="6061772781719867950">Permintaan HTTP gagal</translation>
 <translation id="6073292342939316679">mengurangkan kecerahan papan kekunci</translation>
+<translation id="6074608334942655098">Berhenti menterjemah</translation>
 <translation id="6074752328838739425">Sembunyikan ringkasan</translation>
 <translation id="6075872808778243331">Kependaman HTTP (Android)</translation>
 <translation id="6078323886959318429">Tambahkan pintasan</translation>
@@ -1459,7 +1463,6 @@ Muat turun model transkripsi (hingga 100MB) untuk mendapatkan transkripsi ini.</
 <translation id="7388345524791662148">Lagi pilihan untuk <ph name="RECORDING_NAME" /></translation>
 <translation id="7388959671917308825">Pad sentuh terbina dalam</translation>
 <translation id="7397270852490618635">Matikan tema cerah</translation>
-<translation id="7400166052988585408">Guru anda akan mengunci skrin anda selepas <ph name="NUM_SECONDS" /> saat</translation>
 <translation id="7401543881546089382">Padamkan pintasan</translation>
 <translation id="7405493795721832710"><ph name="DEVICE_NAME" /> bersedia untuk dikemaskinikan</translation>
 <translation id="741244894080940828">penukaran</translation>
@@ -1614,7 +1617,7 @@ Muat turun model transkripsi (hingga 100MB) untuk mendapatkan transkripsi ini.</
 <translation id="8088963492174775412">Tekan untuk merakam</translation>
 <translation id="8094062939584182041">Benarkan Google menghantar e-mel tentang isu ini kepada anda</translation>
 <translation id="8104083085214006426">Anda sedang menggunakan rangkaian terbuka dan tidak selamat</translation>
-<translation id="8110942816572072814">Guru anda telah mengunci skrin anda</translation>
+<translation id="8108879170356113798">Anda hanya akan dapat menggunakan Alatan Pembelajaran selepas <ph name="NUM_SECONDS" /> saat</translation>
 <translation id="811820734797650957">Get laluan boleh Diping (Android)</translation>
 <translation id="8129620843620772246"><ph name="TEMPERATURE_C" />°C</translation>
 <translation id="8131740175452115882">Sahkan</translation>

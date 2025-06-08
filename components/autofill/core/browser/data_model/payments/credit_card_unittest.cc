@@ -876,6 +876,37 @@ INSTANTIATE_TEST_SUITE_P(
             FULL_SERVER_CARD, "John Dillinger", "423456789012", "01", "2010",
             "2", nullptr, false}));
 
+class BenefitSourceConversionTest
+    : public testing::TestWithParam<
+          std::pair<CreditCard::BenefitSource, std::string_view>> {
+ public:
+  CreditCard::BenefitSource GetBenefitSourceEnum() { return GetParam().first; }
+
+  std::string_view GetBenefitSourceString() { return GetParam().second; }
+};
+
+TEST_P(BenefitSourceConversionTest, GetBenefitSourceStringFromEnum) {
+  EXPECT_EQ(GetBenefitSourceString(),
+            CreditCard::GetBenefitSourceStringFromEnum(GetBenefitSourceEnum()));
+}
+
+TEST_P(BenefitSourceConversionTest, GetEnumFromBenefitSourceString) {
+  EXPECT_EQ(GetBenefitSourceEnum(), CreditCard::GetEnumFromBenefitSourceString(
+                                        GetBenefitSourceString()));
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    CreditCardTest,
+    BenefitSourceConversionTest,
+    testing::Values(std::make_pair(CreditCard::BenefitSource::kSourceUnknown,
+                                   ""),
+                    std::make_pair(CreditCard::BenefitSource::kSourceAmex,
+                                   kAmexCardBenefitSource),
+                    std::make_pair(CreditCard::BenefitSource::kSourceBmo,
+                                   kBmoCardBenefitSource),
+                    std::make_pair(CreditCard::BenefitSource::kSourceCurinos,
+                                   kCurinosCardBenefitSource)));
+
 TEST(CreditCardTest, MatchingCardDetails) {
   CreditCard a(base::Uuid::GenerateRandomV4().AsLowercaseString(),
                std::string());
@@ -1053,6 +1084,15 @@ TEST(CreditCardTest, Compare) {
   EXPECT_GT(0, a.Compare(b));
   a.set_card_issuer(CreditCard::Issuer::kExternalIssuer);
   b.set_card_issuer(CreditCard::Issuer::kExternalIssuer);
+
+  // Cards with benefits from different sources are different.
+  a.set_benefit_source("bmo");
+  b.set_benefit_source("amex");
+  EXPECT_NE(0, a.Compare(b));
+  // Two same non-empty benefit source are considered the same.
+  a.set_benefit_source("bmo");
+  b.set_benefit_source("bmo");
+  EXPECT_EQ(0, a.Compare(b));
 
   // Difference in issuer id.
   a.set_issuer_id("amex");

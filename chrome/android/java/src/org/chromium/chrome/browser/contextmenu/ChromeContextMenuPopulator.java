@@ -4,12 +4,12 @@
 
 package org.chromium.chrome.browser.contextmenu;
 
-import static org.chromium.chrome.browser.contextmenu.ContextMenuItemProperties.ENABLED;
-import static org.chromium.chrome.browser.contextmenu.ContextMenuItemProperties.MENU_ID;
-import static org.chromium.chrome.browser.contextmenu.ContextMenuItemProperties.TEXT;
 import static org.chromium.chrome.browser.contextmenu.ContextMenuItemWithIconButtonProperties.BUTTON_CONTENT_DESC;
 import static org.chromium.chrome.browser.contextmenu.ContextMenuItemWithIconButtonProperties.BUTTON_IMAGE;
 import static org.chromium.chrome.browser.contextmenu.ContextMenuItemWithIconButtonProperties.BUTTON_MENU_ID;
+import static org.chromium.ui.listmenu.ListMenuItemProperties.ENABLED;
+import static org.chromium.ui.listmenu.ListMenuItemProperties.MENU_ITEM_ID;
+import static org.chromium.ui.listmenu.ListMenuItemProperties.TITLE;
 
 import android.content.ContentResolver;
 import android.content.Context;
@@ -35,6 +35,7 @@ import org.chromium.chrome.browser.bookmarks.BookmarkUtils;
 import org.chromium.chrome.browser.contextmenu.ChromeContextMenuItem.Item;
 import org.chromium.chrome.browser.contextmenu.ContextMenuCoordinator.ListItemType;
 import org.chromium.chrome.browser.download.DownloadUtils;
+import org.chromium.chrome.browser.enterprise.util.DataProtectionBridge;
 import org.chromium.chrome.browser.ephemeraltab.EphemeralTabCoordinator;
 import org.chromium.chrome.browser.feature_engagement.TrackerFactory;
 import org.chromium.chrome.browser.firstrun.FirstRunStatus;
@@ -97,7 +98,7 @@ public class ChromeContextMenuPopulator implements ContextMenuPopulator {
     private final @ContextMenuMode int mMode;
     private final Supplier<ShareDelegate> mShareDelegateSupplier;
     private final ContextMenuParams mParams;
-    private ContextMenuNativeDelegate mNativeDelegate;
+    private final ContextMenuNativeDelegate mNativeDelegate;
     private static final String LENS_SUPPORT_STATUS_HISTOGRAM_NAME =
             "ContextMenu.LensSupportStatus";
     private final boolean mIsDownloadRestrictedByPolicy;
@@ -180,10 +181,8 @@ public class ChromeContextMenuPopulator implements ContextMenuPopulator {
             Action.SAVE_PAGE,
             Action.SHARE_PAGE,
             Action.PRINT_PAGE,
-            Action.BACK,
-            Action.FORWARD,
-            Action.RELOAD,
             Action.INSPECT_ELEMENT,
+            Action.SHOW_INTEREST_IN_ELEMENT,
         })
         @Retention(RetentionPolicy.SOURCE)
         public @interface Action {
@@ -231,11 +230,12 @@ public class ChromeContextMenuPopulator implements ContextMenuPopulator {
             int SAVE_PAGE = 41;
             int SHARE_PAGE = 42;
             int PRINT_PAGE = 43;
-            int BACK = 44;
-            int FORWARD = 45;
-            int RELOAD = 46;
+            // int BACK = 44;  Deprecated since 05/2025.
+            // int FORWARD = 45;  Deprecated since 05/2025.
+            // int RELOAD = 46;  Deprecated since 05/2025.
             int INSPECT_ELEMENT = 47;
-            int NUM_ENTRIES = 48;
+            int SHOW_INTEREST_IN_ELEMENT = 48;
+            int NUM_ENTRIES = 49;
         }
 
         // LINT.ThenChange(/tools/metrics/histograms/enums.xml:ContextMenuOptionAndroid)
@@ -350,19 +350,8 @@ public class ChromeContextMenuPopulator implements ContextMenuPopulator {
         List<Pair<Integer, ModelList>> groupedItems = new ArrayList<>();
 
         if (mParams.isPage() && shouldShowEmptySpaceContextMenu()) {
-            ModelList pageNavigationGroup = new ModelList();
-            pageNavigationGroup.add(
-                    createListItem(Item.BACK, false, mItemDelegate.canCurrentTabGoBack()));
-            pageNavigationGroup.add(
-                    createListItem(Item.FORWARD, false, mItemDelegate.canCurrentTabGoForward()));
-            pageNavigationGroup.add(createListItem(Item.RELOAD, false, true));
-            groupedItems.add(
-                    new Pair<>(R.string.contextmenu_page_navigation_title, pageNavigationGroup));
-
             ModelList pageGroup = new ModelList();
-            // TODO(crbug.com/405842034): investigate supporting downloads in incognito mode.
-            if (!mItemDelegate.isIncognito()
-                    && UrlUtilities.isDownloadableScheme(mParams.getPageUrl())) {
+            if (UrlUtilities.isDownloadableScheme(mParams.getPageUrl())) {
                 pageGroup.add(
                         createListItem(Item.SAVE_PAGE, false, !mIsDownloadRestrictedByPolicy));
             }
@@ -379,6 +368,15 @@ public class ChromeContextMenuPopulator implements ContextMenuPopulator {
             if (FirstRunStatus.getFirstRunFlowComplete()
                     && !isEmptyUrl(mParams.getUrl())
                     && UrlUtilities.isAcceptedScheme(mParams.getUrl())) {
+                if (mParams.getOpenedFromInterestTarget()
+                        && mParams.getInterestTargetNodeID() != 0) {
+                    // This is a context menu for a link with `interesttarget`. If the node ID is
+                    // valid, then we should add a context menu item to show interest in the link.
+                    // There is a static_assert in ContextMenuController::ShowContextMenu() that
+                    // ensures "zero" means invalid. This item will only be created if the
+                    // HTMLInterestTargetAttribute flag is enabled.
+                    linkGroup.add(createListItem(Item.SHOW_INTEREST_IN_ELEMENT));
+                }
                 if (mMode == ContextMenuMode.NORMAL) {
                     if (ChromeFeatureList.sSwapNewTabAndNewTabInGroupAndroid.isEnabled()) {
                         linkGroup.add(createListItem(Item.OPEN_IN_NEW_TAB));
@@ -401,8 +399,8 @@ public class ChromeContextMenuPopulator implements ContextMenuPopulator {
                     boolean showNewLabel = shouldTriggerEphemeralTabHelpUi();
                     boolean isDataUrl =
                             mParams.getUrl().getScheme().equals(UrlConstants.DATA_SCHEME);
-                    if (!(mMode == ContextMenuMode.CUSTOM_TAB && isDataUrl)) {
-                        // Do not show the item if CCT opens data: url as it could potentially
+                    if (!isDataUrl) {
+                        // Do not show the item if BrApp/CCT opens data: url as it could potentially
                         // cause a security issue.
                         linkGroup.add(createListItem(Item.OPEN_IN_EPHEMERAL_TAB, showNewLabel));
                         mShowEphemeralTabNewLabel = showNewLabel;
@@ -613,16 +611,7 @@ public class ChromeContextMenuPopulator implements ContextMenuPopulator {
 
     @Override
     public boolean onItemSelected(int itemId) {
-        if (itemId == R.id.contextmenu_back) {
-            recordContextMenuSelection(ContextMenuUma.Action.BACK);
-            mItemDelegate.onCurrentTabGoBack();
-        } else if (itemId == R.id.contextmenu_forward) {
-            recordContextMenuSelection(ContextMenuUma.Action.FORWARD);
-            mItemDelegate.onCurrentTabGoForward();
-        } else if (itemId == R.id.contextmenu_reload) {
-            recordContextMenuSelection(ContextMenuUma.Action.RELOAD);
-            mItemDelegate.onReloadCurrentTab();
-        } else if (itemId == R.id.contextmenu_open_in_new_tab) {
+        if (itemId == R.id.contextmenu_open_in_new_tab) {
             recordContextMenuSelection(ContextMenuUma.Action.OPEN_IN_NEW_TAB);
             RecordUserAction.record("TabContextMenu.OpenInNewTab");
             mItemDelegate.onOpenInNewTab(
@@ -652,22 +641,34 @@ public class ChromeContextMenuPopulator implements ContextMenuPopulator {
             mItemDelegate.onOpenImageUrl(mParams.getSrcUrl(), mParams.getReferrer());
         } else if (itemId == R.id.contextmenu_open_image_in_new_tab) {
             recordContextMenuSelection(ContextMenuUma.Action.OPEN_IMAGE_IN_NEW_TAB);
-            mItemDelegate.onOpenImageInNewTab(mParams.getSrcUrl(), mParams.getReferrer());
+            verifyCopyImageIsAllowedByPolicy(
+                    mParams.getSrcUrl().getSpec(),
+                    () ->
+                            mItemDelegate.onOpenImageInNewTab(
+                                    mParams.getSrcUrl(), mParams.getReferrer()));
         } else if (itemId == R.id.contextmenu_open_image_in_ephemeral_tab) {
             recordContextMenuSelection(ContextMenuUma.Action.OPEN_IMAGE_IN_EPHEMERAL_TAB);
-            String title = mParams.getTitleText();
-            if (TextUtils.isEmpty(title)) {
-                title = URLUtil.guessFileName(mParams.getSrcUrl().getSpec(), null, null);
-            }
-            mItemDelegate.onOpenInEphemeralTab(mParams.getSrcUrl(), title);
+            verifyCopyImageIsAllowedByPolicy(
+                    mParams.getSrcUrl().getSpec(),
+                    () -> {
+                        String title = mParams.getTitleText();
+                        if (TextUtils.isEmpty(title)) {
+                            title =
+                                    URLUtil.guessFileName(
+                                            mParams.getSrcUrl().getSpec(), null, null);
+                        }
+                        mItemDelegate.onOpenInEphemeralTab(mParams.getSrcUrl(), title);
+                    });
         } else if (itemId == R.id.contextmenu_copy_image) {
             recordContextMenuSelection(ContextMenuUma.Action.COPY_IMAGE);
             copyImageToClipboard();
         } else if (itemId == R.id.contextmenu_copy_link_address) {
             recordContextMenuSelection(ContextMenuUma.Action.COPY_LINK_ADDRESS);
-            mItemDelegate.onSaveToClipboard(
-                    mParams.getUnfilteredLinkUrl().getSpec(),
-                    TabContextMenuItemDelegate.ClipboardType.LINK_URL);
+            copyLinkUrlIfAllowedByPolicy(
+                    () ->
+                            mItemDelegate.onSaveToClipboard(
+                                    mParams.getUnfilteredLinkUrl().getSpec(),
+                                    TabContextMenuItemDelegate.ClipboardType.LINK_URL));
         } else if (itemId == R.id.contextmenu_call) {
             recordContextMenuSelection(ContextMenuUma.Action.CALL);
             mItemDelegate.onCall(mParams.getLinkUrl());
@@ -685,19 +686,29 @@ public class ChromeContextMenuPopulator implements ContextMenuPopulator {
         } else if (itemId == R.id.contextmenu_copy) {
             if (MailTo.isMailTo(mParams.getLinkUrl().getSpec())) {
                 recordContextMenuSelection(ContextMenuUma.Action.COPY_EMAIL_ADDRESS);
-                mItemDelegate.onSaveToClipboard(
+                copyLinkTextIfAllowedByPolicy(
                         MailTo.parse(mParams.getLinkUrl().getSpec()).getTo(),
-                        TabContextMenuItemDelegate.ClipboardType.LINK_URL);
+                        () ->
+                                mItemDelegate.onSaveToClipboard(
+                                        MailTo.parse(mParams.getLinkUrl().getSpec()).getTo(),
+                                        TabContextMenuItemDelegate.ClipboardType.LINK_URL));
             } else if (UrlUtilities.isTelScheme(mParams.getLinkUrl())) {
                 recordContextMenuSelection(ContextMenuUma.Action.COPY_PHONE_NUMBER);
-                mItemDelegate.onSaveToClipboard(
+                copyLinkTextIfAllowedByPolicy(
                         UrlUtilities.getTelNumber(mParams.getLinkUrl()),
-                        TabContextMenuItemDelegate.ClipboardType.LINK_URL);
+                        () ->
+                                mItemDelegate.onSaveToClipboard(
+                                        UrlUtilities.getTelNumber(mParams.getLinkUrl()),
+                                        TabContextMenuItemDelegate.ClipboardType.LINK_URL));
             }
         } else if (itemId == R.id.contextmenu_copy_link_text) {
             recordContextMenuSelection(ContextMenuUma.Action.COPY_LINK_TEXT);
-            mItemDelegate.onSaveToClipboard(
-                    mParams.getLinkText(), TabContextMenuItemDelegate.ClipboardType.LINK_TEXT);
+            copyLinkTextIfAllowedByPolicy(
+                    mParams.getLinkText(),
+                    () ->
+                            mItemDelegate.onSaveToClipboard(
+                                    mParams.getLinkText(),
+                                    TabContextMenuItemDelegate.ClipboardType.LINK_TEXT));
         } else if (itemId == R.id.contextmenu_save_image) {
             recordContextMenuSelection(ContextMenuUma.Action.SAVE_IMAGE);
             if (mIsDownloadRestrictedByPolicy) {
@@ -759,7 +770,10 @@ public class ChromeContextMenuPopulator implements ContextMenuPopulator {
                     .get()
                     .share(
                             linkShareParams,
-                            new ChromeShareExtras.Builder().setSaveLastUsed(true).build(),
+                            new ChromeShareExtras.Builder()
+                                    .setSaveLastUsed(true)
+                                    .setRenderFrameHost(mNativeDelegate.getRenderFrameHost())
+                                    .build(),
                             ShareOrigin.CONTEXT_MENU);
         } else if (itemId == R.id.contextmenu_read_later) {
             recordContextMenuSelection(ContextMenuUma.Action.READ_LATER);
@@ -781,7 +795,10 @@ public class ChromeContextMenuPopulator implements ContextMenuPopulator {
                     .get()
                     .share(
                             shareParams,
-                            new ChromeShareExtras.Builder().setShareDirectly(true).build(),
+                            new ChromeShareExtras.Builder()
+                                    .setShareDirectly(true)
+                                    .setRenderFrameHost(mNativeDelegate.getRenderFrameHost())
+                                    .build(),
                             ShareOrigin.CONTEXT_MENU);
         } else if (itemId == R.id.contextmenu_search_with_google_lens) {
             recordContextMenuSelection(ContextMenuUma.Action.SEARCH_WITH_GOOGLE_LENS);
@@ -842,6 +859,10 @@ public class ChromeContextMenuPopulator implements ContextMenuPopulator {
             recordContextMenuSelection(ContextMenuUma.Action.INSPECT_ELEMENT);
             mNativeDelegate.inspectElement(
                     mParams.getTriggeringTouchXDp(), mParams.getTriggeringTouchYDp());
+        } else if (itemId == R.id.contextmenu_show_interest_in_element) {
+            recordContextMenuSelection(ContextMenuUma.Action.SHOW_INTEREST_IN_ELEMENT);
+            WebContents webContents = mItemDelegate.getWebContents();
+            webContents.showInterestInElement(mParams.getInterestTargetNodeID());
         } else {
             assert false;
         }
@@ -859,6 +880,24 @@ public class ChromeContextMenuPopulator implements ContextMenuPopulator {
 
     private WindowAndroid getWindow() {
         return mItemDelegate.getWebContents().getTopLevelNativeWindow();
+    }
+
+    private void copyLinkUrlIfAllowedByPolicy(Runnable copyIfAllowedRunnable) {
+        DataProtectionBridge.verifyCopyUrlIsAllowedByPolicy(
+                mParams.getUnfilteredLinkUrl().getSpec(),
+                mItemDelegate.getWebContents().getMainFrame(),
+                (isAllowed) -> {
+                    if (isAllowed) copyIfAllowedRunnable.run();
+                });
+    }
+
+    private void copyLinkTextIfAllowedByPolicy(String text, Runnable copyIfAllowedRunnable) {
+        DataProtectionBridge.verifyCopyTextIsAllowedByPolicy(
+                text,
+                mItemDelegate.getWebContents().getMainFrame(),
+                (isAllowed) -> {
+                    if (isAllowed) copyIfAllowedRunnable.run();
+                });
     }
 
     private void shareHighlighting() {
@@ -884,13 +923,29 @@ public class ChromeContextMenuPopulator implements ContextMenuPopulator {
     /** Copy the image, that triggered the current context menu, to system clipboard. */
     private void copyImageToClipboard() {
         mNativeDelegate.retrieveImageForShare(
-                ContextMenuImageFormat.ORIGINAL, mItemDelegate::onSaveImageToClipboard);
+                ContextMenuImageFormat.ORIGINAL,
+                (Uri uri) ->
+                        DataProtectionBridge.verifyCopyImageIsAllowedByPolicy(
+                                uri.getPath(),
+                                mItemDelegate.getWebContents().getMainFrame(),
+                                (isAllowed) -> {
+                                    if (isAllowed) mItemDelegate.onSaveImageToClipboard(uri);
+                                }));
+    }
+
+    private void verifyCopyImageIsAllowedByPolicy(String imageUri, Runnable continueIfCopyAllowed) {
+        DataProtectionBridge.verifyCopyImageIsAllowedByPolicy(
+                imageUri,
+                mItemDelegate.getWebContents().getMainFrame(),
+                (isAllowed) -> {
+                    if (isAllowed) continueIfCopyAllowed.run();
+                });
     }
 
     /**
-     * Share the image that triggered the current context menu.
-     * Package-private, allowing access only from the context menu item to ensure that
-     * it will use the right activity set when the menu was displayed.
+     * Share the image that triggered the current context menu. Package-private, allowing access
+     * only from the context menu item to ensure that it will use the right activity set when the
+     * menu was displayed.
      */
     private void shareImage() {
         mNativeDelegate.retrieveImageForShare(
@@ -922,6 +977,8 @@ public class ChromeContextMenuPopulator implements ContextMenuPopulator {
                                             .setImageSrcUrl(mParams.getSrcUrl())
                                             .setContentUrl(mParams.getPageUrl())
                                             .setDetailedContentType(detailedContentType)
+                                            .setRenderFrameHost(
+                                                    mNativeDelegate.getRenderFrameHost())
                                             .build(),
                                     ShareOrigin.CONTEXT_MENU);
                 });
@@ -1088,10 +1145,10 @@ public class ChromeContextMenuPopulator implements ContextMenuPopulator {
 
     private ListItem createListItem(@Item int item, boolean showInProductHelp, boolean enabled) {
         final PropertyModel model =
-                new PropertyModel.Builder(ContextMenuItemProperties.ALL_KEYS)
-                        .with(MENU_ID, ChromeContextMenuItem.getMenuId(item))
+                new PropertyModel.Builder(MENU_ITEM_ID, TITLE, ENABLED)
+                        .with(MENU_ITEM_ID, ChromeContextMenuItem.getMenuId(item))
                         .with(
-                                TEXT,
+                                TITLE,
                                 ChromeContextMenuItem.getTitle(
                                         mContext, getProfile(), item, showInProductHelp))
                         .with(ENABLED, enabled)
@@ -1104,10 +1161,10 @@ public class ChromeContextMenuPopulator implements ContextMenuPopulator {
         final Pair<Drawable, CharSequence> shareInfo = createRecentShareAppInfo(isLink);
         final PropertyModel model =
                 new PropertyModel.Builder(ContextMenuItemWithIconButtonProperties.ALL_KEYS)
-                        .with(MENU_ID, ChromeContextMenuItem.getMenuId(item))
+                        .with(MENU_ITEM_ID, ChromeContextMenuItem.getMenuId(item))
                         .with(ENABLED, true)
                         .with(
-                                TEXT,
+                                TITLE,
                                 ChromeContextMenuItem.getTitle(mContext, getProfile(), item, false))
                         .with(BUTTON_IMAGE, shareInfo.first)
                         .with(BUTTON_CONTENT_DESC, shareInfo.second)

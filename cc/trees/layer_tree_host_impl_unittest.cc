@@ -281,6 +281,7 @@ class LayerTreeHostImplTestBase : public testing::Test,
     did_request_impl_side_invalidation_ = true;
   }
   void NotifyImageDecodeRequestFinished(int request_id,
+                                        bool speculative,
                                         bool decode_succeeded) override {}
   void DidPresentCompositorFrameOnImplThread(
       uint32_t frame_token,
@@ -6649,7 +6650,8 @@ TEST_P(LayerTreeHostImplTest, WillDrawReturningFalseDoesNotCall) {
 
   DrawFrame();
   EXPECT_TRUE(layer->will_draw_returned_true());
-  EXPECT_TRUE(layer->append_quads_called());
+  EXPECT_EQ(layer->append_quads_called(),
+            !host_impl_->GetSettings().TreesInVizInClientProcess());
   EXPECT_TRUE(layer->did_draw_called());
 
   host_impl_->SetViewportDamage(gfx::Rect(10, 10));
@@ -14464,6 +14466,7 @@ TEST_P(LayerTreeHostImplTest, FrameCounterReset) {
       host_impl_->total_frame_counter_for_testing();
   DroppedFrameCounter* dropped_frame_counter =
       host_impl_->dropped_frame_counter_for_testing();
+  FrameSorter* frame_sorter = host_impl_->frame_sorter_for_testing();
   EXPECT_EQ(total_frame_counter->total_frames(), 0u);
   EXPECT_EQ(dropped_frame_counter->total_frames(), 0u);
   total_frame_counter->set_total_frames_for_testing(1u);
@@ -14478,7 +14481,9 @@ TEST_P(LayerTreeHostImplTest, FrameCounterReset) {
       BEGINFRAME_FROM_HERE, 1u /*source_id*/, 2u /*sequence_number*/, now,
       deadline, interval, viz::BeginFrameArgs::NORMAL);
 
-  dropped_frame_counter->OnEndFrame(
+  frame_sorter->AddNewFrame(args);
+  // Delegates to DFC::AddSortedFrame, which calls DFC::OnEndFrame.
+  frame_sorter->AddFrameResult(
       args, CreateFakeFrameInfo(FrameInfo::FrameFinalState::kDropped));
   // FCP not received, so the total_smoothness_dropped_ won't increase.
   EXPECT_EQ(dropped_frame_counter->total_smoothness_dropped(), 0u);
@@ -14489,7 +14494,9 @@ TEST_P(LayerTreeHostImplTest, FrameCounterReset) {
                             &begin_frame_metrics, /*commit_timeout=*/false);
   dropped_frame_counter->SetTimeFirstContentfulPaintReceivedForTesting(
       args.frame_time);
-  dropped_frame_counter->OnEndFrame(
+  frame_sorter->AddNewFrame(args);
+  // Delegates to DFC::AddSortedFrame, which calls DFC::OnEndFrame.
+  frame_sorter->AddFrameResult(
       args, CreateFakeFrameInfo(FrameInfo::FrameFinalState::kDropped));
   EXPECT_EQ(dropped_frame_counter->total_smoothness_dropped(), 1u);
 

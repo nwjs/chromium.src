@@ -11,7 +11,6 @@
 
 #include "base/feature_list.h"
 #include "base/metrics/histogram_functions.h"
-#include "base/not_fatal_until.h"
 #include "base/notreached.h"
 #include "base/task/bind_post_task.h"
 #include "base/task/task_traits.h"
@@ -303,13 +302,6 @@ void SessionWrapper::Generate(
     return;
   }
 
-  // TODO(crbug.com/403383823): Remove these deprecated fields.
-  if (options->top_k.has_value() || options->temperature.has_value()) {
-    receiver_.ReportBadMessage(
-        "Passing sampling params per generation is deprecated.");
-    return;
-  }
-
   auto generate_internal = base::BindOnce(
       &SessionWrapper::GenerateInternal, weak_ptr_factory_.GetWeakPtr(),
       std::move(options), std::move(response));
@@ -452,17 +444,30 @@ void OnDeviceModelService::LoadModel(
   std::move(callback).Run(mojom::LoadModelResult::kSuccess);
 }
 
-void OnDeviceModelService::GetCapabilities(ModelAssets assets,
+void OnDeviceModelService::GetCapabilities(ModelFile model_file,
                                            GetCapabilitiesCallback callback) {
   std::move(callback).Run(ml::OnDeviceModelExecutor::GetCapabilities(
-      *chrome_ml_, std::move(assets)));
+      *chrome_ml_, std::move(model_file)));
 }
 
 void OnDeviceModelService::GetEstimatedPerformanceClass(
     GetEstimatedPerformanceClassCallback callback) {
-  base::ElapsedTimer timer;
-  std::move(callback).Run(ml::GetEstimatedPerformanceClass(*chrome_ml_));
-  base::UmaHistogramTimes("OnDeviceModel.BenchmarkDuration", timer.Elapsed());
+  // This is expected to take awhile in some cases, so run on a background
+  // thread to avoid blocking the main thread.
+  base::ThreadPool::PostTaskAndReplyWithResult(
+      FROM_HERE, {base::TaskPriority::BEST_EFFORT},
+      base::BindOnce(
+          [](const ml::ChromeML& chrome_ml) {
+            base::ElapsedTimer timer;
+            on_device_model::mojom::PerformanceClass perf_class =
+                ml::GetEstimatedPerformanceClass(chrome_ml);
+            base::UmaHistogramTimes("OnDeviceModel.BenchmarkDuration",
+                                    timer.Elapsed());
+            return perf_class;
+          },
+          // base::Unretained is safe since chrome_ml_ refers to a global.
+          base::Unretained(chrome_ml_)),
+      std::move(callback));
 }
 
 void OnDeviceModelService::LoadTextSafetyModel(
@@ -485,7 +490,7 @@ void OnDeviceModelService::DeleteModel(
     return;
   }
   auto it = models_.find(model.get());
-  CHECK(it != models_.end(), base::NotFatalUntil::M130);
+  CHECK(it != models_.end());
   models_.erase(it);
 }
 

@@ -9,8 +9,8 @@
 #include "chrome/browser/tab_group_sync/tab_group_sync_service_factory.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
+#include "chrome/browser/ui/tabs/features.h"
 #include "chrome/browser/ui/tabs/saved_tab_groups/saved_tab_group_metrics.h"
-#include "chrome/browser/ui/tabs/tab_group.h"
 #include "chrome/browser/ui/tabs/tab_group_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/tabs/test/tab_strip_interactive_test_mixin.h"
@@ -34,6 +34,7 @@
 #include "components/signin/public/identity_manager/identity_test_utils.h"
 #include "components/tab_groups/tab_group_color.h"
 #include "components/tab_groups/tab_group_id.h"
+#include "components/tabs/public/tab_group.h"
 #include "content/public/test/browser_test.h"
 #include "google_apis/gaia/core_account_id.h"
 #include "google_apis/gaia/gaia_id.h"
@@ -62,7 +63,7 @@ class SharedTabGroupInteractiveUiTest
     scoped_feature_list_.InitWithFeatures(
         {tab_groups::kTabGroupSyncServiceDesktopMigration,
          data_sharing::features::kDataSharingFeature},
-        {});
+        {tabs::kTabGroupShortcuts});
     InProcessBrowserTest::SetUp();
   }
 
@@ -259,7 +260,8 @@ IN_PROC_BROWSER_TEST_F(SharedTabGroupInteractiveUiTest,
   // know when the entity tracker is initialized.
   TabGroup* tab_group =
       browser()->tab_strip_model()->group_model()->GetTabGroup(group_id);
-  tab_group->SetVisualData(*tab_group->visual_data());
+  browser()->tab_strip_model()->ChangeTabGroupVisuals(
+      group_id, *tab_group->visual_data());
 
   RunTestSequence(WaitForShow(kTabGroupHeaderElementId),
                   FinishTabstripAnimations(),

@@ -4,8 +4,6 @@
 
 package org.chromium.chrome.browser.auxiliary_search;
 
-import static org.chromium.build.NullUtil.assertNonNull;
-
 import android.content.Context;
 import android.os.PersistableBundle;
 import android.text.TextUtils;
@@ -56,20 +54,6 @@ public class AuxiliarySearchProvider {
         int NUM_ENTRIES = 2;
     }
 
-    /** An interface to handle events in {@link MostVisitedSites}. */
-    interface Observer {
-        /** This is called when the list of most visited URLs is initially available or updated. */
-        void onSiteSuggestionsAvailable(@Nullable List<AuxiliarySearchDataEntry> entries);
-
-        /**
-         * This is called when a previously uncached icon has been fetched. Parameters guaranteed to
-         * be non-null.
-         *
-         * @param siteUrl URL of site with newly-cached icon.
-         */
-        void onIconMadeAvailable(GURL siteUrl);
-    }
-
     /* Only donate the recent 7 days accessed tabs.*/
     @VisibleForTesting static final String TAB_AGE_HOURS_PARAM = "tabs_max_hours";
     @VisibleForTesting static final String TASK_CREATED_TIME = "TaskCreatedTime";
@@ -93,10 +77,9 @@ public class AuxiliarySearchProvider {
 
     private final Context mContext;
     private final Profile mProfile;
-    private final @AuxiliarySearchHostType int mHostType;
     private final @Nullable TabModelSelector mTabModelSelector;
 
-    private Long mTabMaxAgeMillis;
+    private final Long mTabMaxAgeMillis;
     @Nullable private AuxiliarySearchBridge mAuxiliarySearchBridge;
 
     public AuxiliarySearchProvider(
@@ -106,8 +89,7 @@ public class AuxiliarySearchProvider {
             @AuxiliarySearchHostType int hostType) {
         mContext = context;
         mProfile = profile;
-        mHostType = hostType;
-        if (mHostType == AuxiliarySearchHostType.CTA) {
+        if (hostType != AuxiliarySearchHostType.BACKGROUND_TASK) {
             mAuxiliarySearchBridge = new AuxiliarySearchBridge(mProfile);
         }
         mTabModelSelector = tabModelSelector;
@@ -141,13 +123,14 @@ public class AuxiliarySearchProvider {
         mAuxiliarySearchBridge.getNonSensitiveHistoryData(callback);
     }
 
-    /**
-     * Sets an observer and immediately fetches the current most visited sites suggestions.
-     *
-     * @param observer The observer to receive suggestions when they are ready.
-     */
-    public void setObserver(@Nullable Observer observer) {
-        assertNonNull(mAuxiliarySearchBridge).setObserver(observer);
+    public void getCustomTabsAsync(
+            GURL url, long beginTime, Callback<@Nullable List<AuxiliarySearchDataEntry>> callback) {
+        if (mAuxiliarySearchBridge == null) {
+            callback.onResult(null);
+            return;
+        }
+
+        mAuxiliarySearchBridge.getCustomTabs(url, beginTime, callback);
     }
 
     @VisibleForTesting

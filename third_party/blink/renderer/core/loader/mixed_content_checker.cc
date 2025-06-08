@@ -318,6 +318,31 @@ bool MixedContentChecker::IsMixedContent(
 }
 
 // static
+bool MixedContentChecker::IsMixedContentRestrictedInFrameContext(
+    LocalFrame* frame) {
+  if (!frame) {
+    return false;
+  }
+  // Check the top frame first.
+  Frame& top = frame->Tree().Top();
+  if (SchemeRegistry::ShouldTreatURLSchemeAsRestrictingMixedContent(
+          top.GetSecurityContext()
+              ->GetSecurityOrigin()
+              ->GetOriginOrPrecursorOriginIfOpaque()
+              ->Protocol())) {
+    return true;
+  }
+  if (SchemeRegistry::ShouldTreatURLSchemeAsRestrictingMixedContent(
+          frame->GetSecurityContext()
+              ->GetSecurityOrigin()
+              ->GetOriginOrPrecursorOriginIfOpaque()
+              ->Protocol())) {
+    return true;
+  }
+  return false;
+}
+
+// static
 Frame* MixedContentChecker::InWhichFrameIsContentMixed(LocalFrame* frame,
                                                        const KURL& url) {
   // Frameless requests cannot be mixed content.
@@ -858,14 +883,24 @@ bool MixedContentChecker::ShouldAutoupgrade(
     mojom::blink::RequestContextType type,
     WebContentSettingsClient* settings_client,
     const ResourceRequest& resource_request,
-    ExecutionContext* execution_context_for_logging) {
-  const HttpsState https_state = fetch_client_settings_object->GetHttpsState();
+    ExecutionContext* execution_context_for_logging,
+    LocalFrame* frame) {
   const KURL& request_url = resource_request.Url();
   // We are currently not autoupgrading plugin loaded content, which is why
   // check_mode_for_plugin is hardcoded to kStrict.
+  bool settings_restricts_mixed_content;
+  if (frame &&
+      RuntimeEnabledFeatures::
+          MixedContentAutoupgradesUseIsMixedContentRestrictedInFrameEnabled()) {
+    settings_restricts_mixed_content =
+        IsMixedContentRestrictedInFrameContext(frame);
+  } else {
+    settings_restricts_mixed_content =
+        fetch_client_settings_object->GetHttpsState() == HttpsState::kModern;
+  }
   if (!base::FeatureList::IsEnabled(
           blink::features::kMixedContentAutoupgrade) ||
-      https_state == HttpsState::kNone ||
+      !settings_restricts_mixed_content ||
       MixedContent::ContextTypeFromRequestContext(
           type, MixedContent::CheckModeForPlugin::kStrict) !=
           mojom::blink::MixedContentContextType::kOptionallyBlockable) {
@@ -896,6 +931,58 @@ bool MixedContentChecker::ShouldAutoupgrade(
       }
     }
     return false;
+  }
+
+  // Skip autoupgrades for local targets if the request is a Local Network
+  // Access (LNA) request. These requests are also exempted from mixed content
+  // checks (see `ShouldBlockFetch()`), and cannot get publicly trusted HTTPS
+  // certificates. LNA checks later on ensure that (a) the request is actually
+  // an LNA request, and (b) the user has given permission for the LNA request
+  // to go through.
+  // A request is a possible LNA request if one of the following is true:
+  //
+  // (1) The `targetAddressSpace` fetch option was set.
+  //     `target_address_space` here is private/local only when resource
+  //     request has explicitly set `targetAddressSpace` fetch option.
+  // (2) The host is a private IP address literal (already exempted above)
+  // (3) The hostname is a .local domain (per RFC 6762).
+  //
+  // Private IP address literals (2) are already included in the exemption
+  // above.
+  //
+  // There is no check for loopback addresses because loopback addresses are
+  // considered secure and not mixed content.
+  //
+  // Reference:
+  // https://github.com/explainers-by-googlers/local-network-access
+  //
+  // TODO(crbug.com/395895368): check the IP address space for initiator, only
+  // skip when the initiator is more public.
+  if (base::FeatureList::IsEnabled(
+          network::features::kLocalNetworkAccessChecks)) {
+    if (resource_request.GetTargetAddressSpace() ==
+            network::mojom::blink::IPAddressSpace::kPrivate ||
+        resource_request.GetTargetAddressSpace() ==
+            network::mojom::blink::IPAddressSpace::kLocal ||
+        network::IsRFC6762LocalDomain(GURL(request_url))) {
+      if (!request_url.ProtocolIs("https")) {
+        if (auto* window =
+                DynamicTo<LocalDOMWindow>(execution_context_for_logging)) {
+          window->AddConsoleMessage(
+              MixedContentChecker::
+                  CreateConsoleMessageAboutFetchLocalNetworkNoAutoupgrade(
+                      fetch_client_settings_object->GlobalObjectUrl(),
+                      request_url));
+          AuditsIssue::ReportMixedContentIssue(
+              fetch_client_settings_object->GlobalObjectUrl(),
+              resource_request.Url(), resource_request.GetRequestContext(),
+              window->document()->GetFrame(),
+              MixedContentResolutionStatus::kMixedContentWarning,
+              resource_request.GetDevToolsId());
+        }
+      }
+      return false;
+    }
   }
   return true;
 }
@@ -979,6 +1066,22 @@ MixedContentChecker::CreateConsoleMessageAboutFetchIPAddressNoAutoupgrade(
       main_resource_url.ElidedString().Utf8().c_str(),
       mixed_content_url.ElidedString().Utf8().c_str());
   return MakeGarbageCollected<ConsoleMessage>(
+      mojom::blink::ConsoleMessageSource::kSecurity,
+      mojom::blink::ConsoleMessageLevel::kWarning, message);
+}
+
+// static
+ConsoleMessage*
+MixedContentChecker::CreateConsoleMessageAboutFetchLocalNetworkNoAutoupgrade(
+    const KURL& main_resource_url,
+    const KURL& mixed_content_url) {
+  String message = String::Format(
+      "Mixed Content: The page at '%s' was loaded over HTTPS, but requested an "
+      "insecure element '%s'. This request was "
+      "not upgraded to HTTPS because it is a local network request.",
+      main_resource_url.ElidedString().Utf8().c_str(),
+      mixed_content_url.ElidedString().Utf8().c_str());
+  return MakeGarbageCollected<ConsoleMessage>(
       mojom::ConsoleMessageSource::kSecurity,
       mojom::ConsoleMessageLevel::kWarning, message);
 }
@@ -1000,7 +1103,8 @@ void MixedContentChecker::UpgradeInsecureRequest(
     const FetchClientSettingsObject* fetch_client_settings_object,
     ExecutionContext* execution_context_for_logging,
     mojom::RequestContextFrameType frame_type,
-    WebContentSettingsClient* settings_client) {
+    WebContentSettingsClient* settings_client,
+    LocalFrame* frame) {
   // We always upgrade requests that meet any of the following criteria:
   //  1. Are for subresources.
   //  2. Are for nested frames.
@@ -1025,7 +1129,7 @@ void MixedContentChecker::UpgradeInsecureRequest(
     if (context == mojom::blink::RequestContextType::UNSPECIFIED ||
         !MixedContentChecker::ShouldAutoupgrade(
             fetch_client_settings_object, context, settings_client,
-            resource_request, execution_context_for_logging)) {
+            resource_request, execution_context_for_logging, frame)) {
       return;
     }
     // We set the upgrade if insecure flag regardless of whether we autoupgrade

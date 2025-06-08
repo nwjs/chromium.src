@@ -88,6 +88,9 @@ class SignInObserver : public signin::IdentityManager::Observer {
 
   void OnPrimaryAccountChanged(
       const signin::PrimaryAccountChangeEvent& event) override {
+    // Note that `kSignin` is used here regardless of the ConsentLevel passed to
+    // `SignInWithUI()`, because ConsentLevel::kSync requires closing the sync
+    // confirmation dialog.
     if (event.GetEventTypeFor(signin::ConsentLevel::kSignin) !=
         signin::PrimaryAccountChangeEvent::Type::kSet) {
       return;
@@ -472,6 +475,10 @@ bool SignInWithUI(Browser* browser,
   DCHECK(active_contents);
   content::TestNavigationObserver observer(
       active_contents, 1, content::MessageLoopRunner::QuitMode::DEFERRED);
+  // Note that SignInObserver always uses `ConsentLevel::kSignin` regardless of
+  // the consent level passed to this function. This is because granting
+  // `ConsentLevel::kSync` requires closing the sync confirmation dialog, e.g.
+  // by invoking `ConfirmSyncConfirmationDialog()`.
   observer.Wait();
   DVLOG(1) << "Sign in user: " << username;
   ExecuteJsToSigninInSigninFrame(active_contents, username, password);

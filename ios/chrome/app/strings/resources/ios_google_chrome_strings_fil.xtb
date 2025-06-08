@@ -47,6 +47,7 @@ Mga bagay na dapat isaalang-alang:
 <translation id="1917964099031477364">Aalisin sa Chrome at sa iba pang Google app sa device na ito ang account na ito at anumang hindi naka-save na data.</translation>
 <translation id="1919130412786645364">Pagayan ang pag-sign in sa Chrome</translation>
 <translation id="1965935827552890526">Tapusin ang ginagawa mo sa iyong iba pang nakabukas na window ng Chrome.</translation>
+<translation id="1966638102563776885">Tip sa Chrome: Makuha ang iyong mga password sa anumang app</translation>
 <translation id="1973910962341002002">Mula sa mga setting na "<ph name="TEXT_OF_THE_SETTINGS_MENU_ITEM" />," i-on ang "Chrome"</translation>
 <translation id="1984705450038014246">I-sync ang iyong data ng Chrome</translation>
 <translation id="1987779152850321833">Kumpletuhin ang mga iminumungkahing pagkilos na ito sa ibaba para masulit ang Chrome.</translation>
@@ -114,7 +115,6 @@ Subukang maghintay nang ilang minuto bago mag-sign out. Kung magsa-sign out ka n
 <translation id="3655656110921623717">Nangangahulugan itong hihilingin ng Chrome ang pang-mobile na site sa lahat ng pagkakataon.</translation>
 <translation id="3740397331642243698">Bubuksan sa Incognito ang mga inilagay na URL sa Google Chrome.</translation>
 <translation id="3741995255368156336">Mabubuksan ang Listahan ng Babasahin sa Chrome.</translation>
-<translation id="3808570423967020928">Mas mabilis na i-access ang Chrome mula sa Dock ng iyong Home Screen.</translation>
 <translation id="3827545470516145620">Mayroon kang standard na proteksyon sa seguridad sa device na ito</translation>
 <translation id="384394811301901750">Hindi magamit ng Google Chrome ang camera mo ngayon</translation>
 <translation id="3863841106411295595">Idaragdag ang mga in-input na URL sa iyong listahan ng babasahin sa Chrome.</translation>
@@ -138,6 +138,7 @@ Subukang maghintay nang ilang minuto bago mag-sign out. Kung magsa-sign out ka n
 <translation id="4724297637870447613">Gamitin ang Chrome sa lahat ng lugar</translation>
 <translation id="4738647308035481133">Page ng Google Chrome</translation>
 <translation id="4742795653798179840">Na-delete na ang data sa Chrome</translation>
+<translation id="4749294594657945639">Para madaling makuha ang iyong mga naka-save na password sa iba pang app, piliin ang Chrome para sa Autofill.</translation>
 <translation id="4761869838909035636">Magpatakbo ng Pag-check sa Kaligtasan sa Chrome</translation>
 <translation id="4798859546468762093">Para makuha ang pag-personalize at iba pang feature, isama ang Chrome sa <ph name="FEATURE_NAME_1" /> at <ph name="FEATURE_NAME_2" /></translation>
 <translation id="4819268619367838612">Para makatulong na mapaganda ang app, nagpapadala ang Chrome ng data ng paggamit at pag-crash sa Google. <ph name="BEGIN_LINK" />Pamahalaan<ph name="END_LINK" /></translation>
@@ -233,7 +234,6 @@ Para sa higit pang setting na gumagamit ng data para pahusayin ang iyong experie
 <translation id="6975725306479268850">Piliin ang Chrome para sa AutoFill</translation>
 <translation id="7056826488869329999">Magbubukas at Magpapatakbo ng Pag-check sa Kaligtasan sa Chrome.</translation>
 <translation id="7061455974939528301">Pindutin nang matagal ang icon ng Chrome at i-click ang "I-edit ang home screen"</translation>
-<translation id="7065813315247345131">Ilipat ang Chrome sa Dock</translation>
 <translation id="7124339256045485976">Panatilihing up to date ang Chrome</translation>
 <translation id="7145599899567697473">Mag-save at mag-autofill ng mga password sa Chrome</translation>
 <translation id="7161390184744336561">Luma na ang Google Chrome</translation>
@@ -317,10 +317,10 @@ Na-encrypt ang iyong data gamit ang passphrase mo noong <ph name="TIME" />. Ilag
 <translation id="8603022514504485810">Hindi masuri ng Google Password Manager ang lahat ng password. Subukan ulit bukas o <ph name="BEGIN_LINK" />suriin ang mga password sa iyong Google Account.<ph name="END_LINK" /></translation>
 <translation id="8630122478628016441">I-on ang “I-lock ang mga tab na Incognito kapag isinara mo ang Chrome.”</translation>
 <translation id="8673726683583791503">Mamili gamit ang Google Lens</translation>
-<translation id="8727043961453758442">Sulitin ang Chrome</translation>
 <translation id="8765470054473112089">Kapag nag-type ka sa address bar o sa box para sa paghahanap, ipapadala ng Chrome kung ano ang tina-type mo sa iyong default na search engine para makakuha ng mas magagandang suhestyon. Naka-off ito sa Incognito.</translation>
 <translation id="8772179140489533211">Nagpapakita ng mga prompt na mag-sign in sa Chrome.</translation>
 <translation id="8788269841521769222">Hindi mo kailangang tandaan ang password na ito. Mase-save ito sa Google Password Manager para sa <ph name="EMAIL" /></translation>
+<translation id="8796490717897731471"><ph name="EMAIL" />. Pinapamahalaan ang Chrome.</translation>
 <translation id="880967149107462122">Pumunta sa Mga Setting ng Chrome</translation>
 <translation id="8842132678697187091">Puwede mong buksan ang Google Lens dito.</translation>
 <translation id="8850736900032787670">Para makatanggap ng naka-personalize na content batay sa iyong mga interes, mag-sign in sa Chrome.</translation>

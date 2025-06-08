@@ -60,7 +60,7 @@ ui::MotionEventAndroidJava GetMotionEventAndroid(
   return ui::MotionEventAndroidJava(
       nullptr, nullptr, pix_to_dip, 0.f, 0.f, 0.f, event_time, event_time,
       down_time, ui::MotionEventAndroid::GetAndroidAction(action), 1, 0, 0, 0,
-      0, 0, 0, 0, 0, 0, false, &pointer, nullptr);
+      0, 0, 0, 0, 0, 0, false, &pointer, nullptr, false);
 }
 
 }  // namespace
@@ -69,12 +69,12 @@ ui::MotionEventAndroidJava GetMotionEventAndroid(
 // to help simplifying test logic and use mock time source.
 class InputTransferHandlerTest : public testing::Test {
  public:
-  InputTransferHandlerTest() : finger_pointer_(0, 0, 0, 0, 0, 0, 0, 0) {}
+  InputTransferHandlerTest() : finger_pointer_(0, 0, 0, 0, 0, 0, 0, 0, 0) {}
 
   void SetUp() override {
     scoped_feature_list_.InitAndEnableFeature(input::features::kInputOnViz);
 
-    if (!input::IsTransferInputToVizSupported()) {
+    if (!input::InputUtils::IsTransferInputToVizSupported()) {
       GTEST_SKIP()
           << "The class is only used when transfer input to viz is supported.";
     }
@@ -228,7 +228,8 @@ TEST_F(InputTransferHandlerTest, DoNotConsumeNonFingerEvents) {
     }
 
     base::TimeTicks event_time = base::TimeTicks::Now();
-    ui::MotionEventAndroid::Pointer non_finger_pointer(0, 0, 0, 0, 0, 0, 0, 0);
+    ui::MotionEventAndroid::Pointer non_finger_pointer(0, 0, 0, 0, 0, 0, 0, 0,
+                                                       0);
     non_finger_pointer.tool_type = tool_type;
     ui::MotionEventAndroidJava down_event =
         GetMotionEventAndroid(ui::MotionEvent::Action::DOWN, event_time,

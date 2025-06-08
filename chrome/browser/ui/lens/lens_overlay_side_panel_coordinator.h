@@ -43,6 +43,7 @@ class View;
 namespace lens {
 
 class LensOverlaySidePanelNavigationThrottle;
+class LensSearchboxController;
 
 // Data struct representing a previous search query.
 struct SearchQuery {
@@ -71,17 +72,6 @@ struct SearchQuery {
   std::optional<lens::TranslateOptions> translate_options_;
 };
 
-// A Lens feature that wants to keep results in the side panel should call
-// `LensOveraySidePanelCoordinator::RegisterEntryAndShow()` and keep alive the
-// instance of `SidePanelInUse` for the duration of using the side panel. When
-// all instances of `SidePanelInUse` are destroyed, the side panel will close
-// and the `LensOveraySidePanelCoordinator` will clean up.
-class SidePanelInUse {
- public:
-  SidePanelInUse() = default;
-  virtual ~SidePanelInUse() = default;
-};
-
 // Handles the creation and registration of the lens overlay side panel entry.
 // There are two ways for this instance to be torn down.
 //   (1) Its owner, LensOverlayController can destroy it.
@@ -108,9 +98,11 @@ class LensOverlaySidePanelCoordinator
   ~LensOverlaySidePanelCoordinator() override;
 
   // Registers the side panel entry in the side panel if it doesn't already
-  // exist and then shows it. Calls must keep the returned `SidePanelInUse`
-  // alive for the duration of using the side panel.
-  std::unique_ptr<SidePanelInUse> RegisterEntryAndShow();
+  // exist and then shows it.
+  void RegisterEntryAndShow();
+
+  // Cleans up the side panel entry and closes the side panel.
+  void DeregisterEntryAndCleanup();
 
   // SidePanelEntryObserver:
   void OnEntryWillHide(SidePanelEntry* entry,
@@ -132,6 +124,11 @@ class LensOverlaySidePanelCoordinator
     return lens_search_controller_->lens_overlay_controller();
   }
 
+  // Return the LensSearchboxController that is part of this tab.
+  LensSearchboxController* GetLensSearchboxController() {
+    return lens_search_controller_->lens_searchbox_controller();
+  }
+
   // Handles rendering text highlights on the main browser window based on
   // navigations from the side panel. Returns true if handled, false otherwise.
   // `nav_url` refers to the URL that the side panel was set to navigate to. It
@@ -151,6 +148,9 @@ class LensOverlaySidePanelCoordinator
   void PopAndLoadQueryFromHistory() override;
   void GetIsContextualSearchbox(
       GetIsContextualSearchboxCallback callback) override;
+  void OnScrollToMessage(const std::vector<std::string>& text_fragments,
+      uint32_t pdf_page_number) override;
+  void RequestSendFeedback() override;
 
   // This method is used to set up communication between this instance and the
   // side panel WebUI. This is called by the WebUIController when the WebUI is
@@ -175,6 +175,12 @@ class LensOverlaySidePanelCoordinator
   // Whether the side panel is currently showing the protected error page.
   bool IsShowingProtectedErrorPage();
 
+  // Sets the latest page URL that was sent from the browser to the server. This
+  // is currently only set when the latest page URL is a local file scheme URL
+  // (`file://`). This is used to determine whether to scroll in the main tab or
+  // open a new tab.
+  void SetLatestPageUrlWithResponse(const GURL& url);
+
   // Internal state machine. States are mutually exclusive. Exposed for testing.
   enum class State {
     // This is the default state. This is the state when the side panel is not
@@ -192,6 +198,9 @@ class LensOverlaySidePanelCoordinator
     kSuspended,
   };
   State state() { return state_; }
+
+  // Suppresses the ghost loader in the side panel.
+  void SuppressGhostLoader();
 
   /////////////////////////////////////////////////////////////////////////////
   // Test only methods.
@@ -240,9 +249,6 @@ class LensOverlaySidePanelCoordinator
   // panel.
   void SetPageContentUploadProgress(double progress);
 
-  // Suppresses the ghost loader in the side panel.
-  void SuppressGhostLoader();
-
  private:
   // Data class for constructing the side panel and storing side panel state for
   // kSuspended state.
@@ -259,21 +265,6 @@ class LensOverlaySidePanelCoordinator
     // The search query that is currently loaded in the results frame.
     std::optional<SearchQuery> currently_loaded_search_query_;
   };
-
-  // Tracks whether the side panel is in use.
-  class SidePanelInUseImpl : public SidePanelInUse {
-   public:
-    explicit SidePanelInUseImpl(LensOverlaySidePanelCoordinator* coordinator);
-    ~SidePanelInUseImpl() override;
-
-   private:
-    // Owns this.
-    base::WeakPtr<LensOverlaySidePanelCoordinator> coordinator_;
-  };
-
-  // Cleans up the side panel entry and closes the side panel if there are no
-  // other SidePanelInUse instances.
-  void DeregisterEntryAndCleanup();
 
   // content::WebContentsObserver:
   void DidOpenRequestedURL(content::WebContents* new_contents,
@@ -371,6 +362,11 @@ class LensOverlaySidePanelCoordinator
   // URL to load when command to open side panel in a new tab is executed.
   GURL side_panel_new_tab_url_;
 
+  // The latest page URL that was sent from the browser to the server. This is
+  // currently only set when the latest page URL is a local file scheme URL
+  // (`file://`).
+  GURL latest_page_url_with_response_;
+
   // The status of the side panel, or whether it is currently showing an error
   // page.
   mojom::SidePanelResultStatus side_panel_result_status_ =
@@ -382,10 +378,6 @@ class LensOverlaySidePanelCoordinator
   // lives with the browser view, so it should outlive this class. Therefore
   // this can be assumed to be non-null.
   raw_ptr<SidePanelCoordinator> side_panel_coordinator_ = nullptr;
-
-  // Counts the number of SidePanelInUse instances that are alive. When this
-  // reaches zero, the side panel will close.
-  uint16_t side_panel_in_use_count_ = 0;
 
   raw_ptr<LensOverlaySidePanelWebView> side_panel_web_view_;
   base::WeakPtrFactory<LensOverlaySidePanelCoordinator> weak_ptr_factory_{this};

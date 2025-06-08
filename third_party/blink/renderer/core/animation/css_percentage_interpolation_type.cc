@@ -4,7 +4,9 @@
 
 #include "third_party/blink/renderer/core/animation/css_percentage_interpolation_type.h"
 
+#include "third_party/blink/renderer/core/animation/length_units_checker.h"
 #include "third_party/blink/renderer/core/animation/number_property_functions.h"
+#include "third_party/blink/renderer/core/animation/tree_counting_checker.h"
 #include "third_party/blink/renderer/core/css/css_numeric_literal_value.h"
 #include "third_party/blink/renderer/core/css/resolver/style_builder.h"
 #include "third_party/blink/renderer/core/css/resolver/style_resolver.h"
@@ -83,13 +85,24 @@ InterpolationValue CSSPercentageInterpolationType::MaybeConvertInherit(
 
 InterpolationValue CSSPercentageInterpolationType::MaybeConvertValue(
     const CSSValue& value,
-    const StyleResolverState&,
-    ConversionCheckers&) const {
+    const StyleResolverState& state,
+    ConversionCheckers& conversion_checkers) const {
   const auto* primitive_value = DynamicTo<CSSPrimitiveValue>(value);
   if (!primitive_value || !primitive_value->IsPercentage()) {
     return nullptr;
   }
-  return CreatePercentageValue(primitive_value->GetDoubleValue());
+  const CSSLengthResolver& length_resolver = state.CssToLengthConversionData();
+  if (primitive_value->IsElementDependent()) {
+    conversion_checkers.push_back(TreeCountingChecker::Create(length_resolver));
+  }
+  CSSPrimitiveValue::LengthTypeFlags types;
+  primitive_value->AccumulateLengthUnitTypes(types);
+  if (InterpolationType::ConversionChecker* length_units_checker =
+          LengthUnitsChecker::MaybeCreate(types, state)) {
+    conversion_checkers.push_back(length_units_checker);
+  }
+  return CreatePercentageValue(
+      primitive_value->ComputePercentage(length_resolver));
 }
 
 InterpolationValue
@@ -108,7 +121,7 @@ CSSPercentageInterpolationType::MaybeConvertCustomPropertyUnderlyingValue(
     const CSSValue& value) const {
   if (const auto* percentage_value = DynamicTo<CSSNumericLiteralValue>(value)) {
     if (percentage_value->IsPercentage()) {
-      return CreatePercentageValue(percentage_value->GetDoubleValue());
+      return CreatePercentageValue(percentage_value->ClampedDoubleValue());
     }
   }
   return nullptr;

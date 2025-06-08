@@ -120,6 +120,7 @@ Zanim przełączysz się na inne konto, odczekaj kilka minut. Jeśli przełączy
 <translation id="3833326979834193417">Chromium codziennie automatycznie uruchamia kontrolę zabezpieczeń, aby chronić Cię przed naruszeniami bezpieczeństwa danych, niebezpiecznymi stronami i innymi zagrożeniami. Więcej informacji o kontroli zabezpieczeń znajdziesz w Ustawieniach.</translation>
 <translation id="3855938650519180865">Co nowego w Chromium</translation>
 <translation id="3886689467633467988">Zaloguj się na tej stronie i w Chromium, aby mieć dostęp do zakładek i innych opcji na wszystkich swoich urządzeniach.</translation>
+<translation id="3949514465204582407">Wskazówka dotycząca Chromium: korzystaj z haseł w dowolnej aplikacji</translation>
 <translation id="3983291422281996849">Ustaw Chromium jako przeglądarkę domyślną, aby łatwo śledzić ceny i otrzymywać statystyki dotyczące cen produktów, które chcesz kupić.</translation>
 <translation id="4005283307739974863">Otwiera i uruchamia kontrolę zabezpieczeń w Chromium.</translation>
 <translation id="4043291146360695975">Hasła są zapisywane w Menedżerze haseł tylko na tym urządzeniu.</translation>
@@ -167,7 +168,6 @@ Aby zmienić to ustawienie, <ph name="BEGIN_LINK" />usuń dane Chromium na swoim
 <translation id="5048795749726991615">Aby łatwo przywoływać zapisane hasła w innych aplikacjach, użyj autouzupełniania w Chromium</translation>
 <translation id="5053429694249468757">Usuwam dane Chromium…</translation>
 <translation id="5071749685031362629">Chromium na iOS</translation>
-<translation id="5088872414922783602">Otwieraj Chromium szybciej z Docka na ekranie głównym.</translation>
 <translation id="5124429847818367226">Teraz możesz używać Chromium za każdym razem, gdy przeglądasz lub klikasz linki w wiadomościach, dokumentach i innych aplikacjach.</translation>
 <translation id="5131565040785979529">Twoja organizacja (<ph name="DOMAIN" />) zarządza kontem, na które się logujesz, i korzystaniem z Chromium.</translation>
 <translation id="5134464247000681876">Otwieraj linki z Gmaila, Map, YouTube i innych aplikacji w Chromium</translation>
@@ -276,6 +276,7 @@ Twoje zaszyfrowane dane może odczytać tylko osoba znająca hasło. Nie jest on
 <translation id="7763454117143368771">Używaj Chromium jako przeglądarki domyślnej, aby korzystać z ochrony przed niebezpiecznymi stronami i bezpiecznie przechowywać swoje hasła</translation>
 <translation id="7784950022329154821">Blokuj karty incognito po zamknięciu Chromium</translation>
 <translation id="78025249032851484">Twoja przeglądarka Chromium jest nieaktualna.</translation>
+<translation id="7811371919871579588">Aby mieć łatwy dostęp do zapisanych haseł w innych aplikacjach, użyj autouzupełniania w Chromium.</translation>
 <translation id="7859018312476869945">Gdy piszesz na pasku adresu lub w polu wyszukiwania, Chromium wysyła to, co piszesz, do domyślnej wyszukiwarki, aby podawać Ci lepsze sugestie. Ta funkcja jest wyłączona w trybie incognito.</translation>
 <translation id="7890287942691234100">Zacznij używać skanera Chromium</translation>
 <translation id="7905064834449738336">Gdy użyjesz hasła, które zostało opublikowane online, Chromium wyświetli ostrzeżenie. Aby nikt (nawet Google) nie mógł odczytać haseł ani nazw użytkowników, podczas sprawdzania są one zaszyfrowane.</translation>
@@ -286,11 +287,9 @@ Twoje zaszyfrowane dane może odczytać tylko osoba znająca hasło. Nie jest on
 <translation id="7980860476903281594">Chromium udostępnia Twoją lokalizację witrynom, którym zgadzasz się ją ujawnić.</translation>
 <translation id="7994322153108931467">Aby otrzymywać przydatne wskazówki dotyczące Chromium, włącz powiadomienia w ustawieniach iOS.</translation>
 <translation id="7997159823054171568">Ustaw Chromium jako przeglądarkę domyślną</translation>
-<translation id="800195749539500647">Wykorzystaj maksymalnie potencjał Chromium</translation>
 <translation id="800380310260616129">Tutaj możesz pobrać Chromium.</translation>
 <translation id="8013573822802650211">Aby widzieć swoje karty zawsze, kiedy korzystasz z Chromium, zaloguj się na wszystkich urządzeniach</translation>
 <translation id="8014091604604659473">Wylogowano z Chromium</translation>
-<translation id="8035379487371146621">Przenieś Chromium do Docka</translation>
 <translation id="8104697640054703121">Korzystaj z najlepszych zabezpieczeń Chromium przed niebezpiecznymi stronami</translation>
 <translation id="8119542592987737574">Uruchamiaj Chromium szybciej z Docka na ekranie głównym iPhone'a.</translation>
 <translation id="8164086860209325020">Otwórz ustawienia Chromium</translation>
@@ -333,6 +332,7 @@ Odczekaj kilka minut, zanim się wylogujesz. Jeśli wylogujesz się teraz, te da
 <translation id="9059693977935746710">Nie musisz go zapamiętywać. Menedżer haseł zapisze je na koncie <ph name="EMAIL" /></translation>
 <translation id="9089354809943900324">Chromium jest nieaktualny</translation>
 <translation id="9152995302810511799">Wskazówka dotycząca Chromium: korzystaj z najlepszych zabezpieczeń Chromium</translation>
+<translation id="9177628952266852500"><ph name="EMAIL" />. Przeglądarka Chromium jest zarządzana.</translation>
 <translation id="921174536258924340">Przeglądarce Chromium nie udało się sprawdzić wszystkich haseł. Spróbuj ponownie jutro lub <ph name="BEGIN_LINK" />sprawdź hasła na koncie Google<ph name="END_LINK" />.</translation>
 <translation id="924957577793602335">Dostosuj Chromium do swoich potrzeb</translation>
 <translation id="981812233959540767">Zagraj w grę z dinozaurem w Chromium</translation>

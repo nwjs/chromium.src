@@ -181,10 +181,8 @@ void TextPaintTimingDetector::RecordAggregatedText(
   LocalFrame& frame = frame_view_->GetFrame();
   if (LocalDOMWindow* window = frame.DomWindow()) {
     if (SoftNavigationHeuristics* heuristics =
-            SoftNavigationHeuristics::From(*window)) {
-      heuristics->RecordPaint(
-          &frame, mapped_visual_rect.size().GetArea(),
-          aggregator.GetNode()->IsModifiedBySoftNavigation());
+            window->GetSoftNavigationHeuristics()) {
+      heuristics->RecordPaint(&frame, mapped_visual_rect, aggregator.GetNode());
     }
   }
   recorded_set_.insert(&aggregator);

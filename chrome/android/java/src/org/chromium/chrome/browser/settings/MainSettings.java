@@ -18,7 +18,6 @@ import android.text.style.SuperscriptSpan;
 import android.view.View;
 
 import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.lifecycle.Lifecycle;
 import androidx.preference.Preference;
@@ -31,6 +30,7 @@ import org.chromium.base.supplier.ObservableSupplier;
 import org.chromium.base.supplier.ObservableSupplierImpl;
 import org.chromium.base.task.PostTask;
 import org.chromium.base.task.TaskTraits;
+import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.appearance.settings.AppearanceSettingsFragment;
 import org.chromium.chrome.browser.autofill.options.AutofillOptionsFragment;
@@ -63,7 +63,6 @@ import org.chromium.chrome.browser.sync.SyncServiceFactory;
 import org.chromium.chrome.browser.sync.settings.ManageSyncSettings;
 import org.chromium.chrome.browser.sync.settings.SignInPreference;
 import org.chromium.chrome.browser.sync.settings.SyncSettingsUtils;
-import org.chromium.chrome.browser.tab_group_sync.TabGroupSyncFeatures;
 import org.chromium.chrome.browser.toolbar.ToolbarPositionController;
 import org.chromium.chrome.browser.toolbar.adaptive.AdaptiveToolbarStatePredictor;
 import org.chromium.chrome.browser.toolbar.settings.AddressBarSettingsFragment;
@@ -146,7 +145,7 @@ public class MainSettings extends ChromeBaseSettingsFragment
     }
 
     @Override
-    public void onCreatePreferences(Bundle savedInstanceState, String rootKey) {
+    public void onCreatePreferences(@Nullable Bundle savedInstanceState, @Nullable String rootKey) {
         createPreferences();
     }
 
@@ -167,7 +166,7 @@ public class MainSettings extends ChromeBaseSettingsFragment
     }
 
     @Override
-    public void onViewCreated(View view, Bundle savedInstanceState) {
+    public void onViewCreated(View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
 
         // Disable animations of preference changes.
@@ -198,6 +197,7 @@ public class MainSettings extends ChromeBaseSettingsFragment
             mShouldShowSnackbar = false;
             PostTask.postTask(TaskTraits.UI_DEFAULT, this::showSignoutSnackbar);
         }
+        updatePreferences();
     }
 
     @Override
@@ -207,12 +207,6 @@ public class MainSettings extends ChromeBaseSettingsFragment
         if (syncService != null) {
             syncService.removeSyncStateChangedListener(this);
         }
-    }
-
-    @Override
-    public void onResume() {
-        super.onResume();
-        updatePreferences();
     }
 
     @Override
@@ -385,22 +379,13 @@ public class MainSettings extends ChromeBaseSettingsFragment
         updatePlusAddressesPreference();
         updateAddressBarPreference();
         updateAppearancePreference();
-
-        boolean isTabGroupSyncAutoOpenConfigurable =
-                TabGroupSyncFeatures.isTabGroupSyncEnabled(getProfile())
-                        && ChromeFeatureList.isEnabled(
-                                ChromeFeatureList.TAB_GROUP_SYNC_AUTO_OPEN_KILL_SWITCH);
-        if (isTabGroupSyncAutoOpenConfigurable
-                || ChromeFeatureList.isEnabled(ChromeFeatureList.ANDROID_TAB_DECLUTTER)) {
-            addPreferenceIfAbsent(PREF_TABS);
-        } else {
-            removePreferenceIfPresent(PREF_TABS);
-        }
+        addPreferenceIfAbsent(PREF_TABS);
 
         Preference homepagePref = addPreferenceIfAbsent(PREF_HOMEPAGE);
         setOnOffSummary(homepagePref, HomepageManager.getInstance().isHomepageEnabled());
 
-        if (HomeModulesConfigManager.getInstance().hasModuleShownInSettings()) {
+        if (!ChromeFeatureList.isEnabled(ChromeFeatureList.NEW_TAB_PAGE_CUSTOMIZATION)
+                && HomeModulesConfigManager.getInstance().hasModuleShownInSettings()) {
             addPreferenceIfAbsent(PREF_HOME_MODULES_CONFIG);
         } else {
             removePreferenceIfPresent(PREF_HOME_MODULES_CONFIG);
@@ -738,5 +723,10 @@ public class MainSettings extends ChromeBaseSettingsFragment
     private boolean useLegacySettingsOrder() {
         return !ChromeFeatureList.isEnabled(
                 AutofillFeatures.AUTOFILL_VIRTUAL_VIEW_STRUCTURE_ANDROID);
+    }
+
+    @Override
+    public @AnimationType int getAnimationType() {
+        return AnimationType.PROPERTY;
     }
 }

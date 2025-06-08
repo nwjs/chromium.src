@@ -62,6 +62,7 @@ class AccountSelectionModalViewTest : public DialogBrowserTest,
             content::IdentityProviderMetadata(),
             CreateTestClientMetadata(),
             blink::mojom::RpContext::kSignIn,
+            /*format=*/std::nullopt,
             kDefaultDisclosureFields,
             /*has_login_status_mismatch=*/false)) {
     test_shared_url_loader_factory_ =
@@ -85,8 +86,9 @@ class AccountSelectionModalViewTest : public DialogBrowserTest,
         delegate_.get(), browser()->GetActiveTabInterface(),
         test_shared_url_loader_factory_);
     account_selection_view_->ShowLoadingDialog(
-        base::UTF16ToASCII(kRpETLDPlusOne), base::UTF16ToASCII(kIdpETLDPlusOne),
-        blink::mojom::RpContext::kSignIn, blink::mojom::RpMode::kActive);
+        content::RelyingPartyData(kRpETLDPlusOne, iframe_for_display_),
+        base::UTF16ToASCII(kIdpETLDPlusOne), blink::mojom::RpContext::kSignIn,
+        blink::mojom::RpMode::kActive);
     dialog_ = static_cast<AccountSelectionModalView*>(
         account_selection_view_->account_selection_view());
 
@@ -169,8 +171,13 @@ class AccountSelectionModalViewTest : public DialogBrowserTest,
     EXPECT_FALSE(dialog()->GetOkButton());
     EXPECT_FALSE(dialog()->GetCancelButton());
 
+    bool has_subtitle = !iframe_for_display_.empty();
+
     // Order: Brand icon, title and body for non loading UI.
     std::vector<std::string> expected_class_names = {"View", "Label"};
+    if (has_subtitle) {
+      expected_class_names.push_back("Label");
+    }
     bool is_loading_dialog =
         !expect_visible_idp_icon && !expect_visible_combined_icons;
     if (!is_loading_dialog) {
@@ -270,11 +277,27 @@ class AccountSelectionModalViewTest : public DialogBrowserTest,
     // Check title text.
     views::Label* title_view = static_cast<views::Label*>(header_children[1]);
     ASSERT_TRUE(title_view);
-    EXPECT_EQ(title_view->GetText(), kTitleSignIn);
+    if (has_subtitle) {
+      EXPECT_EQ(title_view->GetText(), kTitleIframeSignIn);
+      EXPECT_EQ(dialog()->GetDialogTitle(),
+                base::UTF16ToUTF8(kTitleIframeSignIn));
+
+      views::Label* subtitle_view =
+          static_cast<views::Label*>(header_children[2]);
+      ASSERT_TRUE(subtitle_view);
+      EXPECT_EQ(subtitle_view->GetText(), kSubtitleIframeSignIn);
+      EXPECT_EQ(dialog()->GetDialogSubtitle(),
+                base::UTF16ToUTF8(kSubtitleIframeSignIn));
+    } else {
+      EXPECT_EQ(title_view->GetText(), kTitleSignIn);
+      EXPECT_EQ(dialog()->GetDialogTitle(), base::UTF16ToUTF8(kTitleSignIn));
+      EXPECT_EQ(dialog()->GetDialogSubtitle(), std::nullopt);
+    }
 
     if (!is_loading_dialog) {
       // Check body text.
-      views::Label* body_view = static_cast<views::Label*>(header_children[2]);
+      views::Label* body_view =
+          static_cast<views::Label*>(header_children[has_subtitle ? 3 : 2]);
       ASSERT_TRUE(body_view);
       EXPECT_EQ(body_view->GetText(), kBodySignIn);
       EXPECT_EQ(body_view->GetVisible(), expect_visible_body_label_);
@@ -699,6 +722,10 @@ class AccountSelectionModalViewTest : public DialogBrowserTest,
     }
   }
 
+  // Can be set before the dialog is created to be set on the RelyingPartyData
+  // that is passed to the dialog.
+  std::u16string iframe_for_display_;
+
  private:
   bool expect_visible_body_label_{true};
   ui::ImageModel idp_brand_icon_;
@@ -1044,6 +1071,12 @@ IN_PROC_BROWSER_TEST_F(AccountSelectionModalViewTest,
   CreateAndShowMultiAccountPicker(/*account_suffixes=*/{"0", "suffix", "2"},
                                   /*has_display_identifier=*/false);
   ShowVerifyingSheet();
+}
+
+IN_PROC_BROWSER_TEST_F(AccountSelectionModalViewTest, IframeTitle) {
+  iframe_for_display_ = kIframeETLDPlusOne;
+  // This will also run the header/title tests.
+  CreateAccountSelectionModal();
 }
 
 }  //  namespace webid

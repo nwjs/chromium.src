@@ -12,6 +12,7 @@ import static org.chromium.chrome.browser.TabbedMismatchedIndicesHandler.HISTOGR
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Build.VERSION_CODES;
+import android.os.SystemClock;
 import android.provider.Browser;
 
 import androidx.test.filters.MediumTest;
@@ -79,7 +80,6 @@ import org.chromium.url.JUnitTestGURLs;
 
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -90,10 +90,9 @@ import java.util.Map;
 public class ChromeTabbedActivityTest {
     private static final Token TAB_GROUP_ID = new Token(2L, 2L);
     private static final String TAB_GROUP_TITLE = "Regrouped tabs";
-    private static final int ROOT_ID = 1;
-    private static final LinkedHashMap<Integer, String> TAB_IDS_TO_URLS =
-            new LinkedHashMap<>(
-                    Map.ofEntries(
+    private static final ArrayList<Map.Entry<Integer, String>> TAB_IDS_TO_URLS =
+            new ArrayList<>(
+                    List.of(
                             Map.entry(1, "https://www.amazon.com/"),
                             Map.entry(2, "https://www.youtube.com/"),
                             Map.entry(3, "https://www.facebook.com/")));
@@ -574,9 +573,17 @@ public class ChromeTabbedActivityTest {
     }
 
     private void testTabGroupIntent(boolean shouldApplyCollapse) {
+        HistogramWatcher histogramExpectation =
+                HistogramWatcher.newBuilder()
+                        .expectIntRecord("Android.Reparent.TabGroup.GroupSize", 3)
+                        .expectIntRecord("Android.Reparent.TabGroup.GroupSize.Diff", 0)
+                        .expectAnyRecord("Android.Reparent.TabGroup.Duration")
+                        .build();
+        long startTime = SystemClock.elapsedRealtime();
         int initialWindowCount = MultiWindowUtils.getInstanceCount();
         Intent intent =
                 new Intent(Intent.ACTION_VIEW, Uri.parse(JUnitTestGURLs.EXAMPLE_URL.getSpec()));
+        intent.putExtra(IntentHandler.EXTRA_REPARENT_START_TIME, startTime);
         intent.addCategory(Intent.CATEGORY_BROWSABLE);
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         intent.addFlags(Intent.FLAG_ACTIVITY_MULTIPLE_TASK);
@@ -603,25 +610,26 @@ public class ChromeTabbedActivityTest {
                     TabModel tabModel = mActivity.getCurrentTabModel();
                     Criteria.checkThat(tabModel.getCount(), Matchers.is(4));
 
-                    // Verify urls of the grouped tabs.
+                    // Verify urls of the grouped tabs in reverse order.
                     Criteria.checkThat(
                             tabModel.getTabAt(1).getUrl().getSpec(),
-                            Matchers.equalTo(TAB_IDS_TO_URLS.get(1)));
+                            Matchers.equalTo(TAB_IDS_TO_URLS.get(2).getValue()));
                     Criteria.checkThat(
                             tabModel.getTabAt(2).getUrl().getSpec(),
-                            Matchers.equalTo(TAB_IDS_TO_URLS.get(2)));
+                            Matchers.equalTo(TAB_IDS_TO_URLS.get(1).getValue()));
                     Criteria.checkThat(
                             tabModel.getTabAt(3).getUrl().getSpec(),
-                            Matchers.equalTo(TAB_IDS_TO_URLS.get(3)));
+                            Matchers.equalTo(TAB_IDS_TO_URLS.get(0).getValue()));
 
                     // Verify the tabs are grouped with the correct rootId and tabGroupId.
-                    Tab firstGroupedTab = tabModel.getTabAt(1);
-                    Assert.assertEquals(
-                            "tabGroupId is incorrect",
-                            TAB_GROUP_ID,
-                            firstGroupedTab.getTabGroupId());
-                    Assert.assertEquals(
-                            "rootId is incorrect", ROOT_ID, firstGroupedTab.getRootId());
+                    int expectedRootId = tabModel.getTabAt(1).getId();
+                    for (int i = 1; i < tabModel.getCount() - 1; i++) {
+                        Tab curTab = tabModel.getTabAt(i);
+                        Assert.assertEquals(
+                                "tabGroupId is incorrect", TAB_GROUP_ID, curTab.getTabGroupId());
+                        Assert.assertEquals(
+                                "rootId is incorrect", expectedRootId, curTab.getRootId());
+                    }
 
                     // Verify other tab group properties.
                     TabGroupModelFilter filter =
@@ -629,20 +637,23 @@ public class ChromeTabbedActivityTest {
                                     .getTabModelSelector()
                                     .getTabGroupModelFilterProvider()
                                     .getTabGroupModelFilter(false);
-                    Assert.assertEquals(TAB_GROUP_TITLE, filter.getTabGroupTitle(ROOT_ID));
-                    Assert.assertEquals(0, filter.getTabGroupColor(ROOT_ID));
+                    Assert.assertEquals(TAB_GROUP_TITLE, filter.getTabGroupTitle(expectedRootId));
+                    Assert.assertEquals(0, filter.getTabGroupColor(expectedRootId));
                     if (shouldApplyCollapse) {
-                        Assert.assertTrue(filter.getTabGroupCollapsed(ROOT_ID));
+                        Assert.assertTrue(filter.getTabGroupCollapsed(expectedRootId));
                     } else {
-                        Assert.assertFalse(filter.getTabGroupCollapsed(ROOT_ID));
+                        Assert.assertFalse(filter.getTabGroupCollapsed(expectedRootId));
                     }
+
+                    // Verify histograms.
+                    histogramExpectation.assertExpected();
                 });
     }
 
     private TabGroupMetadata createTabGroupMetadata() {
         return new TabGroupMetadata(
-                ROOT_ID,
-                ROOT_ID,
+                /* rootId= */ 1,
+                /* selectedTabId= */ 1,
                 /* sourceWindowId= */ 1,
                 TAB_GROUP_ID,
                 TAB_IDS_TO_URLS,

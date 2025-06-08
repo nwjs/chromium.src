@@ -6,94 +6,101 @@ import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
 import type {SplitNewTabPageAppElement, Tab} from 'chrome://tab-search.top-chrome/tab_search.js';
 import {TabAlertState, TabSearchApiProxyImpl} from 'chrome://tab-search.top-chrome/tab_search.js';
 import {assertEquals, assertTrue} from 'chrome://webui-test/chai_assert.js';
-import {microtasksFinished} from 'chrome://webui-test/test_util.js';
+import {eventToPromise} from 'chrome://webui-test/test_util.js';
 
 import {createProfileData, createTab, SAMPLE_WINDOW_HEIGHT} from './tab_search_test_data.js';
 import {TestTabSearchApiProxy} from './test_tab_search_api_proxy.js';
 
 const ACTIVE_TAB_ID = 5;
 
+function createWindowData() {
+  return [
+    {
+      active: true,
+      height: SAMPLE_WINDOW_HEIGHT,
+      tabs: [
+        createTab({
+          tabId: 3,
+          title: 'Google',
+          url: {url: 'https://www.google.com'},
+          visible: true,
+        }),
+        createTab({
+          active: true,
+          index: 1,
+          tabId: ACTIVE_TAB_ID,
+          title: 'Split View New Tab Page',
+          url: {url: 'chrome://tab-search.top-chrome/split_new_tab_page.html'},
+          visible: true,
+        }),
+        createTab({
+          alertStates: [TabAlertState.kMediaRecording],
+          index: 2,
+          lastActiveTimeTicks: {internalValue: BigInt(2)},
+          tabId: 6,
+          title: 'Facebook',
+          url: {url: 'https://www.facebook.com'},
+        }),
+        createTab({
+          index: 4,
+          lastActiveTimeTicks: {internalValue: BigInt(7)},
+          tabId: 7,
+          title: 'Expedia',
+          url: {url: 'https://www.expedia.com'},
+        }),
+        createTab({
+          index: 5,
+          lastActiveTimeTicks: {internalValue: BigInt(8)},
+          tabId: 8,
+          title: 'Wikipedia',
+          url: {url: 'https://en.wikipedia.org'},
+        }),
+      ],
+    },
+    {
+      active: false,
+      height: SAMPLE_WINDOW_HEIGHT,
+      tabs: [
+        createTab({
+          active: true,
+          tabId: 4,
+          title: 'Apple',
+          url: {url: 'https://www.apple.com/'},
+        }),
+      ],
+    },
+  ];
+}
+
 suite('SplitNewTabPageTest', () => {
   let splitNewTabPage: SplitNewTabPageAppElement;
   let testApiProxy: TestTabSearchApiProxy;
 
-  function createWindowData() {
-    return [
-      {
-        active: true,
-        height: SAMPLE_WINDOW_HEIGHT,
-        tabs: [
-          createTab({
-            tabId: 3,
-            title: 'Google',
-            url: {url: 'https://www.google.com'},
-            visible: true,
-          }),
-          createTab({
-            active: true,
-            index: 1,
-            tabId: ACTIVE_TAB_ID,
-            title: 'Split View New Tab Page',
-            url:
-                {url: 'chrome://tab-search.top-chrome/split_new_tab_page.html'},
-            visible: true,
-          }),
-          createTab({
-            alertStates: [TabAlertState.kMediaRecording],
-            index: 2,
-            lastActiveTimeTicks: {internalValue: BigInt(2)},
-            tabId: 6,
-            title: 'Facebook',
-            url: {url: 'https://www.facebook.com'},
-          }),
-          createTab({
-            index: 4,
-            lastActiveTimeTicks: {internalValue: BigInt(7)},
-            tabId: 7,
-            title: 'Expedia',
-            url: {url: 'https://www.expedia.com'},
-          }),
-          createTab({
-            index: 5,
-            lastActiveTimeTicks: {internalValue: BigInt(8)},
-            tabId: 8,
-            title: 'Wikipedia',
-            url: {url: 'https://en.wikipedia.org'},
-          }),
-        ],
-      },
-      {
-        active: false,
-        height: SAMPLE_WINDOW_HEIGHT,
-        tabs: [
-          createTab({
-            active: true,
-            tabId: 4,
-            title: 'Apple',
-            url: {url: 'https://www.apple.com/'},
-          }),
-        ],
-      },
-    ];
+  async function splitNewTabPageSetup() {
+    splitNewTabPage = document.createElement('split-new-tab-page-app');
+    document.body.appendChild(splitNewTabPage);
+
+    await eventToPromise('viewport-filled', splitNewTabPage.$.splitTabsList);
   }
 
-  function splitNewTabPageSetup() {
+  setup(() => {
+    document.body.innerHTML = window.trustedTypes!.emptyHTML;
+
     loadTimeData.overrideValues({
       splitViewEnabled: true,
     });
-
-    document.body.innerHTML = window.trustedTypes!.emptyHTML;
 
     testApiProxy = new TestTabSearchApiProxy();
     testApiProxy.setProfileData(
         createProfileData({windows: createWindowData()}));
     testApiProxy.setIsSplit(true);
     TabSearchApiProxyImpl.setInstance(testApiProxy);
+  });
 
-    splitNewTabPage = document.createElement('split-new-tab-page-app');
-    document.body.appendChild(splitNewTabPage);
-    return microtasksFinished();
-  }
+  teardown(() => {
+    testApiProxy.reset();
+    splitNewTabPage.remove();
+  });
 
   test('Shows correct tab count', async () => {
     await splitNewTabPageSetup();
@@ -131,12 +138,35 @@ suite('SplitNewTabPageTest', () => {
       tab: tab,
     };
     testApiProxy.getCallbackRouterRemote().tabUpdated(tabUpdateInfo);
-    await microtasksFinished();
+    await eventToPromise('viewport-filled', splitNewTabPage.$.splitTabsList);
 
     const updatedTabSearchItems =
         splitNewTabPage.shadowRoot.querySelectorAll('tab-search-item');
     assertEquals(3, updatedTabSearchItems.length);
     assertEquals('New Title', updatedTabSearchItems[0]!.data.tab.title);
+  });
+
+  test('Updates on tab visibility updated', async () => {
+    const windowData = createWindowData();
+    const tab = windowData[0]!.tabs[1] as Tab;
+    tab.visible = false;
+    testApiProxy.setProfileData(createProfileData({windows: windowData}));
+    await splitNewTabPageSetup();
+    const initialTabSearchItems =
+        splitNewTabPage.shadowRoot.querySelectorAll('tab-search-item');
+    assertEquals(4, initialTabSearchItems.length);
+
+    tab.visible = true;
+    const tabUpdateInfo = {
+      inActiveWindow: true,
+      tab: tab,
+    };
+    testApiProxy.getCallbackRouterRemote().tabUpdated(tabUpdateInfo);
+    await eventToPromise('viewport-filled', splitNewTabPage.$.splitTabsList);
+
+    const updatedTabSearchItems =
+        splitNewTabPage.shadowRoot.querySelectorAll('tab-search-item');
+    assertEquals(3, updatedTabSearchItems.length);
   });
 
   test('Updates on tabs changed', async () => {
@@ -155,7 +185,7 @@ suite('SplitNewTabPageTest', () => {
     testApiProxy.getCallbackRouterRemote().tabsChanged(createProfileData({
       windows: windowData,
     }));
-    await microtasksFinished();
+    await eventToPromise('viewport-filled', splitNewTabPage.$.splitTabsList);
 
     assertEquals(
         4,
@@ -172,7 +202,7 @@ suite('SplitNewTabPageTest', () => {
       tabIds: [6],
       recentlyClosedTabs: [],
     });
-    await microtasksFinished();
+    await eventToPromise('viewport-filled', splitNewTabPage.$.splitTabsList);
 
     assertEquals(
         2,

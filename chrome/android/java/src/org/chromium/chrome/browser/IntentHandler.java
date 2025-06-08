@@ -78,7 +78,6 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.util.ArrayList;
 import java.util.Iterator;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -270,6 +269,10 @@ public class IntentHandler {
      */
     public static final String EXTRA_TAB_GROUP_METADATA =
             "org.chromium.chrome.browser.tab_group_metadata";
+
+    /** Used to measure the duration of the tab group drag drop reparenting process. */
+    public static final String EXTRA_REPARENT_START_TIME =
+            "org.chromium.chrome.browser.reparent_start_time";
 
     public static final String EXTRA_CCT_EARLY_NAV = "org.chromium.chrome.browser.cct_early_nav";
 
@@ -917,8 +920,8 @@ public class IntentHandler {
                 }
 
                 // Check url validity and remove invalid urls if needed.
-                LinkedHashMap tabIdsToUrls = tabGroupMetadata.tabIdsToUrls;
-                Iterator<Entry<Integer, String>> iterator = tabIdsToUrls.entrySet().iterator();
+                List<Entry<Integer, String>> tabIdsToUrls = tabGroupMetadata.tabIdsToUrls;
+                Iterator<Entry<Integer, String>> iterator = tabIdsToUrls.iterator();
                 while (iterator.hasNext()) {
                     Map.Entry<Integer, String> entry = iterator.next();
                     String url = entry.getValue();

@@ -14,6 +14,8 @@ import org.chromium.base.supplier.ObservableSupplierImpl;
 import org.chromium.build.annotations.Initializer;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
+import org.chromium.components.browser_ui.settings.ChromeSwitchPreference;
+import org.chromium.components.browser_ui.settings.SettingsFragment;
 import org.chromium.components.browser_ui.settings.SettingsUtils;
 import org.chromium.ui.text.ChromeClickableSpan;
 import org.chromium.ui.text.SpanApplier;
@@ -23,6 +25,7 @@ import org.chromium.ui.text.SpanApplier;
 public class IncognitoTrackingProtectionsFragment extends PrivacySandboxBaseFragment {
     private final ObservableSupplierImpl<String> mPageTitle = new ObservableSupplierImpl<>();
 
+    @VisibleForTesting static final String PREF_BLOCK_3PCS = "block_3pcs_toggle";
     @VisibleForTesting static final String PREF_FP_PROTECTION = "fp_protection";
     @VisibleForTesting static final String PREF_IP_PROTECTION = "ip_protection";
     static final String PREF_INCOGNITO_TRACKING_PROTECTIONS_SUMMARY =
@@ -47,6 +50,9 @@ public class IncognitoTrackingProtectionsFragment extends PrivacySandboxBaseFrag
         SettingsUtils.addPreferencesFromResource(
                 this, R.xml.incognito_tracking_protections_preferences);
         mPageTitle.set(getString(R.string.incognito_tracking_protections_page_title));
+
+        ChromeSwitchPreference block3pcsPreference = findPreference(PREF_BLOCK_3PCS);
+        block3pcsPreference.setChecked(true);
 
         Preference fpProtectionPreference = findPreference(PREF_FP_PROTECTION);
         fpProtectionPreference.setVisible(mDelegate.isFingerprintingProtectionUxEnabled());
@@ -79,8 +85,8 @@ public class IncognitoTrackingProtectionsFragment extends PrivacySandboxBaseFrag
     }
 
     @Override
-    public void onResume() {
-        super.onResume();
+    public void onStart() {
+        super.onStart();
         updatePreferences();
     }
 
@@ -88,7 +94,10 @@ public class IncognitoTrackingProtectionsFragment extends PrivacySandboxBaseFrag
         Preference ipProtectionPref = findPreference(PREF_IP_PROTECTION);
         if (ipProtectionPref != null) {
             ipProtectionPref.setSummary(
-                    mDelegate.isIpProtectionEnabled() ? IPP_ON_SUBLABEL : IPP_OFF_SUBLABEL);
+                    mDelegate.isIpProtectionEnabled()
+                                    && !mDelegate.isIpProtectionDisabledForEnterprise()
+                            ? IPP_ON_SUBLABEL
+                            : IPP_OFF_SUBLABEL);
         }
 
         Preference fpProtectionPref = findPreference(PREF_FP_PROTECTION);
@@ -102,5 +111,10 @@ public class IncognitoTrackingProtectionsFragment extends PrivacySandboxBaseFrag
 
     private void onLearnMoreClicked() {
         getCustomTabLauncher().openUrlInCct(getContext(), LEARN_MORE_URL);
+    }
+
+    @Override
+    public @SettingsFragment.AnimationType int getAnimationType() {
+        return SettingsFragment.AnimationType.PROPERTY;
     }
 }

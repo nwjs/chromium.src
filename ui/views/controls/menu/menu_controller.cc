@@ -946,11 +946,10 @@ void MenuController::OnMouseReleased(SubmenuView* source,
     return;
   }
 
-  // Mouse releases during DnD are handled differently by platforms. Most will
-  // consume the mouse release to end the DnD, which would subsequently trigger
-  // OnDragComplete. However, Wayland will send a spurious mouse release event
-  // before ending the DnD, which should be ignored by this menu.
-  if (drag_in_progress_) {
+  // The menu should ignore mouse release events and refrain from closing if a
+  // drag operation is in progress or has been recently canceled without
+  // immediate notification.
+  if (drag_in_progress_ || for_drop_) {
     return;
   }
 
@@ -1535,6 +1534,20 @@ void MenuController::OnWidgetDestroying(Widget* widget) {
   // Exit menu to ensure that we are not holding on to resources when the
   // widget has been destroyed.
   ExitMenu();
+}
+
+void MenuController::OnWidgetBoundsChanged(Widget* widget,
+                                           const gfx::Rect& new_bounds) {
+  DCHECK_EQ(owner_, widget);
+
+  // Ignore bounds changes while in the middle of showing a submenu.
+  if (showing_submenu_) {
+    return;
+  }
+
+  // Close all open menus when the browser window is moved or resized (e.g. due
+  // to moving the window with the keyboard).
+  Cancel(ExitType::kAll);
 }
 
 bool MenuController::IsCancelAllTimerRunningForTest() {

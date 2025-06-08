@@ -15,6 +15,7 @@
 #include "chrome/browser/extensions/window_controller_list.h"
 #include "chrome/browser/profiles/profile.h"
 #include "components/sessions/content/session_tab_helper.h"
+#include "components/tabs/public/split_tab_visual_data.h"
 #include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/navigation_entry.h"
 #include "content/public/browser/navigation_handle.h"
@@ -302,6 +303,10 @@ base::expected<base::Value::Dict, std::string> ExtensionTabUtil::OpenTab(
   // will override this default.
   bool active = params.active.value_or(true);
 
+  // Default to unsplit for the new tab. The presence of the 'split' property
+  // will override this default.
+  bool split = params.split.value_or(false);
+
   // Default to not pinning the tab. Setting the 'pinned' property to true
   // will override this default.
   bool pinned = params.pinned.value_or(false);
@@ -379,6 +384,10 @@ base::expected<base::Value::Dict, std::string> ExtensionTabUtil::OpenTab(
 
   if (active)
     navigate_params.navigated_or_inserted_contents->SetInitialFocus();
+
+  if (split) {
+    tab_strip->AddToNewSplit({new_index}, split_tabs::SplitTabVisualData());
+  }
 
   ExtensionTabUtil::ScrubTabBehavior scrub_tab_behavior =
       ExtensionTabUtil::GetScrubTabBehavior(
@@ -724,6 +733,32 @@ bool ExtensionTabUtil::GetTabById(int tab_id,
                      : nullptr)
           : nullptr;
 
+#if BUILDFLAG(IS_ANDROID)
+  // TODO(crbug.com/419057482): Remove this when we have a cross-platform window
+  // interface. Right now Android does not generate WindowController instances.
+  for (const TabModel* const tab_model : TabModelList::models()) {
+    if (tab_model->GetProfile() != profile &&
+        tab_model->GetProfile() != incognito_profile) {
+      continue;
+    }
+    for (int i = 0; i < tab_model->GetTabCount(); ++i) {
+      WebContents* contents = tab_model->GetWebContentsAt(i);
+      if (!contents) {
+        continue;
+      }
+      if (sessions::SessionTabHelper::IdForTab(contents).id() != tab_id) {
+        continue;
+      }
+      if (out_contents) {
+        *out_contents = contents;
+      }
+      if (out_tab_index) {
+        *out_tab_index = i;
+      }
+      return true;
+    }
+  }
+#else
   extensions::AppWindowRegistry* registry = AppWindowRegistry::Get(profile);
   for (extensions::AppWindow* app_window : registry->app_windows()) {
     WebContents* target_contents = app_window->web_contents();
@@ -768,6 +803,7 @@ bool ExtensionTabUtil::GetTabById(int tab_id,
       }
     }
   }
+#endif  // BUILDFLAG(IS_ANDROID)
 
   if (base::FeatureList::IsEnabled(blink::features::kPrerender2InNewTab)) {
     // Prerendering tab is not visible and it cannot be in `TabStripModel`, if
@@ -1025,6 +1061,7 @@ tab_groups::TabGroupColorId ExtensionTabUtil::ColorToColorId(
 
   NOTREACHED();
 }
+#endif  // !BUILDFLAG(IS_ANDROID)
 
 // static
 std::vector<content::WebContents*>
@@ -1038,6 +1075,18 @@ ExtensionTabUtil::GetAllActiveWebContentsForContext(
       include_incognito
           ? profile->GetPrimaryOTRProfile(/*create_if_needed=*/false)
           : nullptr;
+#if BUILDFLAG(IS_ANDROID)
+  for (TabModel* tab_model : TabModelList::models()) {
+    if (tab_model->GetProfile() == profile ||
+        tab_model->GetProfile() == incognito_profile) {
+      // On Android, not every tab has a WebContents, so check for null.
+      auto* web_contents = tab_model->GetActiveWebContents();
+      if (web_contents) {
+        active_contents.push_back(web_contents);
+      }
+    }
+  }
+#else
   for (Browser* target_browser : *BrowserList::GetInstance()) {
     if (target_browser->profile() == profile ||
         target_browser->profile() == incognito_profile) {
@@ -1046,10 +1095,12 @@ ExtensionTabUtil::GetAllActiveWebContentsForContext(
       active_contents.push_back(target_tab_strip->GetActiveWebContents());
     }
   }
+#endif  // BUILDFLAG(IS_ANDROID)
 
   return active_contents;
 }
 
+#if !BUILDFLAG(IS_ANDROID)
 // static
 bool ExtensionTabUtil::IsWebContentsInContext(
     content::WebContents* web_contents,
@@ -1061,7 +1112,7 @@ bool ExtensionTabUtil::IsWebContentsInContext(
   if (web_contents_browser_context == browser_context)
     return true;
 
-  // If not it might be to include the incongito mode, so we if the profiles
+  // If not it might be to include the incognito mode, so we if the profiles
   // are the same or the parent.
   return include_incognito && Profile::FromBrowserContext(browser_context)
                                   ->IsSameOrParent(Profile::FromBrowserContext(
@@ -1233,7 +1284,11 @@ void ExtensionTabUtil::ForEachTab(
   for (TabModel* tab_model : TabModelList::models()) {
     int tab_count = tab_model->GetTabCount();
     for (int i = 0; i < tab_count; ++i) {
-      callback.Run(tab_model->GetWebContentsAt(i));
+      auto* web_contents = tab_model->GetWebContentsAt(i);
+      // On Android, not every tab is guaranteed to have a WebContents.
+      if (web_contents) {
+        callback.Run(web_contents);
+      }
     }
   }
 #endif
@@ -1295,6 +1350,7 @@ api::tabs::TabStatus ExtensionTabUtil::GetLoadingStatus(WebContents* contents) {
   // Otherwise its considered loaded.
   return api::tabs::TabStatus::kComplete;
 }
+#endif  // !BUILDFLAG(IS_ANDROID)
 
 void ExtensionTabUtil::ClearBackForwardCache() {
   ForEachTab(base::BindRepeating([](WebContents* web_contents) {
@@ -1302,6 +1358,7 @@ void ExtensionTabUtil::ClearBackForwardCache() {
   }));
 }
 
+#if !BUILDFLAG(IS_ANDROID)
 // static
 bool ExtensionTabUtil::IsTabStripEditable() {
   // See comments in the header for why we need to check all of them.

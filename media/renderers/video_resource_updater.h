@@ -50,7 +50,6 @@ enum class VideoFrameResourceType {
   NONE,
   RGB,
   RGBA_PREMULTIPLIED,
-  STREAM_TEXTURE,
   // The VideoFrame is merely a hint to compositor that a hole must be made
   // transparent so the video underlay will be visible.
   // Used by Chromecast only.
@@ -165,9 +164,7 @@ class MEDIA_EXPORT VideoResourceUpdater
   // (pixel upload).
   viz::SharedImageFormat GetSoftwareOutputFormat(
       VideoPixelFormat input_frame_format,
-      int bits_per_channel,
-      const gfx::ColorSpace& input_frame_color_space,
-      bool& texture_needs_rgb_conversion_out);
+      int bits_per_channel);
 
   // Transfer RGB pixels from the video frame to software resource through
   // canvas via PaintCanvasVideoRenderer.

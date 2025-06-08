@@ -150,10 +150,6 @@ struct BLINK_COMMON_EXPORT StructTraits<blink::mojom::WebPreferencesDataView,
     return r.local_storage_enabled;
   }
 
-  static bool databases_enabled(const blink::web_pref::WebPreferences& r) {
-    return r.databases_enabled;
-  }
-
   static bool tabs_to_links(const blink::web_pref::WebPreferences& r) {
     return r.tabs_to_links;
   }
@@ -363,6 +359,11 @@ struct BLINK_COMMON_EXPORT StructTraits<blink::mojom::WebPreferencesDataView,
   static bool allow_non_empty_navigator_plugins(
       const blink::web_pref::WebPreferences& r) {
     return r.allow_non_empty_navigator_plugins;
+  }
+
+  static bool ignore_permission_for_device_changed_event(
+      const blink::web_pref::WebPreferences& r) {
+    return r.ignore_permission_for_device_changed_event;
   }
 
   static uint32_t number_of_cpu_cores(
@@ -779,6 +780,11 @@ struct BLINK_COMMON_EXPORT StructTraits<blink::mojom::WebPreferencesDataView,
   static bool touch_drag_drop_enabled(
       const blink::web_pref::WebPreferences& r) {
     return r.touch_drag_drop_enabled;
+  }
+
+  static bool touch_dragend_context_menu(
+      const blink::web_pref::WebPreferences& r) {
+    return r.touch_dragend_context_menu;
   }
 
   static bool webxr_immersive_ar_allowed(

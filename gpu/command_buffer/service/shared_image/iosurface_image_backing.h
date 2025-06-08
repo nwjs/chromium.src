@@ -19,6 +19,8 @@
 #include "ui/gl/gl_fence.h"
 #include "ui/gl/gl_surface.h"
 
+@protocol MTLDevice;
+
 namespace gl {
 class ScopedEGLSurfaceIOSurface;
 }  // namespace gl
@@ -68,6 +70,11 @@ struct IOSurfaceBackingEGLState : base::RefCounted<IOSurfaceBackingEGLState> {
   bool is_bind_pending() const { return is_bind_pending_; }
   void set_bind_pending() { is_bind_pending_ = true; }
   void clear_bind_pending() { is_bind_pending_ = false; }
+  void RemoveClient();
+  bool BelongsToCurrentThread() const;
+  base::SingleThreadTaskRunner* created_task_runner() {
+    return created_task_runner_.get();
+  }
 
  private:
   friend class base::RefCounted<IOSurfaceBackingEGLState>;
@@ -77,7 +84,7 @@ struct IOSurfaceBackingEGLState : base::RefCounted<IOSurfaceBackingEGLState> {
   friend class IOSurfaceImageBacking;
 
   // The interface through which to call into IOSurfaceImageBacking.
-  const raw_ptr<Client> client_;
+  raw_ptr<Client> client_;
 
   // The display for this GL representation.
   const EGLDisplay egl_display_;
@@ -98,6 +105,8 @@ struct IOSurfaceBackingEGLState : base::RefCounted<IOSurfaceBackingEGLState> {
   bool is_bind_pending_ = false;
 
   int num_ongoing_accesses_ = 0;
+
+  scoped_refptr<base::SingleThreadTaskRunner> created_task_runner_;
 
   ~IOSurfaceBackingEGLState();
 };
@@ -134,13 +143,19 @@ class GPU_GLES2_EXPORT IOSurfaceImageBacking
 
   void AddWGPUDeviceWithPendingCommands(wgpu::Device device)
       EXCLUSIVE_LOCKS_REQUIRED(lock_);
-  void WaitForDawnCommandsToBeScheduled(const wgpu::Device& device_to_exclude)
-      EXCLUSIVE_LOCKS_REQUIRED(lock_);
 
   void AddEGLDisplayWithPendingCommands(gl::GLDisplayEGL* display)
       EXCLUSIVE_LOCKS_REQUIRED(lock_);
-  void WaitForANGLECommandsToBeScheduled() EXCLUSIVE_LOCKS_REQUIRED(lock_);
   void ClearEGLDisplaysWithPendingCommands(gl::GLDisplayEGL* display_to_keep)
+      EXCLUSIVE_LOCKS_REQUIRED(lock_);
+
+  // Wait for commands to be scheduled on every WGPUDevice or EGLDisplay that's
+  // pending a flush except those using the same MTLDevice as `waiting_device`.
+  // This is needed in two cases: 1) handing off the IOSurface to CoreAnimation
+  // since there's no other synchronization mechanism, and 2) accessing the
+  // IOSurface on different GPUs/MTLDevices since there could be shadow copies
+  // performed by the kernel.
+  void WaitForCommandsToBeScheduled(id<MTLDevice> waiting_device = nil)
       EXCLUSIVE_LOCKS_REQUIRED(lock_);
 
  private:
@@ -271,8 +286,9 @@ class GPU_GLES2_EXPORT IOSurfaceImageBacking
   bool purgeable_ GUARDED_BY(lock_) = false;
 
   // This map tracks all IOSurfaceBackingEGLState instances that exist.
-  base::flat_map<EGLDisplay, IOSurfaceBackingEGLState*> egl_state_map_
-      GUARDED_BY(lock_);
+  base::flat_map<std::pair<EGLDisplay, base::SingleThreadTaskRunner*>,
+                 IOSurfaceBackingEGLState*>
+      egl_state_map_ GUARDED_BY(lock_);
 
   // If Skia is using GL, this object creates a GL texture at construction time
   // for the Skia GL context and reuses it (for that context) for its lifetime.

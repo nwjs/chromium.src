@@ -12,19 +12,16 @@ import static org.chromium.base.test.transit.ViewSpec.viewSpec;
 import android.os.Build;
 import android.view.View;
 
-import androidx.annotation.CallSuper;
 import androidx.test.espresso.action.GeneralLocation;
 import androidx.test.espresso.action.GeneralSwipeAction;
 import androidx.test.espresso.action.Press;
 import androidx.test.espresso.action.Swipe;
 import androidx.test.espresso.action.ViewActions;
 
-import org.chromium.base.test.transit.Elements;
 import org.chromium.base.test.transit.Facility;
 import org.chromium.base.test.transit.Station;
 import org.chromium.base.test.transit.Transition;
 import org.chromium.base.test.transit.ViewElement;
-import org.chromium.base.test.transit.ViewSpec;
 import org.chromium.chrome.test.R;
 import org.chromium.chrome.test.transit.page.PageStation;
 import org.chromium.components.messages.DismissReason;
@@ -48,16 +45,10 @@ public class MessageFacility<HostStationT extends PageStation> extends Facility<
     public ViewElement<View> bannerElement;
     public ViewElement<View> iconElement;
 
-    @CallSuper
-    @Override
-    public void declareElements(Elements.Builder elements) {
+    public MessageFacility() {
         // Unscoped because other messages can appear and fail the exit condition.
-        bannerElement =
-                elements.declareView(
-                        viewSpec(withId(R.id.message_banner)), ViewElement.unscopedOption());
-        iconElement =
-                elements.declareView(
-                        viewSpec(withId(R.id.message_icon)), ViewElement.unscopedOption());
+        bannerElement = declareView(withId(R.id.message_banner), ViewElement.unscopedOption());
+        iconElement = declareView(withId(R.id.message_icon), ViewElement.unscopedOption());
     }
 
     /** Dismiss the message banner. */
@@ -94,13 +85,13 @@ public class MessageFacility<HostStationT extends PageStation> extends Facility<
         }
     }
 
-    /** Create a {@link ViewSpec} expecting the message's |title|. */
-    protected static ViewSpec<View> titleViewSpec(String title) {
-        return viewSpec(withId(R.id.message_title), withText(title));
+    /** Declare a ViewElement with the message's |title|. */
+    protected ViewElement<View> declareTitleView(String title) {
+        return declareView(viewSpec(withId(R.id.message_title), withText(title)));
     }
 
-    /** Create a {@link ViewSpec} expecting the message's primary button with |text|. */
-    protected static ViewSpec<View> primaryButtonViewSpec(String text) {
-        return viewSpec(withId(R.id.message_primary_button), withText(text));
+    /** Declare a ViewElement for the primary button.. */
+    protected ViewElement<View> declarePrimaryButtonView(String text) {
+        return declareView(viewSpec(withId(R.id.message_primary_button), withText(text)));
     }
 }

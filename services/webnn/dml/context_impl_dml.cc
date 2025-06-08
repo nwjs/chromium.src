@@ -611,8 +611,9 @@ void ContextImplDml::CreateGraphImpl(
     mojo::PendingAssociatedReceiver<mojom::WebNNGraph> receiver,
     mojom::GraphInfoPtr graph_info,
     WebNNGraphImpl::ComputeResourceInfo compute_resource_info,
-    base::flat_map<uint64_t, std::unique_ptr<WebNNConstantOperand>>
+    base::flat_map<OperandId, std::unique_ptr<WebNNConstantOperand>>
         constant_operands,
+    base::flat_map<OperandId, WebNNTensorImpl*> constant_tensor_operands,
     WebNNContextImpl::CreateGraphImplCallback callback) {
   if (g_backend_for_testing) {
     g_backend_for_testing->CreateGraphImpl(std::move(receiver), this,
@@ -624,7 +625,8 @@ void ContextImplDml::CreateGraphImpl(
   GraphImplDml::CreateAndBuild(
       std::move(receiver), adapter_, weak_factory_.GetWeakPtr(),
       std::move(graph_info), std::move(compute_resource_info),
-      std::move(constant_operands), std::move(callback),
+      std::move(constant_operands), std::move(constant_tensor_operands),
+      std::move(callback),
       gpu_feature_info_->IsWorkaroundEnabled(
           gpu::DISABLE_DML_META_COMMANDS_FOR_GPU));
 }
@@ -662,7 +664,8 @@ void ContextImplDml::CreateTensorImpl(
   if (adapter_->IsUMA()) {
     // Create a buffer configured with memory properties based on
     // usage.
-    if (tensor_info->usage.Has(MLTensorUsageFlags::kWrite)) {
+    if (tensor_info->usage.Has(MLTensorUsageFlags::kWrite) ||
+        tensor_info->usage.Has(MLTensorUsageFlags::kGraphConstant)) {
       // Upload buffer is used when the buffer mostly CPU writes but
       // could also CPU read. A upload buffer provides less bandwidth for CPU
       // reads in favor of GPU writes being optimal.
@@ -932,6 +935,10 @@ void ContextImplDml::HandleContextLostOrCrash(std::string_view message_for_log,
 
   OnLost(base::StrCat({"WebNN context is lost due to ", message_for_promise}));
   CHECK(hr == E_OUTOFMEMORY || hr == DXGI_ERROR_DEVICE_RESET);
+}
+
+CommandQueue* ContextImplDml::GetCommandQueue() const {
+  return adapter_->command_queue();
 }
 
 void ContextImplDml::RemoveDeviceForTesting() {

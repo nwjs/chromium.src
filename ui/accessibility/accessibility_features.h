@@ -52,9 +52,6 @@ AX_BASE_EXPORT bool IsAccessibilityPdfOcrForSelectToSpeakEnabled();
 AX_BASE_EXPORT BASE_DECLARE_FEATURE(kAccessibilityBlockFlowIterator);
 AX_BASE_EXPORT bool IsAccessibilityBlockFlowIteratorEnabled();
 
-AX_BASE_EXPORT BASE_DECLARE_FEATURE(kAccessibilityPruneRedundantInlineText);
-AX_BASE_EXPORT bool IsAccessibilityPruneRedundantInlineTextEnabled();
-
 AX_BASE_EXPORT BASE_DECLARE_FEATURE(
     kAccessibilityPruneRedundantInlineConnectivity);
 AX_BASE_EXPORT bool IsAccessibilityPruneRedundantInlineConnectivityEnabled();
@@ -71,6 +68,22 @@ AX_BASE_EXPORT bool IsAccessibilityTreeForViewsEnabled();
 // Serialize Views' accessibility data as soon as it changes.
 AX_BASE_EXPORT BASE_DECLARE_FEATURE(kViewsAccessibilitySerializeOnDataChange);
 AX_BASE_EXPORT bool IsViewsAccessibilitySerializeOnDataChangeEnabled();
+
+// Experiment to measure the performance impact of various accessibility
+// changes.
+AX_BASE_EXPORT BASE_DECLARE_FEATURE(
+    kAccessibilityPerformanceMeasurementExperiment);
+AX_BASE_EXPORT bool IsAccessibilityPerformanceMeasurementExperimentEnabled();
+
+enum class AccessibilityPerformanceMeasurementExperimentGroup {
+  kAXModeComplete,
+  kWebContentsOnly,
+  kAXModeCompleteNoInlineTextBoxes,
+  kRendererSerializationOnly,
+};
+
+AX_BASE_EXPORT AccessibilityPerformanceMeasurementExperimentGroup
+GetAccessibilityPerformanceMeasurementExperimentGroup();
 
 // Use Alternative mechanism for acquiring image descriptions.
 AX_BASE_EXPORT BASE_DECLARE_FEATURE(kImageDescriptionsAlternateRouting);
@@ -229,6 +242,9 @@ AX_BASE_EXPORT bool IsAccessibilityManifestV3EnabledForChromeVox();
 AX_BASE_EXPORT BASE_DECLARE_FEATURE(kAccessibilityManifestV3EnhancedNetworkTts);
 AX_BASE_EXPORT bool IsAccessibilityManifestV3EnabledForEnhancedNetworkTts();
 
+AX_BASE_EXPORT BASE_DECLARE_FEATURE(kAccessibilityManifestV3EspeakNGTts);
+AX_BASE_EXPORT bool IsAccessibilityManifestV3EnabledForEspeakNGTts();
+
 AX_BASE_EXPORT BASE_DECLARE_FEATURE(kAccessibilityManifestV3SelectToSpeak);
 AX_BASE_EXPORT bool IsAccessibilityManifestV3EnabledForSelectToSpeak();
 
@@ -236,6 +252,15 @@ AX_BASE_EXPORT BASE_DECLARE_FEATURE(kAccessibilityManifestV3SwitchAccess);
 AX_BASE_EXPORT bool IsAccessibilityManifestV3EnabledForSwitchAccess();
 
 #endif  // BUILDFLAG(IS_CHROMEOS)
+
+#if BUILDFLAG(IS_ANDROID)
+
+// When populating the AccessibilityNodeInfo on Android, Clank will insert Line
+// Separator U+2028 characters in the text to denote soft line breaks.
+AX_BASE_EXPORT BASE_DECLARE_FEATURE(kAccessibilityInlineLineSeparators);
+AX_BASE_EXPORT bool IsAccessibilityInlineLineSeparatorsEnabled();
+
+#endif  // BUILDFLAG(IS_ANDROID)
 
 #if !BUILDFLAG(IS_ANDROID)
 // Use the AXTree fixing code, which may be an assortment of different

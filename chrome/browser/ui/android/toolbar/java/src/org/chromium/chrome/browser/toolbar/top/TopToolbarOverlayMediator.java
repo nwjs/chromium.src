@@ -85,7 +85,7 @@ public class TopToolbarOverlayMediator {
     /** Whether a layout that this overlay can be displayed on is showing. */
     private boolean mIsOnValidLayout;
 
-    private ObservableSupplier<Tab> mTabSupplier;
+    private final ObservableSupplier<@Nullable Tab> mTabSupplier;
     private float mViewportHeight;
 
     private @Nullable OffsetTag mTopControlsOffsetTag;
@@ -97,7 +97,7 @@ public class TopToolbarOverlayMediator {
             Context context,
             LayoutStateProvider layoutStateProvider,
             Callback<ClipDrawableProgressBar.DrawingInfo> progressInfoCallback,
-            ObservableSupplier<Tab> tabSupplier,
+            ObservableSupplier<@Nullable Tab> tabSupplier,
             BrowserControlsStateProvider browserControlsStateProvider,
             TopUiThemeColorProvider topUiThemeColorProvider,
             ObservableSupplier<Integer> bottomToolbarControlsOffsetSupplier,
@@ -132,7 +132,7 @@ public class TopToolbarOverlayMediator {
 
         // Keep an observer attached to the visible tab (and only the visible tab) to update
         // properties including theme color.
-        Callback<Tab> activityTabCallback =
+        Callback<@Nullable Tab> activityTabCallback =
                 (tab) -> {
                     if (tab == null) return;
                     updateVisibility();
@@ -151,10 +151,7 @@ public class TopToolbarOverlayMediator {
 
                             @Override
                             public void onLoadProgressChanged(Tab tab, float progress) {
-                                if (!ChromeFeatureList.isEnabled(
-                                        ChromeFeatureList.DISABLE_COMPOSITED_PROGRESS_BAR)) {
-                                    updateProgress();
-                                }
+                                updateProgress();
                             }
 
                             @Override
@@ -434,8 +431,16 @@ public class TopToolbarOverlayMediator {
         int contentOffset = mBrowserControlsStateProvider.getContentOffset();
         // Don't use mControlsPosition here because it will not have been updated if this function
         // gets called in the middle of a change of position.
-        if (mBrowserControlsStateProvider.getControlsPosition() == ControlsPosition.BOTTOM) {
+        if (mControlsPosition == ControlsPosition.BOTTOM) {
             contentOffset = (int) (mBottomToolbarControlsOffsetSupplier.get() + mViewportHeight);
+        } else {
+            // If BCIV is enabled, we keep the composited view visible even when hiding the toolbar,
+            // but the shadow isn't included in the toolbar's height, so we shift the toolbar up by
+            // the shadow's height to hide the toolbar completely.
+            if (ChromeFeatureList.sBrowserControlsInViz.isEnabled()
+                    && contentOffset == mBrowserControlsStateProvider.getTopControlsMinHeight()) {
+                contentOffset -= mBrowserControlsStateProvider.getTopControlsHairlineHeight();
+            }
         }
 
         mModel.set(TopToolbarOverlayProperties.CONTENT_OFFSET, contentOffset);

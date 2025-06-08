@@ -199,6 +199,41 @@ void ExpectInstallEvent(ScopedServer& test_server, const std::string& app_id) {
                                             app_id));
 }
 
+#if BUILDFLAG(IS_WIN)
+void ExpectAppErrorEvent(ScopedServer& test_server,
+                         const std::string& app_id,
+                         const int error_code,
+                         const int event_type) {
+  test_server.ExpectOnce({request::GetPathMatcher(test_server.update_path()),
+                          request::GetUpdaterUserAgentMatcher(),
+                          request::GetContentMatcher({base::StringPrintf(
+                              R"(.*"appid":"%s",.*)"
+                              R"(.*"errorcode":%d,)"
+                              R"("eventresult":0,"eventtype":%d,.*)",
+                              app_id, error_code, event_type)})},
+                         ")]}'\n");
+}
+
+void ExpectUninstallPingPreviousVersion(ScopedServer& test_server,
+                                        const base::Version& previous_version) {
+  test_server.ExpectOnce(
+      {request::GetContentMatcher({base::StringPrintf(
+          R"(.*"appid":"%s".*"eventtype":4,"previousversion":"%s".*)",
+          kUpdaterAppId, previous_version.GetString())})},
+      base::StringPrintf(")]}'\n"
+                         R"({"response":{)"
+                         R"(  "protocol":"3.1",)"
+                         R"(  "app":[)"
+                         R"(    {)"
+                         R"(      "appid":"%s",)"
+                         R"(      "status":"ok")"
+                         R"(    })"
+                         R"(  ])"
+                         R"(}})",
+                         kUpdaterAppId));
+}
+#endif  // BUILDFLAG(IS_WIN)
+
 base::FilePath GetInstallerPath(const std::string& installer) {
   return base::FilePath::FromUTF8Unsafe("test_installer").AppendUTF8(installer);
 }
@@ -799,8 +834,12 @@ class IntegrationTest : public ::testing::Test {
 
   void ExpectLastStarted() { test_commands_->ExpectLastStarted(); }
 
-  void RunOfflineInstall(bool is_legacy_install, bool is_silent_install) {
-    test_commands_->RunOfflineInstall(is_legacy_install, is_silent_install);
+  void RunOfflineInstall(bool is_legacy_install,
+                         bool is_silent_install,
+                         int installer_result = 0,
+                         int installer_error = 0) {
+    test_commands_->RunOfflineInstall(is_legacy_install, is_silent_install,
+                                      installer_result, installer_error);
   }
 
   void RunOfflineInstallOsNotSupported(bool is_legacy_install,
@@ -980,6 +1019,90 @@ TEST_P(IntegrationLowerVersionTest, OverinstallBroken) {
   ASSERT_TRUE(WaitForUpdaterExit());
   ASSERT_NO_FATAL_FAILURE(Uninstall());
 }
+
+#if BUILDFLAG(IS_WIN)
+TEST_P(IntegrationLowerVersionTest,
+       ForceInstallWorkingAndInstallUpdaterAndApp) {
+  const std::string kAppId("test");
+  ASSERT_NO_FATAL_FAILURE(SetupRealUpdater(GetParam().updater_setup_path));
+  ASSERT_NO_FATAL_FAILURE(InstallApp(kAppId));
+  ASSERT_TRUE(WaitForUpdaterExit());
+
+  ScopedServer test_server(test_commands_);
+  ExpectUninstallPingPreviousVersion(test_server, GetParam().version);
+  const base::Version v1("1");
+  ASSERT_NO_FATAL_FAILURE(ExpectInstallSequence(
+      &test_server, kAppId, "", UpdateService::Priority::kForeground,
+      base::Version("0.1"), v1));
+
+  // With "--force-install", the new version should install and become active.
+  ASSERT_NO_FATAL_FAILURE(InstallUpdaterAndApp(
+      kAppId, /*is_silent_install=*/true,
+      /*tag=*/
+      base::StrCat(
+          {"appguid=", kAppId, "&needsadmin=",
+           IsSystemInstall(GetUpdaterScopeForTesting()) ? "true" : "false",
+           "&usagestats=1"}),
+      /*child_window_text_to_find=*/{},
+      /*always_launch_cmd=*/false,
+      /*verify_app_logo_loaded=*/false, /*expect_success=*/true,
+      /*wait_for_the_installer=*/true,
+      /*expected_exit_code=*/0,
+      /*additional_switches=*/{"force-install"}));
+  ASSERT_TRUE(WaitForUpdaterExit());
+
+  ASSERT_NO_FATAL_FAILURE(ExpectVersionActive(kUpdaterVersion));
+  ASSERT_NO_FATAL_FAILURE(ExpectAppVersion(kAppId, v1));
+
+  ASSERT_NO_FATAL_FAILURE(ExpectUninstallPing(&test_server));
+  ASSERT_NO_FATAL_FAILURE(Uninstall());
+}
+
+TEST_P(IntegrationLowerVersionTest, ForceInstallBrokenAndInstallUpdaterAndApp) {
+  const std::string kAppId("test");
+  ASSERT_NO_FATAL_FAILURE(SetupRealUpdater(GetParam().updater_setup_path));
+  ASSERT_NO_FATAL_FAILURE(InstallApp(kAppId));
+  ASSERT_TRUE(WaitForUpdaterExit());
+  ASSERT_NO_FATAL_FAILURE(DeleteActiveUpdaterExecutable());
+
+  ScopedServer test_server(test_commands_);
+  ExpectUninstallPingPreviousVersion(test_server, GetParam().version);
+  const base::Version v1("1");
+  ASSERT_NO_FATAL_FAILURE(ExpectInstallSequence(
+      &test_server, kAppId, "", UpdateService::Priority::kForeground,
+      base::Version("0.1"), v1));
+
+  // With "--force-install", the new version should install and become active.
+  ASSERT_NO_FATAL_FAILURE(InstallUpdaterAndApp(
+      kAppId, /*is_silent_install=*/true,
+      /*tag=*/
+      base::StrCat(
+          {"appguid=", kAppId, "&needsadmin=",
+           IsSystemInstall(GetUpdaterScopeForTesting()) ? "true" : "false",
+           "&usagestats=1"}),
+      /*child_window_text_to_find=*/{},
+      /*always_launch_cmd=*/false,
+      /*verify_app_logo_loaded=*/false, /*expect_success=*/true,
+      /*wait_for_the_installer=*/true,
+      /*expected_exit_code=*/0,
+      /*additional_switches=*/{"force-install"}));
+  ASSERT_TRUE(WaitForUpdaterExit());
+
+  ASSERT_NO_FATAL_FAILURE(ExpectVersionActive(kUpdaterVersion));
+  ASSERT_NO_FATAL_FAILURE(ExpectAppVersion(kAppId, v1));
+
+  ASSERT_NO_FATAL_FAILURE(ExpectUninstallPing(&test_server));
+  ASSERT_NO_FATAL_FAILURE(Uninstall());
+
+  // Cleanup the broken older version by reinstalling and uninstalling.
+  ASSERT_NO_FATAL_FAILURE(SetupRealUpdater(GetParam().updater_setup_path));
+  ASSERT_TRUE(WaitForUpdaterExit());
+  ASSERT_NO_FATAL_FAILURE(Install({kEnableCecaExperimentSwitch}));
+  ASSERT_TRUE(WaitForUpdaterExit());
+  ASSERT_NO_FATAL_FAILURE(ExpectUninstallPing(&test_server));
+  ASSERT_NO_FATAL_FAILURE(Uninstall());
+}
+#endif  // BUILDFLAG(IS_WIN)
 
 TEST_F(IntegrationTest, OverinstallBrokenSameVersion) {
   ASSERT_NO_FATAL_FAILURE(Install({kEnableCecaExperimentSwitch}));
@@ -3392,7 +3515,7 @@ INSTANTIATE_TEST_SUITE_P(
     ::testing::Bool());
 
 TEST_P(IntegrationTestDeviceManagement, RollbackToTargetVersion) {
-  constexpr char kTargetVersionPrefix[] = "1.0.";
+  static constexpr char kTargetVersionPrefix[] = "1.0.";
   ExpectInstallEvent(*test_server_, kUpdaterAppId);
   ASSERT_NO_FATAL_FAILURE(Install(GetInstallSwitches()));
   ExpectInstallEvent(*test_server_, kApp1.appid);
@@ -4993,19 +5116,88 @@ TEST_F(IntegrationTest, BundleNameShowsUpInUI) {
 }
 
 TEST_F(IntegrationTest, OfflineInstall) {
+  ScopedServer test_server(test_commands_);
+  ExpectInstallEvent(test_server, kUpdaterAppId);
   ASSERT_NO_FATAL_FAILURE(Install({kEnableCecaExperimentSwitch}));
   ASSERT_NO_FATAL_FAILURE(ExpectInstalled());
+
+  ExpectInstallEvent(test_server, "{CDABE316-39CD-43BA-8440-6D1E0547AEE6}");
   ASSERT_NO_FATAL_FAILURE(RunOfflineInstall(/*is_legacy_install=*/false,
                                             /*is_silent_install=*/false));
+
+  ASSERT_NO_FATAL_FAILURE(ExpectUninstallPing(&test_server));
+  ASSERT_NO_FATAL_FAILURE(Uninstall());
+}
+
+TEST_F(IntegrationTest, OfflineInstallAndWake) {
+  ScopedServer test_server(test_commands_);
+  ExpectInstallEvent(test_server, kUpdaterAppId);
+  ASSERT_NO_FATAL_FAILURE(Install({kEnableCecaExperimentSwitch}));
+  ASSERT_NO_FATAL_FAILURE(ExpectInstalled());
+
+  ExpectInstallEvent(test_server, "{CDABE316-39CD-43BA-8440-6D1E0547AEE6}");
+  ASSERT_NO_FATAL_FAILURE(RunOfflineInstall(/*is_legacy_install=*/false,
+                                            /*is_silent_install=*/false));
+
+  ASSERT_NO_FATAL_FAILURE(ExpectNoUpdateSequence(
+      &test_server, "{CDABE316-39CD-43BA-8440-6D1E0547AEE6}"));
+  ASSERT_NO_FATAL_FAILURE(RunWake(0));
+  ASSERT_TRUE(WaitForUpdaterExit());
+
+  ASSERT_NO_FATAL_FAILURE(ExpectUninstallPing(&test_server));
+  ASSERT_NO_FATAL_FAILURE(Uninstall());
+}
+
+TEST_F(IntegrationTest, OfflineOverInstall) {
+  ScopedServer test_server(test_commands_);
+  ExpectInstallEvent(test_server, kUpdaterAppId);
+  ASSERT_NO_FATAL_FAILURE(Install({kEnableCecaExperimentSwitch}));
+  ASSERT_NO_FATAL_FAILURE(ExpectInstalled());
+
+  ExpectInstallEvent(test_server, "{CDABE316-39CD-43BA-8440-6D1E0547AEE6}");
+  ASSERT_NO_FATAL_FAILURE(RunOfflineInstall(/*is_legacy_install=*/false,
+                                            /*is_silent_install=*/false));
+
+  ExpectInstallEvent(test_server, "{CDABE316-39CD-43BA-8440-6D1E0547AEE6}");
+  ASSERT_NO_FATAL_FAILURE(RunOfflineInstall(/*is_legacy_install=*/false,
+                                            /*is_silent_install=*/false));
+
+  ASSERT_NO_FATAL_FAILURE(ExpectUninstallPing(&test_server));
   ASSERT_NO_FATAL_FAILURE(Uninstall());
 }
 
 TEST_F(IntegrationTest, OfflineInstallOsNotSupported) {
+  ScopedServer test_server(test_commands_);
+  ExpectInstallEvent(test_server, kUpdaterAppId);
   ASSERT_NO_FATAL_FAILURE(Install({kEnableCecaExperimentSwitch}));
   ASSERT_NO_FATAL_FAILURE(ExpectInstalled());
+
+  // OS not supported is handled by the client, hence no ping.
   ASSERT_NO_FATAL_FAILURE(
       RunOfflineInstallOsNotSupported(/*is_legacy_install=*/false,
                                       /*is_silent_install=*/false));
+
+  ASSERT_NO_FATAL_FAILURE(ExpectUninstallPing(&test_server));
+  ASSERT_NO_FATAL_FAILURE(Uninstall());
+}
+
+TEST_F(IntegrationTest, OfflineInstallerError) {
+  ScopedServer test_server(test_commands_);
+  ExpectInstallEvent(test_server, kUpdaterAppId);
+  ASSERT_NO_FATAL_FAILURE(Install({kEnableCecaExperimentSwitch}));
+  ASSERT_NO_FATAL_FAILURE(ExpectInstalled());
+
+  // The install fails, and an error ping is sent.
+  ExpectAppErrorEvent(test_server,
+                      /*app_id=*/"{CDABE316-39CD-43BA-8440-6D1E0547AEE6}",
+                      /*error_code=*/99,
+                      /*event_type=*/2);
+  ASSERT_NO_FATAL_FAILURE(RunOfflineInstall(/*is_legacy_install=*/false,
+                                            /*is_silent_install=*/true,
+                                            /*installer_result=*/1,
+                                            /*installer_error=*/99));
+
+  ASSERT_NO_FATAL_FAILURE(ExpectUninstallPing(&test_server));
   ASSERT_NO_FATAL_FAILURE(Uninstall());
 }
 
@@ -5030,44 +5222,71 @@ TEST_P(IntegrationOfflineInstallOsNotSupportedTest, Lang) {
 }
 
 TEST_F(IntegrationTest, OfflineInstallSilent) {
+  ScopedServer test_server(test_commands_);
+  ExpectInstallEvent(test_server, kUpdaterAppId);
   ASSERT_NO_FATAL_FAILURE(Install({kEnableCecaExperimentSwitch}));
   ASSERT_NO_FATAL_FAILURE(ExpectInstalled());
+
+  ExpectInstallEvent(test_server, "{CDABE316-39CD-43BA-8440-6D1E0547AEE6}");
   ASSERT_NO_FATAL_FAILURE(RunOfflineInstall(/*is_legacy_install=*/false,
                                             /*is_silent_install=*/true));
+
+  ASSERT_NO_FATAL_FAILURE(ExpectUninstallPing(&test_server));
   ASSERT_NO_FATAL_FAILURE(Uninstall());
 }
 
 TEST_F(IntegrationTest, OfflineInstallOsNotSupportedSilent) {
+  ScopedServer test_server(test_commands_);
+  ExpectInstallEvent(test_server, kUpdaterAppId);
   ASSERT_NO_FATAL_FAILURE(Install({kEnableCecaExperimentSwitch}));
   ASSERT_NO_FATAL_FAILURE(ExpectInstalled());
+
+  // OS not supported is handled by the client, hence no ping.
   ASSERT_NO_FATAL_FAILURE(
       RunOfflineInstallOsNotSupported(/*is_legacy_install=*/false,
                                       /*is_silent_install=*/true));
+
+  ASSERT_NO_FATAL_FAILURE(ExpectUninstallPing(&test_server));
   ASSERT_NO_FATAL_FAILURE(Uninstall());
 }
 
 TEST_F(IntegrationTest, OfflineInstallSilentLegacy) {
+  ScopedServer test_server(test_commands_);
+  ExpectInstallEvent(test_server, kUpdaterAppId);
   ASSERT_NO_FATAL_FAILURE(Install({kEnableCecaExperimentSwitch}));
   ASSERT_NO_FATAL_FAILURE(ExpectInstalled());
+
+  ExpectInstallEvent(test_server, "{CDABE316-39CD-43BA-8440-6D1E0547AEE6}");
   ASSERT_NO_FATAL_FAILURE(RunOfflineInstall(/*is_legacy_install=*/true,
                                             /*is_silent_install=*/true));
+
+  ASSERT_NO_FATAL_FAILURE(ExpectUninstallPing(&test_server));
   ASSERT_NO_FATAL_FAILURE(Uninstall());
 }
 
 TEST_F(IntegrationTest, OfflineInstallOsNotSupportedSilentLegacy) {
+  ScopedServer test_server(test_commands_);
+  ExpectInstallEvent(test_server, kUpdaterAppId);
   ASSERT_NO_FATAL_FAILURE(Install({kEnableCecaExperimentSwitch}));
   ASSERT_NO_FATAL_FAILURE(ExpectInstalled());
+
+  // OS not supported is handled by the client, hence no ping.
   ASSERT_NO_FATAL_FAILURE(
       RunOfflineInstallOsNotSupported(/*is_legacy_install=*/true,
                                       /*is_silent_install=*/true));
+
+  ASSERT_NO_FATAL_FAILURE(ExpectUninstallPing(&test_server));
   ASSERT_NO_FATAL_FAILURE(Uninstall());
 }
 
 TEST_F(IntegrationTest, OfflineInstallEulaRequired) {
+  ScopedServer test_server(test_commands_);
   ASSERT_NO_FATAL_FAILURE(Install({kEulaRequiredSwitch}));
   ASSERT_NO_FATAL_FAILURE(ExpectInstalled());
+
   ASSERT_NO_FATAL_FAILURE(RunOfflineInstall(/*is_legacy_install=*/false,
                                             /*is_silent_install=*/false));
+
   ASSERT_NO_FATAL_FAILURE(Uninstall());
 }
 
@@ -5080,10 +5299,16 @@ TEST_F(IntegrationTest, OfflineInstallOemMode) {
     ASSERT_NO_FATAL_FAILURE(ResetOemMode());
   };
 
+  ScopedServer test_server(test_commands_);
+  ExpectInstallEvent(test_server, kUpdaterAppId);
   ASSERT_NO_FATAL_FAILURE(Install({kOemSwitch}));
   ASSERT_NO_FATAL_FAILURE(ExpectInstalled());
+
+  ExpectInstallEvent(test_server, "{CDABE316-39CD-43BA-8440-6D1E0547AEE6}");
   ASSERT_NO_FATAL_FAILURE(RunOfflineInstall(/*is_legacy_install=*/false,
                                             /*is_silent_install=*/false));
+
+  ASSERT_NO_FATAL_FAILURE(ExpectUninstallPing(&test_server));
   ASSERT_NO_FATAL_FAILURE(Uninstall());
 }
 

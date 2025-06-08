@@ -537,7 +537,7 @@ PrefetchContainer::PrefetchContainer(
 
   // Disallow prefetching ServiceWorker-controlled responses for isolated
   // network contexts.
-  if (!base::FeatureList::IsEnabled(features::kPrefetchServiceWorker) ||
+  if (!features::IsPrefetchServiceWorkerEnabled(browser_context_.get()) ||
       IsIsolatedNetworkContextRequiredForCurrentPrefetch()) {
     service_worker_state_ = PrefetchServiceWorkerState::kDisallowed;
   }
@@ -1803,6 +1803,13 @@ void PrefetchContainer::MakeResourceRequest(
   if (should_append_variations_header_) {
     AddXClientDataHeader(*request.get());
   }
+
+  // `URLLoaderNetworkServiceObserver`
+  // (`request->trusted_params->url_loader_network_observer`) is NOT set here,
+  // because for prefetching request we don't want to ask users e.g. for
+  // authentication/cert errors, and instead make the prefetch fail. Because of
+  // this, `ServiceWorkerClient::GetOngoingNavigationRequestBeforeCommit()` is
+  // never called. `NavPrefetchBrowserTest` has the corresponding test coverage.
 
   resource_request_ = std::move(request);
 }

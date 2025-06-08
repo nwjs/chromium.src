@@ -324,16 +324,21 @@ class TpcBlockingBrowserClient : public ContentBrowserClient,
 
   void SetBlockThirdPartyCookiesByDefault(bool block) { block_3pcs_ = block; }
 
-  bool IsFullCookieAccessAllowed(BrowserContext* browser_context,
-                                 WebContents* web_contents,
-                                 const GURL& url,
-                                 const blink::StorageKey& storage_key) override;
+  bool IsFullCookieAccessAllowed(
+      BrowserContext* browser_context,
+      WebContents* web_contents,
+      const GURL& url,
+      const blink::StorageKey& storage_key,
+      net::CookieSettingOverrides overrides) override;
 
   void GrantCookieAccessDueToHeuristic(BrowserContext* browser_context,
                                        const net::SchemefulSite& top_frame_site,
                                        const net::SchemefulSite& accessing_site,
                                        base::TimeDelta ttl,
                                        bool ignore_schemes) override;
+
+  bool AreThirdPartyCookiesGenerallyAllowed(BrowserContext* browser_context,
+                                            WebContents* web_contents) override;
 
   bool ShouldBtmDeleteInteractionRecords(uint64_t remove_mask) override;
 

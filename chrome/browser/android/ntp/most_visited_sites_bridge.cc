@@ -209,6 +209,13 @@ void MostVisitedSitesBridge::SetObserver(
   most_visited_->AddMostVisitedURLsObserver(java_observer_.get(), num_sites);
 }
 
+jboolean MostVisitedSitesBridge::AddCustomLinkTo(JNIEnv* env,
+                                                 const std::u16string& name,
+                                                 const GURL& url,
+                                                 jint pos) {
+  return most_visited_->AddCustomLinkTo(url, name, pos);
+}
+
 jboolean MostVisitedSitesBridge::AddCustomLink(JNIEnv* env,
                                                const std::u16string& name,
                                                const GURL& url) {
@@ -239,6 +246,12 @@ jboolean MostVisitedSitesBridge::DeleteCustomLink(JNIEnv* env,
 jboolean MostVisitedSitesBridge::HasCustomLink(JNIEnv* env,
                                                const GURL& key_url) {
   return most_visited_->HasCustomLink(key_url);
+}
+
+jboolean MostVisitedSitesBridge::ReorderCustomLink(JNIEnv* env,
+                                                   const GURL& key_url,
+                                                   jint new_pos) {
+  return most_visited_->ReorderCustomLink(key_url, new_pos);
 }
 
 void MostVisitedSitesBridge::AddOrRemoveBlockedUrl(

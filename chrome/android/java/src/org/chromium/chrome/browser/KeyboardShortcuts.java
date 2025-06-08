@@ -17,6 +17,8 @@ import android.view.KeyboardShortcutInfo;
 import androidx.annotation.IntDef;
 import androidx.annotation.StringRes;
 
+import org.jni_zero.CalledByNative;
+
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.chrome.R;
@@ -29,8 +31,6 @@ import org.chromium.chrome.browser.tabmodel.TabClosureParams;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.tabmodel.TabModelUtils;
-import org.chromium.chrome.browser.task_manager.TaskManager;
-import org.chromium.chrome.browser.task_manager.TaskManagerFactory;
 import org.chromium.chrome.browser.toolbar.ToolbarManager;
 import org.chromium.components.browser_ui.widget.MenuOrKeyboardActionController;
 import org.chromium.content_public.browser.WebContents;
@@ -101,7 +101,7 @@ public class KeyboardShortcuts {
         KeyboardShortcutsSemanticMeaning.NOT_IMPLEMENTED_DEV_TOOLS_INSPECT,
         KeyboardShortcutsSemanticMeaning.NOT_IMPLEMENTED_DEV_TOOLS_TOGGLE,
         KeyboardShortcutsSemanticMeaning.NOT_IMPLEMENTED_VIEW_SOURCE,
-        KeyboardShortcutsSemanticMeaning.NOT_IMPLEMENTED_TASK_MANAGER,
+        KeyboardShortcutsSemanticMeaning.TASK_MANAGER,
         KeyboardShortcutsSemanticMeaning.SAVE_PAGE,
         KeyboardShortcutsSemanticMeaning.NOT_IMPLEMENTED_SHOW_DOWNLOADS,
         KeyboardShortcutsSemanticMeaning.OPEN_HISTORY,
@@ -185,7 +185,7 @@ public class KeyboardShortcuts {
         int NOT_IMPLEMENTED_DEV_TOOLS_INSPECT = 39;
         int NOT_IMPLEMENTED_DEV_TOOLS_TOGGLE = 40;
         int NOT_IMPLEMENTED_VIEW_SOURCE = 41;
-        int NOT_IMPLEMENTED_TASK_MANAGER = 42;
+        int TASK_MANAGER = 42;
 
         // Downloads.
         int SAVE_PAGE = 43;
@@ -225,7 +225,8 @@ public class KeyboardShortcuts {
     // LINT.ThenChange(//tools/metrics/histograms/metadata/accessibility/enums.xml:KeyboardShortcutsSemanticMeaning, //tools/metrics/histograms/metadata/accessibility/histograms.xml:KeyboardShortcutsSemanticMeaning)
 
     private static @KeyboardShortcutsSemanticMeaning int getKeyboardSemanticMeaning(
-            int keyCodeAndMeta) {
+            KeyEvent event) {
+        int keyCodeAndMeta = event.getKeyCode() | KeyboardUtils.getMetaState(event);
 
         if (KEYBOARD_SHORTCUT_SEMANTIC_MAP.containsKey(keyCodeAndMeta)) {
             return KEYBOARD_SHORTCUT_SEMANTIC_MAP.get(keyCodeAndMeta);
@@ -304,9 +305,8 @@ public class KeyboardShortcuts {
                 return KeyboardShortcutsSemanticMeaning.NOT_IMPLEMENTED_DEV_TOOLS_TOGGLE;
             case CTRL | KeyEvent.KEYCODE_U:
                 return KeyboardShortcutsSemanticMeaning.NOT_IMPLEMENTED_VIEW_SOURCE;
-            case SHIFT | KeyEvent.KEYCODE_ESCAPE:
-                // TODO(crbug.com/402775002): Change fn signature to allow Command+Esc.
-                return KeyboardShortcutsSemanticMeaning.NOT_IMPLEMENTED_TASK_MANAGER;
+            case CTRL | KeyEvent.KEYCODE_ESCAPE:
+                return KeyboardShortcutsSemanticMeaning.TASK_MANAGER;
 
                 // Downloads.
             case CTRL | KeyEvent.KEYCODE_J:
@@ -658,6 +658,14 @@ public class KeyboardShortcuts {
                             KeyEvent.KEYCODE_I, (KeyEvent.META_CTRL_ON | KeyEvent.META_SHIFT_ON)),
                     R.string.keyboard_shortcut_developer_tools,
                     R.string.keyboard_shortcut_developer_group_header);
+
+            if (ChromeFeatureList.isEnabled(ChromeFeatureList.TASK_MANAGER_CLANK)) {
+                new KeyboardShortcutDefinition(
+                        KeyboardShortcutsSemanticMeaning.TASK_MANAGER,
+                        new KeyCombo(KeyEvent.KEYCODE_ESCAPE, KeyEvent.META_CTRL_ON),
+                        R.string.keyboard_shortcut_task_manager,
+                        R.string.keyboard_shortcut_developer_group_header);
+            }
         }
 
         // Webpage shortcuts (keyboard_shortcut_webpage_group_header).
@@ -757,18 +765,19 @@ public class KeyboardShortcuts {
                     break;
                 }
 
+                if (KeyboardUtils.getMetaState(event) == 0) {
+                    if (menuOrKeyboardActionController.onMenuOrKeyboardAction(
+                            R.id.esc_key, false)) {
+                        return true;
+                    }
+                }
+
                 // Exiting full screen takes priority over other actions when Escape is pressed,
                 // regardless of modifier keys. This means for example that you cannot open the task
                 // manager in full screen mode.
+                // TODO(crbug.com/398061359): Remove when Esc key logic ships without a kill switch.
                 if (fullscreenManager.getPersistentFullscreenMode()) {
                     fullscreenManager.exitPersistentFullscreenMode();
-                    return true;
-                }
-
-                if (KeyboardUtils.getMetaState(event) == CTRL
-                        && ChromeFeatureList.isEnabled(ChromeFeatureList.TASK_MANAGER_CLANK)) {
-                    TaskManager taskManager = TaskManagerFactory.createTaskManager();
-                    taskManager.launch(context);
                     return true;
                 }
                 break;
@@ -901,10 +910,8 @@ public class KeyboardShortcuts {
         WebContents currentWebContents = currentTab == null ? null : currentTab.getWebContents();
 
         int tabCount = currentTabModel.getCount();
-        int metaState = KeyboardUtils.getMetaState(event);
-        int keyCodeAndMeta = keyCode | metaState;
-        @KeyboardShortcutsSemanticMeaning
-        int semanticMeaning = getKeyboardSemanticMeaning(keyCodeAndMeta);
+
+        @KeyboardShortcutsSemanticMeaning int semanticMeaning = getKeyboardSemanticMeaning(event);
 
         RecordHistogram.recordEnumeratedHistogram(
                 AccessibilityState.isKnownScreenReaderEnabled()
@@ -935,6 +942,9 @@ public class KeyboardShortcuts {
                 }
             case KeyboardShortcutsSemanticMeaning.DEV_TOOLS:
                 menuOrKeyboardActionController.onMenuOrKeyboardAction(R.id.dev_tools, false);
+                return true;
+            case KeyboardShortcutsSemanticMeaning.TASK_MANAGER:
+                menuOrKeyboardActionController.onMenuOrKeyboardAction(R.id.task_manager, false);
                 return true;
             case KeyboardShortcutsSemanticMeaning.SAVE_PAGE:
                 menuOrKeyboardActionController.onMenuOrKeyboardAction(R.id.offline_page_id, false);
@@ -995,7 +1005,7 @@ public class KeyboardShortcuts {
                         currentTabModel
                                 .getTabRemover()
                                 .closeTabs(
-                                        TabClosureParams.closeTab(tab).allowUndo(true).build(),
+                                        TabClosureParams.closeTab(tab).allowUndo(false).build(),
                                         /* allowDialog= */ true);
                     }
                     return true;
@@ -1087,5 +1097,10 @@ public class KeyboardShortcuts {
         }
 
         return false;
+    }
+
+    @CalledByNative
+    private static boolean isChromeAccelerator(KeyEvent event) {
+        return getKeyboardSemanticMeaning(event) != KeyboardShortcutsSemanticMeaning.UNKNOWN;
     }
 }

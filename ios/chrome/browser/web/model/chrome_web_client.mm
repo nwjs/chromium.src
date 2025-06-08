@@ -37,6 +37,8 @@
 #import "components/supervised_user/core/browser/supervised_user_interstitial.h"
 #import "components/translate/ios/browser/translate_java_script_feature.h"
 #import "components/version_info/version_info.h"
+#import "components/webauthn/ios/features.h"
+#import "components/webauthn/ios/passkey_java_script_feature.h"
 #import "ios/chrome/browser/autofill/model/bottom_sheet/autofill_bottom_sheet_java_script_feature.h"
 #import "ios/chrome/browser/browser_container/model/edit_menu_tab_helper.h"
 #import "ios/chrome/browser/content_settings/model/host_content_settings_map_factory.h"
@@ -364,6 +366,10 @@ std::string ChromeWebClient::GetUserAgent(web::UserAgentType type) const {
   return web::BuildMobileUserAgent(GetMobileProduct());
 }
 
+std::string ChromeWebClient::GetMainThreadName() const {
+  return "CrWebMain";
+}
+
 std::u16string ChromeWebClient::GetLocalizedString(int message_id) const {
   return l10n_util::GetStringUTF16(message_id);
 }
@@ -422,6 +428,11 @@ std::vector<web::JavaScriptFeature*> ChromeWebClient::GetJavaScriptFeatures(
   features.push_back(ImageFetchJavaScriptFeature::GetInstance());
   features.push_back(
       password_manager::PasswordManagerJavaScriptFeature::GetInstance());
+
+  if (base::FeatureList::IsEnabled(kIOSPasskeyShim)) {
+    features.push_back(PasskeyJavaScriptFeature::GetInstance());
+  }
+
   features.push_back(LinkToTextJavaScriptFeature::GetInstance());
   features.push_back(WebSelectionJavaScriptFeature::GetInstance());
 
@@ -441,9 +452,7 @@ std::vector<web::JavaScriptFeature*> ChromeWebClient::GetJavaScriptFeatures(
   features.push_back(
       SupervisedUserInterstitialJavaScriptFeature::GetInstance());
 
-  if (base::FeatureList::IsEnabled(
-          kEnableReaderModeDistillerHeuristicForMetrics) ||
-      IsReaderModeAvailable()) {
+  if (IsReaderModeAvailable()) {
     features.push_back(ReaderModeJavaScriptFeature::GetInstance());
   }
 

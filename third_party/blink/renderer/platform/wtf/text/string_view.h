@@ -146,15 +146,10 @@ class WTF_EXPORT StringView {
         bytes_(chars.data()),
         length_(base::checked_cast<wtf_size_t>(chars.size())) {}
   // NOLINTNEXTLINE(google-explicit-constructor)
-  StringView(const LChar* chars)
+  StringView(const char* chars)
       : impl_(StringImpl::empty_),
         bytes_(chars),
-        length_(chars ? base::checked_cast<unsigned>(
-                            strlen(reinterpret_cast<const char*>(chars)))
-                      : 0) {}
-  // NOLINTNEXTLINE(google-explicit-constructor)
-  StringView(const char* chars)
-      : StringView(reinterpret_cast<const LChar*>(chars)) {}
+        length_(chars ? base::checked_cast<unsigned>(strlen(chars)) : 0) {}
 
   // From a wide literal string or UChar buffer.
   explicit StringView(base::span<const UChar> chars)

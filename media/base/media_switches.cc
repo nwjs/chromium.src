@@ -251,7 +251,7 @@ const char kUserGestureRequiredPolicy[] = "user-gesture-required";
 
 }  // namespace autoplay
 
-#if BUILDFLAG(USE_CHROMEOS_MEDIA_ACCELERATION)
+#if BUILDFLAG(USE_LINUX_VIDEO_ACCELERATION)
 // Some (Qualcomm only at the moment) V4L2 video decoders require setting the
 // framerate so that the hardware decoder can scale the clocks efficiently.
 // This provides a mechanism during testing to lock the decoder framerate
@@ -269,14 +269,14 @@ const char kEnablePrimaryNodeAccessForVkmsTesting[] =
 
 const char kCastStreamingForceDisableHardwareH264[] =
     "cast-streaming-force-disable-hardware-h264";
-const char kCastStreamingForceDisableHardwareVp8[] =
-    "cast-streaming-force-disable-hardware-vp8";
-const char kCastStreamingForceDisableHardwareVp9[] =
-    "cast-streaming-force-disable-hardware-vp9";
 const char kCastStreamingForceEnableHardwareH264[] =
     "cast-streaming-force-enable-hardware-h264";
+const char kCastStreamingForceDisableHardwareVp8[] =
+    "cast-streaming-force-disable-hardware-vp8";
 const char kCastStreamingForceEnableHardwareVp8[] =
     "cast-streaming-force-enable-hardware-vp8";
+const char kCastStreamingForceDisableHardwareVp9[] =
+    "cast-streaming-force-disable-hardware-vp9";
 const char kCastStreamingForceEnableHardwareVp9[] =
     "cast-streaming-force-enable-hardware-vp9";
 
@@ -327,7 +327,7 @@ BASE_FEATURE(kPlatformHEVCDecoderSupport,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_APPLE) || BUILDFLAG(IS_ANDROID)
-// Enables HEVC hardware accelerated encoding for Windows, Mac, and Android.
+// Enables HEVC hardware accelerated encoding for Windows, Apple, and Android.
 BASE_FEATURE(kPlatformHEVCEncoderSupport,
              "PlatformHEVCEncoderSupport",
              base::FEATURE_ENABLED_BY_DEFAULT);
@@ -944,6 +944,8 @@ BASE_FEATURE(kFailUrlProvisionFetcherForTesting,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Enables hardware secure decryption if supported by hardware and CDM.
+// NOTE: This feature is experimental and not officially supported. Users may
+// encounter issues; enabling is discouraged.
 // TODO(xhwang): Currently this is only used for development of new features.
 // Apply this to Android and ChromeOS as well where hardware secure decryption
 // is already available.
@@ -1114,6 +1116,18 @@ BASE_FEATURE(kAllowMediaCodecCallsInSeparateProcess,
              "AllowMediaCodecCallsInSeparateProcess",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
+// Allows Chrome to query Android for supported layouts, and forces the use
+// of the layout with the maximum number of channels. This avoids
+// downmixing (and losing channel information) if a media file starts with
+// a low channel count but switches to a higher channel later in the file.
+// For example, when this feature is disabled and playing a media file
+// which starts with 5.1 and switches to 7.1, we would be forced to downmix
+// from 7.1 to 5.1, since we don't update ChannelLayouts mid-playback.
+// Used on Android automotive only.
+BASE_FEATURE(kUseAudioManagerMaxChannelLayout,
+             "UseAudioManagerMaxChannelLayout",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 #endif  // BUILDFLAG(IS_ANDROID)
 
 #if BUILDFLAG(ENABLE_HLS_DEMUXER)
@@ -1130,7 +1144,8 @@ BASE_FEATURE(kBuiltInHlsMP4, "BuiltInHlsMP4", base::FEATURE_ENABLED_BY_DEFAULT);
 
 #endif  // BUILDFLAG(ENABLE_HLS_DEMUXER)
 
-#if BUILDFLAG(USE_CHROMEOS_MEDIA_ACCELERATION)
+// TODO(crbug.com/414430336): Consider restricting to IS_CHROMEOS.
+#if BUILDFLAG(USE_LINUX_VIDEO_ACCELERATION)
 // Enable Variable Bitrate encoding with hardware accelerated encoders on
 // ChromeOS.
 BASE_FEATURE(kChromeOSHWVBREncoding,
@@ -1201,7 +1216,7 @@ BASE_FEATURE(kEnableArmHwdrm,
              base::FEATURE_ENABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(USE_CHROMEOS_PROTECTED_MEDIA)
 #endif  // defined(ARCH_CPU_ARM_FAMILY)
-#endif  // BUILDFLAG(USE_CHROMEOS_MEDIA_ACCELERATION)
+#endif  // BUILDFLAG(USE_LINUX_VIDEO_ACCELERATION)
 
 #if BUILDFLAG(IS_WIN)
 // Enables DirectShow GetPhotoState implementation
@@ -1559,6 +1574,10 @@ BASE_FEATURE(kCastStreamingExponentialVideoBitrateAlgorithm,
              "CastStreamingExponentialVideoBitrateAlgorithm",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+BASE_FEATURE(kCastStreamingHardwareHevc,
+             "CastStreamingHardwareHevc",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // TODO(crbug.com/282984511): Remove after M151.
 BASE_FEATURE(kCastStreamingMediaVideoEncoder,
              "CastStreamingMediaVideoEncoder",
@@ -1682,12 +1701,6 @@ BASE_FEATURE(kMediaFoundationSharedImageEncode,
 // Controls whether muted media stream audio should continue to render.
 BASE_FEATURE(kRenderMutedAudio,
              "RenderMutedAudio",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-// Serves as killswitch for rolling out Mappable SharedImage mojom support.
-// TODO(crbug.com/40263579): Eliminate post safe rollout.
-BASE_FEATURE(kSupportMappableSharedImageOverMojo,
-             "SupportMappableSharedImageOverMojo",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Controls headless Live Caption experiment, which is likely unstable.

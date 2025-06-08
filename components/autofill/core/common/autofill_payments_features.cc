@@ -72,6 +72,11 @@ BASE_FEATURE(kAutofillEnableCardBenefitsIph,
              "AutofillEnableCardBenefitsIph",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+// When enabled, card benefit source will be synced to Chrome clients.
+BASE_FEATURE(kAutofillEnableCardBenefitsSourceSync,
+             "AutofillEnableCardBenefitsSourceSync",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
 // When enabled, Chrome will show metadata along with other card information
 // when the virtual card is presented to users.
 BASE_FEATURE(kAutofillEnableCardBenefitsSync,
@@ -86,7 +91,11 @@ BASE_FEATURE(kAutofillEnableCardBenefitsSync,
 // from issuer for enrolled cards will be enabled during form fill.
 BASE_FEATURE(kAutofillEnableCardInfoRuntimeRetrieval,
              "AutofillEnableCardInfoRuntimeRetrieval",
+#if BUILDFLAG(IS_IOS)
              base::FEATURE_DISABLED_BY_DEFAULT);
+#else
+             base::FEATURE_ENABLED_BY_DEFAULT);
+#endif
 
 // When enabled, we will store CVC for both local and server credit cards. This
 // will also allow the users to autofill their CVCs on checkout pages.
@@ -112,6 +121,12 @@ BASE_FEATURE(kAutofillEnableCvcStorageAndFillingEnhancement,
 // enable CVV storage suggestions for standalone CVC fields.
 BASE_FEATURE(kAutofillEnableCvcStorageAndFillingStandaloneFormEnhancement,
              "AutofillEnableCvcStorageAndFillingStandaloneFormEnhancement",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// When enabled, card flat rate benefit will not be shown on merchants in the
+// blocklist.
+BASE_FEATURE(kAutofillEnableFlatRateCardBenefitsBlocklist,
+             "AutofillEnableFlatRateCardBenefitsBlocklist",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 // When enabled, flat rate card benefits sourced from Curinos will be shown in
@@ -145,6 +160,12 @@ BASE_FEATURE(kAutofillEnableVirtualCardJavaPaymentsDataManager,
 // TODO(crbug.com/359934323): Clean up when launched
 BASE_FEATURE(kAutofillEnableLogFormEventsToAllParsedFormTypes,
              "AutofillEnableLogFormEventsToAllParsedFormTypes",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// When enabled, virtual card downstream enrollment will support multiple
+// requests at a time.
+BASE_FEATURE(kAutofillEnableMultipleRequestInVirtualCardDownstreamEnrollment,
+             "AutofillEnableMultipleRequestInVirtualCardDownstreamEnrollment",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 // When enabled, the card benefits toggle in settings will show updated text.
@@ -210,6 +231,14 @@ BASE_FEATURE(kAutofillEnableVcn3dsAuthentication,
              "AutofillEnableVcn3dsAuthentication",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+#if BUILDFLAG(IS_IOS)
+// When enabled, save card bottomsheet will be shown to save the card locally
+// when the user has not previously rejected the offer to save the card.
+BASE_FEATURE(kAutofillLocalSaveCardBottomSheet,
+             "AutofillLocalSaveCardBottomSheet",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+#endif
+
 // When enabled, Chrome will try to fetch payment account image resources again
 // upon failure. The number of attempts is a controllable parameter. This is a
 // kill-switch.
@@ -219,9 +248,9 @@ BASE_FEATURE(kAutofillRetryImageFetchOnFailure,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 #if BUILDFLAG(IS_IOS)
-// When enabled, save card bottomsheet will be shown when the user has not
-// previously rejected the offer to save the card, and both a valid expiry date
-// and cardholder name are present.
+// When enabled, save card bottomsheet will be shown to save the card to the
+// server when the user has not previously rejected the offer to save the card,
+// and both a valid expiry date and cardholder name are present.
 BASE_FEATURE(kAutofillSaveCardBottomSheet,
              "AutofillSaveCardBottomSheet",
              base::FEATURE_DISABLED_BY_DEFAULT);

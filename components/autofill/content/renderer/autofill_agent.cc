@@ -489,13 +489,18 @@ class AutofillAgent::DeferringAutofillDriver : public mojom::AutofillDriver {
   void SelectFieldOptionsDidChange(const FormData& form) override {
     DeferMsg(&mojom::AutofillDriver::SelectFieldOptionsDidChange, form);
   }
-  void AskForValuesToFill(
-      const FormData& form,
-      FieldRendererId field_id,
-      const gfx::Rect& caret_bounds,
-      AutofillSuggestionTriggerSource trigger_source) override {
+  void AskForValuesToFill(const FormData& form,
+                          FieldRendererId field_id,
+                          const gfx::Rect& caret_bounds,
+                          AutofillSuggestionTriggerSource trigger_source,
+                          const std::optional<PasswordSuggestionRequest>&
+                              password_request) override {
     DeferMsg(&mojom::AutofillDriver::AskForValuesToFill, form, field_id,
-             caret_bounds, trigger_source);
+             caret_bounds, trigger_source,
+             base::FeatureList::IsEnabled(
+                 features::kAutofillAndPasswordsInSameSurface)
+                 ? password_request
+                 : std::nullopt);
   }
   void HidePopup() override { DeferMsg(&mojom::AutofillDriver::HidePopup); }
   void FocusOnNonFormField() override {
@@ -534,7 +539,13 @@ AutofillAgent::AutofillAgent(
                                ->GetRendererPreferences()
                                .uses_platform_autofill)),
       password_autofill_agent_(std::move(password_autofill_agent)),
-      password_generation_agent_(std::move(password_generation_agent)) {
+      password_generation_agent_(std::move(password_generation_agent)),
+      optimize_form_extraction_(base::FeatureList::IsEnabled(
+          features::kAutofillOptimizeFormExtraction)),
+      replace_form_element_observer_(base::FeatureList::IsEnabled(
+          features::kAutofillReplaceFormElementObserver)),
+      detect_removed_form_controls_(base::FeatureList::IsEnabled(
+          features::kAutofillDetectRemovedFormControls)) {
   form_tracker_->SetUserGestureRequired(config_.user_gesture_required);
   render_frame->GetWebFrame()->SetAutofillClient(this);
   password_autofill_agent_->Init(this);
@@ -801,7 +812,7 @@ void AutofillAgent::OnDestruct() {
 }
 
 void AutofillAgent::AccessibilityModeChanged(const ui::AXMode& mode) {
-  is_screen_reader_enabled_ = mode.has_mode(ui::AXMode::kExtendedProperties);
+  is_screen_reader_enabled_ = mode.has_mode(ui::AXMode::kScreenReader);
 }
 
 void AutofillAgent::FireHostSubmitEvents(const FormData& form_data,
@@ -875,11 +886,14 @@ bool AutofillAgent::TryShowPasswordSuggestions(
   // Show suggestions empty password fields or for username fields with
   // matching suggestions - even if non-empty.
   if (is_password_field && !is_field_empty) {
-    if (auto* autofill_driver = unsafe_autofill_driver()) {
-      autofill_driver->HidePopup();
-      is_popup_possibly_visible_ = false;
-      return false;
-    }
+    HidePopup();
+    return false;
+  }
+
+  if (base::FeatureList::IsEnabled(
+          features::kAutofillAndPasswordsInSameSurface)) {
+    // No update to `is_popup_possibly_visible_` yet: it could still be open.
+    return false;
   }
 
   if (password_request) {
@@ -1477,7 +1491,7 @@ void AutofillAgent::ShowSuggestions(
     const WebFormControlElement& element,
     AutofillSuggestionTriggerSource trigger_source,
     const SynchronousFormCache& form_cache,
-    base::optional_ref<const PasswordSuggestionRequest> password_request) {
+    const std::optional<PasswordSuggestionRequest>& password_request) {
   // TODO(crbug.com/40068004): Make this a CHECK.
   DCHECK(form_util::MaybeWasOwnedByFrame(element, unsafe_render_frame()));
   CHECK_NE(trigger_source, AutofillSuggestionTriggerSource::kUnspecified);
@@ -1567,7 +1581,7 @@ void AutofillAgent::ShowSuggestions(
     if (auto* render_frame = unsafe_render_frame()) {
       autofill_driver->AskForValuesToFill(form, field->renderer_id(),
                                           GetCaretBounds(*render_frame),
-                                          trigger_source);
+                                          trigger_source, password_request);
     }
   }
 }
@@ -1592,7 +1606,7 @@ void AutofillAgent::ShowSuggestionsForContentEditable(
     if (auto* render_frame = unsafe_render_frame()) {
       autofill_driver->AskForValuesToFill(*form, field.renderer_id(),
                                           GetCaretBounds(*render_frame),
-                                          trigger_source);
+                                          trigger_source, std::nullopt);
     }
   }
 }
@@ -1790,9 +1804,13 @@ void AutofillAgent::DidChangeFormRelatedElementDynamically(
       // need to run this function as this would be redundant.
       return false;
     }
-    if (!base::FeatureList::IsEnabled(
-            features::kAutofillOptimizeFormExtraction)) {
+    if (!optimize_form_extraction_) {
       return true;
+    }
+    // Early bailout for node removal.
+    if (form_related_change == blink::WebFormRelatedChangeType::kRemove &&
+        !replace_form_element_observer_ && !detect_removed_form_controls_) {
+      return false;
     }
     auto maybe_control_element = element.DynamicTo<WebFormControlElement>();
     const bool is_autofillable_element =
@@ -1832,8 +1850,7 @@ void AutofillAgent::DidChangeFormRelatedElementDynamically(
       break;
     case blink::WebFormRelatedChangeType::kRemove:
       form_tracker_->ElementDisappeared(element);
-      if (base::FeatureList::IsEnabled(
-              features::kAutofillDetectRemovedFormControls)) {
+      if (detect_removed_form_controls_) {
         ExtractFormsAndNotifyPasswordAutofillAgent(
             process_forms_after_dynamic_change_timer_, element);
       }
@@ -2100,8 +2117,7 @@ void AutofillAgent::OnProvisionallySaveForm(
   // version of the to-be-submitted form.
   auto update_submission_data_on_user_edit = [&] {
     if (form_element) {
-      if (!base::FeatureList::IsEnabled(
-              features::kAutofillOptimizeFormExtraction)) {
+      if (!optimize_form_extraction_) {
         UpdateLastInteractedElement(form_util::GetFormRendererId(form_element));
       }
       return;
@@ -2115,8 +2131,7 @@ void AutofillAgent::OnProvisionallySaveForm(
         });
     formless_elements_user_edited_.insert(
         form_util::GetFieldRendererId(element));
-    if (!base::FeatureList::IsEnabled(
-            features::kAutofillOptimizeFormExtraction)) {
+    if (!optimize_form_extraction_) {
       UpdateLastInteractedElement(form_util::GetFieldRendererId(element));
     }
   };
@@ -2234,8 +2249,7 @@ std::optional<FormData> AutofillAgent::GetSubmittedForm(
   // - Never try to extract and unconditionally look at the provisionally saved
   //   form. The reason is that some form extraction could happen during style
   //   recalc, meaning that querying field focusability would crash.
-  if (base::FeatureList::IsEnabled(
-          features::kAutofillReplaceFormElementObserver)) {
+  if (replace_form_element_observer_) {
     LogSubmittedFormMetric(source, cached_form ? SubmittedFormType::kCached
                                                : SubmittedFormType::kNull);
     return cached_form;

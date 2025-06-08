@@ -332,8 +332,8 @@ void AcceleratedStaticBitmapImage::InitializeTextureBacking(
     skia_context_provider_wrapper_ = context_provider_wrapper;
     texture_backing_ = sk_make_sp<MailboxTextureBacking>(
         shared_image_->mailbox(), mailbox_ref_, GetSize(),
-        ToClosestSkColorType(GetSharedImageFormat()), GetAlphaType(),
-        GetSkColorSpace(), std::move(context_provider_wrapper));
+        GetSharedImageFormat(), GetAlphaType(), GetColorSpace(),
+        std::move(context_provider_wrapper));
     return;
   }
 
@@ -376,14 +376,13 @@ void AcceleratedStaticBitmapImage::InitializeTextureBacking(
   sk_sp<SkImage> sk_image = SkImages::BorrowTextureFrom(
       shared_gr_context, backend_texture, origin,
       ToClosestSkColorType(GetSharedImageFormat()), GetAlphaType(),
-      GetSkColorSpace(), &ReleaseTexture, release_ctx);
+      GetColorSpace().ToSkColorSpace(), &ReleaseTexture, release_ctx);
 
   if (sk_image) {
     skia_context_provider_wrapper_ = context_provider_wrapper;
     texture_backing_ = sk_make_sp<MailboxTextureBacking>(
-        std::move(sk_image), mailbox_ref_, GetSize(),
-        ToClosestSkColorType(GetSharedImageFormat()), GetAlphaType(),
-        GetSkColorSpace(), std::move(context_provider_wrapper));
+        std::move(sk_image), mailbox_ref_, GetSize(), GetSharedImageFormat(),
+        GetAlphaType(), GetColorSpace(), std::move(context_provider_wrapper));
   }
 }
 
@@ -443,10 +442,9 @@ void AcceleratedStaticBitmapImage::Transfer() {
   DETACH_FROM_THREAD(thread_checker_);
 }
 
-bool AcceleratedStaticBitmapImage::CurrentFrameKnownToBeOpaque() {
+bool AcceleratedStaticBitmapImage::IsOpaque() {
   return SkAlphaTypeIsOpaque(GetAlphaType()) ||
-         SkColorTypeIsAlwaysOpaque(
-             ToClosestSkColorType(GetSharedImageFormat()));
+         !GetSharedImageFormat().HasAlpha();
 }
 
 }  // namespace blink

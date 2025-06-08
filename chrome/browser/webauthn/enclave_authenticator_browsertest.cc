@@ -571,6 +571,23 @@ static constexpr char kSignalRestoreTestPasskey[] = R"((() => {
           e => window.domAutomationController.send('error ' + e));
 })())";
 
+static constexpr char kGetAssertionViaButtonClickImmediateUvPreferred[] = R"(
+  document.body.innerHTML = '<button id="testButton"">Get Assertion</button>';
+  function triggerGetAssertion() {
+    navigator.credentials.get({
+      mediation: "immediate",
+      publicKey: {
+        challenge: new Uint8Array([0]),
+        timeout: 10000,
+        userVerification: 'preferred',
+      }
+    }).then(c => window.domAutomationController.send('webauthn: OK'),
+             e => window.domAutomationController.send('error ' + e));
+  }
+  const button = document.getElementById('testButton');
+  button.addEventListener('click', triggerGetAssertion);
+)";
+
 bool IsReady(GPMEnclaveController::AccountState state) {
   switch (state) {
     case GPMEnclaveController::AccountState::kReady:
@@ -4473,6 +4490,116 @@ IN_PROC_BROWSER_TEST_P(EnclaveAuthenticatorConditionalCreateBrowserTest,
   content::ExecuteScriptAsync(web_contents, script);
   ASSERT_TRUE(message_queue.WaitForMessage(&script_result));
   EXPECT_THAT(script_result, testing::HasSubstr("InvalidStateError"));
+}
+
+class EnclaveAuthenticatorImmediateMediationBrowserTest
+    : public EnclaveAuthenticatorBrowserTest {
+  base::test::ScopedFeatureList scoped_feature_list_{
+      device::kWebAuthnImmediateGet};
+};
+
+#if BUILDFLAG(IS_MAC)
+
+IN_PROC_BROWSER_TEST_F(
+    EnclaveAuthenticatorImmediateMediationBrowserTest,
+    GivenOnlyOneGpmPasskeyWithBiometricsEnabled_WhenImmediateRequestWithUv_TouchIdShown) {
+  if (!MacBiometricApisAvailable()) {
+    GTEST_SKIP() << "Need macOS biometric support for this test.";
+  }
+  base::HistogramTester histogram_tester;
+  content::WebContents* web_contents =
+      browser()->tab_strip_model()->GetActiveWebContents();
+  content::DOMMessageQueue message_queue(web_contents);
+
+  // GPM setup with one passkey
+  trusted_vault::DownloadAuthenticationFactorsRegistrationStateResult
+      registration_state_result;
+  registration_state_result.state = trusted_vault::
+      DownloadAuthenticationFactorsRegistrationStateResult::State::kRecoverable;
+  registration_state_result.key_version = kSecretVersion;
+  SetMockVaultConnectionOnRequestDelegate(std::move(registration_state_result));
+  security_domain_service_->pretend_there_are_members();
+  AddTestPasskeyToModel();
+  EnableUVKeySupport();
+  SetBiometricsEnabled(true);
+
+  // The first get() request is satisfied implicitly because recovery was done.
+  content::ExecuteScriptAsync(web_contents, kGetAssertionUvPreferred);
+  delegate_observer()->WaitForUI();
+  model_observer()->SetStepToObserve(
+      AuthenticatorRequestDialogModel::Step::kTrustThisComputerAssertion);
+  model_observer()->WaitForStep();
+  model_observer()->SetStepToObserve(
+      AuthenticatorRequestDialogModel::Step::kRecoverSecurityDomain);
+  dialog_model()->OnTrustThisComputer();
+  model_observer()->WaitForStep();
+  EnclaveManagerFactory::GetAsEnclaveManagerForProfile(browser()->profile())
+      ->StoreKeys(kGaiaId,
+                  {std::vector<uint8_t>(std::begin(kSecurityDomainSecret),
+                                        std::end(kSecurityDomainSecret))},
+                  kSecretVersion);
+  std::string script_result;
+  ASSERT_TRUE(message_queue.WaitForMessage(&script_result));
+  EXPECT_EQ(script_result, "\"webauthn: uv=true\"");
+
+  // Setup page for immediate request:
+  ASSERT_TRUE(content::ExecJs(web_contents,
+                              kGetAssertionViaButtonClickImmediateUvPreferred));
+
+  // Simulate button click to trigger the navigator.credentials.get() call
+  content::ExecuteScriptAsync(web_contents,
+                              "document.getElementById('testButton').click();");
+
+  // Wait for TAI to be processed. This ensures SetUIPresentation has been
+  // called with kModalImmediate.
+  delegate_observer()->WaitForPreTransportAvailabilityEnumerated();
+  // Wait for the UI to be shown. For kModalImmediate, this means a specific
+  // sheet (like bootstrapping or Touch ID) is shown.
+  delegate_observer()->WaitForUI();
+
+  // Simulate successful recovery/enrollment by storing keys.
+  // This should lead to OnEnclaveAccountSetUpComplete, which then picks
+  // kUVKeyWithChromeUI and sets step to kGPMTouchID.
+  model_observer()->SetStepToObserve(
+      AuthenticatorRequestDialogModel::Step::kGPMTouchID);
+  model_observer()->WaitForStep();
+
+  // At this point, step should be kGPMTouchID
+  EXPECT_EQ(dialog_model()->step(),
+            AuthenticatorRequestDialogModel::Step::kGPMTouchID);
+  histogram_tester.ExpectUniqueSample(
+      "WebAuthentication.GetAssertion.Immediate.EnclaveReady",
+      /*sample=*/true,
+      /*expected_bucket_count=*/1);
+}
+
+#endif  // BUILDFLAG(IS_MAC)
+
+IN_PROC_BROWSER_TEST_F(EnclaveAuthenticatorImmediateMediationBrowserTest,
+                       ImmediateRequest_EnclaveNotReady_NoPasskeys) {
+  base::HistogramTester histogram_tester;
+  content::WebContents* web_contents =
+      browser()->tab_strip_model()->GetActiveWebContents();
+  content::DOMMessageQueue message_queue(web_contents);
+
+  // GPM setup with one passkey
+  AddTestPasskeyToModel();
+
+  // 2. Setup page for immediate request and click button.
+  ASSERT_TRUE(content::ExecJs(web_contents,
+                              kGetAssertionViaButtonClickImmediateUvPreferred));
+  content::ExecuteScriptAsync(web_contents,
+                              "document.getElementById('testButton').click();");
+
+  // 3. Wait for the request to complete.
+  // It's expected to fail as no credentials should be found.
+  std::string script_result;
+  ASSERT_TRUE(message_queue.WaitForMessage(&script_result));
+  EXPECT_THAT(script_result, testing::HasSubstr("NotAllowedError"));
+  histogram_tester.ExpectUniqueSample(
+      "WebAuthentication.GetAssertion.Immediate.EnclaveReady",
+      /*sample=*/false,
+      /*expected_bucket_count=*/1);
 }
 
 }  // namespace

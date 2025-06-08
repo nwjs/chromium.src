@@ -10,6 +10,7 @@
 #include "base/callback_list.h"
 #include "chrome/browser/glic/host/context/glic_tab_data.h"
 #include "chrome/browser/glic/host/glic.mojom-shared.h"
+#include "chrome/browser/glic/widget/glic_window_controller.h"
 #include "content/public/browser/weak_document_ptr.h"
 #include "mojo/public/cpp/bindings/receiver.h"
 #include "mojo/public/cpp/bindings/remote.h"
@@ -39,6 +40,9 @@ class GlicAnnotationManager {
   void ScrollTo(mojom::ScrollToParamsPtr params,
                 mojom::WebClientHandler::ScrollToCallback callback);
 
+  // Removes any existing annotations.
+  void RemoveAnnotation(mojom::ScrollToErrorReason reason);
+
  private:
   // Represents the processing of a single `ScrollTo` call.
   // Note: The task is currently kept alive after the scroll is triggered and
@@ -47,7 +51,8 @@ class GlicAnnotationManager {
   // highlight is currently persisted until either the page with the highlight
   // is navigated from or ScrollTo() is called again.
   class AnnotationTask : public blink::mojom::AnnotationAgentHost,
-                         content::WebContentsObserver {
+                         content::WebContentsObserver,
+                         GlicWindowController::StateObserver {
    public:
     AnnotationTask(GlicAnnotationManager* manager,
                    mojo::Remote<blink::mojom::AnnotationAgent> annotation_agent,
@@ -61,9 +66,9 @@ class GlicAnnotationManager {
     // ScrollTo callback hasn't been run yet if this is true.
     bool IsRunning() const;
 
-    // Runs the callback with `error_reason` and destroys `this`. Should only
-    // be called when `IsRunning()` is true.
-    void FailTask(mojom::ScrollToErrorReason error_reason);
+    // Fails the task with `reason` if it's still running, otherwise drops the
+    // active annotation.
+    void FailTaskOrDropAnnotation(mojom::ScrollToErrorReason reason);
 
    private:
     enum class State {
@@ -98,6 +103,10 @@ class GlicAnnotationManager {
     void DropAnnotation();
     void ResetConnections();
 
+    // Runs the callback with `error_reason` and invalidates `this`. Should only
+    // be called when `IsRunning()` is true.
+    void FailTask(mojom::ScrollToErrorReason error_reason);
+
     // blink::mojom::AnnotationAgentHost overrides.
     void DidFinishAttachment(
         const gfx::Rect& document_relative_rect,
@@ -106,8 +115,15 @@ class GlicAnnotationManager {
     // content::WebContentsObserver overrides.
     void PrimaryPageChanged(content::Page& page) override;
 
+    // `GlicWindowController::StateObserver`:
+    void PanelStateChanged(const mojom::PanelState& panel_state,
+                           Browser* attached_browser) override;
+
     // GlicFocusedTabManager::FocusedTabChangedCallback
     void OnFocusedTabChanged(FocusedTabData focused_tab_data);
+
+    // `pref_change_registrar_` callback.
+    void OnTabContextPermissionChanged(const std::string& pref_name);
 
     // Uniquely owns `this`.
     base::raw_ref<GlicAnnotationManager> annotation_manager_;
@@ -128,8 +144,14 @@ class GlicAnnotationManager {
     // while the task is running. Cleared after the task completes/fails.
     base::CallbackListSubscription tab_change_subscription_;
 
+    // Used to subscribe to tab context permission changes.
+    PrefChangeRegistrar pref_change_registrar_;
+
     // Current state of the task, see documentation for `State`.
     State state_ = State::kRunning;
+
+    // Used to record the match duration of `ScrollTo()`.
+    const base::TimeTicks start_time_;
   };
 
   // See documentation for `annotation_agent_container_` below.

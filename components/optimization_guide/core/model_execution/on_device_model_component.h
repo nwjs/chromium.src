@@ -200,6 +200,7 @@ class OnDeviceModelComponentStateManager
 
   // Should be called whenever the device performance class changes.
   void DevicePerformanceClassChanged(
+      base::OnceClosure complete,
       OnDeviceModelPerformanceClass performance_class);
 
   // Whether the performance class needs to be fetched.
@@ -248,6 +249,11 @@ class OnDeviceModelComponentStateManager
   // Returns true if this is determined to be a low tier device.
   bool IsLowTierDevice() const;
 
+  // Returns true if the device supports image input.
+  bool SupportsImageInput() const;
+  // Returns true if the device supports audio input.
+  bool SupportsAudioInput() const;
+
   // Returns the performance hint for this device based on the supported
   // performance hints in the manifest.
   std::optional<proto::OnDeviceModelPerformanceHint>
@@ -283,7 +289,7 @@ class OnDeviceModelComponentStateManager
   DebugState GetDebugState();
 
   // Installs the component installer if it needs installed.
-  void BeginUpdateRegistration();
+  void BeginUpdateRegistration(base::OnceClosure complete);
   // Continuation of `UpdateRegistration()` after async work.
   void CompleteUpdateRegistration(int64_t disk_space_free_bytes);
 

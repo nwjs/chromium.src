@@ -164,11 +164,11 @@ std::unique_ptr<skgpu::graphite::Recorder> MakeGraphiteRecorder(
   return context->makeRecorder(options);
 }
 
-GLsizeiptr APIENTRY GLBlobCacheGetCallback(const void* key,
-                                           GLsizeiptr key_size,
-                                           void* value,
-                                           GLsizeiptr value_size,
-                                           const void* user_param) {
+GLsizeiptr GL_APIENTRY GLBlobCacheGetCallback(const void* key,
+                                              GLsizeiptr key_size,
+                                              void* value,
+                                              GLsizeiptr value_size,
+                                              const void* user_param) {
   DCHECK(user_param != nullptr);
   raster::GrShaderCache* cache =
       static_cast<raster::GrShaderCache*>(const_cast<void*>(user_param));
@@ -190,11 +190,11 @@ GLsizeiptr APIENTRY GLBlobCacheGetCallback(const void* key,
   return sk_data->size();
 }
 
-void APIENTRY GLBlobCacheSetCallback(const void* key,
-                                     GLsizeiptr key_size,
-                                     const void* value,
-                                     GLsizeiptr value_size,
-                                     const void* user_param) {
+void GL_APIENTRY GLBlobCacheSetCallback(const void* key,
+                                        GLsizeiptr key_size,
+                                        const void* value,
+                                        GLsizeiptr value_size,
+                                        const void* user_param) {
   DCHECK(user_param != nullptr);
   raster::GrShaderCache* cache =
       static_cast<raster::GrShaderCache*>(const_cast<void*>(user_param));
@@ -684,9 +684,13 @@ bool SharedContextState::InitializeGraphite(
   gpu_main_graphite_recorder_ = MakeGraphiteRecorder(
       graphite_shared_context(), context_options.fGpuBudgetInBytes,
       max_gpu_main_image_provider_cache_bytes);
+
+  const bool can_handle_context_resources =
+      !features::IsGraphiteContextThreadSafe() ||
+      !created_on_compositor_gpu_thread_;
   gpu_main_graphite_cache_controller_ =
       base::MakeRefCounted<raster::GraphiteCacheController>(
-          gpu_main_graphite_recorder_.get(), graphite_shared_context(),
+          gpu_main_graphite_recorder_.get(), can_handle_context_resources,
           dawn_context_provider_);
 
   // Only create the Viz recorder for the SharedContextState used by the
@@ -1166,9 +1170,14 @@ void SharedContextState::UpdateSkiaOwnedMemorySize() {
     // since with Graphite that's owned by Chrome rather than Skia as in Ganesh.
     const auto* image_provider = static_cast<const gpu::GraphiteImageProvider*>(
         gpu_main_graphite_recorder_->clientImageProvider());
-    new_size = graphite_shared_context()->currentBudgetedBytes() +
-               gpu_main_graphite_recorder_->currentBudgetedBytes() +
+    new_size = gpu_main_graphite_recorder_->currentBudgetedBytes() +
                image_provider->CurrentSizeInBytes();
+    // If there is only one graphite::Context for both GpuMain and
+    // CompositorGpuThread, only track the graphite context memory on GpuMain.
+    if (!features::IsGraphiteContextThreadSafe() ||
+        !created_on_compositor_gpu_thread_) {
+      new_size += graphite_shared_context()->currentBudgetedBytes();
+    }
   }
   // Skia does not have a CommandBufferId. PeakMemoryMonitor currently does not
   // use CommandBufferId to identify source, so use zero here to separate
@@ -1360,16 +1369,16 @@ std::optional<error::ContextLostReason> SharedContextState::GetResetStatus(
   GLenum driver_status = context()->CheckStickyGraphicsResetStatus();
   if (driver_status == GL_NO_ERROR)
     return std::nullopt;
-  LOG(ERROR) << "SharedContextState context lost via ARB/EXT_robustness. Reset "
+  LOG(ERROR) << "SharedContextState context lost via EXT_robustness. Reset "
                 "status = "
              << gles2::GLES2Util::GetStringEnum(driver_status);
 
   switch (driver_status) {
-    case GL_GUILTY_CONTEXT_RESET_ARB:
+    case GL_GUILTY_CONTEXT_RESET:
       return error::kGuilty;
-    case GL_INNOCENT_CONTEXT_RESET_ARB:
+    case GL_INNOCENT_CONTEXT_RESET:
       return error::kInnocent;
-    case GL_UNKNOWN_CONTEXT_RESET_ARB:
+    case GL_UNKNOWN_CONTEXT_RESET:
       return error::kUnknown;
     default:
       NOTREACHED();

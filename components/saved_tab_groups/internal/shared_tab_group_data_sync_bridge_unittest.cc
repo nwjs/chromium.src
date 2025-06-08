@@ -75,7 +75,9 @@ using testing::IsEmpty;
 using testing::IsNull;
 using testing::Not;
 using testing::NotNull;
+using testing::Pair;
 using testing::Pointee;
+using testing::Property;
 using testing::Return;
 using testing::ReturnRef;
 using testing::Sequence;
@@ -454,41 +456,13 @@ class SharedTabGroupDataSyncBridgeTest : public testing::Test {
     saved_tab_group_model_.reset();
   }
 
-  size_t GetNumEntriesInStore() const {
-    std::unique_ptr<syncer::DataTypeStore::RecordList> entries;
-    base::RunLoop run_loop;
-    store_->ReadAllData(base::BindLambdaForTesting(
-        [&run_loop, &entries](
-            const std::optional<syncer::ModelError>& error,
-            std::unique_ptr<syncer::DataTypeStore::RecordList> data) {
-          entries = std::move(data);
-          run_loop.Quit();
-        }));
-    run_loop.Run();
-    return entries->size();
+  size_t GetNumEntriesInStore() {
+    return syncer::DataTypeStoreTestUtil::ReadAllDataAndWait(store()).size();
   }
 
-  std::vector<sync_pb::SharedTabGroupDataSpecifics> GetAllSpecificsFromStore()
-      const {
-    std::unique_ptr<syncer::DataTypeStore::RecordList> entries;
-    base::RunLoop run_loop;
-    store_->ReadAllData(base::BindLambdaForTesting(
-        [&run_loop, &entries](
-            const std::optional<syncer::ModelError>& error,
-            std::unique_ptr<syncer::DataTypeStore::RecordList> data) {
-          entries = std::move(data);
-          run_loop.Quit();
-        }));
-    run_loop.Run();
-
-    std::vector<sync_pb::SharedTabGroupDataSpecifics> specifics;
-    for (const syncer::DataTypeStore::Record& record : *entries) {
-      proto::SharedTabGroupData local_proto;
-      bool success = local_proto.ParseFromString(record.value);
-      CHECK(success);
-      specifics.push_back(local_proto.specifics());
-    }
-    return specifics;
+  std::map<std::string, proto::SharedTabGroupData> GetAllLocalDataFromStore() {
+    return syncer::DataTypeStoreTestUtil::ReadAllDataAsProtoAndWait<
+        proto::SharedTabGroupData>(store());
   }
 
   // Generates and mocks unique positions for all the tabs in the `group`.
@@ -2099,8 +2073,8 @@ TEST_F(SharedTabGroupDataSyncBridgeTest,
   ASSERT_THAT(group.saved_tabs(), SizeIs(1));
   const SavedTabGroupTab& tab = group.saved_tabs()[0];
 
-  EXPECT_EQ(group.creation_time_windows_epoch_micros(), kCreationTime);
-  EXPECT_EQ(tab.creation_time_windows_epoch_micros(), kCreationTime);
+  EXPECT_EQ(group.creation_time(), kCreationTime);
+  EXPECT_EQ(tab.creation_time(), kCreationTime);
 }
 
 TEST_F(SharedTabGroupDataSyncBridgeTest,
@@ -2115,16 +2089,12 @@ TEST_F(SharedTabGroupDataSyncBridgeTest,
       "http://google.com/1", u"tab", group.saved_guid(), /*position=*/0);
   group.AddTabLocally(tab);
 
-  EXPECT_CALL(
-      mock_processor(),
-      Put(StorageKeyForTab(tab),
-          Pointee(HasCreationTime(tab.creation_time_windows_epoch_micros())),
-          _));
-  EXPECT_CALL(
-      mock_processor(),
-      Put(StorageKeyForGroup(group),
-          Pointee(HasCreationTime(group.creation_time_windows_epoch_micros())),
-          _));
+  EXPECT_CALL(mock_processor(),
+              Put(StorageKeyForTab(tab),
+                  Pointee(HasCreationTime(tab.creation_time())), _));
+  EXPECT_CALL(mock_processor(),
+              Put(StorageKeyForGroup(group),
+                  Pointee(HasCreationTime(group.creation_time())), _));
   model()->AddedLocally(group);
 }
 
@@ -2626,10 +2596,13 @@ TEST_F(SharedTabGroupDataSyncBridgeTest,
   ApplySingleEntityChange(CreateAddEntityChange(
       remote_tab_group_specifics.shared_tab_group_data(), kCollaborationId));
 
-  std::vector<sync_pb::SharedTabGroupDataSpecifics> stored_specifics =
-      GetAllSpecificsFromStore();
-  ASSERT_THAT(stored_specifics,
-              ElementsAre(GroupSpecificsHasUnsupportedField("extra_field")));
+  const std::string group_guid =
+      remote_tab_group_specifics.shared_tab_group_data().guid();
+  EXPECT_THAT(GetAllLocalDataFromStore(),
+              ElementsAre(Pair(
+                  group_guid,
+                  Property(&proto::SharedTabGroupData::specifics,
+                           GroupSpecificsHasUnsupportedField("extra_field")))));
 }
 
 TEST_F(SharedTabGroupDataSyncBridgeTest, ShouldNotPopulateKnownClearedFields) {

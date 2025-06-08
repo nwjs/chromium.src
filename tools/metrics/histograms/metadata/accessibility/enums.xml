@@ -1185,7 +1185,7 @@ Unknown properties are collapsed to zero. -->
     technologies such as screen readers.
   </summary>
   <int value="0" label="None"/>
-  <int value="1" label="Unknown"/>
+  <int value="1" label="Uninitialized"/>
   <int value="2" label="ChromeVox"/>
   <int value="3" label="JAWS"/>
   <int value="4" label="Narrator"/>
@@ -1197,6 +1197,7 @@ Unknown properties are collapsed to zero. -->
   <int value="10" label="ZoomText"/>
   <int value="11" label="ZDSR"/>
   <int value="12" label="Generic Screen Reader"/>
+  <int value="13" label="Windows Magnifier"/>
 </enum>
 
 <!-- LINT.ThenChange(//ui/accessibility/platform/assistive_tech.h:AssistiveTech) -->
@@ -1708,7 +1709,7 @@ Unknown properties are collapsed to zero. -->
       label="Open developer tools element inspection (not implemented)"/>
   <int value="40" label="Toggle showing developer tools (not implemented)"/>
   <int value="41" label="View page source (not implemented)"/>
-  <int value="42" label="Open task manager (not implemented)"/>
+  <int value="42" label="Open task manager"/>
   <int value="43" label="Save page"/>
   <int value="44" label="Show downloads (not implemented)"/>
   <int value="45" label="Open history"/>

@@ -112,6 +112,12 @@ class WebClientMessageHandler implements WebClientMessageHandlerInterface {
     this.host.getOsLocationPermissionState().assignAndSignal(payload.enabled);
   }
 
+  glicWebClientNotifyClosedCaptioningSettingChanged(payload: {
+    enabled: boolean,
+  }) {
+    this.host.closedCaptioningState.assignAndSignal(payload.enabled);
+  }
+
   glicWebClientNotifyFocusedTabChanged(payload: {
     focusedTabDataPrivate: FocusedTabDataPrivate,
   }) {
@@ -163,6 +169,7 @@ class GlicBrowserHostImpl implements GlicBrowserHost {
       ObservableValueImpl.withNoValue<boolean>();
   private permissionStateOsLocation =
       ObservableValueImpl.withNoValue<boolean>();
+  closedCaptioningState = ObservableValueImpl.withNoValue<boolean>();
   private osHotkeyState = ObservableValueImpl.withNoValue<{hotkey: string}>();
   panelActiveValue = ObservableValueImpl.withNoValue<boolean>();
   isBrowserOpenValue = ObservableValueImpl.withNoValue<boolean>();
@@ -222,18 +229,19 @@ class GlicBrowserHostImpl implements GlicBrowserHost {
     this.isBrowserOpenValue.assignAndSignal(state.browserIsOpen);
     this.osHotkeyState.assignAndSignal({hotkey: state.hotkey});
     this.fitWindow = state.fitWindow;
+    this.closedCaptioningState.assignAndSignal(
+        state.closedCaptioningSettingEnabled);
 
     if (!state.enableScrollTo) {
       this.scrollTo = undefined;
+      this.dropScrollToHighlight = undefined;
     }
 
     if (!state.enableActInFocusedTab) {
       this.actInFocusedTab = undefined;
       this.stopActorTask = undefined;
-    }
-
-    if (!state.enableDragToResizePanel) {
-      this.enableDragResize = undefined;
+      this.pauseActorTask = undefined;
+      this.resumeActorTask = undefined;
     }
 
     if (state.alwaysDetachedMode) {
@@ -245,6 +253,11 @@ class GlicBrowserHostImpl implements GlicBrowserHost {
 
     if (!state.enableZeroStateSuggestions) {
       this.getZeroStateSuggestionsForFocusedTab = undefined;
+    }
+
+    if (!state.enableClosedCaptioningFeature) {
+      this.getClosedCaptioningSetting = undefined;
+      this.setClosedCaptioningSetting = undefined;
     }
   }
 
@@ -334,8 +347,20 @@ class GlicBrowserHostImpl implements GlicBrowserHost {
         context.actInFocusedTabResult);
   }
 
-  stopActorTask?(): void {
-    this.sender.requestNoResponse('glicBrowserStopActorTask', undefined);
+  stopActorTask?(taskId?: number): void {
+    this.sender.requestNoResponse(
+        'glicBrowserStopActorTask', {taskId: taskId ?? 0});
+  }
+
+  pauseActorTask?(taskId: number): void {
+    this.sender.requestNoResponse('glicBrowserPauseActorTask', {taskId});
+  }
+
+  async resumeActorTask?(taskId: number, tabContextOptions: TabContextOptions):
+      Promise<TabContextResult> {
+    const response = await this.sender.requestWithResponse(
+        'glicBrowserResumeActorTask', {taskId, tabContextOptions});
+    return convertTabContextResultFromPrivate(response.tabContextResult);
   }
 
   async resizeWindow(
@@ -406,6 +431,10 @@ class GlicBrowserHostImpl implements GlicBrowserHost {
     return this.permissionStateOsLocation;
   }
 
+  getClosedCaptioningSetting?(): ObservableValueImpl<boolean> {
+    return this.closedCaptioningState;
+  }
+
   setMicrophonePermissionState(enabled: boolean): Promise<void> {
     return this.sender.requestWithResponse(
         'glicBrowserSetMicrophonePermissionState', {enabled});
@@ -419,6 +448,11 @@ class GlicBrowserHostImpl implements GlicBrowserHost {
   setTabContextPermissionState(enabled: boolean): Promise<void> {
     return this.sender.requestWithResponse(
         'glicBrowserSetTabContextPermissionState', {enabled});
+  }
+
+  setClosedCaptioningSetting?(enabled: boolean): Promise<void> {
+    return this.sender.requestWithResponse(
+        'glicBrowserSetClosedCaptioningSetting', {enabled});
   }
 
   setContextAccessIndicator(show: boolean): void {
@@ -494,6 +528,11 @@ class GlicBrowserHostImpl implements GlicBrowserHost {
       };
     }
     return zeroStateResult.suggestions;
+  }
+
+  dropScrollToHighlight?(): void {
+    this.sender.requestWithResponse(
+        'glicBrowserDropScrollToHighlight', undefined);
   }
 }
 

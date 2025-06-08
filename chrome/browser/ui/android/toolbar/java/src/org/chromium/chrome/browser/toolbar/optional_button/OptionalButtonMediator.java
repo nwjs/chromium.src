@@ -44,6 +44,10 @@ class OptionalButtonMediator {
         mModel.set(OptionalButtonProperties.ICON_BACKGROUND_ALPHA, alpha);
     }
 
+    void setIsIncognitoBranded(boolean isIncognitoBranded) {
+        mModel.set(OptionalButtonProperties.IS_INCOGNITO_BRANDED, isIncognitoBranded);
+    }
+
     public void setOnBeforeHideTransitionCallback(Runnable onBeforeHideTransitionCallback) {
         mModel.set(
                 OptionalButtonProperties.ON_BEFORE_HIDE_TRANSITION_CALLBACK,
@@ -52,6 +56,10 @@ class OptionalButtonMediator {
 
     public void setPaddingStart(int paddingStart) {
         mModel.set(OptionalButtonProperties.PADDING_START, paddingStart);
+    }
+
+    public void setCollapsedStateWidth(int width) {
+        mModel.set(OptionalButtonProperties.COLLAPSED_STATE_WIDTH, width);
     }
 
     public void cancelTransition() {

@@ -27,9 +27,14 @@ using notice::mojom::PrivacySandboxNotice;
 using Event = notice::mojom::PrivacySandboxNoticeEvent;
 using enum Event;
 
+using ::testing::AnyOf;
 using ::testing::ElementsAre;
 using ::testing::Eq;
+using ::testing::Not;
 using ::testing::Pointee;
+using ::testing::Return;
+using ::testing::ReturnRef;
+using ::testing::ValuesIn;
 
 using EventTimePair = NoticeEventTimestampPair;
 
@@ -51,6 +56,13 @@ constexpr NoticeId kNotice2InCatalog = {
 constexpr NoticeId kNoticeIdNotInCatalog = {
     PrivacySandboxNotice::kMeasurementNotice, SurfaceType::kClankCustomTab};
 
+std::unique_ptr<Notice> MakeNoticeWithFeature(NoticeId id,
+                                              const base::Feature& feature) {
+  auto notice = std::make_unique<Notice>(id);
+  notice->SetFeature(&feature);
+  return notice;
+}
+
 base::Time TimeFromMs(int64_t ms) {
   return base::Time::FromDeltaSinceWindowsEpoch(base::Microseconds(ms));
 }
@@ -62,12 +74,11 @@ void ParseDict(base::Value::Dict* dict, std::string&& json_string) {
 }
 
 std::vector<std::unique_ptr<EventTimePair>> BuildEvents(
-    std::initializer_list<std::pair<Event, int64_t>> raw_events) {
+    std::initializer_list<EventTimePair> raw_events) {
   std::vector<std::unique_ptr<EventTimePair>> events;
   events.reserve(raw_events.size());
   for (const auto& raw_event : raw_events) {
-    events.emplace_back(std::make_unique<EventTimePair>(
-        EventTimePair{raw_event.first, TimeFromMs(raw_event.second)}));
+    events.emplace_back(std::make_unique<EventTimePair>(raw_event));
   }
   return events;
 }
@@ -83,9 +94,14 @@ class PrivacySandboxNoticeStorageTest : public testing::Test {
     scoped_feature_list_.InitAndEnableFeature(
         kPrivacySandboxMigratePrefsToSchemaV2);
 
-    default_notice_map_ = BuildDefaultNoticeMap();
-    ON_CALL(*mock_catalog(), GetNoticeMap())
-        .WillByDefault(testing::ReturnRef(default_notice_map_));
+    ON_CALL(*mock_catalog(), GetNotices())
+        .WillByDefault(Return(base::span(notices_)));
+    ON_CALL(*mock_catalog(), GetNotice(kNotice1InCatalog))
+        .WillByDefault(Return(notice_1_.get()));
+    ON_CALL(*mock_catalog(), GetNotice(kNotice2InCatalog))
+        .WillByDefault(Return(notice_2_.get()));
+    ON_CALL(*mock_catalog(), GetNotice(kNoticeIdNotInCatalog))
+        .WillByDefault(Return(nullptr));
   }
 
   PrivacySandboxNoticeStorage* notice_storage() {
@@ -97,28 +113,17 @@ class PrivacySandboxNoticeStorageTest : public testing::Test {
   TestingPrefServiceSimple* prefs() { return &prefs_; }
 
  protected:
-  virtual NoticeMap BuildDefaultNoticeMap() {
-    NoticeMap map;
-
-    std::unique_ptr<Notice> notice_1 =
-        std::make_unique<Consent>(kNotice1InCatalog);
-    notice_1->SetFeature(&kTestFeature1);
-    map.emplace(kNotice1InCatalog, std::move(notice_1));
-
-    std::unique_ptr<Notice> notice_2 =
-        std::make_unique<Consent>(kNotice2InCatalog);
-    notice_2->SetFeature(&kTestFeature2);
-    map.emplace(kNotice2InCatalog, std::move(notice_2));
-
-    return map;
-  }
-
   void SetNoticeStateFromJSON(const std::string& notice_name,
                               std::string&& json_data_string) {
     base::Value::Dict notice_data_dict;
     ParseDict(&notice_data_dict, std::move(json_data_string));
     ScopedDictPrefUpdate update(prefs(), "privacy_sandbox.notices");
     update->Set(notice_name, std::move(notice_data_dict));
+  }
+
+  base::Time AdvanceMs(int64_t ms) {
+    task_env_.AdvanceClock(base::Milliseconds(ms));
+    return base::Time::Now();
   }
 
   base::HistogramTester histogram_tester_;
@@ -129,7 +134,12 @@ class PrivacySandboxNoticeStorageTest : public testing::Test {
   base::test::ScopedFeatureList scoped_feature_list_;
 
  private:
-  NoticeMap default_notice_map_;
+  // Notices
+  std::unique_ptr<Notice> notice_1_ =
+      MakeNoticeWithFeature(kNotice1InCatalog, kTestFeature1);
+  std::unique_ptr<Notice> notice_2_ =
+      MakeNoticeWithFeature(kNotice2InCatalog, kTestFeature2);
+  std::vector<Notice*> notices_{notice_1_.get(), notice_2_.get()};
 };
 
 TEST_F(PrivacySandboxNoticeStorageTest, NoticePathNotFound) {
@@ -137,100 +147,62 @@ TEST_F(PrivacySandboxNoticeStorageTest, NoticePathNotFound) {
   EXPECT_FALSE(actual.has_value());
 }
 
-TEST_F(PrivacySandboxNoticeStorageTest, StartupStateDoesNotExist) {
-  notice_storage()->RecordStartupHistograms();
-  const std::string histograms = histogram_tester_.GetAllHistogramsRecorded();
-  EXPECT_THAT(histograms, testing::Not(testing::AnyOf(
-                              "PrivacySandbox.Notice.NoticeStartupState."
-                              "Notice1StorageName")));
-  EXPECT_THAT(histograms, testing::Not(testing::AnyOf(
-                              "PrivacySandbox.Notice.NoticeStartupState2."
-                              "Notice1StorageName")));
-}
-
 TEST_F(PrivacySandboxNoticeStorageTest, NoNoticeNameExpectCrash) {
   EXPECT_DEATH(notice_storage()->RecordEvent(kNoticeIdNotInCatalog, kShown),
                "");
 }
 
-TEST_F(PrivacySandboxNoticeStorageTest, StartupStateEmitsPromptWaiting) {
-  notice_storage()->RecordEvent(kNotice1InCatalog, kShown);
-
-  notice_storage()->RecordStartupHistograms();
-  histogram_tester_.ExpectBucketCount(
-      "PrivacySandbox.Notice.NoticeStartupState.Notice1StorageName",
-      NoticeStartupState::kPromptWaiting, 1);
-  histogram_tester_.ExpectBucketCount(
-      "PrivacySandbox.Notice.NoticeStartupState2.Notice1StorageName",
-      NoticeStartupState::kPromptWaiting, 1);
-}
-
-TEST_F(PrivacySandboxNoticeStorageTest, StartupStateEmitsUnknownState) {
-  // Migrate actions without shown.
-  SetNoticeStateFromJSON("Notice1StorageName", R"({
-    "schema_version": 1,
-    "notice_action_taken": 1,
-    "notice_action_taken_time": "200"
-    })");
-
-  PrivacySandboxNoticeStorage::UpdateNoticeSchemaV2(prefs());
-
-  notice_storage()->RecordStartupHistograms();
-  histogram_tester_.ExpectBucketCount(
-      "PrivacySandbox.Notice.NoticeStartupState.Notice1StorageName",
-      NoticeStartupState::kUnknownState, 1);
-  histogram_tester_.ExpectBucketCount(
-      "PrivacySandbox.Notice.NoticeStartupState2.Notice1StorageName",
-      NoticeStartupState::kUnknownState, 1);
-}
-
 const auto kStartupTestValues =
-    std::vector<std::tuple<std::vector<Event>, NoticeStartupState>>{
-        {{kShown, kClosed}, NoticeStartupState::kFlowCompleted},
-        {{kShown, kSettings, kShown, kOptIn},
-         NoticeStartupState::kFlowCompletedWithOptIn},
-        {{kShown, kOptOut}, NoticeStartupState::kFlowCompletedWithOptOut},
-        {{kShown, kAck}, NoticeStartupState::kFlowCompleted},
-        {{kShown, kClosed, kShown}, NoticeStartupState::kPromptWaiting}};
+    std::vector<std::tuple<std::vector<Event>, std::optional<Event>>>{
+        {{}, std::nullopt},
+        {{kShown}, kShown},
+        {{kShown, kClosed}, kClosed},
+        {{kShown, kSettings, kShown, kOptIn}, kOptIn},
+        {{kShown, kOptOut}, kOptOut},
+        {{kShown, kAck}, kAck},
+        {{kShown, kSettings}, kSettings}};
 
 class PrivacySandboxNoticeStorageStartupTest
     : public PrivacySandboxNoticeStorageTest,
       public testing::WithParamInterface<
-          std::tuple<std::vector<Event>, NoticeStartupState>> {};
+          std::tuple<std::vector<Event>, std::optional<Event>>> {};
 
 TEST_P(PrivacySandboxNoticeStorageStartupTest, StartupStateEmitsSuccessfully) {
-  for (auto event : std::get<0>(GetParam())) {
+  auto [events, expected] = GetParam();
+  for (auto event : events) {
     notice_storage()->RecordEvent(kNotice1InCatalog, event);
-    task_env_.AdvanceClock(base::Milliseconds(10));
+    AdvanceMs(10);
   }
 
   notice_storage()->RecordStartupHistograms();
-  histogram_tester_.ExpectBucketCount(
-      "PrivacySandbox.Notice.NoticeStartupState.Notice1StorageName",
-      std::get<1>(GetParam()), 1);
-  histogram_tester_.ExpectBucketCount(
-      "PrivacySandbox.Notice.NoticeStartupState2.Notice1StorageName",
-      std::get<1>(GetParam()), 1);
+  if (expected) {
+    histogram_tester_.ExpectBucketCount(
+        "PrivacySandbox.Notice.Startup.LastRecordedEvent.Notice1StorageName",
+        *expected, 1);
+  } else {
+    const std::string histograms = histogram_tester_.GetAllHistogramsRecorded();
+    EXPECT_THAT(histograms,
+                Not(AnyOf("PrivacySandbox.Notice.Startup.LastRecordedEvent."
+                          "Notice1StorageName")));
+  }
 }
 
 INSTANTIATE_TEST_SUITE_P(PrivacySandboxNoticeStorageStartupTest,
                          PrivacySandboxNoticeStorageStartupTest,
-                         testing::ValuesIn(kStartupTestValues));
+                         ValuesIn(kStartupTestValues));
 
-TEST_F(PrivacySandboxNoticeStorageTest, SetsValuesAndReadsData) {
-  base::Time t0 = base::Time::Now();
+TEST_F(PrivacySandboxNoticeStorageTest, EventShownHistogramsEmitSuccessfully) {
   notice_storage()->RecordEvent(kNotice1InCatalog, kShown);
-  task_env_.AdvanceClock(base::Milliseconds(100));
-  base::Time t1 = base::Time::Now();
+  histogram_tester_.ExpectBucketCount(
+      "PrivacySandbox.Notice.NoticeShown.Notice1StorageName", true, 1);
+  histogram_tester_.ExpectBucketCount(
+      "PrivacySandbox.Notice.NoticeEvent.Notice1StorageName", kShown, 1);
+}
+
+TEST_F(PrivacySandboxNoticeStorageTest, ActionEventHistogramsEmitSuccessfully) {
+  notice_storage()->RecordEvent(kNotice1InCatalog, kShown);
+  AdvanceMs(10);
   notice_storage()->RecordEvent(kNotice1InCatalog, kAck);
-
-  const auto actual = notice_storage()->ReadNoticeData("Notice1StorageName");
-  ASSERT_TRUE(actual.has_value());
-
-  EXPECT_THAT(actual->notice_events,
-              ElementsAre(Pointee(Eq(EventTimePair{kShown, t0})),
-                          Pointee(Eq(EventTimePair{kAck, t1}))));
-
   histogram_tester_.ExpectBucketCount(
       "PrivacySandbox.Notice.NoticeEvent.Notice1StorageName", kAck, 1);
   histogram_tester_.ExpectBucketCount(
@@ -239,32 +211,78 @@ TEST_F(PrivacySandboxNoticeStorageTest, SetsValuesAndReadsData) {
   histogram_tester_.ExpectTimeBucketCount(
       "PrivacySandbox.Notice.FirstShownToInteractedDuration."
       "Notice1StorageName_Ack",
-      base::Milliseconds(100), 1);
+      base::Milliseconds(10), 1);
   histogram_tester_.ExpectTimeBucketCount(
       "PrivacySandbox.Notice.LastShownToInteractedDuration."
       "Notice1StorageName_Ack",
-      base::Milliseconds(100), 1);
-  histogram_tester_.ExpectBucketCount(
-      "PrivacySandbox.Notice.NoticeShown.Notice1StorageName", true, 1);
-  histogram_tester_.ExpectBucketCount(
-      "PrivacySandbox.Notice.NoticeEvent.Notice1StorageName", kShown, 1);
+      base::Milliseconds(10), 1);
 }
 
-TEST_F(PrivacySandboxNoticeStorageTest,
-       ReActionDoesNotRegisterAndEmitsHistogram) {
+MATCHER(EventTimestampEq, "") {
+  const auto& actual = std::get<0>(arg);
+  const auto& expected = std::get<1>(arg);
+
+  if (!actual && !expected) {
+    return true;
+  }
+  if (!actual || !expected) {
+    return false;
+  }
+
+  return *actual == *expected;
+}
+
+class PrivacySandboxNoticeStorageEventPopulationTest
+    : public PrivacySandboxNoticeStorageTest,
+      public testing::WithParamInterface<std::vector<Event>> {};
+
+TEST_P(PrivacySandboxNoticeStorageEventPopulationTest, SetsEventsAndReadsData) {
+  auto events = GetParam();
+  std::vector<testing::Matcher<const std::unique_ptr<EventTimePair>&>> expected;
+  for (auto event : events) {
+    base::Time timestamp = base::Time::Now();
+    notice_storage()->RecordEvent(kNotice1InCatalog, event);
+    expected.emplace_back(Pointee(Eq(EventTimePair{event, timestamp})));
+    AdvanceMs(10);
+  }
+
+  const auto actual = notice_storage()->ReadNoticeData("Notice1StorageName");
+  if (events.empty()) {
+    EXPECT_FALSE(actual.has_value());
+  } else {
+    ASSERT_TRUE(actual.has_value());
+    EXPECT_EQ(actual->notice_events.size(), expected.size());
+    EXPECT_THAT(actual->notice_events, ElementsAreArray(expected));
+  }
+}
+
+INSTANTIATE_TEST_SUITE_P(PrivacySandboxNoticeStorageEventPopulationTest,
+                         PrivacySandboxNoticeStorageEventPopulationTest,
+                         ValuesIn(std::vector<std::vector<Event>>{
+                             {},
+                             {kShown, kAck, kShown},
+                             {kShown, kShown},
+                             {kShown, kAck, kShown, kOptIn},
+                             {kShown, kAck, kSettings, kShown, kOptIn},
+                             {kShown, kShown, kAck, kSettings, kShown, kShown,
+                              kOptIn}}));
+
+TEST_F(PrivacySandboxNoticeStorageTest, ReActionRegistersAndEmitsHistogram) {
+  base::Time t0, t1, t2;
+  t0 = base::Time::Now();
   notice_storage()->RecordEvent(kNotice1InCatalog, kShown);
-  task_env_.AdvanceClock(base::Milliseconds(100));
-  base::Time t1 = base::Time::Now();
+  t1 = AdvanceMs(100);
   notice_storage()->RecordEvent(kNotice1InCatalog, kSettings);
+
+  NoticeStorageData expected;
+  expected.schema_version = 2;
+  expected.chrome_version = version_info::GetVersionNumber();
+  expected.notice_events = BuildEvents({{kShown, t0}, {kSettings, t1}});
 
   auto actual = notice_storage()->ReadNoticeData("Notice1StorageName");
   ASSERT_TRUE(actual.has_value());
 
-  EXPECT_THAT(
-      actual->notice_events,
-      ElementsAre(
-          Pointee(Eq(EventTimePair{kShown, t1 - base::Milliseconds(100)})),
-          Pointee(Eq(EventTimePair{kSettings, t1}))));
+  EXPECT_EQ(*actual, expected);
 
   histogram_tester_.ExpectBucketCount(
       "PrivacySandbox.Notice.NoticeAction.Notice1StorageName",
@@ -272,27 +290,22 @@ TEST_F(PrivacySandboxNoticeStorageTest,
   histogram_tester_.ExpectBucketCount(
       "PrivacySandbox.Notice.NoticeEvent.Notice1StorageName", kSettings, 1);
 
-  // Tries to override action, should not override and emits histograms.
-  task_env_.AdvanceClock(base::Milliseconds(50));
+  t2 = AdvanceMs(50);
+
   notice_storage()->RecordEvent(kNotice1InCatalog, kAck);
-  actual = notice_storage()->ReadNoticeData(
-      "Notice1StorageName");  // Re-read data after potential change
+  actual = notice_storage()->ReadNoticeData("Notice1StorageName");
   ASSERT_TRUE(actual.has_value());
 
-  EXPECT_THAT(
-      actual->notice_events,
-      ElementsAre(
-          Pointee(Eq(EventTimePair{kShown, t1 - base::Milliseconds(100)})),
-          Pointee(Eq(EventTimePair{kSettings, t1}))));
+  expected.notice_events =
+      BuildEvents({{kShown, t0}, {kSettings, t1}, {kAck, t2}});
+
+  EXPECT_EQ(*actual, expected);
 
   histogram_tester_.ExpectBucketCount(
-      "PrivacySandbox.Notice.NoticeEvent.Notice1StorageName", kAck, 0);
+      "PrivacySandbox.Notice.NoticeEvent.Notice1StorageName", kAck, 1);
   histogram_tester_.ExpectBucketCount(
       "PrivacySandbox.Notice.NoticeAction.Notice1StorageName",
-      NoticeActionTaken::kAck, 0);
-  histogram_tester_.ExpectBucketCount(
-      "PrivacySandbox.Notice.NoticeAction.Notice1StorageName",
-      NoticeActionTaken::kSettings, 1);
+      NoticeActionTaken::kAck, 1);
   histogram_tester_.ExpectBucketCount(
       "PrivacySandbox.Notice.NoticeActionTakenBehavior."
       "Notice1StorageName",
@@ -303,13 +316,11 @@ TEST_F(PrivacySandboxNoticeStorageTest,
        MultipleNoticeShownValuesRegisterSuccessfully) {
   base::Time t0 = base::Time::Now();
   notice_storage()->RecordEvent(kNotice1InCatalog, kShown);
-  task_env_.AdvanceClock(base::Milliseconds(100));
+  base::Time t1 = AdvanceMs(100);
   notice_storage()->RecordEvent(kNotice1InCatalog, kSettings);
 
   auto actual = notice_storage()->ReadNoticeData("Notice1StorageName");
   ASSERT_TRUE(actual.has_value());
-  EXPECT_EQ(t0, GetNoticeFirstShownFromEvents(*actual));
-  EXPECT_EQ(t0, GetNoticeLastShownFromEvents(*actual));
 
   histogram_tester_.ExpectBucketCount(
       "PrivacySandbox.Notice.NoticeShownForFirstTime.Notice1StorageName", true,
@@ -333,22 +344,28 @@ TEST_F(PrivacySandboxNoticeStorageTest,
       "PrivacySandbox.Notice.NoticeEvent.Notice1StorageName", kShown, 1);
 
   // Set notice shown value again.
-  task_env_.AdvanceClock(base::Milliseconds(50));
-  base::Time t1 = base::Time::Now();
+  base::Time t2 = AdvanceMs(50);
   notice_storage()->RecordEvent(kNotice1InCatalog, kShown);
   actual = notice_storage()->ReadNoticeData("Notice1StorageName");
   ASSERT_TRUE(actual.has_value());
-  EXPECT_EQ(t1, GetNoticeLastShownFromEvents(*actual));
+
+  NoticeStorageData expected;
+  expected.schema_version = 2;
+  expected.chrome_version = version_info::GetVersionNumber();
+  expected.notice_events =
+      BuildEvents({{kShown, t0}, {kSettings, t1}, {kShown, t2}});
+
+  EXPECT_EQ(*actual, expected);
+
   histogram_tester_.ExpectBucketCount(
       "PrivacySandbox.Notice.NoticeShownForFirstTime.Notice1StorageName", false,
       1);
-  EXPECT_EQ(t0, GetNoticeFirstShownFromEvents(*actual));
 }
 
 TEST_F(PrivacySandboxNoticeStorageTest, SetMultipleNotices) {
   // Notice data 1.
   notice_storage()->RecordEvent(kNotice1InCatalog, kShown);
-  task_env_.AdvanceClock(base::Milliseconds(100));
+  AdvanceMs(100);
   notice_storage()->RecordEvent(kNotice1InCatalog, kSettings);
   const auto actual_notice1 =
       notice_storage()->ReadNoticeData("Notice1StorageName");
@@ -356,7 +373,7 @@ TEST_F(PrivacySandboxNoticeStorageTest, SetMultipleNotices) {
 
   // Notice data 2.
   notice_storage()->RecordEvent(kNotice2InCatalog, kShown);
-  task_env_.AdvanceClock(base::Milliseconds(20));
+  AdvanceMs(20);
   notice_storage()->RecordEvent(kNotice2InCatalog, kAck);
   const auto actual_notice2 =
       notice_storage()->ReadNoticeData("Notice2StorageName");
@@ -532,18 +549,17 @@ TEST_P(PrivacySandboxNoticeStorageV2ActionsTest,
 INSTANTIATE_TEST_SUITE_P(
     PrivacySandboxNoticeStorageV2ActionsTest,
     PrivacySandboxNoticeStorageV2ActionsTest,
-    testing::ValuesIn(
-        std::vector<std::tuple<NoticeActionTaken, std::optional<Event>>>{
-            {NoticeActionTaken::kNotSet, std::nullopt},
-            {NoticeActionTaken::kAck, kAck},
-            {NoticeActionTaken::kClosed, kClosed},
-            {NoticeActionTaken::kLearnMore_Deprecated, std::nullopt},
-            {NoticeActionTaken::kOptIn, kOptIn},
-            {NoticeActionTaken::kOptOut, kOptOut},
-            {NoticeActionTaken::kOther, std::nullopt},
-            {NoticeActionTaken::kSettings, kSettings},
-            {NoticeActionTaken::kUnknownActionPreMigration, std::nullopt},
-            {NoticeActionTaken::kTimedOut, std::nullopt}}));
+    ValuesIn(std::vector<std::tuple<NoticeActionTaken, std::optional<Event>>>{
+        {NoticeActionTaken::kNotSet, std::nullopt},
+        {NoticeActionTaken::kAck, kAck},
+        {NoticeActionTaken::kClosed, kClosed},
+        {NoticeActionTaken::kLearnMore_Deprecated, std::nullopt},
+        {NoticeActionTaken::kOptIn, kOptIn},
+        {NoticeActionTaken::kOptOut, kOptOut},
+        {NoticeActionTaken::kOther, std::nullopt},
+        {NoticeActionTaken::kSettings, kSettings},
+        {NoticeActionTaken::kUnknownActionPreMigration, std::nullopt},
+        {NoticeActionTaken::kTimedOut, std::nullopt}}));
 
 TEST_F(PrivacySandboxNoticeStorageV2Test,
        V1FieldsPresentSchemaV2_ErasesV1Fields) {
@@ -653,98 +669,6 @@ TEST_F(PrivacySandboxNoticeStorageV2Test,
           .FindDict("Notice1StorageName");
   ASSERT_NE(nullptr, actual_stored_prefs);
   EXPECT_EQ(*actual_stored_prefs, expected_stored_prefs);
-}
-
-class PrivacySandboxNoticeDataTest : public testing::Test {};
-
-TEST_F(PrivacySandboxNoticeDataTest, NoPrivacySandboxNoticeDataReturnsNothing) {
-  NoticeStorageData data;
-  EXPECT_EQ(GetNoticeFirstShownFromEvents(data), std::nullopt);
-  EXPECT_EQ(GetNoticeLastShownFromEvents(data), std::nullopt);
-  EXPECT_EQ(GetNoticeActionTakenForFirstShownFromEvents(data), std::nullopt);
-}
-
-TEST_F(PrivacySandboxNoticeDataTest,
-       NoticeShownEvent_AccessorReturnsFirstShownSuccessfully) {
-  NoticeStorageData data;
-  data.notice_events = BuildEvents({
-      {kShown, 100},
-      {kAck, 150},
-      {kShown, 200},
-  });
-
-  EXPECT_EQ(GetNoticeFirstShownFromEvents(data), TimeFromMs(100));
-}
-
-TEST_F(PrivacySandboxNoticeDataTest,
-       NoticeShownEvent_AccessorReturnsLastShownSuccessfully) {
-  NoticeStorageData data;
-  data.notice_events = BuildEvents({
-      {kShown, 100},
-      {kAck, 150},
-      {kShown, 200},
-  });
-
-  EXPECT_EQ(GetNoticeLastShownFromEvents(data), TimeFromMs(200));
-}
-
-TEST_F(PrivacySandboxNoticeDataTest,
-       NoNoticeActionTakenEvent_AccessorReturnsNoValue) {
-  NoticeStorageData data;
-  data.notice_events = BuildEvents({
-      {kShown, 100},
-      {kShown, 200},
-  });
-
-  EXPECT_EQ(GetNoticeActionTakenForFirstShownFromEvents(data), std::nullopt);
-}
-
-TEST_F(PrivacySandboxNoticeDataTest,
-       NoticeActionTakenEvent_AccessorReturnsActionSuccessfully) {
-  NoticeStorageData data;
-  data.notice_events = BuildEvents({
-      {kShown, 100},
-      {kAck, 120},
-      {kShown, 200},
-      {kOptIn, 250},
-  });
-
-  EXPECT_EQ(GetNoticeActionTakenForFirstShownFromEvents(data),
-            (EventTimePair{kAck, TimeFromMs(120)}));
-}
-
-TEST_F(
-    PrivacySandboxNoticeDataTest,
-    NoticeActionTakenEvent_AccessorReturnsActionSuccessfullyMultipleActions) {
-  NoticeStorageData data;
-  data.notice_events = BuildEvents({
-      {kShown, 100},
-      {kAck, 120},
-      {kSettings, 150},
-      {kShown, 200},
-      {kOptIn, 250},
-  });
-
-  EXPECT_EQ(GetNoticeActionTakenForFirstShownFromEvents(data),
-            (EventTimePair{kSettings, TimeFromMs(150)}));
-}
-
-TEST_F(
-    PrivacySandboxNoticeDataTest,
-    NoticeActionTakenEvent_AccessorReturnsActionSuccessfullyWithMultipleShownValues) {
-  NoticeStorageData data;
-  data.notice_events = BuildEvents({
-      {kShown, 100},
-      {kShown, 110},
-      {kAck, 120},
-      {kSettings, 150},
-      {kShown, 200},
-      {kShown, 220},
-      {kOptIn, 250},
-  });
-
-  EXPECT_EQ(GetNoticeActionTakenForFirstShownFromEvents(data),
-            (EventTimePair{kSettings, TimeFromMs(150)}));
 }
 
 }  // namespace

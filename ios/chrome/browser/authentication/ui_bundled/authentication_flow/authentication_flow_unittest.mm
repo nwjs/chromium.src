@@ -25,12 +25,15 @@
 #import "components/sync/test/test_sync_service.h"
 #import "components/sync_preferences/pref_service_mock_factory.h"
 #import "components/sync_preferences/pref_service_syncable.h"
+#import "ios/chrome/app/change_profile_commands.h"
 #import "ios/chrome/app/change_profile_continuation.h"
+#import "ios/chrome/browser/authentication/ui_bundled/authentication_flow/authentication_flow_delegate.h"
 #import "ios/chrome/browser/authentication/ui_bundled/authentication_flow/authentication_flow_in_profile.h"
+#import "ios/chrome/browser/authentication/ui_bundled/authentication_flow/authentication_flow_in_profile_performer.h"
+#import "ios/chrome/browser/authentication/ui_bundled/authentication_flow/authentication_flow_in_profile_performer_delegate.h"
 #import "ios/chrome/browser/authentication/ui_bundled/authentication_flow/authentication_flow_performer.h"
 #import "ios/chrome/browser/authentication/ui_bundled/authentication_flow/authentication_flow_performer_delegate.h"
-#import "ios/chrome/browser/authentication/ui_bundled/authentication_flow/authentication_flow_request_helper.h"
-#import "ios/chrome/browser/authentication/ui_bundled/authentication_flow/test_authentication_flow_request_helper.h"
+#import "ios/chrome/browser/authentication/ui_bundled/authentication_flow/test_authentication_flow_delegate.h"
 #import "ios/chrome/browser/authentication/ui_bundled/authentication_test_util.h"
 #import "ios/chrome/browser/authentication/ui_bundled/authentication_ui_util.h"
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_feature.h"
@@ -112,51 +115,13 @@ class AuthenticationFlowTest : public PlatformTest,
     }
 
     run_loop_ = std::make_unique<base::RunLoop>();
-    sign_in_completion_ = ^(SigninCoordinatorResult result) {
-      run_loop_->Quit();
-      switch (result) {
-        case SigninCoordinatorResult::SigninCoordinatorResultSuccess:
-          signin_result_ = signin::Tribool::kTrue;
-          break;
-        case SigninCoordinatorResult::SigninCoordinatorResultInterrupted:
-        case SigninCoordinatorResult::SigninCoordinatorResultCanceledByUser:
-        case SigninCoordinatorResult::SigninCoordinatorResultDisabled:
-        case SigninCoordinatorResult::SigninCoordinatorUINotAvailable:
-        case SigninCoordinatorResult::SigninCoordinatorProfileSwitch:
-          signin_result_ = signin::Tribool::kFalse;
-          break;
-      }
-    };
-    continuation_provider_ = base::BindRepeating(
-        [](signin_ui::SigninCompletionCallback sign_in_completion) {
-          ChangeProfileContinuation continuation = base::BindOnce(
-              [](signin_ui::SigninCompletionCallback sign_in_completion,
-                 SceneState* sceneState, base::OnceClosure closure) {
-                sign_in_completion(
-                    SigninCoordinatorResult::SigninCoordinatorResultSuccess);
-                std::move(closure).Run();
-              },
-              sign_in_completion);
-          return continuation;
-        },
-        sign_in_completion_);
   }
 
   void TearDown() override {
     PlatformTest::TearDown();
     EXPECT_OCMOCK_VERIFY((id)view_controller_mock_);
+    EXPECT_OCMOCK_VERIFY((id)in_profile_performer_mock_);
     EXPECT_OCMOCK_VERIFY((id)performer_mock_);
-  }
-  // Reset the authentication_flow_’s request helper.
-  // Must be call before each `startSignIn`
-  void ResetAuthenticationFlowRequestHelper() {
-    // Each mock expect its methods to be called at most once.
-    test_authentication_flow_request_helper_ =
-        [[TestAuthenticationFlowRequest alloc]
-             initWithSigninCompletionCallback:sign_in_completion_
-            changeProfileContinuationProvider:continuation_provider_];
-    authentication_flow_.requestHelper =
-        test_authentication_flow_request_helper_;
   }
 
   TestProfileIOS* CreateProfile(
@@ -196,6 +161,7 @@ class AuthenticationFlowTest : public PlatformTest,
                                 signin_metrics::AccessPoint accessPoint,
                                 BOOL shouldHandOverToFlowInProfile) {
     view_controller_mock_ = OCMClassMock([UIViewController class]);
+    CHECK(!authentication_flow_);
     authentication_flow_ =
         [[AuthenticationFlow alloc] initWithBrowser:personal_browser_.get()
                                            identity:identity
@@ -205,6 +171,8 @@ class AuthenticationFlowTest : public PlatformTest,
                            presentingViewController:view_controller_mock_
                                          anchorView:nil
                                          anchorRect:CGRectNull];
+    in_profile_performer_mock_ =
+        OCMStrictClassMock([AuthenticationFlowInProfilePerformer class]);
     performer_mock_ = OCMStrictClassMock([AuthenticationFlowPerformer class]);
 
     // Once AuthenticationFlow is started, it'll create its performer. Replace
@@ -219,16 +187,57 @@ class AuthenticationFlowTest : public PlatformTest,
       // creates its own performer. For simplicity, reuse the same mock object
       // here. Also capture a reference to the AuthenticationFlowInProfile, so
       // the mock can call back into it.
-      OCMExpect([(id)performer_mock_ alloc]).andReturn(performer_mock_);
-      OCMExpect([performer_mock_ initWithDelegate:[OCMArg any]
-                             changeProfileHandler:[OCMArg any]])
+      OCMExpect([(id)in_profile_performer_mock_ alloc])
+          .andReturn(in_profile_performer_mock_);
+      OCMExpect([in_profile_performer_mock_
+                    initWithInProfileDelegate:[OCMArg any]
+                         changeProfileHandler:[OCMArg any]])
           .andDo(^(NSInvocation* invocation) {
             __unsafe_unretained id argument;
             [invocation getArgument:&argument atIndex:2];
             authentication_flow_in_profile_ = argument;
           })
-          .andReturn(performer_mock_);
+          .andReturn(in_profile_performer_mock_);
     }
+
+    signin_ui::SigninCompletionCallback sign_in_completion =
+        ^(SigninCoordinatorResult result) {
+          run_loop_->Quit();
+          switch (result) {
+            case SigninCoordinatorResult::SigninCoordinatorResultSuccess:
+              signin_result_ = signin::Tribool::kTrue;
+              break;
+            case SigninCoordinatorResult::SigninCoordinatorResultInterrupted:
+            case SigninCoordinatorResult::SigninCoordinatorResultCanceledByUser:
+            case SigninCoordinatorResult::SigninCoordinatorResultDisabled:
+            case SigninCoordinatorResult::SigninCoordinatorUINotAvailable:
+            case SigninCoordinatorResult::SigninCoordinatorProfileSwitch:
+              signin_result_ = signin::Tribool::kFalse;
+              break;
+          }
+          authentication_flow_ = nil;
+        };
+    // Runs the sign_in_completion with Success and the closure.
+    ChangeProfileContinuationProvider continuation_provider =
+        base::BindRepeating(
+            [](signin_ui::SigninCompletionCallback sign_in_completion) {
+              ChangeProfileContinuation continuation = base::BindOnce(
+                  [](signin_ui::SigninCompletionCallback sign_in_completion,
+                     SceneState* sceneState, base::OnceClosure closure) {
+                    sign_in_completion(SigninCoordinatorResult::
+                                           SigninCoordinatorResultSuccess);
+                    std::move(closure).Run();
+                  },
+                  sign_in_completion);
+              return continuation;
+            },
+            sign_in_completion);
+
+    // Each mock expect its methods to be called at most once.
+    test_authentication_flow_delegate_ = [[TestAuthenticationFlowDelegate alloc]
+         initWithSigninCompletionCallback:sign_in_completion
+        changeProfileContinuationProvider:continuation_provider];
+    authentication_flow_.delegate = test_authentication_flow_delegate_;
   }
 
   // Checks if the AuthenticationFlow operation has completed, and whether it
@@ -266,6 +275,7 @@ class AuthenticationFlowTest : public PlatformTest,
               signin_metrics::AccessPoint access_point,
               bool adds_history_screen_post_profile_switch = true) {
     signin_result_ = signin::Tribool::kUnknown;
+
     // Can't use a RunLoop multiple times, create a new one.
     run_loop_ = std::make_unique<base::RunLoop>();
 
@@ -273,6 +283,14 @@ class AuthenticationFlowTest : public PlatformTest,
                              /*shouldHandOverToFlowInProfile=*/YES);
 
     NSString* hosted_domain = GetHostedDomainFromEmail(identity.userEmail);
+    const bool should_switch_profile =
+        hosted_domain.length && AreSeparateProfilesForManagedAccountsEnabled();
+
+    PostSignInActionSet postSignInActions;
+    if (should_switch_profile && adds_history_screen_post_profile_switch) {
+      postSignInActions.Put(
+          PostSignInAction::kShowHistorySyncScreenAfterProfileSwitch);
+    }
     auto fetchManagedStatusCallback = ^(NSInvocation*) {
       [authentication_flow_ didFetchManagedStatus:hosted_domain];
     };
@@ -306,7 +324,8 @@ class AuthenticationFlowTest : public PlatformTest,
       BOOL migrationDisabled = AreSeparateProfilesForManagedAccountsEnabled();
       auto showManagedConfirmationForHostedDomainCallback = ^(NSInvocation*) {
         managed_confirmation_dialog_shown_count_++;
-        [authentication_flow_ didAcceptManagedConfirmation:YES];
+        [authentication_flow_
+            didAcceptManagedConfirmationWithBrowsingDataSeparate:YES];
       };
       OCMStub([performer_mock_
                   showManagedConfirmationForHostedDomain:hosted_domain
@@ -334,9 +353,8 @@ class AuthenticationFlowTest : public PlatformTest,
               didSwitchToProfileWithNewProfileBrowser:final_browser
                                            completion:std::move(completion)];
         };
-        id requestHelperChecker =
-            [OCMArg checkWithBlock:^(
-                        id<AuthenticationFlowRequestHelper> request_helper) {
+        id delegateChecker = [OCMArg
+            checkWithBlock:^(id<AuthenticationFlowDelegate> request_helper) {
               CHECK(request_helper);
               continuation =
                   [request_helper authenticationFlowWillChangeProfile];
@@ -346,7 +364,11 @@ class AuthenticationFlowTest : public PlatformTest,
             [performer_mock_
                 switchToProfileWithIdentity:identity
                                  sceneState:personal_browser_->GetSceneState()
-                              requestHelper:requestHelperChecker])
+                                     reason:ChangeProfileReason::
+                                                kManagedAccountSignIn
+                                   delegate:delegateChecker
+                          postSignInActions:postSignInActions
+                                accessPoint:access_point])
             .andDo(switchToProfileWithIdentityCallback);
       }
       auto registerUserPolicyCallback = ^(NSInvocation*) {
@@ -355,42 +377,30 @@ class AuthenticationFlowTest : public PlatformTest,
                                        clientID:kFakeClientID
                              userAffiliationIDs:@[ kFakeUserAffiliationID ]];
       };
-      OCMExpect([performer_mock_ registerUserPolicy:final_profile
-                                        forIdentity:identity])
+      OCMExpect([in_profile_performer_mock_ registerUserPolicy:final_profile
+                                                   forIdentity:identity])
           .andDo(registerUserPolicyCallback);
       auto fetchUserPolicyCallback = ^(NSInvocation*) {
         [authentication_flow_in_profile_ didFetchUserPolicyWithSuccess:YES];
       };
-      OCMExpect([performer_mock_ fetchUserPolicy:final_profile
-                                     withDmToken:kFakeDMToken
-                                        clientID:kFakeClientID
-                              userAffiliationIDs:@[ kFakeUserAffiliationID ]
-                                        identity:identity])
+      OCMExpect([in_profile_performer_mock_
+                       fetchUserPolicy:final_profile
+                           withDmToken:kFakeDMToken
+                              clientID:kFakeClientID
+                    userAffiliationIDs:@[ kFakeUserAffiliationID ]
+                              identity:identity])
           .andDo(fetchUserPolicyCallback);
     }
-
-    const bool should_switch_profile =
-        hosted_domain.length && AreSeparateProfilesForManagedAccountsEnabled();
 
     // If switching (to a managed profile), there's no explicit call to sign in,
     // since AuthenticationService does it internally.
     if (!should_switch_profile) {
-      OCMExpect([performer_mock_ signInIdentity:identity
-                                  atAccessPoint:access_point
-                                 currentProfile:personal_profile_.get()]);
+      OCMExpect([in_profile_performer_mock_
+          signInIdentity:identity
+           atAccessPoint:access_point
+          currentProfile:personal_profile_.get()]);
     }
 
-    PostSignInActionSet postSignInActions;
-    if (should_switch_profile && adds_history_screen_post_profile_switch) {
-      postSignInActions.Put(
-          PostSignInAction::kShowHistorySyncScreenAfterProfileSwitch);
-    }
-    OCMExpect([performer_mock_ completePostSignInActions:postSignInActions
-                                            withIdentity:identity
-                                                 browser:final_browser
-                                             accessPoint:access_point]);
-
-    ResetAuthenticationFlowRequestHelper();
     [authentication_flow_ startSignIn];
     // The completion block should not be called synchronously.
     EXPECT_EQ(signin::Tribool::kUnknown, signin_result_);
@@ -428,12 +438,11 @@ class AuthenticationFlowTest : public PlatformTest,
   id<SystemIdentity> managed_identity1_ = nil;
   id<SystemIdentity> managed_identity2_ = nil;
   AuthenticationFlow* authentication_flow_ = nil;
-  TestAuthenticationFlowRequest* test_authentication_flow_request_helper_ = nil;
-  AuthenticationFlowInProfile<AuthenticationFlowPerformerDelegate>*
+  TestAuthenticationFlowDelegate* test_authentication_flow_delegate_ = nil;
+  AuthenticationFlowInProfile<AuthenticationFlowInProfilePerformerDelegate>*
       authentication_flow_in_profile_ = nil;
+  AuthenticationFlowInProfilePerformer* in_profile_performer_mock_ = nil;
   AuthenticationFlowPerformer* performer_mock_ = nil;
-  signin_ui::SigninCompletionCallback sign_in_completion_;
-  ChangeProfileContinuationProvider continuation_provider_;
   UIViewController* view_controller_mock_;
   // Used to verify histogram logging.
   base::HistogramTester histogram_tester_;
@@ -477,7 +486,6 @@ TEST_P(AuthenticationFlowTest, TestFailFetchManagedStatus) {
         [invocation getArgument:&completionBlock atIndex:3];
         completionBlock();
       });
-  ResetAuthenticationFlowRequestHelper();
   [authentication_flow_ startSignIn];
 
   CheckSignInCompletion(/*expected_signed_in=*/false);
@@ -577,7 +585,6 @@ TEST_P(AuthenticationFlowTest, TestDontShowUnsyncedDataConfirmation) {
         run_loop_->Quit();
       });
 
-  ResetAuthenticationFlowRequestHelper();
   [authentication_flow_ startSignIn];
   run_loop_->Run();
 }
@@ -620,7 +627,6 @@ TEST_P(AuthenticationFlowTest, TestShowUnsyncedDataConfirmation) {
         run_loop_->Quit();
       });
 
-  ResetAuthenticationFlowRequestHelper();
   [authentication_flow_ startSignIn];
   run_loop_->Run();
 }

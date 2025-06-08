@@ -4,7 +4,9 @@
 
 #include "ash/wm/layer_tree_synchronizer.h"
 
+#include <array>
 #include <cmath>
+#include <cstdint>
 #include <cstdlib>
 #include <utility>
 #include <vector>
@@ -26,6 +28,11 @@ namespace {
 using Corner = gfx::RRectF::Corner;
 
 constexpr float kEpsilon = std::numeric_limits<float>::epsilon();
+
+// The expected number of elements in the `original_layers_info_` map.
+// Currently, we expect a maximum of 8 layers to be modified when
+// synchronizing the rounded corners of a window with its transient children.
+constexpr int kExpectedModifiedLayers = 8;
 
 float Square(float n) {
   return std::pow(n, 2);
@@ -301,14 +308,6 @@ bool ShouldOverrideCornerRadius(const gfx::RRectF& rect,
                                 const gfx::RRectF& containing_rect,
                                 Corner corner,
                                 bool consider_curvature) {
-  if (!containing_rect.HasRoundedCorners()) {
-    return false;
-  }
-
-  if (!containing_rect.rect().Contains(rect.rect())) {
-    return false;
-  }
-
   const gfx::Vector2dF rect_corner_radii = rect.GetCornerRadii(corner);
   const gfx::Vector2dF containing_rect_corner_radii =
       containing_rect.GetCornerRadii(corner);
@@ -362,10 +361,20 @@ using Corners = base::flat_set<gfx::RRectF::Corner>;
 Corners FindCornersToOverrideRadius(const gfx::RRectF& rect,
                                     const gfx::RRectF& containing_rect,
                                     bool consider_curvature) {
+  static constexpr uint8_t kNumberOfCorners = 4;
+  static constexpr std::array<Corner, kNumberOfCorners> kCorners{
+      Corner::kUpperLeft, Corner::kUpperRight, Corner::kLowerRight,
+      Corner::kLowerLeft};
+
   Corners corners;
 
-  for (auto corner : {Corner::kUpperLeft, Corner::kUpperRight,
-                      Corner::kLowerRight, Corner::kLowerLeft}) {
+  if (!containing_rect.HasRoundedCorners() ||
+      !containing_rect.rect().Contains(rect.rect())) {
+    return corners;
+  }
+
+  corners.reserve(kNumberOfCorners);
+  for (auto corner : kCorners) {
     if (ShouldOverrideCornerRadius(rect, containing_rect, corner,
                                    consider_curvature)) {
       corners.insert(corner);
@@ -405,7 +414,9 @@ gfx::Transform AccumulateTargetTransform(const ui::Layer* layer,
 // LayerTreeSynchronizerBase:
 
 LayerTreeSynchronizerBase::LayerTreeSynchronizerBase(bool restore_tree)
-    : restore_tree_(restore_tree) {}
+    : restore_tree_(restore_tree) {
+  original_layers_info_.reserve(kExpectedModifiedLayers);
+}
 
 LayerTreeSynchronizerBase::~LayerTreeSynchronizerBase() = default;
 
@@ -580,7 +591,6 @@ void WindowTreeSynchronizer::SynchronizeRoundedCorners(
     bool consider_curvature,
     TransientTreeIgnorePredicate ignore_predicate) {
   CHECK(root_window->Contains(window));
-
   for (auto* window_iter : GetTransientTreeIterator(window, ignore_predicate)) {
     const bool altered = SynchronizeLayerTreeRoundedCorners(
         window_iter->layer(), root_window->layer(), reference_bounds,

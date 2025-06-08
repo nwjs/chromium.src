@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "base/memory/raw_ptr.h"
+#include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
@@ -723,7 +724,7 @@ TEST_F(AddressSuggestionGeneratorTest, CreateSuggestionsUsingEmailOverride) {
 
   std::vector<Suggestion> suggestions = CreateSuggestionsFromProfilesForTest(
       {profile1, profile2}, {EMAIL_ADDRESS}, SuggestionType::kAddressEntry,
-      EMAIL_ADDRESS, /*trigger_field_max_length=*/0, false, "en-US",
+      EMAIL_ADDRESS, /*trigger_field_max_length=*/0, "en-US",
       "plus-address-override@me.com",
       base::UTF16ToUTF8(profile2.GetRawInfo(EMAIL_ADDRESS)));
   ASSERT_EQ(suggestions.size(), 2u);
@@ -774,11 +775,8 @@ TEST_F(AddressSuggestionGeneratorTest,
 TEST_F(
     AddressSuggestionGeneratorTest,
     GetSuggestionsForProfiles_RemoveFieldByFieldFillingSuggestionsMatchingFieldContent) {
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitWithFeatures(
-      {features::kAutofillAddressFieldSwapping,
-       features::kAutofillImproveAddressFieldSwapping},
-      /*disabled_features=*/{});
+  base::test::ScopedFeatureList scoped_feature_list{
+      features::kAutofillImproveAddressFieldSwapping};
   AutofillProfile profile1 = test::GetFullProfile();
   AutofillProfile profile2 = test::GetFullProfile2();
   address_data().AddProfile(profile1);

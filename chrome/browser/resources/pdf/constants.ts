@@ -34,18 +34,36 @@ export interface AnnotationBrush {
   size?: number;
 }
 
+export interface TextAnnotation {
+  id: number;
+  pageNumber: number;
+  text: string;
+  textAttributes: TextAttributes;
+  // Location of the text box relative to the top left corner of the page
+  // specified by pageNumber. This rect is in screen coordinates in the UI,
+  // and is in page coordinates when this annotation is sent or received in
+  // a message to/from the plugin.
+  textBoxRect: TextBoxRect;
+  // Orientation of the text in the box relative to the PDF page, in number of
+  // clockwise rotations from 0 to 3.
+  textOrientation: number;
+}
+
 export enum TextAlignment {
   LEFT = 'left',
   CENTER = 'center',
   RIGHT = 'right',
-  JUSTIFY = 'justify',
 }
 
 export enum TextStyle {
   BOLD = 'bold',
   ITALIC = 'italic',
-  UNDERLINE = 'underline',
-  STRIKETHROUGH = 'strikethrough',
+}
+
+export enum TextTypeface {
+  SANS_SERIF = 'sans-serif',
+  SERIF = 'serif',
+  MONOSPACE = 'monospace',
 }
 
 export type TextStyles = {
@@ -53,7 +71,7 @@ export type TextStyles = {
 };
 
 export interface TextAttributes {
-  typeface: string;
+  typeface: TextTypeface;
   size: number;
   color: Color;
   alignment: TextAlignment;

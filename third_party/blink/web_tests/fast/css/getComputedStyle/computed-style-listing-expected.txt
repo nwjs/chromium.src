@@ -110,7 +110,7 @@ border-left-width: 0px
 border-right-color: rgb(0, 0, 0)
 border-right-style: none
 border-right-width: 0px
-border-spacing: 0px 0px
+border-spacing: 0px
 border-start-end-radius: 0px
 border-start-start-radius: 0px
 border-top-color: rgb(0, 0, 0)
@@ -129,6 +129,7 @@ buffered-rendering: auto
 caption-side: top
 caret-animation: auto
 caret-color: rgb(0, 0, 0)
+caret-shape: auto
 clear: none
 clip: auto
 clip-path: none
@@ -390,10 +391,12 @@ text-decoration-style: solid
 text-emphasis-color: rgb(0, 0, 0)
 text-emphasis-position: auto
 text-emphasis-style: none
+text-grow: none
 text-indent: 0px
 text-overflow: clip
 text-rendering: auto
 text-shadow: none
+text-shrink: none
 text-size-adjust: auto
 text-spacing-trim: normal
 text-transform: none

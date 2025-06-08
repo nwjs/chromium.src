@@ -13,6 +13,7 @@
 #include "chrome/browser/glic/glic_keyed_service_factory.h"
 #include "chrome/browser/global_features.h"
 #include "chrome/browser/lifetime/termination_notification.h"
+#include "chrome/browser/profiles/nuke_profile_directory_utils.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/ui/browser.h"
@@ -64,7 +65,12 @@ GlicProfileManager* GlicProfileManager::GetInstance() {
   return g_browser_process->GetFeatures()->glic_profile_manager();
 }
 
-GlicProfileManager::GlicProfileManager() = default;
+GlicProfileManager::GlicProfileManager() {
+  ProfileManager* profile_manager = g_browser_process->profile_manager();
+  if (profile_manager) {
+    profile_manager->AddObserver(this);
+  }
+}
 
 GlicProfileManager::~GlicProfileManager() = default;
 
@@ -123,6 +129,10 @@ void GlicProfileManager::OnServiceShutdown(GlicKeyedService* glic) {
   }
 }
 
+void GlicProfileManager::Shutdown() {
+  g_browser_process->profile_manager()->RemoveObserver(this);
+}
+
 void GlicProfileManager::OnLoadingClientForService(GlicKeyedService* glic) {
   if (base::FeatureList::IsEnabled(features::kGlicWarmMultiple)) {
     return;
@@ -148,6 +158,9 @@ void GlicProfileManager::OnUnloadingClientForService(GlicKeyedService* glic) {
 void GlicProfileManager::ShouldPreloadForProfile(
     Profile* profile,
     ShouldPreloadCallback callback) {
+  if (IsProfileDirectoryMarkedForDeletion(profile->GetPath())) {
+    return;
+  }
   if (!base::FeatureList::IsEnabled(features::kGlicWarming) ||
       !GlicEnabling::IsReadyForProfile(profile)) {
     base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
@@ -232,6 +245,15 @@ bool GlicProfileManager::IsShowing() const {
     return false;
   }
   return last_active_glic_->window_controller().IsPanelOrFreShowing();
+}
+
+void GlicProfileManager::OnProfileMarkedForPermanentDeletion(Profile* profile) {
+  GlicKeyedService* glic_keyed_service =
+      glic::GlicKeyedServiceFactory::GetGlicKeyedService(profile);
+  if (!glic_keyed_service) {
+    return;
+  }
+  glic_keyed_service->Shutdown();
 }
 
 // static

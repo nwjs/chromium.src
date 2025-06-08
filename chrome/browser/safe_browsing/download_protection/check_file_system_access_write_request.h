@@ -20,7 +20,6 @@
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/file_system_access_write_item.h"
-#include "url/gurl.h"
 
 namespace safe_browsing {
 
@@ -43,9 +42,19 @@ class CheckFileSystemAccessWriteRequest
 
   download::DownloadItem* item() const override;
 
+  // Returns enum value indicating whether `file_name` is eligible for
+  // CheckFileSystemAccessWriteRequest. If return value is not
+  // kMayCheckDownload, then `reason` will be populated with the reason why.
+  // Note: Behavior is platform-specific.
+  // TODO(chlily): Rename this method since it does not return a bool.
+  static MayCheckDownloadResult IsSupportedDownload(
+      const base::FilePath& file_name,
+      DownloadCheckResultReason* reason);
+
  private:
   // CheckClientDownloadRequestBase overrides:
-  bool IsSupportedDownload(DownloadCheckResultReason* reason) override;
+  MayCheckDownloadResult IsSupportedDownload(
+      DownloadCheckResultReason* reason) override;
   content::BrowserContext* GetBrowserContext() const override;
   bool IsCancelled() override;
   base::WeakPtr<CheckClientDownloadRequestBase> GetWeakPtr() override;

@@ -16,7 +16,6 @@
 #include "services/network/public/cpp/network_connection_tracker.h"
 
 class GURL;
-class PrefService;
 class ReadingListModel;
 namespace base {
 class FilePath;
@@ -37,7 +36,6 @@ class ReadingListDownloadService
  public:
   ReadingListDownloadService(
       ReadingListModel* reading_list_model,
-      PrefService* prefs,
       base::FilePath chrome_profile_path,
       scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory,
       DistillerService* distiller_service,
@@ -69,8 +67,8 @@ class ReadingListDownloadService
   void ReadingListDidAddEntry(const ReadingListModel* model,
                               const GURL& url,
                               reading_list::EntrySource entry_source) override;
-  void ReadingListDidMoveEntry(const ReadingListModel* model,
-                               const GURL& url) override;
+  void ReadingListDidUpdateEntry(const ReadingListModel* model,
+                                 const GURL& url) override;
 
  private:
   // Checks the model and determines which entries are processed and which

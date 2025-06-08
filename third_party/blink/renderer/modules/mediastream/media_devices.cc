@@ -9,7 +9,6 @@
 
 #include "base/feature_list.h"
 #include "base/metrics/histogram_functions.h"
-#include "base/not_fatal_until.h"
 #include "base/notreached.h"
 #include "base/strings/strcat.h"
 #include "base/uuid.h"
@@ -1130,6 +1129,14 @@ void MediaDevices::OnDevicesChanged(
   }
 
   current_device_infos_[static_cast<wtf_size_t>(type)] = device_infos;
+  if (DomWindow()
+          ->GetFrame()
+          ->GetSettings()
+          ->GetIgnorePermissionForDeviceChangedEvent()) {
+    MaybeFireDeviceChangeEvent(/*has_permission=*/true);
+    return;
+  }
+
   if (media::MediaPermission* media_permission =
           blink::Platform::Current()->GetWebRTCMediaPermission(
               WebLocalFrame::FromFrameToken(
@@ -1491,7 +1498,7 @@ void MediaDevices::ResolveCropTargetPromise(Element* element,
   CHECK(element);  // Persistent.
 
   const auto it = crop_target_resolvers_.find(element);
-  CHECK_NE(it, crop_target_resolvers_.end(), base::NotFatalUntil::M130);
+  CHECK_NE(it, crop_target_resolvers_.end());
   ScriptPromiseResolver<CropTarget>* const resolver = it->value;
   crop_target_resolvers_.erase(it);
 
@@ -1515,7 +1522,7 @@ void MediaDevices::ResolveRestrictionTargetPromise(Element* element,
   CHECK(element);  // Persistent.
 
   const auto it = restriction_target_resolvers_.find(element);
-  CHECK_NE(it, restriction_target_resolvers_.end(), base::NotFatalUntil::M130);
+  CHECK_NE(it, restriction_target_resolvers_.end());
   ScriptPromiseResolver<RestrictionTarget>* const resolver = it->value;
   restriction_target_resolvers_.erase(it);
 

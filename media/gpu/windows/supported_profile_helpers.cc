@@ -332,8 +332,12 @@ SupportedResolutionRangeMap GetSupportedD3DVideoDecoderResolutions(
         continue;
       }
       if (profile_id == DXVA_ModeAV1_VLD_Profile1) {
-        supported_resolutions[AV1PROFILE_PROFILE_HIGH] = GetResolutionsForGUID(
-            video_device_wrapper, profile_id, kModernResolutions);
+        // DXVA spec for high profile (section 7.2) does not include NV12 as
+        // mandatory format, here we only test 8b-444 (AYUV) and skip check of
+        // Y410.
+        supported_resolutions[AV1PROFILE_PROFILE_HIGH] =
+            GetResolutionsForGUID(video_device_wrapper, profile_id,
+                                  kModernResolutions, DXGI_FORMAT_AYUV);
         continue;
       }
       if (profile_id == DXVA_ModeAV1_VLD_Profile2) {
@@ -343,8 +347,9 @@ SupportedResolutionRangeMap GetSupportedD3DVideoDecoderResolutions(
         // is 12-bit. However we don't know the bit depth or pixel format until
         // too late. In these cases we'll end up initializing the decoder and
         // failing on the first decode (which will trigger software fallback).
-        supported_resolutions[AV1PROFILE_PROFILE_PRO] = GetResolutionsForGUID(
-            video_device_wrapper, profile_id, kModernResolutions);
+        supported_resolutions[AV1PROFILE_PROFILE_PRO] =
+            GetResolutionsForGUID(video_device_wrapper, profile_id,
+                                  kModernResolutions, DXGI_FORMAT_YUY2);
         continue;
       }
     }
@@ -376,6 +381,12 @@ SupportedResolutionRangeMap GetSupportedD3DVideoDecoderResolutions(
       if (profile_id == D3D11_DECODER_PROFILE_HEVC_VLD_MAIN) {
         auto supported_resolution = GetResolutionsForGUID(
             video_device_wrapper, profile_id, kModernResolutions);
+
+        if (supported_resolution.max_landscape_resolution.IsEmpty()) {
+          supported_resolution = GetResolutionsForGUID(
+              video_device_wrapper, profile_id, {gfx::Size(1920, 1080)});
+        }
+
         supported_resolutions[HEVCPROFILE_MAIN] = supported_resolution;
         supported_resolutions[HEVCPROFILE_MAIN_STILL_PICTURE] =
             supported_resolution;

@@ -741,8 +741,15 @@ SelectorChecker::MatchStatus SelectorChecker::MatchForRelation(
         // Generally a ::part() rule needs to be in the host’s tree scope, but
         // if (and only if) we are preceded by :host or :host(), then the rule
         // could also be in the same scope as the subject.
+        //
+        // We recognize :is(:host) and :where(:host) because the former could
+        // arise from nesting, but we don't understand the more complex cases
+        // :is(:host, #foo)::part(x), as we'd need to go down the :is() twice;
+        // once in the tree scope of the rule itself, and once more in the
+        // parent scope of the rule but somehow ignoring everything that isn't
+        // :host.
         const TreeScope& host_tree_scope =
-            next_context.selector->IsHostPseudoClass()
+            next_context.selector->IsDeeplyHostPseudoClass()
                 ? *context.tree_scope->ParentTreeScope()
                 : *context.tree_scope;
 
@@ -899,7 +906,7 @@ static bool AnyAttributeMatches(Element& element,
     DCHECK(element.CouldHaveAttribute(selector_attr))
         << element << " should have contained attribute " << selector_attr
         << ", Bloom bits on element are "
-        << element.AttributeBloomFilterForDebug();
+        << element.AttributeOrClassBloomFilterForDebug();
 #endif
 
     if (AttributeValueMatches(attribute_item, match, selector_value,
@@ -953,6 +960,16 @@ ALWAYS_INLINE bool SelectorChecker::CheckOne(
     case CSSSelector::kUniversalTag:
       return MatchesUniversalTagName(element, selector.TagQName());
     case CSSSelector::kClass:
+      if (!element.CouldHaveClass(selector.Value())) {
+#if DCHECK_IS_ON()
+        DCHECK(!element.HasClass() ||
+               !element.ClassNames().Contains(selector.Value()))
+            << element << " should have matched class " << selector.Value()
+            << ", Bloom bits on element are "
+            << element.AttributeOrClassBloomFilterForDebug();
+#endif
+        return false;
+      }
       return element.HasClass() &&
              element.ClassNames().Contains(selector.Value());
     case CSSSelector::kId:
@@ -1728,9 +1745,8 @@ bool SelectorChecker::CheckPseudoClass(const SelectorCheckingContext& context,
           return false;
         }
       }
-      return selector.MatchNth(
-          NthIndexCache::NthChildIndex(element, selector.SelectorList(), this,
-                                       &context, NthIndexData::kLightTree));
+      return selector.MatchNth(NthIndexCache::NthChildIndex(
+          element, selector.SelectorList(), this, &context));
     case CSSSelector::kPseudoNthOfType:
       if (mode_ == kResolvingStyle) {
         if (ContainerNode* parent = element.ParentElementOrDocumentFragment()) {
@@ -1755,8 +1771,7 @@ bool SelectorChecker::CheckPseudoClass(const SelectorCheckingContext& context,
         }
       }
       return selector.MatchNth(NthIndexCache::NthLastChildIndex(
-          element, selector.SelectorList(), this, &context,
-          NthIndexData::kLightTree));
+          element, selector.SelectorList(), this, &context));
     }
     case CSSSelector::kPseudoNthLastOfType: {
       ContainerNode* parent = element.ParentElementOrDocumentFragment();
@@ -1862,7 +1877,9 @@ bool SelectorChecker::CheckPseudoClass(const SelectorCheckingContext& context,
       DCHECK(RuntimeEnabledFeatures::HTMLInterestTargetAttributeEnabled(
           element.GetDocument().GetExecutionContext()));
       return element.GetInterestState() ==
-             Element::InterestState::kPartialInterest;
+                 Element::InterestState::kPartialInterest ||
+             element.GetInterestState() ==
+                 Element::InterestState::kPotentialPartialInterest;
     case CSSSelector::kPseudoTargetOfInterest: {
       DCHECK(RuntimeEnabledFeatures::HTMLInterestTargetAttributeEnabled(
           element.GetDocument().GetExecutionContext()));
@@ -1877,8 +1894,10 @@ bool SelectorChecker::CheckPseudoClass(const SelectorCheckingContext& context,
       Element* invoker = element.GetInterestInvoker();
       DCHECK(!invoker || invoker->GetInterestState() !=
                              Element::InterestState::kNoInterest);
-      return invoker && invoker->GetInterestState() ==
-                            Element::InterestState::kPartialInterest;
+      return invoker && (invoker->GetInterestState() ==
+                             Element::InterestState::kPartialInterest ||
+                         invoker->GetInterestState() ==
+                             Element::InterestState::kPotentialPartialInterest);
     }
     case CSSSelector::kPseudoHasSlotted:
       DCHECK(RuntimeEnabledFeatures::CSSPseudoHasSlottedEnabled());
@@ -2549,6 +2568,9 @@ bool SelectorChecker::CheckPseudoElement(const SelectorCheckingContext& context,
     case CSSSelector::kPseudoDetailsContent:
       return MatchesUAShadowElement(element,
                                     shadow_element_names::kIdDetailsContent);
+    case CSSSelector::kPseudoPermissionIcon:
+      return MatchesUAShadowElement(element,
+                                    shadow_element_names::kIdPermissionIcon);
     case CSSSelector::kPseudoWebKitCustomElement:
       return MatchesUAShadowElement(element, selector.Value());
     case CSSSelector::kPseudoBlinkInternalElement:

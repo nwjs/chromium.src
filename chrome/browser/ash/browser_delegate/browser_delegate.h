@@ -38,6 +38,10 @@ class BrowserDelegate {
   // Returns the browser's unique ID for the current session.
   virtual SessionID GetSessionID() const = 0;
 
+  // Returns whether the browser is off the record, i.e. incognito or in a guest
+  // session.
+  virtual bool IsOffTheRecord() const = 0;
+
   // Returns the browser window's current bounds.
   virtual gfx::Rect GetBounds() const = 0;
 
@@ -67,6 +71,15 @@ class BrowserDelegate {
 
   // Closes the browser as soon as possible.
   virtual void Close() = 0;
+
+  // Load the given URL in a new tab.
+  // If the `url` is empty the new tab-page is loaded.
+  // If an `index` is given, the tab is placed at the corresponding position in
+  // the tab strip. Otherwise it is added to the end.
+  enum class TabDisposition { kForeground, kBackground };
+  virtual void AddTab(const GURL& url,
+                      std::optional<size_t> index,
+                      TabDisposition disposition) = 0;
 
   // Navigates the browser to the given URL.
   // The browser must be of `kApp` or `kAppPopup` type.

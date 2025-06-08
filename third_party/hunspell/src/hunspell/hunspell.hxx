@@ -105,10 +105,6 @@ class HunspellImpl;
 
 class LIBHUNSPELL_DLL_EXPORTED Hunspell {
  private:
-  Hunspell(const Hunspell&);
-  Hunspell& operator=(const Hunspell&);
-
- private:
   HunspellImpl* m_Impl;
 
  public:
@@ -125,6 +121,8 @@ class LIBHUNSPELL_DLL_EXPORTED Hunspell {
 #else
   Hunspell(const char* affpath, const char* dpath, const char* key = NULL);
 #endif
+  Hunspell(const Hunspell&) = delete;
+  Hunspell& operator=(const Hunspell&) = delete;
   ~Hunspell();
 
 #ifndef HUNSPELL_CHROME_CLIENT
@@ -209,6 +207,8 @@ class LIBHUNSPELL_DLL_EXPORTED Hunspell {
   /* add word to the run-time dictionary */
 
   int add(const std::string& word);
+
+  int add_with_flags(const std::string& word, const std::string& flags, const std::string& desc);
 
   /* add word to the run-time dictionary with affix flags of
    * the example (a dictionary word): Hunspell will recognize

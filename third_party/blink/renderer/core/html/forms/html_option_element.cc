@@ -147,8 +147,9 @@ FocusableState HTMLOptionElement::SupportsFocus(
     if (base_with_picker || base_in_page) {
       // If this option is being rendered as regular web content inside a
       // base-select <select>, then we need this element to be focusable.
-      return IsDisabledFormControl() ? FocusableState::kNotFocusable
-                                     : FocusableState::kFocusable;
+      return IsDisabledFormControl() || select->IsDisabledFormControl()
+                 ? FocusableState::kNotFocusable
+                 : FocusableState::kFocusable;
     } else if (select->UsesMenuList()) {
       // appearance:auto ListBox <select>s have focusable <option>s, and
       // MenuList ones don't have focusable <option>s.
@@ -156,6 +157,40 @@ FocusableState HTMLOptionElement::SupportsFocus(
     }
   }
   return superclass_focusable;
+}
+
+bool HTMLOptionElement::IsKeyboardFocusableSlow(
+    UpdateBehavior update_behavior) const {
+  if (!HTMLElement::IsKeyboardFocusableSlow(update_behavior)) {
+    return false;
+  }
+  if (!RuntimeEnabledFeatures::CustomizableSelectInPageEnabled() ||
+      !OwnerSelectElement() || OwnerSelectElement()->UsesMenuList()) {
+    return true;
+  }
+
+  // In an in-page customizable <select>, pressing tab should go to the next
+  // focusable element in the page after the end of the <select> instead of the
+  // next focusable <option>. In order to implement this, we make the option
+  // elements which aren't currently focused not keyboard focusable so they are
+  // skipped by FocusController. This same trick is used in
+  // RadioInputType::IsKeyboardFocusableSlow.
+  if (auto* focused_option =
+          DynamicTo<HTMLOptionElement>(GetDocument().FocusedElement())) {
+    if (focused_option == this) {
+      // Keep the currently focused option focusable in order to prevent issues
+      // with invalidation and other things.
+      return true;
+    }
+    if (focused_option->OwnerSelectElement() == OwnerSelectElement()) {
+      return false;
+    }
+  }
+
+  // TODO(crbug.com/357649033): consider implementing "memory" to only make only
+  // the last focused option in a select focusable, so that tabbing out and back
+  // into an in-page select results in the same <option> being focused.
+  return true;
 }
 
 bool HTMLOptionElement::MatchesDefaultPseudoClass() const {
@@ -166,6 +201,9 @@ bool HTMLOptionElement::MatchesEnabledPseudoClass() const {
   return !IsDisabledFormControl();
 }
 
+// The logic in this method to choose rendering the label attribute or the text
+// content should be kept in sync with the ::-internal-option-label-container
+// rules in the UA stylesheet.
 String HTMLOptionElement::DisplayLabel() const {
   if (RuntimeEnabledFeatures::OptionLabelAttributeWhitespaceEnabled()) {
     // If the label attribute is set and is not an empty string, then use its
@@ -695,6 +733,12 @@ void HTMLOptionElement::DefaultEventHandlerInternal(Event& event) {
       if (key == keywords::kArrowUp) {
         if (auto* previous_option = options.PreviousFocusableOption(*this)) {
           previous_option->Focus(focus_params);
+        } else if ((RuntimeEnabledFeatures::
+                        SelectAccessibilityReparentInputEnabled() ||
+                    RuntimeEnabledFeatures::
+                        SelectAccessibilityNestedInputEnabled()) &&
+                   select->FirstDescendantTextInput()) {
+          select->FirstDescendantTextInput()->Focus(focus_params);
         }
         event.SetDefaultHandled();
         return;

@@ -19,6 +19,7 @@
 #include "components/signin/public/base/signin_buildflags.h"
 #include "content/public/common/buildflags.h"
 #include "extensions/buildflags/buildflags.h"
+#include "pdf/buildflags.h"
 #include "ppapi/buildflags/buildflags.h"
 #include "printing/buildflags/buildflags.h"
 #include "rlz/buildflags/buildflags.h"
@@ -450,8 +451,7 @@ inline constexpr char kNetworkPredictionOptions[] =
 inline constexpr char kPreinstalledAppsInstallState[] =
     "default_apps_install_state";
 
-#if BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || \
-    BUILDFLAG(IS_LINUX)
+#if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
 // A list of extensions ids that have to be allowed to run in Incognito by the
 // user in order to use Incognito mode.
 inline constexpr char kMandatoryExtensionsForIncognitoNavigation[] =
@@ -1260,7 +1260,7 @@ inline constexpr char kHasResetFirst7DaysSettingsUsedCount[] =
 // the user grants consent again, we will not record their metric in the
 // histogram
 // "ChromeOS.Settings.NumUniqueSettingsChanged.DeviceLifetime2.{Time}".
-const char kHasEverRevokedMetricsConsent[] =
+inline constexpr char kHasEverRevokedMetricsConsent[] =
     "settings.has_ever_revoked_metrics_consent";
 
 // A boolean to store that an admin user accessed the host device remotely when
@@ -1362,40 +1362,33 @@ inline constexpr char kShouldReadIncomingSyncingThemePrefs[] =
     "should_read_incoming_syncing_theme_prefs";
 
 // Enum tracking the color scheme preference for the browser.
-// Note: In the process of migration. Please use `GetThemePrefNameInMigration()`
-// instead. See crbug.com/356148174.
-inline constexpr char kBrowserColorSchemeDoNotUse[] =
+// Use `kBrowserColorScheme` only.
+inline constexpr char kDeprecatedBrowserColorSchemeDoNotUse[] =
     "browser.theme.color_scheme";
-inline constexpr char kNonSyncingBrowserColorSchemeDoNotUse[] =
-    "browser.theme.color_scheme2";
+inline constexpr char kBrowserColorScheme[] = "browser.theme.color_scheme2";
 
 // SkColor used to theme the browser for Chrome Refresh. The value
 // SK_ColorTRANSPARENT means the user color has not been set.
-// Note: In the process of migration. Please use `GetThemePrefNameInMigration()`
-// instead. See crbug.com/356148174.
-inline constexpr char kUserColorDoNotUse[] = "browser.theme.user_color";
-inline constexpr char kNonSyncingUserColorDoNotUse[] =
-    "browser.theme.user_color2";
+// Use `kUserColor` only.
+inline constexpr char kDeprecatedUserColorDoNotUse[] =
+    "browser.theme.user_color";
+inline constexpr char kUserColor[] = "browser.theme.user_color2";
 
 // Enum tracking the color variant preference for the browser.
-// Note: In the process of migration. Please use `GetThemePrefNameInMigration()`
-// instead. See crbug.com/356148174.
-extern inline constexpr char kBrowserColorVariantDoNotUse[] =
+// Use `kBrowserColorVariant` only.
+inline constexpr char kDeprecatedBrowserColorVariantDoNotUse[] =
     "browser.theme.color_variant";
-inline constexpr char kNonSyncingBrowserColorVariantDoNotUse[] =
-    "browser.theme.color_variant2";
+inline constexpr char kBrowserColorVariant[] = "browser.theme.color_variant2";
 
 // Boolean pref tracking whether chrome follows the system's color theme.
 extern inline constexpr char kBrowserFollowsSystemThemeColors[] =
     "browser.theme.follows_system_colors";
 
 // Boolean pref tracking whether the grayscale theme has been enabled.
-// Note: In the process of migration. Please use `GetThemePrefNameInMigration()`
-// instead. See crbug.com/356148174.
-inline constexpr char kGrayscaleThemeEnabledDoNotUse[] =
+// Use `kGrayscaleThemeEnabled` only.
+inline constexpr char kDeprecatedGrayscaleThemeEnabledDoNotUse[] =
     "browser.theme.is_grayscale";
-inline constexpr char kNonSyncingGrayscaleThemeEnabledDoNotUse[] =
-    "browser.theme.is_grayscale2";
+inline constexpr char kGrayscaleThemeEnabled[] = "browser.theme.is_grayscale2";
 
 // Boolean pref which persists whether the extensions_ui is in developer mode
 // (showing developer packing tools and extensions details)
@@ -1955,9 +1948,6 @@ inline constexpr char kGoogleSearchSidePanelEnabled[] =
 inline constexpr char kTabSearchRightAligned[] = "tab_search.is_right_aligned";
 #endif  // !BUILDFLAG(IS_ANDROID)
 
-inline constexpr char kManagedPrivateNetworkAccessRestrictionsEnabled[] =
-    "managed_private_network_access_restrictions_enabled";
-
 #if BUILDFLAG(ENABLE_COMPOSE)
 // Boolean indicating whether or not the Compose FRE has been completed.
 inline constexpr char kPrefHasCompletedComposeFRE[] =
@@ -1998,6 +1988,11 @@ inline constexpr char kNetworkAnnotationBlocklist[] =
 // reports to be sent to.
 inline constexpr char kReportingEndpoints[] =
     "enterprise_reporting.reporting_endpoints";
+
+// A boolean indicating if the "Line wrap" checkbox on view source pages should
+// be prepopulated.
+inline constexpr char kViewSourceLineWrappingEnabled[] =
+    "view_source.line_wrapping_enabled";
 
 #if BUILDFLAG(IS_CHROMEOS)
 // The state of the SkyVault migration of local files to the cloud.
@@ -2353,6 +2348,12 @@ inline constexpr char kCommandLineFlagSecurityWarningsEnabled[] =
     "browser.command_line_flag_security_warnings_enabled";
 #endif  // !BUILDFLAG(IS_CHROMEOS)
 
+// Boolean value that determines whether the NTP extension attribution on the
+// NTP footer is enabled. This is false when disabled by the
+// `NTPFooterExtensionAttributionEnabled` policy.
+inline constexpr char kNTPFooterExtensionAttributionEnabled[] =
+    "ntp_footer.settings.extension_attribution";
+
 // Pref name for controlling presentation of promotions, including full-tab
 // promotional and/or educational content.
 // This preference replaces browser.promotional_tabs_enabled.
@@ -2389,11 +2390,10 @@ inline constexpr char kNtpCollapsedSnapshotDocument[] =
 inline constexpr char kNtpCollapsedSyncPromo[] = "ntp.collapsed_sync_promo";
 #else
 // Holds info for New Tab Page custom background
-// Note: In the process of migration. Please use `GetThemePrefNameInMigration()`
-// instead. See crbug.com/356148174.
-inline constexpr char kNtpCustomBackgroundDictDoNotUse[] =
+// Use `kNtpCustomBackgroundDict` only.
+inline constexpr char kDeprecatedNtpCustomBackgroundDictDoNotUse[] =
     "ntp.custom_background_dict";
-inline constexpr char kNonSyncingNtpCustomBackgroundDictDoNotUse[] =
+inline constexpr char kNtpCustomBackgroundDict[] =
     "ntp.custom_background_dict2";
 inline constexpr char kNtpCustomBackgroundLocalToDevice[] =
     "ntp.custom_background_local_to_device";
@@ -2827,6 +2827,9 @@ inline constexpr char kDevicePostQuantumKeyAgreementEnabled[] =
     "ssl.device_post_quantum_enabled";
 #endif
 
+// Boolean that specifies whether TLS 1.3 Early Data is enabled.
+inline constexpr char kTLS13EarlyDataEnabled[] = "ssl.tls13_early_data_enabled";
+
 // If false, disable Encrypted ClientHello (ECH) in TLS connections.
 inline constexpr char kEncryptedClientHelloEnabled[] = "ssl.ech_enabled";
 
@@ -2936,10 +2939,6 @@ inline constexpr char kSameOriginTabCaptureAllowedByOrigins[] =
     "hardware.same_origin_tab_capture_allowed_by_origins";
 
 #if BUILDFLAG(IS_CHROMEOS)
-// Dictionary for transient storage of settings that should go into device
-// settings storage before owner has been assigned.
-inline constexpr char kDeviceSettingsCache[] = "signed_settings_cache";
-
 // The hardware keyboard layout of the device. This should look like
 // "xkb:us::eng".
 inline constexpr char kHardwareKeyboardLayout[] = "intl.hardware_keyboard";
@@ -3947,11 +3946,13 @@ inline constexpr char kFetchKeepaliveDurationOnShutdown[] =
     "fetch_keepalive_duration_on_shutdown";
 #endif
 
-#if BUILDFLAG(IS_CHROMEOS)
+#if BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(ENABLE_PDF_INK2)
 // Boolean pref to control whether to enable annotation mode in the PDF viewer
 // or not.
 inline constexpr char kPdfAnnotationsEnabled[] = "pdf.enable_annotations";
+#endif
 
+#if BUILDFLAG(IS_CHROMEOS)
 // Boolean pref to control whether to enable Lens integration with media app
 inline constexpr char kMediaAppLensEnabled[] = "media_app.enable_lens";
 #endif
@@ -4233,12 +4234,6 @@ inline constexpr char kEnterpriseProfileBadgeToolbarSettings[] =
 inline constexpr char kNTPFooterManagementNoticeEnabled[] =
     "ntp_footer.settings.management_notice";
 
-// Boolean value that determine whether the NTP theme attribution on the NTP
-// footer is enabled. This is false when disabled by the
-// `NTPFooterThemeAttributionEnabled` policy.
-inline constexpr char kNTPFooterThemeAttributionEnabled[] =
-    "ntp_footer.settings.theme_attribution";
-
 #if BUILDFLAG(IS_ANDROID)
 // An integer count of how many account-level breached credentials were
 // detected by GMSCore.
@@ -4271,6 +4266,22 @@ inline constexpr char kServiceWorkerToControlSrcdocIframeEnabled[] =
 // is set as a SharedWorker script URL.
 inline constexpr char kSharedWorkerBlobURLFixEnabled[] =
     "worker.shared_worker_blob_url_fix_enabled";
+
+// Boolean indicating whether clearing window.name when the navigation is
+// top-level, cross-site and swaps BrowsingContextGroup is allowed or not.
+inline constexpr char kClearWindowNameForNewBrowsingContextGroup[] =
+    "profile.content_settings.clear_window_name_for_new_browsing_context_group";
+
+// Boolean indicating whether Local Network Access restrictions should be forced
+// on regardless of defaults.
+inline constexpr char kManagedLocalNetworkAccessRestrictionsEnabled[] =
+    "managed_local_network_access_restrictions_enabled";
+
+// Boolean that specifies whether SpeculationRules prefetch can be sent to
+// ServiceWorker-controlled URLs.
+inline constexpr char kPrefetchWithServiceWorkerEnabled[] =
+    "preloading.prefetch_with_service_worker_enabled";
+
 }  // namespace prefs
 
 #endif  // CHROME_COMMON_PREF_NAMES_H_

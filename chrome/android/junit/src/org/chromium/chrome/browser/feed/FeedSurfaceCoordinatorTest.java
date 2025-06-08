@@ -94,6 +94,7 @@ import org.chromium.components.signin.identitymanager.IdentityManager;
 import org.chromium.components.user_prefs.UserPrefs;
 import org.chromium.components.user_prefs.UserPrefsJni;
 import org.chromium.ui.base.WindowAndroid;
+import org.chromium.ui.modaldialog.ModalDialogManager;
 
 import java.util.ArrayList;
 import java.util.Locale;
@@ -123,13 +124,13 @@ public class FeedSurfaceCoordinatorTest {
         }
     }
 
-    private class TestSurfaceDelegate implements FeedSurfaceDelegate {
+    private static class TestSurfaceDelegate implements FeedSurfaceDelegate {
         @Override
         public FeedSurfaceLifecycleManager createStreamLifecycleManager(
                 Activity activity, SurfaceCoordinator coordinator, Profile profile) {
-            mLifecycleManager =
+            TestLifecycleManager lifecycleManager =
                     new TestLifecycleManager(activity, (FeedSurfaceCoordinator) coordinator);
-            return mLifecycleManager;
+            return lifecycleManager;
         }
 
         @Override
@@ -142,7 +143,7 @@ public class FeedSurfaceCoordinatorTest {
     }
 
     private static class TestTabModel extends EmptyTabModel {
-        public ArrayList<TabModelObserver> mObservers = new ArrayList<TabModelObserver>();
+        public final ArrayList<TabModelObserver> mObservers = new ArrayList<TabModelObserver>();
 
         @Override
         public void addObserver(TabModelObserver observer) {
@@ -150,15 +151,14 @@ public class FeedSurfaceCoordinatorTest {
         }
     }
 
-    private TestTabModel mTabModel = new TestTabModel();
-    private TestTabModel mTabModelIncognito = new TestTabModel();
+    private final TestTabModel mTabModel = new TestTabModel();
+    private final TestTabModel mTabModelIncognito = new TestTabModel();
 
     private FeedSurfaceCoordinator mCoordinator;
 
     private Activity mActivity;
     private RecyclerView mRecyclerView;
     @Mock private LinearLayoutManager mLayoutManager;
-    private TestLifecycleManager mLifecycleManager;
 
     // Mocked Direct dependencies.
     @Mock private SnackbarManager mSnackbarManager;
@@ -166,6 +166,7 @@ public class FeedSurfaceCoordinatorTest {
     @Mock private BottomSheetController mBottomSheetController;
     @Mock private SnapScrollHelper mSnapHelper;
     @Mock private WindowAndroid mWindowAndroid;
+    @Mock private ModalDialogManager mModalDialogManager;
     @Mock private Supplier<ShareDelegate> mShareDelegateSupplier;
     @Mock private SectionHeaderView mSectionHeaderView;
     @Mock private FeedActionDelegate mFeedActionDelegate;
@@ -507,13 +508,14 @@ public class FeedSurfaceCoordinatorTest {
             return false;
         }
         return ((FeedStream) mCoordinator.getMediatorForTesting().getCurrentStreamForTesting())
-                .getBoundStatusForTest();
+                .isBound();
     }
 
     private FeedSurfaceCoordinator createCoordinator(RecyclerView recyclerview) {
         when(mRenderer.bind(mContentManagerCaptor.capture(), isNull(), anyInt()))
                 .thenReturn(recyclerview);
         when(mRenderer.getAdapter()).thenReturn(mAdapter);
+        when(mWindowAndroid.getModalDialogManager()).thenReturn(mModalDialogManager);
         return new FeedSurfaceCoordinator(
                 mActivity,
                 mSnackbarManager,

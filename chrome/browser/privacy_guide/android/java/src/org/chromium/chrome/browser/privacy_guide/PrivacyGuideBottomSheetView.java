@@ -19,7 +19,7 @@ import org.chromium.components.browser_ui.bottomsheet.BottomSheetContent;
 public class PrivacyGuideBottomSheetView implements BottomSheetContent {
     private final View mContentView;
     private final Runnable mCloseBottomSheetCallback;
-    private ObservableSupplierImpl<Boolean> mBackPressStateChangedSupplier =
+    private final ObservableSupplierImpl<Boolean> mBackPressStateChangedSupplier =
             new ObservableSupplierImpl<>();
     private final float mHalfHeight;
     private final float mFullHeight;
@@ -61,11 +61,6 @@ public class PrivacyGuideBottomSheetView implements BottomSheetContent {
     @Override
     public int getPriority() {
         return BottomSheetContent.ContentPriority.HIGH;
-    }
-
-    @Override
-    public int getPeekHeight() {
-        return BottomSheetContent.HeightMode.DISABLED;
     }
 
     @Override

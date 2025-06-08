@@ -110,6 +110,7 @@ chromium-metrics-reviews@google.com.
   <int value="20" label="Help center"/>
   <int value="21" label="Open bookmark (via double-click / enter)"/>
   <int value="22" label="Open folder (via double-click / enter)"/>
+  <int value="23" label="Open in split view"/>
 </enum>
 
 <!-- LINT.IfChange(BookmarkReorderDropTarget) -->
@@ -165,6 +166,19 @@ chromium-metrics-reviews@google.com.
   <int value="0" label="Normal"/>
   <int value="1" label="Partner"/>
   <int value="2" label="ReadingList"/>
+</enum>
+
+<enum name="JavaBookmarkBridgeBackends">
+  <int value="0" label="Bookmarks"/>
+  <int value="1" label="Partner bookmarks"/>
+  <int value="2" label="Local reading list"/>
+  <int value="3" label="Account reading list"/>
+  <int value="4" label="Reading list manager"/>
+</enum>
+
+<enum name="JavaBookmarkBridgeLoadedState">
+  <int value="0" label="Loading started"/>
+  <int value="1" label="Loading finished"/>
 </enum>
 
 <enum name="MobileBookmarkManagerBookmarkRowDisplayPref">

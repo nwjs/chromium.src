@@ -6,6 +6,7 @@
 
 import collections
 from collections.abc import Generator, Iterable
+import dataclasses
 import datetime
 import fnmatch
 import functools
@@ -20,8 +21,6 @@ import types
 from typing import Any, Type
 import unittest
 
-import dataclasses  # Built-in, but pylint gives an ordering false positive.
-
 from telemetry.internal.browser import browser_options as bo
 from telemetry.internal.platform import gpu_info as telemetry_gpu_info
 from telemetry.internal.platform import system_info as si_module
@@ -32,14 +31,13 @@ from telemetry.util import screenshot
 from typ import json_results
 
 import gpu_path_util
-import validate_tag_consistency
-
 from gpu_tests import common_browser_args as cba
 from gpu_tests import common_typing as ct
 from gpu_tests import constants
 from gpu_tests import gpu_helper
 from gpu_tests import overlay_support
 from gpu_tests.util import host_information
+import validate_tag_consistency
 
 TEST_WAS_SLOW = 'test_was_slow'
 
@@ -1197,6 +1195,7 @@ class GpuIntegrationTest(
       return cls._cached_platform_tags
 
     tags = super(GpuIntegrationTest, cls).GetPlatformTags(browser)
+    AddMemoryTags(tags)
     system_info = browser.GetSystemInfo()
     if system_info:
       gpu_tags = []
@@ -1394,6 +1393,24 @@ class GpuIntegrationTest(
     expectation file lives in a third party repo.
     """
     return gpu_path_util.CHROMIUM_SRC_DIR
+
+
+def AddMemoryTags(tags: list[str]) -> None:
+  """Adds typ tags related to system memory.
+
+  Args:
+    tags: A list of existing tags. Will be modified in place.
+  """
+  # We only add memory tags for non-remote platforms.
+  if not any(t in tags for t in ('linux', 'mac', 'win')):
+    return
+
+  systemMemory = host_information.GetSystemMemoryBytes()
+  gigabyte = 1_000_000_000
+  if systemMemory >= 16 * gigabyte:
+    tags.append('memory_ge_16gb')
+  else:
+    tags.append('memory_lt_16gb')
 
 
 def _PreemptArguments(browser_options: bo.BrowserOptions,

@@ -34,6 +34,8 @@ class StyleIntrinsicLength;
 class StylePropertyShorthand;
 class StyleTimeline;
 
+enum class CSSGapDecorationPropertyDirection : int;
+
 namespace cssvalue {
 class CSSContentDistributionValue;
 }
@@ -333,6 +335,13 @@ class CORE_EXPORT ComputedStyleUtils {
                                                   const LayoutObject*,
                                                   bool allow_visited_style,
                                                   CSSValuePhase value_phase);
+  static CSSValueList* ValueForGapDecorationRuleShorthand(
+      const StylePropertyShorthand&,
+      const ComputedStyle&,
+      const LayoutObject*,
+      bool allow_visited_style,
+      CSSValuePhase value_phase,
+      CSSGapDecorationPropertyDirection direction);
   static CSSValuePair* ValuesForGapShorthand(const StylePropertyShorthand&,
                                              const ComputedStyle&,
                                              const LayoutObject*,
@@ -415,6 +424,7 @@ class CORE_EXPORT ComputedStyleUtils {
                                        const ScrollStartData&);
   static CSSValue* ValueForPositionArea(const blink::PositionArea&);
   static CSSValue* ValueForPositionTryFallbacks(const PositionTryFallbacks&);
+  static CSSValue* ValueForFitText(const ComputedStyle&, const FitText&);
   static std::unique_ptr<CrossThreadStyleValue>
   CrossThreadStyleValueFromCSSStyleValue(CSSStyleValue* style_value);
 

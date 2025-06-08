@@ -7,6 +7,7 @@
 #include "base/barrier_closure.h"
 #include "base/files/file_util.h"
 #include "base/memory/ref_counted.h"
+#include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/thread_pool.h"
 #include "chrome/browser/devtools/devtools_window.h"
@@ -681,6 +682,31 @@ DeveloperPrivateDeleteExtensionErrorsFunction::Run() {
   }
   error_console->RemoveErrors(
       ErrorMap::Filter(properties.extension_id, type, error_ids, false));
+
+  return RespondNow(NoArguments());
+}
+
+DeveloperPrivateUpdateExtensionCommandFunction::
+    ~DeveloperPrivateUpdateExtensionCommandFunction() = default;
+
+ExtensionFunction::ResponseAction
+DeveloperPrivateUpdateExtensionCommandFunction::Run() {
+  std::optional<developer::UpdateExtensionCommand::Params> params =
+      developer::UpdateExtensionCommand::Params::Create(args());
+  EXTENSION_FUNCTION_VALIDATE(params);
+  const developer::ExtensionCommandUpdate& update = params->update;
+
+  CommandService* command_service = CommandService::Get(browser_context());
+
+  if (update.scope != developer::CommandScope::kNone) {
+    command_service->SetScope(update.extension_id, update.command_name,
+                              update.scope == developer::CommandScope::kGlobal);
+  }
+
+  if (update.keybinding) {
+    command_service->UpdateKeybindingPrefs(
+        update.extension_id, update.command_name, *update.keybinding);
+  }
 
   return RespondNow(NoArguments());
 }

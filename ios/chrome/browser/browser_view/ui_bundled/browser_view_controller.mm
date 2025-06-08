@@ -233,6 +233,10 @@ enum HeaderBehaviour {
 
   // Used to add or cancel a page placeholder for next navigation.
   raw_ptr<PagePlaceholderBrowserAgent> _pagePlaceholderBrowserAgent;
+
+  // Whether the Lens Overlay is currently active and visible for the browser
+  // view.
+  BOOL _lensOverlayVisible;
 }
 
 // Activates/deactivates the object. This will enable/disable the ability for
@@ -1071,33 +1075,6 @@ enum HeaderBehaviour {
 
 - (void)dismissViewControllerAnimated:(BOOL)flag
                            completion:(void (^)())completion {
-  if (!self.presentedViewController) {
-    // TODO(crbug.com/41364311): On iOS10, UIDocumentMenuViewController and
-    // WKFileUploadPanel somehow combine to call dismiss twice instead of once.
-    // The second call would dismiss the BVC itself, so look for that case and
-    // return early.
-    //
-    // TODO(crbug.com/41370278): A similar bug exists on all iOS versions with
-    // WKFileUploadPanel and UIDocumentPickerViewController.
-    //
-    // To make M65 as safe as possible, return early whenever this method is
-    // invoked but no VC appears to be presented.  These cases will always end
-    // up dismissing the BVC itself, which would put the app into an
-    // unresponsive state.
-    return;
-  }
-
-  // Some calling code invokes `dismissViewControllerAnimated:completion:`
-  // multiple times. Because the BVC is presented, subsequent calls end up
-  // dismissing the BVC itself. This is never what should happen, so check for
-  // this case and return early.  It is not enough to check
-  // `self.dismissingModal` because some dismissals do not go through
-  // -[BrowserViewController dismissViewControllerAnimated:completion:`.
-  // TODO(crbug.com/40548564): Fix callers and remove this early return.
-  if (self.dismissingModal || self.presentedViewController.isBeingDismissed) {
-    return;
-  }
-
   self.dismissingModal = YES;
   self.visibilityState = BrowserViewVisibilityState::kVisible;
   __weak BrowserViewController* weakSelf = self;
@@ -1590,6 +1567,41 @@ enum HeaderBehaviour {
   self.visibilityState = BrowserViewVisibilityState::kVisible;
 }
 
+// Animates hiding and showing the typing shield.
+- (void)animateTypingShieldHidden:(BOOL)hidden {
+  if (self.typingShield.hidden == hidden) {
+    return;
+  }
+
+  CGFloat finalAlpha = hidden ? 0.0 : 1.0;
+
+  if (!hidden) {
+    [self.typingShield setAlpha:0.0];
+    [self.typingShield setHidden:NO];
+  }
+
+  [UIView animateWithDuration:0.3
+      animations:^{
+        [self.typingShield setAlpha:finalAlpha];
+      }
+      completion:^(BOOL finished) {
+        if (!hidden) {
+          // Already revealed before the animation started.
+          return;
+        }
+
+        // This can happen if one quickly resigns the omnibox and then taps
+        // on the omnibox again during this animation. If the animation is
+        // interrupted and the toolbar controller is first responder, it's safe
+        // to assume `self.typingShield` shouldn't be hidden here.
+        if (!finished && [self.toolbarCoordinator isOmniboxFirstResponder]) {
+          return;
+        }
+
+        [self.typingShield setHidden:YES];
+      }];
+}
+
 #pragma mark - Private Methods: UI Configuration, update and Layout
 
 // Starts or stops broadcasting the toolbar UI and main content UI depending on
@@ -1900,6 +1912,17 @@ enum HeaderBehaviour {
   self.visibilityState = BrowserViewVisibilityState::kCoveredByOmniboxPopup;
   self.toolbarCoordinator.secondaryToolbarViewController.view
       .accessibilityElementsHidden = YES;
+
+  if (_lensOverlayVisible) {
+    // The typing shield has to be inserted right below the presented popup
+    // omnibox to avoid being ostructed by the Lens Overlay.
+    self.typingShield.frame = UIEdgeInsetsInsetRect(
+        self.contentArea.bounds,
+        UIEdgeInsetsMake([self expandedTopToolbarHeight], 0, 0, 0));
+    [self.view insertSubview:self.typingShield
+                belowSubview:presenter.popupContainerView];
+    [self animateTypingShieldHidden:NO];
+  }
 }
 
 - (void)popupDidCloseForPresenter:(OmniboxPopupPresenter*)presenter {
@@ -2141,13 +2164,11 @@ enum HeaderBehaviour {
       ui::GetDeviceFormFactor() == ui::DEVICE_FORM_FACTOR_TABLET) {
     // Tapping on web content area should dismiss the keyboard. Tapping on NTP
     // gesture should propagate to NTP view.
-    [self.view insertSubview:self.typingShield aboveSubview:self.contentArea];
-    [self.typingShield setAlpha:0.0];
-    [self.typingShield setHidden:NO];
-    [UIView animateWithDuration:0.3
-                     animations:^{
-                       [self.typingShield setAlpha:1.0];
-                     }];
+
+    if (self.typingShield.hidden) {
+      [self.view insertSubview:self.typingShield aboveSubview:self.contentArea];
+      [self animateTypingShieldHidden:NO];
+    }
   }
 
   [self.toolbarCoordinator transitionToLocationBarFocusedState:YES
@@ -2159,20 +2180,7 @@ enum HeaderBehaviour {
 
   [self.ntpCoordinator locationBarWillResignFirstResponder];
 
-  [UIView animateWithDuration:0.3
-      animations:^{
-        [self.typingShield setAlpha:0.0];
-      }
-      completion:^(BOOL finished) {
-        // This can happen if one quickly resigns the omnibox and then taps
-        // on the omnibox again during this animation. If the animation is
-        // interrupted and the toolbar controller is first responder, it's safe
-        // to assume `self.typingShield` shouldn't be hidden here.
-        if (!finished && [self.toolbarCoordinator isOmniboxFirstResponder]) {
-          return;
-        }
-        [self.typingShield setHidden:YES];
-      }];
+  [self animateTypingShieldHidden:YES];
 
   ProceduralBlock completion = ^{
     // Show the NTP's fake toolbar after the defocus animation completes.
@@ -2352,8 +2360,10 @@ enum HeaderBehaviour {
   // Toolbar snapshot is only used for the UIRefresh animation.
   UIView* toolbarSnapshot;
 
-  if (tabURL == kChromeUINewTabURL && !_isOffTheRecord &&
-      !IsRegularXRegularSizeClass(self)) {
+  BOOL isNTP = tabURL == kChromeUINewTabURL;
+  BOOL isIncognito = _isOffTheRecord;
+
+  if (isNTP && !isIncognito && !IsRegularXRegularSizeClass(self)) {
     // Add a snapshot of the primary toolbar to the background as the
     // animation runs.
     UIViewController* toolbarViewController =
@@ -2374,6 +2384,8 @@ enum HeaderBehaviour {
   }
   newPage.userInteractionEnabled = NO;
   NSInteger currentAnimationIdentifier = ++_NTPAnimationIdentifier;
+
+  __weak id<OmniboxCommands> omniboxHandler = self.omniboxCommandsHandler;
 
   // Cleanup steps needed for both UI Refresh and stack-view style animations.
   UIView* webStateView = [self viewForWebState:webState];
@@ -2406,6 +2418,10 @@ enum HeaderBehaviour {
     [strongSelf webStateSelected];
     if (completion) {
       completion();
+    }
+
+    if (isNTP && isIncognito) {
+      [omniboxHandler focusOmniboxForVoiceOver];
     }
 
     [strongSelf executeAndClearForegroundTabWasAddedCompletionBlock:YES];
@@ -2729,6 +2745,26 @@ enum HeaderBehaviour {
   [self.view
       insertSubview:contextualSheet
        aboveSubview:self.toolbarCoordinator.primaryToolbarViewController.view];
+}
+
+#pragma mark - LensOverlayPresentationEnvironment
+
+- (void)lensOverlayWillAppear {
+  [_sideSwipeCoordinator setEnabled:NO];
+  _lensOverlayVisible = YES;
+}
+
+- (void)lensOverlayWillDisappear {
+  [_sideSwipeCoordinator setEnabled:YES];
+  _lensOverlayVisible = NO;
+}
+
+- (NSDirectionalEdgeInsets)presentationInsetsForLensOverlay {
+  if (IsRegularXRegularSizeClass(self)) {
+    return NSDirectionalEdgeInsetsMake([self expandedTopToolbarHeight], 0, 0,
+                                       0);
+  }
+  return NSDirectionalEdgeInsetsZero;
 }
 
 @end

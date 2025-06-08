@@ -75,17 +75,12 @@ uint8_t ThreadCache::global_limits_[ThreadCache::kBucketCount];
 
 // Start with the normal size, not the maximum one.
 uint16_t ThreadCache::largest_active_bucket_index_ =
-    internal::BucketIndexLookup::GetIndexForNeutralBuckets(
+    BucketIndexLookup::GetIndexForNeutralBuckets(
         ThreadCache::kDefaultSizeThreshold);
 
 // static
 ThreadCacheRegistry& ThreadCacheRegistry::Instance() {
   return g_instance;
-}
-
-const internal::PartitionFreelistDispatcher*
-ThreadCache::get_freelist_dispatcher_from_root() {
-  return root_->get_freelist_dispatcher();
 }
 
 void ThreadCacheRegistry::RegisterThreadCache(ThreadCache* cache) {
@@ -200,7 +195,7 @@ void ThreadCacheRegistry::ForcePurgeAllThreadAfterForkUnsafe() {
     // passes. See crbug.com/1216964.
     tcache->cached_memory_ = tcache->CachedMemory();
 
-    // At this point, we should call |TryPurge|. However, due to the thread
+    // At this point, we should call |Purge|. However, due to the thread
     // cache being possibly inconsistent at this point, this may crash. Rather
     // than crash, we'd prefer to simply not purge, even though this may leak
     // memory in some cases.
@@ -495,6 +490,9 @@ ThreadCache* ThreadCache::Create(PartitionRoot* root) {
 
 ThreadCache::ThreadCache(PartitionRoot* root)
     : should_purge_(false),
+#if PA_BUILDFLAG(HAS_64_BIT_POINTERS)
+      offset_lookup_(root->GetOffsetLookup()),
+#endif  // PA_BUILDFLAG(HAS_64_BIT_POINTERS)
       root_(root),
       thread_id_(internal::base::PlatformThread::CurrentId()),
       next_(nullptr),
@@ -666,11 +664,6 @@ void ThreadCache::FillBucket(size_t bucket_index) {
 }
 
 void ThreadCache::ClearBucket(Bucket& bucket, size_t limit) {
-  ClearBucketHelper<true>(bucket, limit);
-}
-
-template <bool crash_on_corruption>
-void ThreadCache::ClearBucketHelper(Bucket& bucket, size_t limit) {
   // Avoids acquiring the lock needlessly.
   if (!bucket.count || bucket.count <= limit) {
     return;
@@ -687,16 +680,10 @@ void ThreadCache::ClearBucketHelper(Bucket& bucket, size_t limit) {
   //    triggers a major page fault, and we are running on a low-priority
   //    thread, we don't want the thread to be blocked while holding the lock,
   //    causing a priority inversion.
-  const internal::PartitionFreelistDispatcher* freelist_dispatcher =
-      root_->get_freelist_dispatcher();
-
-  if constexpr (crash_on_corruption) {
-    freelist_dispatcher->CheckFreeListForThreadCache(bucket.freelist_head,
-                                                     bucket.slot_size);
-  }
+  bucket.freelist_head->CheckFreeListForThreadCache(bucket.slot_size);
   uint8_t count_before = bucket.count;
   if (limit == 0) {
-    FreeAfter<crash_on_corruption>(bucket.freelist_head, bucket.slot_size);
+    FreeAfter(bucket.freelist_head, bucket.slot_size);
     bucket.freelist_head = nullptr;
   } else {
     // Free the *end* of the list, not the head, since the head contains the
@@ -704,28 +691,21 @@ void ThreadCache::ClearBucketHelper(Bucket& bucket, size_t limit) {
     auto* head = bucket.freelist_head;
     size_t items = 1;  // Cannot free the freelist head.
     while (items < limit) {
-#if PA_BUILDFLAG(USE_FREELIST_DISPATCHER)
-      head = freelist_dispatcher->GetNextForThreadCacheBool(
-          head, crash_on_corruption, bucket.slot_size);
+#if PA_BUILDFLAG(HAS_64_BIT_POINTERS)
+      head = head->GetNextForThreadCache(bucket.slot_size, offset_lookup_);
 #else
-      head = freelist_dispatcher->GetNextForThreadCache<crash_on_corruption>(
-          head, bucket.slot_size);
-#endif  // PA_BUILDFLAG(USE_FREELIST_DISPATCHER)
+      head = head->GetNextForThreadCache(bucket.slot_size);
+#endif  // PA_BUILDFLAG(HAS_64_BIT_POINTERS)
       items++;
     }
 
-#if PA_BUILDFLAG(USE_FREELIST_DISPATCHER)
-    FreeAfter<crash_on_corruption>(
-        freelist_dispatcher->GetNextForThreadCacheBool(
-            head, crash_on_corruption, bucket.slot_size),
-        bucket.slot_size);
+#if PA_BUILDFLAG(HAS_64_BIT_POINTERS)
+    FreeAfter(head->GetNextForThreadCache(bucket.slot_size, offset_lookup_),
+              bucket.slot_size);
 #else
-    FreeAfter<crash_on_corruption>(
-        freelist_dispatcher->GetNextForThreadCache<crash_on_corruption>(
-            head, bucket.slot_size),
-        bucket.slot_size);
-#endif  // PA_BUILDFLAG(USE_FREELIST_DISPATCHER)
-    freelist_dispatcher->SetNext(head, nullptr);
+    FreeAfter(head->GetNextForThreadCache(bucket.slot_size), bucket.slot_size);
+#endif  // PA_BUILDFLAG(HAS_64_BIT_POINTERS)
+    head->SetNext(nullptr);
   }
   bucket.count = limit;
   uint8_t count_after = bucket.count;
@@ -736,24 +716,18 @@ void ThreadCache::ClearBucketHelper(Bucket& bucket, size_t limit) {
   PA_DCHECK(cached_memory_ == CachedMemory());
 }
 
-template <bool crash_on_corruption>
-void ThreadCache::FreeAfter(internal::PartitionFreelistEntry* head,
-                            size_t slot_size) {
+void ThreadCache::FreeAfter(internal::FreelistEntry* head, size_t slot_size) {
   // Acquire the lock once. Deallocation from the same bucket are likely to be
   // hitting the same cache lines in the central allocator, and lock
   // acquisitions can be expensive.
   internal::ScopedGuard guard(internal::PartitionRootLock(root_));
   while (head) {
     uintptr_t slot_start = internal::SlotStartPtr2Addr(head);
-    const internal::PartitionFreelistDispatcher* freelist_dispatcher =
-        root_->get_freelist_dispatcher();
-#if PA_BUILDFLAG(USE_FREELIST_DISPATCHER)
-    head = freelist_dispatcher->GetNextForThreadCacheBool(
-        head, crash_on_corruption, slot_size);
+#if PA_BUILDFLAG(HAS_64_BIT_POINTERS)
+    head = head->GetNextForThreadCache(slot_size, offset_lookup_);
 #else
-    head = freelist_dispatcher->GetNextForThreadCache<crash_on_corruption>(
-        head, slot_size);
-#endif  // PA_BUILDFLAG(USE_FREELIST_DISPATCHER)
+    head = head->GetNextForThreadCache(slot_size);
+#endif  // PA_BUILDFLAG(HAS_64_BIT_POINTERS)
     root_->RawFreeLocked(slot_start);
   }
 }
@@ -804,7 +778,7 @@ void ThreadCache::AccumulateStats(ThreadCacheStats* stats) const {
   stats->batch_fill_count += stats_.batch_fill_count;
 
 #if PA_CONFIG(THREAD_CACHE_ALLOC_STATS)
-  for (size_t i = 0; i < internal::kNumBuckets + 1; i++) {
+  for (size_t i = 0; i < BucketIndexLookup::kNumBuckets + 1; i++) {
     stats->allocs_per_bucket_[i] += stats_.allocs_per_bucket_[i];
   }
 #endif  // PA_CONFIG(THREAD_CACHE_ALLOC_STATS)
@@ -826,11 +800,6 @@ void ThreadCache::Purge() {
   PurgeInternal();
 }
 
-void ThreadCache::TryPurge() {
-  PA_REENTRANCY_GUARD(is_in_thread_cache_);
-  PurgeInternalHelper<false>();
-}
-
 // static
 void ThreadCache::PurgeCurrentThread() {
   auto* tcache = Get();
@@ -839,16 +808,11 @@ void ThreadCache::PurgeCurrentThread() {
   }
 }
 
-void ThreadCache::PurgeInternal() {
-  PurgeInternalHelper<true>();
-}
-
 void ThreadCache::ResetPerThreadAllocationStatsForTesting() {
   thread_alloc_stats_ = {};
 }
 
-template <bool crash_on_corruption>
-void ThreadCache::PurgeInternalHelper() {
+void ThreadCache::PurgeInternal() {
   should_purge_.store(false, std::memory_order_relaxed);
   // TODO(lizeb): Investigate whether lock acquisition should be less
   // frequent.
@@ -858,7 +822,7 @@ void ThreadCache::PurgeInternalHelper() {
   // memory already cached in the inactive buckets. They should still be
   // purged.
   for (auto& bucket : buckets_) {
-    ClearBucketHelper<crash_on_corruption>(bucket, 0);
+    ClearBucket(bucket, 0);
   }
 }
 
@@ -878,10 +842,8 @@ bool ThreadCache::IsInFreelist(uintptr_t address,
   if (!bucket.freelist_head) [[unlikely]] {
     return false;
   }
-  internal::PartitionFreelistEntry* entry = bucket.freelist_head;
+  internal::FreelistEntry* entry = bucket.freelist_head;
 
-  const internal::PartitionFreelistDispatcher* freelist_dispatcher =
-      get_freelist_dispatcher_from_root();
   size_t index = 0;
   size_t length = bucket.count;
   while (entry != nullptr && index < length) {
@@ -889,14 +851,13 @@ bool ThreadCache::IsInFreelist(uintptr_t address,
       position = index;
       return true;
     }
-#if PA_BUILDFLAG(USE_FREELIST_DISPATCHER)
-    internal::PartitionFreelistEntry* next =
-        freelist_dispatcher->GetNextForThreadCacheTrue(entry, bucket.slot_size);
+#if PA_BUILDFLAG(HAS_64_BIT_POINTERS)
+    internal::FreelistEntry* next =
+        entry->GetNextForThreadCache(bucket.slot_size, offset_lookup_);
 #else
-    internal::PartitionFreelistEntry* next =
-        freelist_dispatcher->GetNextForThreadCache<true>(entry,
-                                                         bucket.slot_size);
-#endif  // PA_BUILDFLAG(USE_FREELIST_DISPATCHER)
+    internal::FreelistEntry* next =
+        entry->GetNextForThreadCache(bucket.slot_size);
+#endif
     entry = next;
     ++index;
   }

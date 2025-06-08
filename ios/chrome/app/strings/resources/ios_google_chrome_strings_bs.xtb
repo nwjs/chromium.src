@@ -47,6 +47,7 @@ Stvari za razmatranje:
 <translation id="1917964099031477364">Ovaj račun i svi podaci koji nisu sačuvani će se ukloniti iz Chromea i drugih Googleovih aplikacija na ovom uređaju.</translation>
 <translation id="1919130412786645364">Omogući prijavu na Chrome</translation>
 <translation id="1965935827552890526">Završite započetu radnju na drugom otvorenom prozoru Chromea.</translation>
+<translation id="1966638102563776885">Savjet za Chrome: dobijte lozinke u bilo kojoj aplikaciji</translation>
 <translation id="1973910962341002002">U postavkama "<ph name="TEXT_OF_THE_SETTINGS_MENU_ITEM" />" uključite "Chrome"</translation>
 <translation id="1984705450038014246">Sinhroniziranje Chrome podataka</translation>
 <translation id="1987779152850321833">Izvršite predložene radnje u nastavku da izvučete maksimum iz Chromea.</translation>
@@ -114,7 +115,6 @@ Pričekajte nekoliko minuta prije odjave. Ako se sada odjavite, ovi podaci će s
 <translation id="3655656110921623717">Ovo znači da će Chrome svaki put zatražiti web lokaciju za mobilni uređaj.</translation>
 <translation id="3740397331642243698">Otvara unesene URL-ove u Google Chromeu u anonimnom načinu rada.</translation>
 <translation id="3741995255368156336">Otvaranje Liste za čitanje u Chromeu.</translation>
-<translation id="3808570423967020928">Brže pristupajte Chromeu s donje trake na početnom ekranu.</translation>
 <translation id="3827545470516145620">Dobijate standardnu sigurnosnu zaštitu na ovom uređaju</translation>
 <translation id="384394811301901750">Google Chrome trenutno ne može koristiti vašu kameru</translation>
 <translation id="3863841106411295595">Dodaje unesene URL-ove na listu za čitanje u Chromeu.</translation>
@@ -138,6 +138,7 @@ Pričekajte nekoliko minuta prije odjave. Ako se sada odjavite, ovi podaci će s
 <translation id="4724297637870447613">Koristite Chrome svugdje</translation>
 <translation id="4738647308035481133">Stranica Google Chromea</translation>
 <translation id="4742795653798179840">Izbrisani su podaci Chromea</translation>
+<translation id="4749294594657945639">Da lako dobijete sačuvane lozinke u drugim aplikacijama, odaberite Chrome za automatsko popunjavanje.</translation>
 <translation id="4761869838909035636">Pokrenite Sigurnosnu provjeru Chromea</translation>
 <translation id="4798859546468762093">Da dobijete personalizaciju i druge funkcije, uključite Chrome u funkcijama <ph name="FEATURE_NAME_1" /> i <ph name="FEATURE_NAME_2" /></translation>
 <translation id="4819268619367838612">Radi poboljšanja aplikacije, Chrome šalje Googleu podatke o korištenju i padovima. <ph name="BEGIN_LINK" />Upravljajte<ph name="END_LINK" /></translation>
@@ -233,7 +234,6 @@ Za više postavki koje koriste podatke radi poboljšanja iskustva u Chromeu idit
 <translation id="6975725306479268850">Odaberite Chrome za automatsko popunjavanje</translation>
 <translation id="7056826488869329999">Otvara i pokreće sigurnosnu provjeru u Chromeu.</translation>
 <translation id="7061455974939528301">Pritisnite i zadržite ikonu Chromea i kliknite na "Uredite početni ekran".</translation>
-<translation id="7065813315247345131">Premjestite Chrome na donju traku</translation>
 <translation id="7124339256045485976">Redovno ažurirajte Chrome</translation>
 <translation id="7145599899567697473">Pohranjujte i automatski popunjavajte lozinke u Chromeu</translation>
 <translation id="7161390184744336561">Google Chrome je zastario</translation>
@@ -317,10 +317,10 @@ Vaši podaci su šifrirani vašim pristupnim izrazom <ph name="TIME" />. Unesite
 <translation id="8603022514504485810">Google upravitelj lozinki nije uspio provjeriti sve lozinke. Pokušajte ponovo sutra ili <ph name="BEGIN_LINK" />provjerite lozinke na Google računu.<ph name="END_LINK" /></translation>
 <translation id="8630122478628016441">Uključite "Zaključaj anonimne kartice prilikom zatvaranja Chromea".</translation>
 <translation id="8673726683583791503">Kupujte putem Google Objektiva</translation>
-<translation id="8727043961453758442">Iskoristite sve prednosti Chromea</translation>
 <translation id="8765470054473112089">Kad pišete u traci za adresu ili u okviru za pretraživanje, Chrome šalje ono što upišete zadanom pretraživaču radi dobijanja boljih prijedloga. Ovo je isključeno u anonimnom načinu rada.</translation>
 <translation id="8772179140489533211">Prikazuje upite za prijavu pomoću Chromea.</translation>
 <translation id="8788269841521769222">Nećete morati zapamtiti ovu lozinku. Sačuvat će se u Googleovom Upravitelju lozinki za račun <ph name="EMAIL" /></translation>
+<translation id="8796490717897731471"><ph name="EMAIL" />. Chromeom se upravlja.</translation>
 <translation id="880967149107462122">Idite u Postavke Chromea</translation>
 <translation id="8842132678697187091">Ovdje možete otvoriti Google Objektiv.</translation>
 <translation id="8850736900032787670">Da primate personaliziran sadržaj na osnovu svojih interesovanja, prijavite se u Chrome.</translation>

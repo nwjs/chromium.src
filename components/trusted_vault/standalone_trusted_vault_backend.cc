@@ -29,6 +29,7 @@
 #include "components/trusted_vault/proto_string_bytes_conversion.h"
 #include "components/trusted_vault/proto_time_conversion.h"
 #include "components/trusted_vault/securebox.h"
+#include "components/trusted_vault/standalone_trusted_vault_server_constants.h"
 #include "components/trusted_vault/standalone_trusted_vault_storage.h"
 #include "components/trusted_vault/trusted_vault_connection.h"
 #include "components/trusted_vault/trusted_vault_histograms.h"
@@ -85,30 +86,32 @@ GetRecoverKeysOutcomeForUMAFromRecoveryStatus(
   NOTREACHED();
 }
 
-TrustedVaultDeviceRegistrationOutcomeForUMA
-GetDeviceRegistrationOutcomeForUMAFromResponse(
+TrustedVaultRecoveryFactorRegistrationOutcomeForUMA
+GetRecoveryFactorRegistrationOutcomeForUMAFromResponse(
     TrustedVaultRegistrationStatus response_status) {
   switch (response_status) {
     case TrustedVaultRegistrationStatus::kSuccess:
-      return TrustedVaultDeviceRegistrationOutcomeForUMA::kSuccess;
+      return TrustedVaultRecoveryFactorRegistrationOutcomeForUMA::kSuccess;
     case TrustedVaultRegistrationStatus::kAlreadyRegistered:
-      return TrustedVaultDeviceRegistrationOutcomeForUMA::kAlreadyRegistered;
+      return TrustedVaultRecoveryFactorRegistrationOutcomeForUMA::
+          kAlreadyRegistered;
     case TrustedVaultRegistrationStatus::kLocalDataObsolete:
-      return TrustedVaultDeviceRegistrationOutcomeForUMA::kLocalDataObsolete;
+      return TrustedVaultRecoveryFactorRegistrationOutcomeForUMA::
+          kLocalDataObsolete;
     case TrustedVaultRegistrationStatus::kTransientAccessTokenFetchError:
-      return TrustedVaultDeviceRegistrationOutcomeForUMA::
+      return TrustedVaultRecoveryFactorRegistrationOutcomeForUMA::
           kTransientAccessTokenFetchError;
     case TrustedVaultRegistrationStatus::kPersistentAccessTokenFetchError:
-      return TrustedVaultDeviceRegistrationOutcomeForUMA::
+      return TrustedVaultRecoveryFactorRegistrationOutcomeForUMA::
           kPersistentAccessTokenFetchError;
     case TrustedVaultRegistrationStatus::
         kPrimaryAccountChangeAccessTokenFetchError:
-      return TrustedVaultDeviceRegistrationOutcomeForUMA::
+      return TrustedVaultRecoveryFactorRegistrationOutcomeForUMA::
           kPrimaryAccountChangeAccessTokenFetchError;
     case TrustedVaultRegistrationStatus::kNetworkError:
-      return TrustedVaultDeviceRegistrationOutcomeForUMA::kNetworkError;
+      return TrustedVaultRecoveryFactorRegistrationOutcomeForUMA::kNetworkError;
     case TrustedVaultRegistrationStatus::kOtherError:
-      return TrustedVaultDeviceRegistrationOutcomeForUMA::kOtherError;
+      return TrustedVaultRecoveryFactorRegistrationOutcomeForUMA::kOtherError;
   }
   NOTREACHED();
 }
@@ -116,7 +119,14 @@ GetDeviceRegistrationOutcomeForUMAFromResponse(
 class LocalRecoveryFactorsFactoryImpl
     : public StandaloneTrustedVaultBackend::LocalRecoveryFactorsFactory {
  public:
+#if BUILDFLAG(IS_MAC)
+  explicit LocalRecoveryFactorsFactoryImpl(
+      const std::string& icloud_keychain_access_group_prefix)
+      : icloud_keychain_access_group_prefix_(
+            icloud_keychain_access_group_prefix) {}
+#else
   LocalRecoveryFactorsFactoryImpl() = default;
+#endif
   LocalRecoveryFactorsFactoryImpl(const LocalRecoveryFactorsFactoryImpl&) =
       delete;
   ~LocalRecoveryFactorsFactoryImpl() override = default;
@@ -127,11 +137,12 @@ class LocalRecoveryFactorsFactoryImpl
   std::vector<std::unique_ptr<LocalRecoveryFactor>> CreateLocalRecoveryFactors(
       SecurityDomainId security_domain_id,
       StandaloneTrustedVaultStorage* storage,
-      const std::optional<CoreAccountInfo>& primary_account) override {
+      TrustedVaultThrottlingConnection* connection,
+      const CoreAccountInfo& primary_account) override {
     std::vector<std::unique_ptr<LocalRecoveryFactor>> local_recovery_factors;
     local_recovery_factors.emplace_back(
         std::make_unique<PhysicalDeviceRecoveryFactor>(
-            security_domain_id, storage, primary_account));
+            security_domain_id, storage, connection, primary_account));
 #if BUILDFLAG(IS_MAC)
     if (base::FeatureList::IsEnabled(kEnableICloudKeychainRecoveryFactor)) {
       // Note: The iCloud Keychain recovery factor needs to come after the
@@ -141,13 +152,19 @@ class LocalRecoveryFactorsFactoryImpl
       // physical device recovery factor, we want to make sure that the latter
       // is attempted first.
       local_recovery_factors.emplace_back(
-          std::make_unique<ICloudKeychainRecoveryFactor>(storage,
-                                                         primary_account));
+          std::make_unique<ICloudKeychainRecoveryFactor>(
+              icloud_keychain_access_group_prefix_, security_domain_id, storage,
+              connection, primary_account));
     }
 #endif
 
     return local_recovery_factors;
   }
+
+ private:
+#if BUILDFLAG(IS_MAC)
+  const std::string icloud_keychain_access_group_prefix_;
+#endif
 };
 
 }  // namespace
@@ -191,6 +208,9 @@ StandaloneTrustedVaultBackend::OngoingFetchKeys::operator=(OngoingFetchKeys&&) =
 StandaloneTrustedVaultBackend::OngoingFetchKeys::~OngoingFetchKeys() = default;
 
 StandaloneTrustedVaultBackend::StandaloneTrustedVaultBackend(
+#if BUILDFLAG(IS_MAC)
+    const std::string& icloud_keychain_access_group_prefix,
+#endif
     SecurityDomainId security_domain_id,
     std::unique_ptr<StandaloneTrustedVaultStorage> storage,
     std::unique_ptr<Delegate> delegate,
@@ -203,8 +223,16 @@ StandaloneTrustedVaultBackend::StandaloneTrustedVaultBackend(
                             std::move(connection),
                             storage_.get())
                       : nullptr),
+#if BUILDFLAG(IS_MAC)
       local_recovery_factors_factory_(
-          std::make_unique<LocalRecoveryFactorsFactoryImpl>()) {}
+          std::make_unique<LocalRecoveryFactorsFactoryImpl>(
+              icloud_keychain_access_group_prefix))
+#else
+      local_recovery_factors_factory_(
+          std::make_unique<LocalRecoveryFactorsFactoryImpl>())
+#endif
+{
+}
 
 StandaloneTrustedVaultBackend::StandaloneTrustedVaultBackend(
     SecurityDomainId security_domain_id,
@@ -252,7 +280,6 @@ void StandaloneTrustedVaultBackend::OnDegradedRecoverabilityChanged() {
 
 void StandaloneTrustedVaultBackend::ReadDataFromDisk() {
   storage_->ReadDataFromDisk();
-  ResetLocalRecoveryFactors();
 }
 
 void StandaloneTrustedVaultBackend::FetchKeys(
@@ -302,6 +329,8 @@ void StandaloneTrustedVaultBackend::FetchKeys(
   ongoing_fetch_keys_->gaia_id = account_info.gaia;
   ongoing_fetch_keys_->callbacks.emplace_back(std::move(callback));
 
+  // |connection_| and |primary_account_| are checked to be present above, so
+  // |local_recovery_factors| can't be empty.
   CHECK(!local_recovery_factors_.empty());
   AttemptRecoveryFactor(0);
 }
@@ -311,7 +340,6 @@ void StandaloneTrustedVaultBackend::AttemptRecoveryFactor(
   CHECK(local_recovery_factor >= 0 &&
         local_recovery_factor < local_recovery_factors_.size());
   local_recovery_factors_[local_recovery_factor]->AttemptRecovery(
-      connection_.get(),
       // |this| outlives |local_recovery_factors_|, and destroying
       // |local_recovery_factors_| guarantees cancellation of all callbacks.
       base::BindOnce(&StandaloneTrustedVaultBackend::OnKeysRecovered,
@@ -332,9 +360,7 @@ void StandaloneTrustedVaultBackend::StoreKeys(
   // Having retrieved (or downloaded) new keys indicates that information about
   // past registration attempts (and probably failures) may no longer be
   // relevant.
-  for (auto& local_recovery_factor : local_recovery_factors_) {
-    local_recovery_factor->ClearRegistrationAttemptInfo(gaia_id);
-  }
+  per_user_vault->set_last_registration_returned_local_data_obsolete(false);
 
   // Replace all keys.
   per_user_vault->set_last_vault_key_version(last_key_version);
@@ -380,7 +406,7 @@ void StandaloneTrustedVaultBackend::SetPrimaryAccount(
   degraded_recoverability_handler_ = nullptr;
   ongoing_add_recovery_method_request_.reset();
   // This aborts all ongoing recoveries / registrations.
-  ResetLocalRecoveryFactors();
+  local_recovery_factors_.clear();
   RemoveNonPrimaryAccountKeysIfMarkedForDeletion();
   // Make sure to call pending callbacks, now that ongoing recoveries were
   // aborted.
@@ -394,6 +420,15 @@ void StandaloneTrustedVaultBackend::SetPrimaryAccount(
       storage_->FindUserVault(primary_account->gaia);
   if (!per_user_vault) {
     per_user_vault = storage_->AddUserVault(primary_account->gaia);
+  }
+
+  if (connection_) {
+    // |storage_| and |connection_| outlive |local_recovery_factors_|, so
+    // passing raw pointers is ok.
+    local_recovery_factors_ =
+        local_recovery_factors_factory_->CreateLocalRecoveryFactors(
+            security_domain_id_, storage_.get(), connection_.get(),
+            *primary_account_);
   }
 
   degraded_recoverability_handler_ =
@@ -569,8 +604,8 @@ void StandaloneTrustedVaultBackend::ClearLocalDataForAccount(
 
   // This codepath invoked as part of sync reset. While sync reset can cause
   // resetting primary account, this is not the case for Chrome OS and Butter
-  // mode. Trigger device registration attempt immediately as it can succeed in
-  // these cases.
+  // mode. Trigger recovery factor registration attempt immediately as it can
+  // succeed in these cases.
   MaybeRegisterLocalRecoveryFactors();
 }
 
@@ -611,50 +646,31 @@ bool StandaloneTrustedVaultBackend::HasPendingTrustedRecoveryMethodForTesting()
   return pending_trusted_recovery_method_.has_value();
 }
 
-void StandaloneTrustedVaultBackend::ResetLocalRecoveryFactors() {
-  // |storage_| outlives |local_recovery_factors_|, so passing a raw pointer is
-  // ok.
-  local_recovery_factors_ =
-      local_recovery_factors_factory_->CreateLocalRecoveryFactors(
-          security_domain_id_, storage_.get(), primary_account_);
-}
-
 void StandaloneTrustedVaultBackend::MaybeRegisterLocalRecoveryFactors() {
   // TODO(crbug.com/40255601): in case of transient failure this function is
   // likely to be not called until the browser restart; implement retry logic.
-  if (!connection_) {
-    // Feature disabled.
-    return;
-  }
-
-  if (!primary_account_.has_value()) {
-    // Device registration is supported only for |primary_account_|.
-    return;
-  }
 
   const bool should_record_metrics =
-      !device_registration_state_recorded_to_uma_;
+      !recovery_factor_registration_state_recorded_to_uma_;
   for (auto& factor : local_recovery_factors_) {
     // Unretained because |this| outlives |local_recovery_factors_| (and
     // destroying |local_recovery_factors_| cancels all callbacks).
-    const std::optional<TrustedVaultDeviceRegistrationStateForUMA>
-        registration_state = factor->MaybeRegister(
-            connection_.get(),
-            base::BindOnce(&StandaloneTrustedVaultBackend::OnDeviceRegistered,
-                           base::Unretained(this),
-                           factor->GetRecoveryFactorType()));
+    const std::optional<TrustedVaultRecoveryFactorRegistrationStateForUMA>
+        registration_state = factor->MaybeRegister(base::BindOnce(
+            &StandaloneTrustedVaultBackend::OnRecoveryFactorRegistered,
+            base::Unretained(this), factor->GetRecoveryFactorType()));
 
     if (registration_state.has_value() && should_record_metrics) {
-      device_registration_state_recorded_to_uma_ = true;
+      recovery_factor_registration_state_recorded_to_uma_ = true;
       base::UmaHistogramBoolean(
-          base::StrCat({"TrustedVault.DeviceRegistered.",
+          base::StrCat({"TrustedVault.RecoveryFactorRegistered.",
                         GetLocalRecoveryFactorNameForUma(
                             factor->GetRecoveryFactorType()),
                         ".", GetSecurityDomainNameForUma(security_domain_id_)}),
           factor->IsRegistered());
-      RecordTrustedVaultDeviceRegistrationState(factor->GetRecoveryFactorType(),
-                                                security_domain_id_,
-                                                *registration_state);
+      RecordTrustedVaultRecoveryFactorRegistrationState(
+          factor->GetRecoveryFactorType(), security_domain_id_,
+          *registration_state);
     }
   }
 }
@@ -679,7 +695,7 @@ void StandaloneTrustedVaultBackend::MaybeProcessPendingTrustedRecoveryMethod() {
   DCHECK(!pending_trusted_recovery_method_.has_value());
 }
 
-void StandaloneTrustedVaultBackend::OnDeviceRegistered(
+void StandaloneTrustedVaultBackend::OnRecoveryFactorRegistered(
     LocalRecoveryFactorType local_recovery_factor_type,
     TrustedVaultRegistrationStatus status,
     int key_version,
@@ -692,18 +708,18 @@ void StandaloneTrustedVaultBackend::OnDeviceRegistered(
       storage_->FindUserVault(primary_account_->gaia);
   DCHECK(per_user_vault);
 
-  RecordTrustedVaultDeviceRegistrationOutcome(
+  RecordTrustedVaultRecoveryFactorRegistrationOutcome(
       local_recovery_factor_type, security_domain_id_,
-      GetDeviceRegistrationOutcomeForUMAFromResponse(status));
+      GetRecoveryFactorRegistrationOutcomeForUMAFromResponse(status));
 
   switch (status) {
     case TrustedVaultRegistrationStatus::kSuccess:
     case TrustedVaultRegistrationStatus::kAlreadyRegistered:
       if (!had_local_keys) {
-        // Device registration was triggered while no local non-constant keys
-        // were available. Detected server-side key should be stored upon
-        // successful completion (or if device was already registered, e.g.
-        // previous response wasn't handled properly), but absence of
+        // Recover factor registration was triggered while no local non-constant
+        // keys were available. Detected server-side key should be stored upon
+        // successful completion (or if recovery factor was already registered,
+        // e.g. previous response wasn't handled properly), but absence of
         // keys (non-constant or constant) still needs to be checked before that
         // - there might be StoreKeys() call during handling the request.
         if (per_user_vault->vault_key_size() == 0) {

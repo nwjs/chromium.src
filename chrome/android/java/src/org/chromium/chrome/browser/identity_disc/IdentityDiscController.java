@@ -85,8 +85,8 @@ public class IdentityDiscController
     // ProfileDataCache facilitates retrieving profile picture.
     private ProfileDataCache mProfileDataCache;
 
-    private ButtonDataImpl mButtonData;
-    private ObserverList<ButtonDataObserver> mObservers = new ObserverList<>();
+    private final ButtonDataImpl mButtonData;
+    private final ObserverList<ButtonDataObserver> mObservers = new ObserverList<>();
     private boolean mNativeIsInitialized;
 
     private boolean mIsTabNtp;
@@ -121,8 +121,7 @@ public class IdentityDiscController
                                 R.string.iph_identity_disc_accessibility_text),
                         /* isEnabled= */ true,
                         AdaptiveToolbarButtonVariant.UNKNOWN,
-                        /* tooltipTextResId= */ Resources.ID_NULL,
-                        /* showBackgroundHighlight= */ true);
+                        /* tooltipTextResId= */ Resources.ID_NULL);
     }
 
     /** Registers itself to observe sign-in and sync status events. */
@@ -192,7 +191,6 @@ public class IdentityDiscController
                 AdaptiveToolbarButtonVariant.UNKNOWN,
                 buttonSpec.getActionChipLabelResId(),
                 buttonSpec.getHoverTooltipTextId(),
-                buttonSpec.shouldShowBackgroundHighlight(),
                 /* hasErrorBadge= */ mIdentityError != SyncError.NO_ERROR);
     }
 

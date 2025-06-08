@@ -24,6 +24,7 @@ import org.chromium.base.ApplicationStatus;
 import org.chromium.base.ResettersForTesting;
 import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.base.supplier.ObservableSupplier;
+import org.chromium.base.supplier.Supplier;
 import org.chromium.build.BuildConfig;
 import org.chromium.chrome.browser.ChromeTabbedActivity;
 import org.chromium.chrome.browser.app.tab_activity_glue.ReparentingTask;
@@ -34,6 +35,7 @@ import org.chromium.chrome.browser.lifecycle.DestroyObserver;
 import org.chromium.chrome.browser.lifecycle.NativeInitObserver;
 import org.chromium.chrome.browser.lifecycle.PauseResumeWithNativeObserver;
 import org.chromium.chrome.browser.lifecycle.RecreateObserver;
+import org.chromium.chrome.browser.lifecycle.TopResumedActivityChangedObserver;
 import org.chromium.chrome.browser.multiwindow.MultiWindowUtils.InstanceAllocationType;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.tab.Tab;
@@ -44,6 +46,7 @@ import org.chromium.chrome.browser.tabmodel.TabGroupModelFilter;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.tabmodel.TabModelSelectorTabModelObserver;
 import org.chromium.chrome.browser.tabmodel.TabModelUtils;
+import org.chromium.chrome.browser.tabwindow.TabWindowManager;
 import org.chromium.chrome.browser.util.AndroidTaskUtils;
 import org.chromium.components.browser_ui.widget.MenuOrKeyboardActionController;
 import org.chromium.components.tab_group_sync.TabGroupSyncService;
@@ -63,7 +66,8 @@ public class MultiInstanceManagerImpl extends MultiInstanceManager
                 NativeInitObserver,
                 MultiWindowModeStateDispatcher.MultiWindowModeObserver,
                 DestroyObserver,
-                MenuOrKeyboardActionController.MenuOrKeyboardActionHandler {
+                MenuOrKeyboardActionController.MenuOrKeyboardActionHandler,
+                TopResumedActivityChangedObserver {
 
     private Boolean mMergeTabsOnResume;
 
@@ -80,6 +84,7 @@ public class MultiInstanceManagerImpl extends MultiInstanceManager
     private final MenuOrKeyboardActionController mMenuOrKeyboardActionController;
 
     protected TabModelSelectorTabModelObserver mTabModelObserver;
+    protected static Supplier<ChromeTabbedActivity> sActivitySupplierForTesting;
 
     private int mActivityTaskId;
     private boolean mNativeInitialized;
@@ -248,6 +253,10 @@ public class MultiInstanceManagerImpl extends MultiInstanceManager
             mMergeTabsOnResume = false;
         }
     }
+
+    // TopResumedActivityChangedObserver implementation.
+    @Override
+    public void onTopResumedActivityChanged(boolean isTopResumedActivity) {}
 
     @Override
     public void onPauseWithNative() {
@@ -478,7 +487,7 @@ public class MultiInstanceManagerImpl extends MultiInstanceManager
 
     @Override
     public int getCurrentInstanceId() {
-        return MultiWindowUtils.INVALID_INSTANCE_ID;
+        return TabWindowManager.INVALID_WINDOW_ID;
     }
 
     @Override
@@ -505,5 +514,11 @@ public class MultiInstanceManagerImpl extends MultiInstanceManager
 
         TabGroupSyncService tabGroupSyncService = TabGroupSyncServiceFactory.getForProfile(profile);
         TabGroupSyncUtils.unmapLocalIdsNotInTabGroupModelFilter(tabGroupSyncService, filter);
+    }
+
+    public static void setAdjacentWindowActivitySupplierForTesting(
+            Supplier<ChromeTabbedActivity> supplier) {
+        sActivitySupplierForTesting = supplier;
+        ResettersForTesting.register(() -> sActivitySupplierForTesting = null);
     }
 }

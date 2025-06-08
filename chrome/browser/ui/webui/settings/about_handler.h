@@ -109,6 +109,9 @@ class AboutHandler : public settings::SettingsPageUIHandler,
   // Retrieves channel info.
   void HandleGetChannelInfo(const base::Value::List& args);
 
+  // Checks whether we can update the firmware.
+  void HandleCanChangeFirmware(const base::Value::List& args);
+
   // Checks whether we can change the current channel.
   void HandleCanChangeChannel(const base::Value::List& args);
 
@@ -120,7 +123,7 @@ class AboutHandler : public settings::SettingsPageUIHandler,
                           const std::string& target_channel);
 
   // Applies deferred update, triggered by JS.
-  void HandleApplyDeferredUpdate(const base::Value::List& args);
+  void HandleApplyDeferredUpdateAdvanced(const base::Value::List& args);
 
   // Checks for and applies update, triggered by JS.
   void HandleRequestUpdate(const base::Value::List& args);

@@ -9,12 +9,8 @@ import android.util.Pair;
 import org.chromium.base.supplier.Supplier;
 import org.chromium.base.test.transit.Condition;
 import org.chromium.base.test.transit.ConditionStatus;
-import org.chromium.base.test.transit.ConditionStatusWithResult;
-import org.chromium.base.test.transit.ConditionWithResult;
 import org.chromium.base.test.transit.Element;
-import org.chromium.base.test.transit.Elements;
 import org.chromium.base.test.transit.Transition;
-import org.chromium.base.test.transit.UiThreadCondition;
 import org.chromium.base.test.transit.ViewElement;
 import org.chromium.chrome.browser.omnibox.UrlBar;
 import org.chromium.chrome.browser.tab.Tab;
@@ -22,7 +18,6 @@ import org.chromium.chrome.test.transit.SoftKeyboardFacility;
 import org.chromium.chrome.test.transit.omnibox.FakeOmniboxSuggestions;
 import org.chromium.chrome.test.transit.omnibox.OmniboxFacility;
 import org.chromium.content_public.browser.WebContents;
-import org.chromium.content_public.browser.test.util.Coordinates;
 import org.chromium.content_public.browser.test.util.JavaScriptUtils;
 
 import java.util.List;
@@ -31,17 +26,24 @@ import java.util.function.Function;
 
 /** The screen that shows a loaded webpage with the omnibox and the toolbar. */
 public class WebPageStation extends PageStation {
-    private boolean mIgnoreUrlBar;
     public Element<WebContents> webContentsElement;
     public ViewElement<UrlBar> urlBarElement;
 
     protected <T extends WebPageStation> WebPageStation(Builder<T> builder) {
         super(builder);
-    }
 
-    protected <T extends WebPageStation> WebPageStation(WebStationBuilder<T> builder) {
-        super(builder);
-        mIgnoreUrlBar = builder.mIgnoreUrlBar;
+        webContentsElement =
+                declareEnterConditionAsElement(new WebContentsPresentCondition(loadedTabElement));
+        declareEnterCondition(new FrameInfoUpdatedCondition(webContentsElement));
+
+        // TODO(crbug.com/416558040): Do not add this if builder.mIgnoreUrlBar is set.
+        // TODO(crbug.com/41497463): This should be shared, not unscoped, but the toolbar exists
+        // in the tab switcher and it is not completely occluded.
+        urlBarElement = declareView(URL_BAR, ViewElement.unscopedOption());
+
+        // Make sure that the new tab page is not considered a WebPageStation
+        List<String> prohibitedUrls = List.of("chrome://newtab", "chrome-native://newtab");
+        declareEnterCondition(new PageUrlDoesNotMatchCondition(prohibitedUrls, loadedTabElement));
     }
 
     public static class WebStationBuilder<T extends WebPageStation> extends PageStation.Builder<T> {
@@ -64,27 +66,6 @@ public class WebPageStation extends PageStation {
 
     public static WebStationBuilder<WebPageStation> newBuilder() {
         return new WebStationBuilder<>(WebPageStation::new);
-    }
-
-    @Override
-    public void declareElements(Elements.Builder elements) {
-        super.declareElements(elements);
-
-        webContentsElement =
-                elements.declareEnterConditionAsElement(
-                        new WebContentsPresentCondition(loadedTabElement));
-        elements.declareEnterCondition(new FrameInfoUpdatedCondition(webContentsElement));
-
-        if (!mIgnoreUrlBar) {
-            // TODO(crbug.com/41497463): This should be shared, not unscoped, but the toolbar exists
-            // in the tab switcher and it is not completely occluded.
-            urlBarElement = elements.declareView(URL_BAR, ViewElement.unscopedOption());
-        }
-
-        // Make sure that the new tab page is not considered a WebPageStation
-        List<String> prohibitedUrls = List.of("chrome://newtab", "chrome-native://newtab");
-        elements.declareEnterCondition(
-                new PageUrlDoesNotMatchCondition(prohibitedUrls, loadedTabElement));
     }
 
     /** Condition to check the page url does not match any of the prohibited urls. */
@@ -152,67 +133,6 @@ public class WebPageStation extends PageStation {
         enterFacilitiesSync(
                 List.of(omniboxFacility, softKeyboard), urlBarElement.getClickTrigger());
         return Pair.create(omniboxFacility, softKeyboard);
-    }
-
-    private static class WebContentsPresentCondition extends ConditionWithResult<WebContents> {
-        private final Supplier<Tab> mLoadedTabSupplier;
-
-        public WebContentsPresentCondition(Supplier<Tab> loadedTabSupplier) {
-            super(/* isRunOnUiThread= */ false);
-            mLoadedTabSupplier = dependOnSupplier(loadedTabSupplier, "LoadedTab");
-        }
-
-        @Override
-        protected ConditionStatusWithResult<WebContents> resolveWithSuppliers() {
-            return whether(hasValue()).withResult(get());
-        }
-
-        @Override
-        public String buildDescription() {
-            return "WebContents present";
-        }
-
-        @Override
-        public WebContents get() {
-            // Do not return a WebContents that has been destroyed, so always get it from the
-            // Tab instead of letting ConditionWithResult return its |mResult|.
-            if (!mLoadedTabSupplier.hasValue()) {
-                return null;
-            }
-            Tab loadedTab = mLoadedTabSupplier.get();
-            if (loadedTab == null) {
-                return null;
-            }
-            return loadedTab.getWebContents();
-        }
-
-        @Override
-        public boolean hasValue() {
-            return get() != null;
-        }
-    }
-
-    private static class FrameInfoUpdatedCondition extends UiThreadCondition {
-        Supplier<WebContents> mWebContentsSupplier;
-
-        public FrameInfoUpdatedCondition(Supplier<WebContents> webContentsSupplier) {
-            mWebContentsSupplier = dependOnSupplier(webContentsSupplier, "WebContents");
-        }
-
-        @Override
-        protected ConditionStatus checkWithSuppliers() {
-            Coordinates coordinates = Coordinates.createFor(mWebContentsSupplier.get());
-            return whether(
-                    coordinates.frameInfoUpdated(),
-                    "frameInfoUpdated %b, pageScaleFactor: %.2f",
-                    coordinates.frameInfoUpdated(),
-                    coordinates.getPageScaleFactor());
-        }
-
-        @Override
-        public String buildDescription() {
-            return "WebContents frame info updated";
-        }
     }
 
     // Condition checks whether web page reaches the bottom by checking viewport position and scroll

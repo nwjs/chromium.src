@@ -7,7 +7,6 @@
 #include <algorithm>
 
 #include "base/containers/adapters.h"
-#include "base/not_fatal_until.h"
 #include "third_party/blink/renderer/core/editing/frame_selection.h"
 #include "third_party/blink/renderer/core/editing/position_with_affinity.h"
 #include "third_party/blink/renderer/core/html/html_br_element.h"
@@ -21,6 +20,7 @@
 #include "third_party/blink/renderer/core/layout/layout_text_combine.h"
 #include "third_party/blink/renderer/core/layout/physical_box_fragment.h"
 #include "third_party/blink/renderer/core/paint/inline_paint_context.h"
+#include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 
 namespace blink {
 class HTMLBRElement;
@@ -420,7 +420,7 @@ UBiDiLevel InlineCursorPosition::BidiLevel() const {
           return item.StartOffset() <= offset.start &&
                  item.EndOffset() >= offset.end;
         });
-    CHECK(item_it != items->end(), base::NotFatalUntil::M130) << this;
+    CHECK(item_it != items->end()) << this;
     return (*item_it)->BidiLevel();
   }
 
@@ -432,7 +432,7 @@ UBiDiLevel InlineCursorPosition::BidiLevel() const {
         block_flow.GetInlineNodeData()->ItemsData(UsesFirstLineStyle()).items;
     const auto item = std::ranges::find(items, GetLayoutObject(),
                                         &InlineItem::GetLayoutObject);
-    CHECK(item != items.end(), base::NotFatalUntil::M130) << this;
+    CHECK(item != items.end()) << this;
     return (*item)->BidiLevel();
   }
 
@@ -525,6 +525,7 @@ PhysicalRect InlineCursor::CurrentLocalSelectionRectForReplaced() const {
 }
 
 PhysicalRect InlineCursor::CurrentRectInBlockFlow() const {
+  DCHECK(!RuntimeEnabledFeatures::LayoutBoxVisualLocationEnabled());
   PhysicalRect rect = Current().RectInContainerFragment();
   // We'll now convert the offset from being relative to the containing fragment
   // to being relative to the containing LayoutBlockFlow. For writing modes that
@@ -561,6 +562,19 @@ PhysicalRect InlineCursor::CurrentRectInBlockFlow() const {
       break;
     }
   };
+  return rect;
+}
+
+PhysicalRect InlineCursor::CurrentRectInFirstContainerFragment() const {
+  DCHECK(RuntimeEnabledFeatures::LayoutBoxVisualLocationEnabled());
+  PhysicalRect rect = Current().RectInContainerFragment();
+  if (ContainerFragment().IsFirstForNode()) {
+    return rect;
+  }
+  const PhysicalBoxFragment& first_container_fragment =
+      *ContainerFragment().OwnerLayoutBox()->GetPhysicalFragment(0);
+  rect.offset += ContainerFragment().OffsetFromRootFragmentationContext() -
+                 first_container_fragment.OffsetFromRootFragmentationContext();
   return rect;
 }
 

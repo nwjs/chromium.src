@@ -46,7 +46,7 @@ import org.chromium.components.messages.MessageDispatcher;
 import org.chromium.components.messages.MessageDispatcherProvider;
 import org.chromium.components.messages.MessageIdentifier;
 import org.chromium.components.messages.PrimaryActionClickBehavior;
-import org.chromium.components.tab_group_sync.LocalTabGroupId;
+import org.chromium.components.tab_group_sync.EitherId.EitherGroupId;
 import org.chromium.components.tab_group_sync.SavedTabGroup;
 import org.chromium.components.tab_group_sync.TabGroupSyncService;
 import org.chromium.ui.base.WindowAndroid;
@@ -56,6 +56,7 @@ import org.chromium.ui.util.ColorUtils;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -223,6 +224,11 @@ public class InstantMessageDelegateImpl implements InstantMessageDelegate {
         }
     }
 
+    @Override
+    public void hideInstantaneousMessage(Set<String> messageIds) {
+        // TODO(crbug.com/416264627): Implement this.
+    }
+
     private @Nullable AttachedWindowInfo getAttachedWindowInfo(
             InstantMessage message, boolean fallbackToLastFocusedWindow) {
         if (mAttachList.size() == 0) {
@@ -359,7 +365,6 @@ public class InstantMessageDelegateImpl implements InstantMessageDelegate {
             Runnable onSuccess) {
         @Nullable String collaborationId = MessageUtils.extractCollaborationId(message);
         @Nullable String syncId = MessageUtils.extractSyncTabGroupId(message);
-        @Nullable Token localId = MessageUtils.extractTabGroupId(message);
         String buttonText = activity.getString(R.string.data_sharing_browser_message_manage);
         GroupMember groupMember = MessageUtils.extractMember(message);
         Runnable openManageSharingRunnable =
@@ -367,13 +372,10 @@ public class InstantMessageDelegateImpl implements InstantMessageDelegate {
                     // TODO(crbug.com/379148260): Use shared #isCollaborationIdValid.
                     if (TextUtils.isEmpty(collaborationId)) return;
                     if (TextUtils.isEmpty(syncId)) return;
-                    if (localId == null) return;
                     if (mTabGroupSyncService.getGroup(syncId) == null) return;
 
                     dataSharingTabManager.createOrManageFlow(
-                            activity,
-                            syncId,
-                            new LocalTabGroupId(localId),
+                            EitherGroupId.createSyncId(syncId),
                             CollaborationServiceShareOrManageEntryPoint.ANDROID_MESSAGE,
                             /* createGroupFinishedCallback= */ null);
                 };

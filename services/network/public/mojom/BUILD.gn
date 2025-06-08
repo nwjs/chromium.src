@@ -108,6 +108,22 @@ mojom("mojom_ip_address") {
         "//services/network/public/cpp:ip_address_mojom_support",
       ]
     },
+    {
+      types = [
+        {
+          mojom = "network.mojom.AddressFamily"
+          cpp = "::net::AddressFamily"
+        },
+      ]
+      traits_headers = [
+        "//net/base/address_family.h",
+        "//services/network/public/cpp/address_family_mojom_traits.h",
+      ]
+      traits_public_deps = [
+        "//net",
+        "//services/network/public/cpp:ip_address_mojom_support",
+      ]
+    },
   ]
 
   cpp_typemaps = [
@@ -124,19 +140,6 @@ mojom("mojom_ip_address") {
         "//net",
         "//services/network/public/cpp:ip_address_mojom_support",
       ]
-    },
-    {
-      types = [
-        {
-          mojom = "network.mojom.AddressFamily"
-          cpp = "::net::AddressFamily"
-        },
-      ]
-      traits_headers =
-          [ "//services/network/public/cpp/address_family_mojom_traits.h" ]
-      traits_sources =
-          [ "//services/network/public/cpp/address_family_mojom_traits.cc" ]
-      traits_public_deps = [ "//net" ]
     },
     {
       types = [
@@ -610,6 +613,7 @@ mojom("url_loader_base") {
     "early_hints.mojom",
     "encoded_body_length.mojom",
     "fetch_api.mojom",
+    "fetch_retry_options.mojom",
     "http_raw_headers.mojom",
     "http_request_headers.mojom",
     "ip_address_space.mojom",
@@ -1229,10 +1233,6 @@ mojom("mojom_first_party_sets") {
         {
           types = [
             {
-              mojom = "network.mojom.SiteIndex"
-              cpp = "::net::FirstPartySetEntry::SiteIndex"
-            },
-            {
               mojom = "network.mojom.SiteType"
               cpp = "::net::SiteType"
             },
@@ -1695,6 +1695,7 @@ mojom("mojom") {
   sources = [
     "cert_verifier_service.mojom",
     "cert_verifier_service_updater.mojom",
+    "connection_change_observer_client.mojom",
     "cookie_encryption_provider.mojom",
     "default_credentials.mojom",
     "dhcp_wpad_url_client.mojom",
@@ -1714,7 +1715,6 @@ mojom("mojom") {
     "oblivious_http_request.mojom",
     "proxy_lookup_client.mojom",
     "proxy_resolving_socket.mojom",
-    "reconnect_event_observer.mojom",
     "reporting_service.mojom",
     "restricted_udp_socket.mojom",
     "socket_broker.mojom",
@@ -1947,10 +1947,8 @@ mojom("mojom") {
           cpp = "::net::NetworkChangeEvent"
         },
       ]
-      traits_headers = [
-        "//services/network/public/cpp/reconnect_event_observer_mojom_traits.h",
-      ]
-      traits_sources = [ "//services/network/public/cpp/reconnect_event_observer_mojom_traits.cc" ]
+      traits_headers = [ "//services/network/public/cpp/connection_change_observer_client_mojom_traits.h" ]
+      traits_sources = [ "//services/network/public/cpp/connection_change_observer_client_mojom_traits.cc" ]
       traits_public_deps = [ "//net" ]
     },
   ]

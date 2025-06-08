@@ -36,7 +36,7 @@ class WebContent;
 
 namespace enterprise_connectors {
 
-class ContentAnalysisDialog;
+class ContentAnalysisDialogController;
 class FilesRequestHandler;
 class PagePrintRequestHandler;
 class ClipboardRequestHandler;
@@ -273,6 +273,7 @@ class ContentAnalysisDelegate : public ContentAnalysisDelegateBase,
 
   // ContentAnalysisInfo:
   const AnalysisSettings& settings() const override;
+  signin::IdentityManager* identity_manager() const override;
   int user_action_requests_count() const override;
   std::string tab_title() const override;
   std::string user_action_id() const override;
@@ -282,6 +283,8 @@ class ContentAnalysisDelegate : public ContentAnalysisDelegateBase,
   ContentAnalysisRequest::Reason reason() const override;
   google::protobuf::RepeatedPtrField<::safe_browsing::ReferrerChainEntry>
   referrer_chain() const override;
+  google::protobuf::RepeatedPtrField<std::string> frame_url_chain()
+      const override;
 
  protected:
   ContentAnalysisDelegate(content::WebContents* web_contents,
@@ -405,6 +408,9 @@ class ContentAnalysisDelegate : public ContentAnalysisDelegateBase,
   // The GURL corresponding to the page where the scan triggered.
   GURL url_;
 
+  // Parent URL chain of the frame from which the action was triggered.
+  google::protobuf::RepeatedPtrField<std::string> frame_url_chain_;
+
   // The title corresponding to the WebContents triggering the scan.
   std::string title_;
 
@@ -445,7 +451,7 @@ class ContentAnalysisDelegate : public ContentAnalysisDelegateBase,
   CompletionCallback callback_;
 
   // Pointer to UI when enabled.
-  raw_ptr<ContentAnalysisDialog> dialog_ = nullptr;
+  raw_ptr<ContentAnalysisDialogController> dialog_ = nullptr;
 
   // Access point to use to record UMA metrics.
   safe_browsing::DeepScanAccessPoint access_point_;

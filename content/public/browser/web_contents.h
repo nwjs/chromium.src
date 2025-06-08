@@ -124,6 +124,7 @@ class RenderViewHost;
 class RenderWidgetHostView;
 class ScreenOrientationDelegate;
 class SiteInstance;
+class UnownedInnerWebContentsClient;
 class WebContentsDelegate;
 class WebUI;
 struct DropData;
@@ -206,6 +207,10 @@ class WebContents : public PageNavigator, public base::SupportsUserData {
 
     // True if the contents should be initially hidden.
     bool initially_hidden = false;
+
+    // Returns true if the WebContents is never user-visible, thus the renderer
+    // need never produce pixels for display.
+    bool is_never_composited = false;
 
     // True if newly created WebContents should defer all autofill to the
     // platform.
@@ -436,6 +441,10 @@ class WebContents : public PageNavigator, public base::SupportsUserData {
 
   // Returns a weak pointer.
   virtual base::WeakPtr<WebContents> GetWeakPtr() = 0;
+
+  // Returns true if the WebContents is never user-visible and thus never need
+  // to generate pixels for display.
+  virtual bool IsNeverComposited() = 0;
 
   // Gets the URL that is currently being displayed, if there is one.
   // This method is deprecated. DO NOT USE! Pick either |GetVisibleURL| or
@@ -944,6 +953,27 @@ class WebContents : public PageNavigator, public base::SupportsUserData {
       RenderFrameHost* render_frame_host,
       bool is_full_page) = 0;
 
+  // The unowned version of AttachInnerWebContents(). The caller should manage
+  // the lifetime of the inner WebContents.
+  // WARNING: this is for prototyping purposes only. You should not use this in
+  // production. In the long term, the concept of inner WebContents should
+  // probably be removed from the WebContents API.
+  // TODO(crbug.com/416609971): Remove this method once we find a way to attach
+  // inner WebContents without using WebContents trees.
+  virtual void AttachUnownedInnerWebContents(
+      base::PassKey<UnownedInnerWebContentsClient>,
+      WebContents* inner_web_contents,
+      RenderFrameHost* render_frame_host) = 0;
+
+  // Detaches the unowned `inner_web_contents` from this outer WebContents.
+  // WARNING: this is for prototyping purposes only. You should not use this in
+  // production.
+  // TODO(crbug.com/416609971): Remove this method once we find a way to attach
+  // inner WebContents without using WebContents trees.
+  virtual void DetachUnownedInnerWebContents(
+      base::PassKey<UnownedInnerWebContentsClient>,
+      WebContents* inner_web_contents) = 0;
+
   // Attaches `guest_page` to the container frame `outer_render_frame_host`,
   // which must be in a FrameTree for this WebContents. Note:
   // `outer_render_frame_host` will be swapped out and destroyed during the
@@ -1410,7 +1440,7 @@ class WebContents : public PageNavigator, public base::SupportsUserData {
   // Sets whether the WebContents is for overlaying content on a page.
   virtual void SetIsOverlayContent(bool is_overlay_content) = 0;
 
-  virtual int GetCurrentlyPlayingVideoCount() = 0;
+  virtual int GetCurrentlyPlayingVideoCount() const = 0;
 
   virtual std::optional<gfx::Size> GetFullscreenVideoSize() = 0;
 
@@ -1481,9 +1511,14 @@ class WebContents : public PageNavigator, public base::SupportsUserData {
   // until all tokens have been destroyed.
   // If WebInputEventAuditCallback is given, it can audits WebInputEvent based
   // input events and ignore only events that the callback returns false for the
-  // event. Other kind of events, such as focus event or ui::Events will be
-  // always ignored without asking the callback. The given callback will be
-  // invoked only while the returned ScopedIgnoreInputEvents alives.
+  // event. This however will only start ignoring input events from the next
+  // input sequence, i.e., this will have no impact on the current input
+  // sequence when input is being handled on VizCompositorThread (with
+  // InputVizard). Call ResetGestureDetection explicitly if the current input
+  // sequence needs to be stopped. Other kind of events, such as focus event or
+  // ui::Events will be always ignored without asking the callback. The given
+  // callback will be invoked only while the returned ScopedIgnoreInputEvents
+  // alives.
   using WebInputEventAuditCallback =
       base::RepeatingCallback<bool(const blink::WebInputEvent&)>;
   [[nodiscard]] virtual ScopedIgnoreInputEvents IgnoreInputEvents(
@@ -1698,6 +1733,16 @@ class WebContents : public PageNavigator, public base::SupportsUserData {
   // See https://explainers-by-googlers.github.io/partitioned-popins/
   virtual GURL GetPartitionedPopinEmbedderOrigin(
       base::PassKey<StorageAccessGrantPermissionContext>) const = 0;
+
+  // Returns the window open disposition that was originally requested
+  // when this WebContents was created.
+  // This method provides the disposition specified by the opener of this
+  // WebContents, indicating how the content was initially intended to be
+  // displayed (e.g., as a new foreground tab, a background tab, a new window,
+  // a popup, etc.). This value is determined at the point of
+  // creation, such as during a navigation that results in a new WebContents
+  // (e.g., from a link click with `target="_blank"`, `window.open()`).
+  virtual WindowOpenDisposition GetOriginalWindowOpenDisposition() const = 0;
 
  private:
   // This interface should only be implemented inside content.

@@ -15,6 +15,7 @@
 #include "printing/mojom/print.mojom.h"
 #include "printing/print_settings.h"
 #include "printing/printing_features.h"
+#include "printing/units.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 namespace extensions {
@@ -41,7 +42,7 @@ constexpr int kCustomMediaSizeMin = 2540;
 constexpr char kMediaSizeVendorId[] = "iso_a4_210x297mm";
 constexpr char kVendorItemId[] = "finishings";
 constexpr char kVendorItemValue[] = "trim";
-const printing::PaperMargins kPaperMargins = {10, 20, 30, 40};
+const printing::PaperMargins kPaperMarginsUm = {2960, 3150, 4130, 2830};
 
 constexpr char kCjt[] = R"(
     {
@@ -79,7 +80,13 @@ constexpr char kCjt[] = R"(
         },
         "fit_to_page": {
           "type": "FIT"
-        }
+        },
+        "margins": {
+          "top_microns": 2960,
+          "right_microns": 3150,
+          "bottom_microns": 4130,
+          "left_microns": 2830
+        },
       }
     })";
 
@@ -155,6 +162,49 @@ constexpr char kInvalidVendorItemCjt[] = R"(
       }
     })";
 
+constexpr char kTemplateMargingsItemCjt[] = R"(
+    {
+      "version": "1.0",
+      "print": {
+          "color": {
+            "type": "STANDARD_MONOCHROME"
+          },
+          "duplex": {
+            "type": "NO_DUPLEX"
+          },
+          "page_orientation": {
+            "type": "LANDSCAPE"
+          },
+          "copies": {
+            "copies": 5
+          },
+          "dpi": {
+            "horizontal_dpi": 300,
+            "vertical_dpi": 400
+          },
+          "media_size": {
+            "width_microns": 210000,
+            "height_microns": 297000,
+            "vendor_id": "iso_a4_210x297mm"
+          },
+          "vendor_ticket_item": [
+            {
+              "id": "finishings",
+              "value": "trim"
+            }
+          ],
+          "collate": {
+            "collate": false
+          },
+          "margins": {
+            "top_microns": %d,
+            "right_microns": %d,
+            "bottom_microns": %d,
+            "left_microns": %d
+          },
+      }
+    })";
+
 constexpr char kIncompleteCjt[] = R"(
     {
       "version": "1.0",
@@ -175,7 +225,7 @@ constexpr char kIncompleteCjt[] = R"(
       }
     })";
 
-constexpr char kCjtNoFitToPage[] = R"(
+constexpr char kCjtNoFitToPageAndMargins[] = R"(
     {
       "version": "1.0",
       "print": {
@@ -262,7 +312,8 @@ ConstructPrinterCapabilitiesWithCustomSize() {
       /*display_name=*/"", kMediaSizeVendorId,
       gfx::Size(kMediaSizeWidth, kCustomMediaSizeMin),
       /*printable_area_um=*/gfx::Rect(), kMediaSizeHeight,
-      /*has_borderless_variant=*/false, /*supported_margins_um=*/kPaperMargins);
+      /*has_borderless_variant=*/false,
+      /*supported_margins_um=*/kPaperMarginsUm);
   capabilities.papers.push_back(paper);
 
   return capabilities;
@@ -312,32 +363,59 @@ TEST(PrintingApiUtilsTest, PrinterToIdl) {
 }
 
 TEST(PrintingApiUtilsTest, ParsePrintTicket) {
-  base::Value::Dict cjt_ticket = base::test::ParseJsonDict(kCjt);
-  std::unique_ptr<printing::PrintSettings> settings =
-      ParsePrintTicket(std::move(cjt_ticket));
+  {
+    base::test::ScopedFeatureList feature_list;
+    feature_list.InitAndDisableFeature(
+        printing::features::kApiPrintingMarginsAndScale);
+    base::Value::Dict cjt_ticket = base::test::ParseJsonDict(kCjt);
+    std::unique_ptr<printing::PrintSettings> settings =
+        ParsePrintTicket(std::move(cjt_ticket));
 
-  ASSERT_TRUE(settings);
-  EXPECT_EQ(printing::mojom::ColorModel::kGray, settings->color());
-  EXPECT_EQ(printing::mojom::DuplexMode::kSimplex, settings->duplex_mode());
-  EXPECT_TRUE(settings->landscape());
-  EXPECT_EQ(5, settings->copies());
-  EXPECT_EQ(gfx::Size(kHorizontalDpi, kVerticalDpi), settings->dpi_size());
-  EXPECT_EQ(gfx::Size(kMediaSizeWidth, kMediaSizeHeight),
-            settings->requested_media().size_microns);
-  EXPECT_EQ(kMediaSizeVendorId, settings->requested_media().vendor_id);
-  EXPECT_FALSE(settings->collate());
-  EXPECT_THAT(settings->advanced_settings(),
-              Contains(Pair(kVendorItemId, kVendorItemValue)));
-  // When feature is disabled, no print-scaling should be applied.
-  EXPECT_EQ(printing::mojom::PrintScalingType::kUnknownPrintScalingType,
-            settings->print_scaling());
+    ASSERT_TRUE(settings);
+    EXPECT_EQ(printing::mojom::ColorModel::kGray, settings->color());
+    EXPECT_EQ(printing::mojom::DuplexMode::kSimplex, settings->duplex_mode());
+    EXPECT_TRUE(settings->landscape());
+    EXPECT_EQ(5, settings->copies());
+    EXPECT_EQ(gfx::Size(kHorizontalDpi, kVerticalDpi), settings->dpi_size());
+    EXPECT_EQ(gfx::Size(kMediaSizeWidth, kMediaSizeHeight),
+              settings->requested_media().size_microns);
+    EXPECT_EQ(kMediaSizeVendorId, settings->requested_media().vendor_id);
+    EXPECT_FALSE(settings->collate());
+    EXPECT_THAT(settings->advanced_settings(),
+                Contains(Pair(kVendorItemId, kVendorItemValue)));
+    // Since the feature is disabled, no print-scaling should be applied and the
+    // margin type should be the default.
+    EXPECT_EQ(printing::mojom::PrintScalingType::kUnknownPrintScalingType,
+              settings->print_scaling());
+    EXPECT_EQ(settings->margin_type(),
+              printing::mojom::MarginType::kDefaultMargins);
+    EXPECT_EQ(settings->requested_custom_margins_in_microns(),
+              printing::PageMargins());
+  }
 
-  // When feature is enabled, print-scaling should be applied.
-  base::test::ScopedFeatureList feature_list(
-      printing::features::kApiPrintingMarginsAndScale);
-  settings = ParsePrintTicket(base::test::ParseJsonDict(kCjt));
-  ASSERT_TRUE(settings);
-  EXPECT_EQ(printing::mojom::PrintScalingType::kFit, settings->print_scaling());
+  // Once the feature is enabled, print-scaling should be applied and the margin
+  // type should be custom.
+  {
+    base::test::ScopedFeatureList feature_list(
+        printing::features::kApiPrintingMarginsAndScale);
+    std::unique_ptr<printing::PrintSettings> settings =
+        ParsePrintTicket(base::test::ParseJsonDict(kCjt));
+    ASSERT_TRUE(settings);
+    EXPECT_EQ(printing::mojom::PrintScalingType::kFit,
+              settings->print_scaling());
+
+    EXPECT_EQ(settings->margin_type(),
+              printing::mojom::MarginType::kCustomMargins);
+    const printing::PageMargins kExpectedPageMargins = {
+        /*header=*/0,
+        /*footer=*/0,
+        static_cast<int>(kPaperMarginsUm.left_margin_um),
+        static_cast<int>(kPaperMarginsUm.right_margin_um),
+        static_cast<int>(kPaperMarginsUm.top_margin_um),
+        static_cast<int>(kPaperMarginsUm.bottom_margin_um)};
+    EXPECT_EQ(settings->requested_custom_margins_in_microns(),
+              kExpectedPageMargins);
+  }
 }
 
 // Test that parsing CJT with FitToPage values either succeeds or fails
@@ -370,11 +448,12 @@ TEST(PrintingApiUtilsTest, ParsePrintTicketFitToPage) {
   }
 }
 
-TEST(PrintingApiUtilsTest, ParsePrintTicketNoFitToPage) {
+TEST(PrintingApiUtilsTest, ParsePrintTicketNoFitToPageAndNoMargins) {
   base::test::ScopedFeatureList feature_list(
       printing::features::kApiPrintingMarginsAndScale);
 
-  base::Value::Dict cjt_ticket = base::test::ParseJsonDict(kCjtNoFitToPage);
+  base::Value::Dict cjt_ticket =
+      base::test::ParseJsonDict(kCjtNoFitToPageAndMargins);
   std::unique_ptr<printing::PrintSettings> settings =
       ParsePrintTicket(std::move(cjt_ticket));
 
@@ -382,20 +461,84 @@ TEST(PrintingApiUtilsTest, ParsePrintTicketNoFitToPage) {
   // When print-scaling values are missing, no scaling should be applied.
   EXPECT_EQ(printing::mojom::PrintScalingType::kUnknownPrintScalingType,
             settings->print_scaling());
+  ASSERT_TRUE(settings);
+  // When margins are missing, default margins should be used
+  EXPECT_EQ(settings->margin_type(),
+            printing::mojom::MarginType::kDefaultMargins);
+  EXPECT_FALSE(settings->borderless());
 }
 
 TEST(PrintingApiUtilsTest, ParsePrintTicketInvalidVendorItem) {
   // Even though this CJT has an invalid vendor item, it should parse correctly.
   // It will fail when the CJT is checked vs the printer capabilities.
-  base::Value::Dict cjt_ticket =
-      base::test::ParseJsonDict(kInvalidVendorItemCjt);
-  EXPECT_TRUE(ParsePrintTicket(std::move(cjt_ticket)));
+  EXPECT_TRUE(
+      ParsePrintTicket(base::test::ParseJsonDict(kInvalidVendorItemCjt)));
+}
+
+TEST(PrintingApiUtilsTest, ParsePrintTicketInvalidMarginsItem) {
+  const std::string kInvalidMarginsCjt =
+      base::StringPrintf(kTemplateMargingsItemCjt, -40, 20, -30, 40);
+  EXPECT_TRUE(ParsePrintTicket(base::test::ParseJsonDict(kInvalidMarginsCjt)));
+
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeature(
+      printing::features::kApiPrintingMarginsAndScale);
+  EXPECT_FALSE(ParsePrintTicket(base::test::ParseJsonDict(kInvalidMarginsCjt)));
 }
 
 TEST(PrintingApiUtilsTest, ParsePrintTicket_IncompleteCjt) {
-  base::Value::Dict incomplete_cjt_ticket =
-      base::test::ParseJsonDict(kIncompleteCjt);
-  EXPECT_FALSE(ParsePrintTicket(std::move(incomplete_cjt_ticket)));
+  EXPECT_FALSE(ParsePrintTicket(base::test::ParseJsonDict(kIncompleteCjt)));
+}
+
+TEST(PrintingApiUtilsTest, ParsePrintTicket_BorderlessMargins) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeature(
+      printing::features::kApiPrintingMarginsAndScale);
+
+  const std::string kBorderlessCjt =
+      base::StringPrintf(kTemplateMargingsItemCjt, 0, 0, 0, 0);
+  std::unique_ptr<printing::PrintSettings> settings =
+      ParsePrintTicket(base::test::ParseJsonDict(kBorderlessCjt));
+
+  ASSERT_TRUE(settings);
+  EXPECT_EQ(settings->margin_type(), printing::mojom::MarginType::kNoMargins);
+  EXPECT_TRUE(settings->borderless());
+
+  const printing::PageMargins kExpectedPageMargins = {/*header=*/0,
+                                                      /*footer=*/0,
+                                                      /*left=*/0,
+                                                      /*right=*/0,
+                                                      /*top=*/0,
+                                                      /*bottom=*/0};
+  EXPECT_EQ(settings->requested_custom_margins_in_microns(),
+            kExpectedPageMargins);
+}
+
+TEST(PrintingApiUtilsTest, ParsePrintTicket_MixedMargins) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeature(
+      printing::features::kApiPrintingMarginsAndScale);
+
+  const std::string kMixedMarginsCjt =
+      base::StringPrintf(kTemplateMargingsItemCjt, 0, 3150, 0, 2830);
+  std::unique_ptr<printing::PrintSettings> settings =
+      ParsePrintTicket(base::test::ParseJsonDict(kMixedMarginsCjt));
+
+  ASSERT_TRUE(settings);
+  // With mixed margins (some 0, some non-0), we should get custom margins but
+  // not borderless
+  EXPECT_EQ(settings->margin_type(),
+            printing::mojom::MarginType::kCustomMargins);
+  EXPECT_FALSE(settings->borderless());
+
+  const printing::PageMargins kExpectedPageMargins = {/*header=*/0,
+                                                      /*footer=*/0,
+                                                      /*left=*/2830,
+                                                      /*right=*/3150,
+                                                      /*top=*/0,
+                                                      /*bottom=*/0};
+  EXPECT_EQ(settings->requested_custom_margins_in_microns(),
+            kExpectedPageMargins);
 }
 
 TEST(PrintingApiUtilsTest, CheckSettingsAndCapabilitiesCompatibility) {
@@ -610,6 +753,104 @@ TEST(PrintingApiUtilsTest,
   }
 }
 
+TEST(PrintingApiUtilsTest, CheckSettingsAndCapabilitiesCompatibility_Margins) {
+  std::unique_ptr<printing::PrintSettings> settings = ConstructPrintSettings();
+  printing::PrinterSemanticCapsAndDefaults capabilities =
+      ConstructPrinterCapabilities();
+
+  const printing::PageMargins kMargins = {
+      /*header=*/0,  /*footer=*/0,
+      /*left=*/1500, /*right=*/500,
+      /*top=*/3530,  /*bottom=*/5525};
+  settings->SetCustomMargins(kMargins);
+  settings->set_margin_type(printing::mojom::MarginType::kCustomMargins);
+
+  // There must be no supported margins for the check to pass.
+  for (const auto& paper : capabilities.papers) {
+    ASSERT_FALSE(paper.supported_margins_um().has_value());
+  }
+
+  {
+    // Test with feature disabled - despite margins not being supported and
+    // provided, the check should pass as the feature is disabled.
+    base::test::ScopedFeatureList feature_list;
+    feature_list.InitAndDisableFeature(
+        printing::features::kApiPrintingMarginsAndScale);
+    EXPECT_TRUE(
+        CheckSettingsAndCapabilitiesCompatibility(*settings, capabilities));
+  }
+
+  // Re-enable feature for further tests.
+  base::test::ScopedFeatureList feature_list(
+      printing::features::kApiPrintingMarginsAndScale);
+
+  // Add a paper with supported margins.
+  const printing::PaperMargins kSupportedMargins(1500, 500, 3241, 3451);
+  capabilities.papers.emplace_back(
+      /*display_name=*/"", /*vendor_id=*/"",
+      /*size_um=*/gfx::Size(kMediaSizeWidth, kMediaSizeHeight),
+      /*printable_area_um=*/gfx::Rect(kMediaSizeWidth, kMediaSizeHeight),
+      /*max_height_um=*/0, /*has_borderless_variant=*/false,
+      /*supported_margins_um=*/kSupportedMargins);
+
+  // Default margins should be supported.
+  {
+    settings->SetCustomMargins(printing::PageMargins());
+    settings->set_margin_type(printing::mojom::MarginType::kDefaultMargins);
+    EXPECT_TRUE(
+        CheckSettingsAndCapabilitiesCompatibility(*settings, capabilities));
+  }
+
+  // Set supported margins and settings to different values. The check should
+  // fail.
+  {
+    settings->SetCustomMargins(kMargins);
+    settings->set_margin_type(printing::mojom::MarginType::kCustomMargins);
+    EXPECT_FALSE(
+        CheckSettingsAndCapabilitiesCompatibility(*settings, capabilities));
+  }
+
+  // Now, update the settings to have supported margins. The check should pass.
+  {
+    settings->SetCustomMargins(printing::PageMargins(
+        /*header=*/0, /*footer=*/0,
+        /*left=*/kSupportedMargins.left_margin_um,
+        /*right=*/kSupportedMargins.right_margin_um,
+        /*top=*/kSupportedMargins.top_margin_um,
+        /*bottom=*/kSupportedMargins.bottom_margin_um));
+    EXPECT_TRUE(
+        CheckSettingsAndCapabilitiesCompatibility(*settings, capabilities));
+  }
+
+  // Test borderless variant.
+  {
+    settings->SetCustomMargins(printing::PageMargins());
+    settings->set_margin_type(printing::mojom::MarginType::kNoMargins);
+    settings->set_borderless(true);
+    EXPECT_FALSE(
+        CheckSettingsAndCapabilitiesCompatibility(*settings, capabilities));
+    capabilities.papers.emplace_back(
+        printing::PrinterSemanticCapsAndDefaults::Paper(
+            /*display_name=*/"", /*vendor_id=*/"",
+            /*size_um=*/gfx::Size(kMediaSizeWidth, kMediaSizeHeight),
+            /*printable_area_um=*/gfx::Rect(kMediaSizeWidth, kMediaSizeHeight),
+            /*max_height_um=*/0, /*has_borderless_variant=*/true,
+            /*supported_margins_um=*/kSupportedMargins));
+    EXPECT_TRUE(
+        CheckSettingsAndCapabilitiesCompatibility(*settings, capabilities));
+  }
+
+  // Invalid case: try to set borderless in settings, but still provide margin
+  // values. This must be invalid.
+  {
+    settings->set_borderless(true);
+    settings->SetCustomMargins(kMargins);
+    settings->set_margin_type(printing::mojom::MarginType::kCustomMargins);
+    EXPECT_FALSE(
+        CheckSettingsAndCapabilitiesCompatibility(*settings, capabilities));
+  }
+}
+
 TEST(PrintingApiUtilsTest, CheckSettingsAndCapabilities_PrintScalingHistogram) {
   std::unique_ptr<printing::PrintSettings> settings = ConstructPrintSettings();
   printing::PrinterSemanticCapsAndDefaults capabilities =
@@ -674,6 +915,102 @@ TEST(PrintingApiUtilsTest, CheckSettingsAndCapabilities_PrintScalingHistogram) {
         CheckSettingsAndCapabilitiesCompatibility(*settings, capabilities));
     histogram_tester.ExpectTotalCount(
         "Extensions.Printing.UsesSupportedPrintScaling", 0);
+  }
+}
+
+TEST(PrintingApiUtilsTest, CheckSettingsAndCapabilities_MarginHistogram) {
+  std::unique_ptr<printing::PrintSettings> settings = ConstructPrintSettings();
+
+  const printing::PaperMargins kSupportedMargins(1500, 500, 3241, 3451);
+  const printing::PageMargins kMargins = {
+      /*header=*/0,
+      /*footer=*/0,
+      /*left=*/kSupportedMargins.left_margin_um,
+      /*right=*/kSupportedMargins.right_margin_um,
+      /*top=*/kSupportedMargins.top_margin_um,
+      /*bottom=*/kSupportedMargins.bottom_margin_um};
+  settings->SetCustomMargins(kMargins);
+  settings->set_margin_type(printing::mojom::MarginType::kCustomMargins);
+
+  // Try with the feature disabled first - no matter if the margins are correct
+  // or not, the histogram should not be recorded.
+  {
+    base::HistogramTester histogram_tester;
+    base::test::ScopedFeatureList feature_list;
+    feature_list.InitAndDisableFeature(
+        printing::features::kApiPrintingMarginsAndScale);
+
+    printing::PrinterSemanticCapsAndDefaults capabilities =
+        ConstructPrinterCapabilities();
+    // There must be no supported margins first.
+    for (const auto& paper : capabilities.papers) {
+      ASSERT_FALSE(paper.supported_margins_um().has_value());
+    }
+
+    ASSERT_TRUE(
+        CheckSettingsAndCapabilitiesCompatibility(*settings, capabilities));
+
+    // Add a paper with supported margins.
+    capabilities.papers.emplace_back(
+        /*display_name=*/"", /*vendor_id=*/"",
+        /*size_um=*/gfx::Size(kMediaSizeWidth, kMediaSizeHeight),
+        /*printable_area_um=*/gfx::Rect(kMediaSizeWidth, kMediaSizeHeight),
+        /*max_height_um=*/0, /*has_borderless_variant=*/false,
+        /*supported_margins_um=*/kSupportedMargins);
+
+    ASSERT_TRUE(
+        CheckSettingsAndCapabilitiesCompatibility(*settings, capabilities));
+    histogram_tester.ExpectTotalCount(
+        "Extensions.Printing.UsesSupportedMargins", 0);
+  }
+
+  // Enable the feature now. The histogram should be recorded.
+  base::test::ScopedFeatureList feature_list(
+      printing::features::kApiPrintingMarginsAndScale);
+  // Test with margins that are not supported.
+  {
+    base::HistogramTester histogram_tester;
+    printing::PrinterSemanticCapsAndDefaults capabilities =
+        ConstructPrinterCapabilities();
+    // There must be no supported margins first.
+    for (const auto& paper : capabilities.papers) {
+      ASSERT_FALSE(paper.supported_margins_um().has_value());
+    }
+
+    // Verify that the UMA histogram is recorded with false when unsupported
+    // margins are passed.
+    EXPECT_FALSE(
+        CheckSettingsAndCapabilitiesCompatibility(*settings, capabilities));
+    histogram_tester.ExpectUniqueSample(
+        "Extensions.Printing.UsesSupportedMargins", false, 1);
+  }
+
+  // Test with margins that are supported.
+  {
+    base::HistogramTester histogram_tester;
+    printing::PrinterSemanticCapsAndDefaults capabilities =
+        ConstructPrinterCapabilities();
+    // Add a paper with supported margins.
+    capabilities.papers.emplace_back(
+        /*display_name=*/"", /*vendor_id=*/"",
+        /*size_um=*/gfx::Size(kMediaSizeWidth, kMediaSizeHeight),
+        /*printable_area_um=*/gfx::Rect(kMediaSizeWidth, kMediaSizeHeight),
+        /*max_height_um=*/0, /*has_borderless_variant=*/false,
+        /*supported_margins_um=*/kSupportedMargins);
+
+    // Verify that the UMA histogram is recorded with true when margins match
+    ASSERT_TRUE(
+        CheckSettingsAndCapabilitiesCompatibility(*settings, capabilities));
+    histogram_tester.ExpectUniqueSample(
+        "Extensions.Printing.UsesSupportedMargins", true, 1);
+
+    // If default margins are set, the histogram mustn't be recorded.
+    settings->SetCustomMargins(printing::PageMargins());
+    settings->set_margin_type(printing::mojom::MarginType::kDefaultMargins);
+    ASSERT_TRUE(
+        CheckSettingsAndCapabilitiesCompatibility(*settings, capabilities));
+    histogram_tester.ExpectUniqueSample(
+        "Extensions.Printing.UsesSupportedMargins", true, 1);
   }
 }
 

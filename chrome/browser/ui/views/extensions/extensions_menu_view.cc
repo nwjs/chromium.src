@@ -7,12 +7,10 @@
 #include <algorithm>
 
 #include "base/auto_reset.h"
-#include "base/check_is_test.h"
 #include "base/containers/contains.h"
 #include "base/feature_list.h"
 #include "base/i18n/case_conversion.h"
 #include "base/memory/ptr_util.h"
-#include "base/not_fatal_until.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/chrome_pages.h"
@@ -92,11 +90,6 @@ ExtensionsMenuView::ExtensionsMenuView(
           nullptr, nullptr, IDS_EXTENSIONS_MENU_ACCESSING_SITE_DATA_SHORT,
           IDS_EXTENSIONS_MENU_ACCESSING_SITE_DATA,
           extensions::SitePermissionsHelper::SiteInteraction::kGranted} {
-  // Ensure layer masking is used for the extensions menu to ensure buttons with
-  // layer effects sitting flush with the bottom of the bubble are clipped
-  // appropriately.
-  SetPaintClientToLayer(true);
-
   toolbar_model_observation_.Observe(toolbar_model_.get());
   browser_->tab_strip_model()->AddObserver(this);
   set_margins(gfx::Insets(0));
@@ -462,7 +455,7 @@ void ExtensionsMenuView::OnToolbarActionRemoved(
                                 [](const ExtensionMenuItemView* item) {
                                   return item->view_controller()->GetId();
                                 });
-  CHECK(iter != extensions_menu_items_.end(), base::NotFatalUntil::M130);
+  CHECK(iter != extensions_menu_items_.end());
   ExtensionMenuItemView* const view = *iter;
   DCHECK(Contains(view));
   view->parent()->RemoveChildViewT(view);
@@ -497,18 +490,15 @@ void ExtensionsMenuView::OnToolbarPinnedActionsChanged() {
 
 base::flat_set<raw_ptr<ExtensionMenuItemView, CtnExperimental>>
 ExtensionsMenuView::extensions_menu_items_for_testing() {
-  CHECK_IS_TEST();
   return extensions_menu_items_;
 }
 
 views::Button* ExtensionsMenuView::manage_extensions_button_for_testing() {
-  CHECK_IS_TEST();
   return manage_extensions_button_;
 }
 
 // static
 base::AutoReset<bool> ExtensionsMenuView::AllowInstancesForTesting() {
-  CHECK_IS_TEST();
   return base::AutoReset<bool>(&g_allow_testing_dialogs, true);
 }
 

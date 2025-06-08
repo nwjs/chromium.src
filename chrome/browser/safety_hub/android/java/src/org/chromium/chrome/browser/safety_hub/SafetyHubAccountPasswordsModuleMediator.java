@@ -7,6 +7,8 @@ package org.chromium.chrome.browser.safety_hub;
 import android.content.Context;
 import android.view.View;
 
+import org.chromium.build.annotations.NullMarked;
+import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.safety_hub.SafetyHubAccountPasswordsDataSource.ModuleType;
 import org.chromium.chrome.browser.safety_hub.SafetyHubModuleMediator.ModuleOption;
 import org.chromium.chrome.browser.safety_hub.SafetyHubModuleMediator.ModuleState;
@@ -19,15 +21,16 @@ import org.chromium.ui.modelutil.PropertyModelChangeProcessor;
  * changes of passwords and their state by {@link SafetyHubAccountPasswordsDataSource}, and updates
  * the preference to reflect these.
  */
+@NullMarked
 public class SafetyHubAccountPasswordsModuleMediator
         implements SafetyHubModuleMediator, SafetyHubAccountPasswordsDataSource.Observer {
     private final SafetyHubExpandablePreference mPreference;
     private final SafetyHubModuleMediatorDelegate mMediatorDelegate;
     private final SafetyHubModuleDelegate mModuleDelegate;
+    private final PropertyModel mModel;
 
-    private SafetyHubAccountPasswordsDataSource mAccountPasswordsDataSource;
-    private SafetyHubModuleHelper mModuleHelper;
-    private PropertyModel mModel;
+    private final SafetyHubAccountPasswordsDataSource mAccountPasswordsDataSource;
+    private @Nullable SafetyHubModuleHelper mModuleHelper;
 
     SafetyHubAccountPasswordsModuleMediator(
             SafetyHubExpandablePreference preference,
@@ -38,15 +41,12 @@ public class SafetyHubAccountPasswordsModuleMediator
         mAccountPasswordsDataSource = accountPasswordsDataSource;
         mMediatorDelegate = mediatorDelegate;
         mModuleDelegate = moduleDelegate;
+        mModel = new PropertyModel.Builder(SafetyHubModuleProperties.ALL_KEYS).build();
     }
 
     @Override
     public void setUpModule() {
-        mModel =
-                new PropertyModel.Builder(SafetyHubModuleProperties.ALL_KEYS)
-                        .with(SafetyHubModuleProperties.IS_VISIBLE, true)
-                        .build();
-
+        mModel.set(SafetyHubModuleProperties.IS_VISIBLE, true);
         PropertyModelChangeProcessor.create(
                 mModel, mPreference, SafetyHubModuleViewBinder::bindProperties);
 
@@ -58,7 +58,6 @@ public class SafetyHubAccountPasswordsModuleMediator
     public void destroy() {
         if (mAccountPasswordsDataSource != null) {
             mAccountPasswordsDataSource.destroy();
-            mAccountPasswordsDataSource = null;
         }
         mModuleHelper = null;
     }
@@ -74,11 +73,17 @@ public class SafetyHubAccountPasswordsModuleMediator
             case ModuleType.SIGNED_OUT:
                 return new SafetyHubAccountPasswordsSignedOutModuleHelper(context, mModuleDelegate);
             case ModuleType.UNAVAILABLE_PASSWORDS:
-                return new SafetyHubAccountPasswordsUnavailableAllPasswordsModuleHelper(
-                        context, mModuleDelegate);
+                return new SafetyHubUnavailablePasswordsModuleHelper(
+                        context,
+                        mModuleDelegate,
+                        /* unavailableAccountPasswords= */ true,
+                        /* unavailableLocalPasswords= */ false);
             case ModuleType.NO_SAVED_PASSWORDS:
-                return new SafetyHubAccountPasswordsNoPasswordsModuleHelper(
-                        context, mModuleDelegate);
+                return new SafetyHubNoSavedPasswordsModuleHelper(
+                        context,
+                        mModuleDelegate,
+                        /* noAccountPasswords= */ true,
+                        /* noLocalPasswords= */ false);
             case ModuleType.HAS_COMPROMISED_PASSWORDS:
                 return new SafetyHubCompromisedPasswordsModuleHelper(
                         context,
@@ -87,20 +92,27 @@ public class SafetyHubAccountPasswordsModuleMediator
                         /* localCompromisedPasswordsCount= */ 0,
                         /* unifiedModule= */ false);
             case ModuleType.NO_COMPROMISED_PASSWORDS:
-                return new SafetyHubAccountPasswordsNoCompromisedPasswordsModuleHelper(
-                        context, mModuleDelegate, mAccountPasswordsDataSource.getAccountEmail());
+                return new SafetyHubNoCompromisedPasswordsModuleHelper(
+                        context,
+                        mModuleDelegate,
+                        mAccountPasswordsDataSource.getAccountEmail(),
+                        /* unifiedModule= */ false);
             case ModuleType.HAS_WEAK_PASSWORDS:
-                return new SafetyHubAccountPasswordsHasWeakPasswordsModuleHelper(
+                return new SafetyHubWeakPasswordsModuleHelper(
                         context,
                         mModuleDelegate,
-                        mAccountPasswordsDataSource.getWeakPasswordCount());
+                        mAccountPasswordsDataSource.getWeakPasswordCount(),
+                        /* localWeakPasswordsCount= */ 0,
+                        /* unifiedModule= */ false);
             case ModuleType.HAS_REUSED_PASSWORDS:
-                return new SafetyHubAccountPasswordsHasReusedPasswordsModuleHelper(
+                return new SafetyHubReusedPasswordsModuleHelper(
                         context,
                         mModuleDelegate,
-                        mAccountPasswordsDataSource.getReusedPasswordCount());
+                        mAccountPasswordsDataSource.getReusedPasswordCount(),
+                        /* localReusedPasswordsCount= */ 0,
+                        /* unifiedModule= */ false);
             case ModuleType.UNAVAILABLE_COMPROMISED_NO_WEAK_REUSED_PASSWORDS:
-                return new SafetyHubAccountPasswordsUnavailableCompromisedPasswordsModuleHelper(
+                return new SafetyHubUnavailableAccountCompromisedPasswordsModuleHelper(
                         context, mModuleDelegate);
             default:
                 throw new IllegalArgumentException();

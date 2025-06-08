@@ -70,10 +70,6 @@ IN_PROC_BROWSER_TEST_F(PrintPreviewTest, SelectMixin) {
   RunTest("print_preview/select_mixin_test.js", "mocha.run()");
 }
 
-IN_PROC_BROWSER_TEST_F(PrintPreviewTest, SelectMixinLit) {
-  RunTest("print_preview/select_mixin_lit_test.js", "mocha.run()");
-}
-
 IN_PROC_BROWSER_TEST_F(PrintPreviewTest, SettingsSelect) {
   RunTest("print_preview/settings_select_test.js", "mocha.run()");
 }
@@ -135,6 +131,10 @@ class PrintPreviewPagesSettingsTest : public PrintPreviewBrowserTest {
 
 IN_PROC_BROWSER_TEST_F(PrintPreviewPagesSettingsTest, PagesDropdown) {
   RunTestCase("PagesDropdown");
+}
+
+IN_PROC_BROWSER_TEST_F(PrintPreviewPagesSettingsTest, PagesDropdownDisabled) {
+  RunTestCase("PagesDropdownDisabled");
 }
 
 IN_PROC_BROWSER_TEST_F(PrintPreviewPagesSettingsTest, NoParityOptions) {
@@ -311,6 +311,10 @@ IN_PROC_BROWSER_TEST_F(PrintPreviewModelTest, SetPolicySettings) {
 
 IN_PROC_BROWSER_TEST_F(PrintPreviewModelTest, GetPrintTicket) {
   RunTestCase("GetPrintTicket");
+}
+
+IN_PROC_BROWSER_TEST_F(PrintPreviewModelTest, GetPrintTicketPdf) {
+  RunTestCase("GetPrintTicketPdf");
 }
 
 IN_PROC_BROWSER_TEST_F(PrintPreviewModelTest, GetCloudPrintTicket) {
@@ -621,6 +625,10 @@ IN_PROC_BROWSER_TEST_F(PrintPreviewPreviewAreaTest, StateChanges) {
 
 IN_PROC_BROWSER_TEST_F(PrintPreviewPreviewAreaTest, ViewportSizeChanges) {
   RunTestCase("ViewportSizeChanges");
+}
+
+IN_PROC_BROWSER_TEST_F(PrintPreviewPreviewAreaTest, PointerEvents) {
+  RunTestCase("PointerEvents");
 }
 
 class PrintPreviewCustomMarginsTest : public PrintPreviewBrowserTest {

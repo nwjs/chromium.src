@@ -112,7 +112,7 @@ public class LocationBarCoordinator
     private UrlBarCoordinator mUrlCoordinator;
     private AutocompleteCoordinator mAutocompleteCoordinator;
     private StatusCoordinator mStatusCoordinator;
-    private WindowAndroid mWindowAndroid;
+    private final WindowAndroid mWindowAndroid;
     private LocationBarMediator mLocationBarMediator;
     private View mUrlBar;
     private @Nullable View mDeleteButton;
@@ -181,7 +181,7 @@ public class LocationBarCoordinator
             LocationBarDataProvider locationBarDataProvider,
             ActionMode.Callback actionModeCallback,
             WindowAndroid windowAndroid,
-            Supplier<Tab> activityTabSupplier,
+            Supplier<@Nullable Tab> activityTabSupplier,
             Supplier<ModalDialogManager> modalDialogManagerSupplier,
             Supplier<ShareDelegate> shareDelegateSupplier,
             IncognitoStateProvider incognitoStateProvider,
@@ -541,6 +541,11 @@ public class LocationBarCoordinator
         mUrlCoordinator.setUseSmallText(useSmallText);
     }
 
+    @Override
+    public void setHideStatusIconForSecureOrigins(boolean hideStatusIconForSecureOrigins) {
+        mStatusCoordinator.setHideStatusIconForSecureOrigins(hideStatusIconForSecureOrigins);
+    }
+
     // AutocompleteDelegate implementation.
     @Override
     public void onUrlTextChanged() {
@@ -667,15 +672,15 @@ public class LocationBarCoordinator
     /**
      * Updates progress of current the URL focus change animation.
      *
-     * @param ntpSearchBoxScrollFraction The degree to which the omnibox has expanded to full width
-     *     in NTP due to the NTP search box is being scrolled up.
+     * @param ntpUrlExpansionFraction The degree to which the omnibox has expanded to full width on
+     *     the NTP.
      * @param urlFocusChangeFraction The degree to which the omnibox has expanded due to it is
      *     getting focused.
      */
     public void setUrlFocusChangeFraction(
-            float ntpSearchBoxScrollFraction, float urlFocusChangeFraction) {
+            float ntpUrlExpansionFraction, float urlFocusChangeFraction) {
         mLocationBarMediator.setUrlFocusChangeFraction(
-                ntpSearchBoxScrollFraction, urlFocusChangeFraction);
+                ntpUrlExpansionFraction, urlFocusChangeFraction);
     }
 
     /**

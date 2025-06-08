@@ -66,7 +66,6 @@ class SyncServiceAndroidBridge;
 // You should not need to know about SyncServiceImpl directly.
 class SyncServiceImpl : public SyncService,
                         public SyncEngineHost,
-                        public SyncPrefObserver,
                         public DataTypeManagerObserver,
                         public SyncAuthManager::Delegate,
                         public SyncServiceCrypto::Delegate,
@@ -111,7 +110,6 @@ class SyncServiceImpl : public SyncService,
 #if BUILDFLAG(IS_ANDROID)
   base::android::ScopedJavaLocalRef<jobject> GetJavaObject() override;
 #endif  // BUILDFLAG(IS_ANDROID)
-  void SetSyncFeatureRequested() override;
   SyncUserSettings* GetUserSettings() override;
   const SyncUserSettings* GetUserSettings() const override;
   DisableReasonSet GetDisableReasons() const override;
@@ -204,6 +202,13 @@ class SyncServiceImpl : public SyncService,
   bool IsCustomPassphraseAllowed() const override;
   SyncPrefs::SyncAccountState GetSyncAccountStateForPrefs() const override;
   CoreAccountInfo GetSyncAccountInfoForPrefs() const override;
+  void OnSyncClientDisabledByPolicyChanged() override;
+  void OnSelectedTypesChanged() override;
+#if BUILDFLAG(IS_CHROMEOS)
+  void OnSyncFeatureDisabledViaDashboardCleared() override;
+#else   // BUILDFLAG(IS_CHROMEOS)
+  void OnInitialSyncFeatureSetupCompleted() override;
+#endif  // BUILDFLAG(IS_CHROMEOS)
 
   // IdentityManager::Observer implementation.
   void OnAccountsCookieDeletedByUserAction() override;
@@ -212,6 +217,8 @@ class SyncServiceImpl : public SyncService,
       const GoogleServiceAuthError& error) override;
   void OnPrimaryAccountChanged(
       const signin::PrimaryAccountChangeEvent& event_details) override;
+  void OnIdentityManagerShutdown(
+      signin::IdentityManager* identity_manager) override;
 
   // Similar to above but with a callback that will be invoked on completion.
   void OnAccountsInCookieUpdatedWithCallback(
@@ -222,14 +229,6 @@ class SyncServiceImpl : public SyncService,
   // accounts from cookie jar.
   bool HasCookieJarMismatch(
       const std::vector<gaia::ListedAccount>& cookie_jar_accounts);
-
-  // SyncPrefObserver implementation.
-  void OnSyncManagedPrefChange(bool is_sync_managed) override;
-#if !BUILDFLAG(IS_CHROMEOS)
-  void OnFirstSetupCompletePrefChange(
-      bool is_initial_sync_feature_setup_complete) override;
-#endif  // !BUILDFLAG(IS_CHROMEOS)
-  void OnSelectedTypesPrefChange() override;
 
   // KeyedService implementation.  This must be called exactly
   // once (before this object is destroyed).
@@ -404,6 +403,9 @@ class SyncServiceImpl : public SyncService,
   // email address and sign-out upon error.
   // May be null (if local Sync is enabled).
   const raw_ptr<signin::IdentityManager> identity_manager_;
+  base::ScopedObservation<signin::IdentityManager,
+                          signin::IdentityManager::Observer>
+      identity_manager_observation_{this};
 
   // The user-configurable knobs. Non-null between Initialize() and Shutdown().
   std::unique_ptr<SyncUserSettingsImpl> user_settings_;
@@ -508,9 +510,6 @@ class SyncServiceImpl : public SyncService,
   std::unique_ptr<SyncFeatureStatusForMigrationsRecorder> sync_status_recorder_;
 
   std::unique_ptr<LocalDataMigrationItemQueue> local_data_migration_item_queue_;
-
-  base::ScopedObservation<SyncPrefs, SyncPrefObserver> sync_prefs_observation_{
-      this};
 
 #if BUILDFLAG(IS_ANDROID)
   // Manage and fetch the java object that wraps this SyncService on

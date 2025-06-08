@@ -196,7 +196,7 @@ void InputManager::OnCreateCompositorFrameSink(
   }
 
   DCHECK(render_input_router_config->rir_client.is_valid());
-  DCHECK(input::IsTransferInputToVizSupported() && !is_root);
+  DCHECK(input::InputUtils::IsTransferInputToVizSupported() && !is_root);
 
   const base::UnguessableToken grouping_id =
       render_input_router_config->grouping_id;
@@ -474,6 +474,20 @@ void InputManager::OnInvalidInputEventSource(
       ->OnInvalidInputEventSource(frame_sink_id);
 }
 
+void InputManager::RendererInputResponsivenessChanged(
+    const FrameSinkId& frame_sink_id,
+    const base::UnguessableToken& grouping_id,
+    bool is_responsive,
+    std::optional<base::TimeTicks> ack_timeout_ts) {
+  auto itr = rir_delegate_remote_map_.find(grouping_id);
+  if (itr == rir_delegate_remote_map_.end()) {
+    return;
+  }
+
+  itr->second->RendererInputResponsivenessChanged(frame_sink_id, is_responsive,
+                                                  std::move(ack_timeout_ts));
+}
+
 std::optional<bool> InputManager::IsDelegatedInkHovering(
     const FrameSinkId& frame_sink_id) {
   auto* support = frame_sink_manager_->GetFrameSinkForId(frame_sink_id);
@@ -556,6 +570,42 @@ void InputManager::StopFlingingOnViz(const FrameSinkId& frame_sink_id) {
   }
 }
 
+void InputManager::RestartInputEventAckTimeoutIfNecessary(
+    const FrameSinkId& frame_sink_id) {
+  auto itr = rir_map_.find(frame_sink_id);
+  if (itr == rir_map_.end()) {
+    return;
+  }
+  itr->second->RestartInputEventAckTimeoutIfNecessary();
+}
+
+void InputManager::NotifyVisibilityChanged(const FrameSinkId& frame_sink_id,
+                                           bool is_hidden) {
+  auto itr = frame_sink_metadata_map_.find(frame_sink_id);
+  if (itr == frame_sink_metadata_map_.end()) {
+    return;
+  }
+  itr->second.rir_delegate->SetIsHidden(is_hidden);
+}
+
+void InputManager::ResetGestureDetection(
+    const FrameSinkId& root_widget_frame_sink_id) {
+#if BUILDFLAG(IS_ANDROID)
+  auto iter = frame_sink_metadata_map_.find(root_widget_frame_sink_id);
+  if (iter == frame_sink_metadata_map_.end()) {
+    return;
+  }
+
+  RenderInputRouterSupportBase* support_base = iter->second.rir_support.get();
+  CHECK(support_base);
+  CHECK(!support_base->IsRenderInputRouterSupportChildFrame());
+
+  auto* support_android =
+      static_cast<RenderInputRouterSupportAndroid*>(support_base);
+  support_android->ResetGestureDetection();
+#endif
+}
+
 void InputManager::SetupRenderInputRouterDelegateConnection(
     const base::UnguessableToken& grouping_id,
     mojo::PendingRemote<input::mojom::RenderInputRouterDelegateClient>
@@ -576,11 +626,11 @@ void InputManager::NotifyRendererBlockStateChanged(
     bool blocked,
     const std::vector<FrameSinkId>& rirs) {
   for (auto& frame_sink_id : rirs) {
-    auto itr = frame_sink_metadata_map_.find(frame_sink_id);
-
-    if (itr != frame_sink_metadata_map_.end()) {
-      itr->second.rir_delegate->SetIsBlocked(blocked);
+    auto itr = rir_map_.find(frame_sink_id);
+    if (itr == rir_map_.end()) {
+      continue;
     }
+    itr->second->RenderProcessBlockedStateChanged(blocked);
   }
 }
 
@@ -626,6 +676,8 @@ bool InputManager::ReturnInputBackToBrowser() {
 
 void InputManager::SetBeginFrameSource(const FrameSinkId& frame_sink_id,
                                        BeginFrameSource* begin_frame_source) {
+  TRACE_EVENT("input", "InputManager::SetBeginFrameSource", "frame_sink_id",
+              frame_sink_id);
   // Return early if |frame_sink_id| is associated with non layer tree frame
   // sink.
   auto itr = rir_map_.find(frame_sink_id);

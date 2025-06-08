@@ -29,6 +29,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewStub;
 import android.widget.FrameLayout;
+import android.window.OnBackInvokedDispatcher;
 
 import androidx.annotation.CallSuper;
 import androidx.annotation.NonNull;
@@ -175,6 +176,8 @@ import org.chromium.chrome.browser.tabmodel.TabModelSelectorProfileSupplier;
 import org.chromium.chrome.browser.tabmodel.TabModelSelectorSupplier;
 import org.chromium.chrome.browser.tabmodel.TabModelSelectorTabObserver;
 import org.chromium.chrome.browser.tabmodel.TabModelUtils;
+import org.chromium.chrome.browser.task_manager.TaskManager;
+import org.chromium.chrome.browser.task_manager.TaskManagerFactory;
 import org.chromium.chrome.browser.tasks.tab_management.TabUiFeatureUtilities;
 import org.chromium.chrome.browser.tinker_tank.TinkerTankDelegate;
 import org.chromium.chrome.browser.toolbar.ControlContainer;
@@ -197,6 +200,7 @@ import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetControllerProvider;
 import org.chromium.components.browser_ui.modaldialog.AppModalPresenter;
 import org.chromium.components.browser_ui.settings.SettingsNavigation;
+import org.chromium.components.browser_ui.util.motion.MotionEventInfo;
 import org.chromium.components.browser_ui.widget.MenuOrKeyboardActionController;
 import org.chromium.components.browser_ui.widget.gesture.BackPressHandler;
 import org.chromium.components.browser_ui.widget.gesture.BackPressHandler.Type;
@@ -1133,6 +1137,8 @@ public abstract class ChromeActivity extends AsyncInitializationActivity
 
         getManualFillingComponent().onResume();
         checkForDeviceLockOnAutomotive();
+
+        mRootUiCoordinator.onResumeWithNative();
     }
 
     @Override
@@ -1563,6 +1569,12 @@ public abstract class ChromeActivity extends AsyncInitializationActivity
         }
 
         if (mBackPressManager != null) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.BAKLAVA
+                    && mBackPressManager.getOnSystemNavigationCallback() != null) {
+                getOnBackInvokedDispatcher()
+                        .unregisterOnBackInvokedCallback(
+                                mBackPressManager.getOnSystemNavigationCallback());
+            }
             mBackPressManager.destroy();
         }
 
@@ -1872,11 +1884,12 @@ public abstract class ChromeActivity extends AsyncInitializationActivity
     }
 
     @Override
-    public boolean onOptionsItemSelected(int itemId, @Nullable Bundle menuItemData) {
+    public boolean onOptionsItemSelected(
+            int itemId, @Nullable Bundle menuItemData, @Nullable MotionEventInfo triggeringMotion) {
         if (mManualFillingComponentSupplier.hasValue()) {
             mManualFillingComponentSupplier.get().dismiss();
         }
-        return onMenuOrKeyboardAction(itemId, true);
+        return onMenuOrKeyboardAction(itemId, /* fromMenu= */ true, triggeringMotion);
     }
 
     @Override
@@ -2277,6 +2290,13 @@ public abstract class ChromeActivity extends AsyncInitializationActivity
     }
 
     private void initializeBackPressHandling() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.BAKLAVA
+                && mBackPressManager.getOnSystemNavigationCallback() != null) {
+            getOnBackInvokedDispatcher()
+                    .registerOnBackInvokedCallback(
+                            OnBackInvokedDispatcher.PRIORITY_SYSTEM_NAVIGATION_OBSERVER,
+                            mBackPressManager.getOnSystemNavigationCallback());
+        }
         mBackPressManager.setIsGestureNavEnabledSupplier(
                 () -> UiUtils.isGestureNavigationMode(getWindow()));
         final Runnable callbackForLegacyTabStartupMetricsTracker =
@@ -2376,16 +2396,9 @@ public abstract class ChromeActivity extends AsyncInitializationActivity
         mMenuActionHandlers.remove(handler);
     }
 
-    /**
-     * Handles menu item selection and keyboard shortcuts.
-     *
-     * @param id The ID of the selected menu item (defined in main_menu.xml) or keyboard shortcut
-     *     (defined in values.xml).
-     * @param fromMenu Whether this was triggered from the menu.
-     * @return Whether the action was handled.
-     */
     @Override
-    public boolean onMenuOrKeyboardAction(int id, boolean fromMenu) {
+    public boolean onMenuOrKeyboardAction(
+            int id, boolean fromMenu, @Nullable MotionEventInfo triggeringMotion) {
         for (MenuOrKeyboardActionController.MenuOrKeyboardActionHandler handler :
                 mMenuActionHandlers) {
             if (handler.handleMenuOrKeyboardAction(id, fromMenu)) return true;
@@ -2616,6 +2629,12 @@ public abstract class ChromeActivity extends AsyncInitializationActivity
 
         if (id == R.id.dev_tools && DeviceFormFactor.isDesktop()) {
             DevToolsWindowAndroid.openDevTools(currentTab.getWebContents());
+            return true;
+        }
+
+        if (id == R.id.task_manager) {
+            TaskManager taskManager = TaskManagerFactory.createTaskManager();
+            taskManager.launch(ContextUtils.getApplicationContext());
             return true;
         }
 

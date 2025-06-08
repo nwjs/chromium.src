@@ -16,6 +16,8 @@ declare_args() {
   # Java debug on Android. Having this on enables multidexing, and turning it
   # off will enable proguard.
   is_java_debug = is_debug || incremental_install
+
+  enable_javaless_renderers = false
 }
 
 # These two combinations could theoretically be made to work, but they are
@@ -74,6 +76,9 @@ if (is_android) {
     default_min_sdk_version = 26
     if (is_asan) {
       default_min_sdk_version = 27
+    }
+    if (enable_javaless_renderers) {
+      default_min_sdk_version = 29
     }
 
     # Static analysis can be either "on" or "off" or "build_server". This
@@ -156,11 +161,6 @@ if (is_android) {
     public_android_sdk = true
   }
 
-  # For use downstream when we are building with preview Android SDK
-  if (!defined(final_android_sdk)) {
-    final_android_sdk = public_android_sdk
-  }
-
   if (!defined(default_lint_android_sdk_root)) {
     # Purposefully repeated so that downstream can change
     # default_android_sdk_root without changing lint version.
@@ -204,19 +204,11 @@ if (is_android) {
     android_ndk_root = default_android_ndk_root
     android_ndk_version = default_android_ndk_version
 
-    # Android API level for 32 bits platforms
-    android32_ndk_api_level = default_min_sdk_version
+    android_ndk_api_level = default_min_sdk_version
 
-    # Android API level for 64 bits platforms
-    android64_ndk_api_level = default_min_sdk_version
-
-    if (default_min_sdk_version < 21) {
-      # Android did not support 64 bit before API 21.
-      android64_ndk_api_level = 21
-    }
     if (current_cpu == "riscv64" && default_min_sdk_version < 35) {
       # Android did not support RISC-V64 before API 35.
-      android64_ndk_api_level = 35
+      android_ndk_api_level = 35
     }
 
     android_sdk_root = default_android_sdk_root
@@ -315,6 +307,10 @@ if (is_android) {
     # Disable lint since increasing min_sdk_version can cause ObsoleteSdkInt warnings.
     disable_android_lint = true
   }
+
+  assert(
+      android_ndk_api_level >= min_supported_sdk_version,
+      "android_ndk_api_level ($android_ndk_api_level) must be >= min_supported_sdk_version ($min_supported_sdk_version)")
 
   # We need a second declare_args block to make sure we are using the overridden
   # value of the arguments set above.
@@ -466,8 +462,7 @@ if (is_android) {
     "//third_party/kotlinc/current/lib/kotlin-scripting-jvm.jar",
     "//third_party/kotlinc/current/lib/kotlin-stdlib.jar",
     "//third_party/kotlinc/current/lib/kotlinx-coroutines-core-jvm.jar",
-    "//third_party/kotlinc/current/lib/trove4j.jar",
   ]
 
-  android_logs = [ "android64_ndk_api_level=${android64_ndk_api_level}" ]
+  android_logs = [ "android_ndk_api_level=${android_ndk_api_level}" ]
 }

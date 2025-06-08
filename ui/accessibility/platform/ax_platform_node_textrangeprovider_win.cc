@@ -1068,7 +1068,7 @@ HRESULT AXPlatformNodeTextRangeProviderWin::ScrollIntoView(BOOL align_to_top) {
   // Return early when we're trying to scroll in a View.
   // TODO(accessibility): Investigate if Views support scrolling and how to
   // implement it.
-  if (!GetOwner()->GetDelegate()->IsWebContent()) {
+  if (!GetOwner()->IsWebContent()) {
     return S_OK;
   }
 
@@ -1199,9 +1199,9 @@ HRESULT AXPlatformNodeTextRangeProviderWin::GetChildren(SAFEARRAY** children) {
 
   LONG i = 0;
   for (const gfx::NativeViewAccessible& descendant : descendants) {
-    IRawElementProviderSimple* raw_provider;
+    Microsoft::WRL::ComPtr<IRawElementProviderSimple> raw_provider;
     descendant->QueryInterface(IID_PPV_ARGS(&raw_provider));
-    SafeArrayPutElement(safe_array, &i, raw_provider);
+    SafeArrayPutElement(safe_array, &i, raw_provider.Get());
     ++i;
   }
 

@@ -20,11 +20,12 @@
 #import "ios/chrome/browser/shared/model/profile/profile_ios.h"
 #import "ios/chrome/browser/signin/model/authentication_service.h"
 #import "ios/chrome/browser/signin/model/authentication_service_factory.h"
+#import "ios/chrome/browser/signin/model/identity_manager_factory.h"
 
 @interface FullscreenSigninCoordinator () <FirstRunScreenDelegate>
 
 @property(nonatomic, strong) ScreenProvider* screenProvider;
-@property(nonatomic, strong) AnimatedCoordinator* childCoordinator;
+@property(nonatomic, strong) ChromeCoordinator* childCoordinator;
 
 // The view controller used by FullscreenSigninCoordinator.
 @property(nonatomic, strong) UINavigationController* navigationController;
@@ -60,6 +61,10 @@
 
 - (void)start {
   [super start];
+  signin::IdentityManager* identityManager =
+      IdentityManagerFactory::GetForProfile(self.profile);
+  CHECK(!identityManager->HasPrimaryAccount(signin::ConsentLevel::kSignin),
+        base::NotFatalUntil::M142);
   self.navigationController =
       [[UINavigationController alloc] initWithNavigationBarClass:nil
                                                     toolbarClass:nil];
@@ -67,6 +72,12 @@
       UIModalPresentationFormSheet;
 
   [self presentScreen:[self.screenProvider nextScreenType]];
+
+  // Note: If the user was already signed in, then the `presentScreen` call
+  // above may have already synchronously completed all the screens, and then
+  // `self.navigationController` would already be nil again. That is invalid;
+  // the caller must have checked for this case before.
+  CHECK(self.navigationController);
 
   [self.navigationController setNavigationBarHidden:YES animated:NO];
   [self.baseViewController presentViewController:self.navigationController
@@ -129,7 +140,7 @@
 }
 
 // Creates a screen coordinator according to `type`.
-- (AnimatedCoordinator*)createChildCoordinatorWithScreenType:(ScreenType)type {
+- (ChromeCoordinator*)createChildCoordinatorWithScreenType:(ScreenType)type {
   switch (type) {
     case kSignIn:
       return [[FullscreenSigninScreenCoordinator alloc]
@@ -146,6 +157,7 @@
     case kChoice:
     case kDockingPromo:
     case kBestFeatures:
+    case kLensInteractivePromo:
     case kStepsCompleted:
       NOTREACHED() << "Type of screen not supported." << static_cast<int>(type);
   }

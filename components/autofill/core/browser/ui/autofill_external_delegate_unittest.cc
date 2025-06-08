@@ -30,6 +30,7 @@
 #include "components/autofill/core/browser/data_manager/personal_data_manager_observer.h"
 #include "components/autofill/core/browser/data_manager/test_personal_data_manager.h"
 #include "components/autofill/core/browser/data_model/addresses/autofill_profile.h"
+#include "components/autofill/core/browser/data_model/addresses/autofill_profile_test_api.h"
 #include "components/autofill/core/browser/field_types.h"
 #include "components/autofill/core/browser/filling/autofill_ai/field_filling_entity_util.h"
 #include "components/autofill/core/browser/filling/field_filling_util.h"
@@ -792,7 +793,7 @@ TEST_F(AutofillExternalDelegateTest, AcceptedBnplEntry_FormIsFilled) {
   const uint64_t expected_amount = 50'000'000;
 
   EXPECT_CALL(*manager().GetPaymentsBnplManager(),
-              InitBnplFlow(expected_amount, _))
+              OnDidAcceptBnplSuggestion(expected_amount, _))
       .WillOnce(RunOnceCallback<1>(card));
   EXPECT_CALL(
       manager(),
@@ -1283,7 +1284,46 @@ TEST_F(AutofillExternalDelegateTest, TestVerifiedEmailSuggestion_Fill) {
               FillOrPreviewForm(mojom::ActionPersistence::kFill,
                                 HasQueriedFormId(), IsQueriedFieldId(), _, _));
   // Expect that the delegate gets notified.
-  EXPECT_CALL(mock, NotifySuggestionAccepted(suggestion, _));
+  EXPECT_CALL(mock, NotifySuggestionAccepted)
+      .WillOnce(::testing::WithArgs<1, 2>(
+          [](bool show_modal,
+             IdentityCredentialDelegate::OnFederatedTokenReceivedCallback
+                 callback) {
+            // Email verifications prompt the user
+            EXPECT_TRUE(show_modal);
+            // Pretend that the user has accepted the prompt
+            std::move(callback).Run(/*accepted=*/true);
+          }));
+
+  // Test fill.
+  external_delegate().DidAcceptSuggestion(suggestion,
+                                          SuggestionPosition{.row = 0});
+}
+
+// Test that an accepted verified email autofill suggestion will not fill the
+// form if the user later rejects the prompt.
+TEST_F(AutofillExternalDelegateTest,
+       TestVerifiedEmailSuggestion_PromptRejectedNoFill) {
+  IssueOnQuery();
+  const Suggestion suggestion = test::CreateAutofillSuggestion(
+      SuggestionType::kIdentityCredential, u"John Legend",
+      Suggestion::IdentityCredentialPayload());
+
+  // Set up a mock identity credential delegate.
+  MockIdentityCredentialDelegate mock;
+  ON_CALL(client(), GetIdentityCredentialDelegate).WillByDefault(Return(&mock));
+
+  // Expect that the delegate gets notified.
+  EXPECT_CALL(mock, NotifySuggestionAccepted)
+      .WillOnce(::testing::WithArgs<1, 2>(
+          [](bool show_modal,
+             IdentityCredentialDelegate::OnFederatedTokenReceivedCallback
+                 callback) {
+            // Email verifications prompt the user
+            EXPECT_TRUE(show_modal);
+            // Pretend that the user has rejected the prompt
+            std::move(callback).Run(/*accepted=*/false);
+          }));
 
   // Test fill.
   external_delegate().DidAcceptSuggestion(suggestion,
@@ -2708,6 +2748,34 @@ TEST_F(AutofillExternalDelegateTest, RemoveSuggestion_ServerCard) {
                                      Suggestion::Guid(server_card.guid()))));
   EXPECT_TRUE(
       pdm().payments_data_manager().GetCreditCardByGUID(server_card.guid()));
+}
+
+// Tests that the home and address suggestions are not removed.
+TEST_F(AutofillExternalDelegateTest, RemoveHomeAndWorkAddressSuggestion) {
+  autofill::AutofillProfile profile1 = autofill::test::GetFullProfile();
+  test_api(profile1).set_record_type(
+      autofill::AutofillProfile::RecordType::kAccountHome);
+
+  autofill::AutofillProfile profile2 = autofill::test::GetFullProfile2();
+  test_api(profile2).set_record_type(
+      autofill::AutofillProfile::RecordType::kAccountWork);
+
+  pdm().address_data_manager().AddProfile(profile1);
+  pdm().address_data_manager().AddProfile(profile2);
+  ASSERT_TRUE(pdm().address_data_manager().GetProfileByGUID(profile1.guid()));
+  ASSERT_TRUE(pdm().address_data_manager().GetProfileByGUID(profile2.guid()));
+
+  EXPECT_FALSE(external_delegate().RemoveSuggestion(
+      test::CreateAutofillSuggestion(SuggestionType::kAddressEntry, u"address1",
+                                     Suggestion::AutofillProfilePayload(
+                                         Suggestion::Guid(profile1.guid())))));
+  EXPECT_TRUE(pdm().address_data_manager().GetProfileByGUID(profile1.guid()));
+
+  EXPECT_FALSE(external_delegate().RemoveSuggestion(
+      test::CreateAutofillSuggestion(SuggestionType::kAddressEntry, u"address2",
+                                     Suggestion::AutofillProfilePayload(
+                                         Suggestion::Guid(profile2.guid())))));
+  EXPECT_TRUE(pdm().address_data_manager().GetProfileByGUID(profile2.guid()));
 }
 
 TEST_F(AutofillExternalDelegateTest, RecordSuggestionTypeOnSuggestionAccepted) {

@@ -6,6 +6,7 @@
 
 #include <android/trace.h>
 #include <jni.h>
+#include <sys/system_properties.h>
 
 #include <memory>
 #include <string>
@@ -31,6 +32,7 @@
 #include "base/task/task_traits.h"
 #include "base/task/thread_pool.h"
 #include "base/task/thread_pool/thread_pool_instance.h"
+#include "base/time/time_delta_from_string.h"
 #include "base/trace_event/trace_event.h"
 #include "base/tracing/perfetto_platform.h"
 #include "build/build_config.h"
@@ -43,6 +45,7 @@
 #include "net/android/network_change_notifier_factory_android.h"
 #include "net/base/network_change_notifier.h"
 #include "net/log/net_log.h"
+#include "net/log/net_log_capture_mode.h"
 #include "net/log/trace_net_log_observer.h"
 #include "net/proxy_resolution/configured_proxy_resolution_service.h"
 #include "net/proxy_resolution/proxy_config_service_android.h"
@@ -77,6 +80,8 @@ std::unique_ptr<net::NetworkChangeNotifier> g_network_change_notifier;
 base::WaitableEvent g_init_thread_init_done(
     base::WaitableEvent::ResetPolicy::MANUAL,
     base::WaitableEvent::InitialState::NOT_SIGNALED);
+
+std::optional<net::NetLogCaptureMode> g_trace_net_log_capture_mode;
 
 ::org::chromium::net::httpflags::BaseFeatureOverrides GetBaseFeatureOverrides(
     JNIEnv* env) {
@@ -114,16 +119,45 @@ void InitializePerfetto() {
   tracing_init_args.backends = perfetto::kSystemBackend;
   tracing_init_args.platform = perfetto_platform.get();
   tracing_init_args.enable_system_consumer = false;
-  // Note: Perfetto initializes asynchronously in a background thread.
-  // Unfortunately, trace events logged while Perfetto is still initializing are
-  // just dropped on the floor. This means that events logged within a brief
-  // window (typically about 3 milliseconds) after initialization are lost. See
-  // https://crbug.com/324031921. For this reason, it is probably a good idea
-  // to prefer Android ATrace APIs to Perfetto APIs for events that are likely
-  // to get lost in this way.
   perfetto::Tracing::Initialize(tracing_init_args);
 
   base::TrackEvent::Register();
+
+  // Perfetto initializes asynchronously in a background thread.  Unfortunately,
+  // trace events logged while Perfetto is still initializing are just dropped
+  // on the floor. This means that events logged within a brief window
+  // (typically about 3 milliseconds) after initialization are lost. See
+  // https://crbug.com/324031921. For this reason, it is probably a good idea to
+  // prefer Android ATrace APIs to Perfetto APIs for events that are likely to
+  // get lost in this way. Nevertheless, we provide a workaround in the form
+  // of this system property in case the user is willing to pay an init latency
+  // penalty in return for a higher likelihood of seeing early events, which can
+  // be useful when e.g. tracing unit tests.
+  //
+  // Example usage:
+  //   adb shell setprop debug.cronet.init_trace_sleep 10ms
+  constexpr char trace_delay_system_property_name[] =
+      "debug.cronet.init_trace_sleep";
+  if (const prop_info* const trace_delay_prop_info =
+          __system_property_find(trace_delay_system_property_name);
+      trace_delay_prop_info != nullptr) {
+    std::array<char, PROP_VALUE_MAX> trace_delay_buffer;
+    const std::string_view trace_delay_str(
+        trace_delay_buffer.data(),
+        __system_property_read(trace_delay_prop_info, nullptr,
+                               trace_delay_buffer.data()));
+    const auto trace_delay = base::TimeDeltaFromString(trace_delay_str);
+    if (!trace_delay.has_value()) {
+      LOG(WARNING) << "Invalid value for system property "
+                   << trace_delay_system_property_name;
+    } else {
+      ATrace_beginSection(absl::StrFormat("Sleeping %s for Perfetto",
+                                          absl::FormatStreamed(*trace_delay))
+                              .c_str());
+      base::PlatformThread::Sleep(*trace_delay);
+      ATrace_endSection();
+    }
+  }
 }
 
 }  // namespace
@@ -181,7 +215,8 @@ void CronetOnUnLoad(JavaVM* jvm, void* reserved) {
 
 void JNI_CronetLibraryLoader_CronetInitOnInitThread(
     JNIEnv* env,
-    jboolean updateNetworkStateFromNative) {
+    jboolean updateNetworkStateFromNative,
+    net::NetLogCaptureMode trace_net_log_capture_mode) {
   // Initialize SingleThreadTaskExecutor for init thread.
   DCHECK(!base::CurrentThread::IsSet());
   DCHECK(!g_init_task_executor);
@@ -190,10 +225,16 @@ void JNI_CronetLibraryLoader_CronetInitOnInitThread(
 
   static base::NoDestructor<net::TraceNetLogObserver> trace_net_log_observer(
       net::TraceNetLogObserver::Options{
-          // TODO: https://crbug.com/410018349 - make it possible to select a
-          // a different capture mode, if running in a debug scenario.
-          .capture_mode = net::NetLogCaptureMode::kHeavilyRedacted,
+          .capture_mode = trace_net_log_capture_mode,
+          .use_sensitive_category = trace_net_log_capture_mode !=
+                                    net::NetLogCaptureMode::kHeavilyRedacted,
+          // TODO(https://crbug.com/410018349): it would be nice to have one
+          // TraceNetLogObserver per CronetEngine so that each engine has its
+          // own root track, if that's possible?
+          .root_track_name = "Cronet NetLog",
       });
+  CHECK(!g_trace_net_log_capture_mode.has_value());
+  g_trace_net_log_capture_mode = trace_net_log_capture_mode;
   // Note we do this on the init thread, as opposed to a user thread, because
   // this eventually calls
   // base::trace_event::TraceLog::AddAsyncEnabledStateObserver(), which
@@ -215,6 +256,11 @@ void JNI_CronetLibraryLoader_CronetInitOnInitThread(
   DCHECK(g_network_change_notifier);
 
   g_init_thread_init_done.Signal();
+}
+
+net::NetLogCaptureMode
+JNI_CronetLibraryLoader_GetTraceNetLogCaptureModeForTesting(JNIEnv* env) {
+  return g_trace_net_log_capture_mode.value();
 }
 
 ScopedJavaLocalRef<jstring> JNI_CronetLibraryLoader_GetCronetVersion(

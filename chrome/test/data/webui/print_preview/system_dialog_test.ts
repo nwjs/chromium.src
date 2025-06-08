@@ -5,7 +5,6 @@
 import type {CrButtonElement, PrintPreviewLinkContainerElement, PrintPreviewSidebarElement} from 'chrome://print/print_preview.js';
 import {NativeLayerImpl, PluginProxyImpl, ScalingType, whenReady} from 'chrome://print/print_preview.js';
 import {assertEquals, assertFalse, assertTrue} from 'chrome://webui-test/chai_assert.js';
-import {waitBeforeNextRender} from 'chrome://webui-test/polymer_test_util.js';
 import {eventToPromise, microtasksFinished} from 'chrome://webui-test/test_util.js';
 
 import {NativeLayerStub} from './native_layer_stub.js';
@@ -42,25 +41,24 @@ suite('SystemDialogTest', function() {
 
     const page = document.createElement('print-preview-app');
     document.body.appendChild(page);
-    sidebar = page.shadowRoot!.querySelector('print-preview-sidebar')!;
+    sidebar = page.shadowRoot.querySelector('print-preview-sidebar')!;
     return Promise
         .all([
-          waitBeforeNextRender(page),
           whenReady(),
           nativeLayer.whenCalled('getInitialSettings'),
           nativeLayer.whenCalled('getPrinterCapabilities'),
         ])
         .then(function() {
-          linkContainer = sidebar.shadowRoot!.querySelector(
-              'print-preview-link-container')!;
+          linkContainer =
+              sidebar.shadowRoot.querySelector('print-preview-link-container')!;
           return nativeLayer.whenCalled('getPreview');
         })
         .then(function() {
           assertEquals(
               'FooDevice',
-              sidebar.shadowRoot!
+              sidebar.shadowRoot
                   .querySelector(
-                      'print-preview-destination-settings')!.destination.id);
+                      'print-preview-destination-settings')!.destination!.id);
           // <if expr="is_win">
           link = linkContainer.$.systemDialogLink;
           // </if>
@@ -86,10 +84,10 @@ suite('SystemDialogTest', function() {
     assertFalse(link.hidden);
 
     const moreSettingsElement =
-        sidebar.shadowRoot!.querySelector('print-preview-more-settings')!;
+        sidebar.shadowRoot.querySelector('print-preview-more-settings')!;
     moreSettingsElement.$.label.click();
     const scalingSettings =
-        sidebar.shadowRoot!.querySelector('print-preview-scaling-settings')!;
+        sidebar.shadowRoot.querySelector('print-preview-scaling-settings')!;
     assertFalse(scalingSettings.hidden);
     nativeLayer.resetResolver('getPreview');
     let previewCalls = 0;
@@ -111,7 +109,7 @@ suite('SystemDialogTest', function() {
     await microtasksFinished();
     // Expect disabled print button
     const parentElement =
-        sidebar.shadowRoot!.querySelector('print-preview-button-strip')!;
+        sidebar.shadowRoot.querySelector('print-preview-button-strip')!;
     const printButton = parentElement.shadowRoot.querySelector<CrButtonElement>(
         '.action-button')!;
     assertTrue(printButton.disabled);

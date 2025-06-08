@@ -4,6 +4,9 @@
 
 #include "third_party/blink/renderer/core/inspector/inspector_ghost_rules.h"
 
+#include <algorithm>
+
+#include "base/debug/dump_without_crashing.h"
 #include "third_party/blink/renderer/core/css/css_grouping_rule.h"
 #include "third_party/blink/renderer/core/css/css_nested_declarations_rule.h"
 #include "third_party/blink/renderer/core/css/css_style_rule.h"
@@ -50,6 +53,47 @@ void InspectorGhostRules::Populate(CSSStyleSheet& sheet) {
   wtf_size_t size_after = inserted_rules_.size();
   if (size_before != size_after) {
     affected_stylesheets_.insert(&sheet);
+  }
+}
+
+bool InspectorGhostRules::PopulateSheets(
+    HeapVector<Member<CSSStyleSheet>> sheets) {
+  // Collect all StyleSheetContents that claim to not be shared between
+  // multiple CSSStyleSheets.
+  HeapHashCountedSet<Member<StyleSheetContents>> unshared_contents;
+  for (const Member<CSSStyleSheet>& sheet : sheets) {
+    if (!sheet->IsContentsShared()) {
+      unshared_contents.insert(sheet->Contents());
+    }
+  }
+
+  wtf_size_t size_before = sheets.size();
+
+  // Remove all CSSStyleSheets that share a StyleSheetContents instance
+  // with another CSSStyleSheet without being aware of it.
+  auto new_end =
+      std::remove_if(sheets.begin(), sheets.end(),
+                     [&unshared_contents](const Member<CSSStyleSheet>& sheet) {
+                       auto it = unshared_contents.find(sheet->Contents());
+                       return it != unshared_contents.end() && it->value > 1;
+                     });
+  sheets.erase(new_end, sheets.end());
+
+  wtf_size_t size_after = sheets.size();
+
+  for (const Member<CSSStyleSheet>& sheet : sheets) {
+    Populate(*sheet);
+  }
+
+  return size_before == size_after;
+}
+
+void InspectorGhostRules::PopulateSheetsWithAssertion(
+    HeapVector<Member<CSSStyleSheet>> sheets) {
+  bool success = PopulateSheets(std::move(sheets));
+  if (!success) {
+    base::debug::DumpWithoutCrashing();
+    DCHECK(false) << "Invalid sharing of StyleSheetContents";
   }
 }
 
@@ -121,18 +165,20 @@ void QuietlyInsertDummyRule(const ExecutionContext& execution_context,
                             CSSRule& rule,
                             wtf_size_t index) {
   if (IsA<CSSStyleRule>(rule)) {
-    return To<CSSStyleRule>(rule).QuietlyInsertRule(&execution_context,
-                                                    "--dummy:1", index);
+    To<CSSStyleRule>(rule).QuietlyInsertRule(&execution_context, "--dummy:1",
+                                             index);
+  } else {
+    To<CSSGroupingRule>(rule).QuietlyInsertRule(&execution_context, "--dummy:1",
+                                                index);
   }
-  return To<CSSGroupingRule>(rule).QuietlyInsertRule(&execution_context,
-                                                     "--dummy:1", index);
 }
 
 void QuietlyDeleteRule(CSSRule& rule, wtf_size_t index) {
   if (IsA<CSSStyleRule>(rule)) {
-    return To<CSSStyleRule>(rule).QuietlyDeleteRule(index);
+    To<CSSStyleRule>(rule).QuietlyDeleteRule(index);
+  } else {
+    To<CSSGroupingRule>(rule).QuietlyDeleteRule(index);
   }
-  return To<CSSGroupingRule>(rule).QuietlyDeleteRule(index);
 }
 
 wtf_size_t NumItems(CSSRule& rule) {
@@ -144,10 +190,6 @@ wtf_size_t NumItems(CSSRule& rule) {
 
 CSSRule* ItemAt(CSSRule& rule, wtf_size_t index) {
   if (auto* style_rule = DynamicTo<CSSStyleRule>(rule)) {
-    // These checks are for investigating https://crbug.com/389011795.
-    CHECK_EQ(style_rule->length(), style_rule->WrapperCountForDebugging());
-    CHECK_LE(index, style_rule->length());
-    CHECK_LE(index, style_rule->WrapperCountForDebugging());
     return style_rule->ItemInternal(index);
   }
   return To<CSSGroupingRule>(rule).ItemInternal(index);
@@ -172,6 +214,14 @@ void InspectorGhostRules::PopulateSheet(
     // https://drafts.csswg.org/css-nesting-1/#nested-group-rules
     if (IsA<CSSGroupingRule>(rule)) {
       if (!IsA<CSSStyleRule>(rule.parentRule())) {
+        return;
+      }
+    } else {
+      // For investigating crbug.com/389011795.
+      auto& style_rule = To<CSSStyleRule>(rule);
+      if (style_rule.length() != style_rule.WrapperCountForDebugging()) {
+        base::debug::DumpWithoutCrashing();
+        DCHECK(false) << "Mismatched wrapper count";
         return;
       }
     }
@@ -201,6 +251,11 @@ void InspectorGhostRules::PopulateSheet(
       inserted_rules_.insert(inserted_rule);
       inner_rules_.insert(To<CSSStyleRule>(inserted_rule->InnerCSSStyleRule()));
     }
+
+    // For investigating crbug.com/389011795.
+    if (auto* style_rule = DynamicTo<CSSStyleRule>(rule)) {
+      CHECK_EQ(style_rule->length(), style_rule->WrapperCountForDebugging());
+    }
   });
 }
 
@@ -216,6 +271,11 @@ void InspectorGhostRules::DepopulateSheet(CSSStyleSheet& sheet) {
           inserted_rules_.Contains(nested_declarations_rule)) {
         QuietlyDeleteRule(rule, i);
       }
+    }
+
+    // For investigating crbug.com/389011795.
+    if (auto* style_rule = DynamicTo<CSSStyleRule>(rule)) {
+      CHECK_EQ(style_rule->length(), style_rule->WrapperCountForDebugging());
     }
   });
 }

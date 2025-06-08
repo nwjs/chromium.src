@@ -82,6 +82,7 @@
 #endif
 
 namespace network {
+struct IntegrityPolicy;
 struct URLLoaderCompletionStatus;
 }  // namespace network
 
@@ -686,6 +687,21 @@ class CONTENT_EXPORT NavigationRequest
     return confidence_level_;
   }
 
+  // This token is passed in various IPCs pertaining to navigations, such as
+  // frame and proxy creation as well as CommitNavigation, and is used by
+  // renderer-side metrics code to tie together different IPCs that were sent as
+  // part of performing a particular navigation. It is not intended to be used
+  // for anything other than metrics and trace events.
+  //
+  // Note that this token is stored in CommitNavigationParams, even though it's
+  // also needed before CommitNavigation (e.g., it needs to be included in frame
+  // and proxy creation IPCs which are sent before CommitNavigation) - this
+  // should be ok since commit_params() are initialized when a NavigationRequest
+  // is created.
+  const base::UnguessableToken& navigation_metrics_token() const {
+    return commit_params().navigation_metrics_token;
+  }
+
   // Called on same-document navigation requests that need to be restarted as
   // cross-document navigations. This happens when a same-document commit fails
   // due to another navigation committing in the meantime.
@@ -1028,14 +1044,6 @@ class CONTENT_EXPORT NavigationRequest
   // possible.
   url::Origin GetTentativeOriginAtRequestTime();
 
-  // Same as `GetOriginToCommit()`, except that includes information about how
-  // the origin gets calculated, to help debug if the browser-side calculated
-  // origin for this navigation differs from the origin calculated on the
-  // renderer side.
-  // TODO(crbug.com/40772732): Remove this.
-  std::pair<std::optional<url::Origin>, std::string>
-  GetOriginToCommitWithDebugInfo();
-
   // If this navigation fails with net::ERR_BLOCKED_BY_CLIENT, act as if it were
   // cancelled by the user and do not commit an error page.
   void SetSilentlyIgnoreBlockedByClient() {
@@ -1309,11 +1317,6 @@ class CONTENT_EXPORT NavigationRequest
   const scoped_refptr<NavigationOrDocumentHandle>&
   navigation_or_document_handle() {
     return navigation_or_document_handle_;
-  }
-
-  const std::pair<std::optional<url::Origin>, std::string>&
-  browser_side_origin_to_commit_with_debug_info() {
-    return browser_side_origin_to_commit_with_debug_info_;
   }
 
   // Initializes state which is passed from the old Document to the new Document
@@ -2164,6 +2167,15 @@ class CONTENT_EXPORT NavigationRequest
   // or retrieved from response headers.
   network::CrossOriginEmbedderPolicy ComputeCrossOriginEmbedderPolicy();
 
+  struct IntegrityPolicies {
+    network::IntegrityPolicy enforced;
+    network::IntegrityPolicy report_only;
+  };
+
+  // Calculates the integrity policies for a document, based on the
+  // `Integrity-Policy` and `Integrity-Policy-Report-Only` headers.
+  IntegrityPolicies ComputeIntegrityPolicies();
+
   // [spec]:
   // https://html.spec.whatwg.org/C/#check-a-navigation-response's-adherence-to-its-embedder-policy
   //
@@ -2306,17 +2318,6 @@ class CONTENT_EXPORT NavigationRequest
   // after the final response is received or ready.
   std::optional<url::Origin> GetOriginForURLLoaderFactoryAfterResponse();
 
-  // These functions are the same as their non-WithDebugInfo counterparts,
-  // except that they include information about how the origin gets calculated,
-  // to help debug if the browser-side calculated origin for this navigation
-  // differs from the origin calculated on the renderer side.
-  // TODO(crbug.com/40772732): Remove this.
-  std::pair<url::Origin, std::string>
-  GetOriginForURLLoaderFactoryBeforeResponseWithDebugInfo(
-      network::mojom::WebSandboxFlags sandbox_flags);
-  std::pair<std::optional<url::Origin>, std::string>
-  GetOriginForURLLoaderFactoryAfterResponseWithDebugInfo();
-
   // Computes the CrossOriginIsolationKey to use for committing the navigation.
   // A nullopt result means that either the cross-origin isolation status of the
   // request cannot be determined because we do not have final headers for the
@@ -2330,18 +2331,6 @@ class CONTENT_EXPORT NavigationRequest
   // is not relevant or unknown. This can happen for example when we do not have
   // a network response yet, or when going to an "about:blank" page.
   std::optional<WebExposedIsolationInfo> ComputeWebExposedIsolationInfo();
-
-  // Computes whether the navigation is for a document that should live in a
-  // BrowsingInstance only containing other documents with the same COOP value
-  // set by the same origin. This is the case if this document or its top-level
-  // document sets COOP: same-origin or COOP: restrict-properties. If it is a
-  // top-level document, simply return its origin, otherwise inherit the
-  // top-level document value.
-  //
-  // If the return value is nullopt, it indicates that neither COOP: same-origin
-  // nor COOP: restrict-properties were used for this document or for its parent
-  // in the case of a subframe.
-  std::optional<url::Origin> ComputeCommonCoopOrigin();
 
   // Assign an invalid frame tree node id to `prerender_frame_tree_node_id_`.
   // Called as soon as when we are certain that this navigation won't activate a
@@ -2410,8 +2399,6 @@ class CONTENT_EXPORT NavigationRequest
   void RecordEarlyRenderFrameHostSwapMetrics();
 
   // Helpers for GetTentativeOriginAtRequestTime and GetOriginToCommit.
-  std::pair<url::Origin, std::string>
-  GetOriginForURLLoaderFactoryUncheckedWithDebugInfo();
   url::Origin GetOriginForURLLoaderFactoryUnchecked();
 
   void MaybeRecordTraceEventsAndHistograms();
@@ -2491,11 +2478,6 @@ class CONTENT_EXPORT NavigationRequest
   blink::mojom::BeginNavigationParamsPtr begin_params_;
   blink::mojom::CommitNavigationParamsPtr commit_params_;
   bool same_origin_ = false;
-  // This member is calculated at ReadyToCommit time. It is used to compare
-  // against renderer calculated origin and browser calculated one at commit
-  // time.
-  std::pair<std::optional<url::Origin>, std::string>
-      browser_side_origin_to_commit_with_debug_info_;
 
   // Stores the NavigationUIData for this navigation until the NavigationHandle
   // is created. This can be null if the embedded did not provide a

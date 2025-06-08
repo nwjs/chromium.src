@@ -10,8 +10,9 @@ import android.util.Pair;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebViewClient;
 
-import androidx.test.InstrumentationRegistry;
+import androidx.test.filters.MediumTest;
 import androidx.test.filters.SmallTest;
+import androidx.test.platform.app.InstrumentationRegistry;
 
 import com.google.common.util.concurrent.SettableFuture;
 
@@ -24,14 +25,13 @@ import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.UseParametersRunnerFactory;
 
-import org.chromium.android_webview.AsyncShouldInterceptRequestCallback;
 import org.chromium.android_webview.AwContents;
 import org.chromium.android_webview.AwCookieManager;
 import org.chromium.android_webview.AwWebResourceRequest;
-import org.chromium.android_webview.WebResponseCallback;
 import org.chromium.android_webview.test.TestAwContentsClient.OnReceivedErrorHelper;
 import org.chromium.android_webview.test.util.AwTestTouchUtils;
 import org.chromium.android_webview.test.util.CommonResources;
+import org.chromium.android_webview.test.util.CookieUtils;
 import org.chromium.android_webview.test.util.JSUtils;
 import org.chromium.base.test.util.Batch;
 import org.chromium.base.test.util.CallbackHelper;
@@ -39,7 +39,9 @@ import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.Feature;
 import org.chromium.base.test.util.HistogramWatcher;
 import org.chromium.base.test.util.TestFileUtil;
+import org.chromium.base.ThreadUtils;
 import org.chromium.components.embedder_support.util.WebResourceResponseInfo;
+import org.chromium.content_public.browser.test.util.WebContentsUtils;
 import org.chromium.net.test.util.TestWebServer;
 import org.chromium.net.test.util.WebServer;
 
@@ -50,12 +52,14 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 
 /** Tests for the WebViewClient.shouldInterceptRequest() method. */
@@ -63,10 +67,16 @@ import java.util.function.Supplier;
 @UseParametersRunnerFactory(AwJUnit4ClassRunnerWithParameters.Factory.class)
 @Batch(Batch.PER_CLASS)
 public class AwContentsClientShouldInterceptRequestTest extends AwParameterizedTest {
+
     @Rule public AwActivityTestRule mActivityTestRule;
 
     private static final int TEAPOT_STATUS_CODE = 418;
     private static final String TEAPOT_RESPONSE_PHRASE = "I'm a teapot";
+
+    // These constants should match the values in
+    // /components/embedder_support/android/util/web_resource_response.cc
+    private static final String MULTI_COOKIE_VALUE_SEPARATOR = "\0";
+    private static final String MULTI_COOKIE_HEADER_NAME = "\0Set-Cookie-Multivalue\0";
 
     private String addPageToTestServer(TestWebServer webServer, String httpPath, String html) {
         List<Pair<String, String>> headers = new ArrayList<Pair<String, String>>();
@@ -88,24 +98,6 @@ public class AwContentsClientShouldInterceptRequestTest extends AwParameterizedT
                 webServer, "/" + CommonResources.ABOUT_FILENAME, CommonResources.ABOUT_HTML);
     }
 
-    private static class TestAsyncShouldInterceptRequestCallback
-            implements AsyncShouldInterceptRequestCallback {
-        public WebResponseCallback mResponseCallback;
-
-        private final Runnable mCallbackHelper;
-
-        TestAsyncShouldInterceptRequestCallback(Runnable r) {
-            mCallbackHelper = r;
-        }
-
-        @Override
-        public void shouldInterceptRequestAsync(
-                AwWebResourceRequest request, WebResponseCallback callback) {
-            mResponseCallback = callback;
-            mCallbackHelper.run();
-        }
-    }
-
     private TestWebServer mWebServer;
     private TestAwContentsClient mContentsClient;
     private AwTestContainerView mTestContainerView;
@@ -125,13 +117,15 @@ public class AwContentsClientShouldInterceptRequestTest extends AwParameterizedT
         mAwContents.getSettings().setAllowFileAccess(true);
 
         mWebServer = TestWebServer.start();
-        mAwContents.clearAsyncShouldInterceptRequestCallback();
     }
 
     @After
-    public void tearDown() {
-        mWebServer.shutdown();
-        mAwContents.clearAsyncShouldInterceptRequestCallback();
+    public void tearDown() throws Throwable {
+        CookieUtils.clearCookies(
+                InstrumentationRegistry.getInstrumentation(), new AwCookieManager());
+        if (mWebServer != null) {
+            mWebServer.shutdown();
+        }
     }
 
     @Test
@@ -151,56 +145,6 @@ public class AwContentsClientShouldInterceptRequestTest extends AwParameterizedT
         Assert.assertEquals(1, mShouldInterceptRequestHelper.getUrls().size());
         Assert.assertEquals(aboutPageUrl, mShouldInterceptRequestHelper.getUrls().get(0));
 
-        mContentsClient.getOnPageFinishedHelper().waitForCallback(onPageFinishedCallCount);
-        Assert.assertEquals(
-                CommonResources.ABOUT_TITLE, mActivityTestRule.getTitleOnUiThread(mAwContents));
-        histogramExpectation.assertExpected();
-    }
-
-    @Test
-    @SmallTest
-    @Feature({"AndroidWebView"})
-    public void testCalledWithCorrectUrlParam_async() throws Throwable {
-        CallbackHelper helper = new CallbackHelper();
-        TestAsyncShouldInterceptRequestCallback asyncCallback =
-                new TestAsyncShouldInterceptRequestCallback(helper::notifyCalled);
-        mAwContents.setAsyncShouldInterceptRequestCallback(asyncCallback);
-
-        HistogramWatcher histogramExpectation =
-                HistogramWatcher.newSingleRecordWatcher(
-                        "Android.WebView.ShouldInterceptRequest.IsRequestIntercepted", false);
-        final String aboutPageUrl = addAboutPageToTestServer(mWebServer);
-        int onPageFinishedCallCount = mContentsClient.getOnPageFinishedHelper().getCallCount();
-        mActivityTestRule.loadUrlAsync(mAwContents, aboutPageUrl);
-        helper.waitForNext();
-        asyncCallback.mResponseCallback.intercept(null);
-
-        mContentsClient.getOnPageFinishedHelper().waitForCallback(onPageFinishedCallCount);
-        Assert.assertEquals(
-                CommonResources.ABOUT_TITLE, mActivityTestRule.getTitleOnUiThread(mAwContents));
-        histogramExpectation.assertExpected();
-    }
-
-    @Test
-    @SmallTest
-    @Feature({"AndroidWebView"})
-    public void testCalledWithCorrectUrlParam_asyncWithSmallDelay() throws Throwable {
-        CallbackHelper helper = new CallbackHelper();
-        TestAsyncShouldInterceptRequestCallback asyncCallback =
-                new TestAsyncShouldInterceptRequestCallback(helper::notifyCalled);
-        mAwContents.setAsyncShouldInterceptRequestCallback(asyncCallback);
-
-        HistogramWatcher histogramExpectation =
-                HistogramWatcher.newSingleRecordWatcher(
-                        "Android.WebView.ShouldInterceptRequest.IsRequestIntercepted", false);
-        final String aboutPageUrl = addAboutPageToTestServer(mWebServer);
-        int onPageFinishedCallCount = mContentsClient.getOnPageFinishedHelper().getCallCount();
-        mActivityTestRule.loadUrlAsync(mAwContents, aboutPageUrl);
-        helper.waitForNext();
-
-        Thread.sleep(500);
-
-        asyncCallback.mResponseCallback.intercept(null);
         mContentsClient.getOnPageFinishedHelper().waitForCallback(onPageFinishedCallCount);
         Assert.assertEquals(
                 CommonResources.ABOUT_TITLE, mActivityTestRule.getTitleOnUiThread(mAwContents));
@@ -280,6 +224,8 @@ public class AwContentsClientShouldInterceptRequestTest extends AwParameterizedT
 
         int callCount = mShouldInterceptRequestHelper.getCallCount();
         mActivityTestRule.loadUrlAsync(mAwContents, pageWithLinkUrl);
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> WebContentsUtils.simulateEndOfPaintHolding(mAwContents.getWebContents()));
         mShouldInterceptRequestHelper.waitForCallback(callCount);
         Assert.assertEquals(
                 false,
@@ -527,8 +473,8 @@ public class AwContentsClientShouldInterceptRequestTest extends AwParameterizedT
     }
 
     private static class SlowWebResourceResponseInfo extends WebResourceResponseInfo {
-        private CallbackHelper mReadStartedCallbackHelper = new CallbackHelper();
-        private CountDownLatch mLatch = new CountDownLatch(1);
+        private final CallbackHelper mReadStartedCallbackHelper = new CallbackHelper();
+        private final CountDownLatch mLatch = new CountDownLatch(1);
 
         public SlowWebResourceResponseInfo(String mimeType, String encoding, InputStream data) {
             super(mimeType, encoding, data);
@@ -655,7 +601,9 @@ public class AwContentsClientShouldInterceptRequestTest extends AwParameterizedT
                 mActivityTestRule.executeJavaScriptAndWaitForResult(
                         awContents, contentsClient, syncGetJs);
 
-        if (header.equals("null")) return null;
+        if (header.equals("null")) {
+            return null;
+        }
         // JSON stringification applied by executeJavaScriptAndWaitForResult adds quotes
         // around returned strings.
         Assert.assertTrue(header.length() > 2);
@@ -817,27 +765,6 @@ public class AwContentsClientShouldInterceptRequestTest extends AwParameterizedT
         final String aboutPageUrl = addAboutPageToTestServer(mWebServer);
         final int callCount = onReceivedErrorHelper.getCallCount();
         mActivityTestRule.loadUrlAsync(mAwContents, aboutPageUrl);
-        onReceivedErrorHelper.waitForCallback(callCount);
-        Assert.assertEquals(0, mWebServer.getRequestCount("/" + CommonResources.ABOUT_FILENAME));
-    }
-
-    @Test
-    @SmallTest
-    @Feature({"AndroidWebView"})
-    public void testNullInputStreamCausesErrorForMainFrame_async() throws Throwable {
-        CallbackHelper helper = new CallbackHelper();
-        TestAsyncShouldInterceptRequestCallback asyncCallback =
-                new TestAsyncShouldInterceptRequestCallback(helper::notifyCalled);
-        mAwContents.setAsyncShouldInterceptRequestCallback(asyncCallback);
-        final OnReceivedErrorHelper onReceivedErrorHelper =
-                mContentsClient.getOnReceivedErrorHelper();
-
-        final String aboutPageUrl = addAboutPageToTestServer(mWebServer);
-        final int callCount = onReceivedErrorHelper.getCallCount();
-        mActivityTestRule.loadUrlAsync(mAwContents, aboutPageUrl);
-        helper.waitForNext();
-        asyncCallback.mResponseCallback.intercept(
-                new WebResourceResponseInfo("text/html", "UTF-8", null));
         onReceivedErrorHelper.waitForCallback(callCount);
         Assert.assertEquals(0, mWebServer.getRequestCount("/" + CommonResources.ABOUT_FILENAME));
     }
@@ -1141,8 +1068,8 @@ public class AwContentsClientShouldInterceptRequestTest extends AwParameterizedT
             return null;
         }
 
-        private CountDownLatch mReady;
-        private CountDownLatch mWait;
+        private final CountDownLatch mReady;
+        private final CountDownLatch mWait;
     }
 
     @Test
@@ -1287,36 +1214,6 @@ public class AwContentsClientShouldInterceptRequestTest extends AwParameterizedT
         mActivityTestRule.loadUrlSync(mAwContents, mContentsClient.getOnPageFinishedHelper(), url);
         Assert.assertEquals(callCount + 1, mShouldInterceptRequestHelper.getCallCount());
         Assert.assertEquals(url, mShouldInterceptRequestHelper.getUrls().get(0));
-        histogramExpectation.assertExpected();
-    }
-
-    @Test
-    @SmallTest
-    @Feature({"AndroidWebView"})
-    public void testLoadDataUrl_intercepted_async() throws Throwable {
-        CallbackHelper helper = new CallbackHelper();
-        TestAsyncShouldInterceptRequestCallback asyncCallback =
-                new TestAsyncShouldInterceptRequestCallback(helper::notifyCalled);
-        mAwContents.setAsyncShouldInterceptRequestCallback(asyncCallback);
-        HistogramWatcher histogramExpectation =
-                HistogramWatcher.newSingleRecordWatcher(
-                        "Android.WebView.ShouldInterceptRequest.IsRequestIntercepted", true);
-        String url = "data:text/plain,foo";
-        int onPageFinishedCallCount = mContentsClient.getOnPageFinishedHelper().getCallCount();
-
-        mActivityTestRule.loadUrlAsync(mAwContents, url);
-        helper.waitForNext();
-        asyncCallback.mResponseCallback.intercept(
-                new WebResourceResponseInfo(
-                        "text/html",
-                        "UTF-8",
-                        new ByteArrayInputStream(
-                                "<html>Hello world</html>".getBytes(StandardCharsets.UTF_8)),
-                        200,
-                        "OK",
-                        /* responseHeaders= */ null));
-
-        mContentsClient.getOnPageFinishedHelper().waitForCallback(onPageFinishedCallCount);
         histogramExpectation.assertExpected();
     }
 
@@ -1522,18 +1419,84 @@ public class AwContentsClientShouldInterceptRequestTest extends AwParameterizedT
     @Test
     @SmallTest
     @Feature({"AndroidWebView", "Network"})
-    @CommandLineFlags.Add({
-        "enable-features=WebViewInterceptedCookieHeader,WebViewInterceptedCookieHeaderReadWrite"
-    })
     public void testInterceptedCookieHeaders_readWriteEnabled() throws Throwable {
-        HistogramWatcher histogramExpectation =
+        mActivityTestRule.getAwSettingsOnUiThread(mAwContents).setIncludeCookiesOnIntercept(true);
+        try (HistogramWatcher histogramExpectation =
                 HistogramWatcher.newBuilder()
-                        .expectAnyRecord(
+                        .expectAnyRecordTimes(
                                 "Android.WebView.ShouldInterceptRequest."
-                                        + "SetCookieHeader.TimeToRun")
+                                        + "SetCookieHeader.TimeToRun",
+                                3)
                         .expectAnyRecord(
                                 "Android.WebView.ShouldInterceptRequest."
                                         + "GetCookieHeader.PostMojo.TimeToRun")
+                        .expectBooleanRecord(
+                                "Android.WebView.ShouldInterceptRequest."
+                                        + "DidIncludeMultiCookieHeader",
+                                true)
+                        .build()) {
+            var cookieManager = mAwContents.getBrowserContextForPublicApi().getCookieManager();
+            cookieManager.removeAllCookies();
+            final String destinationUrl =
+                    mWebServer.setResponse("/hello.txt", "", new ArrayList<>());
+
+            cookieManager.setCookie(destinationUrl, "blah=yo");
+
+            List<String> multiCookies = List.of("bar=baz", "baz=foo");
+            String multiCoookieString = String.join(MULTI_COOKIE_VALUE_SEPARATOR, multiCookies);
+
+            // Forcing cookies to be set in the response.
+            // Ensures that the standard Set-Cookie header can be combined with multi-headers
+            // without collision.
+            Map<String, String> responseHeaders =
+                    Map.of("set-cookie", "foo=bar", MULTI_COOKIE_HEADER_NAME, multiCoookieString);
+
+            mShouldInterceptRequestHelper.enqueueHtmlResponseForUrl(
+                    destinationUrl, "hello", responseHeaders);
+
+            mActivityTestRule.loadUrlSync(
+                    mAwContents, mContentsClient.getOnPageFinishedHelper(), destinationUrl);
+
+            // These are the cookies that were sent before we set a new one.
+            var resourceRequest = mShouldInterceptRequestHelper.getRequestsForUrl(destinationUrl);
+            Assert.assertTrue(resourceRequest.getRequestHeaders().containsKey("Cookie"));
+            Assert.assertEquals("blah=yo", resourceRequest.getRequestHeaders().get("Cookie"));
+
+            // And then we should see our new value in the cookie manager.
+            Set<String> cookies = getCookies(cookieManager, destinationUrl);
+            Assert.assertEquals(Set.of("blah=yo", "foo=bar", "bar=baz", "baz=foo"), cookies);
+            histogramExpectation.assertExpected();
+        }
+    }
+
+    private static Set<String> getCookies(AwCookieManager cookieManager, String destinationUrl) {
+        String cookie = cookieManager.getCookie(destinationUrl);
+        Assert.assertNotNull(cookie);
+        String[] split = cookie.split(";");
+        Set<String> cookies = new HashSet<>();
+        for (String s : split) {
+            cookies.add(s.trim());
+        }
+        return cookies;
+    }
+
+    @Test
+    @SmallTest
+    @Feature({"AndroidWebView", "Network"})
+    public void testInterceptedCookieHeaders_readWriteDisabled() throws Throwable {
+        mActivityTestRule.getAwSettingsOnUiThread(mAwContents).setIncludeCookiesOnIntercept(false);
+        HistogramWatcher histogramExpectation =
+                HistogramWatcher.newBuilder()
+                        .expectNoRecords(
+                                "Android.WebView.ShouldInterceptRequest."
+                                        + "SetCookieHeader.TimeToRun")
+                        .expectNoRecords(
+                                "Android.WebView.ShouldInterceptRequest."
+                                        + "GetCookieHeader.PostMojo.TimeToRun")
+                        .expectBooleanRecord(
+                                "Android.WebView.ShouldInterceptRequest."
+                                        + "DidIncludeMultiCookieHeader",
+                                false)
                         .build();
         var cookieManager = mAwContents.getBrowserContextForPublicApi().getCookieManager();
         final String destinationUrl = mWebServer.setResponse("/hello.txt", "", new ArrayList<>());
@@ -1548,133 +1511,11 @@ public class AwContentsClientShouldInterceptRequestTest extends AwParameterizedT
         mActivityTestRule.loadUrlSync(
                 mAwContents, mContentsClient.getOnPageFinishedHelper(), destinationUrl);
 
-        // These are the cookies that were sent before we set a new one.
+        // Intercept should not contain the Cookie header.
         var resourceRequest = mShouldInterceptRequestHelper.getRequestsForUrl(destinationUrl);
-        Assert.assertTrue(resourceRequest.getRequestHeaders().containsKey("Cookie"));
-        Assert.assertEquals("blah=yo", resourceRequest.getRequestHeaders().get("Cookie"));
+        Assert.assertFalse(resourceRequest.getRequestHeaders().containsKey("Cookie"));
 
-        // And then we should see our new value in the cookie manager.
-        Assert.assertEquals("blah=yo; foo=bar", cookieManager.getCookie(destinationUrl));
-        histogramExpectation.assertExpected();
-    }
-
-    @Test
-    @SmallTest
-    @Feature({"AndroidWebView", "Network"})
-    @CommandLineFlags.Add({
-        "enable-features=WebViewInterceptedCookieHeader,WebViewInterceptedCookieHeaderReadWrite"
-    })
-    public void testInterceptedCookieHeaders_readWriteEnabled_async() throws Throwable {
-        var cookieManager = mAwContents.getBrowserContextForPublicApi().getCookieManager();
-        final String destinationUrl = mWebServer.setResponse("/hello.txt", "", new ArrayList<>());
-
-        cookieManager.setCookie(destinationUrl, "blah=yo");
-
-        CallbackHelper helper = new CallbackHelper();
-        TestAsyncShouldInterceptRequestCallback asyncCallback =
-                new TestAsyncShouldInterceptRequestCallback(helper::notifyCalled);
-        mAwContents.setAsyncShouldInterceptRequestCallback(asyncCallback);
-        HistogramWatcher histogramExpectation =
-                HistogramWatcher.newSingleRecordWatcher(
-                        "Android.WebView.ShouldInterceptRequest.IsRequestIntercepted", true);
-
-        int onPageFinishedCallCount = mContentsClient.getOnPageFinishedHelper().getCallCount();
-        mActivityTestRule.loadUrlAsync(mAwContents, destinationUrl);
-        helper.waitForNext();
-
-        // Forcing a cookie to be set in the response
-        Map<String, String> responseHeaders = Map.of("set-cookie", "foo=bar");
-        asyncCallback.mResponseCallback.intercept(
-                new WebResourceResponseInfo(
-                        "text/html",
-                        "UTF-8",
-                        new ByteArrayInputStream("hello".getBytes(StandardCharsets.UTF_8)),
-                        200,
-                        "OK",
-                        responseHeaders));
-        mContentsClient.getOnPageFinishedHelper().waitForCallback(onPageFinishedCallCount);
-
-        // And then we should see our new value in the cookie manager.
-        Assert.assertEquals("blah=yo; foo=bar", cookieManager.getCookie(destinationUrl));
-        histogramExpectation.assertExpected();
-    }
-
-    @Test
-    @SmallTest
-    @Feature({"AndroidWebView", "Network"})
-    @CommandLineFlags.Add({"enable-features=WebViewInterceptedCookieHeader"})
-    public void testInterceptedCookieHeaders_readWriteDisabled() throws Throwable {
-        HistogramWatcher histogramExpectation =
-                HistogramWatcher.newBuilder()
-                        .expectAnyRecord(
-                                "Android.WebView.ShouldInterceptRequest."
-                                        + "SetCookieHeader.TimeToRun")
-                        .expectAnyRecord(
-                                "Android.WebView.ShouldInterceptRequest."
-                                        + "GetCookieHeader.PostMojo.TimeToRun")
-                        .build();
-        var cookieManager = mAwContents.getBrowserContextForPublicApi().getCookieManager();
-        final String destinationUrl = mWebServer.setResponse("/hello.txt", "", new ArrayList<>());
-
-        cookieManager.setCookie(destinationUrl, "blah=yo");
-
-        // Forcing a cookie to be set in the response
-        mShouldInterceptRequestHelper.enqueueHtmlResponseForUrl(
-                destinationUrl, "hello", Map.of("set-cookie", "foo=bar"));
-
-        mActivityTestRule.loadUrlSync(
-                mAwContents, mContentsClient.getOnPageFinishedHelper(), destinationUrl);
-
-        // These are the cookies that were sent before we set a new one.
-        var resourceRequest = mShouldInterceptRequestHelper.getRequestsForUrl(destinationUrl);
-        Assert.assertFalse(
-                "Cookie jar should be empty",
-                resourceRequest.getRequestHeaders().containsKey("Cookie"));
-        Assert.assertNotEquals(
-                "Cookie jar should be empty",
-                "blah=yo",
-                resourceRequest.getRequestHeaders().get("Cookie"));
-
-        // And then we should see our new value in the cookie manager.
-        Assert.assertEquals("blah=yo", cookieManager.getCookie(destinationUrl));
-        histogramExpectation.assertExpected();
-    }
-
-    @Test
-    @SmallTest
-    @Feature({"AndroidWebView", "Network"})
-    @CommandLineFlags.Add({"enable-features=WebViewInterceptedCookieHeader"})
-    public void testInterceptedCookieHeaders_readWriteDisabled_async() throws Throwable {
-        var cookieManager = mAwContents.getBrowserContextForPublicApi().getCookieManager();
-        final String destinationUrl = mWebServer.setResponse("/hello.txt", "", new ArrayList<>());
-
-        cookieManager.setCookie(destinationUrl, "blah=yo");
-
-        CallbackHelper helper = new CallbackHelper();
-        TestAsyncShouldInterceptRequestCallback asyncCallback =
-                new TestAsyncShouldInterceptRequestCallback(helper::notifyCalled);
-        mAwContents.setAsyncShouldInterceptRequestCallback(asyncCallback);
-        HistogramWatcher histogramExpectation =
-                HistogramWatcher.newSingleRecordWatcher(
-                        "Android.WebView.ShouldInterceptRequest.IsRequestIntercepted", true);
-
-        int onPageFinishedCallCount = mContentsClient.getOnPageFinishedHelper().getCallCount();
-        mActivityTestRule.loadUrlAsync(mAwContents, destinationUrl);
-        helper.waitForNext();
-
-        // Forcing a cookie to be set in the response
-        Map<String, String> headersForInjectedResponse = Map.of("set-cookie", "foo=bar");
-        asyncCallback.mResponseCallback.intercept(
-                new WebResourceResponseInfo(
-                        "text/html",
-                        "UTF-8",
-                        new ByteArrayInputStream("hello".getBytes(StandardCharsets.UTF_8)),
-                        200,
-                        "OK",
-                        headersForInjectedResponse));
-        mContentsClient.getOnPageFinishedHelper().waitForCallback(onPageFinishedCallCount);
-
-        // And then we should see our new value in the cookie manager.
+        // The set-cookie header in the response should not affect stored cookies.
         Assert.assertEquals("blah=yo", cookieManager.getCookie(destinationUrl));
         histogramExpectation.assertExpected();
     }
@@ -2025,28 +1866,75 @@ public class AwContentsClientShouldInterceptRequestTest extends AwParameterizedT
     }
 
     @Test
-    @SmallTest
-    @Feature({"AndroidWebView"})
-    @CommandLineFlags.Add({"enable-features=WebViewShortCircuitShouldInterceptRequest"})
-    public void testShortCircuitShouldInterceptRequest_withAsyncCallback() throws Throwable {
-        final String aboutPageUrl = addAboutPageToTestServer(mWebServer);
+    @MediumTest
+    @Feature({"AndroidWebView", "Network"})
+    public void testInterceptRequestAllowsThreadBlocking() throws Throwable {
+        // This test asserts that WebView is resilient against blocking operations on the thread
+        // pool where shouldInterceptRequest calls are made.
+        //
+        // It works by creating a web page with a large (`parallelRequestCount`) number of sub
+        // requests.
+        // The number of sub resource requests is chosen to be high enough to exhaust the number of
+        // available threads in the default `base::ThreadPool` SequencedTaskRunner if no care is
+        // taken to handle blocking threads.
+        //
+        // Each call to shouldInterceptRequest will block until all the expected calls have been
+        // made, and only then will they be allowed to complete.
+        //
+        // If the thread pool can be exhausted, then WebView will be prevented from calling
+        // `shouldInterceptRequest` for some of the expected parallel pages, and the test will
+        // eventually time out.
+        //
+        // See https://crbug.com/404563944 for background.
 
-        mAwContents.onWebViewClientUpdated(new WebViewClient());
-        AtomicBoolean wasAsyncCallbackCalled = new AtomicBoolean();
-        mAwContents.setAsyncShouldInterceptRequestCallback(
-                (request, callback) -> {
-                    wasAsyncCallbackCalled.set(true);
-                    callback.intercept(null);
-                });
+        final int parallelRequestCount = 10;
+
+        // Configure the main page with a number of iframes that load different pages.
+        String iframeTemplate = "<iframe src=\"/sub.html?idx=%d\"></iframe>\n";
+        StringBuilder sb = new StringBuilder("<html>");
+        for (int i = 0; i < parallelRequestCount; i++) {
+            sb.append(String.format(Locale.ROOT, iframeTemplate, i));
+        }
+        sb.append("</html>");
+        final String mainPageUrl = addPageToTestServer(mWebServer, "/", sb.toString());
+        addPageToTestServer(mWebServer, "/sub.html", "subpage");
+
+        final CountDownLatch latch = new CountDownLatch(parallelRequestCount);
+        mContentsClient =
+                new TestAwContentsClient() {
+                    @Override
+                    public WebResourceResponseInfo shouldInterceptRequest(
+                            AwWebResourceRequest request) {
+                        if (request.getUrl().contains("sub.html")) {
+                            latch.countDown();
+                            try {
+                                // Block until all expected calls to `shouldInterceptRequest` have
+                                // been made.
+                                latch.await();
+                            } catch (InterruptedException e) {
+                                throw new AssertionError("latch wait was interrupted", e);
+                            }
+                        }
+                        return super.shouldInterceptRequest(request);
+                    }
+                };
+
+        mTestContainerView = mActivityTestRule.createAwTestContainerViewOnMainSync(mContentsClient);
+        mAwContents = mTestContainerView.getAwContents();
 
         int onPageFinishedCallCount = mContentsClient.getOnPageFinishedHelper().getCallCount();
-        int shouldInterceptRequestCallCount = mShouldInterceptRequestHelper.getCallCount();
-        mActivityTestRule.loadUrlAsync(mAwContents, aboutPageUrl);
-        mContentsClient.getOnPageFinishedHelper().waitForCallback(onPageFinishedCallCount);
+        mShouldInterceptRequestHelper = mContentsClient.getShouldInterceptRequestHelper();
+        int callCount = mShouldInterceptRequestHelper.getCallCount();
 
-        Assert.assertEquals(
-                shouldInterceptRequestCallCount, mShouldInterceptRequestHelper.getCallCount());
-        Assert.assertTrue(wasAsyncCallbackCalled.get());
+        mActivityTestRule.loadUrlAsync(mAwContents, mainPageUrl);
+
+        // Wait until all calls to shouldInterceptRequest (main page + subpages) have completed.
+        // This will time out if the thread pool has been exhausted.
+        mShouldInterceptRequestHelper.waitForCallback(callCount, 1 + parallelRequestCount);
+        Assert.assertTrue(
+                "We should have seen at least all the requests for html pages.",
+                mShouldInterceptRequestHelper.getUrls().size() >= 1 + parallelRequestCount);
+        mContentsClient.getOnPageFinishedHelper().waitForCallback(onPageFinishedCallCount);
     }
 
     @Test

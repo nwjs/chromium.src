@@ -121,6 +121,9 @@ class Tracker;
 @property(nonatomic, weak) id<FakeboxButtonsSnapshotProvider>
     fakeboxButtonsSnapshotProvider;
 
+// Whether Lens overlay is currently visible.
+@property(nonatomic, assign) BOOL lensOverlayVisible;
+
 // Sets the edit view to use in the editing state. This must be set before the
 // view of this view controller is initialized. This must only be called once.
 - (void)setEditView:(UIView<TextFieldViewContaining>*)editView;
@@ -175,6 +178,9 @@ class Tracker;
 
 // Records the lens overlay entrypoint availability in the location bar.
 - (void)recordLensOverlayAvailability;
+
+// Moves the focus of VoiceOver to the steady view.
+- (void)focusSteadyViewForVoiceOver;
 
 @end
 

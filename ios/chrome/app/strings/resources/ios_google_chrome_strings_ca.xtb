@@ -47,6 +47,7 @@ Aspectes que cal tenir en compte:
 <translation id="1917964099031477364">Aquest compte i totes les dades que no s'hagin desat se suprimiran de Chrome i de la resta d'aplicacions de Google instal·lades en aquest dispositiu.</translation>
 <translation id="1919130412786645364">Permet l'inici de sessió a Chrome</translation>
 <translation id="1965935827552890526">Acaba el que estaves fent a l'altra finestra de Chrome oberta.</translation>
+<translation id="1966638102563776885">Consell de Chrome: obtén les contrasenyes en qualsevol aplicació</translation>
 <translation id="1973910962341002002">A la configuració d'<ph name="TEXT_OF_THE_SETTINGS_MENU_ITEM" />, activa Chrome</translation>
 <translation id="1984705450038014246">Sincronitza les dades de Chrome</translation>
 <translation id="1987779152850321833">Completa aquestes accions suggerides per treure el màxim profit de Chrome.</translation>
@@ -114,7 +115,6 @@ Prova d'esperar uns quants minuts abans de tancar la sessió. Si tanques la sess
 <translation id="3655656110921623717">Això vol dir que Chrome sol·licitarà el lloc web per a mòbils cada vegada.</translation>
 <translation id="3740397331642243698">Obre els URL introduïts en mode d'incògnit a Google Chrome.</translation>
 <translation id="3741995255368156336">Obre la llista de lectura de Chrome.</translation>
-<translation id="3808570423967020928">Accedeix a Chrome més de pressa des del Dock de la pantalla d'inici.</translation>
 <translation id="3827545470516145620">Tindràs protecció de seguretat estàndard en aquest dispositiu</translation>
 <translation id="384394811301901750">Google Chrome no pot utilitzar la càmera en aquest moment</translation>
 <translation id="3863841106411295595">Afegeix a la llista de lectura de Chrome els URL introduïts.</translation>
@@ -138,6 +138,7 @@ Prova d'esperar uns quants minuts abans de tancar la sessió. Si tanques la sess
 <translation id="4724297637870447613">Utilitza Chrome a tot arreu</translation>
 <translation id="4738647308035481133">Pàgina de Google Chrome</translation>
 <translation id="4742795653798179840">S'han suprimit les dades de Chrome</translation>
+<translation id="4749294594657945639">Per obtenir fàcilment les contrasenyes desades en altres aplicacions, tria Chrome per a l'Emplenament automàtic.</translation>
 <translation id="4761869838909035636">Executa la comprovació de seguretat de Chrome</translation>
 <translation id="4798859546468762093">Per obtenir personalització i altres funcions, inclou Chrome a <ph name="FEATURE_NAME_1" /> i <ph name="FEATURE_NAME_2" /></translation>
 <translation id="4819268619367838612">Per ajudar a millorar l'aplicació, Chrome envia les dades d'ús i de bloqueig a Google. <ph name="BEGIN_LINK" />Gestiona<ph name="END_LINK" /></translation>
@@ -233,7 +234,6 @@ Per veure més opcions de configuració que utilitzin dades per millorar la teva
 <translation id="6975725306479268850">Tria Chrome a Emplenament automàtic</translation>
 <translation id="7056826488869329999">Obre i executa la comprovació de seguretat a Chrome.</translation>
 <translation id="7061455974939528301">Mantén premuda la icona de Chrome i fes clic a Edita la pantalla d'inici</translation>
-<translation id="7065813315247345131">Mou Chrome al Dock</translation>
 <translation id="7124339256045485976">Mantén Chrome actualitzat</translation>
 <translation id="7145599899567697473">Desa i emplena automàticament les contrasenyes a Chrome</translation>
 <translation id="7161390184744336561">Google Chrome no està actualitzat</translation>
@@ -317,10 +317,10 @@ Les dades s'han encriptat amb la teva frase de contrasenya el dia <ph name="TIME
 <translation id="8603022514504485810">El gestor de contrasenyes de Google no ha pogut comprovar totes les contrasenyes. Torna-ho a provar demà o <ph name="BEGIN_LINK" />comprova les contrasenyes desades al teu Compte de Google<ph name="END_LINK" />.</translation>
 <translation id="8630122478628016441">Activa l'opció Bloqueja les pestanyes d'incògnit després de tancar Chrome.</translation>
 <translation id="8673726683583791503">Compra amb Google Lens</translation>
-<translation id="8727043961453758442">Aprofita Chrome al màxim</translation>
 <translation id="8765470054473112089">Quan escrius a la barra d'adreces o al quadre de cerca, Chrome envia el que escrius al teu motor de cerca predeterminat per obtenir millors suggeriments. Aquesta opció està desactivada en el mode d'incògnit.</translation>
 <translation id="8772179140489533211">Mostra sol·licituds per iniciar la sessió a Chrome.</translation>
 <translation id="8788269841521769222">No caldrà que recordis aquesta contrasenya. Es desarà al gestor de contrasenyes de Google per a <ph name="EMAIL" /></translation>
+<translation id="8796490717897731471"><ph name="EMAIL" />. Chrome està gestionat.</translation>
 <translation id="880967149107462122">Ves a la configuració de Chrome</translation>
 <translation id="8842132678697187091">Aquí pots obrir Google Lens.</translation>
 <translation id="8850736900032787670">Per rebre contingut personalitzat basat en els teus interessos, inicia la sessió a Chrome.</translation>

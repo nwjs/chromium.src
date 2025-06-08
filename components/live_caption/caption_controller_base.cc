@@ -12,6 +12,8 @@
 #include "components/live_caption/caption_bubble_controller.h"
 #include "components/live_caption/caption_util.h"
 #include "components/live_caption/pref_names.h"
+#include "components/live_caption/views/translation_view_wrapper.h"
+#include "components/live_caption/views/translation_view_wrapper_base.h"
 #include "components/prefs/pref_change_registrar.h"
 #include "components/prefs/pref_service.h"
 #include "ui/native_theme/native_theme.h"
@@ -36,9 +38,12 @@ class CaptionControllerDelgateImpl : public CaptionControllerBase::Delegate {
 
   std::unique_ptr<CaptionBubbleController> CreateCaptionBubbleController(
       CaptionBubbleSettings* caption_bubble_settings,
-      const std::string& application_locale) override {
+      const std::string& application_locale,
+      std::unique_ptr<TranslationViewWrapperBase> translation_view_wrapper)
+      override {
     return CaptionBubbleController::Create(caption_bubble_settings,
-                                           application_locale);
+                                           application_locale,
+                                           std::move(translation_view_wrapper));
   }
 
   void AddCaptionStyleObserver(ui::NativeThemeObserver* observer) override {
@@ -84,7 +89,8 @@ void CaptionControllerBase::CreateUI() {
   is_ui_constructed_ = true;
 
   auto controller = delegate_->CreateCaptionBubbleController(
-      caption_bubble_settings(), application_locale_);
+      caption_bubble_settings(), application_locale_,
+      CreateTranslationViewWrapper());
   caption_bubble_controller_ = controller.get();
   AddListener(std::move(controller));
 
@@ -138,6 +144,11 @@ CaptionBubbleController* CaptionControllerBase::caption_bubble_controller()
   return caption_bubble_controller_.get();
 }
 
+std::unique_ptr<TranslationViewWrapperBase>
+CaptionControllerBase::CreateTranslationViewWrapper() {
+  return std::make_unique<TranslationViewWrapper>(caption_bubble_settings());
+}
+
 void CaptionControllerBase::OnCaptionStyleUpdated() {
   if (!caption_bubble_controller_) {
     return;
@@ -171,6 +182,7 @@ void CaptionControllerBase::RemoveListener(Listener* listener) {
 }
 
 bool CaptionControllerBase::DispatchTranscription(
+    content::WebContents* web_contents,
     CaptionBubbleContext* caption_bubble_context,
     const media::SpeechRecognitionResult& result) {
   bool success = false;
@@ -178,25 +190,29 @@ bool CaptionControllerBase::DispatchTranscription(
   // Consider deleting the listener if it returns false.  It's unclear if
   // `caption_bubble_controller_` would allow this, but maybe.
   for (auto& listener : listeners_) {
-    success |= listener->OnTranscription(caption_bubble_context, result);
+    success |=
+        listener->OnTranscription(web_contents, caption_bubble_context, result);
   }
 
   return success;
 }
 
 void CaptionControllerBase::OnAudioStreamEnd(
+    content::WebContents* web_contents,
     CaptionBubbleContext* caption_bubble_context) {
   for (auto& listener : listeners_) {
-    listener->OnAudioStreamEnd(caption_bubble_context);
+    listener->OnAudioStreamEnd(web_contents, caption_bubble_context);
   }
 }
 
 void CaptionControllerBase::OnLanguageIdentificationEvent(
+    content::WebContents* web_contents,
     CaptionBubbleContext* caption_bubble_context,
     const media::mojom::LanguageIdentificationEventPtr& event) {
   // TODO(crbug.com/40167928): Implement the UI for language identification.
   for (auto& listener : listeners_) {
-    listener->OnLanguageIdentificationEvent(caption_bubble_context, event);
+    listener->OnLanguageIdentificationEvent(web_contents,
+                                            caption_bubble_context, event);
   }
 }
 

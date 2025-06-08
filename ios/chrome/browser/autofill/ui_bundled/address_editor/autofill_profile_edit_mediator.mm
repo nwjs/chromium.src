@@ -146,6 +146,11 @@ constexpr std::array<autofill::FieldType, 3> kStaticFieldsTypes = {
   [self initializeRequiredEmptyFieldsForManualAddition];
 
   [_consumer setAccountProfile:[self isAccountProfile]];
+  [_consumer setIsHomeWorkProfile:
+                 ([self accountRecordType] ==
+                      autofill::AutofillProfile::RecordType::kAccountHome ||
+                  [self accountRecordType] ==
+                      autofill::AutofillProfile::RecordType::kAccountWork)];
 }
 
 #pragma mark - Public
@@ -193,6 +198,10 @@ constexpr std::array<autofill::FieldType, 3> kStaticFieldsTypes = {
 
 - (BOOL)isMinimumAddress {
   return autofill::IsMinimumAddress(*_autofillProfile);
+}
+
+- (autofill::AutofillProfile::RecordType)accountRecordType {
+  return _autofillProfile->record_type();
 }
 
 - (void)didTapMigrateToAccountButton {
@@ -387,7 +396,6 @@ constexpr std::array<autofill::FieldType, 3> kStaticFieldsTypes = {
       GeoIpCountryCode(variations_service
                            ? variations_service->GetLatestCountry()
                            : std::string()),
-      base::RepeatingCallback<bool(const std::string&)>(),
       GetApplicationContext()->GetApplicationLocale());
   const autofill::CountryComboboxModel::CountryVector& countriesVector =
       countryModel.countries();
@@ -399,12 +407,6 @@ constexpr std::array<autofill::FieldType, 3> kStaticFieldsTypes = {
   // search option.
   for (size_t i = 1; i < countriesVector.size(); ++i) {
     if (countriesVector[i].get()) {
-      if (([self isAccountProfile] || _isMigrationPrompt) &&
-          !_personalDataManager->address_data_manager()
-               .IsCountryEligibleForAccountStorage(
-                   countriesVector[i]->country_code())) {
-        continue;
-      }
       CountryItem* countryItem =
           [[CountryItem alloc] initWithType:ItemTypeCountry];
       countryItem.text = base::SysUTF16ToNSString(countriesVector[i]->name());

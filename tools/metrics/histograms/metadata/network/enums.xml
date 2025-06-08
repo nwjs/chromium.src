@@ -240,6 +240,19 @@ chromium-metrics-reviews@google.com.
   <int value="2" label="Shill error"/>
 </enum>
 
+<enum name="DHCPv4ProvisionResult">
+  <int value="0" label="Success"/>
+  <int value="1" label="IPv6OnlyPreferred"/>
+  <int value="2" label="ClientFailure"/>
+  <int value="3" label="Nak"/>
+  <int value="4" label="Timeout"/>
+</enum>
+
+<enum name="DHCPv4RenewRebind">
+  <int value="0" label="Renew"/>
+  <int value="1" label="Rebind"/>
+</enum>
+
 <enum name="DnsProxy.DnsOverHttpsMode">
   <int value="0" label="Unknown"/>
   <int value="1" label="Off"/>
@@ -2302,6 +2315,12 @@ chromium-metrics-reviews@google.com.
   <int value="679" label="99"/>
   <int value="680" label="98"/>
   <int value="681" label="97"/>
+</enum>
+
+<enum name="SharedDictionaryDocumentRequestCacheResult">
+  <int value="0" label="Cache Miss"/>
+  <int value="1" label="Hit from LRU Cache"/>
+  <int value="2" label="Hit from Active Dictionary List"/>
 </enum>
 
 <enum name="SharedDictionaryEncodingType">

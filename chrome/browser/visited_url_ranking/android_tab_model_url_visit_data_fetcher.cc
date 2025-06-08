@@ -57,6 +57,7 @@ TabMetadata::TabOrigin GetTabOriginFromLaunchType(int type) {
     case TabModel::TabLaunchType::FROM_RECENT_TABS_FOREGROUND:
     case TabModel::TabLaunchType::FROM_HISTORY_NAVIGATION_BACKGROUND:
     case TabModel::TabLaunchType::FROM_HISTORY_NAVIGATION_FOREGROUND:
+    case TabModel::TabLaunchType::FROM_LONGPRESS_FOREGROUND_IN_GROUP:
       return TabMetadata::TabOrigin::kOpenedByUserAction;
 
     case TabModel::TabLaunchType::FROM_RESTORE:
@@ -108,6 +109,14 @@ URLVisitAggregate::Tab MakeAggregateTab(
     tab.tab_metadata.ukm_source_id =
         web_contents->GetPrimaryMainFrame()->GetPageUkmSourceId();
   }
+  for (int i = 0; i < tab_model->GetTabCount(); ++i) {
+    if (tab_model->GetTabAt(i) == tab_android) {
+      tab.tab_metadata.tab_model_index = i;
+      break;
+    }
+  }
+  tab.tab_metadata.is_last_tab_in_tab_model =
+      tab.tab_metadata.tab_model_index == tab_model->GetTabCount() - 1;
   return tab;
 }
 

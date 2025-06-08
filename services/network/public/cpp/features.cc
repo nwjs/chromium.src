@@ -99,22 +99,6 @@ BASE_FEATURE(kCoopNoopenerAllowPopups,
              "CoopNoopenerAllowPopups",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-// Introduce a new COOP value: restrict-properties. It restricts window
-// properties that can be accessed by other pages. This also grants
-// crossOriginIsolated if coupled with an appropriate COEP header.
-// This used solely for testing the process model and should not be enabled in
-// any production code. See https://crbug.com/1221127.
-BASE_FEATURE(kCoopRestrictProperties,
-             "CoopRestrictProperties",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
-// Enables the origin trial for COOP: restrict-properties. We need a new feature
-// because token validation is not possible in the network process. This also
-// allows us to keep using CoopRestrictProperties to enable COOP: RP for WPTs.
-BASE_FEATURE(kCoopRestrictPropertiesOriginTrial,
-             "CoopRestrictPropertiesOriginTrial",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 // Enables or defaults splittup up server (not proxy) entries in the
 // HttpAuthCache.
 BASE_FEATURE(kSplitAuthCacheByNetworkIsolationKey,
@@ -297,13 +281,11 @@ BASE_FEATURE(kPreloadedDictionaryConditionalUse,
 // integrity enforced.
 BASE_FEATURE(kIntegrityPolicyScript,
              "IntegrityPolicyScript",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kVisibilityAwareResourceScheduler,
              "VisibilityAwareResourceScheduler",
              base::FEATURE_DISABLED_BY_DEFAULT);
-
-BASE_FEATURE(kSharedZstd, "SharedZstd", base::FEATURE_ENABLED_BY_DEFAULT);
 
 // This feature will reduce TransferSizeUpdated IPC from the network service.
 // When enabled, the network service will send the IPC only when DevTools is
@@ -413,10 +395,6 @@ BASE_FEATURE(kCloneDevToolsConnectionOnlyIfRequested,
 
 BASE_FEATURE(kSRIMessageSignatureEnforcement,
              "SRIMessageSignatureEnforcement",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
-BASE_FEATURE(kCreateURLLoaderPipeAsync,
-             "CreateURLLoaderPipeAsync",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kAdAuctionEventRegistration,
@@ -554,7 +532,7 @@ BASE_FEATURE_PARAM(bool,
 // https://wicg.github.io/shared-storage/#batch-update
 BASE_FEATURE(kSharedStorageTransactionalBatchUpdate,
              "SharedStorageTransactionalBatchUpdate",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Kill switch for the Interest Group API, i.e. if disabled, the
 // API exposure will be disabled regardless of the OT config.
@@ -613,5 +591,30 @@ BASE_FEATURE(kDeviceBoundSessionAccessObserverSharedRemote,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kCSPScriptSrcV2, "ScriptSrcV2", base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kCacheSharingForPervasiveScripts,
+             "CacheSharingForPervasiveScripts",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// This is a newline-delimited list of pervasive script URL Patterns.
+BASE_FEATURE_PARAM(std::string,
+                   kPervasiveScriptURLPatterns,
+                   &kCacheSharingForPervasiveScripts,
+                   /*name=*/"url_patterns",
+                   /*default_value=*/"");
+
+BASE_FEATURE(kSharedDictionaryCache,
+             "SharedDictionaryCache",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE_PARAM(size_t,
+                   kSharedDictionaryCacheSize,
+                   &kSharedDictionaryCache,
+                   /*name=*/"cache_size",
+                   1);
+BASE_FEATURE_PARAM(size_t,
+                   kSharedDictionaryCacheMaxSizeBytes,
+                   &kSharedDictionaryCache,
+                   /*name=*/"max_size",
+                   1'000'000);
 
 }  // namespace network::features

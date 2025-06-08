@@ -9,6 +9,7 @@
 #include <utility>
 
 #include "base/notreached.h"
+#include "base/test/task_environment.h"
 #include "base/values.h"
 #include "pdf/pdf_ink_conversions.h"
 
@@ -33,6 +34,27 @@ constexpr auto kInkTestVariations = std::to_array<InkTestVariation>({
     kInkTestVariationTextHighlightingAndAnnotations,
 });
 
+// Variations of Ink tests with text highlighting enabled.
+constexpr auto kInkTestVariationsWithTextHighlighting =
+    std::to_array<InkTestVariation>({
+        kInkTestVariationTextHighlighting,
+        kInkTestVariationTextHighlightingAndAnnotations,
+    });
+
+base::test::TaskEnvironment* g_task_environment = nullptr;
+
+std::string GetAnnotationModeMessageString(InkAnnotationMode mode) {
+  switch (mode) {
+    case InkAnnotationMode::kOff:
+      return "off";
+    case InkAnnotationMode::kDraw:
+      return "draw";
+    case InkAnnotationMode::kText:
+      return "text";
+  }
+  NOTREACHED();
+}
+
 }  // namespace
 
 std::optional<ink::StrokeInputBatch> CreateInkInputBatch(
@@ -51,28 +73,27 @@ std::optional<ink::StrokeInputBatch> CreateInkInputBatch(
 base::Value::Dict CreateSetAnnotationBrushMessageForTesting(
     std::string_view type,
     const TestAnnotationBrushMessageParams* params) {
-  base::Value::Dict message;
-  message.Set("type", "setAnnotationBrush");
-
   base::Value::Dict data;
   data.Set("type", type);
   if (params) {
-    base::Value::Dict color;
-    color.Set("r", params->color_r);
-    color.Set("g", params->color_g);
-    color.Set("b", params->color_b);
-    data.Set("color", std::move(color));
+    data.Set("color",
+             base::Value::Dict()
+                 .Set("r", static_cast<int>(SkColorGetR(params->color)))
+                 .Set("g", static_cast<int>(SkColorGetG(params->color)))
+                 .Set("b", static_cast<int>(SkColorGetB(params->color))));
     data.Set("size", params->size);
   }
-  message.Set("data", std::move(data));
-  return message;
+
+  return base::Value::Dict()
+      .Set("type", "setAnnotationBrush")
+      .Set("data", std::move(data));
 }
 
-base::Value::Dict CreateSetAnnotationModeMessageForTesting(bool enable) {
-  base::Value::Dict message;
-  message.Set("type", "setAnnotationMode");
-  message.Set("mode", enable ? "draw" : "off");
-  return message;
+base::Value::Dict CreateSetAnnotationModeMessageForTesting(
+    InkAnnotationMode mode) {
+  return base::Value::Dict()
+      .Set("type", "setAnnotationMode")
+      .Set("mode", GetAnnotationModeMessageString(mode));
 }
 
 base::Value::Dict CreateSetAnnotationUndoRedoMessageForTesting(
@@ -80,11 +101,9 @@ base::Value::Dict CreateSetAnnotationUndoRedoMessageForTesting(
   base::Value::Dict message;
   switch (type) {
     case TestAnnotationUndoRedoMessageType::kUndo:
-      message.Set("type", "annotationUndo");
-      return message;
+      return base::Value::Dict().Set("type", "annotationUndo");
     case TestAnnotationUndoRedoMessageType::kRedo:
-      message.Set("type", "annotationRedo");
-      return message;
+      return base::Value::Dict().Set("type", "annotationRedo");
   }
   NOTREACHED();
 }
@@ -95,6 +114,19 @@ base::FilePath GetInkTestDataFilePath(base::FilePath::StringViewType filename) {
 
 base::span<const InkTestVariation> GetAllInkTestVariations() {
   return kInkTestVariations;
+}
+
+base::span<const InkTestVariation> GetInkTestVariationsWithTextHighlighting() {
+  return kInkTestVariationsWithTextHighlighting;
+}
+
+void SetPdfTestTaskEnvironment(base::test::TaskEnvironment* task_environment) {
+  g_task_environment = task_environment;
+}
+
+base::test::TaskEnvironment& GetPdfTestTaskEnvironment() {
+  CHECK(g_task_environment);
+  return *g_task_environment;
 }
 
 }  // namespace chrome_pdf

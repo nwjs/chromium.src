@@ -289,7 +289,6 @@ class OnDeviceInternalsToolsElement extends CrLitElement {
     this.session_.append(
         {
           maxTokens: 0,
-          tokenOffset: 0,
           input: {pieces: textToInputPieces(this.contextText_)},
         },
         null);
@@ -407,16 +406,12 @@ class OnDeviceInternalsToolsElement extends CrLitElement {
     clonedSession.append(
         {
           maxTokens: 0,
-          tokenOffset: 0,
           input: {pieces: pieces},
         },
         null);
     clonedSession.generate(
         {
           maxOutputTokens: 0,
-          topK: null,
-          temperature: null,
-          responseJsonSchema: null,
           constraint: null,
         },
         this.responseRouter_.$.bindNewPipeAndPassRemote());

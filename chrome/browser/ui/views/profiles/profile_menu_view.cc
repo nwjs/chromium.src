@@ -146,6 +146,58 @@ std::u16string GetProfileIdentifier(const ProfileAttributesEntry& entry) {
   }
 }
 
+std::u16string GetSyncPromoDescription(std::string_view email) {
+#if BUILDFLAG(ENABLE_DICE_SUPPORT)
+  if (base::FeatureList::IsEnabled(
+          switches::kEnableHistorySyncOptinExpansionPill)) {
+    switch (switches::kHistorySyncOptinExpansionPillOption.Get()) {
+      case switches::HistorySyncOptinExpansionPillOption::kBrowseAcrossDevices:
+        return l10n_util::GetStringFUTF16(
+            IDS_PROFILE_MENU_SYNC_PROMO_BROWSE_ACROSS_DEVICES_DESCRIPTION,
+            base::UTF8ToUTF16(email));
+      case switches::HistorySyncOptinExpansionPillOption::kSyncHistory:
+        return l10n_util::GetStringFUTF16(
+            IDS_PROFILE_MENU_SYNC_PROMO_SYNC_HISTORY_DESCRIPTION,
+            base::UTF8ToUTF16(email));
+      case switches::HistorySyncOptinExpansionPillOption::
+          kSeeTabsFromOtherDevices:
+        return l10n_util::GetStringFUTF16(
+            IDS_PROFILE_MENU_SYNC_PROMO_SEE_TABS_FROM_OTHER_DEVICES_DESCRIPTION,
+            base::UTF8ToUTF16(email));
+      case switches::HistorySyncOptinExpansionPillOption::
+          kBrowseAcrossDevicesNewProfileMenuPromoVariant:
+        // If the new promo variant is enabled, the identity section
+        // shouldn't contain a sync promo.
+        NOTREACHED();
+    }
+  }
+#endif
+  return l10n_util::GetStringUTF16(IDS_PROFILES_DICE_SYNC_PROMO);
+}
+
+std::u16string GetSyncPromoButtonLabel() {
+#if BUILDFLAG(ENABLE_DICE_SUPPORT)
+  if (base::FeatureList::IsEnabled(
+          switches::kEnableHistorySyncOptinExpansionPill)) {
+    return l10n_util::GetStringUTF16(IDS_PROFILE_MENU_SYNC_PROMO_BUTTON_LABEL);
+  }
+#endif
+  return l10n_util::GetStringUTF16(IDS_PROFILES_DICE_SIGNIN_BUTTON);
+}
+
+bool IsNewSyncPromoVariantEnabled() {
+#if BUILDFLAG(ENABLE_DICE_SUPPORT)
+  if (base::FeatureList::IsEnabled(
+          switches::kEnableHistorySyncOptinExpansionPill) &&
+      switches::kHistorySyncOptinExpansionPillOption.Get() ==
+          switches::HistorySyncOptinExpansionPillOption::
+              kBrowseAcrossDevicesNewProfileMenuPromoVariant) {
+    return true;
+  }
+#endif
+  return false;
+}
+
 }  // namespace
 
 // static
@@ -365,6 +417,14 @@ void ProfileMenuView::OnSigninButtonClicked(
     return;
   }
   GetWidget()->CloseWithReason(views::Widget::ClosedReason::kUnspecified);
+
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+  // TODO(crbug.com/404807488): Update the button and the dialog strings.
+  if (base::FeatureList::IsEnabled(switches::kEnableHistorySyncOptin)) {
+    browser()->signin_view_controller()->ShowModalHistorySyncOptInDialog();
+    return;
+  }
+#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 
   if (button_type == ActionableItem::kSigninReauthButton) {
     // The reauth button does not trigger a sync opt in.
@@ -641,6 +701,10 @@ ProfileMenuView::GetIdentitySectionParams(const ProfileAttributesEntry& entry) {
             IDS_PROFILE_MENU_SIGNIN_PROMO_DESCRIPTION);
         params.button_text =
             l10n_util::GetStringUTF16(IDS_PROFILE_MENU_SIGNIN_PROMO_BUTTON);
+        signin_metrics::LogSignInOffered(
+            explicit_signin_access_point_.value_or(access_point),
+            signin_metrics::PromoAction::
+                PROMO_ACTION_NEW_ACCOUNT_NO_EXISTING_ACCOUNT);
       }
       break;
     case signin_util::SignedInState::kWebOnlySignedIn: {
@@ -678,12 +742,22 @@ ProfileMenuView::GetIdentitySectionParams(const ProfileAttributesEntry& entry) {
               account_image,
               /*width=*/kIdentityImageSizeForButton,
               /*height=*/kIdentityImageSizeForButton, profiles::SHAPE_CIRCLE));
+      signin_metrics::LogSignInOffered(
+          explicit_signin_access_point_.value_or(access_point),
+          signin_metrics::PromoAction::PROMO_ACTION_WITH_DEFAULT);
       break;
     }
     case signin_util::SignedInState::kSignedIn:
-      params.subtitle = l10n_util::GetStringUTF16(IDS_PROFILES_DICE_SYNC_PROMO);
-      params.button_text =
-          l10n_util::GetStringUTF16(IDS_PROFILES_DICE_SIGNIN_BUTTON);
+      if (IsNewSyncPromoVariantEnabled()) {
+        // In the new variant, the sync button is displayed as the feature
+        // button.
+        params.subtitle = base::UTF8ToUTF16(primary_account_info.email);
+        break;
+      }
+      params.subtitle = GetSyncPromoDescription(primary_account_info.email);
+      params.button_text = GetSyncPromoButtonLabel();
+      signin_metrics::LogSyncOptInOffered(
+          explicit_signin_access_point_.value_or(access_point));
       break;
     case signin_util::SignedInState::kSyncing:
       // No button.
@@ -704,12 +778,10 @@ ProfileMenuView::GetIdentitySectionParams(const ProfileAttributesEntry& entry) {
   }
 
   if (!params.button_text.empty()) {
-    if (explicit_signin_access_point_.has_value()) {
-      access_point = *explicit_signin_access_point_;
-    }
     params.button_action = base::BindRepeating(
         &ProfileMenuView::OnSigninButtonClicked, base::Unretained(this),
-        account_info_for_signin_action, button_type, access_point);
+        account_info_for_signin_action, button_type,
+        explicit_signin_access_point_.value_or(access_point));
   }
 
   return params;
@@ -726,6 +798,24 @@ void ProfileMenuView::BuildIdentityWithCallToAction() {
     return;
   }
   SetProfileIdentityWithCallToAction(GetIdentitySectionParams(*entry));
+}
+
+void ProfileMenuView::BuildHistorySyncOptInButton() {
+  CHECK(!browser()->profile()->IsGuestSession());
+  signin_metrics::AccessPoint access_point =
+      explicit_signin_access_point_.value_or(
+          signin_metrics::AccessPoint::kAvatarBubbleSignIn);
+  signin_metrics::LogSyncOptInOffered(access_point);
+  AddFeatureButton(
+      l10n_util::GetStringUTF16(IDS_PROFILE_MENU_SYNC_PROMO_ROW_BUTTON_LABEL),
+      base::BindRepeating(
+          &ProfileMenuView::OnSigninButtonClicked, base::Unretained(this),
+          IdentityManagerFactory::GetForProfile(browser()->profile())
+              ->GetPrimaryAccountInfo(signin::ConsentLevel::kSignin),
+          ActionableItem::kHistorySyncOptInButton, access_point),
+      kDevicesChromeRefreshIcon, /*icon_to_image_ratio=*/1.0f,
+      kColorProfileMenuSyncPromoButtonBackground,
+      /*add_vertical_margin=*/true);
 }
 
 void ProfileMenuView::BuildAutofillSettingsButton() {
@@ -904,6 +994,11 @@ void ProfileMenuView::MaybeBuildSignoutButton() {
 
 void ProfileMenuView::BuildFeatureButtons() {
   CHECK(!browser()->profile()->IsGuestSession());
+  if (signin_util::GetSignedInState(IdentityManagerFactory::GetForProfile(
+          browser()->profile())) == signin_util::SignedInState::kSignedIn &&
+      IsNewSyncPromoVariantEnabled()) {
+    BuildHistorySyncOptInButton();
+  }
   BuildAutofillSettingsButton();
   MaybeBuildManageGoogleAccountButton();
   BuildCustomizeProfileButton();

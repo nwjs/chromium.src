@@ -243,7 +243,13 @@ IN_PROC_BROWSER_TEST_F(ManagedUiTest,
 // On ChromeOS we don't display the management UI for enterprise or supervised
 // users.
 #if !BUILDFLAG(IS_CHROMEOS)
-IN_PROC_BROWSER_TEST_F(ManagedUiTest, GetManagedUiIconEnterprise) {
+// TODO(https://crbug.com/410751413): Test flaky on Windows.
+#if BUILDFLAG(IS_WIN)
+#define MAYBE_GetManagedUiIconEnterprise DISABLED_GetManagedUiIconEnterprise
+#else
+#define MAYBE_GetManagedUiIconEnterprise GetManagedUiIconEnterprise
+#endif
+IN_PROC_BROWSER_TEST_F(ManagedUiTest, MAYBE_GetManagedUiIconEnterprise) {
   // Simulate a managed device.
   AddEnterpriseManagedPolicies();
   policy::ScopedManagementServiceOverrideForTesting browser_management(
@@ -285,7 +291,16 @@ IN_PROC_BROWSER_TEST_F(ManagedUiTest, MAYBE_GetManagedUiIconSupervised) {
             GetManagedUiIcon(profile.get()).name);
 }
 
-IN_PROC_BROWSER_TEST_F(ManagedUiTest, GetManagedUiMenuLinkUrlEnterprise) {
+// TODO(https://crbug.com/410751413): Deleting temporary directories using
+// test_file_util is flaky on Windows.
+#if BUILDFLAG(IS_WIN)
+#define MAYBE_GetManagedUiMenuLinkUrlEnterprise \
+  DISABLED_GetManagedUiMenuLinkUrlEnterprise
+#else
+#define MAYBE_GetManagedUiMenuLinkUrlEnterprise \
+  GetManagedUiMenuLinkUrlEnterprise
+#endif
+IN_PROC_BROWSER_TEST_F(ManagedUiTest, MAYBE_GetManagedUiMenuLinkUrlEnterprise) {
   // Simulate a managed device.
   AddEnterpriseManagedPolicies();
   policy::ScopedManagementServiceOverrideForTesting browser_management(

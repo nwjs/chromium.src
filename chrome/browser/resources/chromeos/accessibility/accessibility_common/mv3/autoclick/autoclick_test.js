@@ -13,7 +13,7 @@ AutoclickE2ETest = class extends E2ETestBase {
     this.mockAccessibilityPrivate = new MockAccessibilityPrivate();
     chrome.accessibilityPrivate = this.mockAccessibilityPrivate;
 
-    window.RoleType = chrome.automation.RoleType;
+    globalThis.RoleType = chrome.automation.RoleType;
 
     // Re-initialize AccessibilityCommon with mock AccessibilityPrivate API.
     accessibilityCommon = new AccessibilityCommon();
@@ -27,6 +27,8 @@ AutoclickE2ETest = class extends E2ETestBase {
     });
 
     await super.setUpDeferred();
+
+    await this.waitForBoundsListener();
   }
 
   /** @override */
@@ -38,6 +40,7 @@ AutoclickE2ETest = class extends E2ETestBase {
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
 #include "chrome/browser/ash/accessibility/accessibility_manager.h"
+#include "ui/accessibility/accessibility_features.h"
     `);
   }
 
@@ -52,6 +55,11 @@ AutoclickE2ETest = class extends E2ETestBase {
     super.testGenPreambleCommon('kAccessibilityCommonExtensionId');
   }
 
+  /** @override */
+  get featureList() {
+    return {enabled: ['features::kAccessibilityManifestV3AccessibilityCommon']};
+  }
+
   /**
    * Asserts that two rects are the same.
    * @param {!chrome.accessibilityPrivate.ScreenRect} first
@@ -59,6 +67,24 @@ AutoclickE2ETest = class extends E2ETestBase {
    */
   assertSameRect(first, second) {
     assertTrue(RectUtil.equal(first, second));
+  }
+
+  async waitForBoundsListener() {
+    // The bounds listener is added during autoclick initialization, which can
+    // take non-trivial time in mv3.
+    await new Promise(resolve => {
+      if (this.mockAccessibilityPrivate.boundsListener_ !== null) {
+        resolve();
+        return;
+      }
+
+      const intervalId = setInterval(() => {
+        if (this.mockAccessibilityPrivate.boundsListener_ !== null) {
+          clearInterval(intervalId);
+          resolve();
+        }
+      }, 500);
+    });
   }
 };
 
@@ -118,12 +144,10 @@ AX_TEST_F('AutoclickE2ETest', 'RemovesAndAddsAutoclick', async function() {
   });
 
   // Toggle autoclick off and on, ensure it still works and no crashes.
-  await new Promise(resolve => {
-    chrome.accessibilityFeatures.autoclick.set({value: false}, resolve);
-  });
-  await new Promise(resolve => {
-    chrome.accessibilityFeatures.autoclick.set({value: true}, resolve);
-  });
+  accessibilityCommon.onAutoclickUpdated_({value: false});
+  accessibilityCommon.onAutoclickUpdated_({value: true});
+  this.waitForBoundsListener();
+
   const node =
       root.find({role: RoleType.STATIC_TEXT, attributes: {name: 'Cats rock!'}});
   await new Promise(resolve => {

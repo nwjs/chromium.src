@@ -16,6 +16,11 @@
 #include "base/files/file_util.h"
 #include "base/json/json_file_value_serializer.h"
 #include "base/json/json_reader.h"
+
+#if BUILDFLAG(IS_MAC)
+#include "base/mac/mac_util.h"
+#endif
+
 #include "base/memory/weak_ptr.h"
 #include "base/notreached.h"
 #include "base/path_service.h"
@@ -27,6 +32,7 @@
 #include "base/test/test_future.h"
 #include "base/threading/scoped_blocking_call.h"
 #include "base/threading/thread_restrictions.h"
+#include "base/types/cxx23_to_underlying.h"
 #include "base/types/expected.h"
 #include "build/build_config.h"
 #include "chrome/app/chrome_command_ids.h"
@@ -121,6 +127,8 @@ enum class LinkCapturing {
   kDisabled,
   kEnabledViaClientMode,
   kEnabledWithSelfLinkCapture,
+  kMinValue = kEnabled,
+  kMaxValue = kEnabledWithSelfLinkCapture
 };
 
 constexpr std::string_view ToParamString(LinkCapturing capturing) {
@@ -152,6 +160,7 @@ enum class AppUserDisplayMode {
   // Both apps are UserDisplayMode::kStandalone,  App B's manifest display mode
   // is 'tabbed', and the 'home' tab configuration is for `destination.html`.
   kAppAStandaloneAppBTabbedWithHome,
+  kMinValue = kBothBrowser,
   kMaxValue = kAppAStandaloneAppBTabbedWithHome,
 };
 
@@ -333,9 +342,7 @@ enum class ClientModeCombination {
   kBothNavigateExisting,
   kBothFocusExisting,
   kAppANavigateExistingAppBFocusExisting,
-#if !BUILDFLAG(IS_CHROMEOS)
   kNotSpecified,
-#endif  // !BUILDFLAG(IS_CHROMEOS)
 };
 
 std::string ToParamString(ClientModeCombination client_mode_combo) {
@@ -350,10 +357,8 @@ std::string ToParamString(ClientModeCombination client_mode_combo) {
       return "NavigateExisting";
     case ClientModeCombination::kAppANavigateExistingAppBFocusExisting:
       return "AppANavigateExistingAppBFocusExisting";
-#if !BUILDFLAG(IS_CHROMEOS)
     case ClientModeCombination::kNotSpecified:
       return "NotSpecifiedInManifest";
-#endif  // !BUILDFLAG(IS_CHROMEOS)
   }
 }
 
@@ -1470,6 +1475,9 @@ class NavCaptureParameterizedBrowserTest
   // no longer exist in code but still exist in the expectations json file.
   // Additionally if this test is run with the --rebaseline-link-capturing-test
   // flag any left-over expectations will be cleaned up.
+  // If this test is run with the --log-disabled-tests flag, the test will log
+  // the names of all the tests in the expectations file that are currently
+  // disabled.
   void PerformTestCleanupIfNeeded(const ExpectationsFileConfig& file_config) {
     InitializeTestExpectations(file_config);
 
@@ -1510,11 +1518,22 @@ class NavCaptureParameterizedBrowserTest
       lock = LockExpectationsFile(file_config);
     }
 
+    const bool should_log_disabled_tests =
+        base::CommandLine::ForCurrentProcess()->HasSwitch("log-disabled-tests");
+
     base::Value::Dict& expectations = *test_expectations().EnsureDict("tests");
     std::vector<std::string> tests_to_remove;
-    for (const auto [shortened_name, _] : expectations) {
+    for (const auto [shortened_name, expectation] : expectations) {
       if (!shortened_test_cases.contains(shortened_name)) {
         tests_to_remove.push_back(shortened_name);
+      } else if (base::Value::Dict* d = expectation.GetIfDict()) {
+        if (should_log_disabled_tests &&
+            (d->FindBool("disabled").value_or(false) ||
+             d->FindString("disabled"))) {
+          LOG(INFO) << "Test " << shortened_name << " is disabled in "
+                    << GetExpectationsFile(file_config).BaseName() << ": "
+                    << *d->Find("disabled");
+        }
       }
     }
     if (ShouldRebaseline()) {
@@ -1533,6 +1552,20 @@ class NavCaptureParameterizedBrowserTest
       EXPECT_THAT(tests_to_remove, testing::ElementsAre())
           << "Run this test with --rebaseline-link-capturing-test to clean "
              "this up.";
+    }
+  }
+
+  void PerformTestCleanupForAllFilesIfNeeded() {
+    for (auto display_mode = base::to_underlying(AppUserDisplayMode::kMinValue);
+         display_mode <= base::to_underlying(AppUserDisplayMode::kMaxValue);
+         ++display_mode) {
+      for (auto link_capturing = base::to_underlying(LinkCapturing::kMinValue);
+           link_capturing <= base::to_underlying(LinkCapturing::kMaxValue);
+           ++link_capturing) {
+        PerformTestCleanupIfNeeded(
+            {static_cast<AppUserDisplayMode>(display_mode),
+             static_cast<LinkCapturing>(link_capturing)});
+      }
     }
   }
 
@@ -1557,6 +1590,11 @@ class NavCaptureParameterizedBrowserTest
 #if !BUILDFLAG(IS_CHROMEOS)
     if (GetLinkCapturing() == LinkCapturing::kEnabledWithSelfLinkCapture) {
       GTEST_SKIP() << "The existing-frame feature flag is ChromeOS specific";
+    }
+#else
+    if (GetClientModeCombination() == ClientModeCombination::kNotSpecified) {
+      GTEST_SKIP() << "Unspecified client mode support is not yet implemented "
+                      "for ChromeOS";
     }
 #endif  // !BUILDFLAG(IS_CHROMEOS)
 
@@ -1601,10 +1639,8 @@ class NavCaptureParameterizedBrowserTest
         client_mode_b =
             blink::mojom::ManifestLaunchHandler_ClientMode::kFocusExisting;
         break;
-#if !BUILDFLAG(IS_CHROMEOS)
       case ClientModeCombination::kNotSpecified:
         break;
-#endif  // !BUILDFLAG(IS_CHROMEOS)
     }
 
     const webapps::AppId app_a = InstallTestWebApp(
@@ -1735,6 +1771,13 @@ class NavCaptureParameterizedBrowserTest
       return false;
     }
 
+#if BUILDFLAG(IS_MAC)
+    //TODO(crbug.com/415092020): remove after Mac12 flakiness is fixed.
+    if (base::mac::MacOSMajorVersion() == 12) {
+      return true;
+    }
+#endif
+
     testing::TestParamInfo<LinkCaptureTestParam> param(GetParam(), 0);
     const base::Value::Dict& test_case = GetTestCaseDataFromParam();
 
@@ -1856,43 +1899,7 @@ IN_PROC_BROWSER_TEST_P(NavCaptureParameterizedBrowserTest, VerifyNavCapture) {
 
 IN_PROC_BROWSER_TEST_F(NavCaptureParameterizedBrowserTest,
                        CleanupExpectations) {
-  PerformTestCleanupIfNeeded(
-      {AppUserDisplayMode::kBothBrowser, LinkCapturing::kEnabled});
-  PerformTestCleanupIfNeeded(
-      {AppUserDisplayMode::kBothStandalone, LinkCapturing::kEnabled});
-  PerformTestCleanupIfNeeded({AppUserDisplayMode::kAppAStandaloneAppBBrowser,
-                              LinkCapturing::kEnabled});
-  PerformTestCleanupIfNeeded({AppUserDisplayMode::kAppAStandaloneAppBBrowser,
-                              LinkCapturing::kEnabled});
-  PerformTestCleanupIfNeeded(
-      {AppUserDisplayMode::kAppAStandaloneAppBTabbed, LinkCapturing::kEnabled});
-  PerformTestCleanupIfNeeded(
-      {AppUserDisplayMode::kAppAStandaloneAppBTabbedWithHome,
-       LinkCapturing::kEnabled});
-
-  PerformTestCleanupIfNeeded({AppUserDisplayMode::kBothBrowser,
-                              LinkCapturing::kEnabledWithSelfLinkCapture});
-  PerformTestCleanupIfNeeded({AppUserDisplayMode::kBothStandalone,
-                              LinkCapturing::kEnabledWithSelfLinkCapture});
-  PerformTestCleanupIfNeeded({AppUserDisplayMode::kAppAStandaloneAppBBrowser,
-                              LinkCapturing::kEnabledWithSelfLinkCapture});
-  PerformTestCleanupIfNeeded({AppUserDisplayMode::kAppAStandaloneAppBTabbed,
-                              LinkCapturing::kEnabledWithSelfLinkCapture});
-  PerformTestCleanupIfNeeded(
-      {AppUserDisplayMode::kAppAStandaloneAppBTabbedWithHome,
-       LinkCapturing::kEnabledWithSelfLinkCapture});
-
-  PerformTestCleanupIfNeeded(
-      {AppUserDisplayMode::kBothBrowser, LinkCapturing::kDisabled});
-  PerformTestCleanupIfNeeded(
-      {AppUserDisplayMode::kBothStandalone, LinkCapturing::kDisabled});
-  PerformTestCleanupIfNeeded({AppUserDisplayMode::kAppAStandaloneAppBBrowser,
-                              LinkCapturing::kDisabled});
-  PerformTestCleanupIfNeeded({AppUserDisplayMode::kAppAStandaloneAppBTabbed,
-                              LinkCapturing::kDisabled});
-  PerformTestCleanupIfNeeded(
-      {AppUserDisplayMode::kAppAStandaloneAppBTabbedWithHome,
-       LinkCapturing::kDisabled});
+  PerformTestCleanupForAllFilesIfNeeded();
 }
 
 std::string LinkCaptureTestParamToString(
@@ -2386,7 +2393,6 @@ INSTANTIATE_TEST_SUITE_P(
                      testing::Values(NavigationTarget::kBlank)),
     LinkCaptureTestParamToString);
 
-#if !BUILDFLAG(IS_CHROMEOS)
 // kEnabledViaClientMode should not capture when no client mode is specified.
 INSTANTIATE_TEST_SUITE_P(
     ClientModeEnabledNoCapture,
@@ -2402,7 +2408,6 @@ INSTANTIATE_TEST_SUITE_P(
                      testing::Values(OpenerMode::kNoOpener),
                      testing::Values(NavigationTarget::kBlank)),
     LinkCaptureTestParamToString);
-#endif  // !BUILDFLAG(IS_CHROMEOS)
 
 // kEnabledViaClientMode should capture when the client modes are specified
 // (including `auto`).
@@ -2497,41 +2502,7 @@ IN_PROC_BROWSER_TEST_P(NavCaptureTestWithAppBLaunched, VerifyNavCapture) {
 }
 
 IN_PROC_BROWSER_TEST_F(NavCaptureTestWithAppBLaunched, CleanupExpectations) {
-  PerformTestCleanupIfNeeded(
-      {AppUserDisplayMode::kBothBrowser, LinkCapturing::kEnabled});
-  PerformTestCleanupIfNeeded(
-      {AppUserDisplayMode::kBothStandalone, LinkCapturing::kEnabled});
-  PerformTestCleanupIfNeeded({AppUserDisplayMode::kAppAStandaloneAppBBrowser,
-                              LinkCapturing::kEnabled});
-  PerformTestCleanupIfNeeded(
-      {AppUserDisplayMode::kAppAStandaloneAppBTabbed, LinkCapturing::kEnabled});
-  PerformTestCleanupIfNeeded(
-      {AppUserDisplayMode::kAppAStandaloneAppBTabbedWithHome,
-       LinkCapturing::kEnabled});
-
-  PerformTestCleanupIfNeeded({AppUserDisplayMode::kBothBrowser,
-                              LinkCapturing::kEnabledWithSelfLinkCapture});
-  PerformTestCleanupIfNeeded({AppUserDisplayMode::kBothStandalone,
-                              LinkCapturing::kEnabledWithSelfLinkCapture});
-  PerformTestCleanupIfNeeded({AppUserDisplayMode::kAppAStandaloneAppBBrowser,
-                              LinkCapturing::kEnabledWithSelfLinkCapture});
-  PerformTestCleanupIfNeeded({AppUserDisplayMode::kAppAStandaloneAppBTabbed,
-                              LinkCapturing::kEnabledWithSelfLinkCapture});
-  PerformTestCleanupIfNeeded(
-      {AppUserDisplayMode::kAppAStandaloneAppBTabbedWithHome,
-       LinkCapturing::kEnabledWithSelfLinkCapture});
-
-  PerformTestCleanupIfNeeded(
-      {AppUserDisplayMode::kBothBrowser, LinkCapturing::kDisabled});
-  PerformTestCleanupIfNeeded(
-      {AppUserDisplayMode::kBothStandalone, LinkCapturing::kDisabled});
-  PerformTestCleanupIfNeeded({AppUserDisplayMode::kAppAStandaloneAppBBrowser,
-                              LinkCapturing::kDisabled});
-  PerformTestCleanupIfNeeded({AppUserDisplayMode::kAppAStandaloneAppBTabbed,
-                              LinkCapturing::kDisabled});
-  PerformTestCleanupIfNeeded(
-      {AppUserDisplayMode::kAppAStandaloneAppBTabbedWithHome,
-       LinkCapturing::kDisabled});
+  PerformTestCleanupForAllFilesIfNeeded();
 }
 
 // TODO(crbug.com/373495871): Fix flaky tests for kNavigateExisting and enable
@@ -2705,41 +2676,7 @@ IN_PROC_BROWSER_TEST_P(NavCaptureTestWithBLaunchedAndBrowserTab,
 
 IN_PROC_BROWSER_TEST_F(NavCaptureTestWithBLaunchedAndBrowserTab,
                        CleanupExpectations) {
-  PerformTestCleanupIfNeeded(
-      {AppUserDisplayMode::kBothBrowser, LinkCapturing::kEnabled});
-  PerformTestCleanupIfNeeded(
-      {AppUserDisplayMode::kBothStandalone, LinkCapturing::kEnabled});
-  PerformTestCleanupIfNeeded({AppUserDisplayMode::kAppAStandaloneAppBBrowser,
-                              LinkCapturing::kEnabled});
-  PerformTestCleanupIfNeeded(
-      {AppUserDisplayMode::kAppAStandaloneAppBTabbed, LinkCapturing::kEnabled});
-  PerformTestCleanupIfNeeded(
-      {AppUserDisplayMode::kAppAStandaloneAppBTabbedWithHome,
-       LinkCapturing::kEnabled});
-
-  PerformTestCleanupIfNeeded({AppUserDisplayMode::kBothBrowser,
-                              LinkCapturing::kEnabledWithSelfLinkCapture});
-  PerformTestCleanupIfNeeded({AppUserDisplayMode::kBothStandalone,
-                              LinkCapturing::kEnabledWithSelfLinkCapture});
-  PerformTestCleanupIfNeeded({AppUserDisplayMode::kAppAStandaloneAppBBrowser,
-                              LinkCapturing::kEnabledWithSelfLinkCapture});
-  PerformTestCleanupIfNeeded({AppUserDisplayMode::kAppAStandaloneAppBTabbed,
-                              LinkCapturing::kEnabledWithSelfLinkCapture});
-  PerformTestCleanupIfNeeded(
-      {AppUserDisplayMode::kAppAStandaloneAppBTabbedWithHome,
-       LinkCapturing::kEnabledWithSelfLinkCapture});
-
-  PerformTestCleanupIfNeeded(
-      {AppUserDisplayMode::kBothBrowser, LinkCapturing::kDisabled});
-  PerformTestCleanupIfNeeded(
-      {AppUserDisplayMode::kBothStandalone, LinkCapturing::kDisabled});
-  PerformTestCleanupIfNeeded({AppUserDisplayMode::kAppAStandaloneAppBBrowser,
-                              LinkCapturing::kDisabled});
-  PerformTestCleanupIfNeeded({AppUserDisplayMode::kAppAStandaloneAppBTabbed,
-                              LinkCapturing::kDisabled});
-  PerformTestCleanupIfNeeded(
-      {AppUserDisplayMode::kAppAStandaloneAppBTabbedWithHome,
-       LinkCapturing::kDisabled});
+  PerformTestCleanupForAllFilesIfNeeded();
 }
 
 INSTANTIATE_TEST_SUITE_P(
@@ -2798,41 +2735,7 @@ IN_PROC_BROWSER_TEST_P(NavigationCapturingTestWithExtraBrowserTabB,
 
 IN_PROC_BROWSER_TEST_F(NavigationCapturingTestWithExtraBrowserTabB,
                        CleanupExpectations) {
-  PerformTestCleanupIfNeeded(
-      {AppUserDisplayMode::kBothBrowser, LinkCapturing::kEnabled});
-  PerformTestCleanupIfNeeded(
-      {AppUserDisplayMode::kBothStandalone, LinkCapturing::kEnabled});
-  PerformTestCleanupIfNeeded({AppUserDisplayMode::kAppAStandaloneAppBBrowser,
-                              LinkCapturing::kEnabled});
-  PerformTestCleanupIfNeeded(
-      {AppUserDisplayMode::kAppAStandaloneAppBTabbed, LinkCapturing::kEnabled});
-  PerformTestCleanupIfNeeded(
-      {AppUserDisplayMode::kAppAStandaloneAppBTabbedWithHome,
-       LinkCapturing::kEnabled});
-
-  PerformTestCleanupIfNeeded({AppUserDisplayMode::kBothBrowser,
-                              LinkCapturing::kEnabledWithSelfLinkCapture});
-  PerformTestCleanupIfNeeded({AppUserDisplayMode::kBothStandalone,
-                              LinkCapturing::kEnabledWithSelfLinkCapture});
-  PerformTestCleanupIfNeeded({AppUserDisplayMode::kAppAStandaloneAppBBrowser,
-                              LinkCapturing::kEnabledWithSelfLinkCapture});
-  PerformTestCleanupIfNeeded({AppUserDisplayMode::kAppAStandaloneAppBTabbed,
-                              LinkCapturing::kEnabledWithSelfLinkCapture});
-  PerformTestCleanupIfNeeded(
-      {AppUserDisplayMode::kAppAStandaloneAppBTabbedWithHome,
-       LinkCapturing::kEnabledWithSelfLinkCapture});
-
-  PerformTestCleanupIfNeeded(
-      {AppUserDisplayMode::kBothBrowser, LinkCapturing::kDisabled});
-  PerformTestCleanupIfNeeded(
-      {AppUserDisplayMode::kBothStandalone, LinkCapturing::kDisabled});
-  PerformTestCleanupIfNeeded({AppUserDisplayMode::kAppAStandaloneAppBBrowser,
-                              LinkCapturing::kDisabled});
-  PerformTestCleanupIfNeeded({AppUserDisplayMode::kAppAStandaloneAppBTabbed,
-                              LinkCapturing::kDisabled});
-  PerformTestCleanupIfNeeded(
-      {AppUserDisplayMode::kAppAStandaloneAppBTabbedWithHome,
-       LinkCapturing::kDisabled});
+  PerformTestCleanupForAllFilesIfNeeded();
 }
 
 INSTANTIATE_TEST_SUITE_P(
@@ -2885,41 +2788,7 @@ IN_PROC_BROWSER_TEST_P(NavigationCapturingTestNoBrowser, VerifyNavCapture) {
 }
 
 IN_PROC_BROWSER_TEST_F(NavigationCapturingTestNoBrowser, CleanupExpectations) {
-  PerformTestCleanupIfNeeded(
-      {AppUserDisplayMode::kBothBrowser, LinkCapturing::kEnabled});
-  PerformTestCleanupIfNeeded(
-      {AppUserDisplayMode::kBothStandalone, LinkCapturing::kEnabled});
-  PerformTestCleanupIfNeeded({AppUserDisplayMode::kAppAStandaloneAppBBrowser,
-                              LinkCapturing::kEnabled});
-  PerformTestCleanupIfNeeded(
-      {AppUserDisplayMode::kAppAStandaloneAppBTabbed, LinkCapturing::kEnabled});
-  PerformTestCleanupIfNeeded(
-      {AppUserDisplayMode::kAppAStandaloneAppBTabbedWithHome,
-       LinkCapturing::kEnabled});
-
-  PerformTestCleanupIfNeeded({AppUserDisplayMode::kBothBrowser,
-                              LinkCapturing::kEnabledWithSelfLinkCapture});
-  PerformTestCleanupIfNeeded({AppUserDisplayMode::kBothStandalone,
-                              LinkCapturing::kEnabledWithSelfLinkCapture});
-  PerformTestCleanupIfNeeded({AppUserDisplayMode::kAppAStandaloneAppBBrowser,
-                              LinkCapturing::kEnabledWithSelfLinkCapture});
-  PerformTestCleanupIfNeeded({AppUserDisplayMode::kAppAStandaloneAppBTabbed,
-                              LinkCapturing::kEnabledWithSelfLinkCapture});
-  PerformTestCleanupIfNeeded(
-      {AppUserDisplayMode::kAppAStandaloneAppBTabbedWithHome,
-       LinkCapturing::kEnabledWithSelfLinkCapture});
-
-  PerformTestCleanupIfNeeded(
-      {AppUserDisplayMode::kBothBrowser, LinkCapturing::kDisabled});
-  PerformTestCleanupIfNeeded(
-      {AppUserDisplayMode::kBothStandalone, LinkCapturing::kDisabled});
-  PerformTestCleanupIfNeeded({AppUserDisplayMode::kAppAStandaloneAppBBrowser,
-                              LinkCapturing::kDisabled});
-  PerformTestCleanupIfNeeded({AppUserDisplayMode::kAppAStandaloneAppBTabbed,
-                              LinkCapturing::kDisabled});
-  PerformTestCleanupIfNeeded(
-      {AppUserDisplayMode::kAppAStandaloneAppBTabbedWithHome,
-       LinkCapturing::kDisabled});
+  PerformTestCleanupForAllFilesIfNeeded();
 }
 
 INSTANTIATE_TEST_SUITE_P(
@@ -2990,41 +2859,7 @@ IN_PROC_BROWSER_TEST_P(NavigationCapturingTestWithAppBInNewBrowserWindow,
 
 IN_PROC_BROWSER_TEST_F(NavigationCapturingTestWithAppBInNewBrowserWindow,
                        CleanupExpectations) {
-  PerformTestCleanupIfNeeded(
-      {AppUserDisplayMode::kBothBrowser, LinkCapturing::kEnabled});
-  PerformTestCleanupIfNeeded(
-      {AppUserDisplayMode::kBothStandalone, LinkCapturing::kEnabled});
-  PerformTestCleanupIfNeeded({AppUserDisplayMode::kAppAStandaloneAppBBrowser,
-                              LinkCapturing::kEnabled});
-  PerformTestCleanupIfNeeded(
-      {AppUserDisplayMode::kAppAStandaloneAppBTabbed, LinkCapturing::kEnabled});
-  PerformTestCleanupIfNeeded(
-      {AppUserDisplayMode::kAppAStandaloneAppBTabbedWithHome,
-       LinkCapturing::kEnabled});
-
-  PerformTestCleanupIfNeeded({AppUserDisplayMode::kBothBrowser,
-                              LinkCapturing::kEnabledWithSelfLinkCapture});
-  PerformTestCleanupIfNeeded({AppUserDisplayMode::kBothStandalone,
-                              LinkCapturing::kEnabledWithSelfLinkCapture});
-  PerformTestCleanupIfNeeded({AppUserDisplayMode::kAppAStandaloneAppBBrowser,
-                              LinkCapturing::kEnabledWithSelfLinkCapture});
-  PerformTestCleanupIfNeeded({AppUserDisplayMode::kAppAStandaloneAppBTabbed,
-                              LinkCapturing::kEnabledWithSelfLinkCapture});
-  PerformTestCleanupIfNeeded(
-      {AppUserDisplayMode::kAppAStandaloneAppBTabbedWithHome,
-       LinkCapturing::kEnabledWithSelfLinkCapture});
-
-  PerformTestCleanupIfNeeded(
-      {AppUserDisplayMode::kBothBrowser, LinkCapturing::kDisabled});
-  PerformTestCleanupIfNeeded(
-      {AppUserDisplayMode::kBothStandalone, LinkCapturing::kDisabled});
-  PerformTestCleanupIfNeeded({AppUserDisplayMode::kAppAStandaloneAppBBrowser,
-                              LinkCapturing::kDisabled});
-  PerformTestCleanupIfNeeded({AppUserDisplayMode::kAppAStandaloneAppBTabbed,
-                              LinkCapturing::kDisabled});
-  PerformTestCleanupIfNeeded(
-      {AppUserDisplayMode::kAppAStandaloneAppBTabbedWithHome,
-       LinkCapturing::kDisabled});
+  PerformTestCleanupForAllFilesIfNeeded();
 }
 
 INSTANTIATE_TEST_SUITE_P(

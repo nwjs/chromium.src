@@ -2,11 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifdef UNSAFE_BUFFERS_BUILD
-// TODO(crbug.com/351564777): Remove this and convert code to safer constructs.
-#pragma allow_unsafe_buffers
-#endif
-
 #include "services/network/p2p/socket_udp.h"
 
 #include <stdint.h>
@@ -20,17 +15,22 @@
 #include "base/functional/bind.h"
 #include "base/memory/raw_ptr.h"
 #include "base/notreached.h"
+#include "base/numerics/safe_conversions.h"
 #include "base/run_loop.h"
+#include "base/test/run_until.h"
+#include "base/test/scoped_feature_list.h"
 #include "base/test/task_environment.h"
 #include "base/time/time.h"
 #include "base/unguessable_token.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
 #include "net/base/completion_once_callback.h"
+#include "net/base/features.h"
 #include "net/base/io_buffer.h"
 #include "net/base/ip_endpoint.h"
 #include "net/base/net_errors.h"
 #include "net/base/network_anonymization_key.h"
+#include "net/base/port_util.h"
 #include "net/log/net_log_with_source.h"
 #include "net/socket/datagram_server_socket.h"
 #include "net/traffic_annotation/network_traffic_annotation_test_helper.h"
@@ -119,14 +119,15 @@ class FakeDatagramServerSocket : public net::DatagramServerSocket {
     CHECK(recv_callback_.is_null());
     if (incoming_packets_.size() > 0) {
       scoped_refptr<net::IOBuffer> buffer(buf);
-      int size = std::min(
-          static_cast<int>(std::get<1>(incoming_packets_.front()).size()),
-          buf_len);
-      memcpy(buffer->data(), &*(std::get<1>(incoming_packets_.front())).begin(),
-             size);
-      *address = std::get<0>(incoming_packets_.front());
-      std::optional<uint64_t> received_time =
-          std::get<2>(incoming_packets_.front());
+      const UDPPacket& front_packet = incoming_packets_.front();
+      const std::vector<uint8_t>& front_packet_data = std::get<1>(front_packet);
+
+      size_t size = std::min(front_packet_data.size(),
+                             base::checked_cast<size_t>(buf_len));
+      buffer->span().copy_prefix_from(
+          base::span(front_packet_data).first(size));
+      *address = std::get<0>(front_packet);
+      std::optional<uint64_t> received_time = std::get<2>(front_packet);
       if (received_time) {
         fake_clock_ptr_->SetTimeNanos(*received_time);
       }
@@ -146,8 +147,11 @@ class FakeDatagramServerSocket : public net::DatagramServerSocket {
              const net::IPEndPoint& address,
              net::CompletionOnceCallback callback) override {
     scoped_refptr<net::IOBuffer> buffer(buf);
-    std::vector<uint8_t> data_vector(buffer->data(), buffer->data() + buf_len);
-    sent_packets_->push_back(UDPPacket(address, data_vector, std::nullopt));
+    base::span<const uint8_t> to_write =
+        buffer->first(base::checked_cast<size_t>(buf_len));
+    std::vector<uint8_t> data_vector(to_write.begin(), to_write.end());
+    sent_packets_->push_back(
+        UDPPacket(address, std::move(data_vector), std::nullopt));
     return buf_len;
   }
 
@@ -182,14 +186,14 @@ class FakeDatagramServerSocket : public net::DatagramServerSocket {
   void FireRecvCallback() {
     if (!recv_callback_.is_null()) {
       DCHECK(!incoming_packets_.empty());
-      int size = std::min(
-          recv_size_,
-          static_cast<int>(std::get<1>(incoming_packets_.front()).size()));
-      memcpy(recv_buffer_->data(),
-             &*std::get<1>(incoming_packets_.front()).begin(), size);
-      *recv_address_ = std::get<0>(incoming_packets_.front());
-      std::optional<uint64_t> received_time =
-          std::get<2>(incoming_packets_.front());
+      const UDPPacket& front_packet = incoming_packets_.front();
+      const auto& front_packet_data = std::get<1>(front_packet);
+      size_t size = std::min(base::checked_cast<size_t>(recv_size_),
+                             front_packet_data.size());
+      recv_buffer_->span().copy_prefix_from(
+          base::span(front_packet_data).first(size));
+      *recv_address_ = std::get<0>(front_packet);
+      std::optional<uint64_t> received_time = std::get<2>(front_packet);
       if (received_time) {
         fake_clock_ptr_->SetTimeNanos(*received_time);
       }
@@ -411,6 +415,50 @@ TEST_F(P2PSocketUdpTest, SendDataNoAuth) {
   base::RunLoop().RunUntilIdle();
 
   EXPECT_TRUE(fake_client_->connection_error());
+}
+
+TEST_F(P2PSocketUdpTest, SendRestrictedAddress) {
+  base::test::ScopedFeatureList feature_list;
+  int restricted_port = 12345;
+  net::IPEndPoint restricted_dest = ParseAddress("127.0.0.1", restricted_port);
+  feature_list.InitAndEnableFeatureWithParameters(
+      net::features::kRestrictAbusePortsOnLocalhost,
+      {{"localhost_restrict_ports", base::NumberToString(restricted_port)}});
+  net::ReloadLocalhostRestrictedPortsForTesting();
+  base::circular_deque<FakeDatagramServerSocket::UDPPacket> sent_packets;
+  std::vector<uint16_t> used_ports;
+  P2PSocketUdp::DatagramServerSocketFactory fake_socket_factory =
+      base::BindRepeating(&CreateFakeDatagramServerSocket, &sent_packets,
+                          &used_ports, &fake_clock_);
+  P2PMessageThrottler throttler;
+
+  mojo::PendingRemote<mojom::P2PSocketClient> socket_client;
+  mojo::PendingRemote<mojom::P2PSocket> socket;
+  auto socket_receiver = socket.InitWithNewPipeAndPassReceiver();
+
+  FakeSocketClient fake_client2(std::move(socket),
+                                socket_client.InitWithNewPipeAndPassReceiver());
+
+  auto socket_impl = std::make_unique<P2PSocketUdp>(
+      &socket_delegate_, std::move(socket_client), std::move(socket_receiver),
+      &throttler, TRAFFIC_ANNOTATION_FOR_TESTS, /*net_log=*/nullptr,
+      std::move(fake_socket_factory), std::nullopt);
+  net::IPEndPoint local_address = ParseAddress(kTestLocalIpAddress, kTestPort1);
+
+  auto* socket_impl_ptr = socket_impl.get();
+  socket_delegate_.ExpectDestruction(std::move(socket_impl));
+  socket_impl_ptr->Init(local_address, 0, 0,
+                        P2PHostAndIPEndPoint(std::string(), restricted_dest),
+                        net::NetworkAnonymizationKey());
+
+  std::vector<uint8_t> request_packet;
+  CreateStunRequest(&request_packet);
+  webrtc::AsyncSocketPacketOptions options;
+  socket_impl_ptr->Send(request_packet,
+                        P2PPacketInfo(restricted_dest, options, 0));
+
+  ASSERT_TRUE(
+      base::test::RunUntil([&]() { return fake_client2.connection_error(); }));
 }
 
 // Verify that we can send data after we've received STUN request

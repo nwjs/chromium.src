@@ -139,6 +139,11 @@ PaymentsAutofillClient::GetPaymentsNetworkInterface() {
   return nullptr;
 }
 
+MultipleRequestPaymentsNetworkInterface*
+PaymentsAutofillClient::GetMultipleRequestPaymentsNetworkInterface() {
+  return nullptr;
+}
+
 void PaymentsAutofillClient::ShowAutofillErrorDialog(
     AutofillErrorDialogContext context) {}
 
@@ -167,6 +172,10 @@ PaymentsAutofillClient::GetVirtualCardEnrollmentManager() {
 
 CreditCardOtpAuthenticator* PaymentsAutofillClient::GetOtpAuthenticator() {
   return nullptr;
+}
+
+bool PaymentsAutofillClient::IsRiskBasedAuthEffectivelyAvailable() const {
+  return false;
 }
 
 CreditCardRiskBasedAuthenticator*
@@ -213,7 +222,6 @@ const AutofillOfferManager* PaymentsAutofillClient::GetAutofillOfferManager()
 
 bool PaymentsAutofillClient::ShowTouchToFillCreditCard(
     base::WeakPtr<TouchToFillDelegate> delegate,
-    base::span<const CreditCard> cards_to_suggest,
     base::span<const Suggestion> suggestions) {
   return false;
 }
@@ -221,6 +229,12 @@ bool PaymentsAutofillClient::ShowTouchToFillCreditCard(
 bool PaymentsAutofillClient::ShowTouchToFillIban(
     base::WeakPtr<TouchToFillDelegate> delegate,
     base::span<const Iban> ibans_to_suggest) {
+  return false;
+}
+
+bool PaymentsAutofillClient::ShowTouchToFillLoyaltyCard(
+    base::WeakPtr<TouchToFillDelegate> delegate,
+    base::span<const LoyaltyCard> loyalty_cards_to_suggest) {
   return false;
 }
 
@@ -246,6 +260,10 @@ PaymentsAutofillClient::GetOrCreatePaymentsMandatoryReauthManager() {
 
 void PaymentsAutofillClient::ShowCreditCardSaveAndFillDialog() {}
 
+payments::SaveAndFillManager* PaymentsAutofillClient::GetSaveAndFillManager() {
+  return nullptr;
+}
+
 void PaymentsAutofillClient::ShowSelectBnplIssuerDialog(
     std::vector<BnplIssuerContext> bnpl_issuer_context,
     std::string app_locale,
@@ -254,7 +272,7 @@ void PaymentsAutofillClient::ShowSelectBnplIssuerDialog(
 
 void PaymentsAutofillClient::DismissSelectBnplIssuerDialog() {}
 
-bool PaymentsAutofillClient::IsTabModalPopup() const {
+bool PaymentsAutofillClient::IsTabModalPopupDeprecated() const {
   return false;
 }
 

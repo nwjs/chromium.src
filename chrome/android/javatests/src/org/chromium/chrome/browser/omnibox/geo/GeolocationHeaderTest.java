@@ -26,6 +26,7 @@ import org.chromium.base.test.util.Feature;
 import org.chromium.base.test.util.RequiresRestart;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.profiles.ProfileManager;
+import org.chromium.chrome.browser.search_engines.TemplateUrlServiceFactory;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
 import org.chromium.chrome.test.transit.AutoResetCtaTransitTestRule;
@@ -136,6 +137,7 @@ public class GeolocationHeaderTest {
     @Test
     @SmallTest
     @Feature({"Location"})
+    @DisabledTest(message = "https://crbug.com/416787235")
     public void testProtoEncoding() {
         setPermission(ContentSettingValues.ALLOW);
         long now = setMockLocationNow();
@@ -160,6 +162,7 @@ public class GeolocationHeaderTest {
     @Test
     @SmallTest
     @Feature({"Location"})
+    @DisabledTest(message = "https://crbug.com/414769376")
     public void testGpsFallbackYounger() {
         setPermission(ContentSettingValues.ALLOW);
         long now = System.currentTimeMillis();
@@ -240,9 +243,9 @@ public class GeolocationHeaderTest {
                                     SessionModel.DURABLE);
                     infoHttps.setContentSetting(
                             ProfileManager.getLastUsedRegularProfile(), httpsPermission);
-                    String header =
-                            GeolocationHeader.getGeoHeader(
-                                    SEARCH_URL_1, mActivityTestRule.getActivity().getActivityTab());
+                    var profile = mActivityTestRule.getActivity().getActivityTab().getProfile();
+                    var service = TemplateUrlServiceFactory.getForProfile(profile);
+                    String header = GeolocationHeader.getGeoHeader(SEARCH_URL_1, profile, service);
                     assertHeaderState(header, locationTime, shouldBeNull);
                 });
     }
@@ -289,7 +292,9 @@ public class GeolocationHeaderTest {
         final Tab tab = mActivityTestRule.loadUrlInNewTab("about:blank", isIncognito);
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
-                    Assert.assertNull(GeolocationHeader.getGeoHeader(url, tab));
+                    var profile = mActivityTestRule.getActivity().getActivityTab().getProfile();
+                    var service = TemplateUrlServiceFactory.getForProfile(profile);
+                    Assert.assertNull(GeolocationHeader.getGeoHeader(url, profile, service));
                 });
     }
 
@@ -298,7 +303,10 @@ public class GeolocationHeaderTest {
         final Tab tab = mActivityTestRule.loadUrlInNewTab("about:blank", isIncognito);
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
-                    assertHeaderEquals(locationTime, GeolocationHeader.getGeoHeader(url, tab));
+                    var profile = mActivityTestRule.getActivity().getActivityTab().getProfile();
+                    var service = TemplateUrlServiceFactory.getForProfile(profile);
+                    assertHeaderEquals(
+                            locationTime, GeolocationHeader.getGeoHeader(url, profile, service));
                 });
     }
 

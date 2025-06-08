@@ -39,7 +39,6 @@ import org.chromium.chrome.browser.data_sharing.ui.shared_image_tiles.SharedImag
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.share.ShareDelegate;
 import org.chromium.chrome.browser.tab.Tab;
-import org.chromium.chrome.browser.tab_ui.ActionConfirmationManager;
 import org.chromium.chrome.browser.tab_ui.RecyclerViewPosition;
 import org.chromium.chrome.browser.tab_ui.TabContentManager;
 import org.chromium.chrome.browser.tab_ui.TabContentManagerThumbnailProvider;
@@ -95,17 +94,17 @@ public class TabGridDialogCoordinator implements TabGridDialogMediator.DialogCon
     private final BottomSheetController mBottomSheetController;
     private final UndoBarThrottle mUndoBarThrottle;
     private @Nullable final TabLabeller mTabLabeller;
-    private ObservableSupplierImpl<Boolean> mShowingOrAnimationSupplier =
+    private final ObservableSupplierImpl<Boolean> mShowingOrAnimationSupplier =
             new ObservableSupplierImpl<>(false);
     private final ObservableSupplierImpl<Token> mCurrentTabGroupId = new ObservableSupplierImpl<>();
-    private TabContentManager mTabContentManager;
+    private final TabContentManager mTabContentManager;
     private TabListEditorCoordinator mTabListEditorCoordinator;
     private TabGridDialogView mDialogView;
     private ColorPickerCoordinator mColorPickerCoordinator;
-    private @Nullable SnackbarManager mSnackbarManager;
+    private final @Nullable SnackbarManager mSnackbarManager;
     private @Nullable SharedImageTilesCoordinator mSharedImageTilesCoordinator;
     private @Nullable AnchoredPopupWindow mColorIconPopupWindow;
-    private @Nullable TabSwitcherResetHandler mTabSwitcherResetHandler;
+    private final @Nullable TabSwitcherResetHandler mTabSwitcherResetHandler;
     private @Nullable Integer mUndoBarThrottleToken;
 
     TabGridDialogCoordinator(
@@ -120,7 +119,6 @@ public class TabGridDialogCoordinator implements TabGridDialogMediator.DialogCon
             @Nullable GridCardOnClickListenerProvider gridCardOnClickListenerProvider,
             @Nullable AnimationSourceViewProvider animationSourceViewProvider,
             ScrimManager scrimManager,
-            @Nullable ActionConfirmationManager actionConfirmationManager,
             @NonNull ModalDialogManager modalDialogManager,
             @Nullable DesktopWindowStateManager desktopWindowStateManager,
             UndoBarThrottle undoBarThrottle,
@@ -218,7 +216,6 @@ public class TabGridDialogCoordinator implements TabGridDialogMediator.DialogCon
                             dataSharingTabManager,
                             mComponentName,
                             showColorPickerPopupRunnable,
-                            actionConfirmationManager,
                             modalDialogManager,
                             desktopWindowStateManager,
                             tabBookmarkerSupplier,
@@ -237,7 +234,6 @@ public class TabGridDialogCoordinator implements TabGridDialogMediator.DialogCon
                             currentTabGroupModelFilterSupplier,
                             new TabContentManagerThumbnailProvider(tabContentManager),
                             /* actionOnRelatedTabs= */ false,
-                            actionConfirmationManager,
                             dataSharingTabManager,
                             gridCardOnClickListenerProvider,
                             mMediator.getTabGridDialogHandler(),

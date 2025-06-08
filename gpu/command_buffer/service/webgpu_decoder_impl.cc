@@ -22,7 +22,6 @@
 #include "base/memory/ptr_util.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/raw_ref.h"
-#include "base/not_fatal_until.h"
 #include "base/notreached.h"
 #include "base/numerics/checked_math.h"
 #include "base/power_monitor/power_monitor.h"
@@ -478,8 +477,8 @@ class WebGPUDecoderImpl final : public WebGPUDecoder {
       // Include list of formats this is tested to work with.
       // See gpu/command_buffer/tests/webgpu_mailbox_unittest.cc
       if (format != viz::SinglePlaneFormat::kBGRA_8888 &&
-// TODO(crbug.com/40823053): Support "rgba8unorm" canvas context format on Mac
-#if !BUILDFLAG(IS_MAC)
+// TODO(crbug.com/40823053): Support "rgba8unorm" canvas context format on Apple
+#if !BUILDFLAG(IS_APPLE)
           format != viz::SinglePlaneFormat::kRGBA_8888 &&
 #endif
           format != viz::SinglePlaneFormat::kRGBA_F16) {
@@ -1148,17 +1147,17 @@ WebGPUDecoderImpl::WebGPUDecoderImpl(
   force_webgpu_compat_ = gpu_preferences.force_webgpu_compat;
   require_enabled_toggles_ = gpu_preferences.enabled_dawn_features_list;
   require_disabled_toggles_ = gpu_preferences.disabled_dawn_features_list;
-  for (std::string f :
+  for (std::string& f :
        base::SplitString(features::kWebGPUEnabledToggles.Get(), ",",
                          base::TRIM_WHITESPACE, base::SPLIT_WANT_ALL)) {
     require_enabled_toggles_.push_back(std::move(f));
   }
-  for (std::string f :
+  for (std::string& f :
        base::SplitString(features::kWebGPUDisabledToggles.Get(), ",",
                          base::TRIM_WHITESPACE, base::SPLIT_WANT_ALL)) {
     require_disabled_toggles_.push_back(std::move(f));
   }
-  for (std::string f :
+  for (std::string& f :
        base::SplitString(features::kWebGPUUnsafeFeatures.Get(), ",",
                          base::TRIM_WHITESPACE, base::SPLIT_WANT_ALL)) {
     runtime_unsafe_features_.insert(std::move(f));
@@ -1277,6 +1276,7 @@ bool WebGPUDecoderImpl::IsFeatureExposed(wgpu::FeatureName feature) const {
   switch (feature) {
     case wgpu::FeatureName::ChromiumExperimentalTimestampQueryInsidePasses:
     case wgpu::FeatureName::MultiDrawIndirect:
+    case wgpu::FeatureName::TextureCompressionASTCSliced3D:
     case wgpu::FeatureName::TextureCompressionBCSliced3D:
     case wgpu::FeatureName::Unorm16TextureFormats:
     case wgpu::FeatureName::Snorm16TextureFormats:
@@ -1319,6 +1319,8 @@ bool WebGPUDecoderImpl::IsFeatureExposed(wgpu::FeatureName feature) const {
     }
     case wgpu::FeatureName::SharedBufferMemoryD3D12Resource:
       return safety_level_ == webgpu::SafetyLevel::kUnsafe;
+    case wgpu::FeatureName::ChromiumExperimentalSubgroupMatrix:
+      return safety_level_ == webgpu::SafetyLevel::kUnsafe;
     default:
       return false;
   }
@@ -1345,7 +1347,8 @@ WGPUFuture WebGPUDecoderImpl::RequestAdapterImpl(
       (static_cast<wgpu::FeatureLevel>(options->featureLevel) ==
            wgpu::FeatureLevel::Compatibility &&
        (safety_level_ == webgpu::SafetyLevel::kUnsafe ||
-        safety_level_ == webgpu::SafetyLevel::kSafeExperimental))) {
+        safety_level_ == webgpu::SafetyLevel::kSafeExperimental ||
+        base::FeatureList::IsEnabled(features::kWebGPUCompatibilityMode)))) {
     feature_level = wgpu::FeatureLevel::Compatibility;
   }
 
@@ -1785,7 +1788,7 @@ wgpu::Adapter WebGPUDecoderImpl::CreatePreferredAdapter(
     case WebGPUAdapterName::kDefault: {
 #if BUILDFLAG(IS_WIN)
       backend_types = {wgpu::BackendType::D3D12};
-#elif BUILDFLAG(IS_MAC)
+#elif BUILDFLAG(IS_APPLE)
       backend_types = {wgpu::BackendType::Metal};
 #elif BUILDFLAG(IS_LINUX)
       if (shared_context_state_->GrContextIsVulkan() ||
@@ -2250,7 +2253,7 @@ error::Error WebGPUDecoderImpl::HandleAssociateMailboxImmediate(
 
   std::unique_ptr<SharedImageRepresentationAndAccess> representation_and_access;
   auto it = known_device_metadata_.find(device);
-  CHECK(it != known_device_metadata_.end(), base::NotFatalUntil::M130);
+  CHECK(it != known_device_metadata_.end());
   if (it->second.adapterType == wgpu::AdapterType::CPU) {
     representation_and_access = AssociateMailboxUsingSkiaFallback(
         mailbox, flags, device, usage, internal_usage, std::move(view_formats));

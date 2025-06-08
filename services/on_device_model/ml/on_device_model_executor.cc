@@ -311,12 +311,6 @@ void SessionImpl::Generate(
       std::move(response), std::move(on_complete), std::move(cloned));
   ChromeMLExecutionOutputFn output_fn = responder_->CreateOutputFn();
   ChromeMLConstraint constraint = 0;
-  if (options->response_json_schema &&
-      !options->response_json_schema->empty()) {
-    options->constraint =
-        on_device_model::mojom::ResponseConstraint::NewJsonSchema(
-            *options->response_json_schema);
-  }
   if (options->constraint) {
     constraint = executor_->CreateConstraint(*options->constraint);
     if (!constraint) {
@@ -416,17 +410,17 @@ OnDeviceModelExecutor::CreateWithResult(
 DISABLE_CFI_DLSYM
 on_device_model::Capabilities OnDeviceModelExecutor::GetCapabilities(
     const ChromeML& chrome_ml,
-    on_device_model::ModelAssets assets) {
+    on_device_model::ModelFile model_file) {
   on_device_model::Capabilities result;
   if (!chrome_ml.api().GetCapabilities) {
     return result;
   }
 
   PlatformFile platform_file;
-  if (assets.weights.IsValid()) {
-    platform_file = assets.weights.TakePlatformFile();
+  if (model_file.IsFile()) {
+    platform_file = model_file.file().TakePlatformFile();
   } else {
-    base::File file(assets.weights_path,
+    base::File file(model_file.path(),
                     base::File::FLAG_OPEN | base::File::FLAG_READ);
     platform_file = file.TakePlatformFile();
   }
@@ -537,15 +531,22 @@ LoadModelResult OnDeviceModelExecutor::Init(
   max_tokens_ = std::max(params->max_tokens, kReserveTokensForSafety);
 
   ChromeMLModelData data;
-  std::string weights_path_str = assets.weights_path.AsUTF8Unsafe();
+  std::string weights_path_str;
   std::string sp_model_path_str = assets.sp_model_path.AsUTF8Unsafe();
   // Prefer to load the model from a file descriptor if possible.
-  if (assets.weights.IsValid()) {
-    data.weights_file = assets.weights.TakePlatformFile();
+  if (assets.weights.IsFile()) {
+    data.weights_file = assets.weights.file().TakePlatformFile();
   } else {
+    weights_path_str = assets.weights.path().AsUTF8Unsafe();
     data.model_path = weights_path_str.data();
     data.sentencepiece_model_path = sp_model_path_str.data();
   }
+  // TODO(crbug.com/400998489): Cache files are experimental for now.
+  data.cache_file =
+      optimization_guide::features::ForceCpuBackendForOnDeviceModel() &&
+              assets.cache.IsValid()
+          ? assets.cache.TakePlatformFile()
+          : base::kInvalidPlatformFile;
   ChromeMLModelDescriptor descriptor = {
       .backend_type = params->backend_type,
       .model_data = &data,

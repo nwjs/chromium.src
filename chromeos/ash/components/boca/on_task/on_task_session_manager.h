@@ -10,6 +10,7 @@
 #include <string>
 
 #include "base/containers/flat_map.h"
+#include "base/containers/flat_set.h"
 #include "base/functional/callback_forward.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
@@ -107,6 +108,9 @@ class OnTaskSessionManager : public boca::BocaSessionManager::Observer,
     // of a Boca session.
     void OnBocaSWALaunched(bool success);
 
+    void SetPinStateForActiveSWAWindowInternal(bool pinned,
+                                               base::RepeatingClosure callback);
+
     // Owned by the parent class `OnTaskSessionManager` that owns an instance of
     // the class `SystemWebAppLaunchHelper`, so there won't be UAF errors.
     raw_ptr<OnTaskSystemWebAppManager> system_web_app_manager_;
@@ -115,6 +119,9 @@ class OnTaskSessionManager : public boca::BocaSessionManager::Observer,
     SEQUENCE_CHECKER(sequence_checker_);
 
     bool launch_in_progress_ GUARDED_BY_CONTEXT(sequence_checker_) = false;
+
+    // The latest pin state of the bundle sent by provider.
+    bool latest_pin_state_ GUARDED_BY_CONTEXT(sequence_checker_) = false;
 
     base::WeakPtrFactory<SystemWebAppLaunchHelper> weak_ptr_factory_{this};
   };
@@ -158,6 +165,9 @@ class OnTaskSessionManager : public boca::BocaSessionManager::Observer,
   bool should_lock_window_ GUARDED_BY_CONTEXT(sequence_checker_) = false;
   bool lock_in_progress_ GUARDED_BY_CONTEXT(sequence_checker_) = false;
   bool enter_pause_mode_ GUARDED_BY_CONTEXT(sequence_checker_) = false;
+
+  // The set of urls sent by the provider.
+  base::flat_set<GURL> provider_url_set_ GUARDED_BY_CONTEXT(sequence_checker_);
 
   // Maps the url that providers send to the tab ids spawned from the url. This
   // map allows to remove all the related tabs to the url.

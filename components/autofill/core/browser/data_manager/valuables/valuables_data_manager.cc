@@ -4,19 +4,22 @@
 
 #include "components/autofill/core/browser/data_manager/valuables/valuables_data_manager.h"
 
+#include <vector>
+
 #include "components/autofill/core/browser/data_model/valuables/loyalty_card.h"
 #include "components/autofill/core/browser/ui/autofill_image_fetcher_base.h"
 #include "components/autofill/core/browser/webdata/autofill_change.h"
 #include "components/sync/base/features.h"
 #include "components/webdata/common/web_data_results.h"
+#include "url/gurl.h"
 
 namespace autofill {
 
 ValuablesDataManager::ValuablesDataManager(
     scoped_refptr<AutofillWebDataService> webdata_service,
     AutofillImageFetcherBase* image_fetcher)
-    : webdata_service_(std::move(webdata_service)),
-      image_fetcher_(image_fetcher) {
+    : image_fetcher_(image_fetcher),
+      webdata_service_(std::move(webdata_service)) {
   if (!webdata_service_) {
     // In some tests, there are no dbs.
     return;
@@ -72,7 +75,29 @@ void ValuablesDataManager::LoadLoyaltyCards() {
 void ValuablesDataManager::OnLoyaltyCardsLoaded(
     const std::vector<LoyaltyCard>& loyalty_cards) {
   loyalty_cards_ = loyalty_cards;
+  // Loyalty cards are coming from sync. A non-empty list of loyalty cards
+  // implies that the user is syncing payment methods, which is a prerequisite
+  // for caching loyalty card icons.
+  ProcessLoyaltyCardIconUrlChanges();
   NotifyObservers();
+}
+
+void ValuablesDataManager::ProcessLoyaltyCardIconUrlChanges() {
+  if (!image_fetcher_) {
+    return;
+  }
+  std::vector<GURL> updated_urls;
+  for (const auto& loyalty_card : loyalty_cards_) {
+    if (!loyalty_card.program_logo().is_valid()) {
+      continue;
+    }
+    updated_urls.emplace_back(loyalty_card.program_logo());
+  }
+  image_fetcher_->FetchValuableImagesForURLs(updated_urls);
+}
+
+bool ValuablesDataManager::HasPendingQueries() const {
+  return pending_query_ != 0;
 }
 
 void ValuablesDataManager::OnAutofillChangedBySync(syncer::DataType data_type) {

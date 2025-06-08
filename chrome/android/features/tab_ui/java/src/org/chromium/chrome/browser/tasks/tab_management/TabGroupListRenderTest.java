@@ -22,11 +22,11 @@ import org.chromium.base.ThreadUtils;
 import org.chromium.base.test.util.Batch;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.Feature;
+import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.chrome.browser.ChromeTabbedActivity;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
-import org.chromium.chrome.browser.hub.PaneId;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabLaunchType;
 import org.chromium.chrome.browser.tabmodel.TabGroupModelFilter;
@@ -47,6 +47,7 @@ import org.chromium.ui.test.util.RenderTestRule.Component;
 /** Render tests for {@link TabGroupListView}. */
 @RunWith(ChromeJUnit4ClassRunner.class)
 @EnableFeatures(ChromeFeatureList.GRID_TAB_SWITCHER_SURFACE_COLOR_UPDATE)
+@DisableFeatures(ChromeFeatureList.TAB_GROUP_ENTRY_POINTS_ANDROID)
 @CommandLineFlags.Add({ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE})
 @Batch(Batch.PER_CLASS)
 public class TabGroupListRenderTest {
@@ -70,8 +71,7 @@ public class TabGroupListRenderTest {
         createGroupProgrammatic("Group 1", /* wait= */ false);
 
         RegularTabSwitcherStation tabSwitcher = firstPage.openRegularTabSwitcher();
-        TabGroupPaneStation tabGroupPane =
-                tabSwitcher.selectPane(PaneId.TAB_GROUPS, TabGroupPaneStation.class);
+        TabGroupPaneStation tabGroupPane = tabSwitcher.selectTabGroupsPane();
 
         RecyclerView recyclerView = tabGroupPane.recyclerViewElement.get();
         mRenderTestRule.render(recyclerView, "1_group");
@@ -82,7 +82,7 @@ public class TabGroupListRenderTest {
         createGroupProgrammatic("Group 3", /* wait= */ true);
         mRenderTestRule.render(recyclerView, "3_groups");
 
-        tabSwitcher = tabGroupPane.selectPane(PaneId.TAB_SWITCHER, RegularTabSwitcherStation.class);
+        tabSwitcher = tabGroupPane.selectRegularTabsPane();
 
         // Exit to reset.
         TabSwitcherAppMenuFacility appMenu = tabSwitcher.openAppMenu();

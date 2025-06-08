@@ -635,7 +635,7 @@ bool DecodeIDBKeyRecursive(std::string_view* slice,
         std::unique_ptr<IndexedDBKey> key;
         if (!DecodeIDBKeyRecursive(slice, &key, recursion + 1))
           return false;
-        array.push_back(*key);
+        array.push_back(std::move(*key));
       }
       *value = std::make_unique<IndexedDBKey>(std::move(array));
       return true;
@@ -1895,6 +1895,7 @@ bool DatabaseMetaDataKey::IsValidBlobNumber(int64_t blob_number) {
   return blob_number >= kBlobNumberGeneratorInitialNumber;
 }
 
+const int64_t KeyPrefix::kInvalidId = -1;
 const int64_t DatabaseMetaDataKey::kAllBlobsNumber = 1;
 const int64_t DatabaseMetaDataKey::kBlobNumberGeneratorInitialNumber = 2;
 const int64_t DatabaseMetaDataKey::kInvalidBlobNumber = -1;
@@ -2540,8 +2541,8 @@ bool IndexDataKey::Decode(std::string_view* slice, IndexDataKey* result) {
 std::string IndexDataKey::Encode(int64_t database_id,
                                  int64_t object_store_id,
                                  int64_t index_id,
-                                 const std::string& encoded_user_key,
-                                 const std::string& encoded_primary_key,
+                                 std::string_view encoded_user_key,
+                                 std::string_view encoded_primary_key,
                                  int64_t sequence_number) {
   KeyPrefix prefix(database_id, object_store_id, index_id);
   std::string ret = prefix.Encode();

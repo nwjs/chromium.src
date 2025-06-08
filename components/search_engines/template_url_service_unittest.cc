@@ -141,7 +141,7 @@ TEST_F(
   sitesearch_turl_data.SetURL("https://www.sitesearch.com?q={searchTerms}");
   sitesearch_turl_data.policy_origin =
       TemplateURLData::PolicyOrigin::kSiteSearch;
-  sitesearch_turl_data.enforced_by_policy = false;
+  sitesearch_turl_data.enforced_by_policy = true;
   sitesearch_turl_data.featured_by_policy = false;
   sitesearch_turl_data.safe_for_autoreplace = false;
   template_url_service().Add(
@@ -154,7 +154,7 @@ TEST_F(
       "https://www.searchaggregator.com?q={searchTerms}");
   searchaggregator_turl_data.policy_origin =
       TemplateURLData::PolicyOrigin::kSearchAggregator;
-  searchaggregator_turl_data.enforced_by_policy = false;
+  searchaggregator_turl_data.enforced_by_policy = true;
   searchaggregator_turl_data.featured_by_policy = false;
   searchaggregator_turl_data.safe_for_autoreplace = false;
   template_url_service().Add(
@@ -173,7 +173,7 @@ TEST_F(
   sitesearch_turl_data.SetURL("https://www.sitesearch.com?q={searchTerms}");
   sitesearch_turl_data.policy_origin =
       TemplateURLData::PolicyOrigin::kSiteSearch;
-  sitesearch_turl_data.enforced_by_policy = false;
+  sitesearch_turl_data.enforced_by_policy = true;
   sitesearch_turl_data.featured_by_policy = true;
   sitesearch_turl_data.safe_for_autoreplace = false;
   template_url_service().Add(
@@ -186,7 +186,7 @@ TEST_F(
       "https://www.searchaggregator.com?q={searchTerms}");
   searchaggregator_turl_data.policy_origin =
       TemplateURLData::PolicyOrigin::kSearchAggregator;
-  searchaggregator_turl_data.enforced_by_policy = false;
+  searchaggregator_turl_data.enforced_by_policy = true;
   searchaggregator_turl_data.featured_by_policy = true;
   searchaggregator_turl_data.safe_for_autoreplace = false;
   template_url_service().Add(
@@ -253,9 +253,9 @@ TEST_F(TemplateURLServiceUnitTest, HiddenFromLists) {
     ASSERT_FALSE(
         template_url_service().HiddenFromLists(turl_search_aggregator));
   }
-  // User-defined engine and a policy engine exists with the same keyword not
-  // beginning with "@". User-defined engine should be hidden. Policy engine
-  // should not be hidden.
+  // User-defined engine and a nonfeatured policy engine exists with the same
+  // keyword. User-defined engine should be hidden. Policy engine should not be
+  // hidden.
   {
     TemplateURL* turl = template_url_service().Add(
         std::make_unique<TemplateURL>(create_template_url_data(
@@ -269,9 +269,9 @@ TEST_F(TemplateURLServiceUnitTest, HiddenFromLists) {
     ASSERT_TRUE(template_url_service().HiddenFromLists(turl_policy));
   }
 
-  // User-defined engine and a policy engine exists with the same keyword
-  // beginning with "@". User-defined engine should be hidden. Policy engine
-  // should not be hidden.
+  // User-defined engine and a featured policy engine exists with the same
+  // keyword. User-defined engine should be hidden. Policy engine should not be
+  // hidden.
   {
     TemplateURL* turl = template_url_service().Add(
         std::make_unique<TemplateURL>(create_template_url_data(
@@ -282,21 +282,6 @@ TEST_F(TemplateURLServiceUnitTest, HiddenFromLists) {
             u"@conflict", TemplateURLData::PolicyOrigin::kSiteSearch,
             /*featured_by_policy=*/true)));
     ASSERT_TRUE(template_url_service().HiddenFromLists(turl));
-    ASSERT_FALSE(template_url_service().HiddenFromLists(turl_featured_policy));
-  }
-
-  // Policy engine with featured and unfeatured TemplateURLs. Unfeatured policy
-  // engine should be hidden and featured policy engine should not be hidden.
-  {
-    TemplateURL* turl_policy = template_url_service().Add(
-        std::make_unique<TemplateURL>(create_template_url_data(
-            u"site_search_turl", TemplateURLData::PolicyOrigin::kSiteSearch,
-            /*featured_by_policy=*/false)));
-    TemplateURL* turl_featured_policy = template_url_service().Add(
-        std::make_unique<TemplateURL>(create_template_url_data(
-            u"@site_search_turl", TemplateURLData::PolicyOrigin::kSiteSearch,
-            /*featured_by_policy=*/true)));
-    ASSERT_TRUE(template_url_service().HiddenFromLists(turl_policy));
     ASSERT_FALSE(template_url_service().HiddenFromLists(turl_featured_policy));
   }
 }

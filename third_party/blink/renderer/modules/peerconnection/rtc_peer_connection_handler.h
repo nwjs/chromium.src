@@ -212,12 +212,19 @@ class MODULES_EXPORT RTCPeerConnectionHandler {
       mojom::blink::DeviceThermalState thermal_state);
 
   // Start recording an event log.
-  void StartEventLog(int output_period_ms);
+  virtual void StartEventLog(int output_period_ms);
   // Stop recording an event log.
-  void StopEventLog();
+  virtual void StopEventLog();
 
   // WebRTC event log fragments sent back from PeerConnection land here.
-  void OnWebRtcEventLogWrite(const WTF::Vector<uint8_t>& output);
+  virtual void OnWebRtcEventLogWrite(const WTF::Vector<uint8_t>& output);
+
+  // Start recording a DataChannel log.
+  virtual void StartDataChannelLog();
+  // Stop recording a DataChannel log.
+  virtual void StopDataChannelLog();
+
+  virtual void OnWebRtcDataChannelLogWrite(const WTF::Vector<uint8_t>& output);
 
   // Virtual for testing purposes.
   virtual scoped_refptr<base::SingleThreadTaskRunner> signaling_thread() const;

@@ -88,9 +88,8 @@ class ImplementedAtkInterfaces {
 
   void Add(Value other) { value_ |= static_cast<int>(other); }
 
-  bool operator!=(const ImplementedAtkInterfaces& other) {
-    return value_ != other.value_;
-  }
+  friend bool operator==(const ImplementedAtkInterfaces&,
+                         const ImplementedAtkInterfaces&) = default;
 
   int value() const { return value_; }
 
@@ -116,10 +115,6 @@ class COMPONENT_EXPORT(AX_PLATFORM) AXPlatformNodeAuraLinux
 
   // Do asynchronous static initialization.
   static void StaticInitialize();
-
-  // Enables AXMode calling AXPlatformNode::NotifyAddAXModeFlags. It's used
-  // when ATK APIs are called.
-  static void EnableAXMode();
 
   // EnsureAtkObjectIsValid will destroy and recreate |atk_object_| if the
   // interface mask is different. This partially relies on looking at the tree's

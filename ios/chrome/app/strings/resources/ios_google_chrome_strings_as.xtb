@@ -47,6 +47,7 @@
 <translation id="1917964099031477364">এই ডিভাইচত থকা Chrome আৰু অন্য Google এপ্‌সমূহৰ পৰা এই একাউণ্টটো আৰু যিকোনো ছেভ নকৰা ডেটা আঁতৰোৱা হ’ব।</translation>
 <translation id="1919130412786645364">Chromeত ছাইন ইন কৰিব দিয়ক</translation>
 <translation id="1965935827552890526">Chromeৰ খোলা থকা অন্য ৱিণ্ড’ত আপুনি কি কৰি আছিল সেয়া সমাপ্ত কৰক।</translation>
+<translation id="1966638102563776885">Chromeৰ কিটিপ: আপোনাৰ পাছৱৰ্ডসমূহ যিকোনো এপত লাভ কৰক</translation>
 <translation id="1973910962341002002">"<ph name="TEXT_OF_THE_SETTINGS_MENU_ITEM" />" ছেটিঙৰ পৰা, "Chrome" অনলৈ ট’গল কৰক</translation>
 <translation id="1984705450038014246">আপোনাৰ Chrome ডেটা ছিংক কৰক</translation>
 <translation id="1987779152850321833">Chromeৰ পৰা পাৰ্যমানে উপকৃত হ’বলৈ তলত পৰামৰ্শ দিয়া কাৰ্যসমূহ সম্পূৰ্ণ কৰক।</translation>
@@ -114,7 +115,6 @@
 <translation id="3655656110921623717">ইয়াৰ অৰ্থ হৈছে Chromeএ প্ৰত্যেকবাৰ ম’বাইল ছাইটৰ অনুৰোধ কৰিব।</translation>
 <translation id="3740397331642243698">অন্তৰ্ভুক্ত কৰা URLসমূহ Google Chromeৰ ইনক’গনিট’ত খোলে।</translation>
 <translation id="3741995255368156336">Chromeৰ পঢ়াৰ সূচী খোলে।</translation>
-<translation id="3808570423967020928">আপোনাৰ গৃহ স্ক্ৰীনৰ ড’কৰ পৰা অধিক দ্ৰুতভাৱে Chrome এক্সেছ কৰক।</translation>
 <translation id="3827545470516145620">আপুনি এই ডিভাইচটোত মান্য সুৰক্ষা লাভ কৰি আছে</translation>
 <translation id="384394811301901750">Google Chromeএ বর্তমান আপোনাৰ কেমেৰা ব্যৱহাৰ কৰিব নোৱাৰে</translation>
 <translation id="3863841106411295595">Chromeত আপোনাৰ পঢ়াৰ সূচীত ইনপুট কৰা URL যোগ দিয়ে।</translation>
@@ -138,6 +138,7 @@
 <translation id="4724297637870447613">সকলোতে Chrome ব্যৱহাৰ কৰক</translation>
 <translation id="4738647308035481133">Google Chrome পৃষ্ঠা</translation>
 <translation id="4742795653798179840">Chromeৰ ডেটা মচা হ’ল</translation>
+<translation id="4749294594657945639">অন্য এপ্‌সমূহত আপোনাৰ ছেভ হৈ থকা পাছৱৰ্ডসমূহ সহজে পাবলৈ, স্বয়ংক্ৰিয়ভাৱে পূৰ কৰাৰ বাবে Chrome বাছনি কৰক।</translation>
 <translation id="4761869838909035636">Chromeৰ সুৰক্ষা পৰীক্ষা চলাওক</translation>
 <translation id="4798859546468762093">ব্যক্তিগতকৰণ আৰু অন্য সুবিধাসমূহ পাবলৈ, ৱেব আৰু <ph name="FEATURE_NAME_1" /> আৰু <ph name="FEATURE_NAME_2" />ত Chromeক অন্তৰ্ভুক্ত কৰক</translation>
 <translation id="4819268619367838612">এপ্‌টো উন্নত কৰাত সহায় কৰিবলৈ, Chromeএ Googleলৈ ব্যৱহাৰ আৰু ক্ৰেশ্ব সম্পৰ্কীয় ডেটা পঠিয়ায়। <ph name="BEGIN_LINK" />পৰিচালনা কৰক<ph name="END_LINK" /></translation>
@@ -233,7 +234,6 @@
 <translation id="6975725306479268850">স্বয়ংক্ৰিয়ভাৱে পূৰ হোৱাৰ সুবিধাটোৰ বাবে Chrome বাছনি কৰক</translation>
 <translation id="7056826488869329999">Chromeত সুৰক্ষা পৰীক্ষা খোলে আৰু চলায়।</translation>
 <translation id="7061455974939528301">Chromeৰ চিহ্নটো টিপি হেঁচি ৰাখক আৰু "গৃহ স্ক্ৰীন সম্পাদনা কৰক"ত ক্লিক কৰক</translation>
-<translation id="7065813315247345131">Chromeক ড’কলৈ স্থানান্তৰ কৰক</translation>
 <translation id="7124339256045485976">Chrome আপ টু ডে’ট কৰি ৰাখক</translation>
 <translation id="7145599899567697473">Chromeত পাছৱৰ্ডসমূহ ছেভ আৰু স্বয়ংক্ৰিয়ভাৱে পূৰ কৰক</translation>
 <translation id="7161390184744336561">Google Chrome পুৰণি হৈছে</translation>
@@ -317,10 +317,10 @@
 <translation id="8603022514504485810">Google Password Managerএ আটাইবোৰ পাছৱৰ্ড পৰীক্ষা কৰিব নোৱাৰিলে। কাইলৈ পুনৰ চেষ্টা কৰক অথবা <ph name="BEGIN_LINK" />আপোনাৰ Google একাউণ্টত পাছৱৰ্ডসমূহ পৰীক্ষা কৰক।<ph name="END_LINK" /></translation>
 <translation id="8630122478628016441">“আপুনি Chrome বন্ধ কৰিলে ইনক’গনিট’ টেব লক কৰক” অন কৰক।</translation>
 <translation id="8673726683583791503">Google Lensৰ জৰিয়তে কিনক</translation>
-<translation id="8727043961453758442">Chromeৰ পৰা পাৰ্যমানে উপকৃত হওক</translation>
 <translation id="8765470054473112089">যেতিয়া আপুনি ঠিকনাৰ বাৰ অথবা সন্ধান বাকচত টাইপ কৰে, তেতিয়া উন্নত পৰামৰ্শ লাভ কৰিবলৈ Chromeএ আপুনি যি টাইপ কৰে সেয়া আপোনাৰ ডিফ’ল্ট সন্ধান ইঞ্জিনলৈ পঠিয়ায়। এয়া ইনক’গনিট’ত অফ কৰা থাকে।</translation>
 <translation id="8772179140489533211">Chromeত ছাইন ইন কৰিবলৈ প্ৰম্প্‌ট প্ৰদৰ্শন কৰে।</translation>
 <translation id="8788269841521769222">আপুনি এই পাছৱৰ্ডটো মনত ৰখাৰ প্ৰয়োজন নাই। এইটো <ph name="EMAIL" />ৰ Google পাছৱৰ্ড পৰিচালকত ছেভ কৰা হ’ব</translation>
+<translation id="8796490717897731471"><ph name="EMAIL" />। Chrome পৰিচালনা কৰি থকা হৈছে।</translation>
 <translation id="880967149107462122">Chromeৰ ছেটিঙলৈ যাওক</translation>
 <translation id="8842132678697187091">আপুনি ইয়াত Google Lens খুলিব পাৰে।</translation>
 <translation id="8850736900032787670">আপোনাৰ আগ্ৰহৰ ওপৰত ভিত্তি কৰি ব্যক্তিগতকৃত সমল লাভ কৰিবলৈ, Chromeত ছাইন ইন কৰক।</translation>

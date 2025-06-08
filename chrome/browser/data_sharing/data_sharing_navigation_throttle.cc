@@ -7,6 +7,7 @@
 #include "chrome/browser/collaboration/collaboration_service_factory.h"
 #include "chrome/browser/data_sharing/data_sharing_navigation_utils.h"
 #include "chrome/browser/profiles/profile.h"
+#include "components/data_sharing/public/data_sharing_utils.h"
 #include "components/data_sharing/public/features.h"
 #include "content/public/browser/navigation_handle.h"
 #include "content/public/browser/web_contents.h"
@@ -16,6 +17,8 @@ namespace data_sharing {
 namespace {
 bool ShouldHandleShareURLNavigation(
     content::NavigationHandle* navigation_handle) {
+  // Make sure to keep it in sync between platforms.
+  // LINT.IfChange(ShouldHandleShareURLNavigation)
   if (!navigation_handle->IsInMainFrame()) {
     return false;
   }
@@ -44,22 +47,22 @@ bool ShouldHandleShareURLNavigation(
   }
 
   return true;
+  // LINT.ThenChange(/ios/chrome/browser/collaboration/model/data_sharing_tab_helper.mm:ShouldHandleShareURLNavigation)
 }
 }  // namespace
 
 // static
-std::unique_ptr<content::NavigationThrottle>
-DataSharingNavigationThrottle::MaybeCreateThrottleFor(
-    content::NavigationHandle* handle) {
+void DataSharingNavigationThrottle::MaybeCreateAndAdd(
+    content::NavigationThrottleRegistry& registry) {
   if (features::IsDataSharingFunctionalityEnabled()) {
-    return std::make_unique<DataSharingNavigationThrottle>(handle);
+    registry.AddThrottle(
+        std::make_unique<DataSharingNavigationThrottle>(registry));
   }
-  return nullptr;
 }
 
 DataSharingNavigationThrottle::DataSharingNavigationThrottle(
-    content::NavigationHandle* handle)
-    : content::NavigationThrottle(handle) {}
+    content::NavigationThrottleRegistry& registry)
+    : content::NavigationThrottle(registry) {}
 
 DataSharingNavigationThrottle::ThrottleCheckResult
 DataSharingNavigationThrottle::WillStartRequest() {
@@ -98,7 +101,7 @@ DataSharingNavigationThrottle::CheckIfShouldIntercept() {
 
   const GURL& url = navigation_handle()->GetURL();
   if (collaboration_service &&
-      collaboration_service->ShouldInterceptNavigationForShareURL(url)) {
+      DataSharingUtils::ShouldInterceptNavigationForShareURL(url)) {
     if (ShouldHandleShareURLNavigation(navigation_handle())) {
       collaboration_service->HandleShareURLNavigationIntercepted(
           url, /* context = */ nullptr,

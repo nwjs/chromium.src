@@ -598,6 +598,10 @@ enum class TipsNotificationType;
 // returns a Value of type NONE.
 + (NSString*)localStatePrefValue:(NSString*)prefName;
 
+// Gets the time value for the local state pref with `prefName`. Local State
+// contains the preferences that are shared between all profiles.
++ (base::Time)localStateTimePref:(NSString*)prefName;
+
 // Sets the integer value for the local state pref with `prefName`. `value`
 // can be either a casted enum or any other numerical value. Local State
 // contains the preferences that are shared between all profiles.
@@ -697,6 +701,9 @@ enum class TipsNotificationType;
 // Copies `link` into pasteboard as a NSURL.
 + (void)copyLinkAsURLToPasteBoard:(NSString*)link;
 
+// Copies png `data` as image into pasteboard.
++ (void)copyImageToPasteboard:(NSData*)imageData;
+
 #pragma mark - Watcher utilities
 
 // Starts monitoring for buttons (based on traits) with the given
@@ -742,6 +749,11 @@ enum class TipsNotificationType;
 
 // Forces an override of the variations stored permanent country.
 + (void)overrideVariationsServiceStoredPermanentCountry:(NSString*)country;
+
+#pragma mark - Shared Tab Groups Utilities
+
+// Waits for the MessagingBackendService to be initialized.
++ (NSError*)waitForMessagingBackendServiceInitialized;
 
 @end
 

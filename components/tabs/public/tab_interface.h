@@ -59,6 +59,8 @@ class TabInterface : public SupportsHandles<TabInterface> {
   // This method should only be called on instances of WebContents that are
   // known to be tabs. Calling this on a non-tab will crash.
   static TabInterface* GetFromContents(content::WebContents* web_contents);
+  static const TabInterface* GetFromContents(
+      const content::WebContents* web_contents);
 
   // Code that references a WebContents should already know whether the
   // WebContents is a tab, and thus should use GetFromContents(). For historical
@@ -70,6 +72,25 @@ class TabInterface : public SupportsHandles<TabInterface> {
   static TabInterface* MaybeGetFromContents(content::WebContents* web_contents);
 
   // Returns a weak pointer to `this`.
+  //
+  // WARNING: Many uses of base::WeakPtr are inappropriate and lead to bugs.
+  // An appropriate use case is as a variable passed to an asynchronously
+  // invoked PostTask.
+  // An inappropriate use case is to store as a member of an object that can
+  // outlive TabInterface. This leads to inconsistent state machines.
+  // For example (don't do this):
+  // class FooOutlivesTab{
+  //   base::WeakPtr<TabInterface> tab_;
+  //   // Conceptually, this member should only be set if tab_ is set.
+  //   std::optional<SkColor> color_of_tab_;
+  // };
+  // For example (do this):
+  // class FooOutlivesTab {
+  //   // Use RegisterWillDetach() to clear both tab_ and color_of_tab_ prior
+  //   // to tab_ destruction.
+  //   raw_ptr<TabInterface> tab_;
+  //   std::optional<SkColor> color_of_tab_;
+  // };
   virtual base::WeakPtr<TabInterface> GetWeakPtr() = 0;
 
   // When a tab is in the background, the WebContents may be discarded to save
@@ -189,6 +210,7 @@ class TabInterface : public SupportsHandles<TabInterface> {
   // TabFeatures or BrowserWindowFeatures, you can safely assume that this is
   // always non-nullptr.
   virtual BrowserWindowInterface* GetBrowserWindowInterface() = 0;
+  virtual const BrowserWindowInterface* GetBrowserWindowInterface() const = 0;
 #endif  // !BUILDFLAG(IS_ANDROID)
 
   // Returns the feature controllers scoped to this tab.
@@ -202,6 +224,7 @@ class TabInterface : public SupportsHandles<TabInterface> {
   //   (3) It is not possible to perform dependency injection for legacy code
   //   that is conceptually a TabFeature and needs access to other TabFeatures.
   virtual tabs::TabFeatures* GetTabFeatures() = 0;
+  virtual const tabs::TabFeatures* GetTabFeatures() const = 0;
 
   // Return true if the tab is pinned in its tabstrip, or false otherwise.
   virtual bool IsPinned() const = 0;
@@ -217,11 +240,11 @@ class TabInterface : public SupportsHandles<TabInterface> {
   // is not part of a split tab.
   virtual std::optional<split_tabs::SplitTabId> GetSplit() const = 0;
 
-  // Returns a pointer to the parent TabCollection. This method is specifically
-  // designed to be accessible only within the collection tree that has the
-  // kTabStripCollectionStorage flag enabled.
+  // Returns a pointer to the parent TabCollection.
   virtual TabCollection* GetParentCollection(
       base::PassKey<TabCollection>) const = 0;
+
+  virtual const TabCollection* GetParentCollection() const = 0;
 
   // Updates the parent collection of the TabModel in response to structural
   // changes such as pinning, grouping, or moving the tab between collections.

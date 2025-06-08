@@ -23,7 +23,10 @@
 #include "chrome/browser/extensions/commands/command_service.h"
 #include "chrome/browser/extensions/error_console/error_console.h"
 #include "chrome/browser/extensions/extension_allowlist.h"
+#include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/extensions/extension_util.h"
+#include "chrome/browser/extensions/permissions/site_permissions_helper.h"
+#include "chrome/browser/extensions/shared_module_service.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/webui/extensions/extension_icon_source.h"
 #include "chrome/common/chrome_features.h"
@@ -571,9 +574,43 @@ void ExtensionInfoGeneratorShared::FillExtensionInfo(
     info.blocklist_text = l10n_util::GetStringUTF8(blocklist_text);
   }
 
+  if (extension_system_->extension_service()->allowlist()->ShouldDisplayWarning(
+          extension.id())) {
+    info.show_safe_browsing_allowlist_warning = true;
+  }
+  ExtensionManagement* extension_management =
+      ExtensionManagementFactory::GetForBrowserContext(browser_context_);
+
+  // TODO(crbug.com/419419534): Add back ControlledInfo.
+
   Profile* profile = Profile::FromBrowserContext(browser_context_);
 
   bool is_enabled = state == developer::ExtensionState::kEnabled;
+
+  // Commands.
+  if (is_enabled) {
+    ConstructCommands(command_service_, extension.id(), &info.commands);
+  }
+#if BUILDFLAG(ENABLE_EXTENSIONS)
+  info.is_command_registration_handled_externally =
+      ui::GlobalAcceleratorListener::GetInstance() &&
+      ui::GlobalAcceleratorListener::GetInstance()
+          ->IsRegistrationHandledExternally();
+#endif  // BUILDFLAG(ENABLE_EXTENSIONS)
+
+  // Dependent extensions.
+  if (extension.is_shared_module()) {
+    std::unique_ptr<ExtensionSet> dependent_extensions =
+        SharedModuleService::Get(browser_context_)
+            ->GetDependentExtensions(&extension);
+    for (const scoped_refptr<const Extension>& dependent :
+         *dependent_extensions) {
+      developer::DependentExtension dependent_extension;
+      dependent_extension.id = dependent->id();
+      dependent_extension.name = dependent->name();
+      info.dependent_extensions.push_back(std::move(dependent_extension));
+    }
+  }
 
   info.description = extension.description();
 
@@ -594,6 +631,9 @@ void ExtensionInfoGeneratorShared::FillExtensionInfo(
       disable_reason::DISABLE_CUSTODIAN_APPROVAL_REQUIRED);
   info.disable_reasons.custodian_approval_required =
       custodian_approval_required;
+  // TODO(crbug.com/413650880): Investigate if `parent_disabled_permissions`
+  // can be removed.
+  info.disable_reasons.parent_disabled_permissions = false;
   info.disable_reasons.published_in_store_required = disable_reasons.contains(
       disable_reason::DISABLE_PUBLISHED_IN_STORE_REQUIRED_BY_POLICY);
   info.disable_reasons.unsupported_manifest_version = disable_reasons.contains(
@@ -611,6 +651,7 @@ void ExtensionInfoGeneratorShared::FillExtensionInfo(
       error_console_->IsReportingEnabledForExtension(extension.id());
 
   // File access.
+  ManagementPolicy* management_policy = extension_system_->management_policy();
   info.file_access.is_enabled =
       (extension.wants_file_access() ||
        Manifest::ShouldAlwaysAllowFileAccess(extension.location()));
@@ -682,8 +723,20 @@ void ExtensionInfoGeneratorShared::FillExtensionInfo(
   }
 
   // Location.
-  // Set it to kUnknown only if the caller didn't set it.
-  if (info.location == developer::Location::kNone) {
+  bool updates_from_web_store =
+      extension_management->UpdatesFromWebstore(extension);
+  if (extension.location() == mojom::ManifestLocation::kInternal &&
+      updates_from_web_store) {
+    info.location = developer::Location::kFromStore;
+  } else if (Manifest::IsUnpackedLocation(extension.location())) {
+    info.location = developer::Location::kUnpacked;
+  } else if (extension.was_installed_by_default() &&
+             !extension.was_installed_by_oem() && updates_from_web_store) {
+    info.location = developer::Location::kInstalledByDefault;
+  } else if (Manifest::IsExternalLocation(extension.location()) &&
+             updates_from_web_store) {
+    info.location = developer::Location::kThirdParty;
+  } else {
     info.location = developer::Location::kUnknown;
   }
 
@@ -725,6 +778,9 @@ void ExtensionInfoGeneratorShared::FillExtensionInfo(
     }
   }
 
+  info.must_remain_installed =
+      management_policy->MustRemainInstalled(&extension, nullptr);
+
   info.name = extension.name();
   info.offline_enabled = OfflineEnabledInfo::IsOfflineEnabled(&extension);
 
@@ -756,6 +812,12 @@ void ExtensionInfoGeneratorShared::FillExtensionInfo(
 
   info.type = GetExtensionType(extension.manifest()->type());
 
+  info.update_url =
+      extension_management->GetEffectiveUpdateURL(extension).spec();
+
+  info.user_may_modify =
+      management_policy->UserMayModifySettings(&extension, nullptr);
+
   info.version = extension.GetVersionForDisplay();
 
   if (state != developer::ExtensionState::kTerminated) {
@@ -763,16 +825,16 @@ void ExtensionInfoGeneratorShared::FillExtensionInfo(
         extension, is_enabled);
   }
 
-  // Commands.
-  if (is_enabled) {
-    ConstructCommands(command_service_, extension.id(), &info.commands);
-  }
-#if BUILDFLAG(ENABLE_EXTENSIONS)
-  info.is_command_registration_handled_externally =
-      ui::GlobalAcceleratorListener::GetInstance() &&
-      ui::GlobalAcceleratorListener::GetInstance()
-          ->IsRegistrationHandledExternally();
-#endif  // BUILDFLAG(ENABLE_EXTENSIONS)
+  // Show access requests in toolbar.
+  info.show_access_requests_in_toolbar =
+      SitePermissionsHelper(profile).ShowAccessRequestsInToolbar(
+          extension.id());
+  // TODO(crbug.com/419419534): Add back pinned_to_toolbar.
+
+  // TODO(crbug.com/419419534): Add back MV2 deprecation if needed, so that
+  // extension_info_generator_desktop can be removed.
+
+  // TODO(crbug.com/419419534): Add back can_upload_as_account_extension.
 
   // The icon. This section must come last as it moves `info`.
   ExtensionResource icon = IconsInfo::GetIconResource(

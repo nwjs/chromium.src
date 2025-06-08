@@ -6,6 +6,8 @@
 
 #include "base/containers/fixed_flat_map.h"
 #include "base/containers/flat_map.h"
+#include "base/metrics/user_metrics.h"
+#include "base/metrics/user_metrics_action.h"
 #include "base/scoped_observation.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/glic/glic_pref_names.h"
@@ -106,20 +108,20 @@ bool ApplicationHotkeyDelegate::AcceleratorPressed(
   switch (hotkey) {
     case LocalHotkeyManager::Hotkey::kFocusToggle:
       window_controller_->FocusIfOpen();
+      base::RecordAction(base::UserMetricsAction("Glic.FocusHotKey"));
       return true;
     default:
-      NOTREACHED()
-          << "no handling implemented for "
-          << LocalHotkeyManager::GetAccelerator(hotkey).GetShortcutText();
+      NOTREACHED() << "no handling implemented for "
+                   << LocalHotkeyManager::HotkeyToString(hotkey);
   }
 }
 
 std::unique_ptr<LocalHotkeyManager> MakeApplicationHotkeyManager(
     base::WeakPtr<GlicWindowController> window_controller) {
-  auto application_hotkey_delegate = std::make_unique<LocalHotkeyManager>(
+  auto hotkey_manager = std::make_unique<LocalHotkeyManager>(
       window_controller,
       std::make_unique<ApplicationHotkeyDelegate>(window_controller));
-  application_hotkey_delegate->InitializeAccelerators();
-  return application_hotkey_delegate;
+  hotkey_manager->InitializeAccelerators();
+  return hotkey_manager;
 }
 }  // namespace glic

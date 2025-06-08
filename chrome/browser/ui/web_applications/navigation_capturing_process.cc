@@ -81,7 +81,7 @@ bool IsPageTransitionValidForNavigationCapturing(
     case ui::PAGE_TRANSITION_FORM_SUBMIT:
       break;
     default:
-      NOTREACHED(base::NotFatalUntil::M135);
+      NOTREACHED();
   }
   if (base::to_underlying(ui::PageTransitionGetQualifier(transition)) != 0) {
     // Qualifiers indicate that this navigation was the result of a click on a
@@ -642,11 +642,16 @@ NavigationCapturingProcess::GetInitialBrowserAndTabOverrideForNavigation(
     FocusAppContainer(client_mode_and_browser->browser,
                       *client_mode_and_browser->tab_index);
 
+    CHECK(!time_navigation_started_.is_null());
+    bool is_current_container_window =
+        WebAppBrowserController::IsWebApp(client_mode_and_browser->browser);
+
     // Abort the navigation by returning a `nullptr`. Because this means
     // `OnWebAppNavigationAfterWebContentsCreation` won't be called, enqueue
     // the launch params instantly and record the debug data.
     EnqueueLaunchParams(contents, app_id, params.url,
-                        /*wait_for_navigation_to_complete=*/false);
+                        /*wait_for_navigation_to_complete=*/false,
+                        time_navigation_started_);
 
     MaybeShowNavigationCaptureIph(app_id, &*profile_,
                                   client_mode_and_browser->browser);
@@ -657,8 +662,11 @@ NavigationCapturingProcess::GetInitialBrowserAndTabOverrideForNavigation(
                         apps::LaunchSource::kFromNavigationCapturing,
                         params.url, contents);
 
+    RecordNavigationCapturingDisplayModeMetrics(app_id, contents,
+                                                !is_current_container_window);
+
     initial_nav_handling_result_ =
-        WebAppBrowserController::IsWebApp(client_mode_and_browser->browser)
+        is_current_container_window
             ? NavigationCapturingInitialResult::kFocusExistingAppWindow
             : NavigationCapturingInitialResult::kFocusExistingAppBrowserTab;
     return CancelInitialNavigation();
@@ -1024,11 +1032,13 @@ NavigationCapturingProcess::HandleRedirect() {
           params,
           base::BindOnce(
               [](const webapps::AppId& target_app_id,
+                 base::TimeTicks time_navigation_started,
                  content::NavigationHandle& navigation_handle) {
                 WebAppLaunchNavigationHandleUserData::CreateForNavigationHandle(
-                    navigation_handle, target_app_id, /*force_iph_off=*/false);
+                    navigation_handle, target_app_id, /*force_iph_off=*/false,
+                    time_navigation_started);
               },
-              *target_app_id));
+              *target_app_id, time_navigation_started_));
       debug_data_.Set("!redirection_result", "cancel, navigate-existing");
       redirection_result_ =
           is_web_app_browser
@@ -1038,14 +1048,18 @@ NavigationCapturingProcess::HandleRedirect() {
     } else {
       // Perform post navigation operations, like recording app launch metrics,
       // or showing the navigation capturing IPH.
+      CHECK(!time_navigation_started_.is_null());
       EnqueueLaunchParams(pre_existing_contents, *target_app_id, final_url,
-                          /*wait_for_navigation_to_complete=*/false);
+                          /*wait_for_navigation_to_complete=*/false,
+                          time_navigation_started_);
       MaybeShowNavigationCaptureIph(*target_app_id, &*profile_,
                                     client_mode_and_browser.browser);
       RecordLaunchMetrics(*target_app_id,
                           apps::LaunchContainer::kLaunchContainerWindow,
                           apps::LaunchSource::kFromNavigationCapturing,
                           final_url, pre_existing_contents);
+      RecordNavigationCapturingDisplayModeMetrics(
+          *target_app_id, pre_existing_contents, !is_web_app_browser);
       debug_data_.Set("!redirection_result", "cancel, focus-existing");
       redirection_result_ =
           is_web_app_browser
@@ -1083,7 +1097,8 @@ void NavigationCapturingProcess::OnAttachedToNavigationHandle() {
   }
 
   web_app::WebAppLaunchNavigationHandleUserData::CreateForNavigationHandle(
-      *navigation_handle(), *launched_app_id_, force_iph_off_);
+      *navigation_handle(), *launched_app_id_, force_iph_off_,
+      time_navigation_started_);
 }
 
 bool NavigationCapturingProcess::

@@ -129,9 +129,10 @@ public class Snackbar {
     public static final int UMA_REVOKE_FILE_EDIT_GRANT = 72;
     public static final int UMA_SEARCH_ENGINE_CHANGED_NOTIFICATION = 73;
     public static final int UMA_BOOKMARK_BATCH_UPLOAD = 74;
+    public static final int UMA_NTP_MOST_VISITED_UNPIN_UNDO = 75;
 
-    private @Nullable SnackbarController mController;
-    private CharSequence mText;
+    private final @Nullable SnackbarController mController;
+    private final CharSequence mText;
     private @Nullable String mTemplateText;
     private @Nullable String mActionText;
     private @Nullable Object mActionData;
@@ -140,7 +141,7 @@ public class Snackbar {
     private boolean mSingleLine = true;
     private int mDurationMs;
     private @Nullable Drawable mProfileImage;
-    private int mType;
+    private final int mType;
     private int mIdentifier = UMA_UNKNOWN;
     private @Theme int mTheme = Theme.BASIC;
 

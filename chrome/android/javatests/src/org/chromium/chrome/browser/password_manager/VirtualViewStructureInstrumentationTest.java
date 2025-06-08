@@ -46,7 +46,7 @@ public class VirtualViewStructureInstrumentationTest {
     @SmallTest
     @MinAndroidSdkLevel(value = 28)
     @EnableFeatures({AutofillFeatures.AUTOFILL_VIRTUAL_VIEW_STRUCTURE_ANDROID})
-    @DisabledTest(message = "https://crbug.com/1510968")
+    @DisabledTest(message = "https://crbug.com/414988519")
     public void testLogs3PModeDisabledMetrics() {
         WebPageStation page = mActivityTestRule.startOnBlankPage();
 

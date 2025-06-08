@@ -20,6 +20,8 @@
 #include "components/keyed_service/core/keyed_service.h"
 #include "components/sync/base/data_type.h"
 #include "components/webdata/common/web_data_service_base.h"
+#include "ui/gfx/image/image.h"
+#include "url/gurl.h"
 
 namespace autofill {
 
@@ -56,6 +58,9 @@ class ValuablesDataManager : public KeyedService,
   // The returned span may be invalidated asynchronously.
   base::span<const LoyaltyCard> GetLoyaltyCards() const;
 
+  // Returns if there are any pending queries to the web database.
+  bool HasPendingQueries() const;
+
   // Returns the cached image for the `image_url` if it was synced locally to
   // the client. The image is extracted from the local cache in
   // `AutofillImageFetcher`. If the card art image is not present in the cache,
@@ -64,6 +69,10 @@ class ValuablesDataManager : public KeyedService,
 
   // AutofillWebDataServiceObserverOnUISequence:
   void OnAutofillChangedBySync(syncer::DataType data_type) override;
+
+ protected:
+  // The image fetcher to fetch customized images for Autofill data.
+  raw_ptr<AutofillImageFetcherBase> image_fetcher_ = nullptr;
 
  private:
   friend class ValuablesDataManagerTestApi;
@@ -77,6 +86,9 @@ class ValuablesDataManager : public KeyedService,
 
   // Handler method called with newly received loyalty cards.
   void OnLoyaltyCardsLoaded(const std::vector<LoyaltyCard>& loyalty_cards);
+
+  // Fetches missing loyalty card icons.
+  void ProcessLoyaltyCardIconUrlChanges();
 
   // Notify all observers that a change has occurred.
   void NotifyObservers();
@@ -94,9 +106,6 @@ class ValuablesDataManager : public KeyedService,
 
   // The result of the last successful `LoadLoyaltyCards()` query.
   std::vector<LoyaltyCard> loyalty_cards_;
-
-  // The image fetcher to fetch customized images for Autofill data.
-  const raw_ptr<AutofillImageFetcherBase> image_fetcher_ = nullptr;
 
   base::WeakPtrFactory<ValuablesDataManager> weak_ptr_factory_{this};
 };

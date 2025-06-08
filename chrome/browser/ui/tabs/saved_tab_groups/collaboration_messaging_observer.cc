@@ -4,6 +4,9 @@
 
 #include "chrome/browser/ui/tabs/saved_tab_groups/collaboration_messaging_observer.h"
 
+#include <set>
+
+#include "base/uuid.h"
 #include "chrome/browser/collaboration/collaboration_service_factory.h"
 #include "chrome/browser/collaboration/messaging/messaging_backend_service_factory.h"
 #include "chrome/browser/tab_group_sync/tab_group_sync_service_factory.h"
@@ -13,7 +16,6 @@
 #include "chrome/browser/ui/tabs/saved_tab_groups/saved_tab_group_metrics.h"
 #include "chrome/browser/ui/tabs/saved_tab_groups/saved_tab_group_utils.h"
 #include "chrome/browser/ui/tabs/saved_tab_groups/tab_group_action_context_desktop.h"
-#include "chrome/browser/ui/tabs/tab_group.h"
 #include "chrome/browser/ui/tabs/tab_group_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/views/data_sharing/collaboration_controller_delegate_desktop.h"
@@ -24,6 +26,7 @@
 #include "components/collaboration/public/collaboration_service.h"
 #include "components/saved_tab_groups/public/tab_group_sync_service.h"
 #include "components/saved_tab_groups/public/types.h"
+#include "components/tabs/public/tab_group.h"
 
 using collaboration::messaging::MessagingBackendServiceFactory;
 
@@ -227,7 +230,7 @@ CollaborationMessagingObserver::~CollaborationMessagingObserver() {
 void CollaborationMessagingObserver::OnMessagingBackendServiceInitialized() {
   CHECK(service_);
   auto messages = service_->GetMessages(std::nullopt);
-  for (auto message : messages) {
+  for (const auto& message : messages) {
     DispatchMessage(message, MessageDisplayStatus::kDisplay);
   }
 }
@@ -255,6 +258,11 @@ void CollaborationMessagingObserver::DisplayInstantaneousMessage(
     InstantMessageSuccessCallback success_callback) {
   instant_message_queue_processor_.Enqueue(message,
                                            std::move(success_callback));
+}
+
+void CollaborationMessagingObserver::HideInstantaneousMessage(
+    const std::set<base::Uuid>& message_ids) {
+  // TODO(crbug.com/416265338): Implement this.
 }
 
 void CollaborationMessagingObserver::ReopenTabForCurrentInstantMessage() {

@@ -190,10 +190,6 @@ void SyncServiceAndroidBridge::OnSyncShutdown(SyncService* sync) {
   // destroy it shortly.
 }
 
-void SyncServiceAndroidBridge::SetSyncRequested(JNIEnv* env) {
-  native_sync_service_->SetSyncFeatureRequested();
-}
-
 jboolean SyncServiceAndroidBridge::IsSyncFeatureEnabled(JNIEnv* env) {
   return native_sync_service_->IsSyncFeatureEnabled();
 }
@@ -297,6 +293,16 @@ void SyncServiceAndroidBridge::SetSelectedTypes(
     JNIEnv* env,
     jboolean sync_everything,
     const JavaParamRef<jintArray>& user_selectable_type_array) {
+  if (native_sync_service_->GetAccountInfo().account_id.empty()) {
+    // This function shouldn't be called while signed out, but evidence suggests
+    // it sometimes does get called.
+    // TODO(crbug.com/369301153): Remove workaround and adopt CHECK/NOTREACHED
+    // once crashes are no longer reported. This could also be cleaned up once
+    // crbug.com/40066949 is tackled.
+    DUMP_WILL_BE_NOTREACHED();
+    return;
+  }
+
   std::vector<int> types_vector;
   base::android::JavaIntArrayToIntVector(env, user_selectable_type_array,
                                          &types_vector);
@@ -313,6 +319,16 @@ void SyncServiceAndroidBridge::SetSelectedTypes(
 void SyncServiceAndroidBridge::SetSelectedType(JNIEnv* env,
                                                jint type,
                                                jboolean is_type_on) {
+  if (native_sync_service_->GetAccountInfo().account_id.empty()) {
+    // This function shouldn't be called while signed out, but evidence suggests
+    // it sometimes does get called.
+    // TODO(crbug.com/369301153): Remove workaround and adopt CHECK/NOTREACHED
+    // once crashes are no longer reported. This could also be cleaned up once
+    // crbug.com/40066949 is tackled.
+    DUMP_WILL_BE_NOTREACHED();
+    return;
+  }
+
   native_sync_service_->GetUserSettings()->SetSelectedType(
       IntToUserSelectableTypeChecked(type), is_type_on);
 }
@@ -452,16 +468,15 @@ jlong SyncServiceAndroidBridge::GetLastSyncedTimeForDebugging(JNIEnv* env) {
 
 void SyncServiceAndroidBridge::KeepAccountSettingsPrefsOnlyForUsers(
     JNIEnv* env,
-    const base::android::JavaParamRef<jobjectArray>& gaia_ids) {
+    const base::android::JavaParamRef<jobjectArray>& gaia_ids_array) {
   std::vector<std::string> gaia_id_strings;
-  AppendJavaStringArrayToStringVector(env, gaia_ids, &gaia_id_strings);
-  std::vector<signin::GaiaIdHash> gaia_id_hashes;
+  AppendJavaStringArrayToStringVector(env, gaia_ids_array, &gaia_id_strings);
+  std::vector<GaiaId> gaia_ids;
   for (const std::string& gaia_id_string : gaia_id_strings) {
-    gaia_id_hashes.push_back(
-        signin::GaiaIdHash::FromGaiaId(GaiaId(gaia_id_string)));
+    gaia_ids.emplace_back(gaia_id_string);
   }
   native_sync_service_->GetUserSettings()->KeepAccountSettingsPrefsOnlyForUsers(
-      gaia_id_hashes);
+      gaia_ids);
 }
 
 }  // namespace syncer

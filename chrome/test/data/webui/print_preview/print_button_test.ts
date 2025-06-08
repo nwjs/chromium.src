@@ -5,7 +5,6 @@
 import type {CrButtonElement, NativeInitialSettings, PrintPreviewAppElement, PrintTicket} from 'chrome://print/print_preview.js';
 import {
   NativeLayerImpl, PluginProxyImpl, State} from 'chrome://print/print_preview.js';
-import {flush} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
 import {assertDeepEquals, assertEquals, assertFalse, assertTrue} from 'chrome://webui-test/chai_assert.js';
 
 import {NativeLayerStub} from './native_layer_stub.js';
@@ -56,7 +55,7 @@ suite('PrintButtonTest', function() {
       // that the preview is ready.
       const sidebar = page.$.sidebar;
       const buttonStrip =
-          sidebar.shadowRoot!.querySelector('print-preview-button-strip');
+          sidebar.shadowRoot.querySelector('print-preview-button-strip');
       assertTrue(!!buttonStrip);
       if (printBeforePreviewReady) {
         const printButton =
@@ -67,7 +66,6 @@ suite('PrintButtonTest', function() {
         printButton.click();
       }
       if (cancelBeforePreviewReady) {
-        flush();
         const cancelButton =
             buttonStrip.shadowRoot.querySelector<CrButtonElement>(
                 '.cancel-button');

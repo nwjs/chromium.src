@@ -54,6 +54,7 @@ generate_grd("build_grdp") {
     "sites.svg",
     "spark.svg",
     "star_active.svg",
+    "subdirectory_arrow_right.svg",
     "sunrise_cr23.svg",
     "sunrise.svg",
     "tab_cr23.svg",
@@ -84,6 +85,7 @@ if (is_chrome_branded) {
     input_files = [
       "camera.svg",
       "google_g.svg",
+      "google_g_gradient.svg",
       "google_g_cr23.svg",
       "google_logo.svg",
       "mic.svg",

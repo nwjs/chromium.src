@@ -2,11 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifdef UNSAFE_BUFFERS_BUILD
-// TODO(crbug.com/40285824): Remove this and convert code to safer constructs.
-#pragma allow_unsafe_buffers
-#endif
-
 #include <algorithm>
 #include <array>
 #include <string>
@@ -4135,7 +4130,11 @@ TEST_F(DeskSaveAndRecallTest, SaveDeskForLaterWithSingleDesk) {
 
 // Tests that all desk window is not closed nor saved by clicking save desk for
 // later button.
-// TODO(crbug.com/388283264): Re-enable this test once the bug is fixed.
+//
+// TODO(crbug.com/388283264): Also see the last two EXPECT_FALSE() statements at
+// the bottom of this test. This test exposes an underlying conflict between the
+// "save desk" feature and the "all desk window" feature and a fix requires code
+// changes that are non-trivial.
 TEST_F(DeskSaveAndRecallTest, DISABLED_SaveDeskForLaterWithAllDeskWindow) {
   DesksController* desks_controller = DesksController::Get();
   desks_controller->NewDesk(DesksCreationRemovalSource::kKeyboard);
@@ -4174,6 +4173,10 @@ TEST_F(DeskSaveAndRecallTest, DISABLED_SaveDeskForLaterWithAllDeskWindow) {
   // it's still in the library view.
   auto* all_desk_window_overview_item =
       GetOverviewItemForWindow(tracker.windows().front());
+
+  // TODO(crbug.com/388283264): The following two statements are consistently
+  // failing, i.e., both item_widget() and GetWindow() has IsVisible() returning
+  // true after the saving desk operation.
   EXPECT_FALSE(all_desk_window_overview_item->item_widget()->IsVisible());
   EXPECT_FALSE(all_desk_window_overview_item->GetWindow()->IsVisible());
 }
@@ -4510,12 +4513,13 @@ TEST_F(SavedDeskTest, ContextMenuLayout) {
                                                0);
   EXPECT_EQ(4u, menu_model.GetItemCount());
 
-  DeskActionContextMenu::CommandId expected_command[] = {
-      DeskActionContextMenu::CommandId::kSaveAsTemplate,
-      DeskActionContextMenu::CommandId::kSaveForLater,
-      DeskActionContextMenu::CommandId::kCombineDesks,
-      DeskActionContextMenu::CommandId::kCloseAll};
-  for (size_t i = 0; i < 4u; ++i) {
+  constexpr auto expected_command =
+      std::to_array<DeskActionContextMenu::CommandId>(
+          {DeskActionContextMenu::CommandId::kSaveAsTemplate,
+           DeskActionContextMenu::CommandId::kSaveForLater,
+           DeskActionContextMenu::CommandId::kCombineDesks,
+           DeskActionContextMenu::CommandId::kCloseAll});
+  for (size_t i = 0; i < expected_command.size(); ++i) {
     EXPECT_EQ(expected_command[i],
               static_cast<DeskActionContextMenu::CommandId>(
                   menu_model.GetCommandIdAt(i)));

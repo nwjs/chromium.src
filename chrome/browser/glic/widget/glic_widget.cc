@@ -34,10 +34,6 @@ namespace {
 
 constexpr float kGlicWidgetCornerRadius = 12;
 
-bool UserResizeEnabled() {
-  return base::FeatureList::IsEnabled(features::kGlicUserResize);
-}
-
 // For resizeable windows, there may be an invisible border which affects the
 // widget size. Given a target rect, this method provides the outsets which
 // should be applied in order to calculate the correct widget bounds.
@@ -45,8 +41,12 @@ gfx::Outsets GetTargetOutsets(const gfx::Rect& bounds) {
   gfx::Outsets outsets;
 #if BUILDFLAG(IS_WIN)
   RECT bounds_rect = bounds.ToRECT();
-  int frame_thickness = ui::GetResizeFrameOnlyThickness(
-      MonitorFromRect(&bounds_rect, MONITOR_DEFAULTTONEAREST));
+  int frame_thickness = ui::GetFrameThickness(
+      MonitorFromRect(&bounds_rect, MONITOR_DEFAULTTONEAREST),
+      /*has_caption=*/false);
+  display::Display display =
+      display::Screen::GetScreen()->GetDisplayMatching(bounds);
+  frame_thickness = frame_thickness / display.device_scale_factor();
   // On Windows, the presence of a frame means that we need to adjust both the
   // width and height of the widget by 2*frame thickness, and center the content
   // horizontally.
@@ -81,10 +81,8 @@ void* kGlicWidgetIdentifier = &kGlicWidgetIdentifier;
 
 GlicWidget::GlicWidget(ThemeService* theme_service, InitParams params)
     : views::Widget(std::move(params)) {
-  if (UserResizeEnabled()) {
-    minimum_widget_size_ = GetInitialSize();
-    OnSizeConstraintsChanged();
-  }
+  minimum_widget_size_ = GetInitialSize();
+  OnSizeConstraintsChanged();
   theme_service_observation_.Observe(theme_service);
 }
 
@@ -105,7 +103,7 @@ std::unique_ptr<GlicWidget> GlicWidget::Create(
       views::Widget::InitParams::CLIENT_OWNS_WIDGET,
       views::Widget::InitParams::TYPE_WINDOW_FRAMELESS);
   params.bounds = initial_bounds;
-  if (UserResizeEnabled() && user_resizable) {
+  if (user_resizable) {
     params.bounds.Outset(GetTargetOutsets(initial_bounds));
   }
 #if BUILDFLAG(IS_WIN)
@@ -130,7 +128,7 @@ std::unique_ptr<GlicWidget> GlicWidget::Create(
   params.animation_enabled = true;
 #endif
   auto delegate = std::make_unique<GlicWidgetDelegate>();
-  delegate->SetCanResize(UserResizeEnabled() && user_resizable);
+  delegate->SetCanResize(user_resizable);
   params.delegate = delegate.release();
 
   auto widget = base::WrapUnique(new GlicWidget(
@@ -174,18 +172,18 @@ void GlicWidget::SetMinimumSize(const gfx::Size& size) {
 }
 
 gfx::Size GlicWidget::GetMinimumSize() const {
-  return UserResizeEnabled() ? minimum_widget_size_ : gfx::Size();
+  return minimum_widget_size_;
 }
 
 gfx::Rect GlicWidget::VisibleToWidgetBounds(gfx::Rect visible_bounds) {
-  if (UserResizeEnabled() && widget_delegate()->CanResize()) {
+  if (widget_delegate()->CanResize()) {
     visible_bounds.Outset(GetTargetOutsets(visible_bounds));
   }
   return visible_bounds;
 }
 
 gfx::Rect GlicWidget::WidgetToVisibleBounds(gfx::Rect widget_bounds) {
-  if (UserResizeEnabled() && widget_delegate()->CanResize()) {
+  if (widget_delegate()->CanResize()) {
     widget_bounds.Inset(-GetTargetOutsets(widget_bounds).ToInsets());
   }
   return widget_bounds;
@@ -208,6 +206,7 @@ ui::ColorProviderKey GlicWidget::GetColorProviderKey() const {
 
 void GlicWidget::OnThemeChanged() {
   NotifyColorProviderChanged();
+  ThemeChanged();
 }
 
 }  // namespace glic

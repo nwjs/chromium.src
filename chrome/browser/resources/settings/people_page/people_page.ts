@@ -207,18 +207,6 @@ export class SettingsPeoplePageElement extends SettingsPeoplePageElementBase {
           return map;
         },
       },
-
-      enableAiSettingsPageRefresh_: {
-        type: Boolean,
-        value: () => loadTimeData.getBoolean('enableAiSettingsPageRefresh'),
-      },
-
-      showHistorySearchControl_: {
-        type: Boolean,
-        value() {
-          return loadTimeData.getBoolean('showHistorySearchControl');
-        },
-      },
     };
   }
 
@@ -231,8 +219,6 @@ export class SettingsPeoplePageElement extends SettingsPeoplePageElementBase {
   declare private profileIconUrl_: string;
   declare private isProfileActionable_: boolean;
   declare private profileName_: string;
-  declare private enableAiSettingsPageRefresh_: boolean;
-  declare private showHistorySearchControl_: boolean;
 
   // <if expr="not chromeos_ash">
   declare storedAccounts: StoredAccount[]|null;
@@ -307,17 +293,6 @@ export class SettingsPeoplePageElement extends SettingsPeoplePageElementBase {
     return this.signinAllowed_ ?
         this.shadowRoot!.querySelector('#edit-profile')! :
         this.shadowRoot!.querySelector('#profile-row')!;
-  }
-
-  private getSyncAndGoogleServicesSubtext_(): string {
-    if (loadTimeData.getBoolean('isImprovedSettingsUIOnDesktopEnabled')) {
-      return '';
-    }
-    if (this.syncStatus && this.syncStatus.hasError &&
-        this.syncStatus.statusText) {
-      return this.syncStatus.statusText;
-    }
-    return '';
   }
 
   /**
@@ -453,10 +428,6 @@ export class SettingsPeoplePageElement extends SettingsPeoplePageElementBase {
   private isSyncing_() {
     return !!this.syncStatus &&
         this.syncStatus.signedInState === SignedInState.SYNCING;
-  }
-
-  private shouldShowHistorySearchControl_(): boolean {
-    return this.showHistorySearchControl_ && !this.enableAiSettingsPageRefresh_;
   }
 }
 

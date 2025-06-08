@@ -920,9 +920,10 @@ static bool ShouldMergeCombinedTextAfterRemoval(const Node& old_child) {
 
   // Request to merge combined texts in anonymous block.
   // See http://crbug.com/1233432
-  if (!previous_sibling->IsAnonymousBlock() ||
-      !next_sibling->IsAnonymousBlock())
+  if (!previous_sibling->IsAnonymousBlockFlow() ||
+      !next_sibling->IsAnonymousBlockFlow()) {
     return false;
+  }
 
   if (IsA<LayoutTextCombine>(previous_sibling->SlowLastChild()) &&
       IsA<LayoutTextCombine>(next_sibling->SlowFirstChild())) [[unlikely]] {
@@ -1959,26 +1960,22 @@ void ContainerNode::CheckSoftNavigationHeuristicsTracking(
   if (!document.IsTrackingSoftNavigationHeuristics()) {
     return;
   }
+  if (!inserted_node.isConnected()) {
+    return;
+  }
   LocalDOMWindow* window = document.domWindow();
   if (!window) {
     return;
   }
-  LocalFrame* frame = window->GetFrame();
-  if (!frame || !frame->IsMainFrame()) {
-    return;
-  }
-
   if (SoftNavigationHeuristics* heuristics =
-          SoftNavigationHeuristics::From(*window)) {
+          window->GetSoftNavigationHeuristics()) {
+    // When a child node, which is an HTML-element, is modified within a parent
+    // (added, moved, etc), mark that child as modified by soft navigation.
+    // Otherwise, if the child is not an HTML-element, mark the parent instead.
     // TODO(crbug.com/1521100): This does not filter out updates from isolated
     // worlds. Should it?
-    if (heuristics->ModifiedDOM()) {
-      if (inserted_node.IsHTMLElement()) {
-        inserted_node.SetIsModifiedBySoftNavigation();
-      } else {
-        SetIsModifiedBySoftNavigation();
-      }
-    }
+    Node* updated_node = inserted_node.IsHTMLElement() ? &inserted_node : this;
+    heuristics->ModifiedDOM(updated_node);
   }
 }
 

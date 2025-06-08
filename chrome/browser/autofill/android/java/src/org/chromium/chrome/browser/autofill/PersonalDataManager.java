@@ -4,10 +4,11 @@
 
 package org.chromium.chrome.browser.autofill;
 
+import static org.chromium.build.NullUtil.assumeNonNull;
+
 import android.content.Context;
 import android.text.TextUtils;
 
-import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 
 import org.jni_zero.CalledByNative;
@@ -17,6 +18,8 @@ import org.jni_zero.NativeMethods;
 
 import org.chromium.base.ThreadUtils;
 import org.chromium.base.lifetime.Destroyable;
+import org.chromium.build.annotations.NullMarked;
+import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.preferences.Pref;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.components.autofill.AutofillProfile;
@@ -41,6 +44,7 @@ import java.util.Objects;
  *
  * <p>See chrome/browser/autofill/personal_data_manager.h for more details.
  */
+@NullMarked
 @JNINamespace("autofill")
 public class PersonalDataManager implements Destroyable {
     private static final String TAG = "PersonalDataManager";
@@ -57,8 +61,8 @@ public class PersonalDataManager implements Destroyable {
         // marshaled and compared as strings. To save conversions, we sometimes use strings.
         private String mGUID;
         private String mOrigin;
-        private boolean mIsLocal;
-        private boolean mIsVirtual;
+        private final boolean mIsLocal;
+        private final boolean mIsVirtual;
         private String mName;
         private String mNumber;
         private String mNetworkAndLastFourDigits;
@@ -74,10 +78,10 @@ public class PersonalDataManager implements Destroyable {
         // the card in PaymentMethods in Settings.
         private String mCardLabel;
         private String mNickname;
-        private GURL mCardArtUrl;
+        private @Nullable GURL mCardArtUrl;
         private String mCvc;
-        private String mIssuerId;
-        private GURL mProductTermsUrl;
+        private final String mIssuerId;
+        private final @Nullable GURL mProductTermsUrl;
         private final @VirtualCardEnrollmentState int mVirtualCardEnrollmentState;
         private final String mProductDescription;
         private final String mCardNameForAutofillDisplay;
@@ -193,14 +197,14 @@ public class PersonalDataManager implements Destroyable {
                 long instrumentId,
                 String cardLabel,
                 String nickname,
-                GURL cardArtUrl,
+                @Nullable GURL cardArtUrl,
                 @VirtualCardEnrollmentState int virtualCardEnrollmentState,
                 String productDescription,
                 String cardNameForAutofillDisplay,
                 String obfuscatedLastFourDigits,
                 String cvc,
                 String issuerId,
-                GURL productTermsUrl) {
+                @Nullable GURL productTermsUrl) {
             mGUID = guid;
             mOrigin = origin;
             mIsLocal = isLocal;
@@ -335,7 +339,7 @@ public class PersonalDataManager implements Destroyable {
         }
 
         @CalledByNative("CreditCard")
-        public GURL getCardArtUrl() {
+        public @Nullable GURL getCardArtUrl() {
             return mCardArtUrl;
         }
 
@@ -360,7 +364,7 @@ public class PersonalDataManager implements Destroyable {
         }
 
         @CalledByNative("CreditCard")
-        public GURL getProductTermsUrl() {
+        public @Nullable GURL getProductTermsUrl() {
             return mProductTermsUrl;
         }
 
@@ -444,16 +448,16 @@ public class PersonalDataManager implements Destroyable {
 
     /** Autofill IBAN information. */
     public static class Iban {
-        @Nullable private String mGuid;
-        @Nullable private Long mInstrumentId;
+        private final @Nullable String mGuid;
+        private final @Nullable Long mInstrumentId;
 
         // Obfuscated IBAN value. This is used for displaying the IBAN in the Payment methods page.
-        private String mLabel;
+        private final String mLabel;
 
         private String mNickname;
-        private @IbanRecordType int mRecordType;
+        private final @IbanRecordType int mRecordType;
         // Value is empty for server IBAN.
-        @Nullable private String mValue;
+        private @Nullable String mValue;
 
         private Iban(
                 String guid,
@@ -517,7 +521,7 @@ public class PersonalDataManager implements Destroyable {
         }
 
         @CalledByNative("Iban")
-        public @JniType("std::string") String getGuid() {
+        public @Nullable @JniType("std::string") String getGuid() {
             assert mRecordType != IbanRecordType.SERVER_IBAN;
             return mGuid;
         }
@@ -544,7 +548,7 @@ public class PersonalDataManager implements Destroyable {
         }
 
         @CalledByNative("Iban")
-        public @JniType("std::u16string") String getValue() {
+        public @Nullable @JniType("std::u16string") String getValue() {
             return mValue;
         }
 
@@ -581,12 +585,12 @@ public class PersonalDataManager implements Destroyable {
 
         /** Builder for {@link Iban}. */
         public static final class Builder {
-            private String mGuid;
-            private Long mInstrumentId;
-            private String mLabel;
-            private String mNickname;
+            private @Nullable String mGuid;
+            private @Nullable Long mInstrumentId;
+            private @Nullable String mLabel;
+            private @Nullable String mNickname;
             private @IbanRecordType int mRecordType;
-            private String mValue;
+            private @Nullable String mValue;
 
             public Builder setGuid(String guid) {
                 mGuid = guid;
@@ -638,7 +642,15 @@ public class PersonalDataManager implements Destroyable {
                                         + " empty value.";
                         break;
                 }
-                return new Iban(mGuid, mInstrumentId, mLabel, mNickname, mRecordType, mValue);
+                // Non-null enforcement happens inside the constructor if applicable, assume
+                // non-null for all fields.
+                return new Iban(
+                        assumeNonNull(mGuid),
+                        assumeNonNull(mInstrumentId),
+                        assumeNonNull(mLabel),
+                        assumeNonNull(mNickname),
+                        mRecordType,
+                        assumeNonNull(mValue));
             }
         }
     }
@@ -973,16 +985,6 @@ public class PersonalDataManager implements Destroyable {
     }
 
     /**
-     * Users based in unsupported countries and profiles with a country value set to an unsupported
-     * country are not eligible for account storage. This function determines if the `country_code`
-     * is eligible.
-     */
-    public boolean isCountryEligibleForAccountStorage(String countryCode) {
-        return PersonalDataManagerJni.get()
-                .isCountryEligibleForAccountStorage(mPersonalDataManagerAndroid, countryCode);
-    }
-
-    /**
      * Checks whether the Autofill PersonalDataManager has profiles.
      *
      * @return True If there are profiles.
@@ -1171,9 +1173,6 @@ public class PersonalDataManager implements Destroyable {
 
         @JniType("std::string")
         String getDefaultCountryCodeForNewAddress(long nativePersonalDataManagerAndroid);
-
-        boolean isCountryEligibleForAccountStorage(
-                long nativePersonalDataManagerAndroid, @JniType("std::string") String countryCode);
 
         @JniType("std::string")
         String setProfile(

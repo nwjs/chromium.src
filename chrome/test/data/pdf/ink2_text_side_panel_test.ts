@@ -2,10 +2,9 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import {AnnotationMode, hexToColor, Ink2Manager, TEXT_COLORS, UserAction} from 'chrome-extension://mhjfbmdgcfjbbpaeojofohoefgiehjai/pdf_viewer_wrapper.js';
+import {AnnotationMode, hexToColor, Ink2Manager, TEXT_COLORS, TextTypeface, UserAction} from 'chrome-extension://mhjfbmdgcfjbbpaeojofohoefgiehjai/pdf_viewer_wrapper.js';
 import type {Color} from 'chrome-extension://mhjfbmdgcfjbbpaeojofohoefgiehjai/pdf_viewer_wrapper.js';
 import {assert} from 'chrome://resources/js/assert.js';
-import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
 import {eventToPromise, isVisible, microtasksFinished} from 'chrome://webui-test/test_util.js';
 
 import {setupMockMetricsPrivate} from './test_util.js';
@@ -18,12 +17,8 @@ chrome.test.runTests([
   async function testOpenSidePanel() {
     const mockMetricsPrivate = setupMockMetricsPrivate();
 
-    // Enable text annotations.
-    loadTimeData.overrideValues({'pdfTextAnnotationsEnabled': true});
-    viewer.$.toolbar.strings = Object.assign({}, viewer.$.toolbar.strings);
-    await microtasksFinished();
-
     viewer.$.toolbar.setAnnotationMode(AnnotationMode.TEXT);
+    await Ink2Manager.getInstance().initializeTextAnnotations();
     await microtasksFinished();
 
     chrome.test.assertEq(AnnotationMode.TEXT, viewer.$.toolbar.annotationMode);
@@ -49,7 +44,7 @@ chrome.test.runTests([
 
     const whenChanged =
         eventToPromise('attributes-changed', Ink2Manager.getInstance());
-    const newValue = 'Serif';
+    const newValue = TextTypeface.SERIF;
     fontSelect.focus();
     fontSelect.value = newValue;
     fontSelect.dispatchEvent(new CustomEvent('change'));

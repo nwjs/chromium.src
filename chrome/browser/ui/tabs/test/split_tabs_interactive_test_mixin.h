@@ -16,6 +16,7 @@
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/interaction/interaction_test_util_browser.h"
 #include "chrome/test/interaction/interactive_browser_test.h"
+#include "components/tabs/public/split_tab_visual_data.h"
 #include "ui/base/interaction/interactive_test.h"
 
 // Template to be used as a mixin class for split tabs tests extending
@@ -57,7 +58,7 @@ class SplitTabsInteractiveTestMixin : public T {
     auto result = T::Steps(
         T::SelectTab(kTabStripElementId, active_tab), T::Do([&, other_tab]() {
           T::browser()->tab_strip_model()->AddToNewSplit(
-              {other_tab}, split_tabs::SplitTabLayout::kVertical);
+              {other_tab}, split_tabs::SplitTabVisualData());
         }),
         T::PollView(kResizeLoadObserver,
                     MultiContentsResizeArea::kMultiContentsResizeAreaElementId,

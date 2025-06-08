@@ -97,7 +97,6 @@ public class ClearBrowsingDataFragment extends ChromeBaseSettingsFragment
         private final @DialogOption int mOption;
         private final ClearBrowsingDataCheckBoxPreference mCheckbox;
         private BrowsingDataCounterBridge mCounter;
-        private boolean mShouldAnnounceCounterResult;
         private @TimePeriod int mSelectedTimePeriod;
 
         public Item(
@@ -162,25 +161,13 @@ public class ClearBrowsingDataFragment extends ChromeBaseSettingsFragment
             assert mCheckbox == preference;
 
             mParent.updateButtonState();
-            mShouldAnnounceCounterResult = true;
             return true;
         }
 
         @Override
         public void onCounterFinished(String summary) {
             mCheckbox.setSummary(summary);
-            if (mShouldAnnounceCounterResult) {
-                mCheckbox.announceForAccessibility(summary);
-            }
-        }
-
-        /**
-         * Sets whether the BrowsingDataCounter result should be announced. This is when the counter
-         * recalculation was caused by a checkbox state change (as opposed to fragment
-         * initialization or time period change).
-         */
-        public void setShouldAnnounceCounterResult(boolean value) {
-            mShouldAnnounceCounterResult = value;
+            mCheckbox.maybeAnnounceSummaryChange(summary);
         }
 
         public void setSelectedTimePeriod(@TimePeriod int selectedTimePeriod) {
@@ -578,7 +565,6 @@ public class ClearBrowsingDataFragment extends ChromeBaseSettingsFragment
             // Inform the items that a recalculation is going to happen as a result of the time
             // period change.
             for (Item item : mItems) {
-                item.setShouldAnnounceCounterResult(false);
                 item.setSelectedTimePeriod(mLastSelectedTimePeriod);
             }
             return true;
@@ -618,7 +604,7 @@ public class ClearBrowsingDataFragment extends ChromeBaseSettingsFragment
     }
 
     @Override
-    public void onCreatePreferences(Bundle savedInstanceState, String rootKey) {
+    public void onCreatePreferences(@Nullable Bundle savedInstanceState, @Nullable String rootKey) {
         Bundle fragmentArgs = getArguments();
         assert fragmentArgs != null : "A valid fragment argument is required.";
 
@@ -713,7 +699,9 @@ public class ClearBrowsingDataFragment extends ChromeBaseSettingsFragment
 
     @Override
     public View onCreateView(
-            LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
+            LayoutInflater inflater,
+            @Nullable ViewGroup container,
+            @Nullable Bundle savedInstanceState) {
         LinearLayout view =
                 (LinearLayout) super.onCreateView(inflater, container, savedInstanceState);
 
@@ -731,7 +719,7 @@ public class ClearBrowsingDataFragment extends ChromeBaseSettingsFragment
     }
 
     @Override
-    public void onActivityCreated(Bundle savedInstanceState) {
+    public void onActivityCreated(@Nullable Bundle savedInstanceState) {
         super.onActivityCreated(savedInstanceState);
         // Now that the dialog's view has been created, update the button state.
         updateButtonState();
@@ -977,5 +965,10 @@ public class ClearBrowsingDataFragment extends ChromeBaseSettingsFragment
 
     private boolean isInMultiWindowMode() {
         return MultiWindowUtils.getInstanceCount() > 1;
+    }
+
+    @Override
+    public @AnimationType int getAnimationType() {
+        return AnimationType.PROPERTY;
     }
 }

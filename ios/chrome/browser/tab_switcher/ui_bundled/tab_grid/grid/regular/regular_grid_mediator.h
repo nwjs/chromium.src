@@ -27,13 +27,13 @@ class ShareKitService;
 @property(nonatomic, weak) id<GridCommands> inactiveTabsGridCommands;
 
 // Designated initialized. `tabGroupSyncService`, `shareKitService` and
-// `messagingService` can be nullptr.
+// `messagingService`: can be `nullptr`.
 - (instancetype)
-      initWithModeHolder:(TabGridModeHolder*)modeHolder
-     tabGroupSyncService:(tab_groups::TabGroupSyncService*)tabGroupSyncService
-         shareKitService:(ShareKitService*)shareKitService
-        messagingService:
-            (collaboration::messaging::MessagingBackendService*)messagingService
+     initWithModeHolder:(TabGridModeHolder*)modeHolder
+    tabGroupSyncService:(tab_groups::TabGroupSyncService*)tabGroupSyncService
+        shareKitService:(ShareKitService*)shareKitService
+       messagingService:
+           (collaboration::messaging::MessagingBackendService*)messagingService
     NS_DESIGNATED_INITIALIZER;
 - (instancetype)initWithModeHolder:(TabGridModeHolder*)modeHolder
     NS_UNAVAILABLE;

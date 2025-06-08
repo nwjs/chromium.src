@@ -42,12 +42,13 @@ import org.chromium.base.ActivityState;
 import org.chromium.base.ApiCompatibilityUtils;
 import org.chromium.base.Callback;
 import org.chromium.base.ContextUtils;
-import org.chromium.base.LifetimeAssert;
 import org.chromium.base.Log;
 import org.chromium.base.ObserverList;
 import org.chromium.base.PackageManagerUtils;
 import org.chromium.base.TraceEvent;
 import org.chromium.base.UnownedUserDataHost;
+import org.chromium.base.lifetime.Destroyable;
+import org.chromium.base.lifetime.LifetimeAssert;
 import org.chromium.base.supplier.ObservableSupplier;
 import org.chromium.base.supplier.ObservableSupplierImpl;
 import org.chromium.base.task.PostTask;
@@ -79,7 +80,8 @@ import java.util.function.Consumer;
 public class WindowAndroid
         implements AndroidPermissionDelegate,
                 DisplayAndroidObserver,
-                View.OnAttachStateChangeListener {
+                View.OnAttachStateChangeListener,
+                Destroyable {
     private static final String TAG = "WindowAndroid";
     private static final ImmutableWeakReference<Activity> NULL_ACTIVITY_WEAK_REF =
             new ImmutableWeakReference<>(null);
@@ -112,18 +114,14 @@ public class WindowAndroid
     private final ImmutableWeakReference<Context> mContextRef;
 
     // We track all animations over content and provide a drawing placeholder for them.
-    private HashSet<Animator> mAnimationsOverContent = new HashSet<>();
+    private final HashSet<Animator> mAnimationsOverContent = new HashSet<>();
     private @Nullable View mAnimationPlaceholderView;
 
     /** A mechanism for observing and updating the application window's bottom inset. */
-    private ApplicationViewportInsetSupplier mApplicationBottomInsetSupplier =
+    private final ApplicationViewportInsetSupplier mApplicationBottomInsetSupplier =
             new ApplicationViewportInsetSupplier();
 
     private @Nullable AndroidPermissionDelegate mPermissionDelegate;
-
-    // Note that this state lives in Java, rather than in the native BeginFrameSource because
-    // clients may pause VSync before the native WindowAndroid is created.
-    private boolean mVSyncPaused;
 
     // List of display modes with the same dimensions as the current mode but varying refresh rate.
     private @Nullable List<Display.Mode> mSupportedRefreshRateModes;
@@ -186,7 +184,8 @@ public class WindowAndroid
         default void onActivityDestroyed() {}
     }
 
-    private ObserverList<ActivityStateObserver> mActivityStateObservers = new ObserverList<>();
+    private final ObserverList<ActivityStateObserver> mActivityStateObservers =
+            new ObserverList<>();
 
     /** An interface to notify listeners of the changes in selection handles state. */
     public interface SelectionHandlesObserver {
@@ -195,7 +194,7 @@ public class WindowAndroid
     }
 
     private boolean mSelectionHandlesActive;
-    private ObserverList<SelectionHandlesObserver> mSelectionHandlesObservers =
+    private final ObserverList<SelectionHandlesObserver> mSelectionHandlesObservers =
             new ObserverList<>();
 
     private final boolean mAllowChangeRefreshRate;
@@ -871,12 +870,13 @@ public class WindowAndroid
         return mIsDestroyed;
     }
 
-    /** Destroys the c++ WindowAndroid object if one has been created. */
     @CalledByNative
+    @Override
     public void destroy() {
-        LifetimeAssert.setSafeToGc(mLifetimeAssert, true);
+        LifetimeAssert.destroy(mLifetimeAssert);
         mIsDestroyed = true;
         mDisplayAndroid.removeObserver(this);
+        // Destroys the c++ WindowAndroid object if one has been created.
         if (mNativeWindowAndroid != 0) {
             // Native code clears |mNativeWindowAndroid|.
             WindowAndroidJni.get().destroy(mNativeWindowAndroid, WindowAndroid.this);
@@ -916,8 +916,6 @@ public class WindowAndroid
                                     mDisplayAndroid.getDisplayId(),
                                     getMouseWheelScrollFactor(),
                                     getWindowIsWideColorGamut());
-            WindowAndroidJni.get()
-                    .setVSyncPaused(mNativeWindowAndroid, WindowAndroid.this, mVSyncPaused);
             onAdaptiveRefreshRateInfoChanged(mDisplayAndroid.getAdaptiveRefreshRateInfo());
         }
         return mNativeWindowAndroid;
@@ -1094,18 +1092,6 @@ public class WindowAndroid
     @VisibleForTesting
     public boolean haveAnimationsEnded() {
         return mAnimationsOverContent.isEmpty();
-    }
-
-    /**
-     * Pauses/Unpauses VSync. When VSync is paused the compositor for this window will idle, and
-     * requestAnimationFrame callbacks won't fire, etc.
-     */
-    public void setVSyncPaused(boolean paused) {
-        if (mVSyncPaused == paused) return;
-        mVSyncPaused = paused;
-        if (mNativeWindowAndroid != 0) {
-            WindowAndroidJni.get().setVSyncPaused(mNativeWindowAndroid, WindowAndroid.this, paused);
-        }
     }
 
     @Override
@@ -1429,8 +1415,6 @@ public class WindowAndroid
         void onActivityStopped(long nativeWindowAndroid, WindowAndroid caller);
 
         void onActivityStarted(long nativeWindowAndroid, WindowAndroid caller);
-
-        void setVSyncPaused(long nativeWindowAndroid, WindowAndroid caller, boolean paused);
 
         void onUpdateRefreshRate(long nativeWindowAndroid, WindowAndroid caller, float refreshRate);
 

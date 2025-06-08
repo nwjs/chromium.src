@@ -42,9 +42,9 @@ export class PrintPreviewButtonStripElement extends CrLitElement {
     };
   }
 
-  accessor destination: Destination;
-  accessor firstLoad: boolean;
-  accessor state: State;
+  accessor destination: Destination|null = null;
+  accessor firstLoad: boolean = false;
+  accessor state: State = State.NOT_READY;
   protected accessor printButtonEnabled_: boolean = false;
   protected accessor printButtonLabel_: string =
       loadTimeData.getString('printButton');
@@ -72,7 +72,7 @@ export class PrintPreviewButtonStripElement extends CrLitElement {
   }
 
   private isPdf_(): boolean {
-    return this.destination &&
+    return !!this.destination &&
         this.destination.type === PrinterType.PDF_PRINTER;
   }
 

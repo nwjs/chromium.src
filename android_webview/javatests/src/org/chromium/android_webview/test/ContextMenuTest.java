@@ -47,15 +47,18 @@ import org.chromium.android_webview.contextmenu.AwContextMenuItem.Item;
 import org.chromium.android_webview.contextmenu.AwContextMenuItemDelegate;
 import org.chromium.android_webview.contextmenu.AwContextMenuPopulator;
 import org.chromium.android_webview.test.AwActivityTestRule.TestDependencyFactory;
+import org.chromium.base.ThreadUtils;
 import org.chromium.base.test.util.Batch;
 import org.chromium.base.test.util.CallbackHelper;
 import org.chromium.base.test.util.CriteriaHelper;
 import org.chromium.base.test.util.DisableIf;
 import org.chromium.base.test.util.Feature;
 import org.chromium.base.test.util.Features;
+import org.chromium.blink_public.common.ContextMenuDataMediaType;
 import org.chromium.components.embedder_support.contextmenu.ContextMenuParams;
 import org.chromium.content_public.browser.test.util.DOMUtils;
 import org.chromium.content_public.browser.test.util.TestTouchUtils;
+import org.chromium.content_public.browser.test.util.WebContentsUtils;
 import org.chromium.net.test.util.TestWebServer;
 import org.chromium.ui.modelutil.MVCListAdapter.ModelList;
 import org.chromium.ui.mojom.MenuSourceType;
@@ -198,7 +201,7 @@ public class ContextMenuTest extends AwParameterizedTest {
             intending(IntentMatchers.hasAction(equalTo(Intent.ACTION_VIEW)))
                     .respondWith(new Instrumentation.ActivityResult(Activity.RESULT_OK, null));
 
-            int item = Item.OPEN_IN_BROWSER;
+            int item = Item.OPEN_LINK;
 
             final String url = mWebServer.setResponse(FILE, DATA, null);
             loadUrlSync(url);
@@ -317,15 +320,15 @@ public class ContextMenuTest extends AwParameterizedTest {
     @Feature({"AndroidWebView"})
     public void testBuildingContextMenuItems() throws Throwable {
         Integer[] expectedItems = {
-            R.id.contextmenu_copy_link_text,
             R.id.contextmenu_copy_link_address,
-            R.id.contextmenu_open_in_browser_id,
+            R.id.contextmenu_copy_link_text,
+            R.id.contextmenu_open_link_id,
         };
 
         ContextMenuParams params =
                 new ContextMenuParams(
                         0,
-                        0,
+                        ContextMenuDataMediaType.NONE,
                         new GURL("http://www.example.com/page_url"),
                         new GURL("http://www.example.com/other_example"),
                         "BLAH!",
@@ -339,6 +342,7 @@ public class ContextMenuTest extends AwParameterizedTest {
                         MenuSourceType.TOUCH,
                         false,
                         /* openedFromInterestTarget= */ false,
+                        /* interestTargetNodeID= */ 0,
                         /* additionalNavigationParams= */ null);
 
         AwContextMenuItemDelegate itemDelegate =
@@ -370,7 +374,7 @@ public class ContextMenuTest extends AwParameterizedTest {
         ContextMenuParams params =
                 new ContextMenuParams(
                         0,
-                        0,
+                        ContextMenuDataMediaType.NONE,
                         new GURL("http://www.example.com/page_url"),
                         GURL.emptyGURL(),
                         "BLAH!",
@@ -384,6 +388,7 @@ public class ContextMenuTest extends AwParameterizedTest {
                         MenuSourceType.TOUCH,
                         false,
                         /* openedFromInterestTarget= */ false,
+                        /* interestTargetNodeID= */ 0,
                         /* additionalNavigationParams= */ null);
 
         AwContextMenuHeaderCoordinator headerCoordinator =
@@ -444,12 +449,42 @@ public class ContextMenuTest extends AwParameterizedTest {
                 "Context menu should not have window focus on a video");
     }
 
+    @Test
+    @SmallTest
+    @Feature("AndroidWebView")
+    public void doNotShowContextMenuForNonLinkItems() {
+        final ContextMenuParams params =
+                new ContextMenuParams(
+                        /* nativePtr= */ 0,
+                        ContextMenuDataMediaType.NONE,
+                        /* pageUrl= */ GURL.emptyGURL(),
+                        /* linkUrl= */ GURL.emptyGURL(),
+                        /* linkText= */ "Test link text",
+                        /* unfilteredLinkUrl= */ GURL.emptyGURL(),
+                        /* srcUrl= */ GURL.emptyGURL(),
+                        /* titleText= */ "Test title",
+                        /* referrer= */ null,
+                        /* canSaveMedia= */ false,
+                        /* triggeringTouchXDp= */ 0,
+                        /* triggeringTouchYDp= */ 0,
+                        /* sourceType= */ 0,
+                        /* openedFromHighlight= */ false,
+                        /* openedFromInterestTarget= */ false,
+                        /* interestTargetNodeID= */ 0,
+                        /* additionalNavigationParams= */ null);
+
+        AwContextMenuHelper helper = AwContextMenuHelper.create(mAwContents.getWebContents());
+        Assert.assertFalse(helper.showContextMenu(params, mTestContainerView));
+    }
+
     private void loadUrlSync(String url) throws Exception {
         CallbackHelper done = mContentsClient.getOnPageCommitVisibleHelper();
         int callCount = done.getCallCount();
         mRule.loadUrlSync(
                 mTestContainerView.getAwContents(), mContentsClient.getOnPageFinishedHelper(), url);
         done.waitForCallback(callCount);
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> WebContentsUtils.simulateEndOfPaintHolding(mAwContents.getWebContents()));
     }
 
     private void assertStringContains(String subString, String superString) {

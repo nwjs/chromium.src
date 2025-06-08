@@ -30,37 +30,47 @@ NoticeCatalogImpl::NoticeCatalogImpl() {
 NoticeCatalogImpl::~NoticeCatalogImpl() = default;
 
 NoticeApi* NoticeCatalogImpl::RegisterAndRetrieveNewApi() {
-  return apis_.emplace_back(std::make_unique<NoticeApi>()).get();
+  NoticeApi* api = apis_.emplace_back(std::make_unique<NoticeApi>()).get();
+  apis_ptrs_.push_back(api);
+  return api;
 }
 
-const std::vector<std::unique_ptr<NoticeApi>>&
-NoticeCatalogImpl::GetNoticeApis() {
-  return apis_;
+base::span<NoticeApi*> NoticeCatalogImpl::GetNoticeApis() {
+  return apis_ptrs_;
 }
 
 Notice* NoticeCatalogImpl::RegisterAndRetrieveNewNotice(
     std::unique_ptr<Notice> (*notice_creator)(NoticeId),
     NoticeId notice_id) {
-  notices_.emplace(notice_id, notice_creator(notice_id));
-  return notices_[notice_id].get();
+  Notice* notice = notices_.emplace(notice_id, notice_creator(notice_id))
+                       .first->second.get();
+  notice_ptrs_.push_back(notice);
+  return notice;
 }
 
 void NoticeCatalogImpl::RegisterNoticeGroup(
     std::unique_ptr<Notice> (*notice_creator)(NoticeId),
     std::vector<std::pair<NoticeId, const base::Feature*>>&& notice_ids,
     std::vector<NoticeApi*>&& target_apis,
-    std::vector<NoticeApi*>&& pre_req_apis) {
+    std::vector<NoticeApi*>&& pre_req_apis,
+    std::pair<NoticeViewGroup, int> view_group) {
   const std::vector<NoticeApi*>& pre_req_apis1 = pre_req_apis;
   for (auto [notice_id, feature] : notice_ids) {
     RegisterAndRetrieveNewNotice(notice_creator, notice_id)
         ->SetFeature(feature)
         ->SetTargetApis(target_apis)
-        ->SetPreReqApis(pre_req_apis1);
+        ->SetPreReqApis(pre_req_apis1)
+        ->SetViewGroup(view_group);
   }
 }
 
-const NoticeMap& NoticeCatalogImpl::GetNoticeMap() {
-  return notices_;
+base::span<Notice*> NoticeCatalogImpl::GetNotices() {
+  return notice_ptrs_;
+}
+
+Notice* NoticeCatalogImpl::GetNotice(NoticeId notice_id) {
+  auto notice_ptr = notices_.find(notice_id);
+  return notice_ptr != notices_.end() ? notice_ptr->second.get() : nullptr;
 }
 
 void NoticeCatalogImpl::Populate() {
@@ -72,6 +82,7 @@ void NoticeCatalogImpl::Populate() {
   NoticeApi* measurement = RegisterAndRetrieveNewApi();
 
   // Define Notices.
+  // Topics EEA Consent.
   RegisterNoticeGroup(&Make<Consent>,
                       {{{kTopicsConsentNotice, kDesktopNewTab},
                         &kTopicsConsentDesktopModalFeature},
@@ -79,8 +90,21 @@ void NoticeCatalogImpl::Populate() {
                         &kTopicsConsentModalClankBrAppFeature},
                        {{kTopicsConsentNotice, kClankCustomTab},
                         &kTopicsConsentModalClankCCTFeature}},
-                      {topics});
+                      {topics}, {}, {NoticeViewGroup::kAdsNoticeEeaGroup, 1});
 
+  // Protected Audience Measurement EEA Notice
+  RegisterNoticeGroup(
+      &Make<Notice>,
+      {{{kProtectedAudienceMeasurementNotice, kDesktopNewTab},
+        &kProtectedAudienceMeasurementNoticeModalFeature},
+       {{kProtectedAudienceMeasurementNotice, kClankBrApp},
+        &kProtectedAudienceMeasurementNoticeModalClankBrAppFeature},
+       {{kProtectedAudienceMeasurementNotice, kClankCustomTab},
+        &kProtectedAudienceMeasurementNoticeModalClankCCTFeature}},
+      {protected_audience, measurement}, {},
+      {NoticeViewGroup::kAdsNoticeEeaGroup, 2});
+
+  // ROW Ads APIs Notice
   RegisterNoticeGroup(&Make<Notice>,
                       {{{kThreeAdsApisNotice, kDesktopNewTab},
                         &kThreeAdsAPIsNoticeModalFeature},
@@ -90,16 +114,7 @@ void NoticeCatalogImpl::Populate() {
                         &kThreeAdsAPIsNoticeModalClankCCTFeature}},
                       {topics, protected_audience, measurement});
 
-  RegisterNoticeGroup(
-      &Make<Notice>,
-      {{{kProtectedAudienceMeasurementNotice, kDesktopNewTab},
-        &kProtectedAudienceMeasurementNoticeModalFeature},
-       {{kProtectedAudienceMeasurementNotice, kClankBrApp},
-        &kProtectedAudienceMeasurementNoticeModalClankBrAppFeature},
-       {{kProtectedAudienceMeasurementNotice, kClankCustomTab},
-        &kProtectedAudienceMeasurementNoticeModalClankCCTFeature}},
-      {protected_audience, measurement});
-
+  // Restricted Measurement Notice.
   RegisterNoticeGroup(
       &Make<Notice>,
       {{{kMeasurementNotice, kDesktopNewTab}, &kMeasurementNoticeModalFeature},

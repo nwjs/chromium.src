@@ -2010,7 +2010,6 @@ StyleRuleBase* CSSParserImpl::ConsumeScopeRule(
 
 StyleRuleViewTransition* CSSParserImpl::ConsumeViewTransitionRule(
     CSSParserTokenStream& stream) {
-  CHECK(RuntimeEnabledFeatures::ViewTransitionOnNavigationEnabled());
   // NOTE: @view-transition prelude should be empty.
   wtf_size_t prelude_offset_start = stream.LookAheadOffset();
   wtf_size_t prelude_offset_end = stream.LookAheadOffset();
@@ -2562,7 +2561,8 @@ StyleRule* CSSParserImpl::ConsumeStyleRule(CSSParserTokenStream& stream,
     StringView text(stream.RemainingText(), 1);
 #ifdef ARCH_CPU_X86_FAMILY
     wtf_size_t len;
-    if (base::CPU::GetInstanceNoAllocation().has_avx2()) {
+    if (base::CPU::GetInstanceNoAllocation().has_avx2() &&
+        base::CPU::GetInstanceNoAllocation().has_pclmul()) {
       len = static_cast<wtf_size_t>(FindLengthOfDeclarationListAVX2(text));
     } else {
       len = static_cast<wtf_size_t>(FindLengthOfDeclarationList(text));
@@ -3080,7 +3080,7 @@ std::unique_ptr<Vector<KeyframeOffset>> CSSParserImpl::ConsumeKeyframeKeyList(
                                .ConvertTo<TimelineOffset::NamedRange>();
         double percent =
             To<CSSNumericLiteralValue>(stream_name_percent->Item(1))
-                .GetDoubleValue();
+                .ClampedDoubleValue();
         result->push_back(KeyframeOffset(stream_name, percent / 100.0));
       }
     } else {

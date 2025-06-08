@@ -265,8 +265,8 @@ class NET_EXPORT HttpCache : public HttpTransactionFactory {
   }
 
   // HttpTransactionFactory implementation:
-  int CreateTransaction(RequestPriority priority,
-                        std::unique_ptr<HttpTransaction>* transaction) override;
+  std::unique_ptr<HttpTransaction> CreateTransaction(
+      RequestPriority priority) override;
   HttpCache* GetCache() override;
   HttpNetworkSession* GetSession() override;
 
@@ -536,6 +536,7 @@ class NET_EXPORT HttpCache : public HttpTransactionFactory {
       int64_t upload_data_identifier,
       bool is_subframe_document_resource,
       bool is_mainframe_navigation,
+      bool is_shared_resource,
       std::optional<url::Origin> initiator);
 
   // Creates a WorkItem and sets it as the |pending_op|'s writer, or adds it to

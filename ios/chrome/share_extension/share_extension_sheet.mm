@@ -88,10 +88,12 @@ NSString* const kCustomMinimizedDetentIdentifier = @"customMinimizedDetent";
   [self setUpBottomSheetDetents];
 }
 
-- (void)viewWillDisappear:(BOOL)animated {
-  [super viewWillDisappear:animated];
-  if (!self.dismissedFromSheetAction) {
-    [self.delegate shareExtensionSheetWillDisappear:self];
+- (void)viewDidDisappear:(BOOL)animated {
+  [super viewDidDisappear:animated];
+  if (self.isBeingDismissed) {
+    if (!self.dismissedFromSheetAction) {
+      [self.delegate shareExtensionSheetDidDisappear:self];
+    }
   }
 }
 
@@ -189,7 +191,7 @@ NSString* const kCustomMinimizedDetentIdentifier = @"customMinimizedDetent";
 
 // Configures the bottom sheet's presentation controller appearance.
 - (void)setUpBottomSheetPresentationController {
-  self.modalPresentationStyle = UIModalPresentationPageSheet;
+  self.modalPresentationStyle = UIModalPresentationFormSheet;
   UISheetPresentationController* presentationController =
       self.sheetPresentationController;
   presentationController.prefersEdgeAttachedInCompactHeight = YES;
@@ -241,6 +243,13 @@ NSString* const kCustomMinimizedDetentIdentifier = @"customMinimizedDetent";
 #endif
 
   titleView.titleLogoSpacing = kTitleViewSpacing;
+  titleView.accessibilityLabel = [NSString
+      stringWithFormat:
+          @"%@ %@",
+          NSLocalizedString(
+              @"IDS_IOS_ACCESSIBILITY_LABEL_SHARE_EXTENSION",
+              @"The accessible name for the Chrome logo in the header."),
+          _appName];
 
   return titleView;
 }
@@ -330,6 +339,9 @@ NSString* const kCustomMinimizedDetentIdentifier = @"customMinimizedDetent";
 
 - (UIView*)configureSharedTextView {
   UILabel* sharedTextLabel = [[UILabel alloc] init];
+  sharedTextLabel.font =
+      [UIFont preferredFontForTextStyle:UIFontTextStyleSubheadline];
+  sharedTextLabel.adjustsFontForContentSizeCategory = YES;
   sharedTextLabel.numberOfLines = 0;
   if (!self.displayMaxLimit) {
     sharedTextLabel.text = self.sharedText;
@@ -395,8 +407,8 @@ NSString* const kCustomMinimizedDetentIdentifier = @"customMinimizedDetent";
   URLLabel.text = [_sharedURL absoluteString];
   URLLabel.font = [UIFont preferredFontForTextStyle:UIFontTextStyleFootnote];
   URLLabel.textColor = [UIColor colorNamed:kTextTertiaryColor];
-  URLLabel.lineBreakMode = NSLineBreakByCharWrapping;
-  URLLabel.numberOfLines = 0;
+  URLLabel.lineBreakMode = NSLineBreakByTruncatingTail;
+  URLLabel.numberOfLines = 2;
 
   UIStackView* URLStackView =
       [[UIStackView alloc] initWithArrangedSubviews:@[ titleLabel, URLLabel ]];

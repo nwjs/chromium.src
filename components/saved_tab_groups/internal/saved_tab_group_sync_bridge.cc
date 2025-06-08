@@ -289,7 +289,7 @@ syncer::ConflictResolution SavedTabGroupSyncBridge::ResolveConflict(
   base::Time local_timestamp;
   if (remote_specifics.has_group()) {
     if (const SavedTabGroup* group = model_wrapper_->GetGroup(guid)) {
-      local_timestamp = group->update_time_windows_epoch_micros();
+      local_timestamp = group->update_time();
     }
   } else {
     CHECK(remote_specifics.has_tab());
@@ -297,7 +297,7 @@ syncer::ConflictResolution SavedTabGroupSyncBridge::ResolveConflict(
         base::Uuid::ParseLowercase(remote_specifics.tab().group_guid());
     const SavedTabGroup* group = model_wrapper_->GetGroup(group_guid);
     if (const SavedTabGroupTab* tab = group ? group->GetTab(guid) : nullptr) {
-      local_timestamp = tab->update_time_windows_epoch_micros();
+      local_timestamp = tab->update_time();
     }
   }
 
@@ -357,12 +357,12 @@ void SavedTabGroupSyncBridge::ApplyDisableSyncChanges(
 }
 
 std::string SavedTabGroupSyncBridge::GetStorageKey(
-    const syncer::EntityData& entity_data) {
+    const syncer::EntityData& entity_data) const {
   return entity_data.specifics.saved_tab_group().guid();
 }
 
 std::string SavedTabGroupSyncBridge::GetClientTag(
-    const syncer::EntityData& entity_data) {
+    const syncer::EntityData& entity_data) const {
   return GetStorageKey(entity_data);
 }
 
@@ -551,8 +551,7 @@ std::optional<std::string> SavedTabGroupSyncBridge::GetLocalCacheGuid() const {
   return change_processor()->TrackedCacheGuid();
 }
 
-// TODO(crbug.com/383089506): rename to GetTrackedGaiaId().
-std::optional<GaiaId> SavedTabGroupSyncBridge::GetTrackedAccountId() const {
+std::optional<GaiaId> SavedTabGroupSyncBridge::GetTrackedGaiaId() const {
   if (!change_processor()->IsTrackingMetadata()) {
     return std::nullopt;
   }
@@ -794,7 +793,7 @@ void SavedTabGroupSyncBridge::ResolveGroupsMissingTabs(
       continue;
     }
 
-    if ((base::Time::Now() - group->update_time_windows_epoch_micros()) <
+    if ((base::Time::Now() - group->update_time()) <
         kOrphanedObjectDiscardThreshold) {
       continue;
     }

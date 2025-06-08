@@ -136,7 +136,6 @@ gfx::Size VideoFrame::SampleSize(VideoPixelFormat format, size_t plane) {
     case Plane::kV:  // and Plane::kATriPlanar:
       switch (format) {
         case PIXEL_FORMAT_I444:
-        case PIXEL_FORMAT_YUV444P9:
         case PIXEL_FORMAT_YUV444P10:
         case PIXEL_FORMAT_YUV444P12:
         case PIXEL_FORMAT_Y16:
@@ -147,7 +146,6 @@ gfx::Size VideoFrame::SampleSize(VideoPixelFormat format, size_t plane) {
           return gfx::Size(1, 1);
 
         case PIXEL_FORMAT_I422:
-        case PIXEL_FORMAT_YUV422P9:
         case PIXEL_FORMAT_YUV422P10:
         case PIXEL_FORMAT_YUV422P12:
         case PIXEL_FORMAT_I422A:
@@ -161,7 +159,6 @@ gfx::Size VideoFrame::SampleSize(VideoPixelFormat format, size_t plane) {
         case PIXEL_FORMAT_I420A:
         case PIXEL_FORMAT_NV12:
         case PIXEL_FORMAT_NV21:
-        case PIXEL_FORMAT_YUV420P9:
         case PIXEL_FORMAT_YUV420P10:
         case PIXEL_FORMAT_YUV420P12:
         case PIXEL_FORMAT_P010LE:
@@ -430,23 +427,25 @@ VideoFrame::CreateFrameForGpuMemoryBufferOrMappableSIInternal(
                                 ? gpu_memory_buffer->CloneHandle()
                                 : shared_image->CloneGpuMemoryBufferHandle();
     if (gmb_handle.is_null() ||
-        gmb_handle.native_pixmap_handle.planes.empty()) {
+        gmb_handle.native_pixmap_handle().planes.empty()) {
       DLOG(ERROR) << "Failed to clone the GpuMemoryBufferHandle";
       return nullptr;
     }
-    if (gmb_handle.native_pixmap_handle.planes.size() != num_planes) {
+    const gfx::NativePixmapHandle& native_pixmap_handle =
+        gmb_handle.native_pixmap_handle();
+    if (native_pixmap_handle.planes.size() != num_planes) {
       DLOG(ERROR) << "Invalid number of planes="
-                  << gmb_handle.native_pixmap_handle.planes.size()
+                  << native_pixmap_handle.planes.size()
                   << ", expected num_planes=" << num_planes;
       return nullptr;
     }
     for (size_t i = 0; i < num_planes; ++i) {
-      const auto& plane = gmb_handle.native_pixmap_handle.planes[i];
+      const auto& plane = native_pixmap_handle.planes[i];
       planes[i].stride = plane.stride;
       planes[i].offset = plane.offset;
       planes[i].size = plane.size;
     }
-    modifier = gmb_handle.native_pixmap_handle.modifier;
+    modifier = native_pixmap_handle.modifier;
   }
 #endif
 
@@ -1220,9 +1219,6 @@ int VideoFrame::BytesPerElement(VideoPixelFormat format, size_t plane) {
     case PIXEL_FORMAT_Y16:
     case PIXEL_FORMAT_UYVY:
     case PIXEL_FORMAT_YUY2:
-    case PIXEL_FORMAT_YUV420P9:
-    case PIXEL_FORMAT_YUV422P9:
-    case PIXEL_FORMAT_YUV444P9:
     case PIXEL_FORMAT_YUV420P10:
     case PIXEL_FORMAT_YUV422P10:
     case PIXEL_FORMAT_YUV444P10:

@@ -18,6 +18,7 @@ import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.offlinepages.OfflinePageBridge;
+import org.chromium.chrome.browser.suggestions.tile.TileUtils;
 import org.chromium.chrome.browser.ui.native_page.TouchEnabledDelegate;
 import org.chromium.components.browser_ui.widget.BrowserUiListMenuUtils;
 import org.chromium.ui.base.WindowAndroid.OnCloseContextMenuListener;
@@ -119,9 +120,14 @@ public class ContextMenuManager implements OnCloseContextMenuListener {
         String getContextMenuTitle();
 
         /**
-         * @return whether the given menu item is supported.
+         * @returns Whether the given menu item is supported.
          */
         boolean isItemSupported(@ContextMenuItemId int menuItemId);
+
+        /**
+         * @returns Whether there exists enough space for pinned shortcut addition.
+         */
+        boolean hasSpaceForPinnedShortcut();
 
         /** Called when a context menu has been created. */
         void onContextMenuCreated();
@@ -162,6 +168,11 @@ public class ContextMenuManager implements OnCloseContextMenuListener {
 
         @Override
         public boolean isItemSupported(@ContextMenuItemId int menuItemId) {
+            return false;
+        }
+
+        @Override
+        public boolean hasSpaceForPinnedShortcut() {
             return false;
         }
 
@@ -322,6 +333,13 @@ public class ContextMenuManager implements OnCloseContextMenuListener {
         return true;
     }
 
+    /** Dismisses the context menu shown by {@link showListContextMenu()}, if any. */
+    public void hideListContextMenu() {
+        if (mListContextMenu != null) {
+            mListContextMenu.dismiss();
+        }
+    }
+
     @Override
     public void onContextMenuClosed() {
         if (mAnchorView == null) return;
@@ -369,8 +387,13 @@ public class ContextMenuManager implements OnCloseContextMenuListener {
                     GURL itemUrl = delegate.getUrl();
                     return itemUrl != null && OfflinePageBridge.canSavePage(itemUrl);
                 }
-            case ContextMenuItemId.REMOVE: // Fall through.
-            case ContextMenuItemId.PIN_THIS_SHORTCUT: // Fall through.
+            case ContextMenuItemId.REMOVE:
+                return true;
+            case ContextMenuItemId.PIN_THIS_SHORTCUT:
+                {
+                    return delegate.hasSpaceForPinnedShortcut()
+                            && TileUtils.isValidCustomTileUrl(delegate.getUrl());
+                }
             case ContextMenuItemId.EDIT_SHORTCUT: // Fall through.
             case ContextMenuItemId.UNPIN:
                 return true;

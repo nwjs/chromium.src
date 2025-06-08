@@ -22,7 +22,6 @@
 #include "chrome/browser/search_engines/template_url_service_factory.h"
 #include "chrome/browser/search_engines/ui_thread_search_terms_data.h"
 #include "chrome/browser/ui/search_engines/template_url_table_model.h"
-#include "chrome/browser/ui/webui/search_engine_choice/icon_utils.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/common/url_constants.h"
 #include "chrome/common/webui_url_constants.h"
@@ -251,7 +250,8 @@ base::Value::Dict SearchEnginesHandler::CreateDictionaryForEngine(
   dict.Set("displayName",
            table_model->GetText(index,
                                 IDS_SEARCH_ENGINES_EDITOR_DESCRIPTION_COLUMN));
-  dict.Set("keyword", table_model->GetKeywordToDisplay(index));
+  dict.Set("keyword", table_model->GetText(
+                          index, IDS_SEARCH_ENGINES_EDITOR_KEYWORD_COLUMN));
   Profile* profile = Profile::FromWebUI(web_ui());
   dict.Set("url",
            template_url->url_ref().DisplayURL(UIThreadSearchTermsData()));
@@ -260,6 +260,12 @@ base::Value::Dict SearchEnginesHandler::CreateDictionaryForEngine(
   GURL icon_url = template_url->favicon_url();
   if (icon_url.is_valid()) {
     dict.Set("iconURL", icon_url.spec());
+  } else if (template_url->CreatedByEnterpriseSearchAggregatorPolicy()) {
+    // The icon used for search aggregator is bundled with Chrome and should be
+    // used as a fallback if the icon_url is not set.
+#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
+    dict.Set("iconPath", "chrome://theme/IDR_GOOGLE_AGENTSPACE_LOGO");
+#endif
   }
 
   // The icons that are used for search engines in the EEA region are bundled
@@ -269,16 +275,15 @@ base::Value::Dict SearchEnginesHandler::CreateDictionaryForEngine(
       regional_capabilities::RegionalCapabilitiesServiceFactory::GetForProfile(
           profile);
   const bool is_eea_region = regional_capabilities->IsInEeaCountry();
-  if (is_eea_region && template_url->prepopulate_id() != 0) {
-    std::string_view icon_path =
-        GetSearchEngineGeneratedIconPath(template_url->keyword());
-    if (!icon_path.empty()) {
-      // The search engine icon path are 24px, but displayed at 16px, or 32px on
-      // HiDPI screens. Use the 2x version (48px) for a large enough icon.
-      // Note that this icon path is used in `site-favicon` which does not
-      // support `image-set`.
-      dict.Set("iconPath", base::StrCat({icon_path, "@2x"}));
-    }
+  if (is_eea_region) {
+    // The search engine icon path are 24px, but displayed at 16px, or 32px on
+    // HiDPI screens. Use the 2x version (48px) for a large enough icon.
+    // Note that this icon path is used in `site-favicon` which does not
+    // support `image-set`.
+    dict.Set("iconPath",
+             base::StrCat({"chrome://theme/",
+                           template_url->data().GetBuiltinImageResourceId(),
+                           "@2x"}));
   }
 
   dict.Set("modelIndex", base::checked_cast<int>(index));

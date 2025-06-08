@@ -16,6 +16,8 @@ import org.chromium.chrome.browser.layouts.LayoutManager;
 import org.chromium.chrome.browser.lifecycle.ActivityLifecycleDispatcher;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.user_education.UserEducationHelper;
+import org.chromium.chrome.modules.readaloud.Feedback.FeedbackType;
+import org.chromium.chrome.modules.readaloud.Feedback.NegativeFeedbackReason;
 import org.chromium.chrome.modules.readaloud.PlaybackArgs.PlaybackMode;
 import org.chromium.chrome.modules.readaloud.PlaybackArgs.PlaybackModeSelectionEnablementStatus;
 import org.chromium.chrome.modules.readaloud.PlaybackArgs.PlaybackVoice;
@@ -34,7 +36,7 @@ public interface Player {
         BottomSheetController getBottomSheetController();
 
         /** Returns true if highlighting is supported. */
-        boolean isHighlightingSupported();
+        boolean isHighlightingSupported(PlaybackMode playbackMode);
 
         /** Set highlighter mode. */
         void setHighlighterMode(@Highlighter.Mode int mode);
@@ -104,6 +106,14 @@ public interface Player {
 
         /** Return {@link UserEducationHelper} for requesting in-product-help. */
         UserEducationHelper getUserEducationHelper();
+
+        /** Positive feedback was triggered by the user. */
+        void onPositiveFeedback();
+
+        /** Negative feedback was triggered by the user. */
+        void onNegativeFeedback(NegativeFeedbackReason negativeFeedbackReason);
+
+        ObservableSupplier<FeedbackType> getFeedbackTypeSupplier();
     }
 
     /** Observer interface to provide updates about player UI. */
@@ -139,12 +149,12 @@ public interface Player {
     default void destroy() {}
 
     /** Show the mini player, called when playback is requested. */
-    default void playTabRequested() {}
+    default void playTabRequested(PlaybackMode playbackMode) {}
 
     /**
      * Update players when playback is ready.
      *
-     * @param playback             New Playback object.
+     * @param playback New Playback object.
      * @param currentPlaybackState Playback state.
      */
     default void playbackReady(

@@ -471,11 +471,6 @@ void RootCompositorFrameSinkImpl::ForceImmediateDrawAndSwapIfPossible() {
 }
 
 #if BUILDFLAG(IS_ANDROID)
-void RootCompositorFrameSinkImpl::SetVSyncPaused(bool paused) {
-  if (external_begin_frame_source_)
-    external_begin_frame_source_->OnSetBeginFrameSourcePaused(paused);
-}
-
 void RootCompositorFrameSinkImpl::UpdateRefreshRate(float refresh_rate) {
   if (external_begin_frame_source_)
     external_begin_frame_source_->UpdateRefreshRate(refresh_rate);
@@ -603,8 +598,9 @@ void RootCompositorFrameSinkImpl::InitializeCompositorFrameSinkType(
 }
 
 void RootCompositorFrameSinkImpl::BindLayerContext(
-    mojom::PendingLayerContextPtr context) {
-  support_->BindLayerContext(*context);
+    mojom::PendingLayerContextPtr context,
+    bool draw_mode_is_gpu) {
+  support_->BindLayerContext(*context, draw_mode_is_gpu);
 }
 
 #if BUILDFLAG(IS_ANDROID)

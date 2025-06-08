@@ -12,6 +12,7 @@ import androidx.appcompat.content.res.AppCompatResources;
 
 import org.chromium.base.supplier.Supplier;
 import org.chromium.build.annotations.NullMarked;
+import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.commerce.CommerceBottomSheetContentController;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.toolbar.adaptive.AdaptiveToolbarButtonVariant;
@@ -28,11 +29,12 @@ public class DiscountsButtonController extends BaseButtonDataProvider {
 
     private final BottomSheetController mBottomSheetController;
     private final BottomSheetObserver mBottomSheetObserver;
-    private Supplier<CommerceBottomSheetContentController> mCommerceBottomSheetContentController;
+    private final Supplier<CommerceBottomSheetContentController>
+            mCommerceBottomSheetContentController;
 
     public DiscountsButtonController(
             Context context,
-            Supplier<Tab> activeTabSupplier,
+            Supplier<@Nullable Tab> activeTabSupplier,
             ModalDialogManager modalDialogManager,
             BottomSheetController bottomSheetController,
             Supplier<CommerceBottomSheetContentController> commerceBottomSheetContentController) {
@@ -40,13 +42,12 @@ public class DiscountsButtonController extends BaseButtonDataProvider {
                 activeTabSupplier,
                 modalDialogManager,
                 AppCompatResources.getDrawable(context, R.drawable.ic_shoppingmode_24dp),
-                context.getString(R.string.discount_container_title),
-                R.string.discount_container_title,
-                true,
-                null,
+                /* contentDescription= */ context.getString(R.string.discount_container_title),
+                /* actionChipLabelResId= */ R.string.discount_container_title,
+                /* supportsTinting= */ true,
+                /* iphCommandBuilder= */ null,
                 AdaptiveToolbarButtonVariant.DISCOUNTS,
-                Resources.ID_NULL,
-                false);
+                /* tooltipTextResId= */ Resources.ID_NULL);
 
         mBottomSheetController = bottomSheetController;
         mBottomSheetObserver =

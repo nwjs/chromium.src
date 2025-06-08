@@ -20,7 +20,6 @@ import org.chromium.base.CollectionUtil;
 import org.chromium.base.ContextUtils;
 import org.chromium.base.Log;
 import org.chromium.base.ObserverList;
-import org.chromium.base.Promise;
 import org.chromium.base.ThreadUtils;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.task.PostTask;
@@ -43,6 +42,7 @@ import org.chromium.components.signin.AccountUtils;
 import org.chromium.components.signin.AccountsChangeObserver;
 import org.chromium.components.signin.SigninFeatureMap;
 import org.chromium.components.signin.SigninFeatures;
+import org.chromium.components.signin.base.AccountInfo;
 import org.chromium.components.signin.base.CoreAccountId;
 import org.chromium.components.signin.base.CoreAccountInfo;
 import org.chromium.components.signin.identitymanager.AccountInfoServiceProvider;
@@ -152,11 +152,10 @@ class SigninManagerImpl implements IdentityManager.Observer, SigninManager, Acco
                 SigninManagerImplJni.get().isSigninAllowed(mNativeSigninManagerAndroid);
         mAccountManagerFacade = AccountManagerFacadeProvider.getInstance();
         mAccountManagerFacade.addObserver(this);
-        Promise<List<CoreAccountInfo>> coreAccountInfosPromise =
-                mAccountManagerFacade.getCoreAccountInfos();
-        if (coreAccountInfosPromise.isFulfilled()
+        var accountsPromise = mAccountManagerFacade.getAccounts();
+        if (accountsPromise.isFulfilled()
                 && (mAccountManagerFacade.didAccountFetchSucceed()
-                        || !coreAccountInfosPromise.getResult().isEmpty())) {
+                        || !accountsPromise.getResult().isEmpty())) {
             seedThenReloadAllAccountsFromSystem(
                     CoreAccountInfo.getIdFrom(
                             identityManager.getPrimaryAccountInfo(ConsentLevel.SIGNIN)));
@@ -179,11 +178,10 @@ class SigninManagerImpl implements IdentityManager.Observer, SigninManager, Acco
     /** Implements {@link AccountsChangeObserver}. */
     @Override
     public void onCoreAccountInfosChanged() {
-        Promise<List<CoreAccountInfo>> coreAccountInfosPromise =
-                mAccountManagerFacade.getCoreAccountInfos();
-        assert coreAccountInfosPromise.isFulfilled();
-        List<CoreAccountInfo> coreAccountInfos = coreAccountInfosPromise.getResult();
-        if (!mAccountManagerFacade.didAccountFetchSucceed() && coreAccountInfos.isEmpty()) {
+        var accountsPromise = mAccountManagerFacade.getAccounts();
+        assert accountsPromise.isFulfilled();
+        List<AccountInfo> accounts = accountsPromise.getResult();
+        if (!mAccountManagerFacade.didAccountFetchSucceed() && accounts.isEmpty()) {
             // If the account fetch did not succeed, the AccountManagerFacade falls back to an empty
             // list. Do nothing when this is the case.
             return;
@@ -196,9 +194,7 @@ class SigninManagerImpl implements IdentityManager.Observer, SigninManager, Acco
             seedThenReloadAllAccountsFromSystem(null);
             return;
         }
-        if (AccountUtils.findCoreAccountInfoByGaiaId(
-                        coreAccountInfos, primaryAccountInfo.getGaiaId())
-                != null) {
+        if (AccountUtils.findAccountByGaiaId(accounts, primaryAccountInfo.getGaiaId()) != null) {
             // The primary account is still on the device, reseed accounts.
             seedThenReloadAllAccountsFromSystem(CoreAccountInfo.getIdFrom(primaryAccountInfo));
             return;
@@ -378,7 +374,7 @@ class SigninManagerImpl implements IdentityManager.Observer, SigninManager, Acco
 
     private void signinInternalAfterCheckingManagedState() {
         // Retrieve the primary account and use it to seed and reload all accounts.
-        if (!mAccountManagerFacade.getCoreAccountInfos().isFulfilled()) {
+        if (!mAccountManagerFacade.getAccounts().isFulfilled()) {
             throw new IllegalStateException("Account information should be available on signin");
         }
         if (mSignInState.mCoreAccountInfo == null) {
@@ -602,7 +598,7 @@ class SigninManagerImpl implements IdentityManager.Observer, SigninManager, Acco
                                 SigninPreferencesManager.SigninPromoAccessPointId.NTP),
                         0);
         SignOutCallback signOutCallback = mSignOutState.mSignOutCallback;
-        if (mAccountManagerFacade.getCoreAccountInfos().isFulfilled()) {
+        if (mAccountManagerFacade.getAccounts().isFulfilled()) {
             // We don't reload the accounts if they are not yet available.
             // They will be seeded in onCoreAccountInfosChanged() when they become available.
             seedThenReloadAllAccountsFromSystem(null);

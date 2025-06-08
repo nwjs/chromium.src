@@ -22,6 +22,7 @@
 #include "components/no_state_prefetch/browser/no_state_prefetch_contents.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/navigation_handle.h"
+#include "content/public/browser/navigation_throttle_registry.h"
 #include "content/public/browser/web_contents.h"
 #include "net/base/url_util.h"
 
@@ -33,8 +34,9 @@ namespace {
 void OpenBrowserSwitchPage(base::WeakPtr<content::WebContents> web_contents,
                            const GURL& url,
                            ui::PageTransition transition_type) {
-  if (!web_contents)
+  if (!web_contents) {
     return;
+  }
 
   GURL about_url(chrome::kChromeUIBrowserSwitchURL);
   about_url = net::AppendQueryParameter(about_url, "url", url.spec());
@@ -97,26 +99,29 @@ void MaybeLaunchAlternativeBrowser(
 }  // namespace
 
 // static
-std::unique_ptr<content::NavigationThrottle>
-BrowserSwitcherNavigationThrottle::MaybeCreateThrottleFor(
-    content::NavigationHandle* navigation) {
+void BrowserSwitcherNavigationThrottle::MaybeCreateAndAdd(
+    content::NavigationThrottleRegistry& registry) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
 #if 0
+
+  content::NavigationHandle& handle = registry.GetNavigationHandle();
   content::BrowserContext* browser_context =
-      navigation->GetWebContents()->GetBrowserContext();
+      handle.GetWebContents()->GetBrowserContext();
   Profile* profile = Profile::FromBrowserContext(browser_context);
 
-  if (!profile->IsRegularProfile())
-    return nullptr;
+  if (!profile->IsRegularProfile()) {
+    return;
+  }
 
-  if (!navigation->IsInPrimaryMainFrame())
-    return nullptr;
+  if (!handle.IsInPrimaryMainFrame()) {
+    return;
+  }
 
-  return std::make_unique<navigation_interception::InterceptNavigationThrottle>(
-      navigation, base::BindRepeating(&MaybeLaunchAlternativeBrowser),
-      navigation_interception::SynchronyMode::kSync, std::nullopt);
+  registry.AddThrottle(
+      std::make_unique<navigation_interception::InterceptNavigationThrottle>(
+          registry, base::BindRepeating(&MaybeLaunchAlternativeBrowser),
+          navigation_interception::SynchronyMode::kSync, std::nullopt));
 #endif
-  return nullptr;
 }
 
 }  // namespace browser_switcher

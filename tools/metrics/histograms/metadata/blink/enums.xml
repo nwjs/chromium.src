@@ -4429,7 +4429,7 @@ Called by update_use_counter_feature_enum.py.-->
   <int value="3965" label="TapDelayEnabled"/>
   <int value="3966" label="V8URLPattern_CompareComponent_Method"/>
   <int value="3967" label="EarlyHintsPreload"/>
-  <int value="3968" label="ClientHintsUAReduced"/>
+  <int value="3968" label="OBSOLETE_ClientHintsUAReduced"/>
   <int value="3969" label="SpeculationRulesPrerender"/>
   <int value="3970" label="OBSOLETE_ExecCommandWithTrustedTypes"/>
   <int value="3971" label="OBSOLETE_CSSSelectorPseudoHasInSnapshotProfile"/>
@@ -4619,7 +4619,7 @@ Called by update_use_counter_feature_enum.py.-->
   <int value="4146" label="FrameNameContainsBrace"/>
   <int value="4147" label="FrameNameContainsNewline"/>
   <int value="4148" label="AbortSignalThrowIfAborted"/>
-  <int value="4149" label="ClientHintsUAFull"/>
+  <int value="4149" label="OBSOLETE_ClientHintsUAFull"/>
   <int value="4150" label="PrivateNetworkAccessWithinWorker"/>
   <int value="4151" label="ClientHintsUAWoW64"/>
   <int value="4152" label="FetchSetCookieInRequestGuardedHeaders"/>
@@ -6176,6 +6176,50 @@ Called by update_use_counter_feature_enum.py.-->
   <int value="5549" label="SelectMultipleShowPopup"/>
   <int value="5550" label="SharedWorkerExtendedLifetimeFeatureEnabled"/>
   <int value="5551" label="SharedWorkerExtendedLifetimeIsTrue"/>
+  <int value="5552" label="EditContextTextFormatUpdateAddListener"/>
+  <int value="5553" label="EditContextTextFormatUpdateFireEvent"/>
+  <int value="5554"
+      label="EditContextTextFormatUpdateTextFormatThicknessOrStyleNotNone"/>
+  <int value="5555" label="C2PAManifest"/>
+  <int value="5556" label="LanguageModel_Append"/>
+  <int value="5557" label="IntegrityPolicyInServiceWorkerResponse"/>
+  <int value="5558" label="EditContextTextFormatUnderlineStyle"/>
+  <int value="5559" label="EditContextTextFormatUnderlineThickness"/>
+  <int value="5560" label="Proofreader_IncludeCorrectionTypes"/>
+  <int value="5561" label="Proofreader_IncludeCorrectionExplanations"/>
+  <int value="5562" label="Proofreader_ExpectedInputLanguages"/>
+  <int value="5563" label="Proofreader_CorrectionExplanationLanguage"/>
+  <int value="5564" label="Proofreader_Destroy"/>
+  <int value="5565" label="Proofreader_Proofread"/>
+  <int value="5566" label="Proofreader_Availability"/>
+  <int value="5567" label="Proofreader_Create"/>
+  <int value="5568" label="DataUrlDedicatedWorker"/>
+  <int value="5569" label="DataUrlSharedWorker"/>
+  <int value="5570" label="V8WebGLRenderingContextWebGPU_GetExtension_Method"/>
+  <int value="5571"
+      label="V8WebGLRenderingContextWebGPU_GetSupportedExtensions_Method"/>
+  <int value="5572" label="V8WebGL2RenderingContextWebGPU_GetExtension_Method"/>
+  <int value="5573"
+      label="V8WebGL2RenderingContextWebGPU_GetSupportedExtensions_Method"/>
+  <int value="5574" label="CredentialsGetImmediateMediationPasswordSuccess"/>
+  <int value="5575" label="CredentialsGetImmediateMediationPublicKeySuccess"/>
+  <int value="5576" label="CredentialsGetImmediateMediationFailure"/>
+  <int value="5577" label="ClearSiteData"/>
+  <int value="5578" label="ScrollIntoViewContainerNearest"/>
+  <int value="5579" label="PopoverShown"/>
+  <int value="5580" label="InputParsedParentOptionOrOptgroup"/>
+  <int value="5581" label="NavigatorUAData_toJSON"/>
+  <int value="5582"
+      label="EditContextUpdateTextRangePrecedesOrOverlapsSelection"/>
+  <int value="5583" label="EditContextUpdateTextRangePrecedesCompositionRange"/>
+  <int value="5584" label="EditContextUpdateTextRangeOverlapsCompositionRange"/>
+  <int value="5585" label="EditContextUpdateSelectionDuringActiveComposition"/>
+  <int value="5586" label="ClipboardChangeEventAddListener"/>
+  <int value="5587" label="ClipboardChangeEventFired"/>
+  <int value="5588" label="ClipboardChangeEventFiredAfterFocusGain"/>
+  <int value="5589" label="ClipboardChangeEventTypesAttribute"/>
+  <int value="5590" label="SchedulerYieldNonTrivialInherit"/>
+  <int value="5591" label="SchedulerYieldNonTrivialInheritCrossFrameIgnored"/>
 </enum>
 
 <!-- LINT.ThenChange(//third_party/blink/public/mojom/use_counter/metrics/web_feature.mojom:WebFeature) -->
@@ -6324,6 +6368,7 @@ Called by update_permissions_policy_enum.py.-->
   <int value="135" label="DeviceAttributes"/>
   <int value="136" label="LocalNetworkAccess"/>
   <int value="137" label="RecordAdAuctionEvents"/>
+  <int value="138" label="OnDeviceSpeechRecognition"/>
 </enum>
 
 <enum name="FedCmAccountChooserResult">
@@ -6888,6 +6933,19 @@ Called by update_permissions_policy_enum.py.-->
   <int value="1" label="keyboardLock() requested for a subset of keys"/>
   <int value="2" label="keyboardUnlock()"/>
 </enum>
+
+<!-- LINT.IfChange(LoadLinksFromHeaderMode) -->
+
+<enum name="LoadLinksFromHeaderMode">
+  <int value="0" label="Document before commit"/>
+  <int value="1" label="Document after commit without viewport"/>
+  <int value="2" label="Document after commit with viewport"/>
+  <int value="3" label="Document after load completed"/>
+  <int value="4" label="Subresource from memory cache"/>
+  <int value="5" label="Subresource not from memory cache"/>
+</enum>
+
+<!-- LINT.ThenChange(//third_party/blink/renderer/core/loader/preload_helper.h:LoadLinksFromHeaderMode) -->
 
 <!-- LINT.IfChange(MappedCSSProperties) -->
 
@@ -7748,9 +7806,25 @@ Called by update_use_counter_css.py.-->
   <int value="851" label="rule-color"/>
   <int value="852" label="rule-width"/>
   <int value="853" label="rule-style"/>
+  <int value="854" label="caret-shape"/>
+  <int value="855" label="row-rule"/>
+  <int value="856" label="text-grow"/>
+  <int value="857" label="text-shrink"/>
+  <int value="858" label="rule"/>
 </enum>
 
 <!-- LINT.ThenChange(//third_party/blink/public/mojom/use_counter/metrics/css_property_id.mojom:CSSSampleId) -->
+
+<!-- LINT.IfChange(OriginStatusOnSubresource) -->
+
+<enum name="OriginStatusOnSubresource">
+  <int value="0" label="kFromSameOriginToSameOrigin"/>
+  <int value="1" label="kFromSameOriginToCrossOrigin"/>
+  <int value="2" label="kFromCrossOriginToSameOrigin"/>
+  <int value="3" label="kFromCrossOriginToCrossOrigin"/>
+</enum>
+
+<!-- LINT.ThenChange(//third_party/blink/renderer/core/loader/preload_helper.h:OriginStatusOnSubresource) -->
 
 <!-- LINT.IfChange(PermissionElementInvalidStyleReason) -->
 
@@ -7760,6 +7834,7 @@ Called by update_use_counter_css.py.-->
   <int value="2" label="Low constrast between color and background color"/>
   <int value="3" label="Too small font size"/>
   <int value="4" label="Too large font size"/>
+  <int value="5" label="Invalid display property"/>
 </enum>
 
 <!-- LINT.ThenChange(//third_party/blink/renderer/core/html/html_permission_element.h:InvalidStyleReason) -->
@@ -8060,11 +8135,11 @@ Called by update_use_counter_feature_enum.py.-->
   <int value="198" label="DynamicRange"/>
   <int value="199" label="DisplayMode"/>
   <int value="200" label="Canvas"/>
-  <int value="201" label="Canvas2d"/>
-  <int value="202" label="Canvas2dAlpha"/>
-  <int value="203" label="Canvas2dColorManagement"/>
-  <int value="204" label="Canvas2dDesynchronized"/>
-  <int value="205" label="Canvas2dWillreadfrequently"/>
+  <int value="201" label="Canvas2D"/>
+  <int value="202" label="Canvas2DAlpha"/>
+  <int value="203" label="Canvas2DColorManagement"/>
+  <int value="204" label="Canvas2DDesynchronized"/>
+  <int value="205" label="Canvas2DWillreadfrequently"/>
   <int value="206" label="Ch"/>
   <int value="207" label="Rch"/>
   <int value="208" label="RubyAlign"/>
@@ -8157,7 +8232,7 @@ Called by update_use_counter_feature_enum.py.-->
   <int value="295" label="ScrollMarkers"/>
   <int value="296" label="PopoverHint"/>
   <int value="297" label="RegexpEscape"/>
-  <int value="298" label="Float16array"/>
+  <int value="298" label="Float16Array"/>
   <int value="299" label="AppFileHandlers"/>
   <int value="300" label="AppProtocolHandlers"/>
   <int value="301" label="Badging"/>
@@ -8189,6 +8264,19 @@ Called by update_use_counter_feature_enum.py.-->
   <int value="327" label="WebauthnPublicKeyEasy"/>
   <int value="328" label="IntlDisplayNames"/>
   <int value="329" label="State"/>
+  <int value="330" label="PrintColorAdjust"/>
+  <int value="331" label="TextUnderlineOffset"/>
+  <int value="332" label="WindowManagement"/>
+  <int value="333" label="Requestclose"/>
+  <int value="334" label="Uint8ArrayBase64Hex"/>
+  <int value="335" label="LineBreak"/>
+  <int value="336" label="OverflowClip"/>
+  <int value="337" label="LightDark"/>
+  <int value="338" label="Requestidlecallback"/>
+  <int value="339" label="ClearSiteData"/>
+  <int value="340" label="LinkRelExpect"/>
+  <int value="341" label="UaClientHints"/>
+  <int value="342" label="CustomizableSelect"/>
 </enum>
 
 <!-- LINT.ThenChange(//third_party/blink/public/mojom/use_counter/metrics/webdx_feature.mojom:WebDXFeature) -->

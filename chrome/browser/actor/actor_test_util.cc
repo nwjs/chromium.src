@@ -6,16 +6,24 @@
 
 #include <string_view>
 
+#include "base/types/cxx23_to_underlying.h"
 #include "base/values.h"
 #include "chrome/browser/actor/actor_coordinator.h"
+#include "chrome/common/actor.mojom.h"
+#include "chrome/common/actor/action_result.h"
+#include "components/optimization_guide/content/browser/page_content_proto_provider.h"
 #include "components/optimization_guide/proto/features/actions_data.pb.h"
-#include "content/public/test/test_devtools_protocol_client.h"
+#include "content/public/browser/render_frame_host.h"
+#include "testing/gtest/include/gtest/gtest.h"
+#include "ui/gfx/geometry/point.h"
 
 namespace actor {
 
-using ::content::TestDevToolsProtocolClient;
+using ::content::RenderFrameHost;
+using ::optimization_guide::DocumentIdentifierUserData;
 using ::optimization_guide::proto::BrowserAction;
 using ::optimization_guide::proto::ClickAction;
+using ::optimization_guide::proto::Coordinate;
 using ::optimization_guide::proto::DragAndReleaseAction;
 using ::optimization_guide::proto::MoveMouseAction;
 using ::optimization_guide::proto::NavigateAction;
@@ -24,22 +32,27 @@ using ::optimization_guide::proto::SelectAction;
 using ::optimization_guide::proto::TypeAction;
 using ::optimization_guide::proto::TypeAction_TypeMode;
 
-namespace {
-
-class ScopedTestDevToolsProtocolClient : public TestDevToolsProtocolClient {
- public:
-  explicit ScopedTestDevToolsProtocolClient(content::RenderFrameHost& rfh) {
-    AttachToFrameTreeHost(&rfh);
-  }
-  ~ScopedTestDevToolsProtocolClient() override { DetachProtocolClient(); }
-};
-
-}  // namespace
-
-BrowserAction MakeClick(int content_node_id) {
+BrowserAction MakeClick(RenderFrameHost& rfh, int content_node_id) {
   BrowserAction action;
   ClickAction* click = action.add_action_information()->mutable_click();
   click->mutable_target()->set_content_node_id(content_node_id);
+  click->mutable_target()->mutable_document_identifier()->set_serialized_token(
+      *DocumentIdentifierUserData::GetDocumentIdentifier(
+          rfh.GetGlobalFrameToken()));
+  click->set_click_type(ClickAction::LEFT);
+  click->set_click_count(ClickAction::SINGLE);
+  return action;
+}
+
+BrowserAction MakeClick(RenderFrameHost& rfh, const gfx::Point& click_point) {
+  BrowserAction action;
+  ClickAction* click = action.add_action_information()->mutable_click();
+  Coordinate* coordinate = click->mutable_target()->mutable_coordinate();
+  coordinate->set_x(click_point.x());
+  coordinate->set_y(click_point.y());
+  click->mutable_target()->mutable_document_identifier()->set_serialized_token(
+      *DocumentIdentifierUserData::GetDocumentIdentifier(
+          rfh.GetGlobalFrameToken()));
   click->set_click_type(ClickAction::LEFT);
   click->set_click_count(ClickAction::SINGLE);
   return action;
@@ -57,10 +70,26 @@ BrowserAction MakeHistoryForward() {
   return action;
 }
 
-BrowserAction MakeMouseMove(int content_node_id) {
+BrowserAction MakeMouseMove(RenderFrameHost& rfh, int content_node_id) {
   BrowserAction action;
   MoveMouseAction* move = action.add_action_information()->mutable_move_mouse();
   move->mutable_target()->set_content_node_id(content_node_id);
+  move->mutable_target()->mutable_document_identifier()->set_serialized_token(
+      *DocumentIdentifierUserData::GetDocumentIdentifier(
+          rfh.GetGlobalFrameToken()));
+  return action;
+}
+
+BrowserAction MakeMouseMove(RenderFrameHost& rfh,
+                            const gfx::Point& move_point) {
+  BrowserAction action;
+  MoveMouseAction* move = action.add_action_information()->mutable_move_mouse();
+  Coordinate* coordinate = move->mutable_target()->mutable_coordinate();
+  coordinate->set_x(move_point.x());
+  coordinate->set_y(move_point.y());
+  move->mutable_target()->mutable_document_identifier()->set_serialized_token(
+      *DocumentIdentifierUserData::GetDocumentIdentifier(
+          rfh.GetGlobalFrameToken()));
   return action;
 }
 
@@ -72,19 +101,48 @@ BrowserAction MakeNavigate(std::string_view target_url) {
   return action;
 }
 
-BrowserAction MakeType(int content_node_id,
+BrowserAction MakeType(RenderFrameHost& rfh,
+                       int content_node_id,
                        std::string_view text,
                        bool follow_by_enter) {
   BrowserAction action;
   TypeAction* type_action = action.add_action_information()->mutable_type();
   type_action->mutable_target()->set_content_node_id(content_node_id);
+  type_action->mutable_target()
+      ->mutable_document_identifier()
+      ->set_serialized_token(*DocumentIdentifierUserData::GetDocumentIdentifier(
+          rfh.GetGlobalFrameToken()));
   type_action->set_text(text);
-  type_action->set_mode(TypeAction_TypeMode::TypeAction_TypeMode_APPEND);
+  // TODO(crbug.com/409570203): Tests should set a mode.
+  type_action->set_mode(
+      TypeAction_TypeMode::TypeAction_TypeMode_UNKNOWN_TYPE_MODE);
   type_action->set_follow_by_enter(follow_by_enter);
   return action;
 }
 
-BrowserAction MakeScroll(std::optional<int> content_node_id,
+BrowserAction MakeType(RenderFrameHost& rfh,
+                       const gfx::Point& type_point,
+                       std::string_view text,
+                       bool follow_by_enter) {
+  BrowserAction action;
+  TypeAction* type_action = action.add_action_information()->mutable_type();
+  Coordinate* coordinate = type_action->mutable_target()->mutable_coordinate();
+  coordinate->set_x(type_point.x());
+  coordinate->set_y(type_point.y());
+  type_action->mutable_target()
+      ->mutable_document_identifier()
+      ->set_serialized_token(*DocumentIdentifierUserData::GetDocumentIdentifier(
+          rfh.GetGlobalFrameToken()));
+  type_action->set_text(text);
+  // TODO(crbug.com/409570203): Tests should set a mode.
+  type_action->set_mode(
+      TypeAction_TypeMode::TypeAction_TypeMode_UNKNOWN_TYPE_MODE);
+  type_action->set_follow_by_enter(follow_by_enter);
+  return action;
+}
+
+BrowserAction MakeScroll(RenderFrameHost& rfh,
+                         std::optional<int> content_node_id,
                          float scroll_offset_x,
                          float scroll_offset_y) {
   CHECK(!scroll_offset_x || !scroll_offset_y)
@@ -94,6 +152,9 @@ BrowserAction MakeScroll(std::optional<int> content_node_id,
   if (content_node_id.has_value()) {
     scroll->mutable_target()->set_content_node_id(content_node_id.value());
   }
+  scroll->mutable_target()->mutable_document_identifier()->set_serialized_token(
+      *DocumentIdentifierUserData::GetDocumentIdentifier(
+          rfh.GetGlobalFrameToken()));
   if (scroll_offset_x > 0) {
     scroll->set_direction(ScrollAction::RIGHT);
     scroll->set_distance(scroll_offset_x);
@@ -111,16 +172,23 @@ BrowserAction MakeScroll(std::optional<int> content_node_id,
   return action;
 }
 
-BrowserAction MakeSelect(int content_node_id, std::string_view value) {
+BrowserAction MakeSelect(RenderFrameHost& rfh,
+                         int content_node_id,
+                         std::string_view value) {
   BrowserAction action;
   SelectAction* select_action =
       action.add_action_information()->mutable_select();
   select_action->mutable_target()->set_content_node_id(content_node_id);
+  select_action->mutable_target()
+      ->mutable_document_identifier()
+      ->set_serialized_token(*DocumentIdentifierUserData::GetDocumentIdentifier(
+          rfh.GetGlobalFrameToken()));
   select_action->set_value(value);
   return action;
 }
 
-BrowserAction MakeDragAndRelease(const gfx::Point& from_point,
+BrowserAction MakeDragAndRelease(RenderFrameHost& rfh,
+                                 const gfx::Point& from_point,
                                  const gfx::Point& to_point) {
   BrowserAction action;
   DragAndReleaseAction* drag_and_release =
@@ -129,10 +197,18 @@ BrowserAction MakeDragAndRelease(const gfx::Point& from_point,
       from_point.x());
   drag_and_release->mutable_from_target()->mutable_coordinate()->set_y(
       from_point.y());
+  drag_and_release->mutable_from_target()
+      ->mutable_document_identifier()
+      ->set_serialized_token(*DocumentIdentifierUserData::GetDocumentIdentifier(
+          rfh.GetGlobalFrameToken()));
   drag_and_release->mutable_to_target()->mutable_coordinate()->set_x(
       to_point.x());
   drag_and_release->mutable_to_target()->mutable_coordinate()->set_y(
       to_point.y());
+  drag_and_release->mutable_to_target()
+      ->mutable_document_identifier()
+      ->set_serialized_token(*DocumentIdentifierUserData::GetDocumentIdentifier(
+          rfh.GetGlobalFrameToken()));
   return action;
 }
 
@@ -142,48 +218,22 @@ BrowserAction MakeWait() {
   return action;
 }
 
-std::optional<int> FindContentNodeId(content::RenderFrameHost& rfh,
-                                     std::string_view query_selector) {
-  ScopedTestDevToolsProtocolClient dev_tools_client(rfh);
-
-  // Get the document node.
-  const base::Value::Dict* result =
-      dev_tools_client.SendCommandSync("DOM.getDocument");
-  CHECK(result);
-
-  std::optional<int> document_id = result->FindIntByDottedPath("root.nodeId");
-  CHECK(document_id.has_value());
-
-  // Find a node matching the selector in the document.
-  auto params = base::Value::Dict()
-                    .Set("nodeId", document_id.value())
-                    .Set("selector", query_selector);
-  result =
-      dev_tools_client.SendCommandSync("DOM.querySelector", std::move(params));
-  CHECK(result);
-
-  // QuerySelector returns a node_id: 0 when the selector isn't matched.
-  std::optional<int> node_id = result->FindInt("nodeId");
-  if (!node_id || node_id.value() == 0) {
-    return std::nullopt;
-  }
-
-  // Extract the backendNodeId from the matched node. backendNodeId corresponds
-  // to the Blink DOMNodeId
-  params = base::Value::Dict().Set("nodeId", node_id.value());
-  result =
-      dev_tools_client.SendCommandSync("DOM.describeNode", std::move(params));
-  CHECK(result);
-
-  std::optional<int> dom_node_id =
-      result->FindIntByDottedPath("node.backendNodeId");
-  CHECK(dom_node_id.has_value());
-
-  return dom_node_id;
-}
-
 void OverrideActionObservationDelay(const base::TimeDelta& delta) {
   ActorCoordinator::SetActionObservationDelayForTesting(delta);
+}
+
+void ExpectOkResult(base::test::TestFuture<mojom::ActionResultPtr>& future) {
+  const auto& result = *(future.Get());
+  EXPECT_TRUE(IsOk(result))
+      << "Expected OK result, got " << ToDebugString(result);
+}
+
+void ExpectErrorResult(base::test::TestFuture<mojom::ActionResultPtr>& future,
+                       mojom::ActionResultCode expected_code) {
+  const auto& result = *(future.Get());
+  EXPECT_EQ(result.code, expected_code)
+      << "Expected error " << base::to_underlying(expected_code) << ", got "
+      << ToDebugString(result);
 }
 
 }  // namespace actor

@@ -11,7 +11,6 @@
 #include "base/command_line.h"
 #include "base/functional/bind.h"
 #include "base/metrics/histogram_macros.h"
-#include "base/not_fatal_until.h"
 #include "base/strings/string_split.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/download/chrome_download_manager_delegate.h"
@@ -242,21 +241,16 @@ bool DownloadProtectionService::MaybeCheckClientDownload(
   CHECK(!settings.has_value());
 #endif
 
-  if (delegate_->ShouldCheckClientDownload(item)) {
+  if (delegate_->MayCheckClientDownload(item)) {
     CheckClientDownload(item, std::move(callback), /*password=*/std::nullopt);
     return true;
   }
 
 #if !BUILDFLAG(IS_ANDROID)
   if (settings.has_value()) {
-    Profile* profile = Profile::FromBrowserContext(
-        content::DownloadItemUtils::GetBrowserContext(item));
-    bool safe_browsing_enabled =
-        profile && IsSafeBrowsingEnabled(*profile->GetPrefs());
     DCHECK(report_only_scan);
-    DCHECK(!safe_browsing_enabled);
-    // Since this branch implies that Safe Browsing is disabled, the pre-deep
-    // scanning DownloadCheckResult is considered UNKNOWN.
+    // Since this branch implies that CheckClientDownload was not called, the
+    // pre-deep scanning DownloadCheckResult is considered UNKNOWN.
     UploadForDeepScanning(
         std::make_unique<DownloadItemMetadata>(item), std::move(callback),
         DownloadItemWarningData::DeepScanTrigger::TRIGGER_POLICY,
@@ -320,7 +314,8 @@ void DownloadProtectionService::CheckDownloadUrl(
 bool DownloadProtectionService::IsSupportedDownload(
     download::DownloadItem& item,
     const base::FilePath& target_path) const {
-  return delegate_->IsSupportedDownload(item, target_path);
+  return delegate_->IsSupportedDownload(item, target_path) !=
+         MayCheckDownloadResult::kMayNotCheckDownload;
 }
 
 void DownloadProtectionService::CheckPPAPIDownloadRequest(
@@ -354,6 +349,10 @@ void DownloadProtectionService::CheckPPAPIDownloadRequest(
 void DownloadProtectionService::CheckFileSystemAccessWrite(
     std::unique_ptr<content::FileSystemAccessWriteItem> item,
     CheckDownloadCallback callback) {
+  if (!delegate_->MayCheckFileSystemAccessWrite(item.get())) {
+    std::move(callback).Run(DownloadCheckResult::UNKNOWN);
+    return;
+  }
   content::BrowserContext* browser_context = item->browser_context;
   auto request = std::make_unique<CheckFileSystemAccessWriteRequest>(
       std::move(item), std::move(callback), this, database_manager_,
@@ -409,7 +408,7 @@ void DownloadProtectionService::PPAPIDownloadCheckRequestFinished(
     PPAPIDownloadRequest* request) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
   auto it = ppapi_download_requests_.find(request);
-  CHECK(it != ppapi_download_requests_.end(), base::NotFatalUntil::M130);
+  CHECK(it != ppapi_download_requests_.end());
   ppapi_download_requests_.erase(it);
 }
 
@@ -824,7 +823,7 @@ int DownloadProtectionService::GetDownloadAttributionUserGestureLimit(
 #if !BUILDFLAG(IS_ANDROID)
 void DownloadProtectionService::RequestFinished(DeepScanningRequest* request) {
   auto it = deep_scanning_requests_.find(request);
-  CHECK(it != deep_scanning_requests_.end(), base::NotFatalUntil::M130);
+  CHECK(it != deep_scanning_requests_.end());
   deep_scanning_requests_.erase(it);
 }
 

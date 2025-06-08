@@ -21,12 +21,16 @@
   ReaderModeOptionsCoordinator* _optionsCoordinator;
 }
 
+- (UIView*)viewForSnapshot {
+  return _viewController.view;
+}
+
 #pragma mark - ChromeCoordinator
 
 - (void)start {
   _viewController = [[ReaderModeViewController alloc] init];
   _mediator = [[ReaderModeMediator alloc]
-      initWithWebState:self.browser->GetWebStateList()->GetActiveWebState()];
+      initWithWebStateList:self.browser->GetWebStateList()];
   _mediator.consumer = _viewController;
   [self.baseViewController addChildViewController:_viewController];
   [_viewController didMoveToParentViewController:self.baseViewController];

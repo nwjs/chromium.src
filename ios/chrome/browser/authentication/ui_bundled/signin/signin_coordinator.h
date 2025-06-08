@@ -27,6 +27,7 @@ enum class SecurityDomainId;
 namespace user_prefs {
 class PrefRegistrySyncable;
 }  // namespace user_prefs
+@class ShowSigninCommand;
 
 // Main class for sign-in coordinator. This class should not be instantiated
 // directly, this should be done using the class methods.
@@ -60,6 +61,12 @@ class PrefRegistrySyncable;
 
 // Registers preferences related to sign-in coordinator.
 + (void)registerProfilePrefs:(user_prefs::PrefRegistrySyncable*)registry;
+
+// Returns a coordinator according to the command
++ (SigninCoordinator*)signinCoordinatorWithCommand:(ShowSigninCommand*)command
+                                           browser:(Browser*)browser
+                                baseViewController:
+                                    (UIViewController*)baseViewController;
 
 // Returns a coordinator to sign-in the user without taps if the identity has
 // been selected with `identity`. Otherwise, it will ask the user to select
@@ -168,35 +175,6 @@ class PrefRegistrySyncable;
                                         (const ChangeProfileContinuationProvider&)
                                             continuationProvider;
 
-// Returns a coordinator for re-authentication workflow for Trusted
-// Vault for the primary identity. This is done with TrustedVaultService.
-// Related to IOSTrustedVaultClient.
-// `viewController` presents the sign-in.
-// `intent` Dialog to present.
-// `securityDomainID` Identifies a particular security domain.
-// `trigger` UI elements where the trusted vault reauth has been triggered.
-// `accessPoint` Identifies where the dialog is initiated from.
-+ (SigninCoordinator*)
-    trustedVaultReAuthenticationCoordinatorWithBaseViewController:
-        (UIViewController*)viewController
-                                                          browser:
-                                                              (Browser*)browser
-                                                           intent:
-                                                               (SigninTrustedVaultDialogIntent)
-                                                                   intent
-                                                 securityDomainID:
-                                                     (trusted_vault::
-                                                          SecurityDomainId)
-                                                         securityDomainID
-                                                          trigger:
-                                                              (syncer::
-                                                                   TrustedVaultUserActionTriggerForUMA)
-                                                                  trigger
-                                                      accessPoint:
-                                                          (signin_metrics::
-                                                               AccessPoint)
-                                                              accessPoint;
-
 // Returns a coordinator to display the account consistency promo with a list
 // of accounts available on the device for sign-in.
 // `viewController` presents the promo.
@@ -242,17 +220,6 @@ class PrefRegistrySyncable;
                                      continuationProvider:
                                          (const ChangeProfileContinuationProvider&)
                                              continuationProvider;
-
-// Returns a coordinator to switch account.
-+ (SigninCoordinator*)
-    accountMenuCoordinatorWithBaseViewController:
-        (UIViewController*)viewController
-                                         browser:(Browser*)browser
-                                    contextStyle:
-                                        (SigninContextStyle)contextStyle
-                                      anchorView:(UIView*)anchorView
-                                     accessPoint:
-                                         (AccountMenuAccessPoint)accessPoint;
 
 // Returns a coordinator to show the history sync.
 + (SigninCoordinator*)

@@ -16,6 +16,7 @@
 #include "extensions/renderer/api/messaging/messaging_bindings.h"
 #include "extensions/renderer/api/runtime_hooks_delegate.h"
 #include "extensions/renderer/api/web_request_hooks.h"
+#include "extensions/renderer/api/web_request_natives.h"
 #include "extensions/renderer/api_activity_logger.h"
 #include "extensions/renderer/api_definitions_natives.h"
 #include "extensions/renderer/bindings/api_bindings_system.h"
@@ -125,6 +126,8 @@ void CoreExtensionsRendererAPIProvider::RegisterNativeHandlers(
       "process", std::make_unique<ProcessInfoNativeHandler>(context));
   module_system->RegisterNativeHandler(
       "runtime", std::make_unique<RuntimeCustomBindings>(context));
+  module_system->RegisterNativeHandler(
+      "web_request_natives", std::make_unique<WebRequestNatives>(context));
 
 #if BUILDFLAG(ENABLE_EXTENSIONS)
   module_system->RegisterNativeHandler(
@@ -166,9 +169,12 @@ void CoreExtensionsRendererAPIProvider::PopulateSourceMap(
     int id = 0;
   };
   std::vector<JsResourceInfo> js_resources = {
+#if BUILDFLAG(ENABLE_PLATFORM_APPS)
       {"appView", IDR_APP_VIEW_JS},
-      {"appViewElement", IDR_APP_VIEW_ELEMENT_JS},
       {"appViewDeny", IDR_APP_VIEW_DENY_JS},
+      {"appViewElement", IDR_APP_VIEW_ELEMENT_JS},
+#endif
+
       {"entryIdManager", IDR_ENTRY_ID_MANAGER},
       {"extensionOptions", IDR_EXTENSION_OPTIONS_JS},
       {"extensionOptionsElement", IDR_EXTENSION_OPTIONS_ELEMENT_JS},
@@ -199,6 +205,8 @@ void CoreExtensionsRendererAPIProvider::PopulateSourceMap(
       {"utils", IDR_UTILS_JS},
       {"webRequest", IDR_WEB_REQUEST_CUSTOM_BINDINGS_JS},
       {"webRequestEvent", IDR_WEB_REQUEST_EVENT_JS},
+
+#if BUILDFLAG(ENABLE_GUEST_VIEW)
       // Note: webView not webview so that this doesn't interfere with the
       // chrome.webview API bindings.
       {"webView", IDR_WEB_VIEW_JS},
@@ -211,6 +219,7 @@ void CoreExtensionsRendererAPIProvider::PopulateSourceMap(
       {"webViewConstants", IDR_WEB_VIEW_CONSTANTS_JS},
       {"webViewEvents", IDR_WEB_VIEW_EVENTS_JS},
       {"webViewInternal", IDR_WEB_VIEW_INTERNAL_CUSTOM_BINDINGS_JS},
+#endif
 
       {"keep_alive", IDR_KEEP_ALIVE_JS},
 
@@ -231,8 +240,10 @@ void CoreExtensionsRendererAPIProvider::PopulateSourceMap(
       {"automationEvent", IDR_AUTOMATION_EVENT_JS},
       {"automationNode", IDR_AUTOMATION_NODE_JS},
       {"automationTreeCache", IDR_AUTOMATION_TREE_CACHE_JS},
+#if BUILDFLAG(ENABLE_PLATFORM_APPS)
       {"app.runtime", IDR_APP_RUNTIME_CUSTOM_BINDINGS_JS},
       {"app.window", IDR_APP_WINDOW_CUSTOM_BINDINGS_JS},
+#endif
       {"declarativeWebRequest", IDR_DECLARATIVE_WEBREQUEST_CUSTOM_BINDINGS_JS},
       {"contextMenus", IDR_CONTEXT_MENUS_CUSTOM_BINDINGS_JS},
       {"contextMenusHandlers", IDR_CONTEXT_MENUS_HANDLERS_JS},
@@ -243,8 +254,10 @@ void CoreExtensionsRendererAPIProvider::PopulateSourceMap(
       {"printerProvider", IDR_PRINTER_PROVIDER_CUSTOM_BINDINGS_JS},
       {"webViewRequest", IDR_WEB_VIEW_REQUEST_CUSTOM_BINDINGS_JS},
 
+#if BUILDFLAG(ENABLE_PLATFORM_APPS)
       // Platform app sources that are not API-specific..
       {"platformApp", IDR_PLATFORM_APP_JS},
+#endif
 
       {"nw.App",       IDR_NWAPI_APP_JS},
       {"nw.Clipboard", IDR_NWAPI_CLIPBOARD_JS},

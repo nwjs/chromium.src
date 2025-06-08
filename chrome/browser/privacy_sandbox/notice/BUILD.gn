@@ -37,20 +37,39 @@ source_set("core") {
 }
 
 source_set("interfaces") {
-  public = [ "notice_service_interface.h" ]
+  public = [
+    "desktop_view_manager_interface.h",
+    "notice_service_interface.h",
+  ]
   deps = [
     ":notice_mojom",
     "//components/keyed_service/core",
   ]
 }
 
-source_set("notice") {
-  sources = [ "notice_service.cc" ]
+source_set("factory") {
+  public = [ "notice_service_factory.h" ]
   deps = [
-    ":core",
     ":interfaces",
     "//base",
     "//chrome/browser/profiles:profile",
+  ]
+}
+
+source_set("notice") {
+  sources = [
+    "notice_service.cc",
+    "notice_service.h",
+  ]
+  deps = [
+    "//base",
+    "//chrome/browser/profiles:profile",
+  ]
+
+  public_deps = [
+    ":core",
+    ":factory",
+    ":interfaces",
   ]
 
   if (!is_android) {
@@ -60,6 +79,12 @@ source_set("notice") {
 
 # (Desktop Only)
 if (!is_android) {
+  source_set("desktop_entrypoint_handlers_helper") {
+    sources = [ "desktop_entrypoint_handlers_helper.cc" ]
+    public = [ "desktop_entrypoint_handlers_helper.h" ]
+    deps = [ "//chrome/common" ]
+  }
+
   source_set("desktop_view_manager") {
     sources = [
       "desktop_entrypoint_handlers.cc",
@@ -71,12 +96,18 @@ if (!is_android) {
     ]
     deps = [
       ":core",
+      ":desktop_entrypoint_handlers_helper",
       ":interfaces",
       ":notice_mojom",
       "//base",
       "//chrome/browser/profiles:profile",
+      "//chrome/browser/ui:ui",
       "//chrome/browser/ui/browser_window:browser_window",
+      "//chrome/browser/ui/privacy_sandbox:privacy_sandbox",
+      "//chrome/common",
+      "//components/privacy_sandbox:features",
       "//components/tabs:public",
+      "//components/web_modal:web_modal",
       "//content/public/browser",
     ]
   }
@@ -110,6 +141,8 @@ source_set("test_support") {
     ":interfaces",
     ":notice_mojom",
     "//base",
+    "//components/keyed_service/core:core",
+    "//content/public/browser:browser",
     "//testing/gmock",
   ]
 

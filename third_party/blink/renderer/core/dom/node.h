@@ -27,6 +27,7 @@
 #define THIRD_PARTY_BLINK_RENDERER_CORE_DOM_NODE_H_
 
 #include <climits>
+#include <concepts>
 
 #include "base/dcheck_is_on.h"
 #include "base/notreached.h"
@@ -377,6 +378,15 @@ class CORE_EXPORT Node : public EventTarget {
   }
   DISABLE_CFI_PERF bool IsScrollButtonBlockEndPseudoElement() const {
     return GetPseudoId() == kPseudoIdScrollButtonBlockEnd;
+  }
+  DISABLE_CFI_PERF bool IsCarouselPseudoElement() const {
+    return IsPseudoElement() && (IsScrollMarkerPseudoElement() ||
+                                 IsScrollMarkerGroupAfterPseudoElement() ||
+                                 IsScrollMarkerGroupBeforePseudoElement() ||
+                                 IsScrollButtonBlockStartPseudoElement() ||
+                                 IsScrollButtonInlineStartPseudoElement() ||
+                                 IsScrollButtonInlineEndPseudoElement() ||
+                                 IsScrollButtonBlockEndPseudoElement());
   }
   DISABLE_CFI_PERF bool IsMarkerPseudoElement() const {
     return GetPseudoId() == kPseudoIdMarker;
@@ -1284,10 +1294,10 @@ class CORE_EXPORT Node : public EventTarget {
   // EventTarget ends with a single 32-bit member, so put one 32-bit member
   // first to avoid padding on 64-bit.
   uint32_t node_flags_;
-  // Both parent and tree_scope are hot accessed members. Keep them uncompressed
+  // Both tree_scope and parent are hot accessed members. Keep them uncompressed
   // for performance reasons.
-  TaggedParentOrShadowHostNode parent_or_shadow_host_node_;
   subtle::UncompressedMember<TreeScope> tree_scope_;
+  TaggedParentOrShadowHostNode parent_or_shadow_host_node_;
   // Compressed members and flags are after uncompressed members to minimize
   // padding.
   Member<Node> previous_;
@@ -1332,16 +1342,16 @@ void ShowNodePath(const blink::Node*);
 namespace cppgc {
 // Assign Node to be allocated on custom NodeSpace.
 template <typename T>
-struct SpaceTrait<T, std::enable_if_t<std::is_base_of<blink::Node, T>::value>> {
+  requires(std::derived_from<T, blink::Node>)
+struct SpaceTrait<T> {
   using Space = blink::NodeSpace;
 };
 }  // namespace cppgc
 
 namespace blink {
 template <typename T>
-struct ThreadingTrait<
-    T,
-    std::enable_if_t<std::is_base_of<blink::Node, T>::value>> {
+  requires(std::derived_from<T, blink::Node>)
+struct ThreadingTrait<T> {
   static constexpr ThreadAffinity kAffinity = kMainThreadOnly;
 };
 }  // namespace blink

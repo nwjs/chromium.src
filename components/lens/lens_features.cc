@@ -63,6 +63,10 @@ BASE_FEATURE(kLensOverlaySimplifiedSelection,
              "LensOverlaySimplifiedSelection",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+BASE_FEATURE(kLensOverlayVisualSelectionUpdates,
+             "LensOverlayVisualSelectionUpdates",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 BASE_FEATURE(kLensOverlayUpdatedClientContext,
              "LensOverlayUpdatedClientContext",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -73,6 +77,10 @@ BASE_FEATURE(kLensOverlayMGTInSidePanel,
 
 BASE_FEATURE(kLensSearchSidePanelNewFeedback,
              "LensSearchSidePanelNewFeedback",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kLensSearchSidePanelScrollToAPI,
+             "LensSearchSidePanelScrollToAPI",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Enables the Lens Overlay omnibox entry point. This is a separate feature from
@@ -91,9 +99,17 @@ BASE_FEATURE(kLensOverlayRecontextualizeOnQuery,
              "LensOverlayRecontextualizeOnQuery",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+BASE_FEATURE(kLensOverlayCornerSliders,
+             "LensOverlayCornerSliders",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
 BASE_FEATURE(kLensSearchProtectedPage,
              "LensSearchProtectedPage",
              base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kLensOverlayEduActionChip,
+             "LensOverlayEduActionChip",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 const base::FeatureParam<int> kLensOverlayMinRamMb{&kLensOverlay, "min_ram_mb",
                                                    /*default=value=*/-1};
@@ -414,6 +430,11 @@ constexpr base::FeatureParam<bool> kUseAltLoadingHintWeb{
 constexpr base::FeatureParam<bool> kUseAltLoadingHintPdf{
     &kLensOverlayContextualSearchbox, "use-alt-loading-hint-pdf", false};
 
+constexpr base::FeatureParam<bool>
+    kLensOverlayEnableSummarizeHintForContextualSuggest{
+        &kLensOverlayContextualSearchbox,
+        "enable-summarize-hint-for-contextual-suggest", false};
+
 constexpr base::FeatureParam<std::string> kTranslateEndpointUrl{
     &kLensOverlayTranslateLanguages, "translate-endpoint-url",
     "https://translate-pa.googleapis.com/v1/supportedLanguages"};
@@ -458,6 +479,51 @@ constexpr base::FeatureParam<bool>
         &kLensOverlaySimplifiedSelection, "copy-command-copies-as-image",
         false};
 
+constexpr base::FeatureParam<bool>
+    kLensOverlayVisualSelectionUpdatesEnableBorderGlow{
+        &kLensOverlayVisualSelectionUpdates, "enable-border-glow", true};
+
+constexpr base::FeatureParam<bool>
+    kLensOverlayVisualSelectionUpdatesEnableGradientRegionStroke{
+        &kLensOverlayVisualSelectionUpdates, "enable-gradient-region-stroke",
+        false};
+
+constexpr base::FeatureParam<bool>
+    kLensOverlayVisualSelectionUpdatesEnableWhiteRegionStroke{
+        &kLensOverlayVisualSelectionUpdates, "enable-white-region-stroke",
+        true};
+
+constexpr base::FeatureParam<bool>
+    kLensOverlayVisualSelectionUpdatesEnableRegionSelectedGlow{
+        &kLensOverlayVisualSelectionUpdates, "enable-region-selected-glow",
+        true};
+
+constexpr base::FeatureParam<bool>
+    kLensOverlayVisualSelectionUpdatesEnableGradientSuperG{
+        &kLensOverlayVisualSelectionUpdates, "enable-gradient-super-g", true};
+
+constexpr base::FeatureParam<bool>
+    kLensOverlayVisualSelectionUpdatesCsbThumbnail{
+        &kLensOverlayVisualSelectionUpdates, "enable-csb-thumbnail", true};
+
+constexpr base::FeatureParam<bool>
+    kLensOverlayVisualSelectionUpdatesEnableCsbMotionTweaks{
+        &kLensOverlayVisualSelectionUpdates, "enable-csb-motion-tweaks", true};
+
+constexpr base::FeatureParam<bool>
+    kLensOverlayVisualSelectionUpdatesThumbnailSizingTweaks{
+        &kLensOverlayVisualSelectionUpdates, "enable-thumbnail-sizing-tweaks",
+        true};
+
+constexpr base::FeatureParam<bool>
+    kLensOverlayVisualSelectionUpdatesHideCsbEllipsis{
+        &kLensOverlayVisualSelectionUpdates, "hide-csb-ellipsis", true};
+
+constexpr base::FeatureParam<bool>
+    kLensOverlayVisualSelectionUpdatesCloseButtonTweaks{
+        &kLensOverlayVisualSelectionUpdates, "enable-close-button-tweaks",
+        true};
+
 constexpr base::FeatureParam<std::string> kHomepageURLForLens{
     &kLensStandalone, "lens-homepage-url", "https://lens.google.com/v3/"};
 
@@ -485,6 +551,32 @@ constexpr base::FeatureParam<bool> kLensOverlayUploadChunkingUseDebugOptions{
 
 constexpr base::FeatureParam<int> kLensOverlayUploadChunkRequestTimeoutMs{
     &kLensOverlayUploadChunking, "upload-chunk-request-timeout-ms", 60000};
+
+constexpr base::FeatureParam<int> kLensOverlaySliderChangedTimeout{
+    &kLensOverlayCornerSliders, "slider-changed-timeout", 1000};
+
+const base::FeatureParam<std::string> kLensOverlayEduUrlAllowFilters{
+    &kLensOverlayEduActionChip, "url-allow-filters", "[]"};
+
+const base::FeatureParam<std::string> kLensOverlayEduUrlBlockFilters{
+    &kLensOverlayEduActionChip, "url-block-filters", "[]"};
+
+const base::FeatureParam<std::string> kLensOverlayEduUrlPathMatchAllowFilters{
+    &kLensOverlayEduActionChip, "url-path-match-allow-filters", "[]"};
+
+const base::FeatureParam<std::string> kLensOverlayEduUrlPathMatchBlockFilters{
+    &kLensOverlayEduActionChip, "url-path-match-block-filters", "[]"};
+
+const base::FeatureParam<std::string> kLensOverlayEduHashedDomainBlockFilters{
+    &kLensOverlayEduActionChip, "hashed-domain-block-filters", ""};
+
+const base::FeatureParam<std::string>
+    kLensOverlayEduUrlForceAllowedMatchPatterns{
+        &kLensOverlayEduActionChip, "url-path-forced-allowed-match-patterns",
+        "[]"};
+
+const base::FeatureParam<bool> kLensOverlayEduActionChipDisabledByGlic{
+    &kLensOverlayEduActionChip, "disabled-by-glic", true};
 
 std::string GetHomepageURLForLens() {
   return kHomepageURLForLens.Get();
@@ -971,6 +1063,60 @@ bool GetShouldCopyAsImage() {
   return kLensOverlaySimplifiedSelectionShouldCopyAsImage.Get();
 }
 
+bool IsLensOverlayVisualSelectionUpdatesEnabled() {
+  return base::FeatureList::IsEnabled(kLensOverlayVisualSelectionUpdates);
+}
+
+bool GetVisualSelectionUpdatesEnableBorderGlow() {
+  return base::FeatureList::IsEnabled(kLensOverlayVisualSelectionUpdates) &&
+         kLensOverlayVisualSelectionUpdatesEnableBorderGlow.Get();
+}
+
+bool GetVisualSelectionUpdatesEnableGradientRegionStroke() {
+  return base::FeatureList::IsEnabled(kLensOverlayVisualSelectionUpdates) &&
+         kLensOverlayVisualSelectionUpdatesEnableGradientRegionStroke.Get();
+}
+
+bool GetVisualSelectionUpdatesEnableWhiteRegionStroke() {
+  return base::FeatureList::IsEnabled(kLensOverlayVisualSelectionUpdates) &&
+         kLensOverlayVisualSelectionUpdatesEnableWhiteRegionStroke.Get();
+}
+
+bool GetVisualSelectionUpdatesEnableRegionSelectedGlow() {
+  return base::FeatureList::IsEnabled(kLensOverlayVisualSelectionUpdates) &&
+         kLensOverlayVisualSelectionUpdatesEnableRegionSelectedGlow.Get();
+}
+
+bool GetVisualSelectionUpdatesEnableGradientSuperG() {
+  return base::FeatureList::IsEnabled(kLensOverlayVisualSelectionUpdates) &&
+         kLensOverlayVisualSelectionUpdatesEnableGradientSuperG.Get();
+}
+
+bool GetVisualSelectionUpdatesEnableCsbThumbnail() {
+  return base::FeatureList::IsEnabled(kLensOverlayVisualSelectionUpdates) &&
+         kLensOverlayVisualSelectionUpdatesCsbThumbnail.Get();
+}
+
+bool GetVisualSelectionUpdatesEnableCsbMotionTweaks() {
+  return base::FeatureList::IsEnabled(kLensOverlayVisualSelectionUpdates) &&
+         kLensOverlayVisualSelectionUpdatesEnableCsbMotionTweaks.Get();
+}
+
+bool GetVisualSelectionUpdatesEnableThumbnailSizingTweaks() {
+  return base::FeatureList::IsEnabled(kLensOverlayVisualSelectionUpdates) &&
+         kLensOverlayVisualSelectionUpdatesThumbnailSizingTweaks.Get();
+}
+
+bool GetVisualSelectionUpdatesHideCsbEllipsis() {
+  return base::FeatureList::IsEnabled(kLensOverlayVisualSelectionUpdates) &&
+         kLensOverlayVisualSelectionUpdatesHideCsbEllipsis.Get();
+}
+
+bool GetVisualSelectionUpdatesEnableCloseButtonTweaks() {
+  return base::FeatureList::IsEnabled(kLensOverlayVisualSelectionUpdates) &&
+         kLensOverlayVisualSelectionUpdatesCloseButtonTweaks.Get();
+}
+
 bool PageContentUploadRequestIdFixEnabled() {
   return kPageContentUploadRequestIdFix.Get();
 }
@@ -1001,6 +1147,10 @@ bool ShouldUseAltLoadingHintWeb() {
 
 bool ShouldUseAltLoadingHintPdf() {
   return kUseAltLoadingHintPdf.Get();
+}
+
+bool ShouldEnableSummarizeHintForContextualSuggest() {
+  return kLensOverlayEnableSummarizeHintForContextualSuggest.Get();
 }
 
 bool IsLensOverlayUploadChunkingEnabled() {
@@ -1034,8 +1184,52 @@ bool ShouldLensOverlayRecontextualizeOnQuery() {
   return base::FeatureList::IsEnabled(kLensOverlayRecontextualizeOnQuery);
 }
 
+bool AreLensOverlayCornerSlidersEnabled() {
+  return base::FeatureList::IsEnabled(kLensOverlayCornerSliders);
+}
+
+int GetLensOverlaySliderChangedTimeout() {
+  return kLensOverlaySliderChangedTimeout.Get();
+}
+
 bool IsLensSearchProtectedPageEnabled() {
   return base::FeatureList::IsEnabled(kLensSearchProtectedPage);
+}
+
+bool IsLensSearchSidePanelScrollToAPIEnabled() {
+  return base::FeatureList::IsEnabled(kLensSearchSidePanelScrollToAPI);
+}
+
+bool IsLensOverlayEduActionChipEnabled() {
+  return base::FeatureList::IsEnabled(kLensOverlayEduActionChip);
+}
+
+std::string GetLensOverlayEduUrlAllowFilters() {
+  return kLensOverlayEduUrlAllowFilters.Get();
+}
+
+std::string GetLensOverlayEduUrlBlockFilters() {
+  return kLensOverlayEduUrlBlockFilters.Get();
+}
+
+std::string GetLensOverlayEduUrlPathMatchAllowFilters() {
+  return kLensOverlayEduUrlPathMatchAllowFilters.Get();
+}
+
+std::string GetLensOverlayEduUrlPathMatchBlockFilters() {
+  return kLensOverlayEduUrlPathMatchBlockFilters.Get();
+}
+
+std::string GetLensOverlayEduUrlForceAllowedMatchPatterns() {
+  return kLensOverlayEduUrlForceAllowedMatchPatterns.Get();
+}
+
+std::string GetLensOverlayEduHashedDomainBlockFilters() {
+  return kLensOverlayEduHashedDomainBlockFilters.Get();
+}
+
+bool IsLensOverlayEduActionChipDisabledByGlic() {
+  return kLensOverlayEduActionChipDisabledByGlic.Get();
 }
 
 }  // namespace lens::features

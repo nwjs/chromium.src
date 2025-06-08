@@ -17,6 +17,7 @@
 #include <memory>
 #include <queue>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -30,9 +31,10 @@
 #include "base/i18n/string_compare.h"
 #include "base/logging.h"
 #include "base/memory/raw_ptr.h"
-#include "base/not_fatal_until.h"
+#include "base/metrics/histogram_functions.h"
 #include "base/notreached.h"
 #include "base/numerics/safe_conversions.h"
+#include "base/strings/strcat.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/uuid.h"
 #include "chrome/browser/bookmarks/bookmark_model_factory.h"
@@ -131,6 +133,54 @@ const bookmarks::BookmarkNode* GetNodeFromReadingListIfLoaded(
   return nullptr;
 }
 
+// The loaded state recorded for BookmarkBridge. Should be kept consistent with
+// the JavaBookmarkBridgeBackend enum in
+// tools/metrics/histograms/metadata/bookmarks/enums.xml.
+enum class BookmarksBackend : int {
+  kBookmarks = 0,
+  kPartnerBookmarks = 1,
+  kReadingList = 2,
+  kReadingListManager = 3,
+  kMaxValue = kReadingListManager
+};
+
+// Values passed through `backend_client_name` should be kept consistent with
+// JavaBookmarkBackendClients in
+// tools/metrics/histograms/metadata/bookmarks/histograms.xml.
+std::string_view GetBookmarksBackendClientName(BookmarksBackend backend) {
+  switch (backend) {
+    case BookmarksBackend::kBookmarks:
+      return "Bookmarks";
+    case BookmarksBackend::kPartnerBookmarks:
+      return "PartnerBookmarks";
+    case BookmarksBackend::kReadingList:
+      return "ReadingList";
+    case BookmarksBackend::kReadingListManager:
+      return "ReadingListManager";
+  }
+}
+
+void RecordBackendLoaded(base::TimeTicks start_time, BookmarksBackend backend) {
+  base::UmaHistogramEnumeration("Bookmarks.Android.BackendLoaded", backend);
+  base::UmaHistogramLongTimes(
+      base::StrCat({"Bookmarks.Android.BackendLoadTime.",
+                    GetBookmarksBackendClientName(backend)}),
+      base::TimeTicks::Now() - start_time);
+}
+
+// The loaded state recorded for BookmarkBridge. Should be kept consistent with
+// the JavaBookmarkBridgeLoadedState enum in
+// tools/metrics/histograms/metadata/bookmarks/enums.xml.
+enum class LoadedState : int {
+  kLoadStarted = 0,
+  kLoadFinished = 1,
+  kMaxValue = kLoadFinished
+};
+
+void RecordLoadedStateEnum(LoadedState state) {
+  base::UmaHistogramEnumeration("Bookmarks.Android.LoadedState", state);
+}
+
 }  // namespace
 
 // static
@@ -199,11 +249,26 @@ BookmarkBridge::BookmarkBridge(
   CHECK(dual_reading_list_model);
   CHECK(identity_manager_);
 
+  load_start_time_ = base::TimeTicks::Now();
+  RecordLoadedStateEnum(LoadedState::kLoadStarted);
+
   profile_observation_.Observe(profile_);
   bookmark_model_observation_.Observe(bookmark_model_);
+  if (bookmark_model_->loaded()) {
+    BookmarkModelLoaded(false);
+  }
+
   partner_bookmarks_shim_observation_.Observe(partner_bookmarks_shim_);
+  if (partner_bookmarks_shim_->IsLoaded()) {
+    PartnerShimLoaded(partner_bookmarks_shim_);
+  }
+
   reading_list_manager_observations_.AddObservation(
       local_or_syncable_reading_list_manager_.get());
+  if (local_or_syncable_reading_list_manager_->IsLoaded()) {
+    ReadingListLoaded();
+  }
+
   dual_reading_list_model_observation_.Observe(dual_reading_list_model_);
   identity_manager_observation_.Observe(identity_manager_);
 
@@ -1500,8 +1565,12 @@ void BookmarkBridge::NotifyIfDoneLoading() {
   if (!IsLoaded() || !java_bookmark_model_)
     return;
 
+  if (!loading_notification_sent_) {
+    RecordLoadedStateEnum(LoadedState::kLoadFinished);
+  }
   Java_BookmarkBridge_bookmarkModelLoaded(
       AttachCurrentThread(), ScopedJavaLocalRef<jobject>(java_bookmark_model_));
+  loading_notification_sent_ = true;
 }
 
 void BookmarkBridge::AddBookmarkNodesToBookmarkIdList(
@@ -1536,6 +1605,7 @@ void BookmarkBridge::BookmarkModelChanged() {
 }
 
 void BookmarkBridge::BookmarkModelLoaded(bool ids_reassigned) {
+  RecordBackendLoaded(load_start_time_, BookmarksBackend::kBookmarks);
   NotifyIfDoneLoading();
 }
 
@@ -1657,10 +1727,7 @@ void BookmarkBridge::PartnerShimChanged(PartnerBookmarksShim* shim) {
 }
 
 void BookmarkBridge::PartnerShimLoaded(PartnerBookmarksShim* shim) {
-  if (suppress_observer_notifications_) {
-    return;
-  }
-
+  RecordBackendLoaded(load_start_time_, BookmarksBackend::kPartnerBookmarks);
   NotifyIfDoneLoading();
 }
 
@@ -1669,6 +1736,7 @@ void BookmarkBridge::ShimBeingDeleted(PartnerBookmarksShim* shim) {
 }
 
 void BookmarkBridge::ReadingListLoaded() {
+  RecordBackendLoaded(load_start_time_, BookmarksBackend::kReadingListManager);
   NotifyIfDoneLoading();
 }
 
@@ -1699,10 +1767,9 @@ void BookmarkBridge::ReorderChildren(
   // iterate through array, adding the BookmarkNode*s of the objects
   for (int i = 0; i < arraySize; ++i) {
     const BookmarkNode* child_node = GetNodeByID(elements[i], bookmark_type);
-    CHECK(child_node->parent() == parent_node, base::NotFatalUntil::M135);
-    CHECK(
-        base::checked_cast<jsize>(parent_node->children().size()) == arraySize,
-        base::NotFatalUntil::M135);
+    CHECK(child_node->parent() == parent_node);
+    CHECK(base::checked_cast<jsize>(parent_node->children().size()) ==
+          arraySize);
     ordered_nodes.push_back(GetNodeByID(elements[i], 0));
   }
 
@@ -1751,6 +1818,7 @@ ReadingListManager* BookmarkBridge::GetReadingListManagerFromParentNode(
 }
 
 void BookmarkBridge::ReadingListModelLoaded(const ReadingListModel* model) {
+  RecordBackendLoaded(load_start_time_, BookmarksBackend::kReadingList);
   CreateOrDestroyAccountReadingListManagerIfNeeded();
 }
 

@@ -15,6 +15,7 @@
 #include "chrome/browser/safe_browsing/android/download_protection_metrics_data.h"
 #include "chrome/browser/safe_browsing/android/safe_browsing_referring_app_bridge_android.h"
 #include "chrome/browser/safe_browsing/download_protection/check_client_download_request.h"
+#include "chrome/browser/safe_browsing/download_protection/check_file_system_access_write_request.h"
 #include "chrome/browser/safe_browsing/download_protection/download_protection_util.h"
 #include "components/download/public/common/download_item.h"
 #include "components/google/core/common/google_util.h"
@@ -43,9 +44,6 @@ const char kDownloadRequestDefaultUrl[] =
 // Content-Type HTTP header field for the request.
 const char kProtobufContentType[] = "application/x-protobuf";
 
-// File suffix for APKs.
-const base::FilePath::CharType kApkSuffix[] = FILE_PATH_LITERAL(".apk");
-
 bool IsDownloadRequestUrlValid(const GURL& url) {
   return url.is_valid() && url.SchemeIs(url::kHttpsScheme) &&
          google_util::IsGoogleAssociatedDomainUrl(url);
@@ -61,67 +59,42 @@ GURL ConstructDownloadRequestUrl() {
 }
 
 // Determines whether Android download protection should be active.
+bool IsAndroidDownloadProtectionEnabled(Profile* profile) {
+  if (!base::FeatureList::IsEnabled(kMaliciousApkDownloadCheck)) {
+    return false;
+  }
+
+  if (!profile || !profile->GetPrefs()) {
+    return false;
+  }
+
+  // Android download protection should only ever be enabled if Safe Browsing is
+  // enabled.
+  if (!IsSafeBrowsingEnabled(*profile->GetPrefs())) {
+    return false;
+  }
+
+  // In telemetry-only mode, APK download checks should only be active for
+  // Enhanced Protection users.
+  if (kMaliciousApkDownloadCheckTelemetryOnly.Get() &&
+      !IsEnhancedProtectionEnabled(*profile->GetPrefs())) {
+    return false;
+  }
+  return true;
+}
+
+// Determines whether Android download protection should be active.
 // Also sets the metrics outcome if the result is disabled.
 bool IsAndroidDownloadProtectionEnabledForDownloadProfile(
     download::DownloadItem* item) {
   CHECK(item);
-  bool enabled = base::FeatureList::IsEnabled(kMaliciousApkDownloadCheck);
-
-  Profile* profile = Profile::FromBrowserContext(
-      content::DownloadItemUtils::GetBrowserContext(item));
-  enabled = enabled && profile && profile->GetPrefs();
-
-  // Android download protection should only ever be enabled if Safe Browsing is
-  // enabled.
-  enabled = enabled && IsSafeBrowsingEnabled(*profile->GetPrefs());
-
-  // In telemetry-only mode, APK download checks should only be active for
-  // Enhanced Protection users.
-  enabled = enabled && (!kMaliciousApkDownloadCheckTelemetryOnly.Get() ||
-                        IsEnhancedProtectionEnabled(*profile->GetPrefs()));
-
+  bool enabled = IsAndroidDownloadProtectionEnabled(Profile::FromBrowserContext(
+      content::DownloadItemUtils::GetBrowserContext(item)));
   if (!enabled) {
     DownloadProtectionMetricsData::SetOutcome(
         item, Outcome::kDownloadProtectionDisabled);
   }
   return enabled;
-}
-
-// Implements random sampling of a percentage of eligible downloads.
-bool ShouldSample() {
-  int sample_percentage = kMaliciousApkDownloadCheckSamplePercentage.Get();
-  // If sample_percentage param is misconfigured, don't apply sampling.
-  if (sample_percentage < 0 || sample_percentage > 100) {
-    sample_percentage = 100;
-  }
-  // This ensures that in telemetry-only mode, we sample at most 10% of
-  // eligible downloads.
-  if (kMaliciousApkDownloadCheckTelemetryOnly.Get()) {
-    sample_percentage = std::min(sample_percentage, 10);
-  }
-  // Avoid the syscall if possible.
-  if (sample_percentage >= 100) {
-    CHECK_EQ(sample_percentage, 100);
-    return true;
-  }
-  return base::RandDouble() * 100 < sample_percentage;
-}
-
-Outcome ConvertDownloadCheckResultReason(DownloadCheckResultReason reason) {
-  switch (reason) {
-    case DownloadCheckResultReason::REASON_EMPTY_URL_CHAIN:
-      return Outcome::kEmptyUrlChain;
-    case DownloadCheckResultReason::REASON_INVALID_URL:
-      return Outcome::kInvalidUrl;
-    case DownloadCheckResultReason::REASON_UNSUPPORTED_URL_SCHEME:
-      return Outcome::kUnsupportedUrlScheme;
-    case DownloadCheckResultReason::REASON_REMOTE_FILE:
-      return Outcome::kRemoteFile;
-    case DownloadCheckResultReason::REASON_LOCAL_FILE:
-      return Outcome::kLocalFile;
-    default:
-      NOTREACHED();
-  }
 }
 
 void LogGetReferringAppInfoResult(internal::GetReferringAppInfoResult result) {
@@ -142,46 +115,57 @@ bool DownloadProtectionDelegateAndroid::ShouldCheckDownloadUrl(
   return IsAndroidDownloadProtectionEnabledForDownloadProfile(item);
 }
 
-bool DownloadProtectionDelegateAndroid::ShouldCheckClientDownload(
+bool DownloadProtectionDelegateAndroid::MayCheckClientDownload(
     download::DownloadItem* item) const {
   bool is_enabled = IsAndroidDownloadProtectionEnabledForDownloadProfile(item);
   if (is_enabled && !IsDownloadRequestUrlValid(download_request_url_)) {
     DownloadProtectionMetricsData::SetOutcome(item, Outcome::kMisconfigured);
     return false;
   }
-  return is_enabled;
+  if (!is_enabled) {
+    return false;
+  }
+
+  MayCheckDownloadResult may_check_download_result =
+      IsSupportedDownload(*item, item->GetFileNameToReportUser());
+  return MayCheckItem(may_check_download_result, /*download_item=*/item);
 }
 
-bool DownloadProtectionDelegateAndroid::IsSupportedDownload(
+bool DownloadProtectionDelegateAndroid::MayCheckFileSystemAccessWrite(
+    content::FileSystemAccessWriteItem* item) const {
+  Profile* profile = Profile::FromBrowserContext(item->browser_context);
+  if (!IsAndroidDownloadProtectionEnabled(profile)) {
+    return false;
+  }
+  if (!IsDownloadRequestUrlValid(download_request_url_)) {
+    return false;
+  }
+  DownloadCheckResultReason ignored_reason = REASON_MAX;
+  MayCheckDownloadResult may_check_download_result =
+      CheckFileSystemAccessWriteRequest::IsSupportedDownload(
+          item->target_file_path, &ignored_reason);
+  return MayCheckItem(may_check_download_result);
+}
+
+MayCheckDownloadResult DownloadProtectionDelegateAndroid::IsSupportedDownload(
     download::DownloadItem& item,
     const base::FilePath& target_path) const {
   // On Android, the target path is likely a content-URI. Therefore, use the
   // display name instead. This assumes the DownloadItem's display name has
   // already been populated by InProgressDownloadManager.
+  // TODO(chlily): The display name may not be populated properly at the point
+  // when this is called.
   base::FilePath file_name = item.GetFileNameToReportUser();
 
   DownloadCheckResultReason reason = REASON_MAX;
-  if (!CheckClientDownloadRequest::IsSupportedDownload(item, file_name,
-                                                       &reason)) {
+  MayCheckDownloadResult may_check_download_result =
+      CheckClientDownloadRequest::IsSupportedDownload(item, file_name, &reason);
+  if (may_check_download_result != MayCheckDownloadResult::kMayCheckDownload) {
     DownloadProtectionMetricsData::SetOutcome(
-        &item, ConvertDownloadCheckResultReason(reason));
-    return false;
+        &item, DownloadProtectionMetricsData::ConvertDownloadCheckResultReason(
+                   reason));
   }
-
-  // For Android download protection, only check APK files (as defined by having
-  // a filename ending in a ".apk" extension).
-  if (!file_name.MatchesExtension(kApkSuffix)) {
-    DownloadProtectionMetricsData::SetOutcome(
-        &item, Outcome::kDownloadNotSupportedType);
-    return false;
-  }
-
-  bool should_sample = should_sample_override_.value_or(ShouldSample());
-  if (!should_sample) {
-    DownloadProtectionMetricsData::SetOutcome(&item, Outcome::kNotSampled);
-  }
-  should_sample_override_ = std::nullopt;
-  return should_sample;
+  return may_check_download_result;
 }
 
 void DownloadProtectionDelegateAndroid::PreSerializeRequest(
@@ -276,6 +260,57 @@ float DownloadProtectionDelegateAndroid::GetUnsupportedFileSampleRate(
 void DownloadProtectionDelegateAndroid::SetNextShouldSampleForTesting(
     bool should_sample) {
   should_sample_override_ = should_sample;
+}
+
+bool DownloadProtectionDelegateAndroid::ShouldSampleEligibleFile() const {
+  // Use the value overridden for testing.
+  if (should_sample_override_.has_value()) {
+    bool should_sample = *should_sample_override_;
+    should_sample_override_.reset();
+    return should_sample;
+  }
+
+  int sample_percentage = kMaliciousApkDownloadCheckSamplePercentage.Get();
+  // If sample_percentage param is misconfigured, don't apply sampling.
+  if (sample_percentage < 0 || sample_percentage > 100) {
+    sample_percentage = 100;
+  }
+  // This ensures that in telemetry-only mode, we sample at most 10% of
+  // eligible downloads.
+  if (kMaliciousApkDownloadCheckTelemetryOnly.Get()) {
+    sample_percentage = std::min(sample_percentage, 10);
+  }
+  // Avoid the syscall if possible.
+  if (sample_percentage >= 100) {
+    CHECK_EQ(sample_percentage, 100);
+    return true;
+  }
+  return base::RandDouble() * 100 < sample_percentage;
+}
+
+bool DownloadProtectionDelegateAndroid::MayCheckItem(
+    MayCheckDownloadResult may_check_download_result,
+    download::DownloadItem* item) const {
+  switch (may_check_download_result) {
+    case MayCheckDownloadResult::kMayNotCheckDownload:
+      return false;
+
+    case MayCheckDownloadResult::kMayCheckDownload: {
+      // Apply random sampling only to eligible files (APK files).
+      bool should_sample = ShouldSampleEligibleFile();
+      if (item && !should_sample) {
+        DownloadProtectionMetricsData::SetOutcome(item, Outcome::kNotSampled);
+      }
+      return should_sample;
+    }
+
+    case MayCheckDownloadResult::kMaySendSampledPingOnly:
+      // "Light" sampled pings for unsupported filetypes are not supported on
+      // Android. GetUnsupportedFileSampleRate() enforces that later, so return
+      // true here to be consistent with the semantics of
+      // MayCheckDownloadResult.
+      return true;
+  }
 }
 
 }  // namespace safe_browsing

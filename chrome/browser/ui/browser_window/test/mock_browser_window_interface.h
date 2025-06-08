@@ -19,7 +19,7 @@ class MockBrowserWindowInterface : public BrowserWindowInterface {
               OpenGURL,
               (const GURL& gurl, WindowOpenDisposition disposition),
               (override));
-  MOCK_METHOD(const SessionID&, GetSessionID, (), (override));
+  MOCK_METHOD(const SessionID&, GetSessionID, (), (const override));
   MOCK_METHOD(TabStripModel*, GetTabStripModel, (), (override));
   MOCK_METHOD(bool, IsTabStripVisible, (), (override));
   MOCK_METHOD(bool, ShouldHideUIForFullscreen, (), (const, override));
@@ -79,11 +79,12 @@ class MockBrowserWindowInterface : public BrowserWindowInterface {
               (),
               (override));
   MOCK_METHOD(Browser*, GetBrowserForMigrationOnly, (), (override));
+  MOCK_METHOD(void, ActivateWindow, (), (override));
   MOCK_METHOD(void,
               SetWebContentsBlocked,
               (content::WebContents*, bool),
               (override));
-  MOCK_METHOD(bool, IsTabModalPopup, (), (const, override));
+  MOCK_METHOD(bool, IsTabModalPopupDeprecated, (), (const, override));
 
   // PageNavigator methods
   MOCK_METHOD(content::WebContents*,

@@ -277,15 +277,6 @@ CSSPrimitiveValue* CSSPrimitiveValue::CreateFromLength(const Length& length,
   NOTREACHED();
 }
 
-// TODO(crbug.com/1133390): When we support <frequency>, we must clamp like
-// <time>.
-double CSSPrimitiveValue::ComputeDegrees() const {
-  double result = IsCalculated()
-                      ? To<CSSMathFunctionValue>(this)->ComputeDegrees()
-                      : To<CSSNumericLiteralValue>(this)->ComputeDegrees();
-  return CSSValueClampingUtils::ClampAngle(result);
-}
-
 double CSSPrimitiveValue::ComputeDegrees(
     const CSSLengthResolver& length_resolver) const {
   double result =
@@ -564,15 +555,6 @@ Length CSSPrimitiveValue::ConvertToLength(
   }
   DCHECK(IsCalculated());
   return To<CSSMathFunctionValue>(this)->ConvertToLength(length_resolver);
-}
-
-double CSSPrimitiveValue::GetDoubleValue() const {
-  return CSSValueClampingUtils::ClampDouble(GetDoubleValueWithoutClamping());
-}
-
-double CSSPrimitiveValue::GetDoubleValueWithoutClamping() const {
-  return IsCalculated() ? To<CSSMathFunctionValue>(this)->DoubleValue()
-                        : To<CSSNumericLiteralValue>(this)->DoubleValue();
 }
 
 CSSPrimitiveValue::UnitType CSSPrimitiveValue::CanonicalUnitTypeForCategory(

@@ -416,12 +416,6 @@ struct StructTraits<viz::mojom::TextureQuadStateDataView, viz::DrawQuad> {
     return quad->rounded_display_masks_info;
   }
 
-  static bool premultiplied_alpha(const viz::DrawQuad& input) {
-    const viz::TextureDrawQuad* quad =
-        viz::TextureDrawQuad::MaterialCast(&input);
-    return quad->premultiplied_alpha;
-  }
-
   static const gfx::PointF& uv_top_left(const viz::DrawQuad& input) {
     const viz::TextureDrawQuad* quad =
         viz::TextureDrawQuad::MaterialCast(&input);
@@ -465,12 +459,6 @@ struct StructTraits<viz::mojom::TextureQuadStateDataView, viz::DrawQuad> {
     return quad->secure_output_only;
   }
 
-  static bool is_stream_video(const viz::DrawQuad& input) {
-    const viz::TextureDrawQuad* quad =
-        viz::TextureDrawQuad::MaterialCast(&input);
-    return quad->is_stream_video;
-  }
-
   static bool is_video_frame(const viz::DrawQuad& input) {
     const viz::TextureDrawQuad* quad =
         viz::TextureDrawQuad::MaterialCast(&input);
@@ -512,11 +500,6 @@ struct StructTraits<viz::mojom::TileQuadStateDataView, viz::DrawQuad> {
   static const gfx::Size& texture_size(const viz::DrawQuad& input) {
     const viz::TileDrawQuad* quad = viz::TileDrawQuad::MaterialCast(&input);
     return quad->texture_size;
-  }
-
-  static bool is_premultiplied(const viz::DrawQuad& input) {
-    const viz::TileDrawQuad* quad = viz::TileDrawQuad::MaterialCast(&input);
-    return quad->is_premultiplied;
   }
 
   static bool nearest_neighbor(const viz::DrawQuad& input) {

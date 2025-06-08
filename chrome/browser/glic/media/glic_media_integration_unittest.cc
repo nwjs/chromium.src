@@ -11,6 +11,7 @@
 #include "chrome/test/base/chrome_render_view_host_test_harness.h"
 #include "components/live_caption/live_caption_controller.h"
 #include "components/live_caption/pref_names.h"
+#include "components/optimization_guide/content/browser/page_content_proto_provider.h"
 #include "components/pref_registry/pref_registry_syncable.h"
 #include "components/prefs/testing_pref_service.h"
 #include "components/sync_preferences/testing_pref_service_syncable.h"
@@ -25,7 +26,6 @@ namespace glic {
 class GlicMediaIntegrationTest : public ChromeRenderViewHostTestHarness {
  public:
   void SetUp() override {
-    base::test::ScopedFeatureList features(media::kHeadlessLiveCaption);
     ChromeRenderViewHostTestHarness::SetUp();
     // Return a mock Live Caption controller.
     auto controller = CreateLiveCaptionController();
@@ -111,26 +111,50 @@ TEST_F(GlicMediaIntegrationTest, ContextContainsTranscript) {
   auto* integration = GetIntegration();
 
   // Send the string in pieces, mixing final and non-final ones.
+  // It would be nice if we could set the max content size for testing.
   const std::string test_cap_1("ABC");
   const std::string test_cap_2("DEF");
-  const std::string test_cap_3("XYZ");  // Should be ignored as non-final.
+  const std::string test_cap_3("XYZ");  // Should be ignored in all cases.
   const std::string test_cap_4("GHIJ");
   live_caption_controller()->DispatchTranscription(
-      nullptr, media::SpeechRecognitionResult(test_cap_1, /*is_final=*/true));
+      web_contents(), nullptr,
+      media::SpeechRecognitionResult(test_cap_1, /*is_final=*/true));
   live_caption_controller()->DispatchTranscription(
-      nullptr, media::SpeechRecognitionResult(test_cap_2, /*is_final=*/true));
+      web_contents(), nullptr,
+      media::SpeechRecognitionResult(test_cap_2, /*is_final=*/true));
+  // Non-final captions should be ignored.
   live_caption_controller()->DispatchTranscription(
-      nullptr, media::SpeechRecognitionResult(test_cap_3, /*is_final=*/false));
+      web_contents(), nullptr,
+      media::SpeechRecognitionResult(test_cap_3, /*is_final=*/false));
+  // nullptr `web_contents` should be ignored.
   live_caption_controller()->DispatchTranscription(
-      nullptr, media::SpeechRecognitionResult(test_cap_4, /*is_final=*/true));
+      /*web_contents=*/nullptr, nullptr,
+      media::SpeechRecognitionResult(test_cap_3, /*is_final=*/true));
+  live_caption_controller()->DispatchTranscription(
+      web_contents(), nullptr,
+      media::SpeechRecognitionResult(test_cap_4, /*is_final=*/true));
 
-  // Request a max length that's smaller than what we sent.
-  const size_t max_len =
-      test_cap_1.length() + test_cap_2.length() + test_cap_4.length() - 1;
-  std::string reported_cap;
-  base::MockCallback<GlicMediaIntegration::ContextCallback> cb;
-  EXPECT_CALL(cb, Run("BCDEFGHIJ"));
-  integration->ComputeContext(web_contents(), max_len, cb.Get());
+  // Expect a leaf node with the entire context.
+  optimization_guide::proto::ContentNode root_node;
+  integration->AppendContext(web_contents(), &root_node);
+  EXPECT_EQ(root_node.children_nodes_size(), 0);
+  EXPECT_TRUE(root_node.has_content_attributes());
+  EXPECT_EQ(root_node.content_attributes().text_data().text_content(),
+            "ABCDEFGHIJ");
+}
+
+TEST_F(GlicMediaIntegrationTest, ContextContainsNoTranscript) {
+  auto* integration = GetIntegration();
+
+  // Send no strings.
+
+  // Expect a leaf node with any text.
+  optimization_guide::proto::ContentNode root_node;
+  integration->AppendContext(web_contents(), &root_node);
+  EXPECT_EQ(root_node.children_nodes_size(), 0);
+  EXPECT_TRUE(root_node.has_content_attributes());
+  EXPECT_GT(root_node.content_attributes().text_data().text_content().length(),
+            0u);
 }
 
 TEST_F(GlicMediaIntegrationTest, HeadlessPrefTurnsOnAndOff) {
@@ -141,6 +165,14 @@ TEST_F(GlicMediaIntegrationTest, HeadlessPrefTurnsOnAndOff) {
   EXPECT_TRUE(get_headless_pref());
   auto controller = CreateLiveCaptionController();
   EXPECT_FALSE(get_headless_pref());
+}
+
+TEST_F(GlicMediaIntegrationTest, NullWebContentsIsOkay) {
+  // Make sure that cases where no WebContents is provided don't crash.  This
+  // includes cases where there is no media context for the given contents.
+  optimization_guide::proto::ContentNode root_node;
+  GetIntegration()->AppendContext(/*web_contents=*/nullptr, &root_node);
+  // As long as nothing bad happens, it's good.
 }
 
 }  // namespace glic

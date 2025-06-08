@@ -6,6 +6,7 @@
 
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros_local.h"
+#include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/single_thread_task_runner.h"
 #include "chrome/browser/content_extraction/inner_text.h"
@@ -14,6 +15,7 @@
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service.h"
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
+#include "components/optimization_guide/content/browser/page_context_eligibility.h"
 #include "components/optimization_guide/core/model_execution/optimization_guide_model_execution_error.h"
 #include "components/optimization_guide/core/optimization_guide_common.mojom.h"
 #include "components/optimization_guide/core/optimization_guide_logger.h"
@@ -71,6 +73,13 @@ ZeroStateSuggestionsPageData::ZeroStateSuggestionsPageData(content::Page& page)
   optimization_guide_keyed_service_ =
       OptimizationGuideKeyedServiceFactory::GetForProfile(profile);
 
+  OPTIMIZATION_GUIDE_LOG(
+      optimization_guide_common::mojom::LogSource::MODEL_EXECUTION,
+      optimization_guide_keyed_service_->GetOptimizationGuideLogger(),
+      base::StringPrintf(
+          "ZeroStateSuggestionsPageData: Creating page data for %s.",
+          web_contents->GetLastCommittedURL().spec()));
+
   base::TimeDelta initiate_page_content_extraction_delay;
   if (auto* helper = ContextualCueingHelper::FromWebContents(web_contents)) {
     std::optional<base::TimeTicks> last_same_doc_navigation_time =
@@ -102,14 +111,26 @@ ZeroStateSuggestionsPageData::ZeroStateSuggestionsPageData(content::Page& page)
   }
 }
 
-ZeroStateSuggestionsPageData::~ZeroStateSuggestionsPageData() = default;
-
+ZeroStateSuggestionsPageData::~ZeroStateSuggestionsPageData() {
+  OPTIMIZATION_GUIDE_LOG(
+      optimization_guide_common::mojom::LogSource::MODEL_EXECUTION,
+      optimization_guide_keyed_service_->GetOptimizationGuideLogger(),
+      base::StringPrintf(
+          "ZeroStateSuggestionsPageData: Destructing page data for %s.",
+          GetUrl().spec()));
+}
 
 void ZeroStateSuggestionsPageData::InitiatePageContentExtraction() {
   const GURL url = GetUrl();
 
   if (content_extraction_initiated_) {
     // Do not re-fetch content.
+    OPTIMIZATION_GUIDE_LOG(
+        optimization_guide_common::mojom::LogSource::MODEL_EXECUTION,
+        optimization_guide_keyed_service_->GetOptimizationGuideLogger(),
+        base::StringPrintf("ZeroStateSuggestionsPageData: Content extraction "
+                           "already initiated for %s. Not trying again",
+                           url.spec()));
     return;
   }
 
@@ -125,6 +146,13 @@ void ZeroStateSuggestionsPageData::InitiatePageContentExtraction() {
         "ContextualCueing.ZeroStateSuggestions.ContentExtractionWait", true);
     // Wait for signal from tab helper to initiate content extraction if not
     // loaded yet.
+
+    OPTIMIZATION_GUIDE_LOG(
+        optimization_guide_common::mojom::LogSource::MODEL_EXECUTION,
+        optimization_guide_keyed_service_->GetOptimizationGuideLogger(),
+        base::StringPrintf("ZeroStateSuggestionsPageData: Page not "
+                           "sufficiently loaded for %s. Waiting until ready",
+                           url.spec()));
     return;
   }
   content_extraction_initiated_ = true;
@@ -199,6 +227,12 @@ void ZeroStateSuggestionsPageData::FetchSuggestions(
     bool is_fre,
     GlicSuggestionsCallback callback) {
   if (cached_suggestions_) {
+    OPTIMIZATION_GUIDE_LOG(
+        optimization_guide_common::mojom::LogSource::MODEL_EXECUTION,
+        optimization_guide_keyed_service_->GetOptimizationGuideLogger(),
+        base::StringPrintf("ZeroStateSuggestionsPageData: Returning cached "
+                           "suggestions for %s.",
+                           GetUrl().spec()));
     std::move(callback).Run(cached_suggestions_->empty()
                                 ? std::nullopt
                                 : std::make_optional(*cached_suggestions_));
@@ -222,14 +256,25 @@ void ZeroStateSuggestionsPageData::FetchSuggestions(
 
 void ZeroStateSuggestionsPageData::OnReceivedAnnotatedPageContent(
     std::optional<optimization_guide::AIPageContentResult> content) {
-  annotated_page_content_ = std::move(content);
-  annotated_page_content_done_ = true;
-  if (annotated_page_content_) {
+  GURL url = GetUrl();
+  auto* pce = optimization_guide::PageContextEligibility::Get();
+  bool is_eligible =
+      content &&
+      (!pce || pce->api().IsPageContextEligible(
+                   url.host(), url.path(),
+                   optimization_guide::GetFrameMetadataFromPageContent(
+                       content.value())));
+
+  if (is_eligible) {
+    annotated_page_content_ = std::move(content);
     base::UmaHistogramTimes(
         "ContextualCueing.GlicSuggestions.PageContextFetchlatency."
         "AnnotatedPageContent",
         base::TimeTicks::Now() - page_context_begin_time_);
+  } else {
+    annotated_page_content_ = std::nullopt;
   }
+  annotated_page_content_done_ = true;
   RequestSuggestionsIfComplete();
 }
 

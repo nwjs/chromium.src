@@ -48,10 +48,10 @@ import org.chromium.ui.util.TokenHolder;
  */
 @NullMarked
 class MenuButtonMediator implements AppMenuObserver {
-    private Callback<AppMenuCoordinator> mAppMenuCoordinatorSupplierObserver;
+    private final Callback<AppMenuCoordinator> mAppMenuCoordinatorSupplierObserver;
     private @Nullable AppMenuPropertiesDelegate mAppMenuPropertiesDelegate;
     private @Nullable AppMenuButtonHelper mAppMenuButtonHelper;
-    private ObservableSupplierImpl<AppMenuButtonHelper> mAppMenuButtonHelperSupplier;
+    private final ObservableSupplierImpl<AppMenuButtonHelper> mAppMenuButtonHelperSupplier;
     private @Nullable AppMenuHandler mAppMenuHandler;
     private final BrowserStateBrowserControlsVisibilityDelegate mControlsVisibilityDelegate;
     private final SetFocusFunction mSetUrlBarFocusFunction;
@@ -60,15 +60,16 @@ class MenuButtonMediator implements AppMenuObserver {
     private final ThemeColorProvider mThemeColorProvider;
     private final Activity mActivity;
     private final KeyboardVisibilityDelegate mKeyboardDelegate;
-    private boolean mCanShowAppUpdateBadge;
+    private final boolean mCanShowAppUpdateBadge;
     private final Supplier<Boolean> mIsActivityFinishingSupplier;
     private int mFullscreenMenuToken = TokenHolder.INVALID_TOKEN;
     private int mFullscreenHighlightToken = TokenHolder.INVALID_TOKEN;
     private final Supplier<Boolean> mIsInOverviewModeSupplier;
-    private Resources mResources;
+    private final Resources mResources;
     private final OneshotSupplier<AppMenuCoordinator> mAppMenuCoordinatorSupplier;
     private final Supplier<MenuButtonState> mMenuButtonStateSupplier;
     private final Runnable mOnMenuButtonClicked;
+    private final TokenHolder mHideTokenHolder;
 
     private final int mUrlFocusTranslationX;
 
@@ -121,9 +122,14 @@ class MenuButtonMediator implements AppMenuObserver {
         mKeyboardDelegate = windowAndroid.getKeyboardDelegate();
         mMenuButtonStateSupplier = menuButtonStateSupplier;
         mOnMenuButtonClicked = onMenuButtonClicked;
+        mHideTokenHolder = new TokenHolder(this::updateMenuButtonVisibility);
 
         mUrlFocusTranslationX =
                 mResources.getDimensionPixelSize(R.dimen.toolbar_url_focus_translation_x);
+    }
+
+    private void updateMenuButtonVisibility() {
+        mPropertyModel.set(MenuButtonProperties.IS_VISIBLE, !mHideTokenHolder.hasTokens());
     }
 
     @Override
@@ -178,7 +184,30 @@ class MenuButtonMediator implements AppMenuObserver {
     }
 
     void setVisibility(boolean visible) {
+        if (mHideTokenHolder.hasTokens()) return;
         mPropertyModel.set(MenuButtonProperties.IS_VISIBLE, visible);
+    }
+
+    /**
+     * Hides menu button persistently until all tokens are released.
+     *
+     * @param token previously acquired token.
+     * @return a new token that keeps menu button hidden.
+     */
+    int hideWithOldTokenRelease(int token) {
+        int newToken = mHideTokenHolder.acquireToken();
+        releaseHideToken(token);
+        return newToken;
+    }
+
+    /**
+     * Releases menu button hide token that might cause menu button to become visible if no more
+     * tokens are held.
+     *
+     * @param token previously acquired token.
+     */
+    void releaseHideToken(int token) {
+        mHideTokenHolder.releaseToken(token);
     }
 
     void updateReloadingState(boolean isLoading) {

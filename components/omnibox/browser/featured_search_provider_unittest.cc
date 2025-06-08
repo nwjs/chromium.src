@@ -2,11 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifdef UNSAFE_BUFFERS_BUILD
-// TODO(crbug.com/40285824): Remove this and convert code to safer constructs.
-#pragma allow_unsafe_buffers
-#endif
-
 #include "components/omnibox/browser/featured_search_provider.h"
 
 #include <stddef.h>
@@ -170,7 +165,7 @@ class FeaturedSearchProviderTest : public testing::Test {
     template_url_data.SetShortName(keyword + u" Name");
     template_url_data.SetURL(url);
     template_url_data.policy_origin = policy_origin;
-    template_url_data.enforced_by_policy = false;
+    template_url_data.enforced_by_policy = true;
     template_url_data.featured_by_policy = true;
     template_url_data.safe_for_autoreplace = false;
 
@@ -295,13 +290,13 @@ TEST_F(FeaturedSearchProviderTest, StarterPackExpansion) {
   RunTest(typing_scheme_cases);
 }
 
-// TODO(crbug.com/413598265): Fix flaky test.
-TEST_F(FeaturedSearchProviderTest, FLAKY_StarterPackExpansionRelevance) {
+TEST_F(FeaturedSearchProviderTest, StarterPackExpansionRelevance) {
   base::test::ScopedFeatureList features;
-  features.InitWithFeatures(
-      {omnibox::kStarterPackExpansion,
-       omnibox_feature_configs::ContextualSearch::kStarterPackPage},
-      {});
+  features.InitWithFeatures({omnibox::kStarterPackExpansion}, {});
+  omnibox_feature_configs::ScopedConfigForTesting<
+      omnibox_feature_configs::ContextualSearch>
+      scoped_config;
+  scoped_config.Get().starter_pack_page = true;
 
   AddStarterPackEntriesToTemplateUrlService();
 
@@ -672,10 +667,7 @@ TEST_F(FeaturedSearchProviderTest, HistoryEmbedding_Iphs) {
   // feature is enabled).
   {
     base::test::ScopedFeatureList features;
-    features.InitWithFeatures(
-        {{history_embeddings::kHistoryEmbeddings},
-         {optimization_guide::features::kAiSettingsPageRefresh}},
-        {});
+    features.InitWithFeatures({{history_embeddings::kHistoryEmbeddings}}, {});
     mock_setting(false, false);
     {
       SCOPED_TRACE("");
@@ -774,44 +766,6 @@ TEST_F(FeaturedSearchProviderTest, HistoryEmbedding_Iphs) {
     {
       SCOPED_TRACE("");
       RunAndVerifyIph(scope_input, {});
-    }
-  }
-
-  // TODO(crbug.com/362225975): Remove after AiSettingsPageRefresh is launched.
-  //   History Embeddings Promo points to chrome://settings/historySearch when
-  //   AI refresh flag is disabled.
-  {
-    base::test::ScopedFeatureList features_without_ai_refresh;
-    features_without_ai_refresh.InitWithFeatures(
-        {history_embeddings::kHistoryEmbeddings},
-        {optimization_guide::features::kAiSettingsPageRefresh});
-    mock_setting(true, false);
-    {
-      SCOPED_TRACE("");
-      RunAndVerifyIph(
-          scope_input,
-          {{IphType::kHistoryEmbeddingsSettingsPromo,
-            // Should end with whitespace since there's a link following it.
-            u"For a more powerful way to search your browsing history, turn "
-            u"on ",
-            u"History search, powered by AI",
-            GURL("chrome://settings/historySearch")}});
-    }
-
-    // History Embeddings Disclaimer points to chrome://settings/historySearch
-    // when AI refresh flag is disabled.
-    mock_setting(true, true);
-    {
-      SCOPED_TRACE("");
-      RunAndVerifyIph(
-          scope_input,
-          {{IphType::kHistoryEmbeddingsDisclaimer,
-            // Should end with whitespace since there's a link following it.
-            u"Your searches, best matches, and their page contents are sent to "
-            u"Google and may be seen by human reviewers to improve this "
-            u"feature. "
-            u"This is an experimental feature and won't always get it right. ",
-            u"Learn more", GURL("chrome://settings/historySearch")}});
     }
   }
 }

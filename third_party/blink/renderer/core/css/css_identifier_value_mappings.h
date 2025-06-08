@@ -1663,6 +1663,8 @@ inline EContainerType CSSIdentifierValue::ConvertTo() const {
       return kContainerTypeSize;
     case CSSValueID::kScrollState:
       return kContainerTypeScrollState;
+    case CSSValueID::kAnchored:
+      return kContainerTypeAnchored;
     default:
       break;
   }
@@ -2220,6 +2222,20 @@ inline PositionVisibility CSSIdentifierValue::ConvertTo() const {
       return PositionVisibility::kAnchorsVisible;
     case CSSValueID::kNoOverflow:
       return PositionVisibility::kNoOverflow;
+    default:
+      NOTREACHED();
+  }
+}
+
+template <>
+inline FlexWrapMode CSSIdentifierValue::ConvertTo() const {
+  switch (GetValueID()) {
+    case CSSValueID::kNowrap:
+      return FlexWrapMode::kNowrap;
+    case CSSValueID::kWrap:
+      return FlexWrapMode::kWrap;
+    case CSSValueID::kWrapReverse:
+      return FlexWrapMode::kWrapReverse;
     default:
       NOTREACHED();
   }

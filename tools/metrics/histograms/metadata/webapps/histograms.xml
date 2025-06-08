@@ -67,7 +67,7 @@ chromium-metrics-reviews@google.com.
 </variants>
 
 <histogram name="AppBanners.BeforeInstallEvent"
-    enum="AppBannersBeforeInstallEvent" expires_after="2025-09-14">
+    enum="AppBannersBeforeInstallEvent" expires_after="2025-11-16">
   <owner>dominickn@chromium.org</owner>
   <owner>pjmclachlan@google.com</owner>
   <owner>pwa-team@google.com</owner>
@@ -94,7 +94,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="AppBanners.DisplayEvent" enum="AppBannersDisplayEvent"
-    expires_after="2025-09-14">
+    expires_after="2025-11-16">
   <owner>pjmclachlan@google.com</owner>
   <owner>pcovell@google.com</owner>
   <summary>
@@ -106,7 +106,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="AppBanners.InstallableStatusCode" enum="InstallableStatusCode"
-    expires_after="2025-09-14">
+    expires_after="2025-11-16">
   <owner>dominickn@chromium.org</owner>
   <owner>pjmclachlan@google.com</owner>
   <summary>
@@ -119,7 +119,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="AppBanners.InstallEvent" enum="AppBannersInstallEvent"
-    expires_after="2025-07-13">
+    expires_after="2026-07-13">
   <owner>dominickn@chromium.org</owner>
   <owner>pjmclachlan@google.com</owner>
   <owner>pcovell@google.com</owner>
@@ -132,7 +132,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="AppBanners.UserResponse" enum="AppBannersUserResponse"
-    expires_after="2025-09-14">
+    expires_after="2025-11-16">
   <owner>dominickn@chromium.org</owner>
   <owner>pjmclachlan@google.com</owner>
   <summary>
@@ -156,7 +156,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Launch.BrowserTab.WebAppDisplayMode" enum="WebAppDisplayMode"
-    expires_after="2025-08-31">
+    expires_after="2025-11-02">
   <owner>dmurph@chromium.org</owner>
   <owner>pwa-team@google.com</owner>
   <summary>
@@ -214,7 +214,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Launch.WebApp.DiyOrCrafted" enum="LaunchedAppType"
-    expires_after="2025-09-14">
+    expires_after="2025-11-16">
   <owner>dibyapal@chromium.org</owner>
   <owner>pwa-team@google.com</owner>
   <summary>
@@ -224,7 +224,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Launch.WebAppDisplayMode" enum="WebAppDisplayMode"
-    expires_after="2025-09-14">
+    expires_after="2025-11-16">
   <owner>peter@chromium.org</owner>
   <owner>yfriedman@chromium.org</owner>
   <summary>
@@ -258,17 +258,19 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Webapp.AddToHomescreenDialog.Timeout" units="ms"
-    expires_after="2023-10-08">
+    expires_after="2026-05-01">
   <owner>dominickn@chromium.org</owner>
   <owner>peconn@chromium.org</owner>
+  <owner>desktop-pwas-team@google.com</owner>
   <summary>
     Records the number of milliseconds that the add to homescreen dialog
-    required to check installability eligibility.
+    required to check installability eligibility. Warning: this histogram was
+    expired from 2023-10-08 to 2025-05-02; data may be missing.
   </summary>
 </histogram>
 
 <histogram name="Webapp.AmbientBadge.Terminate"
-    enum="InstallableAmbientBadgeState" expires_after="2025-09-14">
+    enum="InstallableAmbientBadgeState" expires_after="2025-11-16">
   <owner>eirage@chromium.org</owner>
   <owner>src/chrome/android/webapk/OWNERS</owner>
   <summary>
@@ -280,9 +282,10 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Webapp.AppIdentityDialog.AlreadyApproved"
-    enum="AppIdentityDisplayMetric" expires_after="2024-01-15">
-  <owner>finnur@chromium.org</owner>
+    enum="AppIdentityDisplayMetric" expires_after="2026-05-01">
   <owner>peter@chromium.org</owner>
+  <owner>dmurph@chromium.org</owner>
+  <owner>desktop-pwas-team@google.com</owner>
   <summary>
     Whenever PWAs change their manifest, this may result in a change to their
     identity (icon and/or name). This metric is intended to keep track of the
@@ -296,14 +299,16 @@ chromium-metrics-reviews@google.com.
     See also complementary metric Webapp.AppIdentityDialog.NotShowing. Milestone
     112 update: This used to record when there were no app identity changes
     required or for shortcut apps, this is now recorded as
-    Webapp.AppIdentityDialog.NotShowing instead.
+    Webapp.AppIdentityDialog.NotShowing instead. Warning: this histogram was
+    expired from 2024-01-15 to 2025-05-02; data may be missing.
   </summary>
 </histogram>
 
 <histogram name="Webapp.AppIdentityDialog.NotShowing"
-    enum="AppIdentityDisplayMetric" expires_after="2024-01-15">
-  <owner>finnur@chromium.org</owner>
+    enum="AppIdentityDisplayMetric" expires_after="2026-05-01">
   <owner>peter@chromium.org</owner>
+  <owner>dmurph@chromium.org</owner>
+  <owner>desktop-pwas-team@google.com</owner>
   <summary>
     Whenever PWAs change their manifest, this may result in a change to their
     identity (icon and/or name). This metric is intended to keep track of the
@@ -315,14 +320,16 @@ chromium-metrics-reviews@google.com.
     metric Webapp.AppIdentityDialog.Showing. Milestone 112 update:
     Webapp.AppIdentityDialog.AlreadyApproved used to record when there were no
     app identity changes required or for shortcut apps, this is now recorded as
-    Webapp.AppIdentityDialog.NotShowing instead.
+    Webapp.AppIdentityDialog.NotShowing instead. Warning: this histogram was
+    expired from 2024-01-15 to 2025-05-02; data may be missing.
   </summary>
 </histogram>
 
 <histogram name="Webapp.AppIdentityDialog.Showing"
-    enum="AppIdentityDisplayMetric" expires_after="2024-01-15">
-  <owner>finnur@chromium.org</owner>
+    enum="AppIdentityDisplayMetric" expires_after="2026-05-01">
+  <owner>dmurph@chromium.org</owner>
   <owner>peter@chromium.org</owner>
+  <owner>pwa-team@google.com</owner>
   <summary>
     Whenever PWAs change their manifest, this may result in a change to their
     identity (icon and/or name). This metric is intended to keep track of the
@@ -332,7 +339,8 @@ chromium-metrics-reviews@google.com.
     an update, but ONLY if there is an App Identity change involved (the App
     Identity dialog is enabled by a feature switch and the dialog was shown to
     the user). See also complementary metric
-    Webapp.AppIdentityDialog.NotShowing.
+    Webapp.AppIdentityDialog.NotShowing. Warning: this histogram was expired
+    from 2024-01-15 to 2025-05-02; data may be missing.
   </summary>
 </histogram>
 
@@ -367,6 +375,30 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram name="WebApp.Database.AppIdMatch" enum="Boolean"
+    expires_after="2026-04-18">
+  <owner>dmurph@chromium.org</owner>
+  <owner>pwa-team@google.com</owner>
+  <summary>
+    Records whether the app_id derived from a parsed WebApp proto matches the
+    key used to store it in the database. Recorded for each app proto read from
+    the database during profile startup. 'true' indicates a match (success), and
+    'false' indicates an error state.
+  </summary>
+</histogram>
+
+<histogram name="WebApp.Database.ValidProto" enum="Boolean"
+    expires_after="2026-04-18">
+  <owner>dmurph@chromium.org</owner>
+  <owner>pwa-team@google.com</owner>
+  <summary>
+    Records whether parsing a proto::WebApp read from the database was
+    successful. Recorded for each app proto read from the database during
+    profile startup. A value of 'true' indicates parsing succeeded, and 'false'
+    indicates the proto was invalid or incomplete.
+  </summary>
+</histogram>
+
 <histogram name="WebApp.Database.VersionUpgradedTo" units="version"
     expires_after="2025-12-19">
   <owner>dmurph@chromium.org</owner>
@@ -394,7 +426,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="WebApp.DedupeInstallUrls.AppsDeduped" units="apps"
-    expires_after="2025-05-19">
+    expires_after="2026-05-19">
   <owner>dmurph@chromium.org</owner>
   <owner>pwa-team@google.com</owner>
   <summary>
@@ -406,7 +438,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="WebApp.DedupeInstallUrls.InstallUrlsDeduped"
-    units="install URLs" expires_after="2025-05-19">
+    units="install URLs" expires_after="2026-05-19">
   <owner>dmurph@chromium.org</owner>
   <owner>pwa-team@google.com</owner>
   <summary>
@@ -418,7 +450,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="WebApp.DedupeInstallUrls.SessionRunCount" units="runs"
-    expires_after="2025-05-19">
+    expires_after="2026-05-19">
   <owner>dmurph@chromium.org</owner>
   <owner>pwa-team@google.com</owner>
   <summary>
@@ -432,28 +464,45 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="WebApp.DefaultOffline.ClosingReason"
-    enum="DefaultOfflineClosingReason" expires_after="2024-01-14">
+    enum="DefaultOfflineClosingReason" expires_after="2026-05-01">
   <owner>finnur@chromium.org</owner>
   <owner>peter@chromium.org</owner>
+  <owner>pwa-team@google.com</owner>
   <summary>
     Keeps track of why the default offline (error) page is no longer visible.
     Logged once each time the default error page shown, after determining that
     it is no longer needed, e.g. because a new navigation occurred for the error
     page's WebContents, the device is online again and the WebContents was
-    refreshed or when the WebContents is destroyed.
+    refreshed or when the WebContents is destroyed. Warning: this histogram was
+    expired from 2024-01-15 to 2025-05-02; data may be missing.
   </summary>
 </histogram>
 
 <histogram name="WebApp.DefaultOffline.DurationShown" units="seconds"
-    expires_after="2024-01-14">
+    expires_after="2026-05-01">
   <owner>finnur@chromium.org</owner>
   <owner>peter@chromium.org</owner>
+  <owner>pwa-team@google.com</owner>
   <summary>
     Keeps track of how long the default offline (error) page was shown for PWAs.
     Logged once each time the default error page shown, after determining that
     it is no longer needed, e.g. because a new navigation occurred for the error
     page's WebContents, the device is online again and the WebContents was
-    refreshed or when the WebContents is destroyed.
+    refreshed or when the WebContents is destroyed. Warning: this histogram was
+    expired from 2024-01-15 to 2025-05-02; data may be missing.
+  </summary>
+</histogram>
+
+<histogram name="WebApp.DIY.IconMigrationResult" enum="RewriteIconResult"
+    expires_after="2026-04-17">
+  <owner>dmurph@chromium.org</owner>
+  <owner>dibyapal@chromium.org</owner>
+  <owner>pwa-team@google.com</owner>
+  <summary>
+    Records the result of rewriting DIY app icon for apps that need icon
+    migration due to https://crbug.com/372688523. This is logged after the
+    RewriteDiyIconsCommand command completes, which occurs on a best-effort task
+    runner, 1 minutes after profile startup.
   </summary>
 </histogram>
 
@@ -659,7 +708,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="WebApp.Engagement{Context}.{Container}"
-    enum="SiteEngagementServiceEngagementType" expires_after="2025-08-24">
+    enum="SiteEngagementServiceEngagementType" expires_after="2025-10-26">
   <owner>dmurph@chromium.org</owner>
   <owner>pwa-team@google.com</owner>
   <summary>
@@ -688,7 +737,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="WebApp.FileHandlersRegistration.Result" enum="BooleanSuccess"
-    expires_after="2025-08-31">
+    expires_after="2025-11-02">
   <owner>dibyapal@chromium.org</owner>
   <owner>pwa-team@google.com</owner>
   <summary>
@@ -700,7 +749,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="WebApp.FileHandlersUnregistration.Result"
-    enum="BooleanSuccess" expires_after="2025-08-31">
+    enum="BooleanSuccess" expires_after="2025-11-02">
   <owner>dibyapal@chromium.org</owner>
   <owner>pwa-team@google.com</owner>
   <summary>
@@ -949,7 +998,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="WebApp.IconDownloader.Result"
-    enum="WebAppIconDownloaderResult" expires_after="2025-08-04">
+    enum="WebAppIconDownloaderResult" expires_after="2026-08-04">
   <owner>dmurph@chromium.org</owner>
   <owner>pwa-team@google.com</owner>
   <summary>
@@ -973,7 +1022,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Webapp.Install.DisplayMode2" enum="WebAppDisplayMode"
-    expires_after="2025-09-15">
+    expires_after="2025-11-16">
   <owner>peter@chromium.org</owner>
   <owner>yfriedman@chromium.org</owner>
   <summary>
@@ -1095,7 +1144,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="WebApp.InstallConfirmation.CloseReason"
-    enum="WidgetClosedReason" expires_after="2025-07-13">
+    enum="WidgetClosedReason" expires_after="2026-07-13">
   <owner>dmurph@chromium.org</owner>
   <owner>pwa-team@google.com</owner>
   <summary>
@@ -1131,7 +1180,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="WebApp.InstalledCount.ByUserNotLocallyInstalled" units="count"
-    expires_after="2025-09-12">
+    expires_after="2025-11-16">
   <owner>dmurph@chromium.org</owner>
   <owner>pwa-team@google.com</owner>
   <summary>
@@ -1143,7 +1192,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="WebApp.InstalledCount.ByUserNotLocallyInstalled.SyncDisabled"
-    units="count" expires_after="2025-09-12">
+    units="count" expires_after="2025-11-16">
   <owner>mek@chromium.org</owner>
   <owner>pwa-team@google.com</owner>
   <summary>
@@ -1156,7 +1205,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="WebApp.InstalledCount.NotSyncing.SyncEnabled" units="count"
-    expires_after="2025-09-12">
+    expires_after="2025-11-16">
   <owner>mek@chromium.org</owner>
   <owner>pwa-team@google.com</owner>
   <summary>
@@ -1502,7 +1551,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="WebApp.Launcher.LaunchResult"
-    enum="WebAppLauncherLaunchResult" expires_after="2025-09-14">
+    enum="WebAppLauncherLaunchResult" expires_after="2025-11-16">
   <owner>davidbienvenu@chromium.org</owner>
   <owner>jessemckenna@google.com</owner>
   <summary>
@@ -1581,6 +1630,19 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram name="WebApp.Migrations.DeprecatedLaunchHandlerToClientMode"
+    units="count" expires_after="2026-04-18">
+  <owner>dmurph@chromium.org</owner>
+  <owner>pwa-team@google.com</owner>
+  <summary>
+    Records the number of web apps whose launch handler data was migrated from
+    the deprecated route_to/navigate_existing_client fields to the client_mode
+    field during database migration v2 to v3. Migration occurs once per user
+    profile that existed before database version 3 was introduced. It occurs on
+    database open, which happens on profile startup.
+  </summary>
+</histogram>
+
 <histogram name="WebApp.Migrations.InstallSourceAddUserInstalled" units="apps"
     expires_after="2025-12-19">
   <owner>dmurph@chromium.org</owner>
@@ -1604,6 +1666,45 @@ chromium-metrics-reviews@google.com.
     INSTALLED_WITH_OS_INTEGRATION to INSTALLED_WITHOUT_OS_INTEGRATION if the app
     lacked necessary OS integration state data (like shortcuts). Recorded on
     profile initialization if the migration runs.
+  </summary>
+</histogram>
+
+<histogram name="WebApp.Migrations.RelativeManifestIdFragmentRemoved"
+    units="count" expires_after="2026-04-18">
+  <owner>dmurph@chromium.org</owner>
+  <owner>pwa-team@google.com</owner>
+  <summary>
+    Records the number of web apps whose relative_manifest_id field in the sync
+    proto contained a fragment ('#...') which was removed during database
+    migration v2 to v3. This indicates data correction. Migration occurs once
+    per user profile that existed before database version 3 was introduced. It
+    occurs on database open, which happens on profile startup.
+  </summary>
+</histogram>
+
+<histogram name="WebApp.Migrations.RelativeManifestIdPopulatedOrFixed"
+    units="count" expires_after="2026-04-18">
+  <owner>dmurph@chromium.org</owner>
+  <owner>pwa-team@google.com</owner>
+  <summary>
+    Records the number of web apps whose relative_manifest_id field in the sync
+    proto was either missing and populated, or present but incorrect (e.g., had
+    a fragment) and fixed during database migration v2 to v3. Migration occurs
+    once per user profile that existed before database version 3 was introduced.
+    It occurs on database open, which happens on profile startup.
+  </summary>
+</histogram>
+
+<histogram name="WebApp.Migrations.ScopeRefQueryRemoved" units="count"
+    expires_after="2026-04-18">
+  <owner>dmurph@chromium.org</owner>
+  <owner>pwa-team@google.com</owner>
+  <summary>
+    Records the number of web apps whose scope field contained a query ('?') or
+    fragment ('#') component which was removed during database migration v2 to
+    v3. Migration occurs once per user profile that existed before database
+    version 3 was introduced. It occurs on database open, which happens on
+    profile startup.
   </summary>
 </histogram>
 
@@ -1662,6 +1763,57 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram name="Webapp.NavigationCapturing.FinalDisplay.Result"
+    enum="NavigationCapturingDisplayMode" expires_after="2026-05-02">
+  <owner>dibyapal@chromium.org</owner>
+  <owner>desktop-pwas-team@google.com</owner>
+  <summary>
+    Records the final container of navigation capturing compared to the PWA's
+    display mode once capturing has happened. Recorded once per navigation (post
+    redirections) iff the navigation is handled by the web app system.
+  </summary>
+</histogram>
+
+<histogram name="Webapp.NavigationCapturing.LaunchParamsConsumedTime"
+    units="ms" expires_after="2026-10-01">
+  <owner>dibyapal@chromium.org</owner>
+  <owner>desktop-pwas-team@google.com</owner>
+  <summary>
+    Records the time it takes the browser process to start using the navigation
+    capturing logic all the way to finally having the launch params for that
+    navigation enqueued (if any), regardless of whether a navigation happened or
+    not (like for apps with launch handler mode of focus-existing). This is not
+    measured on reloads.
+  </summary>
+</histogram>
+
+<histogram
+    name="Webapp.NavigationCapturing.LaunchParamsConsumedTime.{DidNavigate}"
+    units="ms" expires_after="2026-10-01">
+  <owner>dibyapal@chromium.org</owner>
+  <owner>desktop-pwas-team@google.com</owner>
+  <summary>
+    Records the time it takes the browser process to start using the navigation
+    capturing logic all the way to finally having the launch params for that
+    navigation enqueued (if any). This is fairly nuanced, and does not
+    &quot;actually&quot; measure the entire time it takes for the navigation to
+    happen, starting from link click all the way to navigation commit. This is
+    recorded for all types of navigations if the navigation was captured and
+    launch queues were enqueued, including ones that might arise out of
+    reparenting into an app container. This is not persisted across reloads.
+    Measurement is divided across whether navigation happened or not in the
+    container the launch handlers are enqueued in.
+  </summary>
+  <token key="DidNavigate">
+    <variant name="WithNavigation"
+        summary="launch handlers were enqueued for an app container where a
+                 new navigation happened"/>
+    <variant name="WithoutNavigation"
+        summary="launch handlers were enqueued for an existing app container
+                 with no new navigation"/>
+  </token>
+</histogram>
+
 <histogram name="Webapp.NavigationCapturing.Redirection.FinalResult"
     enum="NavigationCapturingRedirectionResult" expires_after="2026-04-29">
   <owner>dibyapal@chromium.org</owner>
@@ -1699,7 +1851,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="WebApp.NewDiyAppInstalled.ByUser" enum="BooleanSuccess"
-    expires_after="2025-05-25">
+    expires_after="2026-05-25">
   <owner>dibyapal@chromium.org</owner>
   <owner>pwa-team@google.com</owner>
   <summary>
@@ -1724,7 +1876,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="WebApp.OsSettingsUninstallRegistration.Result"
-    enum="BooleanSuccess" expires_after="2025-07-13">
+    enum="BooleanSuccess" expires_after="2026-07-13">
   <owner>dmurph@chromium.org</owner>
   <owner>pwa-team@google.com</owner>
   <summary>
@@ -1742,7 +1894,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="WebApp.OsSettingsUninstallUnregistration.Result"
-    enum="BooleanSuccess" expires_after="2025-06-30">
+    enum="BooleanSuccess" expires_after="2026-06-30">
   <owner>dmurph@chromium.org</owner>
   <owner>pwa-team@google.com</owner>
   <summary>
@@ -1759,7 +1911,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="WebApp.OsSettingsUninstallUnregistration.WinOSResult"
-    enum="WinRegistryErrorCode" expires_after="2025-08-02">
+    enum="WinRegistryErrorCode" expires_after="2026-08-02">
   <owner>dibyapal@chromium.org</owner>
   <owner>pwa-team@google.com</owner>
   <summary>
@@ -1824,6 +1976,62 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram
+    name="WebApp.Preinstalled.CalculatorForceMigration.ChromeAppAndWebAppInstalled"
+    enum="BooleanSuccess" expires_after="2026-05-01">
+  <owner>alancutter@chromium.org</owner>
+  <owner>pwa-team@google.com</owner>
+  <summary>
+    Records whether the Calculator Chrome app is installed and the Calculator
+    web app is preinstalled on the user's system. This is recorded at start up
+    for ChromeOS only.
+  </summary>
+</histogram>
+
+<histogram
+    name="WebApp.Preinstalled.CalculatorForceMigration.ChromeAppNoWebAppInstalled"
+    enum="BooleanSuccess" expires_after="2026-05-01">
+  <owner>alancutter@chromium.org</owner>
+  <owner>pwa-team@google.com</owner>
+  <summary>
+    Records whether the Calculator Chrome app is installed but the Calculator
+    web app is not preinstalled on the user's system. This is recorded at start
+    up for ChromeOS only.
+  </summary>
+</histogram>
+
+<histogram
+    name="WebApp.Preinstalled.CalculatorForceMigration.MigrationTriggered"
+    enum="BooleanSuccess" expires_after="2026-05-01">
+  <owner>alancutter@chromium.org</owner>
+  <owner>pwa-team@google.com</owner>
+  <summary>
+    Records whether the Calculator Chrome app is present and needs migrating to
+    the Calculator web app. This is recorded at start up for ChromeOS only.
+  </summary>
+</histogram>
+
+<histogram name="WebApp.Preinstalled.CalculatorForceMigration.WebAppInstalled"
+    enum="BooleanSuccess" expires_after="2026-05-01">
+  <owner>alancutter@chromium.org</owner>
+  <owner>pwa-team@google.com</owner>
+  <summary>
+    Records whether the Calculator web app is preinstalled on the user's system.
+    This is recorded at start up for ChromeOS only.
+  </summary>
+</histogram>
+
+<histogram name="WebApp.Preinstalled.ChromeAppMigrationNeeded"
+    enum="BooleanSuccess" expires_after="2026-05-01">
+  <owner>alancutter@chromium.org</owner>
+  <owner>pwa-team@google.com</owner>
+  <summary>
+    Records whether an installed Chrome app is present and needs migrating to a
+    corresponding preinstalled web app. This is recorded at start up for
+    ChromeOS only.
+  </summary>
+</histogram>
+
 <histogram name="WebApp.Preinstalled.ConfigErrorCount" units="apps"
     expires_after="2023-12-01">
   <owner>alancutter@chromium.org</owner>
@@ -1880,7 +2088,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="WebApp.Preinstalled.InstallCount" units="apps"
-    expires_after="2025-06-07">
+    expires_after="2026-06-07">
   <owner>joelhockey@chromium.org</owner>
   <owner>pwa-team@google.com</owner>
   <summary>
@@ -1902,7 +2110,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="WebApp.Preinstalled.UninstallAppRemovedCount" units="apps"
-    expires_after="2025-06-07">
+    expires_after="2026-06-07">
   <owner>joelhockey@chromium.org</owner>
   <owner>pwa-team@google.com</owner>
   <summary>
@@ -1914,7 +2122,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="WebApp.Preinstalled.UninstallSourceRemovedCount" units="apps"
-    expires_after="2025-06-07">
+    expires_after="2026-06-07">
   <owner>joelhockey@chromium.org</owner>
   <owner>pwa-team@google.com</owner>
   <summary>
@@ -1927,7 +2135,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="WebApp.Preinstalled.UninstallTotalCount" units="apps"
-    expires_after="2025-06-07">
+    expires_after="2026-06-07">
   <owner>joelhockey@chromium.org</owner>
   <owner>pwa-team@google.com</owner>
   <summary>
@@ -1938,7 +2146,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="WebApp.ProtocolHandlers.Registration.Result"
-    enum="BooleanSuccess" expires_after="2025-09-10">
+    enum="BooleanSuccess" expires_after="2025-11-09">
   <owner>dibyapal@chromium.org</owner>
   <owner>pwa-team@google.com</owner>
   <summary>
@@ -1977,7 +2185,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="WebApp.RunOnOsLogin.CommandCompletionState"
-    enum="RunOnOSLoginCommandCompletionState" expires_after="2025-07-15">
+    enum="RunOnOSLoginCommandCompletionState" expires_after="2026-07-15">
   <owner>dibyapal@chromium.org</owner>
   <owner>pwa-team@google.com</owner>
   <summary>
@@ -1989,7 +2197,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="WebApp.RunOnOsLogin.Registration.Result" enum="BooleanSuccess"
-    expires_after="2025-09-07">
+    expires_after="2025-11-09">
   <owner>dibyapal@chromium.org</owner>
   <owner>pwa-team@google.com</owner>
   <summary>
@@ -2002,7 +2210,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="WebApp.RunOnOsLogin.Unregistration.Result"
-    enum="BooleanSuccess" expires_after="2025-07-07">
+    enum="BooleanSuccess" expires_after="2026-07-07">
   <owner>dibyapal@chromium.org</owner>
   <owner>pwa-team@google.com</owner>
   <summary>
@@ -2014,14 +2222,14 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="WebApp.Shortcuts.Creation.Result"
-    enum="ShortcutsCreationResult" expires_after="2025-09-14">
+    enum="ShortcutsCreationResult" expires_after="2025-11-16">
   <owner>phillis@chromium.org</owner>
   <owner>dmurph@chromium.org</owner>
   <summary>Records the result of shortcut creation for PWA.</summary>
 </histogram>
 
 <histogram name="WebApp.Shortcuts.Delete.Result" enum="BooleanSuccess"
-    expires_after="2025-09-14">
+    expires_after="2025-11-16">
   <owner>dmurph@google.com</owner>
   <owner>pwa-team@google.com</owner>
   <summary>
@@ -2035,7 +2243,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="WebApp.Shortcuts.Update.Result" enum="BooleanSuccess"
-    expires_after="2025-09-14">
+    expires_after="2025-11-16">
   <owner>camdenking@google.com</owner>
   <owner>pwa-team@google.com</owner>
   <summary>
@@ -2052,7 +2260,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="WebApp.ShortcutsMenu.Win.Results"
-    enum="ShortcutsMenuWinRegistrationResult" expires_after="2025-08-11">
+    enum="ShortcutsMenuWinRegistrationResult" expires_after="2026-08-11">
   <owner>dibyapal@chromium.org</owner>
   <owner>pwa-team@google.com</owner>
   <summary>
@@ -2062,7 +2270,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="WebApp.ShortcutsMenuBitmapAndItemCount.Results"
-    enum="ShortcutsMenuIconAndDataDifference" expires_after="2025-07-13">
+    enum="ShortcutsMenuIconAndDataDifference" expires_after="2026-07-13">
   <owner>dibyapal@chromium.org</owner>
   <owner>pwa-team@google.com</owner>
   <summary>
@@ -2076,14 +2284,14 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="WebApp.ShortcutsMenuRegistration.Result" enum="BooleanSuccess"
-    expires_after="2025-07-21">
+    expires_after="2026-07-21">
   <owner>dibyapal@chromium.org</owner>
   <owner>pwa-team@google.com</owner>
   <summary>Records the result of shortcuts menu registration for PWAs.</summary>
 </histogram>
 
 <histogram name="WebApp.ShortcutsMenuUnregistered.Result" enum="BooleanSuccess"
-    expires_after="2025-07-21">
+    expires_after="2026-07-21">
   <owner>dibyapal@chromium.org</owner>
   <owner>pwa-team@google.com</owner>
   <summary>
@@ -2103,7 +2311,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="WebApp.Sync.CorruptSyncEntity"
-    enum="WebAppManifestIdParseResult" expires_after="2025-05-25">
+    enum="WebAppManifestIdParseResult" expires_after="2026-05-25">
   <owner>dmurph@chromium.org</owner>
   <owner>pwa-team@google.com</owner>
   <summary>
@@ -2115,7 +2323,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="WebApp.Sync.InvalidEntity" enum="WebAppStorageKeyParseResult"
-    expires_after="2025-05-25">
+    expires_after="2026-05-25">
   <owner>dmurph@chromium.org</owner>
   <owner>pwa-team@google.com</owner>
   <summary>
@@ -2246,7 +2454,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Webapp.WebAppUrlLoaderPrepareForLoadResult"
-    enum="WebAppUrlLoaderResult" expires_after="2025-08-24">
+    enum="WebAppUrlLoaderResult" expires_after="2025-10-26">
   <owner>dmurph@chromium.org</owner>
   <owner>pwa-team@google.com</owner>
   <summary>Records the result of WebAppUrlLoader::PrepareForLoad().</summary>

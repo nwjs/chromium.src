@@ -7,13 +7,11 @@ package org.chromium.chrome.test.transit.ntp;
 import static androidx.test.espresso.matcher.ViewMatchers.withId;
 
 import static org.chromium.base.test.transit.Condition.whether;
-import static org.chromium.base.test.transit.ViewSpec.viewSpec;
 
 import android.util.Pair;
 import android.view.View;
 
 import org.chromium.base.test.transit.Element;
-import org.chromium.base.test.transit.Elements;
 import org.chromium.base.test.transit.SimpleConditions;
 import org.chromium.base.test.transit.ViewElement;
 import org.chromium.chrome.R;
@@ -37,22 +35,12 @@ public class RegularNewTabPageStation extends PageStation {
     public ViewElement<View> searchBoxElement;
     public ViewElement<UrlBar> urlBarElement;
     public ViewElement<View> logoElement;
-    public ViewElement<View> mvtsContainerElement;
     public Element<NewTabPage> nativePageElement;
 
     protected <T extends RegularNewTabPageStation> RegularNewTabPageStation(Builder<T> builder) {
         super(builder.withIncognito(false).withExpectedUrlSubstring(UrlConstants.NTP_URL));
-    }
 
-    public static Builder<RegularNewTabPageStation> newBuilder() {
-        return new Builder<>(RegularNewTabPageStation::new);
-    }
-
-    @Override
-    public void declareElements(Elements.Builder elements) {
-        super.declareElements(elements);
-
-        elements.declareElementFactory(
+        declareElementFactory(
                 mActivityElement,
                 delayedElements -> {
                     if (mActivityElement.get().isTablet()) {
@@ -62,18 +50,21 @@ public class RegularNewTabPageStation extends PageStation {
                     }
                 });
 
-        logoElement = elements.declareView(viewSpec(withId(R.id.search_provider_logo)));
-        searchBoxElement = elements.declareView(viewSpec(withId(R.id.search_box)));
-        mvtsContainerElement = elements.declareView(viewSpec(withId(R.id.mv_tiles_container)));
+        logoElement = declareView(withId(R.id.search_provider_logo));
+        searchBoxElement = declareView(withId(R.id.search_box));
 
         nativePageElement =
-                elements.declareEnterConditionAsElement(
+                declareEnterConditionAsElement(
                         new NativePageCondition<>(NewTabPage.class, loadedTabElement));
-        elements.declareEnterCondition(
+        declareEnterCondition(
                 SimpleConditions.uiThreadCondition(
                         "Regular NTP is loaded",
                         nativePageElement,
                         nativePage -> whether(nativePage.isLoadedForTests())));
+    }
+
+    public static Builder<RegularNewTabPageStation> newBuilder() {
+        return new Builder<>(RegularNewTabPageStation::new);
     }
 
     /** Opens the app menu by pressing the toolbar "..." button */

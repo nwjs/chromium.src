@@ -184,10 +184,9 @@ ShapeResult* ShapeResultView::CreateShapeResult() const {
   ShapeResult* new_result = MakeGarbageCollected<ShapeResult>(
       start_index_ + char_index_offset_, num_characters_, Direction());
   new_result->runs_.ReserveInitialCapacity(parts_.size());
-  unsigned num_glyphs = 0u;
   for (const auto& part : RunsOrParts()) {
     auto* new_run = MakeGarbageCollected<ShapeResultRun>(
-        part.run_->font_data_.Get(), part.run_->direction_,
+        part.run_->font_data_.Get(), part.run_->HbDirection(),
         part.run_->canvas_rotation_, part.run_->script_, part.start_index_,
         part.NumGlyphs(), part.num_characters_);
     new_run->glyph_data_.CopyFromRange(part.range_);
@@ -202,10 +201,8 @@ ShapeResult* ShapeResultView::CreateShapeResult() const {
     new_run->num_characters_ = part.num_characters_;
     new_run->CheckConsistency();
     new_result->runs_.push_back(new_run);
-    num_glyphs += part.NumGlyphs();
   }
 
-  new_result->num_glyphs_ = num_glyphs;
   new_result->has_vertical_offsets_ = has_vertical_offsets_;
   new_result->width_ = width_;
 
@@ -397,7 +394,7 @@ float ShapeResultView::ForEachGlyphImpl(float initial_advance,
   auto glyph_offsets = part.GetGlyphOffsets<has_non_zero_glyph_offsets>();
   const auto& run = part.run_;
   auto total_advance = InlineLayoutUnit::FromFloatRound(initial_advance);
-  bool is_horizontal = HB_DIRECTION_IS_HORIZONTAL(run->direction_);
+  bool is_horizontal = run->IsHorizontal();
   const SimpleFontData* font_data = run->font_data_.Get();
   const unsigned character_index_offset_for_glyph_data =
       CharacterIndexOffsetForGlyphData(part);
@@ -440,7 +437,7 @@ float ShapeResultView::ForEachGlyphImpl(float initial_advance,
   auto glyph_offsets = part.GetGlyphOffsets<has_non_zero_glyph_offsets>();
   auto total_advance = InlineLayoutUnit::FromFloatRound(initial_advance);
   const auto& run = part.run_;
-  bool is_horizontal = HB_DIRECTION_IS_HORIZONTAL(run->direction_);
+  bool is_horizontal = run->IsHorizontal();
   const SimpleFontData* font_data = run->font_data_.Get();
   const unsigned character_index_offset_for_glyph_data =
       CharacterIndexOffsetForGlyphData(part);

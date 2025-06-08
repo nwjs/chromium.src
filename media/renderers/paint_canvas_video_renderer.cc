@@ -567,9 +567,6 @@ void ConvertVideoFrameToRGBPixelsTask(const VideoFrame* video_frame,
         libyuv::ARGBToABGR(pixels, row_bytes, pixels, row_bytes, width, rows);
       break;
 
-    case PIXEL_FORMAT_YUV420P9:
-    case PIXEL_FORMAT_YUV422P9:
-    case PIXEL_FORMAT_YUV444P9:
     case PIXEL_FORMAT_YUV422P12:
     case PIXEL_FORMAT_YUV444P12:
     case PIXEL_FORMAT_Y16:
@@ -1127,19 +1124,16 @@ scoped_refptr<VideoFrame> DownShiftHighbitVideoFrame(
   switch (video_frame->format()) {
     case PIXEL_FORMAT_YUV420P12:
     case PIXEL_FORMAT_YUV420P10:
-    case PIXEL_FORMAT_YUV420P9:
       format = PIXEL_FORMAT_I420;
       break;
 
     case PIXEL_FORMAT_YUV422P12:
     case PIXEL_FORMAT_YUV422P10:
-    case PIXEL_FORMAT_YUV422P9:
       format = PIXEL_FORMAT_I422;
       break;
 
     case PIXEL_FORMAT_YUV444P12:
     case PIXEL_FORMAT_YUV444P10:
-    case PIXEL_FORMAT_YUV444P9:
       format = PIXEL_FORMAT_I444;
       break;
 
@@ -1335,9 +1329,6 @@ void PaintCanvasVideoRenderer::ConvertVideoFrameToRGBPixels(
   scoped_refptr<VideoFrame> temporary_frame;
   // TODO(thomasanderson): Parallelize converting these formats.
   switch (video_frame->format()) {
-    case PIXEL_FORMAT_YUV420P9:
-    case PIXEL_FORMAT_YUV422P9:
-    case PIXEL_FORMAT_YUV444P9:
     case PIXEL_FORMAT_YUV422P12:
     case PIXEL_FORMAT_YUV444P12:
       temporary_frame = DownShiftHighbitVideoFrame(video_frame);
@@ -1822,7 +1813,9 @@ bool PaintCanvasVideoRenderer::UpdateLastImage(
     }
 
     // Copy into the shared image backing of the cached copy.
-    ri->WaitSyncTokenCHROMIUM(video_frame->acquire_sync_token().GetConstData());
+    std::unique_ptr<gpu::RasterScopedAccess> src_ri_access =
+        video_frame_si->BeginRasterAccess(ri, video_frame->acquire_sync_token(),
+                                          /*readonly=*/true);
     ri->CopySharedImage(
         video_frame_si->mailbox(), client_shared_image->mailbox(), 0, 0, 0, 0,
         video_frame->coded_size().width(), video_frame->coded_size().height());
@@ -1834,7 +1827,8 @@ bool PaintCanvasVideoRenderer::UpdateLastImage(
     // Ensure that |video_frame| not be deleted until the above copy is
     // completed.
     SynchronizeVideoFrameRead(video_frame, ri,
-                              raster_context_provider->ContextSupport());
+                              raster_context_provider->ContextSupport(),
+                              std::move(src_ri_access));
 
     cache_->coded_size = video_frame->coded_size();
 

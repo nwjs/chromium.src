@@ -71,6 +71,7 @@
 #include "chrome/browser/ui/webui/ash/extended_updates/extended_updates_dialog.h"
 #include "chrome/browser/ui/webui/help/help_utils_chromeos.h"
 #include "chrome/browser/ui/webui/help/version_updater_chromeos.h"
+#include "chromeos/ash/components/browser_context_helper/browser_context_helper.h"
 #include "chromeos/ash/components/dbus/update_engine/update_engine_client.h"
 #include "chromeos/ash/components/fwupd/firmware_update_manager.h"
 #include "chromeos/ash/components/network/network_state.h"
@@ -123,6 +124,25 @@ std::u16string GetAllowedConnectionTypesMessage() {
   return l10n_util::GetStringUTF16(
       metered ? IDS_UPGRADE_NETWORK_LIST_CELLULAR_ALLOWED_NOT_AUTOMATIC
               : IDS_UPGRADE_NETWORK_LIST_CELLULAR_ALLOWED);
+}
+
+// Returns true if current user can change firmware, false otherwise.
+bool CanChangeFirmware(Profile* profile) {
+  if (policy::ManagementServiceFactory::GetForPlatform()->IsManaged()) {
+    bool value = false;
+    // On a managed machine we allow firmware changes only if enabled by policy
+    if (!ash::CrosSettings::Get()->GetBoolean(
+            ash::kDeviceUserInitiatedFirmwareUpdatesEnabled, &value)) {
+      // This can occur if the lookup for the policy's value fails,
+      // for example if the policy is not present on the current version.
+      // In this case, default to false.
+      LOG(ERROR) << "Failed to get device setting.";
+      return false;
+    }
+    return value;
+  }
+  return user_manager::UserManager::Get()->IsOwnerUser(
+      ash::BrowserContextHelper::Get()->GetUserByBrowserContext(profile));
 }
 
 // Returns true if current user can change channel, false otherwise.
@@ -318,8 +338,8 @@ void AboutHandler::RegisterMessages() {
       "setChannel", base::BindRepeating(&AboutHandler::HandleSetChannel,
                                         base::Unretained(this)));
   web_ui()->RegisterMessageCallback(
-      "applyDeferredUpdate",
-      base::BindRepeating(&AboutHandler::HandleApplyDeferredUpdate,
+      "applyDeferredUpdateAdvanced",
+      base::BindRepeating(&AboutHandler::HandleApplyDeferredUpdateAdvanced,
                           base::Unretained(this)));
   web_ui()->RegisterMessageCallback(
       "requestUpdate", base::BindRepeating(&AboutHandler::HandleRequestUpdate,
@@ -338,6 +358,10 @@ void AboutHandler::RegisterMessages() {
   web_ui()->RegisterMessageCallback(
       "getChannelInfo", base::BindRepeating(&AboutHandler::HandleGetChannelInfo,
                                             base::Unretained(this)));
+  web_ui()->RegisterMessageCallback(
+      "canChangeFirmware",
+      base::BindRepeating(&AboutHandler::HandleCanChangeFirmware,
+                          base::Unretained(this)));
   web_ui()->RegisterMessageCallback(
       "canChangeChannel",
       base::BindRepeating(&AboutHandler::HandleCanChangeChannel,
@@ -618,6 +642,13 @@ void AboutHandler::HandleGetChannelInfo(const base::Value::List& args) {
                      weak_factory_.GetWeakPtr(), callback_id));
 }
 
+void AboutHandler::HandleCanChangeFirmware(const base::Value::List& args) {
+  CHECK_EQ(1U, args.size());
+  const std::string& callback_id = args[0].GetString();
+  ResolveJavascriptCallback(base::Value(callback_id),
+                            base::Value(CanChangeFirmware(profile_)));
+}
+
 void AboutHandler::HandleCanChangeChannel(const base::Value::List& args) {
   CHECK_EQ(1U, args.size());
   const std::string& callback_id = args[0].GetString();
@@ -650,8 +681,9 @@ void AboutHandler::OnGetTargetChannel(std::string callback_id,
   ResolveJavascriptCallback(base::Value(callback_id), channel_info);
 }
 
-void AboutHandler::HandleApplyDeferredUpdate(const base::Value::List& args) {
-  version_updater_->ApplyDeferredUpdate();
+void AboutHandler::HandleApplyDeferredUpdateAdvanced(
+    const base::Value::List& args) {
+  version_updater_->ApplyDeferredUpdateAdvanced();
 }
 
 void AboutHandler::HandleRequestUpdate(const base::Value::List& args) {

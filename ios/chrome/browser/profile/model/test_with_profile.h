@@ -6,6 +6,7 @@
 #define IOS_CHROME_BROWSER_PROFILE_MODEL_TEST_WITH_PROFILE_H_
 
 #include <memory>
+#include <string_view>
 
 #include "base/files/file_path.h"
 #include "base/test/scoped_feature_list.h"
@@ -17,6 +18,7 @@
 #include "testing/platform_test.h"
 
 class IOSChromeIOThread;
+class ScopedProfileKeepAliveIOS;
 
 // Test class that allows creating real profiles.
 class TestWithProfile : public PlatformTest {
@@ -37,6 +39,12 @@ class TestWithProfile : public PlatformTest {
   ProfileAttributesStorageIOS& attributes_storage() {
     return *profile_manager_.GetProfileAttributesStorage();
   }
+
+  // Helper to synchronously load a profile with `profile_name`.
+  ScopedProfileKeepAliveIOS LoadProfile(std::string_view name);
+
+  // Helper to synchronously create a profile with `profile_name`.
+  ScopedProfileKeepAliveIOS CreateProfile(std::string_view name);
 
  private:
   // Helper around a ScopedFeatureList that initialize it in its constructor.

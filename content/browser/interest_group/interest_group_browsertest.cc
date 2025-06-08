@@ -25,11 +25,13 @@
 #include "base/containers/contains.h"
 #include "base/containers/flat_map.h"
 #include "base/containers/flat_set.h"
+#include "base/containers/span_reader.h"
 #include "base/feature_list.h"
 #include "base/functional/callback.h"
 #include "base/functional/callback_forward.h"
 #include "base/json/json_reader.h"
 #include "base/json/json_writer.h"
+#include "base/json/string_escape.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/run_loop.h"
@@ -224,6 +226,8 @@ const blink::InterestGroup::AdditionalBidKey kPublicKeyWithNoMatchingSignature =
     {0xf8, 0x11, 0x00, 0xf7, 0xfa, 0xf0, 0x7f, 0xfa, 0x30, 0x6f, 0xc7,
      0xd1, 0x8d, 0x16, 0x57, 0x5c, 0xe7, 0x3a, 0x2c, 0x60, 0x22, 0xfb,
      0x44, 0xe4, 0xc8, 0x5a, 0xb5, 0x41, 0xee, 0xf9, 0x34, 0xee};
+
+constexpr char kNoContextualDataValue[] = "\"no contextual data\"";
 
 std::string base64Decode(std::string_view input) {
   std::string bytes;
@@ -782,6 +786,7 @@ class InterestGroupBrowserTest : public ContentBrowserTest {
          {blink::features::kFledgeMultiBid, {}},
          {blink::features::kFledgeSampleDebugReports, {}},
          {blink::features::kFledgeEnableSampleDebugReportOnCookieSetting, {}},
+         {blink::features::kFledgeSellerScriptExecutionMode, {}},
          // These are in field trial config, but we want this consistent among
          // bots.
          {blink::features::kFledgeCustomMaxAuctionAdComponents,
@@ -790,6 +795,7 @@ class InterestGroupBrowserTest : public ContentBrowserTest {
          // TODO(crrev.com/c/6096602): Remove once implementation is removed.
          {blink::features::kFledgeDirectFromSellerSignalsWebBundles, {}},
          {blink::features::kFledgeTrustedSignalsKVv1CreativeScanning, {}},
+         {blink::features::kFledgeTrustedSignalsKVv2ContextualData, {}},
          {features::kFledgeTextConversionHelpers, {}},
          {network::features::kAdAuctionEventRegistration, {}},
          // Needed for reliable handling of click ARA (and hence clickiness)
@@ -5953,6 +5959,204 @@ IN_PROC_BROWSER_TEST_F(InterestGroupBrowserTest,
   WaitForAccessObserved({});
 }
 
+class AuctionConfigExecutionModeBrowserTest : public InterestGroupBrowserTest {
+ public:
+  AuctionConfigExecutionModeBrowserTest() {
+    feature_list_.InitWithFeatures({/*enabled_features=*/blink::features::
+                                        kFledgeSellerScriptExecutionMode},
+                                   /*disabled_features=*/{});
+  }
+
+ protected:
+  base::test::ScopedFeatureList feature_list_;
+};
+
+// Verify that we handle converting the executionMode from the auction config's
+// idl to mojo properly. Covers all the modes and an invalid mode as well.
+IN_PROC_BROWSER_TEST_F(AuctionConfigExecutionModeBrowserTest,
+                       AuctionConfigExecutionModes) {
+  GURL url = embedded_https_test_server().GetURL("a.test", "/echo");
+  ASSERT_TRUE(NavigateToURL(shell(), url));
+  url::Origin origin = url::Origin::Create(url);
+
+  constexpr char kDecisionLogicPath[] =
+      R"(/interest_group/decision_logic_$1.js)";
+  constexpr char kBiddingLogicPath[] =
+      "/interest_group/test_generated_bidding_argument_validator.js";
+
+  constexpr char kBiddingLogicScript[] = R"(
+    function generateBid(
+        interestGroup, auctionSignals, perBuyerSignals, trustedBiddingSignals,
+        unusedBrowserSignals) {
+      const ad = interestGroup.ads[0];
+      return {'ad': ad, 'bid': 1, 'render': ad.renderURL};
+    }
+    )";
+
+  constexpr char kDecisionLogicScript[] = R"(
+  function scoreAd(
+      adMetadata, bid, auctionConfig, unusedTrustedScoringSignals,
+      unusedBrowserSignals) {
+    validateAuctionConfig(auctionConfig);
+    return bid;
+  }
+
+  function validateAuctionConfig(auctionConfig) {
+    const executionMode = auctionConfig.executionMode;
+    if (executionMode !== $1){
+      throw 'Execution mode should be $1, but was: ' + executionMode;
+    }
+  }
+  )";
+
+  EXPECT_EQ(
+      kSuccess,
+      JoinInterestGroupAndVerify(
+          origin, "cars",
+          /*priority=*/0, /*execution_mode=*/
+          blink::InterestGroup::ExecutionMode::kCompatibilityMode,
+          /*bidding_url=*/
+          embedded_https_test_server().GetURL("a.test", kBiddingLogicPath),
+          /*ads=*/
+          {{{GURL("https://example.com/render"),
+             /*metadata=*/std::nullopt}}},
+          /*ad_components=*/std::nullopt, std::nullopt));
+
+  const struct TestCases {
+    std::string auction_config_execution_mode;
+    std::string expected_execution_mode;
+  } kTestCases[] = {
+      {/*auction_config_execution_mode=*/"compatibility",
+       /*expected_execution_mode=*/"compatibility"},
+      {/*auction_config_execution_mode=*/"group-by-origin",
+       /*expected_execution_mode=*/"group-by-origin"},
+      {/*auction_config_execution_mode=*/"frozen-context",
+       /*expected_execution_mode=*/"frozen-context"},
+      {/*auction_config_execution_mode=*/"invalid-mode",
+       /*expected_execution_mode=*/"compatibility"},
+  };
+
+  // Used to make different decision logic urls, since caching causes flaky
+  // tests.
+  int url_count = 0;
+  for (const auto& test_case : kTestCases) {
+    url_count++;
+    auto current_decision_url = JsReplace(kDecisionLogicPath, url_count);
+    network_responder_->RegisterNetworkResponse(
+        kBiddingLogicPath, kBiddingLogicScript, "application/javascript");
+    network_responder_->RegisterNetworkResponse(
+        current_decision_url,
+        JsReplace(kDecisionLogicScript, test_case.expected_execution_mode),
+        "application/javascript");
+
+    EXPECT_EQ(
+        "https://example.com/render",
+        RunAuctionAndWaitForUrl(JsReplace(
+            R"({
+                    seller: $1,
+                    decisionLogicURL: $2,
+                    executionMode: $3,
+                    interestGroupBuyers: [$1]
+                    })",
+            origin,
+            embedded_https_test_server().GetURL("a.test", current_decision_url),
+            test_case.auction_config_execution_mode)));
+  }
+}
+
+class AuctionConfigExecutionModeDisabledBrowserTest
+    : public InterestGroupBrowserTest {
+ public:
+  AuctionConfigExecutionModeDisabledBrowserTest() {
+    feature_list_.InitWithFeatures(
+        {/*enabled_features=*/},
+        /*disabled_features=*/{
+            blink::features::kFledgeSellerScriptExecutionMode});
+  }
+
+ protected:
+  base::test::ScopedFeatureList feature_list_;
+};
+
+// Verify that when the feature is disabled, execution mode does not get passed
+// to the seller worklet.
+IN_PROC_BROWSER_TEST_F(AuctionConfigExecutionModeDisabledBrowserTest,
+                       AuctionConfigExecutionModes) {
+  GURL url = embedded_https_test_server().GetURL("a.test", "/echo");
+  ASSERT_TRUE(NavigateToURL(shell(), url));
+  url::Origin origin = url::Origin::Create(url);
+
+  constexpr char kDecisionLogicPath[] =
+      "/interest_group/non_object_decision_argument_validator.js";
+  constexpr char kBiddingLogicPath[] =
+      "/interest_group/test_generated_bidding_argument_validator.js";
+
+  constexpr char kBiddingLogicScript[] = R"(
+     function generateBid(
+         interestGroup, auctionSignals, perBuyerSignals, trustedBiddingSignals,
+         unusedBrowserSignals) {
+       const ad = interestGroup.ads[0];
+       return {'ad': ad, 'bid': 1, 'render': ad.renderURL};
+     }
+     )";
+
+  constexpr char kDecisionLogicScript[] = R"(
+   function scoreAd(
+       adMetadata, bid, auctionConfig, unusedTrustedScoringSignals,
+       unusedBrowserSignals) {
+     validateAuctionConfig(auctionConfig);
+     return bid;
+   }
+
+   function validateAuctionConfig(auctionConfig) {
+     const executionMode = auctionConfig.executionMode;
+     if (executionMode !== undefined) {
+       throw 'Execution mode should be undefined, but was: ' + executionMode;
+     }
+   }
+   )";
+
+  const std::string kTestCases[] = {
+      "compatibility",
+      "group-by-origin",
+      "frozen-context",
+      "invalid-mode",
+  };
+
+  for (const auto& execution_mode : kTestCases) {
+    network_responder_->RegisterNetworkResponse(
+        kBiddingLogicPath, kBiddingLogicScript, "application/javascript");
+    network_responder_->RegisterNetworkResponse(
+        kDecisionLogicPath, kDecisionLogicScript, "application/javascript");
+
+    EXPECT_EQ(
+        kSuccess,
+        JoinInterestGroupAndVerify(
+            origin, "cars",
+            /*priority=*/0, /*execution_mode=*/
+            blink::InterestGroup::ExecutionMode::kCompatibilityMode,
+            /*bidding_url=*/
+            embedded_https_test_server().GetURL("a.test", kBiddingLogicPath),
+            /*ads=*/
+            {{{GURL("https://example.com/render"),
+               /*metadata=*/std::nullopt}}},
+            /*ad_components=*/std::nullopt, std::nullopt));
+
+    EXPECT_EQ(
+        "https://example.com/render",
+        RunAuctionAndWaitForUrl(JsReplace(
+            R"({
+                     seller: $1,
+                     decisionLogicURL: $2,
+                     executionMode: $3,
+                     interestGroupBuyers: [$1]
+                     })",
+            origin,
+            embedded_https_test_server().GetURL("a.test", kDecisionLogicPath),
+            execution_mode)));
+  }
+}
+
 IN_PROC_BROWSER_TEST_F(InterestGroupBrowserTest,
                        RunAdAuctionNegativeMaxTrustedScoringSignalsURLLength) {
   GURL url = embedded_https_test_server().GetURL("a.test", "/echo");
@@ -6413,20 +6617,7 @@ IN_PROC_BROWSER_TEST_F(InterestGroupBrowserTest,
   EXPECT_TRUE(console_observer.Wait());
 }
 
-class InterestGroupContextualDataBrowserTest : public InterestGroupBrowserTest {
- public:
-  InterestGroupContextualDataBrowserTest() {
-    feature_list_.InitWithFeatures(
-        {/*enabled_features=*/blink::features::
-             kFledgeTrustedSignalsKVv2ContextualData},
-        /*disabled_features=*/{});
-  }
-
- protected:
-  base::test::ScopedFeatureList feature_list_;
-};
-
-IN_PROC_BROWSER_TEST_F(InterestGroupContextualDataBrowserTest,
+IN_PROC_BROWSER_TEST_F(InterestGroupBrowserTest,
                        RunAdAuctionInvalidPerBuyerTKVSignalsOrigin) {
   GURL test_url = embedded_https_test_server().GetURL("a.test", "/echo");
   url::Origin test_origin = url::Origin::Create(test_url);
@@ -6452,7 +6643,7 @@ IN_PROC_BROWSER_TEST_F(InterestGroupContextualDataBrowserTest,
   WaitForAccessObserved({});
 }
 
-IN_PROC_BROWSER_TEST_F(InterestGroupContextualDataBrowserTest,
+IN_PROC_BROWSER_TEST_F(InterestGroupBrowserTest,
                        RunAdAuctionInvalidPerBuyerTKVSignals) {
   GURL test_url = embedded_https_test_server().GetURL("a.test", "/echo");
   url::Origin test_origin = url::Origin::Create(test_url);
@@ -6462,22 +6653,21 @@ IN_PROC_BROWSER_TEST_F(InterestGroupContextualDataBrowserTest,
 
   AttachInterestGroupObserver();
 
-  EXPECT_EQ(base::StringPrintf(
-                "TypeError: Failed to execute 'runAdAuction' on 'Navigator': "
-                "perBuyerTKVSignals for AuctionAdConfig with seller '%s' must "
-                "be a JSON-serializable object.",
-                test_origin.Serialize().c_str()),
-            RunAuctionAndWait(JsReplace(R"({
+  EXPECT_EQ(
+      "TypeError: Failed to execute 'runAdAuction' on 'Navigator': Failed to "
+      "read the 'perBuyerTKVSignals' property from 'AuctionAdConfig': Only "
+      "objects can be converted to record<K,V> types",
+      RunAuctionAndWait(JsReplace(R"({
       seller: $1,
       decisionLogicURL: $2,
-      perBuyerTKVSignals: {'https://test.com': function() {}},
+      perBuyerTKVSignals: 52,
       interestGroupBuyers: []
   })",
-                                        test_origin, decision_url)));
+                                  test_origin, decision_url)));
   WaitForAccessObserved({});
 }
 
-IN_PROC_BROWSER_TEST_F(InterestGroupContextualDataBrowserTest,
+IN_PROC_BROWSER_TEST_F(InterestGroupBrowserTest,
                        RunAdAuctionInvalidSellerTKVSignals) {
   GURL test_url = embedded_https_test_server().GetURL("a.test", "/echo");
   url::Origin test_origin = url::Origin::Create(test_url);
@@ -6504,10 +6694,10 @@ IN_PROC_BROWSER_TEST_F(InterestGroupContextualDataBrowserTest,
   EXPECT_TRUE(console_observer.Wait());
 }
 
-// Exercise rejection path in the renderer for promise-delivered
+// Exercise a rejection path in the renderer for promise-delivered
 // sellerTKVSignals.
-IN_PROC_BROWSER_TEST_F(InterestGroupContextualDataBrowserTest,
-                       RunAdAuctionRejectPromiseSellerTKVSignals) {
+IN_PROC_BROWSER_TEST_F(InterestGroupBrowserTest,
+                       RunAdAuctionThenRejectPromiseSellerTKVSignals) {
   GURL test_url = embedded_https_test_server().GetURL("a.test", "/echo");
   url::Origin test_origin = url::Origin::Create(test_url);
   ASSERT_TRUE(NavigateToURL(shell(), test_url));
@@ -6529,9 +6719,33 @@ IN_PROC_BROWSER_TEST_F(InterestGroupContextualDataBrowserTest,
           JsReplace(kAuctionConfigTemplate, test_origin, decision_url)));
 }
 
+// Exercise an initial rejection path in the renderer for promise-delivered
+// sellerTKVSignals.
+IN_PROC_BROWSER_TEST_F(InterestGroupBrowserTest,
+                       RunAdAuctionAlreadyRejectPromiseSellerTKVSignals) {
+  GURL test_url = embedded_https_test_server().GetURL("a.test", "/echo");
+  url::Origin test_origin = url::Origin::Create(test_url);
+  ASSERT_TRUE(NavigateToURL(shell(), test_url));
+  GURL decision_url = embedded_https_test_server().GetURL(
+      "a.test", "/interest_group/decision_logic.js");
+
+  const char kAuctionConfigTemplate[] = R"({
+      seller: $1,
+      decisionLogicURL: $2,
+      sellerTKVSignals: new Promise((resolve, reject) => { reject('boo'); }),
+      interestGroupBuyers: []
+  })";
+
+  EXPECT_EQ(
+      "TypeError: Failed to execute 'runAdAuction' on 'Navigator': Promise "
+      "argument rejected or resolved to invalid value.",
+      RunAuctionAndWait(
+          JsReplace(kAuctionConfigTemplate, test_origin, decision_url)));
+}
+
 // Exercise error-handling path in the renderer for promise-delivered
 // sellerTKVSignals.
-IN_PROC_BROWSER_TEST_F(InterestGroupContextualDataBrowserTest,
+IN_PROC_BROWSER_TEST_F(InterestGroupBrowserTest,
                        RunAdAuctionResolvePromiseInvalidSellerTKVSignals) {
   GURL test_url = embedded_https_test_server().GetURL("a.test", "/echo");
   url::Origin test_origin = url::Origin::Create(test_url);
@@ -16380,6 +16594,7 @@ IN_PROC_BROWSER_TEST_P(InterestGroupComponentWorkletValidationBrowserTest,
     perBuyerPrioritySignals: {[componentBuyer]: {bar: 1}, '*': {BaZ: -2}},
     perBuyerCurrencies: maybePromise({[componentBuyer]: 'USD'}),
     sellerCurrency: 'CAD',
+    executionMode: 'group-by-origin',
   }],
 })",
                            top_level_seller_origin, top_level_seller_script_url,
@@ -16634,6 +16849,7 @@ IN_PROC_BROWSER_TEST_F(
     perBuyerPrioritySignals: {$8: {bar: 1}, '*': {BaZ: -2}},
     perBuyerCurrencies: maybePromise({$8: 'USD'}),
     sellerCurrency: 'CAD',
+    executionMode: 'group-by-origin',
   }],
 })",
                      top_level_seller_origin, top_level_seller_script_url,
@@ -16836,6 +17052,7 @@ IN_PROC_BROWSER_TEST_F(
     perBuyerPrioritySignals: {$8: {bar: 1}, '*': {BaZ: -2}},
     perBuyerCurrencies: maybePromise({$8: 'USD'}),
     sellerCurrency: 'CAD',
+    executionMode: 'group-by-origin',
   }],
 })",
                      top_level_seller_origin, top_level_seller_script_url,
@@ -22399,8 +22616,8 @@ IN_PROC_BROWSER_TEST_F(InterestGroupBiddingAndAuctionServerBrowserTest,
         const net::NetworkAnonymizationKey& network_anonymization_key,
         const net::MutableNetworkTrafficAnnotationTag& traffic_annotation,
         const std::optional<net::ConnectionKeepAliveConfig>& keepalive_config,
-        mojo::PendingRemote<network::mojom::ReconnectEventObserver>
-            reconnect_event_observer) override {
+        mojo::PendingRemote<network::mojom::ConnectionChangeObserverClient>
+            observer_client) override {
       EXPECT_EQ(1u, num_streams);
       EXPECT_EQ(expected_url_, url);
       EXPECT_EQ(credentials_mode, network::mojom::CredentialsMode::kInclude);
@@ -29470,6 +29687,512 @@ IN_PROC_BROWSER_TEST_P(InterestGroupTrustedSignalsKVv2BrowserTest,
   EXPECT_EQ(ad_url, RunAuctionAndWaitForUrl(auction_config));
 }
 
+class InterestGroupTrustedSignalsKVv2ContextualDataBrowserTest
+    : public InterestGroupTrustedSignalsKVv2BrowserTest {
+ public:
+  void SetUpOnMainThread() override {
+    embedded_https_test_server().RegisterRequestHandler(
+        base::BindRepeating(&HandleTrustedKVv2Signals));
+
+    InterestGroupPrivateNetworkBrowserTest::SetUpOnMainThread();
+  }
+
+  void TestPerBuyerTKVSignals(const std::string& expected_bidding_key,
+                              const std::string& buyer_tkv_signals) {
+    const char kPublisher[] = "a.test";
+    const char kBidder[] = "b.test";
+    const char kSeller[] = "c.test";
+
+    GURL test_url = embedded_https_test_server().GetURL(
+        kPublisher, "/page_with_iframe.html");
+    GURL ad_url =
+        embedded_https_test_server().GetURL(kBidder, "/echo?render_cars");
+    GURL bidder_url = embedded_https_test_server().GetURL(kBidder, "/echo");
+    GURL bidder_script_url = embedded_https_test_server().GetURL(
+        kBidder,
+        "/interest_group/bidding_logic_trusted_kvv2_bidding_signals.js");
+    GURL bidder_signals_url = embedded_https_test_server().GetURL(
+        kBidder, "/trusted_kvv2_bidding_signals");
+    GURL seller_script_url = embedded_https_test_server().GetURL(
+        kSeller, "/interest_group/decision_logic.js");
+
+    ConfigureSignalsServerKeys({url::Origin::Create(bidder_signals_url)});
+
+    url::Origin bidder_origin = url::Origin::Create(bidder_script_url);
+    url::Origin seller_origin = url::Origin::Create(seller_script_url);
+
+    // Navigate to bidder site, and add an interest group.
+    ASSERT_TRUE(NavigateToURL(shell(), bidder_url));
+    EXPECT_EQ(
+        kSuccess,
+        JoinInterestGroupAndVerify(
+            blink::TestInterestGroupBuilder(
+                /*owner=*/bidder_origin,
+                /*name=*/"group")
+                .SetBiddingUrl(bidder_script_url)
+                .SetTrustedBiddingSignalsUrl(bidder_signals_url)
+                .SetTrustedBiddingSignalsKeys({{"bidderTKVSignals"}})
+                .SetAds(
+                    /*ads=*/{{{ad_url, /*metadata=*/std::nullopt}}})
+                .SetTrustedBiddingSignalsCoordinator(
+                    url::Origin::Create(GURL("https://coordinator.test")))
+                .SetExecutionMode(
+                    blink::InterestGroup::ExecutionMode::kGroupedByOriginMode)
+                .Build()));
+
+    // Register a bidder script that only bids if `trustedBiddingSignals` is
+    // successfully fetched.
+    const char kBidderScript[] = R"(
+    function generateBid(
+        interestGroup, auctionSignals, perBuyerSignals, trustedBiddingSignals,
+        browserSignals, directFromSellerSignals,
+        crossOriginTrustedBiddingSignals) {
+      if ('crossOriginDataVersion' in browserSignals) {
+        throw 'Unexpected crossOriginDataVersion in browserSignals.';
+      }
+
+      if (crossOriginTrustedBiddingSignals !== null) {
+        throw 'Unexpected crossOriginTrustedBiddingSignals found.';
+      }
+
+      if (trustedBiddingSignals.bidderTKVSignals !== %s) {
+        throw 'Unexpected trustedBiddingSignals: ' +
+          JSON.stringify(trustedBiddingSignals);
+      }
+
+      return {
+        bid: 1,
+        render: interestGroup.ads[0].renderURL,
+      };
+    })";
+
+    network_responder_->RegisterNetworkResponse(
+        bidder_script_url.path(),
+        base::StringPrintf(kBidderScript, expected_bidding_key.c_str()),
+        "application/javascript");
+
+    // Navigate to publisher.
+    ASSERT_TRUE(
+        NavigateToURL(shell(), embedded_https_test_server().GetURL(
+                                   kPublisher, "/page_with_iframe.html")));
+
+    const char kAuctionConfig[] =
+        R"({
+              seller: "%s",
+              decisionLogicURL: "%s",
+              interestGroupBuyers: ["%s"],
+              perBuyerTKVSignals: {"%s": %s},
+            })";
+
+    std::string auction_config = base::StringPrintf(
+        kAuctionConfig, seller_origin.Serialize().c_str(),
+        seller_script_url.spec().c_str(), bidder_origin.Serialize().c_str(),
+        bidder_origin.Serialize().c_str(), buyer_tkv_signals.c_str());
+
+    EXPECT_EQ(ad_url, RunAuctionAndWaitForUrl(auction_config));
+  }
+
+  void TestSellerTKVSignals(const std::string& expected_render_url_value,
+                            const std::string& seller_tkv_signals) {
+    const char kPublisher[] = "a.test";
+    const char kBidder[] = "b.test";
+    const char kSeller[] = "c.test";
+
+    GURL test_url = embedded_https_test_server().GetURL(
+        kPublisher, "/page_with_iframe.html");
+    GURL ad_url = GURL("https://bar.test/");
+    GURL bidder_url = embedded_https_test_server().GetURL(kBidder, "/echo");
+    GURL bidder_script_url = embedded_https_test_server().GetURL(
+        kBidder, "/interest_group/bidding_logic.js");
+    GURL seller_script_url = embedded_https_test_server().GetURL(
+        kSeller,
+        "/interest_group/decision_logic_trusted_kvv2_scoring_signals.js");
+    GURL seller_signals_url = embedded_https_test_server().GetURL(
+        kSeller, "/trusted_kvv2_scoring_signals");
+
+    ConfigureSignalsServerKeys({url::Origin::Create(seller_signals_url)});
+
+    url::Origin bidder_origin = url::Origin::Create(bidder_script_url);
+    url::Origin seller_origin = url::Origin::Create(seller_script_url);
+
+    // Navigate to bidder site, and add an interest group.
+    ASSERT_TRUE(NavigateToURL(shell(), bidder_url));
+    EXPECT_EQ(kSuccess, JoinInterestGroupAndVerify(
+                            blink::TestInterestGroupBuilder(
+                                /*owner=*/bidder_origin,
+                                /*name=*/"group")
+                                .SetBiddingUrl(bidder_script_url)
+                                .SetAds({{{ad_url, /*metadata=*/std::nullopt}}})
+                                .Build()));
+
+    // Navigate to publisher.
+    ASSERT_TRUE(NavigateToURL(shell(), test_url));
+
+    // Register a seller script that only scores if `trustedScoringSignals` is
+    // successfully fetched.
+    const char kSellerScript[] = R"(
+        function scoreAd(
+            adMetadata, bid, auctionConfig, trustedScoringSignals, browserSignals,
+            directFromSellerSignals, crossOriginTrustedScoringSignals) {
+          if ('crossOriginDataVersion' in browserSignals) {
+            throw 'Unexpected crossOriginDataVersion in browserSignals.';
+          }
+
+          if (crossOriginTrustedScoringSignals !== null) {
+            throw 'Unexpected crossOriginTrustedScoringSignals found.';
+          }
+
+          if (trustedScoringSignals.renderURL[browserSignals.renderURL] !== %s) {
+            throw 'Unexpected trustedScoringSignals: ' + JSON.stringify(trustedScoringSignals);
+          }
+
+          return bid;
+        })";
+
+    network_responder_->RegisterNetworkResponse(
+        seller_script_url.path(),
+        base::StringPrintf(kSellerScript, expected_render_url_value.c_str()),
+        "application/javascript");
+
+    const char kAuctionConfig[] =
+        R"({
+            seller: "%s",
+            decisionLogicURL: "%s",
+            trustedScoringSignalsURL: "%s",
+            interestGroupBuyers: ["%s"],
+            trustedScoringSignalsCoordinator: "https://coordinator.test",
+            sellerTKVSignals: %s
+          })";
+
+    std::string auction_config = base::StringPrintf(
+        kAuctionConfig, seller_origin.Serialize().c_str(),
+        seller_script_url.spec().c_str(), seller_signals_url.spec().c_str(),
+        bidder_origin.Serialize().c_str(), seller_tkv_signals.c_str());
+
+    EXPECT_EQ(ad_url, RunAuctionAndWaitForUrl(auction_config));
+  }
+
+ protected:
+  static std::unique_ptr<net::test_server::HttpResponse>
+  HandleTrustedKVv2Signals(const net::test_server::HttpRequest& request) {
+    if (!base::StartsWith(request.relative_url,
+                          "/trusted_kvv2_bidding_signals") &&
+        !base::StartsWith(request.relative_url,
+                          "/trusted_kvv2_scoring_signals")) {
+      return nullptr;
+    }
+
+    // Only posts should be sent to the KVv2 serer - no GETs or OPTIONs.
+    EXPECT_EQ(request.method, net::test_server::METHOD_POST);
+
+    constexpr char kBiddingBase[] =
+        R"([
+          {
+            "id": 0,
+            "keyGroupOutputs": [
+              {
+                "tags": [
+                  "keys"
+                ],
+                "keyValues": {
+                  "bidderTKVSignals": {
+                    "value": "%s"
+                  }
+                }
+              }
+            ]
+          }
+        ])";
+
+    constexpr char kScoringBase[] =
+        R"([
+          {
+            "id": 0,
+            "keyGroupOutputs": [
+              {
+                "tags": [
+                  "renderURLs"
+                ],
+                "keyValues": {
+                  "https://bar.test/": {
+                    "value": "%s"
+                  }
+                }
+              }
+            ]
+          }
+        ])";
+
+    // Decrypt the request.
+    auto response_key_config = quiche::ObliviousHttpHeaderKeyConfig::Create(
+        kTestPrivacySandboxCoordinatorId, EVP_HPKE_DHKEM_X25519_HKDF_SHA256,
+        EVP_HPKE_HKDF_SHA256, EVP_HPKE_AES_256_GCM);
+    CHECK(response_key_config.ok()) << response_key_config.status();
+
+    auto ohttp_gateway = quiche::ObliviousHttpGateway::Create(
+                             GetTestPrivacySandboxCoordinatorPrivateKey(),
+                             response_key_config.value())
+                             .value();
+
+    auto received_request = ohttp_gateway.DecryptObliviousHttpRequest(
+        request.content, "message/ad-auction-trusted-signals-request");
+    CHECK(received_request.ok()) << received_request.status();
+
+    // Get the request body as a CBOR value.
+    base::span<const uint8_t> body_span =
+        base::as_byte_span(received_request->GetPlaintextData());
+    base::SpanReader reader(body_span);
+    // Skip the first 1 byte since the request is always uncompressed.
+    reader.Skip(1u);
+    uint32_t length;
+    reader.ReadU32BigEndian(length);
+    std::optional<base::span<const uint8_t>> cbor_bytes = reader.Read(length);
+    CHECK(cbor_bytes);
+    std::optional<cbor::Value> request_body =
+        cbor::Reader::Read(base::span(cbor_bytes.value()));
+    CHECK(request_body);
+
+    // Extract the `contextualData` from the request body.
+    std::string contextual_data = kNoContextualDataValue;
+    const cbor::Value::MapValue& request_map = request_body->GetMap();
+
+    auto per_partition_metadata_it =
+        request_map.find(cbor::Value("perPartitionMetadata"));
+    if (per_partition_metadata_it != request_map.end()) {
+      const cbor::Value::ArrayValue& contextual_data_array =
+          per_partition_metadata_it->second.GetMap()
+              .at(cbor::Value("contextualData"))
+              .GetArray();
+
+      // With current browser test framework setup, there should only be one
+      // contextual data entry.
+      CHECK(contextual_data_array.size() == 1u);
+      contextual_data = contextual_data_array[0]
+                            .GetMap()
+                            .at(cbor::Value("value"))
+                            .GetString();
+    }
+
+    // Construct the response body.
+    std::string escaped_contextual_data;
+    CHECK(base::EscapeJSONString(contextual_data,
+                                 /*put_in_quotes=*/false,
+                                 &escaped_contextual_data));
+    std::string content;
+
+    if (base::StartsWith(request.relative_url,
+                         "/trusted_kvv2_bidding_signals")) {
+      content =
+          base::StringPrintf(kBiddingBase, escaped_contextual_data.c_str());
+    } else {
+      content =
+          base::StringPrintf(kScoringBase, escaped_contextual_data.c_str());
+    }
+
+    cbor::Value::MapValue compression_group;
+    compression_group.try_emplace(cbor::Value("compressionGroupId"),
+                                  cbor::Value(0));
+    compression_group.try_emplace(
+        cbor::Value("content"),
+        cbor::Value(auction_worklet::test::ToCborVector(content)));
+
+    cbor::Value::ArrayValue compression_groups;
+    compression_groups.emplace_back(std::move(compression_group));
+
+    cbor::Value::MapValue body_map;
+    body_map.try_emplace(cbor::Value("compressionGroups"),
+                         cbor::Value(std::move(compression_groups)));
+
+    cbor::Value body_value(std::move(body_map));
+    std::optional<std::vector<uint8_t>> maybe_body_bytes =
+        cbor::Writer::Write(body_value);
+
+    std::string response_body = auction_worklet::test::CreateKVv2ResponseBody(
+        base::as_string_view(maybe_body_bytes.value()));
+    auto response_context =
+        std::move(received_request).value().ReleaseContext();
+
+    // Encrypt the response body.
+    auto maybe_response = ohttp_gateway.CreateObliviousHttpResponse(
+        std::move(response_body), response_context,
+        "message/ad-auction-trusted-signals-response");
+    EXPECT_TRUE(maybe_response.ok()) << maybe_response.status();
+
+    auto response = std::make_unique<net::test_server::BasicHttpResponse>();
+    response->set_content_type("message/ad-auction-trusted-signals-response");
+    response->set_content(maybe_response->EncapsulateAndSerialize());
+    response->AddCustomHeader("Ad-Auction-Allowed", "true");
+
+    return response;
+  }
+
+  const url::Origin kCoordinatorOrigin =
+      url::Origin::Create(GURL("https://coordinator.test"));
+};
+
+INSTANTIATE_TEST_SUITE_P(
+    All,
+    InterestGroupTrustedSignalsKVv2ContextualDataBrowserTest,
+    testing::Values(true));
+
+// Test that providing an invalid `buyer_tkv_signals` value for a buyer results
+// in the auction still running, but providing no contextual data.
+IN_PROC_BROWSER_TEST_P(InterestGroupTrustedSignalsKVv2ContextualDataBrowserTest,
+                       BuyerTkvSignalsRunAdAuctionBadPerBuyerData) {
+  TestPerBuyerTKVSignals(/*expected_bidding_key=*/kNoContextualDataValue,
+                         /*buyer_tkv_signals=*/"function(){}");
+}
+
+IN_PROC_BROWSER_TEST_P(InterestGroupTrustedSignalsKVv2ContextualDataBrowserTest,
+                       PerBuyerTKVSignalsIsUndefined) {
+  TestPerBuyerTKVSignals(/*expected_bidding_key=*/kNoContextualDataValue,
+                         /*buyer_tkv_signals=*/"undefined");
+}
+
+IN_PROC_BROWSER_TEST_P(InterestGroupTrustedSignalsKVv2ContextualDataBrowserTest,
+                       PerBuyerTKVSignalsIsInteger) {
+  TestPerBuyerTKVSignals(/*expected_bidding_key=*/"100",
+                         /*buyer_tkv_signals=*/"100");
+}
+
+IN_PROC_BROWSER_TEST_P(InterestGroupTrustedSignalsKVv2ContextualDataBrowserTest,
+                       PerBuyerTKVSignalsIsString) {
+  TestPerBuyerTKVSignals(/*expected_bidding_key=*/"\"contextual data\"",
+                         /*buyer_tkv_signals=*/"\"contextual data\"");
+}
+
+IN_PROC_BROWSER_TEST_P(InterestGroupTrustedSignalsKVv2ContextualDataBrowserTest,
+                       PerBuyerTKVSignalsIsArray) {
+  TestPerBuyerTKVSignals(/*expected_bidding_key=*/"\"[1, 2, 3]\"",
+                         /*buyer_tkv_signals=*/"\"[1, 2, 3]\"");
+}
+
+IN_PROC_BROWSER_TEST_P(InterestGroupTrustedSignalsKVv2ContextualDataBrowserTest,
+                       PerBuyerTKVSignalsIsNull) {
+  TestPerBuyerTKVSignals(/*expected_bidding_key=*/"null",
+                         /*buyer_tkv_signals=*/"null");
+}
+
+// Passing in a rejected promise as a `perBuyerTKVSignals` should result in no
+// signals being sent, but the auction still being run to completion.
+IN_PROC_BROWSER_TEST_P(InterestGroupTrustedSignalsKVv2ContextualDataBrowserTest,
+                       PerBuyerTKVSignalsAlreadyRejectedPromise) {
+  TestPerBuyerTKVSignals(/*expected_bidding_key=*/kNoContextualDataValue,
+                         /*buyer_tkv_signals=*/
+                         R"(new Promise((resolve, reject) => { reject(); }))");
+}
+
+// Rejecting a promise passed in as a `perBuyerTKVSignals` should result in no
+// signals being sent, but the auction still being run to completion.
+IN_PROC_BROWSER_TEST_P(InterestGroupTrustedSignalsKVv2ContextualDataBrowserTest,
+                       BuyerTkvSignalsRunAdAuctionAndThenRejectPromise) {
+  TestPerBuyerTKVSignals(/*expected_bidding_key=*/kNoContextualDataValue,
+                         /*buyer_tkv_signals=*/
+                         R"(new Promise((resolve, reject) => {
+                             setTimeout(() => { reject(); }, 100);
+                         }))");
+}
+
+// Test that providing an invalid `buyer_tkv_signals` value for a buyer via a
+// promise that's resolved while an auction is ongoing results in the auction
+// still running, but providing no contextual data.
+IN_PROC_BROWSER_TEST_P(InterestGroupTrustedSignalsKVv2ContextualDataBrowserTest,
+                       BuyerTkvSignalsRunAdAuctionWithPromiseWithBadData) {
+  TestPerBuyerTKVSignals(/*expected_bidding_key=*/kNoContextualDataValue,
+                         /*buyer_tkv_signals=*/
+                         R"(new Promise((resolve, reject) => {
+                             setTimeout(() => { resolve(function(){}); },
+                                        100);
+                         }))");
+}
+
+// Test the case of providing a valid `buyer_tkv_signals` value after the
+// auction starts.
+IN_PROC_BROWSER_TEST_P(InterestGroupTrustedSignalsKVv2ContextualDataBrowserTest,
+                       BuyerTkvSignalsRunAdAuctionWithPromise) {
+  TestPerBuyerTKVSignals(/*expected_bidding_key=*/"\"contextual data\"",
+                         /*buyer_tkv_signals=*/
+                         R"(new Promise((resolve, reject) => {
+                             setTimeout(
+                                 () => { resolve("contextual data"); },
+                                 100);
+                         }))");
+}
+
+IN_PROC_BROWSER_TEST_P(InterestGroupTrustedSignalsKVv2ContextualDataBrowserTest,
+                       SellerTKVSignalsIsInteger) {
+  TestSellerTKVSignals(/*expected_render_url_value=*/"100",
+                       /*seller_tkv_signals=*/"100");
+}
+
+IN_PROC_BROWSER_TEST_P(InterestGroupTrustedSignalsKVv2ContextualDataBrowserTest,
+                       SellerTKVSignalsIsString) {
+  TestSellerTKVSignals(/*expected_render_url_value=*/"\"contextual data\"",
+                       /*seller_tkv_signals=*/"\"contextual data\"");
+}
+
+IN_PROC_BROWSER_TEST_P(InterestGroupTrustedSignalsKVv2ContextualDataBrowserTest,
+                       SellerTKVSignalsIsArray) {
+  TestSellerTKVSignals(/*expected_render_url_value=*/"\"[1, 2, 3]\"",
+                       /*seller_tkv_signals=*/"\"[1, 2, 3]\"");
+}
+
+// For "null" test case, `sellerTKVSignals` behaves differently than
+// `perBuyerTKVSignals` in that it uses IDL to convert from renderer side config
+// to mojom promise value. It seems there is a special handling for "null" in
+// the IDL code, which will result an empty promise value in the end.
+IN_PROC_BROWSER_TEST_P(InterestGroupTrustedSignalsKVv2ContextualDataBrowserTest,
+                       SellerTKVSignalsIsNull) {
+  TestSellerTKVSignals(/*expected_render_url_value=*/kNoContextualDataValue,
+                       /*seller_tkv_signals=*/"null");
+}
+
+// Same as "null" test case, "undefined" also results an empty promise value.
+IN_PROC_BROWSER_TEST_P(InterestGroupTrustedSignalsKVv2ContextualDataBrowserTest,
+                       SellerTKVSignalsIsUndefined) {
+  TestSellerTKVSignals(/*expected_render_url_value=*/kNoContextualDataValue,
+                       /*seller_tkv_signals=*/"undefined");
+}
+
+IN_PROC_BROWSER_TEST_P(InterestGroupTrustedSignalsKVv2ContextualDataBrowserTest,
+                       SellerTKVSignalsRunAdAuctionWithPromise) {
+  TestSellerTKVSignals(/*expected_render_url_value=*/"\"contextual data\"",
+                       /*seller_tkv_signals=*/
+                       R"(new Promise((resolve, reject) => {
+                            setTimeout(
+                                () => { resolve("contextual data"); },
+                                100);
+                       }))");
+}
+
+class DisableKVv2ContextualDataBrowserTest
+    : public InterestGroupTrustedSignalsKVv2ContextualDataBrowserTest {
+ public:
+  DisableKVv2ContextualDataBrowserTest() {
+    feature_list_.InitAndDisableFeature(
+        blink::features::kFledgeTrustedSignalsKVv2ContextualData);
+  }
+
+ protected:
+  base::test::ScopedFeatureList feature_list_;
+};
+
+INSTANTIATE_TEST_SUITE_P(All,
+                         DisableKVv2ContextualDataBrowserTest,
+                         testing::Values(true));
+
+IN_PROC_BROWSER_TEST_P(DisableKVv2ContextualDataBrowserTest,
+                       PerBuyerTKVSignalsWithDisabledFeature) {
+  TestPerBuyerTKVSignals(/*expected_bidding_key=*/kNoContextualDataValue,
+                         /*buyer_tkv_signals=*/"\"contextual data\"");
+}
+
+IN_PROC_BROWSER_TEST_P(DisableKVv2ContextualDataBrowserTest,
+                       SellerTKVSignalsWithDisabledFeature) {
+  TestSellerTKVSignals(/*expected_render_url_value=*/kNoContextualDataValue,
+                       /*seller_tkv_signals=*/"\"contextual data\"");
+}
+
 class DisableLocalAuctionInterestGroupBrowserTest
     : public InterestGroupBrowserTest {
  public:
@@ -29524,9 +30247,9 @@ IN_PROC_BROWSER_TEST_F(DisableLocalAuctionInterestGroupBrowserTest,
                        DisableLocalAuctions) {
   SetUpTestWithOneInterestGroup();
   // If local auctions are disable via kFledgeDisableLocalAdsAuctions and
-  // there's no "serverResponse" key in the auctionConfig, runAdAuction will not
-  // throw an error. It will return nullptr, which matches what happens when
-  // there is no auction winner.
+  // there's no "serverResponse" key in the auctionConfig, runAdAuction will
+  // not throw an error. It will return nullptr, which matches what happens
+  // when there is no auction winner.
   EXPECT_EQ(nullptr, RunAuctionAndWait(JsReplace(
                          R"({
     seller: $1,

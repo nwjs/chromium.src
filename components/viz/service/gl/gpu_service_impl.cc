@@ -31,6 +31,7 @@
 #include "components/version_info/version_info.h"
 #include "components/viz/common/features.h"
 #include "components/viz/common/resources/peak_gpu_memory_tracker_util.h"
+#include "components/viz/service/gl/gpu_log_message_manager.h"
 #include "gpu/command_buffer/client/gpu_memory_buffer_manager.h"
 #include "gpu/command_buffer/service/dawn_caching_interface.h"
 #include "gpu/command_buffer/service/gpu_switches.h"
@@ -98,17 +99,14 @@
 #include "components/chromeos_camera/mojo_jpeg_encode_accelerator_service.h"
 #include "components/chromeos_camera/mojo_mjpeg_decode_accelerator_service.h"
 
-#if BUILDFLAG(USE_CHROMEOS_MEDIA_ACCELERATION)
+#if BUILDFLAG(USE_LINUX_VIDEO_ACCELERATION)
 #include "chromeos/ash/experiences/arc/video_accelerator/gpu_arc_video_decode_accelerator.h"
-#if BUILDFLAG(USE_VAAPI) || BUILDFLAG(USE_V4L2_CODEC)
 #include "chromeos/ash/experiences/arc/video_accelerator/gpu_arc_video_decoder.h"
-#endif
 #include "chromeos/ash/experiences/arc/video_accelerator/gpu_arc_video_encode_accelerator.h"
 #include "chromeos/ash/experiences/arc/video_accelerator/gpu_arc_video_protected_buffer_allocator.h"
 #include "chromeos/ash/experiences/arc/video_accelerator/protected_buffer_manager.h"
 #include "chromeos/ash/experiences/arc/video_accelerator/protected_buffer_manager_proxy.h"
-#endif  // BUILDFLAG(USE_CHROMEOS_MEDIA_ACCELERATION)
-
+#endif  // BUILDFLAG(USE_LINUX_VIDEO_ACCELERATION)
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
 #if BUILDFLAG(IS_WIN)
@@ -154,141 +152,6 @@ namespace {
 // crbug.com/1350257
 constexpr char kGpuInitializationEventCategory[] = "latency";
 constexpr char kGpuInitializationEvent[] = "GpuInitialization";
-
-using LogCallback = base::RepeatingCallback<
-    void(int severity, const std::string& header, const std::string& message)>;
-
-struct LogMessage {
-  LogMessage(int severity,
-             const std::string& header,
-             const std::string& message)
-      : severity(severity),
-        header(std::move(header)),
-        message(std::move(message)) {}
-  const int severity;
-  const std::string header;
-  const std::string message;
-};
-
-// Forward declare log handlers so they can be used within LogMessageManager.
-bool PreInitializeLogHandler(int severity,
-                             const char* file,
-                             int line,
-                             size_t message_start,
-                             const std::string& message);
-bool PostInitializeLogHandler(int severity,
-                              const char* file,
-                              int line,
-                              size_t message_start,
-                              const std::string& message);
-
-// Class which manages LOG() message forwarding before and after GpuServiceImpl
-// InitializeWithHost(). Prior to initialize, log messages are deferred and kept
-// within the class. During initialize, InstallPostInitializeLogHandler() will
-// be called to flush deferred messages and route new ones directly to GpuHost.
-class LogMessageManager {
- public:
-  LogMessageManager() = default;
-  ~LogMessageManager() = delete;
-
-  // Queues a deferred LOG() message into |deferred_messages_| unless
-  // |log_callback_| has been set -- in which case RouteMessage() is called.
-  void AddDeferredMessage(int severity,
-                          const std::string& header,
-                          const std::string& message) {
-    base::AutoLock lock(message_lock_);
-    // During InstallPostInitializeLogHandler() there's a brief window where a
-    // call into this function may be waiting on |message_lock_|, so we need to
-    // check if |log_callback_| was set once we get the lock.
-    if (log_callback_) {
-      RouteMessage(severity, std::move(header), std::move(message));
-      return;
-    }
-
-    // Otherwise just queue the message for InstallPostInitializeLogHandler() to
-    // forward later.
-    deferred_messages_.emplace_back(severity, std::move(header),
-                                    std::move(message));
-  }
-
-  // Used after InstallPostInitializeLogHandler() to route messages directly to
-  // |log_callback_|; avoids the need for a global lock.
-  void RouteMessage(int severity,
-                    const std::string& header,
-                    const std::string& message) {
-    log_callback_.Run(severity, std::move(header), std::move(message));
-  }
-
-  // If InstallPostInitializeLogHandler() will never be called, this method is
-  // called prior to process exit to ensure logs are forwarded.
-  void FlushMessages(mojom::GpuHost* gpu_host) {
-    base::AutoLock lock(message_lock_);
-    for (auto& log : deferred_messages_) {
-      gpu_host->RecordLogMessage(log.severity, std::move(log.header),
-                                 std::move(log.message));
-    }
-    deferred_messages_.clear();
-  }
-
-  // Used prior to InitializeWithHost() during GpuMain startup to ensure logs
-  // aren't lost before initialize.
-  void InstallPreInitializeLogHandler() {
-    DCHECK(!log_callback_);
-    logging::SetLogMessageHandler(PreInitializeLogHandler);
-  }
-
-  // Called by InitializeWithHost() to take over logging from the
-  // PostInitializeLogHandler(). Flushes all deferred messages.
-  void InstallPostInitializeLogHandler(LogCallback log_callback) {
-    base::AutoLock lock(message_lock_);
-    DCHECK(!log_callback_);
-    log_callback_ = std::move(log_callback);
-    for (auto& log : deferred_messages_)
-      RouteMessage(log.severity, std::move(log.header), std::move(log.message));
-    deferred_messages_.clear();
-    logging::SetLogMessageHandler(PostInitializeLogHandler);
-  }
-
-  // Called when it's no longer safe to invoke |log_callback_|.
-  void ShutdownLogging() {
-    logging::SetLogMessageHandler(nullptr);
-    log_callback_.Reset();
-  }
-
- private:
-  base::Lock message_lock_;
-  std::vector<LogMessage> deferred_messages_ GUARDED_BY(message_lock_);
-
-  // Set once under |mesage_lock_|, but may be accessed without lock after that.
-  LogCallback log_callback_;
-};
-
-LogMessageManager* GetLogMessageManager() {
-  static base::NoDestructor<LogMessageManager> message_manager;
-  return message_manager.get();
-}
-
-bool PreInitializeLogHandler(int severity,
-                             const char* file,
-                             int line,
-                             size_t message_start,
-                             const std::string& message) {
-  GetLogMessageManager()->AddDeferredMessage(severity,
-                                             message.substr(0, message_start),
-                                             message.substr(message_start));
-  return false;
-}
-
-bool PostInitializeLogHandler(int severity,
-                              const char* file,
-                              int line,
-                              size_t message_start,
-                              const std::string& message) {
-  GetLogMessageManager()->RouteMessage(severity,
-                                       message.substr(0, message_start),
-                                       message.substr(message_start));
-  return false;
-}
 
 bool IsAcceleratedJpegDecodeSupported() {
 #if BUILDFLAG(IS_CHROMEOS)
@@ -349,10 +212,10 @@ GpuServiceImpl::GpuServiceImpl(
           features::kClearGrShaderDiskCacheOnInvalidPrefix)) {
   DCHECK(!io_runner_->BelongsToCurrentThread());
 
-#if BUILDFLAG(IS_CHROMEOS) && BUILDFLAG(USE_CHROMEOS_MEDIA_ACCELERATION)
+#if BUILDFLAG(IS_CHROMEOS) && BUILDFLAG(USE_LINUX_VIDEO_ACCELERATION)
   protected_buffer_manager_ = new arc::ProtectedBufferManager();
 #endif  // BUILDFLAG(IS_CHROMEOS) &&
-        // BUILDFLAG(USE_CHROMEOS_MEDIA_ACCELERATION)
+        // BUILDFLAG(USE_LINUX_VIDEO_ACCELERATION)
 
 #if BUILDFLAG(ENABLE_VULKAN)
   if (vulkan_implementation_) {
@@ -448,8 +311,9 @@ GpuServiceImpl::~GpuServiceImpl() {
 
   bind_task_tracker_.TryCancelAll();
 
-  if (!in_host_process())
-    GetLogMessageManager()->ShutdownLogging();
+  if (!in_host_process()) {
+    GpuLogMessageManager::GetInstance()->ShutdownLogging();
+  }
 
 #if BUILDFLAG(IS_WIN)
   gl::DirectCompositionOverlayCapsMonitor::GetInstance()->RemoveObserver(this);
@@ -650,6 +514,11 @@ void GpuServiceImpl::InitializeWithHostInternal(
   shutdown_event_ = shutdown_event;
 
   mojo::Remote<mojom::GpuHost> gpu_host(std::move(pending_gpu_host));
+
+#if BUILDFLAG(IS_LINUX)
+  gpu_extra_info_.is_gmb_nv12_supported = IsGMBNV12Supported();
+#endif
+
   gpu_host->DidInitialize(gpu_info_, gpu_feature_info_,
                           gpu_info_for_hardware_gpu_,
                           gpu_feature_info_for_hardware_gpu_, gpu_extra_info_);
@@ -658,8 +527,9 @@ void GpuServiceImpl::InitializeWithHostInternal(
     // The global callback is reset from the dtor. So Unretained() here is safe.
     // Note that the callback can be called from any thread. Consequently, the
     // callback cannot use a WeakPtr.
-    GetLogMessageManager()->InstallPostInitializeLogHandler(base::BindRepeating(
-        &GpuServiceImpl::RecordLogMessage, base::Unretained(this)));
+    GpuLogMessageManager::GetInstance()->InstallPostInitializeLogHandler(
+        base::BindRepeating(&GpuServiceImpl::RecordLogMessage,
+                            base::Unretained(this)));
   }
 
   // Defer creation of the render thread. This is to prevent it from handling
@@ -732,16 +602,6 @@ scoped_refptr<gpu::SharedContextState> GpuServiceImpl::GetContextState() {
   return gpu_channel_manager_->GetSharedContextState(&result);
 }
 
-// static
-void GpuServiceImpl::InstallPreInitializeLogHandler() {
-  GetLogMessageManager()->InstallPreInitializeLogHandler();
-}
-
-// static
-void GpuServiceImpl::FlushPreInitializeLogMessages(mojom::GpuHost* gpu_host) {
-  GetLogMessageManager()->FlushMessages(gpu_host);
-}
-
 void GpuServiceImpl::SetVisibilityChangedCallback(
     VisibilityChangedCallback callback) {
   DCHECK(main_runner_->BelongsToCurrentThread());
@@ -756,7 +616,7 @@ void GpuServiceImpl::RecordLogMessage(int severity,
 }
 
 #if BUILDFLAG(IS_CHROMEOS)
-#if BUILDFLAG(USE_CHROMEOS_MEDIA_ACCELERATION)
+#if BUILDFLAG(USE_LINUX_VIDEO_ACCELERATION)
 void GpuServiceImpl::CreateArcVideoDecodeAccelerator(
     mojo::PendingReceiver<arc::mojom::VideoDecodeAccelerator> vda_receiver) {
   DCHECK(io_runner_->BelongsToCurrentThread());
@@ -820,11 +680,9 @@ void GpuServiceImpl::CreateArcVideoDecodeAcceleratorOnMainThread(
 void GpuServiceImpl::CreateArcVideoDecoderOnMainThread(
     mojo::PendingReceiver<arc::mojom::VideoDecoder> vd_receiver) {
   DCHECK(main_runner_->BelongsToCurrentThread());
-#if BUILDFLAG(USE_VAAPI) || BUILDFLAG(USE_V4L2_CODEC)
   mojo::MakeSelfOwnedReceiver(
       std::make_unique<arc::GpuArcVideoDecoder>(protected_buffer_manager_),
       std::move(vd_receiver));
-#endif
 }
 
 void GpuServiceImpl::CreateArcVideoEncodeAcceleratorOnMainThread(
@@ -858,7 +716,7 @@ void GpuServiceImpl::CreateArcProtectedBufferManagerOnMainThread(
           protected_buffer_manager_),
       std::move(pbm_receiver));
 }
-#endif  // BUILDFLAG(USE_CHROMEOS_MEDIA_ACCELERATION)
+#endif  // BUILDFLAG(USE_LINUX_VIDEO_ACCELERATION)
 
 void GpuServiceImpl::CreateJpegDecodeAccelerator(
     mojo::PendingReceiver<chromeos_camera::mojom::MjpegDecodeAccelerator>
@@ -956,66 +814,12 @@ void GpuServiceImpl::BindWebNNContextProvider(
     // `client_id` in order to support memory metrics.
     webnn_context_provider_ = webnn::WebNNContextProviderImpl::Create(
         std::move(shared_context_state), gpu_feature_info_, gpu_info_,
-        base::BindOnce(&GpuServiceImpl::LoseAllContexts, weak_ptr_));
+        base::BindOnce(&GpuServiceImpl::LoseAllContexts, weak_ptr_),
+        main_runner(), GetGpuScheduler(), client_id);
   }
 
   webnn_context_provider_->BindWebNNContextProvider(
       std::move(pending_receiver));
-}
-
-void GpuServiceImpl::CreateGpuMemoryBuffer(
-    gfx::GpuMemoryBufferId id,
-    const gfx::Size& size,
-    gfx::BufferFormat format,
-    gfx::BufferUsage usage,
-    int client_id,
-    gpu::SurfaceHandle surface_handle,
-    CreateGpuMemoryBufferCallback callback) {
-  // This needs to happen in the IO thread.
-  DCHECK(io_runner_->BelongsToCurrentThread());
-
-  // Create a native buffer handle if supported.
-  if (IsNativeBufferSupported(format, usage)) {
-    gpu_memory_buffer_factory_->CreateGpuMemoryBufferAsync(
-        id, size, format, usage, client_id, surface_handle,
-        std::move(callback));
-    return;
-  }
-
-  // Otherwise, create a shared memory handle if supported.
-  if (gpu::GpuMemoryBufferImplSharedMemory::IsUsageSupported(usage) &&
-      gpu::GpuMemoryBufferImplSharedMemory::IsSizeValidForFormat(size,
-                                                                 format)) {
-    gfx::GpuMemoryBufferHandle shm_handle;
-    shm_handle = gpu::GpuMemoryBufferImplSharedMemory::CreateGpuMemoryBuffer(
-        id, size, format, usage);
-    std::move(callback).Run(std::move(shm_handle));
-    return;
-  }
-
-  // By default, return a null handle.
-  std::move(callback).Run(gfx::GpuMemoryBufferHandle());
-}
-
-void GpuServiceImpl::DestroyGpuMemoryBuffer(gfx::GpuMemoryBufferId id,
-                                            int client_id) {
-  if (!main_runner_->BelongsToCurrentThread()) {
-    main_runner_->PostTask(
-        FROM_HERE, base::BindOnce(&GpuServiceImpl::DestroyGpuMemoryBuffer,
-                                  weak_ptr_, id, client_id));
-    return;
-  }
-  gpu_channel_manager_->DestroyGpuMemoryBuffer(id, client_id);
-}
-
-void GpuServiceImpl::CopyGpuMemoryBuffer(
-    gfx::GpuMemoryBufferHandle buffer_handle,
-    base::UnsafeSharedMemoryRegion shared_memory,
-    CopyGpuMemoryBufferCallback callback) {
-  DCHECK(io_runner_->BelongsToCurrentThread());
-  std::move(callback).Run(
-      gpu_memory_buffer_factory_->FillSharedMemoryRegionWithBufferContents(
-          std::move(buffer_handle), std::move(shared_memory)));
 }
 
 void GpuServiceImpl::GetVideoMemoryUsageStats(
@@ -1547,6 +1351,32 @@ bool GpuServiceImpl::OnBeginFrameDerivedImpl(const BeginFrameArgs& args) {
   return true;
 }
 
+#if BUILDFLAG(IS_LINUX)
+bool GpuServiceImpl::IsGMBNV12Supported() {
+  CHECK(main_runner_->BelongsToCurrentThread());
+  auto buffer_format = gfx::BufferFormat::YUV_420_BIPLANAR;
+  auto buffer_usage = gfx::BufferUsage::GPU_READ_CPU_READ_WRITE;
+
+  if (!IsNativeBufferSupported(buffer_format, buffer_usage)) {
+    return false;
+  }
+  auto size = gfx::Size(2, 2);
+
+  // Note that |gmb_id| and |client_id| does not matter here as this is the
+  // first GMB which will created and immediately destroyed.
+  auto gmb_id = gfx::GpuMemoryBufferId(
+      static_cast<int>(gpu::MappableSIClientGmbId::kGpuServiceImpl));
+  auto client_id = gpu::kMappableSIClientId;
+  auto gmb_handle = gpu_memory_buffer_factory_->CreateGpuMemoryBuffer(
+      gmb_id, size, /*framebuffer_size=*/size, buffer_format, buffer_usage,
+      client_id, gpu::kNullSurfaceHandle);
+
+  // Destroy the gmb_handle since it will be no longer needed.
+  gpu_memory_buffer_factory_->DestroyGpuMemoryBuffer(gmb_id, client_id);
+  return !gmb_handle.is_null();
+}
+#endif
+
 void GpuServiceImpl::OnBeginFrameSourcePausedChanged(bool paused) {}
 
 void GpuServiceImpl::OnBeginFrameOnIO(const BeginFrameArgs& args) {
@@ -1668,40 +1498,26 @@ void GpuServiceImpl::GetDawnInfo(bool collect_metrics,
                      collect_metrics, std::move(callback)));
 }
 
-BASE_FEATURE(kPauseWatchdogDuringDawnInfoCollection,
-             "PauseWatchdogDuringDawnInfoCollection",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-BASE_FEATURE(kEnableDawnInfoCollectionWatchdogReportOnlyMode,
-             "EnableDawnInfoCollectionWatchdogReportOnlyMode",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
 void GpuServiceImpl::GetDawnInfoOnMain(bool collect_metrics,
                                        GetDawnInfoCallback callback) {
   DCHECK(main_runner_->BelongsToCurrentThread());
-  static const bool pause_watchdog =
-      base::FeatureList::IsEnabled(kPauseWatchdogDuringDawnInfoCollection);
-  static const bool report_only_mode = base::FeatureList::IsEnabled(
-      kEnableDawnInfoCollectionWatchdogReportOnlyMode);
 
   std::vector<std::string> dawn_info_list;
   // Pause the watchdog around Dawn info collection since it is known to be
   // slow loading GPU drivers.
-  if (watchdog_thread_ && pause_watchdog) {
+  if (watchdog_thread_) {
     watchdog_thread_->PauseWatchdog();
   }
 
-  if (report_only_mode) {
+  // Don't collect metrics if gpu watchdog is still running. Otherwise fast
+  // timings will be recorded, and very-slow timings will crash and not
+  // record, skewing the results.
+  {
     SCOPED_UMA_HISTOGRAM_TIMER("GPU.Dawn.InfoCollectionTimeMS");
-    gpu::CollectDawnInfo(gpu_preferences_, collect_metrics, &dawn_info_list);
-  } else {
-    // Don't collect metrics if not in report only mode. Otherwise fast timings
-    // will be recorded, and very-slow timings will crash and not record,
-    // skewing the results.
     gpu::CollectDawnInfo(gpu_preferences_, collect_metrics, &dawn_info_list);
   }
 
-  if (watchdog_thread_ && pause_watchdog) {
+  if (watchdog_thread_) {
     watchdog_thread_->ResumeWatchdog();
   }
 

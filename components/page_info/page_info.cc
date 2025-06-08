@@ -32,6 +32,7 @@
 #include "components/content_settings/core/common/content_settings_pattern.h"
 #include "components/content_settings/core/common/content_settings_types.h"
 #include "components/content_settings/core/common/content_settings_utils.h"
+#include "components/content_settings/core/common/cookie_controls_state.h"
 #include "components/content_settings/core/common/features.h"
 #include "components/page_info/page_info_delegate.h"
 #include "components/page_info/page_info_ui.h"
@@ -363,17 +364,14 @@ PageInfo::~PageInfo() {
 #endif
 }
 
-void PageInfo::OnStatusChanged(bool controls_visible,
-                               bool protections_on,
+void PageInfo::OnStatusChanged(CookieControlsState controls_state,
                                CookieControlsEnforcement enforcement,
                                CookieBlocking3pcdStatus blocking_status,
                                base::Time expiration) {
-  if (controls_visible_ != controls_visible ||
-      protections_on_ != protections_on || enforcement != enforcement_ ||
+  if (controls_state_ != controls_state || enforcement != enforcement_ ||
       blocking_status != blocking_status_ ||
       expiration != cookie_exception_expiration_) {
-    controls_visible_ = controls_visible;
-    protections_on_ = protections_on;
+    controls_state_ = controls_state;
     enforcement_ = enforcement;
     blocking_status_ = blocking_status;
     cookie_exception_expiration_ = expiration;
@@ -382,11 +380,18 @@ void PageInfo::OnStatusChanged(bool controls_visible,
 }
 
 void PageInfo::OnThirdPartyToggleClicked(bool block_third_party_cookies) {
-  DCHECK(controls_visible_);
+  DCHECK(controls_state_ != CookieControlsState::kHidden);
   RecordPageInfoAction(block_third_party_cookies
                            ? page_info::PAGE_INFO_COOKIES_BLOCKED_FOR_SITE
                            : page_info::PAGE_INFO_COOKIES_ALLOWED_FOR_SITE);
   controller_->OnCookieBlockingEnabledForSite(block_third_party_cookies);
+  show_info_bar_ = true;
+}
+
+void PageInfo::OnTrackingProtectionButtonPressed(bool pause_protections) {
+  DCHECK(controls_state_ != CookieControlsState::kHidden);
+  // TODO(crbug.com/388294499): Add metrics for toggling tracking protections.
+  controller_->OnTrackingProtectionsChangedForSite(pause_protections);
   show_info_bar_ = true;
 }
 
@@ -806,6 +811,15 @@ void PageInfo::OpenCookiesSettingsView() {
 #else
   RecordPageInfoAction(page_info::PAGE_INFO_COOKIES_SETTINGS_OPENED);
   delegate_->ShowCookiesSettings();
+#endif
+}
+
+void PageInfo::OpenIncognitoSettingsView() {
+#if BUILDFLAG(IS_ANDROID)
+  NOTREACHED();
+#else
+  // TODO(crbug.com/388294499): Add metrics for recording settings clicks.
+  delegate_->ShowIncognitoSettings();
 #endif
 }
 
@@ -1523,9 +1537,7 @@ void PageInfo::PresentSiteDataInternal(base::OnceClosure done) {
     cookies_info.rws_info->is_managed = delegate_->IsRwsManaged(site_url_);
   }
 #endif
-
-  cookies_info.controls_visible = controls_visible_;
-  cookies_info.protections_on = protections_on_;
+  cookies_info.controls_state = controls_state_;
   cookies_info.enforcement = enforcement_;
   cookies_info.blocking_status = blocking_status_;
   cookies_info.expiration = cookie_exception_expiration_;

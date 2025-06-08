@@ -33,13 +33,6 @@ declare_args() {
   #   (including `//base`, `//net`, etc.)
   enable_rust = build_with_chromium
 
-  # The CXX tool is in //third_party/rust which is not shared with downstream
-  # projects yet. So they need to copy the required dependencies and GN files
-  # into their project to enable CXX there.
-  #
-  # We do not support disabling this flag in Chromium code.
-  enable_rust_cxx = build_with_chromium
-
   # The chromium prelude crate provides the `chromium::import!` macro which
   # is needed to depend on first-party rust libraries. Third-party libraries
   # are specified with cargo_crate and do not get imported through this macro.
@@ -102,6 +95,16 @@ declare_args() {
   # a platform. Mostly applicable to Windows, where new versions can handle ANSI
   # escape sequences but it's not reliable in general.
   force_rustc_color_output = false
+}
+
+declare_args() {
+  # The CXX tool is in //third_party/rust which is not shared with downstream
+  # projects yet. So they need to copy the required dependencies and GN files
+  # into their project to enable CXX there.
+  #
+  # Currently, cxx is needed to use Rust with an allocator since the Chromium
+  # allocator shim uses cxx
+  enable_rust_cxx = enable_rust
 }
 
 # Use the Rust toolchain built in-tree. When false, we use the prebuilt Rust
@@ -222,6 +225,15 @@ if (is_linux || is_chromeos) {
     }
   } else if (current_cpu == "riscv64") {
     rust_abi_target = "riscv64gc-unknown-linux-gnu"
+    cargo_target_abi = ""
+  } else if (current_cpu == "ppc64") {
+    rust_abi_target = "powerpc64le-unknown-linux-gnu"
+    cargo_target_abi = ""
+  } else if (current_cpu == "s390x") {
+    rust_abi_target = "s390x-unknown-linux-gnu"
+    cargo_target_abi = ""
+  } else if (current_cpu == "loong64") {
+    rust_abi_target = "loongarch64-unknown-linux-gnu"
     cargo_target_abi = ""
   } else {
     # Best guess for other future platforms.
@@ -361,7 +373,22 @@ if (is_linux || is_chromeos) {
   }
 }
 
-assert(!toolchain_has_rust || rust_abi_target != "")
+if (toolchain_has_rust) {
+  assert(rust_abi_target != "")
+
+  _known_rust_target_triples_filepath = "//build/rust/known-target-triples.txt"
+  _is_rust_abi_target_a_known_triple = false
+  _known_rust_target_triples_ =
+      read_file(_known_rust_target_triples_filepath, "list lines")
+  foreach(_known_triple, _known_rust_target_triples_) {
+    if (_known_triple == rust_abi_target) {
+      _is_rust_abi_target_a_known_triple = true
+    }
+  }
+  assert(_is_rust_abi_target_a_known_triple,
+         "`${rust_abi_target}` needs to be added to " +
+             "`//${_known_rust_target_triples_filepath}`")
+}
 
 # This variable is passed to the Rust libstd build.
 rust_target_arch = ""
@@ -385,6 +412,8 @@ if (current_cpu == "x86") {
   rust_target_arch = "powerpc64"
 } else if (current_cpu == "riscv64") {
   rust_target_arch = "riscv64"
+} else if (current_cpu == "loong64") {
+  rust_target_arch = "loongarch64"
 }
 
 assert(!toolchain_has_rust || rust_target_arch != "")

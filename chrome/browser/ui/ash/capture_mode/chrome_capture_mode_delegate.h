@@ -19,10 +19,10 @@
 #include "chrome/browser/lens/core/mojom/overlay_object.mojom.h"
 #include "chrome/browser/lens/core/mojom/text.mojom.h"
 #include "chrome/browser/screen_ai/public/optical_character_recognizer.h"
-#include "chrome/browser/ui/ash/capture_mode/lens_overlay_query_controller.h"
 #include "chromeos/ash/components/drivefs/mojom/drivefs.mojom-forward.h"
 #include "components/drive/file_errors.h"
 #include "components/lens/proto/server/lens_overlay_response.pb.h"
+#include "components/signin/public/identity_manager/primary_account_access_token_fetcher.h"
 #include "services/data_decoder/public/cpp/data_decoder.h"
 #include "services/screen_ai/public/mojom/screen_ai_service.mojom-forward.h"
 #include "third_party/lens_server_proto/lens_overlay_service_deps.pb.h"
@@ -34,10 +34,6 @@ class PrefService;
 namespace screen_ai {
 class OpticalCharacterRecognizer;
 }  // namespace screen_ai
-
-namespace lens {
-class LensOverlayQueryController;
-}  // namespace lens
 
 // Implements the interface needed for the delegate of the Capture Mode feature
 // in Chrome.
@@ -72,6 +68,7 @@ class ChromeCaptureModeDelegate : public ash::CaptureModeDelegate {
   void OpenScreenshotInImageEditor(const base::FilePath& file_path) override;
   bool Uses24HourFormat() const override;
   void CheckCaptureModeInitRestrictionByDlp(
+      bool shutting_down,
       ash::OnCaptureModeDlpRestrictionChecked callback) override;
   void CheckCaptureOperationRestrictionByDlp(
       const aura::Window* window,
@@ -130,14 +127,6 @@ class ChromeCaptureModeDelegate : public ash::CaptureModeDelegate {
       ash::OnSearchUrlFetchedCallback search_callback,
       ash::OnTextDetectionComplete text_callback,
       base::OnceCallback<void()> error_callback) override;
-  void SendRegionSearch(const SkBitmap& image,
-                        const gfx::Rect& region,
-                        ash::OnSearchUrlFetchedCallback search_callback,
-                        ash::OnTextDetectionComplete text_callback) override;
-  void SendMultimodalSearch(const SkBitmap& image,
-                            const gfx::Rect& region,
-                            const std::string& text,
-                            ash::OnSearchUrlFetchedCallback callback) override;
   bool IsNetworkConnectionOffline() const override;
   void DeleteRemoteFile(const base::FilePath& path,
                         base::OnceCallback<void(bool)> callback) override;
@@ -280,8 +269,6 @@ class ChromeCaptureModeDelegate : public ash::CaptureModeDelegate {
 
   std::unique_ptr<signin::PrimaryAccountAccessTokenFetcher>
       primary_account_token_fetcher_;
-
-  std::unique_ptr<LensOverlayQueryController> lens_overlay_query_controller_;
 
   std::list<std::unique_ptr<const network::SimpleURLLoader>>
       uploads_in_progress_;

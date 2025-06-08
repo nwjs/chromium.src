@@ -198,6 +198,35 @@
     runTest(configuration, /* is_key_system_specified= */ true);
 }
 
+function testVideoConfigWithKeySystem(
+  keySystem,
+  queryType,
+  contentType) {
+    // Clear previous test result from title.
+    document.title = '';
+
+    log("Testing video content type: " + contentType +
+        ", key system: " + keySystem);
+
+    const configuration = {
+        type: queryType,
+        video: {
+            contentType: contentType,
+
+            // Any reasonable value will do.
+            width: 1920,
+            height: 1080,
+            bitrate: 3382000,
+            framerate: 24
+        },
+        keySystemConfiguration: {
+            keySystem: keySystem
+        },
+    };
+
+    runTest(configuration, /* is_key_system_specified= */ true);
+}
+
 function testAudioConfigWithKeySystem(
   keySystem,
   queryType,
@@ -219,6 +248,33 @@ function testAudioConfigWithKeySystem(
     };
 
     runTest(configuration, /* is_key_system_specified= */ true);
+}
+
+function testAudioAndVideoConfig(audioContentType, queryType, videoContentType) {
+  // Clear previous test result from title.
+  document.title = '';
+
+  log("Testing combined audio/video configuration:");
+  log("- Video content type: " + videoContentType);
+  log("- Audio content type: " + audioContentType);
+
+  const configuration = {
+    type: queryType,
+    video: {
+      contentType: videoContentType,
+
+      // Any reasonable value will do.
+      width: 640,
+      height: 480,
+      bitrate: 10000,
+      framerate: 30
+    },
+    audio: {
+      contentType: audioContentType
+    }
+  };
+
+  runTest(configuration);
 }
 
 </script>

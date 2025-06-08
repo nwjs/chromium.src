@@ -169,6 +169,7 @@
 #include "chrome/browser/metrics/chromeos_family_link_user_metrics_provider.h"
 #include "chrome/browser/metrics/chromeos_metrics_provider.h"
 #include "chrome/browser/metrics/chromeos_system_profile_provider.h"
+#include "chrome/browser/metrics/class_management_enabled_metrics_provider.h"
 #include "chrome/browser/metrics/cros_healthd_metrics_provider.h"
 #include "chrome/browser/metrics/cros_pre_consent_metrics_manager.h"
 #include "chrome/browser/metrics/family_user_metrics_provider.h"
@@ -485,7 +486,7 @@ void UpdateMetricsServicesForPerUser(bool enabled) {
   g_browser_process->local_state()->SetBoolean(
       metrics::prefs::kMetricsReportingEnabled, enabled);
 
-  g_browser_process->GetMetricsServicesManager()->UpdateUploadPermissions(true);
+  g_browser_process->GetMetricsServicesManager()->UpdateUploadPermissions();
 }
 #endif
 
@@ -944,6 +945,11 @@ void ChromeMetricsServiceClient::RegisterMetricsServiceProviders() {
           ::features::kK12AgeClassificationMetricsProvider)) {
     metrics_service_->RegisterMetricsProvider(
         std::make_unique<K12AgeClassificationMetricsProvider>());
+  }
+  if (base::FeatureList::IsEnabled(
+          ::features::kClassManagementEnabledMetricsProvider)) {
+    metrics_service_->RegisterMetricsProvider(
+        std::make_unique<ClassManagementEnabledMetricsProvider>());
   }
 
 #endif  // BUILDFLAG(IS_CHROMEOS)

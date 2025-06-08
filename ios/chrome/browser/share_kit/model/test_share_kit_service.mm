@@ -23,6 +23,7 @@
 #import "ios/chrome/browser/share_kit/model/share_kit_read_configuration.h"
 #import "ios/chrome/browser/share_kit/model/share_kit_share_group_configuration.h"
 #import "ios/chrome/browser/share_kit/model/test_constants.h"
+#import "ios/chrome/browser/share_kit/model/test_share_kit_avatar_primitive.h"
 #import "ios/chrome/browser/shared/model/web_state_list/tab_group.h"
 #import "ios/chrome/browser/signin/model/fake_system_identity.h"
 #import "ios/chrome/test/app/sync_test_util.h"
@@ -108,7 +109,7 @@ TestShareKitService::TestShareKitService(
   if (data_sharing_service_) {
     std::unique_ptr<data_sharing::DataSharingUIDelegateIOS> ui_delegate =
         std::make_unique<data_sharing::DataSharingUIDelegateIOS>(
-            this, collaboration_service, tab_group_service);
+            this, collaboration_service);
     data_sharing_service_->SetUIDelegate(std::move(ui_delegate));
 
     std::unique_ptr<data_sharing::DataSharingSDKDelegateIOS> sdk_delegate =
@@ -127,7 +128,11 @@ void TestShareKitService::PrimaryAccountChanged() {
   // No-op for testing.
 }
 
-void TestShareKitService::CancelSession(NSString* session_id) {}
+void TestShareKitService::CancelSession(NSString* session_id) {
+  [presented_view_controller_.presentingViewController
+      dismissViewControllerAnimated:NO
+                         completion:nil];
+}
 
 NSString* TestShareKitService::ShareTabGroup(
     ShareKitShareGroupConfiguration* config) {
@@ -153,6 +158,8 @@ NSString* TestShareKitService::ShareTabGroup(
   [config.baseViewController presentViewController:navController
                                           animated:NO
                                         completion:nil];
+  // Keep a weak link to potentially dismiss it.
+  presented_view_controller_ = navController;
   return @"sharedFlow";
 }
 
@@ -168,6 +175,8 @@ NSString* TestShareKitService::ManageTabGroup(
   [config.baseViewController presentViewController:navController
                                           animated:NO
                                         completion:nil];
+  // Keep a weak link to potentially dismiss it.
+  presented_view_controller_ = navController;
   return @"manageFlow";
 }
 
@@ -191,6 +200,8 @@ NSString* TestShareKitService::JoinTabGroup(ShareKitJoinConfiguration* config) {
   [config.baseViewController presentViewController:navController
                                           animated:NO
                                         completion:nil];
+  // Keep a weak link to potentially dismiss it.
+  presented_view_controller_ = navController;
   return @"joinFlow";
 }
 
@@ -282,8 +293,7 @@ void TestShareKitService::LookupGaiaIdByEmail(
 
 id<ShareKitAvatarPrimitive> TestShareKitService::AvatarImage(
     ShareKitAvatarConfiguration* config) {
-  // TODO(crbug.com/375366568): add fake implementation.
-  return nil;
+  return [[TestShareKitAvatarPrimitive alloc] init];
 }
 
 void TestShareKitService::Shutdown() {

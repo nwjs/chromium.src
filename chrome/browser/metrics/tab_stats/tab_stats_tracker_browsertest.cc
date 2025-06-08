@@ -13,13 +13,10 @@
 #include "base/location.h"
 #include "base/memory/raw_ptr.h"
 #include "base/test/metrics/histogram_tester.h"
+#include "build/android_buildflags.h"
 #include "build/build_config.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/browser_window.h"
-#include "chrome/browser/ui/tabs/tab_strip_model.h"
-#include "chrome/test/base/in_process_browser_test.h"
-#include "chrome/test/base/ui_test_utils.h"
+#include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/visibility.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/test/browser_test.h"
@@ -32,11 +29,25 @@
 #include "net/dns/mock_host_resolver.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "ui/base/page_transition_types.h"
+#include "url/gurl.h"
+#include "url/origin.h"
+
+#if BUILDFLAG(IS_ANDROID)
+#include "chrome/browser/android/tab_android.h"
+#include "chrome/browser/ui/android/tab_model/tab_model.h"
+#include "chrome/browser/ui/android/tab_model/tab_model_list.h"
+#include "chrome/browser/ui/android/tab_model/tab_model_test_helper.h"
+#include "chrome/test/base/android/android_browser_test.h"
+#else
+#include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_window.h"
+#include "chrome/test/base/in_process_browser_test.h"
 #include "ui/display/screen.h"
 #include "ui/gfx/geometry/rect.h"
 #include "ui/gfx/geometry/size.h"
 #include "ui/gfx/native_widget_types.h"
-#include "url/gurl.h"
+#endif
 
 namespace metrics {
 
@@ -73,6 +84,7 @@ class TestTabStatsObserver : public TabStatsObserver {
 };
 
 using TabsStats = TabStatsDataStore::TabsStats;
+using TabStripInterface = TabStatsTracker::TabStripInterface;
 using ::testing::_;
 using ::testing::AllOf;
 using ::testing::Ne;
@@ -89,9 +101,15 @@ void EnsureTabStatsMatchExpectations(
   EXPECT_EQ(expected.window_count_max, actual.window_count_max);
 }
 
+#if BUILDFLAG(IS_ANDROID)
+using PlatformBrowserTest = AndroidBrowserTest;
+#else
+using PlatformBrowserTest = InProcessBrowserTest;
+#endif
+
 }  // namespace
 
-class TabStatsTrackerBrowserTest : public InProcessBrowserTest {
+class TabStatsTrackerBrowserTest : public PlatformBrowserTest {
  public:
   struct HistogramStats {
     std::string name;
@@ -120,13 +138,132 @@ class TabStatsTrackerBrowserTest : public InProcessBrowserTest {
   void SetUpOnMainThread() override {
     tab_stats_tracker_ = TabStatsTracker::GetInstance();
     ASSERT_TRUE(tab_stats_tracker_ != nullptr);
+
+#if BUILDFLAG(IS_ANDROID)
+    ASSERT_FALSE(TabModelList::models().empty());
+    tab_strip_ = std::make_unique<TabStripInterface>(
+        TabModelList::models().front().get());
+
+    // The initial tab of the main TabModel will be in an inconsistent state,
+    // since its WebContents is created and navigates to an initial URL
+    // asynchronously. Wait for it to finish loading.
+    // TODO(crbug.com/412634171): Occasionally tests start with more than 1 tab
+    // in the TabModel. Find out why, and if it's a cause of flakes.
+    ASSERT_GE(tab_strip_->tab_model()->GetTabCount(), 1);
+    TabAndroidLoadedWaiter waiter(tab_strip_->tab_model()->GetTabAt(0));
+    ASSERT_TRUE(waiter.Wait());
+#else
+    ASSERT_TRUE(browser());
+    tab_strip_ = std::make_unique<TabStripInterface>(browser());
+#endif
   }
 
-  void TearDownOnMainThread() override { tab_stats_tracker_ = nullptr; }
+  void TearDownOnMainThread() override {
+    tab_strip_.reset();
+    tab_stats_tracker_ = nullptr;
+
+#if BUILDFLAG(IS_ANDROID)
+    extra_tab_models_.clear();
+#endif
+  }
+
+  TabStripInterface& tab_strip() { return *tab_strip_; }
 
   content::WebContents* GetWebContents() {
-    return browser()->tab_strip_model()->GetActiveWebContents();
+    return tab_strip().GetActiveWebContents();
   }
+
+  // Methods to manipulate Browser + TabStripModel (on desktop) or TabModel (on
+  // Android).
+
+#if BUILDFLAG(IS_ANDROID)
+
+  void NavigateNewTabToUrl(content::WebContents* contents, const GURL& url) {
+    // Navigate to `url` as a render-initiated navigation, so that it isn't
+    // considered a user interaction.
+    content::NavigationController::LoadURLParams load_params(url);
+    load_params.initiator_origin = url::Origin();
+    load_params.is_renderer_initiated = true;
+    content::NavigateToURLBlockUntilNavigationsComplete(contents, load_params,
+                                                        1);
+  }
+
+  bool AddTabToTabStrip(TabStripInterface& tab_strip,
+                        const GURL& url = GURL("about:blank")) {
+    content::WebContents* active_contents = tab_strip.GetActiveWebContents();
+    if (!active_contents) {
+      ADD_FAILURE() << "No active WebContents";
+      return false;
+    }
+
+    // Create the WebContents hidden so that there's no visibility notification
+    // until it's added to the tab strip.
+    content::WebContents::CreateParams create_params(tab_strip.GetProfile());
+    create_params.initially_hidden = true;
+    content::WebContents* new_contents =
+        content::WebContents::Create(create_params).release();
+
+    // CreateTab works with both OwningTestTabModel and the initial tab strip,
+    // which is a production TabModel.
+    tab_strip.tab_model()->CreateTab(
+        TabAndroid::FromWebContents(active_contents), new_contents,
+        /*select=*/true);
+
+    NavigateNewTabToUrl(new_contents, url);
+    return true;
+  }
+
+  std::unique_ptr<TabStripInterface> CreateTabStripInProfile(Profile* profile) {
+    extra_tab_models_.push_back(std::make_unique<OwningTestTabModel>(profile));
+    TabAndroid* new_tab = extra_tab_models_.back()->AddEmptyTab(0);
+    // Navigate the new tab to "about:blank" so that it has the same behaviour
+    // as CreateBrowser on desktop.
+    NavigateNewTabToUrl(new_tab->web_contents(), GURL("about:blank"));
+    return std::make_unique<TabStripInterface>(extra_tab_models_.back().get());
+  }
+
+  void CloseTabStrip(
+      std::unique_ptr<TabStripInterface> tab_strip,
+      const base::Location& location = base::Location::Current()) {
+    SCOPED_TRACE(location.ToString());
+    TabModel* tab_model = tab_strip->tab_model();
+    for (auto it = extra_tab_models_.begin(); it != extra_tab_models_.end();
+         ++it) {
+      if (it->get() == tab_model) {
+        // Destroy `tab_strip` before `tab_model` to avoid a dangling raw_ref.
+        tab_strip.reset();
+        extra_tab_models_.erase(it);
+        return;
+      }
+    }
+    FAIL() << "Can't close a tab strip the test didn't open";
+  }
+
+#else  // !BUILDFLAG(IS_ANDROID)
+
+  bool AddTabToTabStrip(TabStripInterface& tab_strip,
+                        const GURL& url = GURL("about:blank")) {
+    return AddTabAtIndexToBrowser(tab_strip.browser(), 1, url,
+                                  ui::PAGE_TRANSITION_TYPED);
+  }
+
+  std::unique_ptr<TabStripInterface> CreateTabStripInProfile(Profile* profile) {
+    return std::make_unique<TabStripInterface>(CreateBrowser(profile));
+  }
+
+  void CloseTabStrip(std::unique_ptr<TabStripInterface> tab_strip) {
+    Browser* browser = tab_strip->browser();
+    // Destroy `tab_strip` before `browser` to avoid a dangling raw_ref.
+    tab_strip.reset();
+    CloseBrowserSynchronously(browser);
+  }
+
+  void CloseMainTabStrip() {
+    CloseTabStrip(std::move(tab_strip_));
+    EXPECT_FALSE(tab_strip_);
+  }
+
+#endif  // !BUILDFLAG(IS_ANDROID)
 
   void EnsureTabDuplicateHistogramsMatchExpectations(
       DuplicateHistogramStats expected,
@@ -156,6 +293,12 @@ class TabStatsTrackerBrowserTest : public InProcessBrowserTest {
 
   raw_ptr<TabStatsTracker> tab_stats_tracker_{nullptr};
   std::vector<std::unique_ptr<TestTabStatsObserver>> test_tab_stats_observers_;
+
+  std::unique_ptr<TabStripInterface> tab_strip_;
+
+#if BUILDFLAG(IS_ANDROID)
+  std::vector<std::unique_ptr<OwningTestTabModel>> extra_tab_models_;
+#endif
 };
 
 IN_PROC_BROWSER_TEST_F(TabStatsTrackerBrowserTest,
@@ -198,7 +341,7 @@ IN_PROC_BROWSER_TEST_F(TabStatsTrackerBrowserTest,
   EnsureTabDuplicateHistogramsMatchExpectations(expected_histograms);
 
   // Add a tab and make sure that the counters get updated.
-  ASSERT_TRUE(AddTabAtIndex(1, GURL("about:blank"), ui::PAGE_TRANSITION_TYPED));
+  ASSERT_TRUE(AddTabToTabStrip(tab_strip()));
   ++expected_stats.total_tab_count;
   ++expected_stats.total_tab_count_max;
   ++expected_stats.max_tab_per_window;
@@ -212,7 +355,7 @@ IN_PROC_BROWSER_TEST_F(TabStatsTrackerBrowserTest,
       ->ReportTabDuplicateMetrics(false);
   EnsureTabDuplicateHistogramsMatchExpectations(expected_histograms);
 
-  browser()->tab_strip_model()->CloseWebContentsAt(1, 0);
+  tab_strip().CloseTabAtForTesting(1);
   --expected_stats.total_tab_count;
   ++expected_histograms.count_multi_window.buckets[0];
   ++expected_histograms.percentage_multi_window.buckets[0];
@@ -224,8 +367,9 @@ IN_PROC_BROWSER_TEST_F(TabStatsTrackerBrowserTest,
       ->ReportTabDuplicateMetrics(false);
   EnsureTabDuplicateHistogramsMatchExpectations(expected_histograms);
 
-  Browser* new_browser = CreateBrowser(browser()->profile());
-  ASSERT_TRUE(new_browser);
+  std::unique_ptr<TabStripInterface> new_tab_strip =
+      CreateTabStripInProfile(tab_strip().GetProfile());
+  ASSERT_TRUE(new_tab_strip);
   ++expected_stats.total_tab_count;
   ++expected_stats.window_count;
   ++expected_stats.window_count_max;
@@ -239,8 +383,7 @@ IN_PROC_BROWSER_TEST_F(TabStatsTrackerBrowserTest,
       ->ReportTabDuplicateMetrics(false);
   EnsureTabDuplicateHistogramsMatchExpectations(expected_histograms);
 
-  ASSERT_TRUE(AddTabAtIndexToBrowser(new_browser, 1, GURL("about:blank"),
-                                     ui::PAGE_TRANSITION_TYPED, true));
+  ASSERT_TRUE(AddTabToTabStrip(*new_tab_strip));
   ++expected_stats.total_tab_count;
   ++expected_stats.total_tab_count_max;
   expected_histograms.count_multi_window.buckets[2] = 1;
@@ -255,7 +398,7 @@ IN_PROC_BROWSER_TEST_F(TabStatsTrackerBrowserTest,
       ->ReportTabDuplicateMetrics(false);
   EnsureTabDuplicateHistogramsMatchExpectations(expected_histograms);
 
-  CloseBrowserSynchronously(new_browser);
+  CloseTabStrip(std::move(new_tab_strip));
   expected_stats.total_tab_count = 1;
   expected_stats.window_count = 1;
   ++expected_histograms.count_multi_window.buckets[0];
@@ -296,13 +439,13 @@ IN_PROC_BROWSER_TEST_F(TabStatsTrackerBrowserTest,
   EXPECT_EQ(first_observer->window_count(), expected_stats.window_count);
 
   // Add some tabs and windows to increase the counts.
-  Browser* new_browser = CreateBrowser(browser()->profile());
-  ASSERT_TRUE(new_browser);
+  std::unique_ptr<TabStripInterface> new_tab_strip =
+      CreateTabStripInProfile(tab_strip().GetProfile());
+  ASSERT_TRUE(new_tab_strip);
   ++expected_stats.total_tab_count;
   ++expected_stats.window_count;
 
-  ASSERT_TRUE(AddTabAtIndexToBrowser(new_browser, 1, GURL("about:blank"),
-                                     ui::PAGE_TRANSITION_TYPED, true));
+  ASSERT_TRUE(AddTabToTabStrip(*new_tab_strip));
   ++expected_stats.total_tab_count;
 
   test_tab_stats_observers_.push_back(std::make_unique<TestTabStatsObserver>());
@@ -359,7 +502,7 @@ IN_PROC_BROWSER_TEST_F(TabStatsTrackerBrowserTest,
   TestTabStatsObserver count_observer;
   tab_stats_tracker_->AddObserverAndSetInitialState(&count_observer);
 
-  auto* window1_tab1 = browser()->tab_strip_model()->GetWebContentsAt(0);
+  auto* window1_tab1 = tab_strip().GetWebContentsAt(0);
   ASSERT_TRUE(window1_tab1);
   EXPECT_EQ(content::Visibility::VISIBLE, window1_tab1->GetVisibility());
 
@@ -393,13 +536,22 @@ IN_PROC_BROWSER_TEST_F(TabStatsTrackerBrowserTest,
               OnPrimaryMainFrameNavigationCommitted(window2_tab1_matcher));
   EXPECT_CALL(mock_observer, OnTabVisibilityChanged(window2_tab1_matcher));
 
-  Browser* window2 = CreateBrowser(browser()->profile());
-  auto* window2_tab1 = window2->tab_strip_model()->GetWebContentsAt(0);
+  std::unique_ptr<TabStripInterface> window2 =
+      CreateTabStripInProfile(tab_strip().GetProfile());
+  auto* window2_tab1 = window2->GetWebContentsAt(0);
   ASSERT_TRUE(window2_tab1);
   EXPECT_EQ(content::Visibility::VISIBLE, window1_tab1->GetVisibility());
   EXPECT_EQ(content::Visibility::VISIBLE, window2_tab1->GetVisibility());
   ::testing::Mock::VerifyAndClear(&mock_observer);
 
+#if BUILDFLAG(IS_ANDROID)
+  // Can't move the windows around from within the test, so hide the first
+  // tab again to prevent occlusion. This doesn't work on all platforms because
+  // the desktop occlusion tracker may un-hide the tab.
+  EXPECT_CALL(mock_observer, OnTabVisibilityChanged(window1_tab1));
+  window1_tab1->WasHidden();
+  auto expected_window1_tab1_visibility = content::Visibility::HIDDEN;
+#else
   // Make sure that the 2 windows don't overlap to avoid some unexpected
   // visibility change events because one tab occludes the other.
   // This resizes the two windows so they're right next to each other.
@@ -410,7 +562,9 @@ IN_PROC_BROWSER_TEST_F(TabStatsTrackerBrowserTest,
   gfx::Rect browser_rect(work_area.origin(), size);
   browser()->window()->SetBounds(browser_rect);
   browser_rect.set_x(browser_rect.right());
-  window2->window()->SetBounds(browser_rect);
+  window2->browser()->window()->SetBounds(browser_rect);
+  auto expected_window1_tab1_visibility = content::Visibility::VISIBLE;
+#endif
 
   // Adding a tab to the second window will cause its previous frame to become
   // hidden.
@@ -421,12 +575,16 @@ IN_PROC_BROWSER_TEST_F(TabStatsTrackerBrowserTest,
   EXPECT_CALL(mock_observer,
               OnPrimaryMainFrameNavigationCommitted(window2_tab2_matcher));
   EXPECT_CALL(mock_observer, OnTabVisibilityChanged(window2_tab1));
+#if BUILDFLAG(IS_ANDROID)
+  // On Android a visibility notification will also be sent for the new tab. On
+  // desktop it starts already visible.
+  EXPECT_CALL(mock_observer, OnTabVisibilityChanged(window2_tab2_matcher));
+#endif
 
-  ASSERT_TRUE(AddTabAtIndexToBrowser(window2, 1, GURL("about:blank"),
-                                     ui::PAGE_TRANSITION_TYPED, true));
-  auto* window2_tab2 = window2->tab_strip_model()->GetWebContentsAt(1);
+  ASSERT_TRUE(AddTabToTabStrip(*window2));
+  auto* window2_tab2 = window2->GetWebContentsAt(1);
   ASSERT_TRUE(window2_tab2);
-  EXPECT_EQ(content::Visibility::VISIBLE, window1_tab1->GetVisibility());
+  EXPECT_EQ(expected_window1_tab1_visibility, window1_tab1->GetVisibility());
   EXPECT_EQ(content::Visibility::HIDDEN, window2_tab1->GetVisibility());
   EXPECT_EQ(content::Visibility::VISIBLE, window2_tab2->GetVisibility());
   ::testing::Mock::VerifyAndClear(&mock_observer);
@@ -434,8 +592,8 @@ IN_PROC_BROWSER_TEST_F(TabStatsTrackerBrowserTest,
   // Make sure that the visibility change events are properly forwarded.
   EXPECT_CALL(mock_observer, OnTabVisibilityChanged(window2_tab2));
   EXPECT_CALL(mock_observer, OnTabVisibilityChanged(window2_tab1));
-  window2->tab_strip_model()->ActivateTabAt(0);
-  EXPECT_EQ(content::Visibility::VISIBLE, window1_tab1->GetVisibility());
+  window2->ActivateTabAtForTesting(0);
+  EXPECT_EQ(expected_window1_tab1_visibility, window1_tab1->GetVisibility());
   EXPECT_EQ(content::Visibility::VISIBLE, window2_tab1->GetVisibility());
   EXPECT_EQ(content::Visibility::HIDDEN, window2_tab2->GetVisibility());
   ::testing::Mock::VerifyAndClear(&mock_observer);
@@ -444,20 +602,26 @@ IN_PROC_BROWSER_TEST_F(TabStatsTrackerBrowserTest,
   EXPECT_CALL(mock_observer, OnTabRemoved(window2_tab1));
   EXPECT_CALL(mock_observer, OnTabRemoved(window2_tab2));
   EXPECT_CALL(mock_observer, OnWindowRemoved());
-  CloseBrowserSynchronously(window2);
-  EXPECT_EQ(content::Visibility::VISIBLE, window1_tab1->GetVisibility());
+  CloseTabStrip(std::move(window2));
+  EXPECT_EQ(expected_window1_tab1_visibility, window1_tab1->GetVisibility());
   ::testing::Mock::VerifyAndClear(&mock_observer);
 
+#if BUILDFLAG(IS_ANDROID)
+  // Can't close the main TabModel, so there will be a tab remaining.
+  const size_t expected_window_count = 1;
+#else
   EXPECT_CALL(mock_observer, OnTabRemoved(window1_tab1));
   EXPECT_CALL(mock_observer, OnTabVisibilityChanged(window1_tab1));
   EXPECT_CALL(mock_observer, OnWindowRemoved());
-  CloseBrowserSynchronously(browser());
+  CloseMainTabStrip();
   ::testing::Mock::VerifyAndClear(&mock_observer);
+  const size_t expected_window_count = 0;
+#endif
 
   tab_stats_tracker_->RemoveObserver(&mock_observer);
   tab_stats_tracker_->RemoveObserver(&count_observer);
-  EXPECT_EQ(0U, count_observer.tab_count());
-  EXPECT_EQ(0U, count_observer.window_count());
+  EXPECT_EQ(expected_window_count, count_observer.tab_count());
+  EXPECT_EQ(expected_window_count, count_observer.window_count());
 }
 
 // TODO(crbug.com/40919431): Re-enable this test
@@ -471,7 +635,7 @@ IN_PROC_BROWSER_TEST_F(TabStatsTrackerBrowserTest, MAYBE_TabSwitch) {
   TestTabStatsObserver count_observer;
   tab_stats_tracker_->AddObserverAndSetInitialState(&count_observer);
 
-  auto* window1_tab1 = browser()->tab_strip_model()->GetWebContentsAt(0);
+  auto* window1_tab1 = tab_strip().GetWebContentsAt(0);
   ASSERT_TRUE(window1_tab1);
   EXPECT_EQ(content::Visibility::VISIBLE, window1_tab1->GetVisibility());
 
@@ -490,10 +654,14 @@ IN_PROC_BROWSER_TEST_F(TabStatsTrackerBrowserTest, MAYBE_TabSwitch) {
   EXPECT_CALL(mock_observer,
               OnPrimaryMainFrameNavigationCommitted(window1_tab2_matcher));
   EXPECT_CALL(mock_observer, OnTabVisibilityChanged(window1_tab1));
+#if BUILDFLAG(IS_ANDROID)
+  // On Android a visibility notification will also be sent for the new tab. On
+  // desktop it starts already visible.
+  EXPECT_CALL(mock_observer, OnTabVisibilityChanged(window1_tab2_matcher));
+#endif
 
-  ASSERT_TRUE(AddTabAtIndexToBrowser(browser(), 1, GURL("about:blank"),
-                                     ui::PAGE_TRANSITION_TYPED, true));
-  auto* window1_tab2 = browser()->tab_strip_model()->GetWebContentsAt(1);
+  ASSERT_TRUE(AddTabToTabStrip(tab_strip()));
+  auto* window1_tab2 = tab_strip().GetWebContentsAt(1);
   ASSERT_TRUE(window1_tab2);
   EXPECT_EQ(content::Visibility::HIDDEN, window1_tab1->GetVisibility());
   EXPECT_EQ(content::Visibility::VISIBLE, window1_tab2->GetVisibility());
@@ -505,7 +673,7 @@ IN_PROC_BROWSER_TEST_F(TabStatsTrackerBrowserTest, MAYBE_TabSwitch) {
     ::testing::InSequence s;
     EXPECT_CALL(mock_observer, OnTabVisibilityChanged(window1_tab2));
     EXPECT_CALL(mock_observer, OnTabVisibilityChanged(window1_tab1));
-    browser()->tab_strip_model()->ActivateTabAt(0);
+    tab_strip().ActivateTabAtForTesting(0);
     EXPECT_EQ(content::Visibility::VISIBLE, window1_tab1->GetVisibility());
     EXPECT_EQ(content::Visibility::HIDDEN, window1_tab2->GetVisibility());
     ::testing::Mock::VerifyAndClear(&mock_observer);
@@ -553,7 +721,7 @@ IN_PROC_BROWSER_TEST_F(TabStatsTrackerBrowserTest, AddObserverAudibleTab) {
   ASSERT_TRUE(embedded_test_server()->Start());
 
   // Open the test JS file in the only WebContents.
-  auto* web_contents = browser()->tab_strip_model()->GetWebContentsAt(0);
+  auto* web_contents = tab_strip().GetWebContentsAt(0);
   ASSERT_TRUE(web_contents);
   ASSERT_FALSE(web_contents->IsCurrentlyAudible());
   ASSERT_TRUE(content::NavigateToURL(
@@ -608,12 +776,22 @@ class TabStatsTrackerPrerenderBrowserTest : public TabStatsTrackerBrowserTest {
   content::test::PrerenderTestHelper prerender_helper_;
 };
 
+// TODO(crbug.com/412634171): On desktop Android, the prerender fails with error
+// kActivationNavigationParameterMismatch. Find out why.
+#if BUILDFLAG(IS_DESKTOP_ANDROID)
+#define MAYBE_PrerenderingShouldNotCallOnPrimaryMainFrameNavigationCommitted \
+  DISABLED_PrerenderingShouldNotCallOnPrimaryMainFrameNavigationCommitted
+#else
+#define MAYBE_PrerenderingShouldNotCallOnPrimaryMainFrameNavigationCommitted \
+  PrerenderingShouldNotCallOnPrimaryMainFrameNavigationCommitted
+#endif
 IN_PROC_BROWSER_TEST_F(
     TabStatsTrackerPrerenderBrowserTest,
-    PrerenderingShouldNotCallOnPrimaryMainFrameNavigationCommitted) {
+    MAYBE_PrerenderingShouldNotCallOnPrimaryMainFrameNavigationCommitted) {
   GURL initial_url = embedded_test_server()->GetURL("/empty.html");
   GURL prerender_url = embedded_test_server()->GetURL("/title1.html");
-  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), initial_url));
+  ASSERT_TRUE(GetWebContents());
+  ASSERT_TRUE(content::NavigateToURL(GetWebContents(), initial_url));
 
   std::unique_ptr<content::test::PrerenderHostObserver> host_observer;
 
@@ -679,7 +857,7 @@ IN_PROC_BROWSER_TEST_F(TabStatsTrackerSubFrameBrowserTest,
               OnPrimaryMainFrameNavigationCommitted(GetWebContents()))
       .Times(1);
   const GURL initial_url = embedded_test_server()->GetURL("/empty.html");
-  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), initial_url));
+  ASSERT_TRUE(content::NavigateToURL(GetWebContents(), initial_url));
   EXPECT_EQ(1U, count_observer.interaction_count());
   ::testing::Mock::VerifyAndClear(&mock_observer);
 

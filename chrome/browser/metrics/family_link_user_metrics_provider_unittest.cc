@@ -23,6 +23,7 @@
 #include "components/signin/public/identity_manager/account_info.h"
 #include "components/supervised_user/core/browser/supervised_user_preferences.h"
 #include "components/supervised_user/core/browser/supervised_user_service.h"
+#include "components/supervised_user/core/browser/supervised_user_sync_data_fake.h"
 #include "components/supervised_user/core/browser/supervised_user_url_filter.h"
 #include "components/supervised_user/core/browser/supervised_user_utils.h"
 #include "components/supervised_user/core/common/pref_names.h"
@@ -64,8 +65,17 @@ class FamilyLinkUserMetricsProviderTest : public testing::Test {
                                 bool is_subject_to_parental_controls,
                                 bool is_opted_in_to_parental_supervision) {
     Profile* profile = test_profile_manager()->CreateTestingProfile(
-        test_profile, IdentityTestEnvironmentProfileAdaptor::
-                          GetIdentityTestEnvironmentFactories());
+        test_profile, std::unique_ptr<sync_preferences::PrefServiceSyncable>(),
+        base::UTF8ToUTF16(test_profile), /*avatar_id=*/0,
+        IdentityTestEnvironmentProfileAdaptor::
+            GetIdentityTestEnvironmentFactories(),
+        /*is_supervised_profile=*/is_subject_to_parental_controls,
+        /*is_new_profile=*/std::nullopt,
+        /*policy_service=*/std::nullopt, /*shared_url_loader_factory=*/nullptr);
+
+    // Ensure that lazy service is loaded and available.
+    CHECK(SupervisedUserServiceFactory::GetForProfile(profile));
+
     AccountInfo account = signin::MakePrimaryAccountAvailable(
         IdentityManagerFactory::GetForProfile(profile), test_email,
         signin::ConsentLevel::kSignin);
@@ -98,10 +108,14 @@ class FamilyLinkUserMetricsProviderTest : public testing::Test {
   }
 
   void RestrictAllSitesForSupervisedUser(Profile* profile) {
-    supervised_user::SupervisedUserService* supervised_user_service =
-        SupervisedUserServiceFactory::GetForProfile(profile);
-    supervised_user_service->GetURLFilter()->SetDefaultFilteringBehavior(
-        supervised_user::FilteringBehavior::kBlock);
+    supervised_user::test::SupervisedUserSyncDataFake<
+        sync_preferences::TestingPrefServiceSyncable>
+        sync_data_fake(
+            *static_cast<sync_preferences::TestingPrefServiceSyncable*>(
+                profile->GetPrefs()));
+    sync_data_fake.Init();
+    sync_data_fake.SetWebFilterType(
+        supervised_user::WebFilterType::kCertainSites);
   }
 
   void AllowUnsafeSitesForSupervisedUser(Profile* profile) {

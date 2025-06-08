@@ -59,6 +59,9 @@ inline constexpr char kUpdateViewScreenStateUrlTemplate[] =
 inline constexpr char kStudentHeartbeatUrlTemplate[] =
     "v1/sessions/$1/students/$2/devices/$3:heartbeat?studentGroupId=$4";
 
+inline constexpr char kNotifyGetActiveSession[] =
+    "v1/teachers/$1/sessions/$2/students:notifyGetActiveSession";
+
 inline constexpr char kSessionId[] = "sessionId";
 inline constexpr char kTeacher[] = "teacher";
 inline constexpr char kRoster[] = "roster";
@@ -114,6 +117,8 @@ inline constexpr char kTeacherClientDevice[] = "teacherClientDevice";
 inline constexpr char kHostDevice[] = "hostDevice";
 inline constexpr char kSpotlightConnectionCode[] = "connectionCode";
 inline constexpr char kSpotlightConnectionParam[] = "connectionParam";
+inline constexpr char kViewScreenRequester[] = "viewScreenRequester";
+inline constexpr char kServiceAccount[] = "serviceAccount";
 inline constexpr char kStudentGroupId[] = "studentGroupId";
 inline constexpr char kViewScreenConfig[] = "viewScreenConfig";
 inline constexpr char kViewScreenState[] = "viewScreenState";

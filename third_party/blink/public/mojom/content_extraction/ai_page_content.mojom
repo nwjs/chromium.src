@@ -4,6 +4,7 @@
 
 module blink.mojom;
 
+import "ui/accessibility/ax_enums.mojom";
 import "third_party/blink/public/mojom/forms/form_control_type.mojom";
 import "third_party/blink/public/mojom/tokens/tokens.mojom";
 import "ui/gfx/geometry/mojom/geometry.mojom";
@@ -143,10 +144,6 @@ struct AIPageContentNodeInteractionInfo {
   // a clickable control (e.g. form control elements) or has activation
   // behavior. It also checks for whether the node has a click handler.
   bool is_clickable;
-
-  // If this node is a label associated with an input node, provides the
-  // dom_node_id for the corresponding input node.
-  int32 for_dom_node_id;
 
   // The z-order of the content node relative to other nodes in the same
   // Document. A higher value means the node is in front of other nodes with
@@ -310,6 +307,7 @@ struct AIPageContentSelectOption {
   string? value;
   string? text;
   bool is_selected;
+  bool disabled;
 };
 
 struct AIPageContentFormControlData {
@@ -383,6 +381,14 @@ struct AIPageContentAttributes {
   // A text description of the node. Only populated when actionable elements are
   // enabled.
   string? label;
+
+  // The role derived from `aria_role`. Only populated when actionable elements
+  // are enabled.
+  ax.mojom.Role? aria_role;
+
+  // If this node is a label associated with an input node, provides the
+  // dom_node_id for the corresponding input node.
+  int32? label_for_dom_node_id;
 };
 
 // A semantic chunk of information on a page. It can represent text, structured
