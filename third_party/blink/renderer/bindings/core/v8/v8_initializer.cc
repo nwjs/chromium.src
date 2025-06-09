@@ -119,6 +119,7 @@ extern VoidHookFn g_promise_reject_callback_fn;
 extern HostImportModuleFn g_host_import_module_fn;
 extern HostGetImportMetaFn g_host_get_import_meta_fn;
 extern GetNodeContextFn g_get_node_context_fn;
+extern IsNodeInitializedFn g_is_node_initialized_fn;
 
 namespace blink {
 
@@ -957,6 +958,8 @@ v8::MaybeLocal<v8::Promise> ChainImportModulesWithPhase(
     mode = ImportMode::NODE_FIRST;
   else if (base::FeatureList::IsEnabled(features::kNWChainImportDom))
     mode = ImportMode::DOM_FIRST;
+  if (!g_is_node_initialized_fn())
+    mode = ImportMode::DOM_ONLY;
   // Logic based on mode
   switch (mode) {
   case ImportMode::DOM_ONLY: {
