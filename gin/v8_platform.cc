@@ -218,6 +218,8 @@ std::shared_ptr<v8::TaskRunner> V8Platform::GetForegroundTaskRunner(
     v8::Isolate* isolate,
     v8::TaskPriority priority) {
   PerIsolateData* data = PerIsolateData::From(isolate);
+  if (!data) // NWJS#8266
+    return nullptr;
   switch (priority) {
     case v8::TaskPriority::kBestEffort:
       // blink::scheduler::TaskPriority::kLowPriority
