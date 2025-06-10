@@ -58,7 +58,7 @@ REMOTE_COCOA_APP_SHIM_EXPORT
 @property(strong, nonatomic) NSEvent* keyDownEventForTesting;
 
 // Used by g_force_cpu_draw
-@property(assign, nonatomic) CALayer* forceCPUDrawLayer;
+@property(weak, nonatomic) CALayer* forceCPUDrawLayer;
 
 // Initialize the NSView -> views::View bridge. |viewToHost| must be non-NULL.
 - (instancetype)initWithBridge:(remote_cocoa::NativeWidgetNSWindowBridge*)bridge
