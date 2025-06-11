@@ -2852,6 +2852,9 @@ if (!is_android) {
     if (is_mac) {
       deps += [ "//device/fido:icloud_keychain_test_support" ]
     }
+    if (is_win) {
+      deps += [ "//chrome/chrome_elf" ]
+    }
 
     if (enable_background_mode) {
       deps += [ "//chrome/browser/background/extensions:extensions" ]

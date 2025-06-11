@@ -79,6 +79,9 @@ class TestBrowserWindow : public BrowserWindow {
   SkRegion* GetDraggableRegion() override;
   void Show() override {}
   void ShowInactive() override {}
+#if defined(OS_WIN)
+  void SetPosition(const gfx::Point& pos) override;
+#endif
   void Hide() override {}
   bool IsVisible() const override;
   void SetBounds(const gfx::Rect& bounds) override {}

@@ -1147,15 +1147,19 @@ std::optional<int> ChromeMainDelegate::BasicStartupComplete() {
   if (args.size() > 0) {
     zip::ZipReader reader;
     base::FilePath fp(args[0]);
+    std::string node_dllname("node");
+    if (command_line.HasSwitch(switches::kNodeDllName)) {
+      node_dllname = command_line.GetSwitchValueASCII(switches::kNodeDllName);
+    }
     //LOG(WARNING) << "final extension: " << fp.FinalExtension();
     if (!command_line.HasSwitch(switches::kProcessType) && fp.FinalExtension() == FILE_PATH_LITERAL(".js") &&
         base::PathExists(fp) && !base::DirectoryExists(fp) && !reader.Open(fp)) {
       base::NativeLibraryLoadError error;
 #if defined(OS_MAC)
-      base::FilePath node_dll_path = base::apple::FrameworkBundlePath().Append(base::FilePath::FromUTF8Unsafe(base::GetNativeLibraryName("node")));
+      base::FilePath node_dll_path = base::apple::FrameworkBundlePath().Append(base::FilePath::FromUTF8Unsafe(base::GetNativeLibraryName(node_dllname)));
       std::string blob_path = base::apple::PathForFrameworkBundleResource(BUILDFLAG(V8_CONTEXT_SNAPSHOT_FILENAME)).AsUTF8Unsafe();
 #else
-      base::FilePath node_dll_path = base::FilePath::FromUTF8Unsafe(base::GetNativeLibraryName("node"));
+      base::FilePath node_dll_path = base::FilePath::FromUTF8Unsafe(base::GetNativeLibraryName(node_dllname));
 #endif
       base::NativeLibrary node_dll = base::LoadNativeLibrary(node_dll_path, &error);
       if(!node_dll)

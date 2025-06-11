@@ -353,6 +353,8 @@ const char kEnableIsolatedWebAppsInRenderer[] =
 // builds.
 const char kEnableLogging[]                 = "enable-logging";
 
+const char kNodeDllName[]  = "node-dllname";
+
 // Enables the type, downlinkMax attributes of the NetInfo API. Also, enables
 // triggering of change attribute of the NetInfo API when there is a change in
 // the connection type.

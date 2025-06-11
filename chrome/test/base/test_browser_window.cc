@@ -77,6 +77,11 @@ SkRegion* TestBrowserWindow::GetDraggableRegion() {
 
 TestBrowserWindow::~TestBrowserWindow() = default;
 
+#if defined(OS_WIN)
+void TestBrowserWindow::SetPosition(const gfx::Point& pos) {
+}
+#endif
+
 void TestBrowserWindow::Close() {
   if (close_callback_) {
     std::move(close_callback_).Run();
