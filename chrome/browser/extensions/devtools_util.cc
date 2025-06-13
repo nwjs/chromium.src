@@ -82,7 +82,8 @@ void InspectInactiveServiceWorkerBackground(const Extension* extension,
 void InspectBackgroundPage(const Extension* extension,
                            Profile* profile,
                            DevToolsOpenedByAction opened_by) {
-  DCHECK(extension);
+  if (!extension)
+    return;
   ExtensionHost* host = ProcessManager::Get(profile)
                             ->GetBackgroundHostForExtension(extension->id());
   if (host) {

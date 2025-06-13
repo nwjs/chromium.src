@@ -4640,6 +4640,8 @@ void RenderViewContextMenu::ExecRotateCCW() {
 
 void RenderViewContextMenu::ExecReloadPackagedApp() {
   const Extension* platform_app = GetExtension();
+  if (!platform_app)
+    return;
   DCHECK(platform_app);
   DCHECK(platform_app->is_platform_app());
 
@@ -4649,6 +4651,8 @@ void RenderViewContextMenu::ExecReloadPackagedApp() {
 
 void RenderViewContextMenu::ExecRestartPackagedApp() {
   const Extension* platform_app = GetExtension();
+  if (!platform_app)
+    return;
   DCHECK(platform_app);
   DCHECK(platform_app->is_platform_app());
 
