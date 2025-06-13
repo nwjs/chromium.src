@@ -139,8 +139,9 @@ bool IsPageContextEligible(
       !lens::features::UseApcAsContext()) {
     return true;
   }
-  return page_context_eligibility->api().IsPageContextEligible(
-      main_frame_url.host(), main_frame_url.path(), std::move(frame_metadata));
+  return optimization_guide::IsPageContextEligible(
+      main_frame_url.host(), main_frame_url.path(), std::move(frame_metadata),
+      page_context_eligibility);
 }
 
 }  // namespace
@@ -393,6 +394,11 @@ void LensSearchContextualizationController::UpdatePageContextualization(
     std::vector<lens::PageContent> page_contents,
     lens::MimeType primary_content_type,
     std::optional<uint32_t> page_count) {
+  // Exit early if the controller is off.
+  if(state_ == State::kOff) {
+    return;
+  }
+
   if (!lens::features::IsLensOverlayContextualSearchboxEnabled()) {
     std::move(on_page_context_updated_callback_).Run();
     return;

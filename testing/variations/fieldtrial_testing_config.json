@@ -3123,6 +3123,29 @@
             ]
         }
     ],
+    "BackgroundUpdateForRegisteredStorageKeys": [
+        {
+            "platforms": [
+                "android",
+                "android_webview",
+                "chromeos",
+                "chromeos_lacros",
+                "fuchsia",
+                "linux",
+                "mac",
+                "windows"
+            ],
+            "experiments": [
+                {
+                    "name": "BackgroundUpdateForRegisteredStorageKeys",
+                    "enable_features": [
+                        "ServiceWorkerBackgroundUpdateForRegisteredStorageKeys",
+                        "ServiceWorkerBackgroundUpdateForRegisteredStorageKeysFieldTrialControlled"
+                    ]
+                }
+            ]
+        }
+    ],
     "BatchNativeEventsInMessagePumpEpoll": [
         {
             "platforms": [
@@ -5194,6 +5217,24 @@
                     },
                     "enable_features": [
                         "LensOverlaySurvey"
+                    ]
+                }
+            ]
+        }
+    ],
+    "ClampAutoScaling": [
+        {
+            "platforms": [
+                "android"
+            ],
+            "experiments": [
+                {
+                    "name": "ClampAutoScaling",
+                    "params": {
+                        "max_automotive_scaling_percentage": "150"
+                    },
+                    "enable_features": [
+                        "ClampAutomotiveScaling"
                     ]
                 }
             ]
@@ -9536,7 +9577,6 @@
             "platforms": [
                 "android",
                 "android_weblayer",
-                "chromeos",
                 "linux",
                 "mac",
                 "windows"
@@ -9545,7 +9585,7 @@
                 {
                     "name": "SegmentationPlatform",
                     "enable_features": [
-                        "FedCmSegmentationPlatform"
+                        "SegmentationPlatformFedCmUser"
                     ]
                 }
             ]
@@ -19666,6 +19706,21 @@
             ]
         }
     ],
+    "RefreshTokenV3Feature": [
+        {
+            "platforms": [
+                "chromeos"
+            ],
+            "experiments": [
+                {
+                    "name": "Enabled",
+                    "enable_features": [
+                        "RefreshTokenV3Feature"
+                    ]
+                }
+            ]
+        }
+    ],
     "RegisterOsUpdateHandlerWin": [
         {
             "platforms": [
@@ -19692,6 +19747,21 @@
                     "enable_features": [
                         "CrOSLateBootRegmonPolicyMonitoringEnabled",
                         "NetworkAnnotationMonitoring"
+                    ]
+                }
+            ]
+        }
+    ],
+    "ReloadTabUiResourcesIfChanged": [
+        {
+            "platforms": [
+                "android"
+            ],
+            "experiments": [
+                {
+                    "name": "Enabled",
+                    "enable_features": [
+                        "ReloadTabUiResourcesIfChanged"
                     ]
                 }
             ]
@@ -26141,6 +26211,51 @@
             ]
         }
     ],
+    "WebViewCacheSizeLimitDerivedFromAppCacheQuota": [
+        {
+            "platforms": [
+                "android_webview"
+            ],
+            "experiments": [
+                {
+                    "name": "EnabledWithMultiplier5Percent",
+                    "params": {
+                        "WebViewCacheSizeLimitMultiplier": "0.05"
+                    },
+                    "enable_features": [
+                        "WebViewCacheSizeLimitDerivedFromAppCacheQuota"
+                    ]
+                },
+                {
+                    "name": "EnabledWithMultiplier10Percent",
+                    "params": {
+                        "WebViewCacheSizeLimitMultiplier": "0.1"
+                    },
+                    "enable_features": [
+                        "WebViewCacheSizeLimitDerivedFromAppCacheQuota"
+                    ]
+                },
+                {
+                    "name": "EnabledWithMultiplier25Percent",
+                    "params": {
+                        "WebViewCacheSizeLimitMultiplier": "0.25"
+                    },
+                    "enable_features": [
+                        "WebViewCacheSizeLimitDerivedFromAppCacheQuota"
+                    ]
+                },
+                {
+                    "name": "EnabledWithMultiplier50Percent",
+                    "params": {
+                        "WebViewCacheSizeLimitMultiplier": "0.5"
+                    },
+                    "enable_features": [
+                        "WebViewCacheSizeLimitDerivedFromAppCacheQuota"
+                    ]
+                }
+            ]
+        }
+    ],
     "WebViewDisableCHIPS": [
         {
             "platforms": [
@@ -26275,6 +26390,21 @@
                     },
                     "enable_features": [
                         "WebViewQuicConnectionTimeout"
+                    ]
+                }
+            ]
+        }
+    ],
+    "WebViewRecordAppCacheHistograms": [
+        {
+            "platforms": [
+                "android_webview"
+            ],
+            "experiments": [
+                {
+                    "name": "Enabled",
+                    "enable_features": [
+                        "WebViewRecordAppCacheHistograms"
                     ]
                 }
             ]

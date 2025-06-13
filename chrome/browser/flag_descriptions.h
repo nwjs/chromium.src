@@ -362,6 +362,9 @@ extern const char kMediaSessionEnterPictureInPictureDescription[];
 #if BUILDFLAG(IS_ANDROID)
 extern const char kMvcUpdateViewWhenModelChangedName[];
 extern const char kMvcUpdateViewWhenModelChangedDescription[];
+
+extern const char kReloadTabUiResourcesIfChangedName[];
+extern const char kReloadTabUiResourcesIfChangedDescription[];
 #endif  // !BUILDFLAG(IS_ANDROID)
 
 extern const char kEnableDrDcName[];
@@ -1766,6 +1769,9 @@ extern const char kOmniboxZeroSuggestInMemoryCachingDescription[];
 
 extern const char kOmniboxMaxZeroSuggestMatchesName[];
 extern const char kOmniboxMaxZeroSuggestMatchesDescription[];
+
+extern const char kOmniboxZpsSuggestionLimit[];
+extern const char kOmniboxZpsSuggestionLimitDescription[];
 
 extern const char kOmniboxUIMaxAutocompleteMatchesName[];
 extern const char kOmniboxUIMaxAutocompleteMatchesDescription[];
@@ -3298,6 +3304,12 @@ extern const char kNtpCalendarModuleDescription[];
 
 extern const char kNtpChromeCartModuleName[];
 extern const char kNtpChromeCartModuleDescription[];
+
+extern const char kNtpSearchboxComposeboxName[];
+extern const char kNtpSearchboxComposeboxDescription[];
+
+extern const char kNtpSearchboxComposeEntrypointName[];
+extern const char kNtpSearchboxComposeEntrypointDescription[];
 
 extern const char kNtpDriveModuleName[];
 extern const char kNtpDriveModuleDescription[];

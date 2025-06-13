@@ -1056,8 +1056,6 @@ void DesktopWindowTreeHostWin::HandleClose() {
     window_enlargement_ = gfx::Vector2d(0, 0);
 }
 
-void DesktopWindowTreeHostWin::HandleRequestClose() {}
-
 bool DesktopWindowTreeHostWin::HandleCommand(int command) {
   if (Widget* widget = GetWidget(); widget && widget->widget_delegate()) {
     return widget->widget_delegate()->ExecuteWindowsCommand(command);

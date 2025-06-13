@@ -6776,6 +6776,16 @@
     "expiry_milestone": 122
   },
   {
+    "name": "ntp-compose-entrypoint",
+    "owners": [ "ananyaseelam@google.com", "chrome-desktop-ntp@google.com" ],
+    "expiry_milestone": 150
+  },
+  {
+    "name": "ntp-composebox",
+    "owners": [ "ananyaseelam@google.com", "chrome-desktop-ntp@google.com" ],
+    "expiry_milestone": 150
+  },
+  {
     "name": "ntp-drive-module",
     "owners": [ "mahmadi@chromium.org", "tiborg@chromium.org" ],
     "expiry_milestone": 125
@@ -7307,6 +7317,11 @@
   {
     "name": "omnibox-zero-suggest-prefetching-on-web",
     "owners": [ "khalidpeer@chromium.org", "mahmadi@chromium.org", "chrome-omnibox-team@google.com" ],
+    "expiry_milestone": 140
+  },
+  {
+    "name": "omnibox-zps-suggestion-limit",
+    "owners": ["niharm@google.com", "khalidpeer@chromium.org",  "mahmadi@chromium.org", "chrome-desktop-search@google.com" ],
     "expiry_milestone": 140
   },
   {
@@ -8278,6 +8293,11 @@
     // This is required by test teams to verify functionality on dev/beta
     // channels on devices which have no access to commandline flags.
     "expiry_milestone": -1
+  },
+  {
+    "name": "reload-tab-ui-resources-if-changed",
+    "owners": [ "acondor@chromium.org" ],
+    "expiry_milestone": 139
   },
   {
     "name": "remote-playback-backend",

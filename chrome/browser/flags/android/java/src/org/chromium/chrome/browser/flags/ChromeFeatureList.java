@@ -154,6 +154,8 @@ public abstract class ChromeFeatureList {
 
     // Feature names.
     /* Alphabetical: */
+    public static final String ACCOUNT_FOR_SUPPRESSED_KEYBOARD_INSETS =
+            "AccountForSuppressedKeyboardInsets";
     public static final String ADAPTIVE_BUTTON_IN_TOP_TOOLBAR_CUSTOMIZATION_V2 =
             "AdaptiveButtonInTopToolbarCustomizationV2";
     public static final String ADAPTIVE_BUTTON_IN_TOP_TOOLBAR_PAGE_SUMMARY =
@@ -309,6 +311,7 @@ public abstract class ChromeFeatureList {
     public static final String CCT_TOOLBAR_REFACTOR = "CCTToolbarRefactor";
     public static final String CHANGE_UNFOCUSED_PRIORITY = "ChangeUnfocusedPriority";
     public static final String CHROME_SURVEY_NEXT_ANDROID = "ChromeSurveyNextAndroid";
+    public static final String CLAMP_AUTOMOTIVE_SCALING = "ClampAutomotiveScaling";
     public static final String CLANK_STARTUP_LATENCY_INJECTION = "ClankStartupLatencyInjection";
     public static final String CLANK_WHATS_NEW = "ClankWhatsNew";
     public static final String CLEAR_BROWSING_DATA_ANDROID_SURVEY =
@@ -628,6 +631,8 @@ public abstract class ChromeFeatureList {
     public static final String XSURFACE_METRICS_REPORTING = "XsurfaceMetricsReporting";
 
     /* Alphabetical: */
+    public static final CachedFlag sAccountForSuppressedKeyboardInsets =
+            newCachedFlag(ACCOUNT_FOR_SUPPRESSED_KEYBOARD_INSETS, /* defaultValue= */ true);
     public static final CachedFlag sAllowTabClosingUponMinimization =
             newCachedFlag(ALLOW_TAB_CLOSING_UPON_MINIMIZATION, false);
     public static final CachedFlag sAndroidAppIntegration =
@@ -729,6 +734,8 @@ public abstract class ChromeFeatureList {
             newCachedFlag(CCT_REVAMPED_BRANDING, true);
     public static final CachedFlag sCctTabModalDialog = newCachedFlag(CCT_TAB_MODAL_DIALOG, true);
     public static final CachedFlag sCctToolbarRefactor = newCachedFlag(CCT_TOOLBAR_REFACTOR, false);
+    public static final CachedFlag sClampAutomotiveScaling =
+            newCachedFlag(CLAMP_AUTOMOTIVE_SCALING, true);
     public static final CachedFlag sClankStartupLatencyInjection =
             newCachedFlag(CLANK_STARTUP_LATENCY_INJECTION, false);
     public static final CachedFlag sCollectAndroidFrameTimelineMetrics =
@@ -918,6 +925,7 @@ public abstract class ChromeFeatureList {
 
     public static final List<CachedFlag> sFlagsCachedFullBrowser =
             List.of(
+                    sAccountForSuppressedKeyboardInsets,
                     sAllowTabClosingUponMinimization,
                     sAndroidAppIntegration,
                     sAndroidAppIntegrationModule,
@@ -964,6 +972,7 @@ public abstract class ChromeFeatureList {
                     sCctRevampedBranding,
                     sCctTabModalDialog,
                     sCctToolbarRefactor,
+                    sClampAutomotiveScaling,
                     sClankStartupLatencyInjection,
                     sCollectAndroidFrameTimelineMetrics,
                     sCommandLineOnNonRooted,
@@ -1202,6 +1211,9 @@ public abstract class ChromeFeatureList {
     public static final IntCachedFeatureParam sCctAuthTabEnableHttpsRedirectsVerificationTimeoutMs =
             newIntCachedFeatureParam(
                     CCT_AUTH_TAB_ENABLE_HTTPS_REDIRECTS, "verification_timeout_ms", 10_000);
+    public static final IntCachedFeatureParam sClampAutomotiveScalingMaxScalingPercentage =
+            newIntCachedFeatureParam(
+                    CLAMP_AUTOMOTIVE_SCALING, "max_automotive_scaling_percentage", 150);
 
     /**
      * Parameter that lists a pipe ("|") separated list of package names from which the {@link
@@ -1512,6 +1524,7 @@ public abstract class ChromeFeatureList {
                     sCctAdaptiveButtonEnableOpenInBrowser,
                     sCctAdaptiveButtonEnableVoice,
                     sCctAuthTabEnableHttpsRedirectsVerificationTimeoutMs,
+                    sClampAutomotiveScalingMaxScalingPercentage,
                     sCctAutoTranslateAllowAllFirstParties,
                     sCctAutoTranslatePackageNamesAllowlist,
                     sCctGoogleBottomBarButtonList,

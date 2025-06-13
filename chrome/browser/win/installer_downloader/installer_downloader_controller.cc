@@ -142,7 +142,7 @@ void InstallerDownloaderController::OnRemovedBrowserWindow(
 void InstallerDownloaderController::MaybeShowInfoBar() {
   // The max show count of the infobar have been reached. Eligibility check is
   // no longer needed.
-  if (model_->IsMaxShowCountReached()) {
+  if (!model_->CanShowInfobar()) {
     return;
   }
 
@@ -269,7 +269,8 @@ void InstallerDownloaderController::OnDownloadRequestAccepted(
       profile, ProfileKeepAliveOrigin::kDownloadInProgress);
 
   model_->StartDownload(
-      installer_url.value(), destination,
+      installer_url.value(),
+      destination.AppendASCII(kDownloadedInstallerFileName.Get()),
       CHECK_DEREF(profile->GetDownloadManager()),
       base::BindOnce(&InstallerDownloaderController::OnDownloadCompleted,
                      base::Unretained(this), std::move(keep_alive)));
@@ -280,6 +281,7 @@ void InstallerDownloaderController::OnDownloadCompleted(
     bool success) {
   base::UmaHistogramBoolean("Windows.InstallerDownloader.DownloadSucceed",
                             success);
+  model_->PreventFutureDisplay();
 }
 
 void InstallerDownloaderController::SetActiveWebContentsCallbackForTesting(
@@ -291,6 +293,7 @@ void InstallerDownloaderController::OnInfoBarDismissed() {
   base::UmaHistogramBoolean("Windows.InstallerDownloader.RequestAccepted",
                             false);
   user_initiated_info_bar_close_pending_ = true;
+  model_->PreventFutureDisplay();
 }
 
 }  // namespace installer_downloader

@@ -14,6 +14,7 @@ namespace chrome {
 namespace android {
 
 // Alphabetical:
+BASE_DECLARE_FEATURE(kAccountForSuppressedKeyboardInsets);
 BASE_DECLARE_FEATURE(kAdaptiveButtonInTopToolbarCustomizationV2);
 BASE_DECLARE_FEATURE(kAdaptiveButtonInTopToolbarPageSummary);
 BASE_DECLARE_FEATURE(kAllowTabClosingUponMinimization);
@@ -102,6 +103,7 @@ BASE_DECLARE_FEATURE(kChangeUnfocusedPriority);
 BASE_DECLARE_FEATURE(kChromeShareScreenshot);
 BASE_DECLARE_FEATURE(kChromeSharingHubLaunchAdjacent);
 BASE_DECLARE_FEATURE(kChromeSurveyNextAndroid);
+BASE_DECLARE_FEATURE(kClampAutomotiveScaling);
 BASE_DECLARE_FEATURE(kClankStartupLatencyInjection);
 BASE_DECLARE_FEATURE(kClankWhatsNew);
 BASE_DECLARE_FEATURE(kClearBrowsingDataAndroidSurvey);
@@ -195,6 +197,7 @@ BASE_DECLARE_FEATURE(kReengagementNotification);
 BASE_DECLARE_FEATURE(kRecordSuppressionMetrics);
 BASE_DECLARE_FEATURE(kRelatedSearchesAllLanguage);
 BASE_DECLARE_FEATURE(kRelatedSearchesSwitch);
+BASE_DECLARE_FEATURE(kReloadTabUiResourcesIfChanged);
 BASE_DECLARE_FEATURE(kRemoveTabFocusOnShowingAndSelect);
 BASE_DECLARE_FEATURE(kRightEdgeGoesForwardGestureNav);
 BASE_DECLARE_FEATURE(kSearchInCCT);

@@ -252,9 +252,6 @@ LensOverlayUntrustedUI::LensOverlayUntrustedUI(content::WebUI* web_ui)
   html_source->AddBoolean(
       "enableRegionSelectedGlow",
       lens::features::GetVisualSelectionUpdatesEnableRegionSelectedGlow());
-  html_source->AddBoolean(
-      "enableCsbMotionTweaks",
-      lens::features::GetVisualSelectionUpdatesEnableCsbMotionTweaks());
   html_source->AddBoolean("autoFocusSearchbox",
                           lens::features::ShouldAutoFocusSearchbox());
   html_source->AddBoolean("cornerSlidersEnabled",
@@ -264,9 +261,6 @@ LensOverlayUntrustedUI::LensOverlayUntrustedUI(content::WebUI* web_ui)
   html_source->AddBoolean(
       "enableCloseButtonTweaks",
       lens::features::GetVisualSelectionUpdatesEnableCloseButtonTweaks());
-  html_source->AddBoolean(
-      "enableThumbnailSizingTweaks",
-      lens::features::GetVisualSelectionUpdatesEnableThumbnailSizingTweaks());
   html_source->AddBoolean(
       "enableSummarizeSuggestionHint",
       lens::features::ShouldEnableSummarizeHintForContextualSuggest());
@@ -310,6 +304,9 @@ LensOverlayUntrustedUI::LensOverlayUntrustedUI(content::WebUI* web_ui)
       lens::features::GetVisualSelectionUpdatesEnableGradientSuperG()
           ? "//resources/cr_components/searchbox/icons/google_g_gradient.svg"
           : "//resources/cr_components/searchbox/icons/google_g_cr23.svg");
+  html_source->AddBoolean(
+      "enableCsbMotionTweaks",
+      lens::features::GetVisualSelectionUpdatesEnableCsbMotionTweaks());
   html_source->AddBoolean("reportMetrics", false);
   html_source->AddLocalizedString("searchBoxHintDefault",
                                   IDS_GOOGLE_SEARCH_BOX_EMPTY_HINT_CONTEXTUAL);
@@ -320,6 +317,9 @@ LensOverlayUntrustedUI::LensOverlayUntrustedUI(content::WebUI* web_ui)
       "forceHideEllipsis",
       lens::features::GetVisualSelectionUpdatesHideCsbEllipsis());
   html_source->AddBoolean("queryAutocompleteOnEmptyInput", true);
+  html_source->AddBoolean(
+    "enableThumbnailSizingTweaks",
+    lens::features::GetVisualSelectionUpdatesEnableThumbnailSizingTweaks());
 
   // Determine if the cursor tooltip should appear.
   Profile* profile = Profile::FromWebUI(web_ui);

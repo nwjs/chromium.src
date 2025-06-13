@@ -10101,6 +10101,7 @@ from previous Chrome versions.
   <int value="-1443261188" label="DesktopPWAsTabStripLinkCapturing:disabled"/>
   <int value="-1442521127" label="FedCmCooldownOnIgnore:disabled"/>
   <int value="-1441695001" label="OmniboxOnFocusSuggestions:enabled"/>
+  <int value="-1441386544" label="NtpSearchboxComposeEntrypoint:disabled"/>
   <int value="-1441340278" label="NewTabPageIcons:enabled"/>
   <int value="-1440440375" label="WebVrAutopresent:enabled"/>
   <int value="-1440152291" label="disable-gesture-typing"/>
@@ -10903,6 +10904,7 @@ from previous Chrome versions.
   <int value="-1144296865"
       label="ServiceWorkerSkipIgnorableFetchHandler:disabled"/>
   <int value="-1144170722" label="DisableProcessReuse:enabled"/>
+  <int value="-1144127577" label="NtpSearchboxComposebox:disabled"/>
   <int value="-1143496217" label="enable-oop-rasterization"/>
   <int value="-1143452448" label="NtpComprehensiveThemeRealbox:enabled"/>
   <int value="-1143007275" label="EnableNewStyleLauncher:disabled"/>
@@ -11287,6 +11289,7 @@ from previous Chrome versions.
   <int value="-996868396" label="SmartDimNewMlAgent:enabled"/>
   <int value="-996673716" label="enable-web-app-frame"/>
   <int value="-996231379" label="SideBySide:enabled"/>
+  <int value="-995361761" label="ReloadTabUiResourcesIfChanged:enabled"/>
   <int value="-995224626" label="BatchTabRestore:enabled"/>
   <int value="-994558985" label="EnableNotificationIndicator:disabled"/>
   <int value="-994219683" label="WebBluetoothNewPermissionsBackend:disabled"/>
@@ -12285,6 +12288,7 @@ from previous Chrome versions.
   <int value="-613931316" label="PrivacyPolicyInsights:disabled"/>
   <int value="-613596048" label="new-canvas-2d-api"/>
   <int value="-613595118" label="StarterPackIPH:enabled"/>
+  <int value="-613433517" label="OmniboxZpsSuggestionLimit:disabled"/>
   <int value="-613072171" label="ElementCapture:enabled"/>
   <int value="-612860466" label="Projector:disabled"/>
   <int value="-612633819" label="NotificationScrollBar:disabled"/>
@@ -12882,6 +12886,7 @@ from previous Chrome versions.
   <int value="-384589459" label="disable-supervised-user-safesites"/>
   <int value="-384349472" label="ReadAnythingWithAlgorithm:disabled"/>
   <int value="-383795921" label="IpProtectionV1:disabled"/>
+  <int value="-383240557" label="NtpSearchboxComposebox:enabled"/>
   <int value="-382542238" label="CWSInfoFastCheck:disabled"/>
   <int value="-381181808" label="DragAppsInTabletMode:enabled"/>
   <int value="-380992110"
@@ -14477,6 +14482,7 @@ from previous Chrome versions.
   <int value="220654375" label="SearchResultInlineIcon:disabled"/>
   <int value="221212638" label="StartSurfaceAndroid:enabled"/>
   <int value="221363150" label="ForceEnableFaceAe:disabled"/>
+  <int value="221417441" label="NtpSearchboxComposeEntrypoint:enabled"/>
   <int value="221647839" label="IsolatedWebApps:enabled"/>
   <int value="221707633" label="AutofillFixOfferInIncognito:disabled"/>
   <int value="222055978" label="OsFeedback:disabled"/>
@@ -14546,6 +14552,7 @@ from previous Chrome versions.
   <int value="249465446" label="UseRealColorSpaceForAndroidVideo:enabled"/>
   <int value="249727337" label="EnableTranslationAPI:enabled"/>
   <int value="250855010" label="WebAssemblyBaseline:disabled"/>
+  <int value="250890200" label="OmniboxZpsSuggestionLimit:enabled"/>
   <int value="251180818" label="ReadAloudAutoVoiceSwitching:disabled"/>
   <int value="251262596" label="CCTMinimized:disabled"/>
   <int value="251266195" label="CapturedSurfaceControl:disabled"/>
@@ -15922,6 +15929,7 @@ from previous Chrome versions.
   <int value="752194066" label="enable-app-window-cycling"/>
   <int value="752416911" label="FastPair:disabled"/>
   <int value="752939691" label="disable-tab-for-desktop-share"/>
+  <int value="753258862" label="ReloadTabUiResourcesIfChanged:disabled"/>
   <int value="753375390" label="ThrottleMainFrameTo60Hz:disabled"/>
   <int value="753474609" label="CanvasNoise:disabled"/>
   <int value="753826639"
