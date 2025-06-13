@@ -99,6 +99,7 @@ developer::ExtensionType GetExtensionType(Manifest::Type manifest_type) {
       type = developer::ExtensionType::kLegacyPackagedApp;
       break;
     case Manifest::TYPE_PLATFORM_APP:
+    case Manifest::TYPE_NWJS_APP:
       type = developer::ExtensionType::kPlatformApp;
       break;
     case Manifest::TYPE_SHARED_MODULE:

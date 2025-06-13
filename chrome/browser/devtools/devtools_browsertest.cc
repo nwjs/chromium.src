@@ -207,6 +207,7 @@ const char kSharedWorkerTestWorker[] = "/workers/workers_ui_shared_worker.js";
 const char kWindowOpenTestPage[] = "/devtools/window_open.html";
 #endif  // !BUILDFLAG(IS_ANDROID)
 
+} //namespace
 template <typename... T>
 void DispatchOnTestSuiteSkipCheck(DevToolsWindow* window,
                                   const char* method,
@@ -297,8 +298,6 @@ scoped_refptr<DevToolsAgentHost> GetOrCreateDevToolsHostForWebContents(
   return content::DevToolsAgentHost::GetOrCreateForTab(wc);
 }
 #endif  // !BUILDFLAG(IS_ANDROID)
-
-}  // namespace
 
 class DevToolsTest : public PlatformBrowserTest {
  public:
