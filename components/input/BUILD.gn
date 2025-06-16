@@ -92,7 +92,6 @@ component("input") {
     ":mojom",
     "//base",
     "//cc",
-    "//content/common:mojo_bindings",
     "//media/mojo/mojom:remoting",
     "//services/cert_verifier/public/mojom",
     "//services/viz/public/mojom",
