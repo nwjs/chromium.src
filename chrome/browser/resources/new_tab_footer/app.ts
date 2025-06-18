@@ -46,7 +46,8 @@ export enum FooterCustomizeChromeEntryPoint {
 export enum FooterElement {
   OTHER = 0,
   CUSTOMIZE_BUTTON = 1,
-  MAX_VALUE = CUSTOMIZE_BUTTON,
+  EXTENSION_NAME = 2,
+  MAX_VALUE = EXTENSION_NAME,
 }
 
 const CUSTOMIZE_URL_PARAM: string = 'customize';
@@ -155,6 +156,7 @@ export class NewTabFooterAppElement extends CrLitElement {
 
   protected onExtensionNameClick_(e: Event) {
     e.preventDefault();
+    recordClick(FooterElement.EXTENSION_NAME);
     this.handler_.openExtensionOptionsPageWithFallback();
   }
 

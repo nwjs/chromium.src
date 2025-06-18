@@ -1540,6 +1540,11 @@ const FeatureEntry::FeatureParam
         {"AblateSearchOnly", "true"},
 };
 
+const FeatureEntry::FeatureParam
+    kContextualSuggestionsAblateOthersWhenPresentAblateUrlOnly[] = {
+        {"AblateUrlOnly", "true"},
+};
+
 const FeatureEntry::FeatureVariation
     kContextualSuggestionsAblateOthersWhenPresentVariations[] = {
         {"- Ablate all", kContextualSuggestionsAblateOthersWhenPresentAblateAll,
@@ -1549,6 +1554,10 @@ const FeatureEntry::FeatureVariation
          kContextualSuggestionsAblateOthersWhenPresentAblateSearchOnly,
          std::size(
              kContextualSuggestionsAblateOthersWhenPresentAblateSearchOnly),
+         nullptr},
+        {"- Ablate URL only",
+         kContextualSuggestionsAblateOthersWhenPresentAblateUrlOnly,
+         std::size(kContextualSuggestionsAblateOthersWhenPresentAblateUrlOnly),
          nullptr},
 };
 
@@ -1969,6 +1978,14 @@ const FeatureEntry::FeatureVariation kOmniboxMaxURLMatchesVariations[] = {
      nullptr},
     {"6 matches", kOmniboxMaxURLMatches6, std::size(kOmniboxMaxURLMatches6),
      nullptr}};
+
+#if BUILDFLAG(IS_ANDROID)
+const FeatureEntry::FeatureParam kOmniboxMiaZpsEnabledWithHistoryAblation[] = {
+    {OmniboxFieldTrial::kSuppressPsuggestBackfillWithMIAParam, "true"}};
+const FeatureEntry::FeatureVariation kOmniboxMiaZpsVariations[] = {
+    {"with History Ablation", kOmniboxMiaZpsEnabledWithHistoryAblation,
+     std::size(kOmniboxMiaZpsEnabledWithHistoryAblation), nullptr}};
+#endif
 
 const FeatureEntry::FeatureParam kOmniboxDynamicMaxAutocomplete90[] = {
     {"OmniboxDynamicMaxAutocompleteUrlCutoff", "0"},
@@ -6940,7 +6957,15 @@ const FeatureEntry kFeatureEntries[] = {
 
     {"omnibox-mia-zps", flag_descriptions::kOmniboxMiaZps,
      flag_descriptions::kOmniboxMiaZpsDescription, kOsAll,
-     FEATURE_VALUE_TYPE(omnibox_feature_configs::MiaZPS::kOmniboxMiaZPS)},
+#if BUILDFLAG(IS_ANDROID)
+     FEATURE_WITH_PARAMS_VALUE_TYPE(
+         omnibox_feature_configs::MiaZPS::kOmniboxMiaZPS,
+         kOmniboxMiaZpsVariations,
+         "OmniboxMiaZpsVariations")
+#else
+     FEATURE_VALUE_TYPE(omnibox_feature_configs::MiaZPS::kOmniboxMiaZPS)
+#endif
+    },
 
     {"omnibox-dynamic-max-autocomplete",
      flag_descriptions::kOmniboxDynamicMaxAutocompleteName,

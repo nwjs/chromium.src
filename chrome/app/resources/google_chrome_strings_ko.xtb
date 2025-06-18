@@ -222,6 +222,7 @@
 <translation id="3716540481907974026">ChromeOS Flex 버전</translation>
 <translation id="3718181793972440140">항목 1개가 기기에서 삭제됩니다. 나중에 데이터를 가져오려면 Chrome에 <ph name="USER_EMAIL" />(으)로 로그인하세요.</translation>
 <translation id="3723744677043446310">{NUM_EXTENSIONS,plural, =1{Chrome에서 삭제할 것을 권장합니다. <ph name="BEGIN_LINK" />지원되는 확장 프로그램에 대해 자세히 알아보기<ph name="END_LINK" />}other{Chrome에서 삭제할 것을 권장합니다. <ph name="BEGIN_LINK" />지원되는 확장 프로그램에 대해 자세히 알아보기<ph name="END_LINK" />}}</translation>
+<translation id="3756724684201900923">Chrome 설치에 관해 자세히 알아보기</translation>
 <translation id="3780814664026482060">Chrome - <ph name="PAGE_TITLE" /></translation>
 <translation id="3785324443014631273">로그인 중 오류가 발생하여 ChromeOS Flex에서 데이터를 동기화할 수 없습니다.</translation>
 <translation id="3795971588916395511">ChromeOS</translation>
@@ -572,7 +573,7 @@ Chrome에서 설정을 복구할 수 없습니다.</translation>
 <translation id="8257796129973882597">Chrome 메뉴에서 북마크, 읽기 모드 등을 열 수 있습니다.</translation>
 <translation id="8267953129876836456">Chrome에서 발견한 보안 권장사항을 검토해 주세요</translation>
 <translation id="8286862437124483331">Chrome에서 비밀번호를 표시하려고 합니다. 허용하려면 Windows 비밀번호를 입력하세요.</translation>
-<translation id="829923460755755423">Google 비밀번호 관리자에 바로가기 추가</translation>
+<translation id="829923460755755423">Google 비밀번호 관리자 바로가기를 추가합니다.</translation>
 <translation id="8313851650939857356">시작 오류: <ph name="STARTUP_ERROR" />.</translation>
 <translation id="8321888067342493336">이미지로 저장</translation>
 <translation id="8336463659890584292">사이트에서 페이지에 있는 링크를 비공개로 미리 로드해 달라고 요청하면 Chrome은 Google 서버를 사용합니다. 이렇게 하면 미리 로드된 사이트에서 사용자의 신원을 숨길 수 있지만 Google은 어떤 사이트가 미리 로드되는지 학습합니다.</translation>

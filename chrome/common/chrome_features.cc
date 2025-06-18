@@ -502,6 +502,10 @@ const base::FeatureParam<int> kGlicClientUnresponsiveUiMaxTimeMs{
     &kGlicClientResponsivenessCheck, "glic-client-unresponsive-ui-max-time-ms",
     5000};
 
+BASE_FEATURE(kGlicUseShaderCache,
+             "GlicUseShaderCache",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
 BASE_FEATURE(kGlicKeyboardShortcutNewBadge,
              "GlicKeyboardShortcutNewBadge",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -580,6 +584,10 @@ BASE_FEATURE(kGlicApiActivationGating,
 
 BASE_FEATURE(kGlicGetUserProfileInfoApiActivationGating,
              "GlicGetUserProfileInfoApiActivationGating",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kGlicWebClientUnresponsiveMetrics,
+             "GlicWebClientUnresponsiveMetrics",
              base::FEATURE_ENABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(ENABLE_GLIC)
 

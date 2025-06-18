@@ -1388,15 +1388,15 @@ enum class ToolbarKind {
   [self.qrScannerCoordinator stop];
   self.qrScannerCoordinator = nil;
 
-  [_lensCoordinator stop];
-  _lensCoordinator = nil;
+  [_lensOverlayCoordinator stop];
+  _lensOverlayCoordinator = nil;
 
   if (IsLVFUnifiedExperienceEnabled(self.profile->GetPrefs())) {
     [_lensViewFinderCoordinator stop];
     _lensViewFinderCoordinator = nil;
   } else {
-    [_lensOverlayCoordinator stop];
-    _lensOverlayCoordinator = nil;
+    [_lensCoordinator stop];
+    _lensCoordinator = nil;
   }
 
   [self.downloadManagerCoordinator stop];
@@ -2680,11 +2680,36 @@ enum class ToolbarKind {
     return;
   }
 
-  if (IsNativeFindInPageAvailable()) {
-    [self showSystemFindPanel];
-  } else {
-    [self showFindBar];
+  __weak __typeof(self) weakSelf = self;
+
+  auto startFindInPage = ^{
+    if (IsNativeFindInPageAvailable()) {
+      [weakSelf showSystemFindPanel];
+    } else {
+      [weakSelf showFindBar];
+    }
+  };
+
+  BOOL lensOverlayAvailable = IsLensOverlayAvailable(self.profile->GetPrefs());
+  web::WebState* activeWebState = self.activeWebState;
+  if (lensOverlayAvailable && activeWebState) {
+    LensOverlayTabHelper* lensOverlayTabHelper =
+        LensOverlayTabHelper::FromWebState(activeWebState);
+    BOOL lensOverlayVisible =
+        lensOverlayTabHelper &&
+        lensOverlayTabHelper->IsLensOverlayUIAttachedAndAlive();
+    if (lensOverlayVisible) {
+      id<LensOverlayCommands> lensOverlayHandler =
+          HandlerForProtocol(_dispatcher, LensOverlayCommands);
+      [lensOverlayHandler
+          destroyLensUI:YES
+                 reason:lens::LensOverlayDismissalSource::kFindInPageInvoked
+             completion:startFindInPage];
+      return;
+    }
   }
+
+  startFindInPage();
 }
 
 - (void)closeFindInPage {

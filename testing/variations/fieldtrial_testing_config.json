@@ -3123,29 +3123,6 @@
             ]
         }
     ],
-    "BackgroundUpdateForRegisteredStorageKeys": [
-        {
-            "platforms": [
-                "android",
-                "android_webview",
-                "chromeos",
-                "chromeos_lacros",
-                "fuchsia",
-                "linux",
-                "mac",
-                "windows"
-            ],
-            "experiments": [
-                {
-                    "name": "BackgroundUpdateForRegisteredStorageKeys",
-                    "enable_features": [
-                        "ServiceWorkerBackgroundUpdateForRegisteredStorageKeys",
-                        "ServiceWorkerBackgroundUpdateForRegisteredStorageKeysFieldTrialControlled"
-                    ]
-                }
-            ]
-        }
-    ],
     "BatchNativeEventsInMessagePumpEpoll": [
         {
             "platforms": [
@@ -17810,6 +17787,24 @@
             ]
         }
     ],
+    "PreloadTopChromeWebUILessNavigations": [
+        {
+            "platforms": [
+                "chromeos",
+                "linux",
+                "mac",
+                "windows"
+            ],
+            "experiments": [
+                {
+                    "name": "Enabled",
+                    "enable_features": [
+                        "PreloadTopChromeWebUILessNavigations"
+                    ]
+                }
+            ]
+        }
+    ],
     "PreloadingDeterministicViewportBasedPredictorAndroid": [
         {
             "platforms": [
@@ -22283,6 +22278,42 @@
                     "enable_features": [
                         "ServiceWorkerAutoPreload",
                         "ServiceWorkerBypassFetchHandlerHashStrings"
+                    ]
+                }
+            ]
+        }
+    ],
+    "ServiceWorkerBackgroundUpdateForRegisteredStorageKeys": [
+        {
+            "platforms": [
+                "android",
+                "chromeos",
+                "chromeos_lacros",
+                "fuchsia",
+                "linux",
+                "mac",
+                "windows"
+            ],
+            "experiments": [
+                {
+                    "name": "ServiceWorkerBackgroundUpdateForRegisteredStorageKeys",
+                    "enable_features": [
+                        "ServiceWorkerBackgroundUpdateForRegisteredStorageKeys"
+                    ]
+                }
+            ]
+        }
+    ],
+    "ServiceWorkerBackgroundUpdateForRegisteredStorageKeysForWebView": [
+        {
+            "platforms": [
+                "android_webview"
+            ],
+            "experiments": [
+                {
+                    "name": "ServiceWorkerBackgroundUpdateForRegisteredStorageKeysForWebView",
+                    "enable_features": [
+                        "ServiceWorkerBackgroundUpdateForRegisteredStorageKeysFieldTrialControlled"
                     ]
                 }
             ]
