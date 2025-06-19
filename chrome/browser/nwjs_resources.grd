@@ -103,10 +103,6 @@
         <include name="IDR_COPRESENCE_HTML" file="resources\empty.html" type="BINDATA" />
         <include name="IDR_COPRESENCE_JS" file="resources\empty.js" type="BINDATA" />
       </if>
-      <if expr="not is_android">
-        <!-- Page not available for guest. -->
-        <include name="IDR_PAGE_NOT_AVAILABLE_FOR_GUEST_APP_HTML" file="resources\page_not_available_for_guest\app.html" type="BINDATA" />
-      </if>
       <include name="IDR_CRASHES_HTML" file="resources\empty.html" flattenhtml="true" allowexternalscript="true" type="BINDATA" />
       <include name="IDR_CRASHES_JS" file="resources\empty.js" type="BINDATA" />
       <include name="IDR_CREDITS_HTML" file="resources\empty.html" type="BINDATA" />
@@ -350,6 +346,11 @@
       <if expr="not is_android">
         <include name="IDR_MEDIA_ROUTER_INTERNALS_HTML" file="resources\media_router\internals\media_router_internals.html" type="BINDATA" />
         <include name="IDR_MEDIA_ROUTER_INTERNALS_CSS" file="resources\media_router\internals\media_router_internals.css" type="BINDATA" />
+      </if>
+      <if expr="not is_android or enable_extensions_core">
+        <!-- Page not available for guest. -->
+        <include name="IDR_PAGE_NOT_AVAILABLE_FOR_GUEST_APP_HTML" file="resources\page_not_available_for_guest\app.html" type="BINDATA" />
+        <include name="IDR_INCOGNITO_NAVIGATION_BLOCKED_PAGE_HTML" file="resources\enterprise\incognito_navigation_blocked_page\incognito_blocked.html" flattenhtml="true" type="BINDATA" />
       </if>
       <if expr="not is_android and not is_ios and not chromeos_ash">
         <include name="IDR_IME_WINDOW_CLOSE" file="resources\input_ime\ime_window_close.png" type="BINDATA" />
