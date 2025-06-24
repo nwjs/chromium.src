@@ -203,7 +203,7 @@
 <translation id="1819374301217551116">Отслеживание цен и рекомендации</translation>
 <translation id="1820195936249950412">Войдите с действительным аккаунтом</translation>
 <translation id="1820259098641718022">Добавлено в список чтения</translation>
-<translation id="1824490729233982311">Вам будут приходить оповещения при получении вкладок с других устройств</translation>
+<translation id="1824490729233982311">Оповещения при получении вкладок с других ваших устройств</translation>
 <translation id="1827529786398596735">Нажмите на главный экран и удерживайте.</translation>
 <translation id="1832848789136765277">Чтобы никогда не терять доступ к синхронизированным данным, подтвердите свою личность.</translation>
 <translation id="1836891464494477513">{count,plural, =1{Закладка сохранена в аккаунте Google ({email}).}one{Закладки сохранены в аккаунте Google ({email}).}few{Закладки сохранены в аккаунте Google ({email}).}many{Закладки сохранены в аккаунте Google ({email}).}other{Закладки сохранены в аккаунте Google ({email}).}}</translation>
@@ -955,7 +955,7 @@
 <translation id="4937410517508563815">Сохраняйте пароли в аккаунте</translation>
 <translation id="4938338714234463591">Так вы сможете использовать голосовые команды для определенных функций на сайтах.</translation>
 <translation id="4938560988715301237">Все данные для автозаполнения</translation>
-<translation id="4938716880833771969">Уведомления приходят в беззвучном режиме</translation>
+<translation id="4938716880833771969">Уведомления приходят без звука</translation>
 <translation id="4941089862236492464">Не удалось опубликовать запись.</translation>
 <translation id="4944543191714094452">Найти на странице…</translation>
 <translation id="4945756290001680296">Доступ к настройкам паролей</translation>
@@ -1016,7 +1016,7 @@
 <translation id="519530786644929958">Ошибка скачивания. Повтор действия невозможен.</translation>
 <translation id="5197255632782567636">Интернет</translation>
 <translation id="5200894869889836319">Параметры разрешений</translation>
-<translation id="5203051773066903947">Ввод</translation>
+<translation id="5203051773066903947">Ввести</translation>
 <translation id="5206453674369664567">Выйти и удалить данные</translation>
 <translation id="5210365745912300556">Закрыть вкладку</translation>
 <translation id="5211488077761630279">Разрешить сайту <ph name="SITE_NAME" /> использовать разрешения <ph name="PERMISSION" />?</translation>
@@ -1791,7 +1791,7 @@
 <translation id="8263809106706527890">Возможно, ваш браузер по умолчанию был изменен. Это можно проверить в настройках.</translation>
 <translation id="8264966119170358612">Несколько ваших сохраненных паролей были раскрыты в результате утечки данных в стороннем сервисе. <ph name="BEGIN_LINK" />Подробнее…<ph name="END_LINK" /></translation>
 <translation id="826614135184049678">В результате сброса настроек iPad произошел выход из аккаунта <ph name="USER_NAME" />. Чтобы войти, нажмите "Продолжить" ниже.</translation>
-<translation id="8273982424131314219">Вы вводите данные на сайте <ph name="URL" /></translation>
+<translation id="8273982424131314219">Данные будут вставлены на сайте <ph name="URL" /></translation>
 <translation id="8275068909952022340">Ещё…</translation>
 <translation id="8278488584187265939">Настройка главной страницы</translation>
 <translation id="8281781826761538115">Язык по умолчанию: <ph name="DEFAULT_LOCALE" /></translation>
