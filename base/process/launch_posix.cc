@@ -397,8 +397,7 @@ Process LaunchProcess(const std::vector<std::string>& argv,
       }
     }
 #endif
-
-    {
+    if (!options.nw_stdin) {
       // If a child process uses the readline library, the process block
       // forever. In BSD like OSes including OS X it is safe to assign /dev/null
       // as stdin. See http://crbug.com/56596.

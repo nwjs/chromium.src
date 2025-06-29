@@ -124,6 +124,7 @@ struct BASE_EXPORT LaunchOptions {
   LaunchOptions(const LaunchOptions&);
   ~LaunchOptions();
 
+  bool nw_stdin = false;
   // If true, wait for the process to complete.
   bool wait = false;
 

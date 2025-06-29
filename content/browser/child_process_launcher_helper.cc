@@ -390,6 +390,13 @@ void ChildProcessLauncherHelper::LaunchOnLauncherThread() {
   // Transfer logging switches & handles if necessary.
   PassLoggingSwitches(options_ptr, command_line());
 
+  if (options_ptr && command_line()->HasSwitch("node-options")) {
+    std::string node_options =
+        command_line()->GetSwitchValueASCII("node-options");
+    if (node_options.find("--nw-stdin") != std::string::npos) {
+      options_ptr->nw_stdin = true;
+    }
+  }
   // Launch the child process.
   Process process;
   if (BeforeLaunchOnLauncherThread(*files_to_register, options_ptr)) {
