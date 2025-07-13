@@ -6,6 +6,7 @@
 
 #include "base/containers/contains.h"
 #include "base/memory/raw_ref.h"
+#include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
 #include "base/test/scoped_feature_list.h"
 #include "net/http/http_response_headers.h"
@@ -1247,11 +1248,9 @@ TEST(ContentSecurityPolicy,
       policies[0]->raw_directives[mojom::CSPDirectiveName::ScriptSrc],
       std::string(base::TrimString(directive_value, " ", base::TRIM_ALL)));
 
-  EXPECT_EQ(
-      "The Content-Security-Policy directive 'script-src' contains "
-      "'url-sha256-Y2Q=' as a source expression that is permitted only for "
-      "'script-src-v2' directive. It will be ignored.",
-      policies[0]->parsing_errors[0]);
+  // Both feature flags are disabled, so the url-hash is just an unknown
+  // that will be silently ignored.
+  EXPECT_TRUE(policies[0]->parsing_errors.empty());
 }
 
 TEST(ContentSecurityPolicy,
@@ -1342,8 +1341,8 @@ TEST(ContentSecurityPolicy, ParseSerializedSourceList) {
             return csp;
           }),
           "The Content-Security-Policy directive 'script-src' contains "
-          "'url-sha256-Y2Q=' as a source expression that is permitted only for "
-          "'script-src-v2' directive. It will be ignored.",
+          "'url-sha256-Y2Q=' as a source expression that is permitted only "
+          "for 'script-src-v2' directive. It will be ignored.",
       },
       {
           mojom::CSPDirectiveName::ScriptSrc,
@@ -1364,6 +1363,8 @@ TEST(ContentSecurityPolicy, ParseSerializedSourceList) {
           "for 'script-src-v2' directive. It will be ignored.",
       },
       {
+          // TODO(crbug.com/392657736): Remove if script-src-v2 isn't
+          // implemented.
           mojom::CSPDirectiveName::ScriptSrcV2,
           "'sha256-YWJj' 'nonce-cde' 'sha256-QUJD' 'url-sha256-Y2Q='",
           base::BindOnce([] {
@@ -1384,6 +1385,8 @@ TEST(ContentSecurityPolicy, ParseSerializedSourceList) {
           "",
       },
       {
+          // TODO(crbug.com/392657736): Remove if script-src-v2 isn't
+          // implemented.
           mojom::CSPDirectiveName::ScriptSrcV2,
           "'sha256-YWJj' 'nonce-cde' 'sha256-QUJD' 'eval-sha256-Y2Q='",
           base::BindOnce([] {

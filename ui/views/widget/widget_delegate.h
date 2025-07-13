@@ -510,7 +510,7 @@ class VIEWS_EXPORT WidgetDelegate {
   virtual void OnWidgetMove();
   virtual void OnWidgetResize();
 
-  // Called with the display changes (color depth or resolution).
+  // Called when the display changes (color depth or resolution).
   virtual void OnDisplayChanged();
 
   // Called when the work area (the desktop area minus task bars,

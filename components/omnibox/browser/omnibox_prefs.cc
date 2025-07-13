@@ -20,7 +20,6 @@
 namespace omnibox {
 
 namespace {
-constexpr int kAIModeSearchSuggestAllowed = 0;
 constexpr int kAIModeAllowed = 0;
 }  // namespace
 
@@ -31,8 +30,12 @@ void RegisterProfilePrefs(PrefRegistrySimple* registry) {
   registry->RegisterBooleanPref(
       kShowGoogleLensShortcut, true,
       user_prefs::PrefRegistrySyncable::SYNCABLE_PREF);
+  registry->RegisterBooleanPref(
+      kShowSearchTools, true, user_prefs::PrefRegistrySyncable::SYNCABLE_PREF);
 
   registry->RegisterBooleanPref(omnibox::kDismissedGeminiIph, false);
+  registry->RegisterBooleanPref(
+      omnibox::kDismissedEnterpriseSearchAggregatorIphPrefName, false);
   registry->RegisterBooleanPref(
       omnibox::kDismissedFeaturedEnterpriseSiteSearchIphPrefName, false);
   registry->RegisterBooleanPref(
@@ -42,15 +45,12 @@ void RegisterProfilePrefs(PrefRegistrySimple* registry) {
                                 false);
 
   registry->RegisterIntegerPref(kShownCountGeminiIph, 0);
+  registry->RegisterIntegerPref(kShownCountEnterpriseSearchAggregatorIph, 0);
   registry->RegisterIntegerPref(kShownCountFeaturedEnterpriseSiteSearchIph, 0);
   registry->RegisterIntegerPref(kShownCountHistoryEmbeddingsSettingsPromo, 0);
   registry->RegisterIntegerPref(kShownCountHistoryScopePromo, 0);
   registry->RegisterIntegerPref(kShownCountHistoryEmbeddingsScopePromo, 0);
   registry->RegisterIntegerPref(kFocusedSrpWebCount, 0);
-  // TODO(crbug.com/422744656): Remove `kAIModeSearchSuggestSettings` pref once
-  // `kAIModeSettings` is implemented.
-  registry->RegisterIntegerPref(omnibox::kAIModeSearchSuggestSettings,
-                                kAIModeSearchSuggestAllowed);
   registry->RegisterIntegerPref(omnibox::kAIModeSettings, kAIModeAllowed);
 }
 

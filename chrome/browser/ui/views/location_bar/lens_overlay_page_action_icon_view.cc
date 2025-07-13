@@ -49,7 +49,8 @@ bool IsNewTabPage(content::WebContents* const web_contents) {
   const GURL& url = entry->GetURL();
   return NewTabUI::IsNewTab(url) || NewTabPageUI::IsNewTabPageOrigin(url) ||
          NewTabPageThirdPartyUI::IsNewTabPageOrigin(url) ||
-         search::NavEntryIsInstantNTP(web_contents, entry);
+         search::NavEntryIsInstantNTP(web_contents, entry) ||
+         search::IsSplitViewNewTabPage(url);
 }
 
 }  // namespace
@@ -195,9 +196,10 @@ void LensOverlayPageActionIconView::UpdateImpl() {
 
 void LensOverlayPageActionIconView::OnExecuting(
     PageActionIconView::ExecuteSource source) {
-  // If the user entered Lens through the keyboard, we want to open Lens Web
-  // in a new tab.
-  if (source == PageActionIconView::EXECUTE_SOURCE_KEYBOARD) {
+  // If the user entered Lens through the keyboard and keyboard selection is not
+  // enabled, we want to open Lens Web in a new tab.
+  if (source == PageActionIconView::EXECUTE_SOURCE_KEYBOARD &&
+      !lens::features::IsLensOverlayKeyboardSelectionEnabled()) {
     if (!lens_region_search_controller_) {
       lens_region_search_controller_ =
           std::make_unique<lens::LensRegionSearchController>();

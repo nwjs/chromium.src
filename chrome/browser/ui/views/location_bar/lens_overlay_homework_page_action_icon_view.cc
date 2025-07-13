@@ -110,8 +110,10 @@ bool LensOverlayHomeworkPageActionIconView::ShouldShow() {
   }
 
   // Don't show the chip if the location bar isn't visible yet.
+  // TODO(crbug.com/421963047): Investigate why we are getting two matching
+  // views on ChromeOS.
   View* location_bar_view =
-      views::ElementTrackerViews::GetInstance()->GetUniqueView(
+      views::ElementTrackerViews::GetInstance()->GetFirstMatchingView(
           kLocationBarElementId,
           views::ElementTrackerViews::GetContextForView(this));
   if (!location_bar_view) {
@@ -149,10 +151,10 @@ bool LensOverlayHomeworkPageActionIconView::ShouldShow() {
 
 void LensOverlayHomeworkPageActionIconView::OnExecuting(
     PageActionIconView::ExecuteSource source) {
-  // If the user entered Lens through the keyboard, we want to open Lens Web
-  // in a new tab.
-  // TODO(crbug.com/404640455): Clean up after a11y updates.
-  if (source == PageActionIconView::EXECUTE_SOURCE_KEYBOARD) {
+  // If the user entered Lens through the keyboard and keyboard selection is not
+  // enabled, we want to open Lens Web in a new tab.
+  if (source == PageActionIconView::EXECUTE_SOURCE_KEYBOARD &&
+      !lens::features::IsLensOverlayKeyboardSelectionEnabled()) {
     browser_->GetFeatures().lens_region_search_controller()->Start(
         GetWebContents(), /*use_fullscreen_capture=*/true,
         /*is_google_default_search_provider=*/true,

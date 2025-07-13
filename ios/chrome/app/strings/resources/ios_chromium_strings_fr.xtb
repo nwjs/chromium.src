@@ -174,8 +174,10 @@ Pour modifier ce paramètre, <ph name="BEGIN_LINK" />supprimez les données Chro
 <translation id="5203244847421322551">Enregistrez et saisissez automatiquement les mots de passe dans Chromium</translation>
 <translation id="5224391634244552924">Aucun mot de passe enregistré. Chromium ne peut vérifier vos mots de passe que si vous les enregistrez.</translation>
 <translation id="5259423875997548710">Recherchez des images dans Chromium.</translation>
+<translation id="5284913972719948193">Importez vos données pour utiliser vos mots de passe, votre historique, vos favoris et vos cartes de crédit dans Chromium</translation>
 <translation id="5308226104666789935">Chromium ne parvient pas à rechercher les mises à jour</translation>
 <translation id="5311557153294205270">Ajoute les URL saisies à vos favoris dans Chromium.</translation>
+<translation id="5383251701169024761">Pour retrouver facilement vos mots de passe enregistrés dans d'autres applis, choisissez Chromium pour la saisie automatique.</translation>
 <translation id="538767207339317086">Autoriser la connexion à Chromium</translation>
 <translation id="5389058611415066188">Protégez-vous avec Chromium</translation>
 <translation id="5415273218238091735">Astuce Chromium</translation>
@@ -276,7 +278,6 @@ Seule une personne connaissant votre phrase secrète peut lire vos données chif
 <translation id="7763454117143368771">Utilisez Chromium comme navigateur par défaut pour rester à l'abri des sites dangereux et protéger vos mots de passe</translation>
 <translation id="7784950022329154821">Verrouiller les onglets de navigation privée lorsque vous fermez Chromium</translation>
 <translation id="78025249032851484">Votre version de Chromium est obsolète.</translation>
-<translation id="7811371919871579588">Pour retrouver facilement vos mots de passe enregistrés dans d'autres applis, choisissez Chromium pour la saisie automatique.</translation>
 <translation id="7859018312476869945">Lorsque vous saisissez du texte dans la barre d'adresse ou le champ de recherche, Chromium envoie le contenu saisi à votre moteur de recherche par défaut pour obtenir de meilleures suggestions. Ce paramètre est désactivé en navigation privée.</translation>
 <translation id="7890287942691234100">Commencer à utiliser le lecteur Chromium</translation>
 <translation id="7905064834449738336">Lorsque vous utilisez un mot de passe, Chromium vous avertit s'il a été publié en ligne. Lors de cette opération, vos mots de passe et vos noms d'utilisateur sont chiffrés afin que personne ne puisse les consulter, y compris Google.</translation>
@@ -307,6 +308,7 @@ Seule une personne connaissant votre phrase secrète peut lire vos données chif
 <translation id="865600487977764604">Vous protège dans Chrome et peut servir à renforcer votre sécurité dans d'autres applis Google lorsque vous êtes connecté.</translation>
 <translation id="8663480472502753423">Garder Chromium à jour</translation>
 <translation id="8685813584220679697">Connectez-vous à ce site et à Chromium.</translation>
+<translation id="8698780336333802489">Importer dans Chromium</translation>
 <translation id="8730503818204408000">Ouvre le paramètre Chromium permettant de définir Chromium comme navigateur par défaut.</translation>
 <translation id="8754966941001340678">Chromium recommande une protection renforcée</translation>
 <translation id="8759037115129007407">Le membre de votre famille ne peut pas recevoir de mots de passe pour le moment. Demandez-lui de mettre à jour Chromium et de synchroniser ses mots de passe. <ph name="BEGIN_LINK" />En savoir plus<ph name="END_LINK" /></translation>
@@ -331,6 +333,7 @@ Patientez quelques minutes avant de vous déconnecter. Si vous vous déconnectez
 <translation id="9050790730841755540">Utiliser Chromium chaque fois que vous appuyez sur un lien dans d'autres applis.</translation>
 <translation id="9059693977935746710">Vous n'aurez pas besoin de mémoriser ce mot de passe. Il sera enregistré dans le Gestionnaire de mots de passe pour <ph name="EMAIL" /></translation>
 <translation id="9089354809943900324">Version de Chromium obsolète</translation>
+<translation id="9105645282262300612">Astuce Chromium : recherchez ce que vous voyez</translation>
 <translation id="9152995302810511799">Astuce Chromium : profitez de la protection renforcée de Chromium</translation>
 <translation id="9177628952266852500"><ph name="EMAIL" />. Chromium est géré.</translation>
 <translation id="921174536258924340">Chromium n'est pas parvenu à vérifier tous les mots de passe. Réessayez demain ou <ph name="BEGIN_LINK" />vérifiez les mots de passe enregistrés dans votre compte Google<ph name="END_LINK" />.</translation>

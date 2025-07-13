@@ -40,6 +40,7 @@
 
 #include "base/command_line.h"
 #include "base/containers/adapters.h"
+#include "base/debug/crash_logging.h"
 #include "base/debug/dump_without_crashing.h"
 #include "base/functional/bind.h"
 #include "base/logging.h"
@@ -48,6 +49,7 @@
 #include "base/numerics/safe_conversions.h"
 #include "base/strings/escape.h"
 #include "base/strings/string_util.h"
+#include "base/strings/string_view_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/time/time.h"
 #include "base/trace_event/optional_trace_event.h"
@@ -1769,6 +1771,29 @@ bool NavigationControllerImpl::RendererDidNavigate(
   // after a race with an OOPIF (see https://crbug.com/616820).
   FrameNavigationEntry* frame_entry =
       active_entry->GetFrameEntry(rfh->frame_tree_node());
+  if (base::FeatureList::IsEnabled(
+          features::kCheckSiteInstanceOnHistoryNavigation) &&
+      frame_entry && frame_entry->site_instance()) {
+    int64_t dsn = navigation_request->frame_entry_document_sequence_number();
+    if (dsn != -1 && dsn == frame_entry->document_sequence_number()) {
+      // We CHECK that the SiteInstance matches the one stored in the session
+      // history's FrameNavigationEntry, if the document sequence number (DSN)
+      // also matches. This ensures the navigation is committing in the expected
+      // SiteInstance.
+      //
+      // It's okay for the SiteInstance to differ if a cross-document redirect
+      // occurred — in that case, the DSN in NavigationRequest should be cleared
+      // (set to -1), and we skip the CHECK.
+      CHECK(rfh->GetSiteInstance() == frame_entry->site_instance(),
+            base::NotFatalUntil::M141)
+          << "Session history navigation committed in a different SiteInstance "
+             "than intended. "
+          << "FrameNavigationEntry SiteInstance: "
+          << frame_entry->site_instance()
+          << ", Committed RFH SiteInstance: " << rfh->GetSiteInstance()
+          << ", URL: " << params.url;
+    }
+  }
   if (frame_entry && frame_entry->site_instance() != rfh->GetSiteInstance())
     frame_entry = nullptr;
   // Make sure we've updated the PageState in one of the helper methods.

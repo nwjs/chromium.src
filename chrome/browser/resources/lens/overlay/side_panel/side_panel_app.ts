@@ -281,7 +281,6 @@ export class LensSidePanelAppElement extends LensSidePanelAppElementBase {
     ];
     this.eventTracker_.add(this.$.searchbox, 'mousedown', () => {
       this.suppressGhostLoader = false;
-      this.showErrorState = false;
     });
     this.eventTracker_.add(
         document, 'query-autocomplete',
@@ -411,6 +410,14 @@ export class LensSidePanelAppElement extends LensSidePanelAppElementBase {
     // A request is only started for zero suggest, which is when the input value
     // is empty.
     this.autocompleteRequestStarted = !e.detail.inputValue;
+
+    if (this.autocompleteRequestStarted && !window.navigator.onLine) {
+      // If the user doesn't have an internet connection, the suggest request
+      // will fail, so immediately show the error state.
+      this.showErrorState = true;
+      return;
+    }
+
     this.showErrorState = false;
   }
 
@@ -500,6 +507,10 @@ export class LensSidePanelAppElement extends LensSidePanelAppElementBase {
 
   private pageContentTypeChanged(newPageContentType: PageContentType) {
     this.pageContentType = newPageContentType;
+    this.browserProxy.handler.getIsContextualSearchbox().then(
+        ({isContextualSearchbox}) => {
+          this.isContextualSearchbox = isContextualSearchbox;
+        });
   }
 
   // Show the toast that asks the user to share their feedback.

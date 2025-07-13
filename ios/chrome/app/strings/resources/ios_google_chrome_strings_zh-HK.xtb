@@ -90,6 +90,7 @@
 <translation id="2957447865124070833">選取 [Chrome]<ph name="BEGIN_BOLD" /><ph name="END_BOLD" /></translation>
 <translation id="2986402782150919988">將書籤新增至 Chrome</translation>
 <translation id="3030414234702425231">由於您即將登出由 <ph name="SIGNOUT_MANAGED_DOMAIN" /> 管理的帳戶，系統將刪除您在此裝置上的 Chrome 資料，但這些資料仍會保留在您的 Google 帳戶中。</translation>
+<translation id="3042447686908081308">匯入至 Chrome</translation>
 <translation id="3051521853355903257">在 Chrome 中管理密碼</translation>
 <translation id="309672519329227863">在其他應用程式中使用你的 Chrome 密碼和其他資料。</translation>
 <translation id="3109170945534582468">Chrome 操作</translation>
@@ -138,7 +139,6 @@
 <translation id="4724297637870447613">隨時隨地使用 Chrome</translation>
 <translation id="4738647308035481133">Google Chrome 頁面</translation>
 <translation id="4742795653798179840">已刪除 Chrome 資料</translation>
-<translation id="4749294594657945639">如要在其他應用程式中輕鬆取得已儲存的密碼，請選擇 Chrome 的自動填入功能。</translation>
 <translation id="4761869838909035636">執行 Chrome 安全檢查</translation>
 <translation id="4798859546468762093">如要取得個人化和其他功能，請將 Chrome 加入「<ph name="FEATURE_NAME_1" />」以及「<ph name="FEATURE_NAME_2" />」</translation>
 <translation id="4819268619367838612">Chrome 會向 Google 傳送使用情況和當機資料，以協助改善應用程式。<ph name="BEGIN_LINK" />管理<ph name="END_LINK" /></translation>
@@ -215,6 +215,7 @@
 <translation id="6533470733797826516">使用 Chrome 自動填入功能快速登入</translation>
 <translation id="6536544321553662809">將 Chrome 設定為預設瀏覽器，輕鬆分享和開啟連結</translation>
 <translation id="6545449117344801102">Chrome 會偵測地址，並使用「Google 地圖」為你規劃路線及提供當地資訊。</translation>
+<translation id="6611692150236062461">如要在其他應用程式中輕鬆取得已儲存的密碼，請選擇 Chrome 的自動填入功能。</translation>
 <translation id="6636941099779251629">你的機構要求你登入才能使用 Chrome。<ph name="BEGIN_LINK" />瞭解詳情<ph name="END_LINK" /></translation>
 <translation id="6646696210740573446">透過私隱伺服器隱藏你的 IP 位址，再傳送經編碼隱匿的部分網址傳送給 Google。如果有網站試圖盜取你的密碼，或當你下載有害檔案時，Chrome 亦可能將網址 (包括部分網頁內容) 傳送至 Google。</translation>
 <translation id="6647304104688527905">在 Chrome 中開啟新分頁。</translation>
@@ -313,6 +314,7 @@
 您已在 <ph name="TIME" />使用密碼短語加密資料。如要在 Google 帳戶中使用及儲存 Chrome 資料，請輸入密碼短語。</translation>
 <translation id="8540666473246803645">Google Chrome</translation>
 <translation id="8544583291890527417">在 Chrome 偵測到任何私隱或安全問題時接收快訊。</translation>
+<translation id="855027533751209304">Chrome 提示：搜尋畫面內容</translation>
 <translation id="8558480467877843976">您現在隨時可使用 Chrome 瀏覽或開啟訊息、文件和其他應用程式中的連結。</translation>
 <translation id="8603022514504485810">「Google 密碼管理工具」無法檢查所有密碼。請明天再試，或<ph name="BEGIN_LINK" />檢查 Google 帳戶中的密碼<ph name="END_LINK" />。</translation>
 <translation id="8630122478628016441">開啟「關閉 Chrome 時鎖定無痕式分頁」。</translation>
@@ -336,6 +338,7 @@
 <translation id="9176561303811134420">在 Chrome 中管理付款方法</translation>
 <translation id="9181628561061032322">開啟 Chrome 最近開啟的分頁。</translation>
 <translation id="948597495737267756">開啟「Chrome 記錄」頁面。</translation>
+<translation id="954347330803595209">匯入資料即可在 Chrome 使用密碼、記錄、書籤和信用卡</translation>
 <translation id="97300214378190234">隨時使用 Chrome 開啟其他應用程式中的連結。</translation>
 <translation id="997929539742564806">自動填入 Chrome 中的密碼與密鑰，快速登入應用程式和網站</translation>
 <translation id="998677222109959694">管理 Chrome 設定</translation>

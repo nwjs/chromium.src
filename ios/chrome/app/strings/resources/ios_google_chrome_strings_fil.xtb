@@ -90,6 +90,7 @@ Subukang maghintay nang ilang minuto bago mag-sign out. Kung magsa-sign out ka n
 <translation id="2957447865124070833">Piliin ang <ph name="BEGIN_BOLD" />Chrome<ph name="END_BOLD" /></translation>
 <translation id="2986402782150919988">Magdagdag ng mga bookmark sa Chrome</translation>
 <translation id="3030414234702425231">Dahil magsa-sign out ka sa account na pinapamahalaan ng <ph name="SIGNOUT_MANAGED_DOMAIN" />, made-delete ang iyong data sa Chrome sa device na ito. Mananatili ang data mo sa iyong Google Account.</translation>
+<translation id="3042447686908081308">I-import sa Chrome</translation>
 <translation id="3051521853355903257">Pamahalaan ang mga password sa Chrome</translation>
 <translation id="309672519329227863">I-access ang iyong mga password sa Chrome at higit pa sa iba pang app.</translation>
 <translation id="3109170945534582468">Mga aksyon sa Chrome</translation>
@@ -138,7 +139,6 @@ Subukang maghintay nang ilang minuto bago mag-sign out. Kung magsa-sign out ka n
 <translation id="4724297637870447613">Gamitin ang Chrome sa lahat ng lugar</translation>
 <translation id="4738647308035481133">Page ng Google Chrome</translation>
 <translation id="4742795653798179840">Na-delete na ang data sa Chrome</translation>
-<translation id="4749294594657945639">Para madaling makuha ang iyong mga naka-save na password sa iba pang app, piliin ang Chrome para sa Autofill.</translation>
 <translation id="4761869838909035636">Magpatakbo ng Pag-check sa Kaligtasan sa Chrome</translation>
 <translation id="4798859546468762093">Para makuha ang pag-personalize at iba pang feature, isama ang Chrome sa <ph name="FEATURE_NAME_1" /> at <ph name="FEATURE_NAME_2" /></translation>
 <translation id="4819268619367838612">Para makatulong na mapaganda ang app, nagpapadala ang Chrome ng data ng paggamit at pag-crash sa Google. <ph name="BEGIN_LINK" />Pamahalaan<ph name="END_LINK" /></translation>
@@ -215,6 +215,7 @@ Naka-encrypt ang iyong data gamit ang passphrase mo. Ilagay ito para magamit at 
 <translation id="6533470733797826516">Mas mabilis na makapag-sign in gamit ang autofill ng Chrome</translation>
 <translation id="6536544321553662809">Itakda ang Chrome bilang iyong default browser para madaling makapag-share at makapagbukas ng mga link</translation>
 <translation id="6545449117344801102">Dine-detect ng Chrome ang mga address at ginagamit nito ang Google Maps para bigyan ka ng mga direksyon at lokal na impormasyon.</translation>
+<translation id="6611692150236062461">Para madaling makuha ang iyong mga naka-save na password sa iba pang app, piliin ang Chrome para sa Autofill.</translation>
 <translation id="6636941099779251629">Nire-require sa iyo ng organisasyon mo na mag-sign in para magamit ang Chrome. <ph name="BEGIN_LINK" />Matuto pa<ph name="END_LINK" /></translation>
 <translation id="6646696210740573446">Magpapadala ng na-obfuscate na bahagi ng URL sa Google sa pamamagitan ng server ng privacy na nagha-hide ng iyong IP address. Kung susubukan ng site na nakawin ang iyong password, o kapag nag-download ka ng mapaminsalang file, posible ring magpadala ang Chrome sa Google ng mga URL, kabilang ang ilang content ng page</translation>
 <translation id="6647304104688527905">Magbubukas ng bagong tab sa Chrome.</translation>
@@ -313,6 +314,7 @@ Ang taong may passphrase mo lang ang makakapagbasa ng iyong naka-encrypt na data
 Na-encrypt ang iyong data gamit ang passphrase mo noong <ph name="TIME" />. Ilagay ito para magamit at ma-save ang data sa Chrome sa iyong Google Account.</translation>
 <translation id="8540666473246803645">Google Chrome</translation>
 <translation id="8544583291890527417">Mga alerto sa anumang isyu sa privacy o seguridad na dine-detect ng Chrome para sa iyo.</translation>
+<translation id="855027533751209304">Tip sa Chrome: Hanapin ang nakikita mo</translation>
 <translation id="8558480467877843976">Magagamit mo na ngayon ang Chrome sa tuwing magbo-browse o magta-tap ka ng mga link sa mga mensahe, dokumento, at iba pang app.</translation>
 <translation id="8603022514504485810">Hindi masuri ng Google Password Manager ang lahat ng password. Subukan ulit bukas o <ph name="BEGIN_LINK" />suriin ang mga password sa iyong Google Account.<ph name="END_LINK" /></translation>
 <translation id="8630122478628016441">I-on ang “I-lock ang mga tab na Incognito kapag isinara mo ang Chrome.”</translation>
@@ -336,6 +338,7 @@ Na-encrypt ang iyong data gamit ang passphrase mo noong <ph name="TIME" />. Ilag
 <translation id="9176561303811134420">Pamahalaan ang mga paraan ng pagbabayad sa Chrome</translation>
 <translation id="9181628561061032322">Mabubuksan ang Mga Kamakailang Tab sa Chrome.</translation>
 <translation id="948597495737267756">Bubuksan ang iyong page ng History sa Chrome.</translation>
+<translation id="954347330803595209">I-import ang iyong data para magamit ang mga password, history, bookmark, at credit card mo sa Chrome</translation>
 <translation id="97300214378190234">Gamitin ang Chrome sa tuwing magta-tap ka ng mga link sa iba pang app.</translation>
 <translation id="997929539742564806">Mabilis na mag-sign in sa mga app at site sa pamamagitan ng pag-autofill ng iyong mga password at passkey mula sa Chrome</translation>
 <translation id="998677222109959694">Pamahalaan ang mga setting ng Chrome</translation>

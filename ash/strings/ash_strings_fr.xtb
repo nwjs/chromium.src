@@ -1014,6 +1014,7 @@ Certaines fonctionnalités sont limitées afin d'augmenter l'autonomie de la bat
 <translation id="4305817255990598646">Changer</translation>
 <translation id="4307713728991152670">Configurer l'affichage des photos, applis et contenus multimédias récents de votre téléphone</translation>
 <translation id="4312840429157639164">Appareil photo aligné sur l'angle supérieur droit. Conflit avec la surface du système.</translation>
+<translation id="4312935606722154789">Regrouper ou dégrouper deux fenêtres côte à côte</translation>
 <translation id="4316910396681052118">TOUTES LES APPLICATIONS</translation>
 <translation id="4321179778687042513">ctrl</translation>
 <translation id="4322385711258710213">Masquer toutes les suggestions du navigateur Chrome</translation>
@@ -1453,7 +1454,6 @@ Aucun appareil connecté.</translation>
 <translation id="5691772641933328258">Empreinte digitale non reconnue</translation>
 <translation id="5693255400847650006">Micro utilisé</translation>
 <translation id="5699366815052349604">Associer la fenêtre active à tous les bureaux</translation>
-<translation id="5701785125601597013">Envoyer des messages ou répondre rapidement à ceux de votre téléphone avec Phone Hub</translation>
 <translation id="570390244361237317">Toutes les applis : utiliser les touches fléchées pour accéder à toutes les applis</translation>
 <translation id="5705197514573687092">Afficher les paramètres du mode Sans distractions. Minuteur défini sur <ph name="FOCUS_DURATION" />.</translation>
 <translation id="5707775774148071965">Votre appareil accepte un débit de données supérieur à celui de votre câble. Cela peut limiter les performances de l'appareil.</translation>
@@ -1583,7 +1583,6 @@ Aucun appareil connecté.</translation>
 <translation id="6095425951508823973">Ajouter une connexion à <ph name="PROVIDER" /></translation>
 <translation id="6099678161144790572">Modifié le mois dernier</translation>
 <translation id="6103838137565245112">système</translation>
-<translation id="610395411842312282">Regrouper deux fenêtres côte à côte</translation>
 <translation id="6108952804512516814">Créer avec l'IA</translation>
 <translation id="6114505516289286752">Fichiers vocaux en <ph name="LANGUAGE" /> téléchargés</translation>
 <translation id="6119360623251949462"><ph name="CHARGING_STATE" />. <ph name="BATTERY_SAVER_STATE" /></translation>

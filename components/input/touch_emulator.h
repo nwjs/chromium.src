@@ -36,6 +36,7 @@ class COMPONENT_EXPORT(INPUT) TouchEmulator : public ui::GestureProviderClient {
   // Note that TouchEmulator should always listen to touch events and their acks
   // (even in disabled state) to track native stream presence.
   virtual bool IsEnabled() const = 0;
+  virtual bool ShouldUpdateCursor(RenderWidgetHostViewInput*) const = 0;
 
   virtual bool HandleTouchEvent(const blink::WebTouchEvent& event) = 0;
 

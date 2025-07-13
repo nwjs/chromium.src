@@ -29,6 +29,8 @@
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_header_constants.h"
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_header_view_controller.h"
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_mutator.h"
+#import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_quick_actions_view_controller.h"
+#import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_shortcuts_handler.h"
 #import "ios/chrome/browser/overscroll_actions/ui_bundled/overscroll_actions_controller.h"
 #import "ios/chrome/browser/shared/model/utils/first_run_util.h"
 #import "ios/chrome/browser/shared/public/commands/help_commands.h"
@@ -51,6 +53,10 @@ const CGFloat kFeedContainerMinimumHeight = 1000;
 // Added height to the feed container so that it doesn't end abruptly on
 // overscroll.
 const CGFloat kFeedContainerExtraHeight = 500;
+
+// The spacing for the quick actions buttons.
+const CGFloat kQuickActionSpacingTop = 3.0;
+const CGFloat kQuickActionSpacingBotttom = 19.0;
 
 // Vertical spacing between modules.
 CGFloat SpaceBetweenModules() {
@@ -177,6 +183,11 @@ CGFloat SpaceBetweenModules() {
   UIImage* _backgroundImage;
   // The image view to display the current background image.
   UIImageView* _backgroundImageView;
+  // The view controller holding the NTP quick actions buttons.
+  // Only created when the fakebox buttons are replaced.
+  NewTabPageQuickActionsViewController* _quickActionsViewController;
+  // Whether MIA is allowed by policy.
+  BOOL _MIAAllowedByPolicy;
 }
 
 // Properties synthesized from NewTabPageConsumer.
@@ -208,6 +219,10 @@ CGFloat SpaceBetweenModules() {
   DCHECK(self.feedWrapperViewController);
 
   self.view.accessibilityIdentifier = kNTPViewIdentifier;
+
+  _quickActionsViewController =
+      [[NewTabPageQuickActionsViewController alloc] init];
+  _quickActionsViewController.NTPShortcutsHandler = self.NTPShortcutsHandler;
 
   // TODO(crbug.com/40799579): Remove this when bug is fixed.
   [self.feedWrapperViewController loadViewIfNeeded];
@@ -516,6 +531,10 @@ CGFloat SpaceBetweenModules() {
     [self addViewControllerAboveFeed:self.contentSuggestionsViewController];
   }
 
+  if (self.quickActionsVisible) {
+    [self addViewControllerAboveFeed:_quickActionsViewController];
+  }
+
   [self addViewControllerAboveFeed:self.headerViewController];
 
   DCHECK(
@@ -654,6 +673,10 @@ CGFloat SpaceBetweenModules() {
         viewController == self.contentSuggestionsViewController ||
         viewController == self.feedHeaderViewController) {
       heightAboveFeed += SpaceBetweenModules();
+    }
+
+    if (viewController == _quickActionsViewController) {
+      heightAboveFeed += kQuickActionSpacingBotttom;
     }
   }
   return heightAboveFeed;
@@ -799,6 +822,10 @@ CGFloat SpaceBetweenModules() {
   _backgroundImage = backgroundImage;
 
   [self updateBackgroundImageView];
+}
+
+- (void)setMIAAllowedByPolicy:(BOOL)policyAllowed {
+  _MIAAllowedByPolicy = policyAllowed;
 }
 
 #pragma mark - UIScrollViewDelegate
@@ -1056,6 +1083,18 @@ CGFloat SpaceBetweenModules() {
 
 #pragma mark - Private
 
+- (void)setNTPShortcutsHandler:
+    (id<NewTabPageShortcutsHandler>)NTPShortcutsHandler {
+  _NTPShortcutsHandler = NTPShortcutsHandler;
+  _quickActionsViewController.NTPShortcutsHandler = NTPShortcutsHandler;
+}
+
+// Whether the quick actions button row is visible.
+- (BOOL)quickActionsVisible {
+  return self.headerViewController.isGoogleDefaultSearchEngine &&
+         ShouldShowQuickActionsRow() && _MIAAllowedByPolicy;
+}
+
 // Returns YES if scroll should be skipped when focusing the omnibox.
 - (BOOL)shouldSkipScrollToFocusOmnibox {
   return self.scrolledToMinimumHeight || IsSplitToolbarMode(self);
@@ -1234,7 +1273,9 @@ CGFloat SpaceBetweenModules() {
     self.fakeOmniboxConstraints = @[
       [viewBelowHeader.topAnchor
           constraintEqualToAnchor:self.headerViewController.view.bottomAnchor
-                         constant:SpaceBetweenModules()],
+                         constant:self.quickActionsVisible
+                                      ? kQuickActionSpacingTop
+                                      : SpaceBetweenModules()],
     ];
   }
   [NSLayoutConstraint activateConstraints:self.fakeOmniboxConstraints];
@@ -1455,6 +1496,19 @@ CGFloat SpaceBetweenModules() {
     ]];
   }
 
+  if (self.quickActionsVisible) {
+    _quickActionsViewController.view.translatesAutoresizingMaskIntoConstraints =
+        NO;
+    [NSLayoutConstraint activateConstraints:@[
+      [_quickActionsViewController.view.leadingAnchor
+          constraintEqualToAnchor:_headerViewController.fakeOmniboxView
+                                      .leadingAnchor],
+      [_quickActionsViewController.view.trailingAnchor
+          constraintEqualToAnchor:_headerViewController.fakeOmniboxView
+                                      .trailingAnchor],
+    ]];
+  }
+
   // Anchor each module except the one directly below the header, since it will
   // dynamically update its top anchor when the fake omnibox is pinned.
   if ([self.viewControllersAboveFeed lastObject] != self.headerViewController) {
@@ -1471,11 +1525,16 @@ CGFloat SpaceBetweenModules() {
     NSUInteger headerIndex =
         [self.viewControllersAboveFeed indexOfObject:self.headerViewController];
     for (NSUInteger index = startIndex; index > headerIndex + 1; --index) {
+      BOOL isQuickActions = _quickActionsViewController ==
+                            self.viewControllersAboveFeed[index - 1];
       UIView* view = self.viewControllersAboveFeed[index].view;
       UIView* viewAbove = self.viewControllersAboveFeed[index - 1].view;
+
+      CGFloat spacingToUse =
+          isQuickActions ? kQuickActionSpacingBotttom : SpaceBetweenModules();
       [NSLayoutConstraint activateConstraints:@[
         [view.topAnchor constraintEqualToAnchor:viewAbove.bottomAnchor
-                                       constant:SpaceBetweenModules()],
+                                       constant:spacingToUse],
       ]];
     }
   }

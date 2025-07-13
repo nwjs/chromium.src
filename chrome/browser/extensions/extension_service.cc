@@ -56,6 +56,8 @@
 #include "chrome/browser/extensions/forced_extensions/install_stage_tracker.h"
 #include "chrome/browser/extensions/install_verifier.h"
 #include "chrome/browser/extensions/installed_loader.h"
+#include "chrome/browser/extensions/manifest_v2_experiment_manager.h"
+#include "chrome/browser/extensions/mv2_experiment_stage.h"
 #include "chrome/browser/extensions/omaha_attributes_handler.h"
 #include "chrome/browser/extensions/permissions/permissions_updater.h"
 #include "chrome/browser/extensions/profile_util.h"
@@ -123,11 +125,6 @@
 
 #if !BUILDFLAG(IS_ANDROID)
 #include "chrome/browser/upgrade_detector/upgrade_detector.h"
-#endif
-
-#if BUILDFLAG(ENABLE_EXTENSIONS)
-#include "chrome/browser/extensions/manifest_v2_experiment_manager.h"
-#include "chrome/browser/extensions/mv2_experiment_stage.h"
 #endif
 
 #include "content/nw/src/nw_content.h"
@@ -326,6 +323,8 @@ void ExtensionService::Shutdown() {
   external_install_manager_ = nullptr;
   updater_ = nullptr;
   component_loader_ = nullptr;
+  host_observation_.RemoveAllObservations();
+  is_shut_down_executed_ = true;
 }
 
 void ExtensionService::Init() {
@@ -375,6 +374,8 @@ void ExtensionService::Init() {
   // rather than running immediately at startup.
   external_provider_manager_->CheckForExternalUpdates();
 
+  LogExtensionsOnChromeUrlsSwitchWarningIfNeeded();
+
   safe_browsing_verdict_handler_.Init();
 
   // Must be called after extensions are loaded.
@@ -403,9 +404,6 @@ void ExtensionService::LoadExtensionsFromCommandLineFlag(
   }
 
   // Check that --load-extension is allowed.
-  // TODO(crbug.com/419530940): Apply restrictions to
-  // --disable-extensions-except switch once the feature is approved and
-  // implemented.
   if (switch_name == switches::kLoadExtension) {
     if (base::FeatureList::IsEnabled(
             extensions_features::kDisableLoadExtensionCommandLineSwitch)) {
@@ -426,6 +424,13 @@ void ExtensionService::LoadExtensionsFromCommandLineFlag(
           << "ExtensionInstallTypeBlocklist::command_line, ignoring.";
       return;
     }
+  } else if (base::FeatureList::IsEnabled(
+                 extensions_features::
+                     kDisableDisableExtensionsExceptCommandLineSwitch)) {
+    DCHECK_EQ(switch_name, switches::kDisableExtensionsExcept);
+    LOG(WARNING) << "--disable-extensions-except is not allowed in Google "
+                    "Chrome, ignoring.";
+    return;
   }
 
   base::CommandLine::StringType path_list =
@@ -548,10 +553,8 @@ void ExtensionService::CheckManagementPolicy() {
     PermissionsUpdater(profile()).ApplyPolicyHostRestrictions(*extension);
   }
 
-#if BUILDFLAG(ENABLE_EXTENSIONS)
   ManifestV2ExperimentManager* mv2_experiment_manager =
       ManifestV2ExperimentManager::Get(profile_);
-#endif
 
   // Loop through the disabled extension list, find extensions to re-enable
   // automatically. These extensions are exclusive from the |to_disable| list
@@ -604,7 +607,6 @@ void ExtensionService::CheckManagementPolicy() {
       to_remove.insert(disable_reason::DISABLE_BLOCKED_BY_POLICY);
     }
 
-#if BUILDFLAG(ENABLE_EXTENSIONS)
     // Note: `mv2_experiment_manager` may be null for certain types of profiles
     // (such as the sign-in profile). We can ignore this check in this case,
     // since users can't install extensions in these profiles.
@@ -617,7 +619,6 @@ void ExtensionService::CheckManagementPolicy() {
         !mv2_experiment_manager->ShouldBlockExtensionEnable(*extension)) {
       to_remove.insert(disable_reason::DISABLE_UNSUPPORTED_MANIFEST_VERSION);
     }
-#endif  // BUILDFLAG(ENABLE_EXTENSIONS)
 
     // If this profile is not supervised, then remove any supervised user
     // related disable reasons.
@@ -961,6 +962,20 @@ void ExtensionService::OnInstalledExtensionsLoaded() {
 
 void ExtensionService::OnDeveloperModePrefChanged() {
   CheckManagementPolicy();
+}
+
+void ExtensionService::LogExtensionsOnChromeUrlsSwitchWarningIfNeeded() {
+  bool allow_on_chrome_urls = base::CommandLine::ForCurrentProcess()->HasSwitch(
+      switches::kExtensionsOnChromeURLs);
+
+  if (allow_on_chrome_urls &&
+      base::FeatureList::IsEnabled(
+          extensions_features::kDisableExtensionsOnChromeUrlsSwitch)) {
+    LOG(WARNING) << "--extensions-on-chrome-urls is not allowed in Google "
+                    "Chrome, ignoring. "
+                    "Use --extensions-on-extension-urls instead to allow for "
+                    "extensions to run on extension URLs.";
+  }
 }
 
 }  // namespace extensions

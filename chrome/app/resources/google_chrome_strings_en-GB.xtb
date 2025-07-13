@@ -7,6 +7,7 @@
 <translation id="102763973188675173">Customise and control Google Chrome. Update is available.</translation>
 <translation id="1028061813283459617">To delete browsing data from this device only, while keeping it in your Google Account, <ph name="BEGIN_LINK" />sign out of Chrome<ph name="END_LINK" />.</translation>
 <translation id="1042270987544905725">Click to close the Chrome sign-in dialogue</translation>
+<translation id="1051793555070215510">Help us improve Incognito by taking this 1-minute survey.</translation>
 <translation id="1059838145689930908">To use this extension as <ph name="USER_EMAIL_ADDRESS" />, sign in to Chrome.</translation>
 <translation id="1065672644894730302">Your preferences cannot be read.
 
@@ -56,6 +57,7 @@ Some features may be unavailable and changes to preferences won't be saved.</tra
 <translation id="1682634494516646069">Google Chrome cannot read and write to its data directory:
 
 <ph name="USER_DATA_DIRECTORY" /></translation>
+<translation id="1688214853608504530">When you type in the address bar or search box, Chrome sends what you type to your organisation's search, AI and agent tools to get suggestions.</translation>
 <translation id="1698376642261615901">Google Chrome is a web browser that runs web pages and applications with lightning speed. It's fast, stable and easy to use. Browse the web more safely with malware and phishing protection built into Google Chrome.</translation>
 <translation id="1713301662689114961">{0,plural, =1{Chrome will relaunch in an hour}other{Chrome will relaunch in # hours}}</translation>
 <translation id="1722488837206509557">This will allow you to select from available devices and display content on them.</translation>
@@ -64,6 +66,7 @@ Some features may be unavailable and changes to preferences won't be saved.</tra
 <translation id="178701303897325119">This extension is no longer supported. Chrome recommends that you remove it instead.</translation>
 <translation id="1812689907177901597">By turning this off, you can sign in to Google sites such as Gmail, without signing in to Chrome</translation>
 <translation id="1821644463306970002">{NUM_TABS,plural, =1{Chrome recommends pausing the tab that's slowing your browser}other{Chrome recommends pausing the tabs that are slowing your browser}}</translation>
+<translation id="1832046143430087831">Speeds up sites with Chrome's V8 engine but makes Chrome slightly less resistant to attacks. This setting is off.</translation>
 <translation id="1838374766361614909">Clear search</translation>
 <translation id="1860536484129686729">Chrome needs permission to access your camera for this site</translation>
 <translation id="1873233029667955273">Google Chrome isn't your default browser</translation>
@@ -121,6 +124,7 @@ Some features may be unavailable and changes to preferences won't be saved.</tra
 <translation id="2569974318947988067">Chrome will try to upgrade navigations to HTTPS</translation>
 <translation id="2571392474191184472">Your organisation manages Chrome</translation>
 <translation id="2574930892358684005"><ph name="EXISTING_USER" /> is already signed in to this Chrome profile. To keep your browsing separate, Chrome can create your own profile for you.</translation>
+<translation id="2579190314336775785">Passwords can only be deleted outside Chrome</translation>
 <translation id="2580411288591421699">Cannot install the same Google Chrome version that is currently running. Please close Google Chrome and try again.</translation>
 <translation id="2586406160782125153">This will delete your browsing data from this device. To retrieve your data later, sign in to Chrome as <ph name="USER_EMAIL" />.</translation>
 <translation id="259935314519650377">Failed to cache the downloaded installer. Error: <ph name="UNPACK_CACHING_ERROR_CODE" />.</translation>
@@ -269,6 +273,7 @@ Some features may be unavailable and changes to preferences won't be saved.</tra
 <translation id="4326552909330437744">{NUM_TABS,plural, =1{Chrome recommends pausing the tab that's slowing your browser}other{Chrome recommends pausing the tabs that are slowing your browser}}</translation>
 <translation id="4328355335528187361">Google Chrome Dev (mDNS-In)</translation>
 <translation id="4329315893554541805">To get personalisation and other features, include Chrome in Web &amp; App Activity and linked Google services</translation>
+<translation id="4334241893986177674">Search this screenshot</translation>
 <translation id="4334294535648607276">Download complete.</translation>
 <translation id="4337324600316876133">To get future Google Chrome updates, you'll need macOS 12 or later. This computer is using macOS 11.</translation>
 <translation id="4343195214584226067"><ph name="EXTENSION_NAME" /> has been added to Chrome</translation>
@@ -450,12 +455,12 @@ Google Chrome is unable to recover your settings.</translation>
 <translation id="6718739135284199302">Make Chrome faster</translation>
 <translation id="6735387454586646204">Chrome OS Flex system</translation>
 <translation id="6750954913813541382">To fix spelling errors, Chrome sends the text that you type in the browser to Google</translation>
+<translation id="6760235774835597023">Speeds up sites with Chrome's V8 engine but makes Chrome slightly less resistant to attacks. This setting is on.</translation>
 <translation id="677276454032249905">Exit Chrome anyway?</translation>
 <translation id="6794858689789885890">Always delete site data from your device when you close Chrome</translation>
 <translation id="6831043979455480757">Translate</translation>
 <translation id="683440813066116847">Inbound rule for Google Chrome Canary to allow mDNS traffic.</translation>
 <translation id="684888714667046800">Unable to connect to the Internet. If you use a firewall, please ensure that <ph name="PRODUCT_EXE_NAME" /> is in the allowlist.</translation>
-<translation id="6851981911629679515">Turn on additional protection in Chrome’s JavaScript and WebAssembly engine</translation>
 <translation id="6877155553248388166">bottom-right corner of search area: right <ph name="RIGHT" />%, bottom <ph name="BOTTOM" />%</translation>
 <translation id="6881299373831449287">Updating Chrome</translation>
 <translation id="6885412569789873916">Chrome Beta apps</translation>
@@ -515,7 +520,6 @@ Google Chrome is unable to recover your settings.</translation>
 <translation id="7572537927358445944">Off • Chrome can't verify where this extension comes from</translation>
 <translation id="7583399374488819119"><ph name="COMPANY_NAME" /> installer</translation>
 <translation id="7606334485649076285">Google Chrome OS Flex</translation>
-<translation id="7626032353295482388">Welcome to Chrome</translation>
 <translation id="7626072681686626474"><ph name="MANAGER" /> requires that you read and accept the following Terms of Service before using this device. These terms do not expand, modify or limit the Google Chrome OS terms.</translation>
 <translation id="7629695634924605473">Chrome lets you know if your passwords are ever compromised</translation>
 <translation id="7641148173327520642">Your system administrator has configured Google Chrome to open <ph name="ALTERNATIVE_BROWSER_NAME" /> to access <ph name="TARGET_URL_HOSTNAME" />.</translation>
@@ -559,7 +563,6 @@ Google Chrome is unable to recover your settings.</translation>
 <translation id="8019103195866286235">This extension was unpublished by its developer and might be unsafe. Remove it from Chrome so that it can no longer see and change your data on sites that you visit, including your personal info.</translation>
 <translation id="8040768861829554732">An extension wants you to sign in to Chrome</translation>
 <translation id="80471789339884597">Thanks for installing. You must restart all your browsers before using <ph name="BUNDLE_NAME" />.</translation>
-<translation id="8064015041956107954">You can open bookmarks, reading mode and more from the Chrome menu at the top right</translation>
 <translation id="8064015586118426197">Chrome OS Flex</translation>
 <translation id="8077579734294125741">Other Chrome profiles</translation>
 <translation id="8086881907087796310">Installation failed because your computer does not meet the minimum hardware requirements.</translation>
@@ -571,7 +574,6 @@ Google Chrome is unable to recover your settings.</translation>
 <translation id="8177472873527554730">Can't find content in page</translation>
 <translation id="8221491193165283816">You usually block notifications. To let this site notify you, click here.</translation>
 <translation id="8255190535488645436">Google Chrome is using your camera and microphone.</translation>
-<translation id="8257796129973882597">You can open bookmarks, reading mode and more from the Chrome menu</translation>
 <translation id="8267953129876836456">Chrome found some safety recommendations for your review</translation>
 <translation id="8286862437124483331">Google Chrome is trying to show passwords. Type your Windows password to allow this.</translation>
 <translation id="829923460755755423">Add a shortcut to Google Password Manager</translation>

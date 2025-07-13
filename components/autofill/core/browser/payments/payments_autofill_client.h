@@ -44,6 +44,7 @@ class CreditCardRiskBasedAuthenticator;
 class Iban;
 class IbanAccessManager;
 class IbanManager;
+class LoyaltyCard;
 class MerchantPromoCodeManager;
 struct OfferNotificationOptions;
 class OtpUnmaskDelegate;
@@ -560,7 +561,7 @@ class PaymentsAutofillClient : public RiskDataLoader {
   // WebView, and should not be used on those platforms.
   virtual bool ShowTouchToFillLoyaltyCard(
       base::WeakPtr<TouchToFillDelegate> delegate,
-      base::span<const LoyaltyCard> loyalty_cards_to_suggest);
+      std::vector<LoyaltyCard> loyalty_cards_to_suggest);
 
   // Hides the Touch To Fill surface for filling payment information if one is
   // currently shown. Should be called only if the feature is supported by the

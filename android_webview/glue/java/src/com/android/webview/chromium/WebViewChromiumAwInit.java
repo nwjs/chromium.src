@@ -39,7 +39,6 @@ import org.chromium.android_webview.AwContentsStatics;
 import org.chromium.android_webview.AwCookieManager;
 import org.chromium.android_webview.AwCrashyClassUtils;
 import org.chromium.android_webview.AwDarkMode;
-import org.chromium.android_webview.AwFeatureMap;
 import org.chromium.android_webview.AwLocaleConfig;
 import org.chromium.android_webview.AwNetworkChangeNotifierRegistrationPolicy;
 import org.chromium.android_webview.AwProxyController;
@@ -49,6 +48,7 @@ import org.chromium.android_webview.AwTracingController;
 import org.chromium.android_webview.HttpAuthDatabase;
 import org.chromium.android_webview.R;
 import org.chromium.android_webview.WebViewChromiumRunQueue;
+import org.chromium.android_webview.common.AwFeatureMap;
 import org.chromium.android_webview.common.AwFeatures;
 import org.chromium.android_webview.common.AwResource;
 import org.chromium.android_webview.common.AwSwitches;
@@ -810,12 +810,8 @@ public class WebViewChromiumAwInit {
     private void initPlatSupportLibrary() {
         try (ScopedSysTraceEvent e =
                 ScopedSysTraceEvent.scoped("WebViewChromiumAwInit.initPlatSupportLibrary")) {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                AwDrawFnImpl.setDrawFnFunctionTable(DrawFunctor.getDrawFnFunctionTable());
-            }
-            DrawGLFunctor.setChromiumAwDrawGLFunction(AwContents.getAwDrawGLFunction());
+            AwDrawFnImpl.setDrawFnFunctionTable(DrawFunctor.getDrawFnFunctionTable());
             AwContents.setAwDrawSWFunctionTable(GraphicsUtils.getDrawSWFunctionTable());
-            AwContents.setAwDrawGLFunctionTable(GraphicsUtils.getDrawGLFunctionTable());
         }
     }
 

@@ -286,7 +286,7 @@ String FileInputType::ValueInFilenameValueMode() const {
   // decided to try to parse the value by looking for backslashes
   // (because that's what Windows file paths use). To be compatible
   // with that code, we make up a fake path for the file.
-  //return WTF::StrCat({"C:\\fakepath\\", file_list_->item(0)->name()});
+  //return StrCat({"C:\\fakepath\\", file_list_->item(0)->name()});
   unsigned numFiles = file_list_->length();
   StringBuilder val;
   val.Append(file_list_->item(0)->path());

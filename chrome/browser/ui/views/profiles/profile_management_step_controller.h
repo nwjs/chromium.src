@@ -7,6 +7,7 @@
 
 #include "base/functional/callback.h"
 #include "base/functional/callback_forward.h"
+#include "base/memory/raw_ptr.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/search_engine_choice/search_engine_choice_dialog_service.h"
 #include "chrome/browser/ui/views/profiles/profile_management_types.h"
@@ -80,7 +81,7 @@ class ProfileManagementStepController {
       SearchEngineChoiceDialogService* search_engine_choice_dialog_service,
       content::WebContents* web_contents,
       SearchEngineChoiceDialogService::EntryPoint entry_point,
-      base::OnceCallback<void(StepSwitchFinishedCallback)> callback);
+      base::OnceClosure callback);
 
   // Creates the step that will finish the flow and launch the browser.
   static std::unique_ptr<ProfileManagementStepController>
@@ -92,13 +93,13 @@ class ProfileManagementStepController {
   virtual ~ProfileManagementStepController();
 
   // Attempts to show the current step in the `host_`.
-  // `step_shown_callback` will be executed when the attempt is completed, with
-  // `true` if it succeeded.
+  // `step_shown_callback` is not null, and should be executed based on whether
+  // the step was shown or skipped.
   // `reset_state` indicates that the step should reset its internal state and
   // appear as freshly created. Callers should pass `true` for newly created
   // steps.
   virtual void Show(StepSwitchFinishedCallback step_shown_callback,
-                    bool reset_state = false) = 0;
+                    bool reset_state) = 0;
 
   // Frees up unneeded resources. `Show()` will be called if it's needed again.
   virtual void OnHidden() {}

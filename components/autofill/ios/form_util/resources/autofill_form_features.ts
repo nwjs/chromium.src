@@ -24,14 +24,6 @@ let autofillAcrossIframes: boolean = false;
 let autofillAcrossIframesThrottling: boolean = false;
 // LINT.ThenChange(//components/autofill/core/common/autofill_features.cc:autofill_across_iframes_ios)
 
-// LINT.IfChange(autofill_disallow_slash_dot_labels)
-/**
- * True labels must not exclusively contain slashes and dots and other special
- * characters.
- */
-let autofillDisallowSlashDotLabels: boolean = true;
-// LINT.ThenChange(//components/autofill/core/common/autofill_features.cc:autofill_disallow_slash_dot_labels)
-
 // LINT.IfChange(autofill_isolated_content_world)
 /**
  Enables the logic necessary for Autofill to work from an isolated content world
@@ -96,20 +88,6 @@ function setAutofillAcrossIframesThrottling(enabled: boolean): void {
  */
 function isAutofillAcrossIframesThrottlingEnabled(): boolean {
   return autofillAcrossIframesThrottling;
-}
-
-/**
- * @see autofillDisallowSlashDotLabels
- */
-function setAutofillDisallowSlashDotLabels(enabled: boolean): void {
-  autofillDisallowSlashDotLabels = enabled;
-}
-
-/**
- * @see setAutofillDisallowSlashDotLabels
- */
-function isAutofillDisallowSlashDotLabelsEnabled(): boolean {
-  return autofillDisallowSlashDotLabels;
 }
 
 /**
@@ -190,8 +168,6 @@ gCrWebLegacy.autofill_form_features = {
   isAutofillAcrossIframesEnabled,
   setAutofillAcrossIframesThrottling,
   isAutofillAcrossIframesThrottlingEnabled,
-  setAutofillDisallowSlashDotLabels,
-  isAutofillDisallowSlashDotLabelsEnabled,
   setAutofillIsolatedContentWorld,
   isAutofillIsolatedContentWorldEnabled,
   setAutofillCorrectUserEditedBitInParsedField,

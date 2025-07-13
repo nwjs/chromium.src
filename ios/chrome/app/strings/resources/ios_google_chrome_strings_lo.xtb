@@ -90,6 +90,7 @@
 <translation id="2957447865124070833">ເລືອກ <ph name="BEGIN_BOLD" />Chrome<ph name="END_BOLD" /></translation>
 <translation id="2986402782150919988">ເພີ່ມບຸກມາກໃສ່ໃນ Chrome</translation>
 <translation id="3030414234702425231">ເພາະວ່າທ່ານກຳລັງອອກຈາກລະບົບບັນຊີທີ່ຈັດການໂດຍ <ph name="SIGNOUT_MANAGED_DOMAIN" />, ຂໍ້ມູນ Chrome ຂອງທ່ານຈະຖືກລຶບອອກຈາກອຸປະກອນນີ້. ຂໍ້ມູນຂອງທ່ານຈະຍັງຄົງຢູ່ໃນບັນຊີ Google ຂອງທ່ານ.</translation>
+<translation id="3042447686908081308">ນຳເຂົ້າໄປໃສ່ Chrome</translation>
 <translation id="3051521853355903257">ຈັດການລະຫັດຜ່ານໃນ Chrome</translation>
 <translation id="309672519329227863">ເຂົ້າເຖິງລະຫັດຜ່ານ Chrome ຂອງທ່ານ ແລະ ອື່ນໆທົ່ວແອັບຕ່າງໆ.</translation>
 <translation id="3109170945534582468">ຄຳສັ່ງ Chrome</translation>
@@ -138,7 +139,6 @@
 <translation id="4724297637870447613">ໃຊ້ Chrome ໄດ້ຢູ່ທົ່ວທຸກບ່ອນ</translation>
 <translation id="4738647308035481133">ໜ້າ Google Chrome</translation>
 <translation id="4742795653798179840">ລຶບຂໍ້ມູນ Chrome ແລ້ວ</translation>
-<translation id="4749294594657945639">ເພື່ອເບິ່ງລະຫັດຜ່ານທີ່ບັນທຶກໄວ້ໃນແອັບອື່ນໆຂອງທ່ານໄດ້ຢ່າງງ່າຍດາຍ, ໃຫ້ເລືອກ Chrome ສຳລັບການຕື່ມຂໍ້ມູນອັດຕະໂນມັດ</translation>
 <translation id="4761869838909035636">ເປີດໃຊ້ການກວດສອບຄວາມປອດໄພ Chrome</translation>
 <translation id="4798859546468762093">ເພື່ອຮັບການປັບແຕ່ງເປັນແບບສ່ວນຕົວ ແລະ ຄຸນສົມບັດອື່ນໆ, ໃຫ້ຮວມ Chrome ໄວ້ໃນ <ph name="FEATURE_NAME_1" /> ພ້ອມທັງ<ph name="FEATURE_NAME_2" /></translation>
 <translation id="4819268619367838612">ເພື່ອຊ່ວຍປັບປຸງແອັບ, Chrome ຈະສົ່ງຂໍ້ມູນການນຳໃຊ້ ແລະ ການຫຼົ້ມໄປໃຫ້ Google. <ph name="BEGIN_LINK" />ຈັດການ<ph name="END_LINK" /></translation>
@@ -215,6 +215,7 @@
 <translation id="6533470733797826516">ເຂົ້າສູ່ລະບົບໄດ້ໄວຂຶ້ນດ້ວຍຄຸນສົມບັດຕື່ມຂໍ້ມູນອັດຕະໂນມັດຂອງ Chrome</translation>
 <translation id="6536544321553662809">ຕັ້ງຄ່າ Chrome ເປັນໂປຣແກຣມທ່ອງເວັບເລີ່ມຕົ້ນຂອງທ່ານເພື່ອແບ່ງປັນ ແລະ ເປີດລິ້ງໄດ້ຢ່າງງ່າຍດາຍ</translation>
 <translation id="6545449117344801102">Chrome ກວດຫາທີ່ຢູ່ ແລະ ໃຊ້ Google ແຜນທີ່ເພື່ອສະແດງເສັ້ນທາງ ແລະ ຂໍ້ມູນທ້ອງຖິ່ນໃຫ້ທ່ານ.</translation>
+<translation id="6611692150236062461">ເພື່ອເບິ່ງລະຫັດຜ່ານທີ່ບັນທຶກໄວ້ຂອງທ່ານໃນແອັບອື່ນໆໄດ້ຢ່າງງ່າຍດາຍ, ໃຫ້ເລືອກ Chrome ສຳລັບການຕື່ມຂໍ້ມູນອັດຕະໂນມັດ.</translation>
 <translation id="6636941099779251629">ອົງກອນຂອງທ່ານກຳນົດໃຫ້ທ່ານຕ້ອງເຂົ້າສູ່ລະບົບເພື່ອໃຊ້ Chrome. <ph name="BEGIN_LINK" />ສຶກສາເພີ່ມເຕີມ<ph name="END_LINK" /></translation>
 <translation id="6646696210740573446">ເອົາສະເພາະບາງສ່ວນຂອງ URL ມາສ້າງຄວາມສັບສົນແລ້ວສົ່ງໄປໃຫ້ Google ຜ່ານເຊີບເວີຄວາມເປັນສ່ວນຕົວທີ່ເຊື່ອງທີ່ຢູ່ IP ຂອງທ່ານ. ຫາກເວັບໄຊພະຍາຍາມລັກເອົາລະຫັດຜ່ານຂອງທ່ານ ຫຼື ເມື່ອທ່ານດາວໂຫຼດໄຟລ໌ທີ່ເປັນອັນຕະລາຍ, Chrome ອາດສົ່ງ URL, ຮວມທັງເນື້ອຫາບາງສ່ວນໃນໜ້າໄປໃຫ້ Google ນຳ.</translation>
 <translation id="6647304104688527905">ເປີດແຖບໃໝ່ໃນ Chrome.</translation>
@@ -313,6 +314,7 @@
 ຂໍ້ມູນຂອງທ່ານໄດ້ຖືກເຂົ້າລະຫັດໄວ້ດ້ວຍລະຫັດຜ່ານຂອງທ່ານເມື່ອ <ph name="TIME" />. ລະບຸລະຫັດຜ່ານເພື່ອໃຊ້ ແລະ ບັນທຶກຂໍ້ມູນ Chrome ໃນບັນຊີ Google ຂອງທ່ານ.</translation>
 <translation id="8540666473246803645">Google Chrome</translation>
 <translation id="8544583291890527417">ການແຈ້ງເຕືອນກ່ຽວກັບບັນຫາດ້ານຄວາມເປັນສ່ວນຕົວ ຫຼື ຄວາມປອດໄພທີ່ Chrome ກວດຫາໃຫ້ທ່ານ.</translation>
+<translation id="855027533751209304">ເຄັດລັບສຳລັບ Chrome: ຊອກຫາສິ່ງທີ່ທ່ານເຫັນ</translation>
 <translation id="8558480467877843976">ຕອນນີ້ທ່ານສາມາດໃຊ້ Chrome ຕອນໃດກໍໄດ້ທີ່ທ່ານເລືອກເບິ່ງ ຫຼື ແຕະລິ້ງໃນຂໍ້ຄວາມ, ເອກະສານ ແລະ ແອັບອື່ນໆ.</translation>
 <translation id="8603022514504485810">ຕົວຈັດການລະຫັດຜ່ານ Google ບໍ່ສາມາດກວດສອບລະຫັດຜ່ານທັງໝົດໄດ້. ລອງໃໝ່ໃນມື້ອື່ນ ຫຼື <ph name="BEGIN_LINK" />ກວດລະຫັດຜ່ານໃນບັນຊີ Google ຂອງທ່ານ.<ph name="END_LINK" /></translation>
 <translation id="8630122478628016441">ເປີດ “ລັອກແຖບບໍ່ເປີດເຜີຍຕົວຕົນເມື່ອທ່ານປິດ Chrome”.</translation>
@@ -336,6 +338,7 @@
 <translation id="9176561303811134420">ຈັດການວິທີການຈ່າຍເງິນໃນ Chrome</translation>
 <translation id="9181628561061032322">ເປີດແຖບຫຼ້າສຸດໃນ Chrome.</translation>
 <translation id="948597495737267756">ເປີດໜ້າປະຫວັດໃນ Chrome ຂອງທ່ານ.</translation>
+<translation id="954347330803595209">ນຳເຂົ້າຂໍ້ມູນຂອງທ່ານເພື່ອໃຊ້ລະຫັດຜ່ານ, ປະຫວັດ, ບຸກມາກ ແລະ ບັດເຄຣດິດຂອງທ່ານໃນ Chrome</translation>
 <translation id="97300214378190234">ໃຊ້ Chrome ໄດ້ທຸກເວລາທີ່ທ່ານແຕະລິ້ງໃນແອັບອື່ນໆ.</translation>
 <translation id="997929539742564806">ເຂົ້າສູ່ລະບົບແອັບ ແລະ ເວັບໄຊໄດ້ຢ່າງວ່ອງໄວດ້ວຍການຕື່ມຂໍ້ມູນລະຫັດຜ່ານ ແລະ ກະແຈຜ່ານຂອງທ່ານໂດຍອັດຕະໂນມັດຈາກ Chrome</translation>
 <translation id="998677222109959694">ຈັດການການຕັ້ງຄ່າ Chrome</translation>

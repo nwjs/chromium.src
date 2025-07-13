@@ -161,6 +161,15 @@ bool TouchEmulatorImpl::IsEnabled() const {
   return !!gesture_provider_;
 }
 
+bool TouchEmulatorImpl::ShouldUpdateCursor(input::RenderWidgetHostViewInput* view) const {
+  if (rfh_limit_) {
+    if (rfh_limit_->GetView()->GetInputWeakPtr().get() != view) {
+      return false;
+    }
+  }
+  return true;
+}
+
 void TouchEmulatorImpl::InitCursors() {
   touch_cursor_ = InitCursorFromResource(
       cursor_scale_factor_ == 1.0f ? IDR_DEVTOOLS_TOUCH_CURSOR_ICON

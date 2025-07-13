@@ -8,6 +8,7 @@
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
 #include "base/functional/callback_helpers.h"
+#include "base/strings/string_util.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/profiles/delete_profile_helper.h"
 #include "chrome/browser/profiles/keep_alive/profile_keep_alive_types.h"
@@ -90,17 +91,18 @@ ProfilePickerDiceSignInProvider::~ProfilePickerDiceSignInProvider() {
 }
 
 void ProfilePickerDiceSignInProvider::SwitchToSignIn(
-    base::OnceCallback<void(bool)> switch_finished_callback,
+    StepSwitchFinishedCallback switch_finished_callback,
     SignedInCallback signin_finished_callback) {
   // Update the callback even if the profile is already initialized (to respect
   // that the callback may be different).
   callback_ = std::move(signin_finished_callback);
 
   if (IsInitialized()) {
-    std::move(switch_finished_callback).Run(true);
     // Do not load any url because the desired sign-in screen is still loaded in
     // `contents()`.
-    host_->ShowScreen(contents(), GURL());
+    host_->ShowScreen(
+        contents(), GURL(),
+        base::BindOnce(std::move(switch_finished_callback.value()), true));
     host_->SetNativeToolbarVisible(true);
     return;
   }
@@ -144,7 +146,7 @@ void ProfilePickerDiceSignInProvider::NavigateBack() {
   // Move from sign-in back to the previous screen of profile creation.
   // Do not load any url because the desired screen is still loaded in the
   // picker contents.
-  host_->ShowScreenInPickerContents(GURL());
+  host_->ShowScreenInPickerContents(GURL(), base::OnceClosure());
   host_->SetNativeToolbarVisible(false);
 }
 
@@ -232,10 +234,10 @@ ProfilePickerDiceSignInProvider::GetWebContentsModalDialogHost() {
 }
 
 void ProfilePickerDiceSignInProvider::OnProfileInitialized(
-    base::OnceCallback<void(bool)> switch_finished_callback,
+    StepSwitchFinishedCallback switch_finished_callback,
     Profile* new_profile) {
   if (!new_profile) {
-    std::move(switch_finished_callback).Run(false);
+    std::move(switch_finished_callback.value()).Run(false);
     return;
   }
   DCHECK(!profile_);
@@ -283,7 +285,8 @@ void ProfilePickerDiceSignInProvider::OnProfileInitialized(
                      // Unretained is enough as the callback is called by the
                      // host itself.
                      base::Unretained(host_), /*visible=*/true)
-          .Then(base::BindOnce(std::move(switch_finished_callback), true));
+          .Then(base::BindOnce(std::move(switch_finished_callback.value()),
+                               true));
   host_->ShowScreen(contents(), BuildSigninURL(),
                     std::move(navigation_finished_closure));
 #if BUILDFLAG(SAFE_BROWSING_AVAILABLE)
@@ -377,6 +380,10 @@ void ProfilePickerDiceSignInProvider::InitializeDiceTabHelper(
       signin_metrics::Reason::kSigninPrimaryAccount,
       signin_metrics::PromoAction::PROMO_ACTION_NO_SIGNIN_PROMO,
       std::move(redirect_url), record_signin_started_metrics,
-      std::move(enable_sync_callback), DiceTabHelper::OnSigninHeaderReceived(),
+      std::move(enable_sync_callback),
+      /* TODO(crbug.com/418139693): Update the callback once this entry point is
+         supported for history sync. */
+      /*history_sync_optin_callback=*/base::NullCallback(),
+      DiceTabHelper::OnSigninHeaderReceived(),
       std::move(show_signin_error_callback));
 }

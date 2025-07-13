@@ -20,8 +20,10 @@ import org.chromium.chrome.browser.app.tabmodel.ArchivedTabModelOrchestrator;
 import org.chromium.chrome.browser.back_press.BackPressManager;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider;
 import org.chromium.chrome.browser.feature_engagement.TrackerFactory;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.hub.PaneManager;
 import org.chromium.chrome.browser.incognito.reauth.IncognitoReauthManager;
+import org.chromium.chrome.browser.layouts.LayoutStateProvider;
 import org.chromium.chrome.browser.lifecycle.ActivityLifecycleDispatcher;
 import org.chromium.chrome.browser.multiwindow.MultiWindowModeStateDispatcher;
 import org.chromium.chrome.browser.preferences.ChromeSharedPreferences;
@@ -29,6 +31,7 @@ import org.chromium.chrome.browser.price_tracking.PriceTrackingFeatures;
 import org.chromium.chrome.browser.price_tracking.PriceTrackingUtilities;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.tab.Tab;
+import org.chromium.chrome.browser.tab.TabId;
 import org.chromium.chrome.browser.tab_group_sync.TabGroupSyncServiceFactory;
 import org.chromium.chrome.browser.tab_ui.OnTabSelectingListener;
 import org.chromium.chrome.browser.tab_ui.TabContentManager;
@@ -36,6 +39,7 @@ import org.chromium.chrome.browser.tab_ui.TabGridIphDialogCoordinator;
 import org.chromium.chrome.browser.tab_ui.TabSwitcher;
 import org.chromium.chrome.browser.tabmodel.TabCreator;
 import org.chromium.chrome.browser.tabmodel.TabGroupModelFilter;
+import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelObserver;
 import org.chromium.chrome.browser.tasks.tab_management.MessageService.MessageType;
 import org.chromium.chrome.browser.tasks.tab_management.PriceMessageService.PriceMessageType;
@@ -150,10 +154,12 @@ public class TabSwitcherMessageManager implements PriceWelcomeMessageController 
     private final @NonNull ObservableSupplier<EdgeToEdgeController> mEdgeToEdgeSupplier;
     private final @NonNull Supplier<PaneManager> mPaneManagerSupplier;
     private final @NonNull Supplier<TabGroupUiActionHandler> mTabGroupUiActionHandlerSupplier;
+    private final @NonNull Supplier<LayoutStateProvider> mLayoutStateProviderSupplier;
 
     private @Nullable Profile mProfile;
     private @Nullable PriceMessageService mPriceMessageService;
     private @Nullable IncognitoReauthPromoMessageService mIncognitoReauthPromoMessageService;
+    private @Nullable TabGroupSuggestionMessageService mTabGroupSuggestionMessageService;
     private @Nullable ArchivedTabsMessageService mArchivedTabsMessageService;
 
     /**
@@ -175,6 +181,8 @@ public class TabSwitcherMessageManager implements PriceWelcomeMessageController 
      * @param edgeToEdgeSupplier Supplier to the {@link EdgeToEdgeController} instance.
      * @param paneManagerSupplier Used to switch and communicate with other panes.
      * @param tabGroupUiActionHandlerSupplier Used to open hidden tab groups.
+     * @param layoutStateProviderSupplier Supplies the LayoutStateProvider, which is used to observe
+     *     when the TabSwitcher is hidden.
      */
     public TabSwitcherMessageManager(
             @NonNull Activity activity,
@@ -192,7 +200,8 @@ public class TabSwitcherMessageManager implements PriceWelcomeMessageController 
             @Nullable DesktopWindowStateManager desktopWindowStateManager,
             @NonNull ObservableSupplier<EdgeToEdgeController> edgeToEdgeSupplier,
             @NonNull Supplier<PaneManager> paneManagerSupplier,
-            @NonNull Supplier<TabGroupUiActionHandler> tabGroupUiActionHandlerSupplier) {
+            @NonNull Supplier<TabGroupUiActionHandler> tabGroupUiActionHandlerSupplier,
+            @NonNull Supplier<LayoutStateProvider> layoutStateProviderSupplier) {
         mActivity = activity;
         mLifecycleDispatcher = lifecycleDispatcher;
         mCurrentTabGroupModelFilterSupplier = currentTabGroupModelFilterSupplier;
@@ -206,6 +215,7 @@ public class TabSwitcherMessageManager implements PriceWelcomeMessageController 
         mRegularTabCreator = regularTabCreator;
         mBackPressManager = backPressManager;
         mDesktopWindowStateManager = desktopWindowStateManager;
+        mLayoutStateProviderSupplier = layoutStateProviderSupplier;
 
         mMessageCardProviderCoordinator =
                 new MessageCardProviderCoordinator(
@@ -320,7 +330,8 @@ public class TabSwitcherMessageManager implements PriceWelcomeMessageController 
                         TabGroupSyncServiceFactory.getForProfile(mProfile),
                         mPaneManagerSupplier,
                         mTabGroupUiActionHandlerSupplier,
-                        mCurrentTabGroupModelFilterSupplier);
+                        mCurrentTabGroupModelFilterSupplier,
+                        mLayoutStateProviderSupplier);
         addObserver(mArchivedTabsMessageService);
         mMessageCardProviderCoordinator.subscribeMessageService(mArchivedTabsMessageService);
 
@@ -343,6 +354,16 @@ public class TabSwitcherMessageManager implements PriceWelcomeMessageController 
                             mLifecycleDispatcher);
             mMessageCardProviderCoordinator.subscribeMessageService(
                     mIncognitoReauthPromoMessageService);
+
+            if (ChromeFeatureList.sTabSwitcherGroupSuggestionsAndroid.isEnabled()) {
+                mTabGroupSuggestionMessageService =
+                        new TabGroupSuggestionMessageService(
+                                mActivity,
+                                mCurrentTabGroupModelFilterSupplier,
+                                this::addTabGroupSuggestionMessage);
+                mMessageCardProviderCoordinator.subscribeMessageService(
+                        mTabGroupSuggestionMessageService);
+            }
         }
         setUpPriceTracking();
     }
@@ -393,6 +414,9 @@ public class TabSwitcherMessageManager implements PriceWelcomeMessageController 
         mTabGridIphDialogCoordinator.destroy();
         if (mIncognitoReauthPromoMessageService != null) {
             mIncognitoReauthPromoMessageService.destroy();
+        }
+        if (mTabGroupSuggestionMessageService != null) {
+            mTabGroupSuggestionMessageService.destroy();
         }
         if (mArchivedTabsMessageService != null) {
             mArchivedTabsMessageService.destroy();
@@ -446,6 +470,10 @@ public class TabSwitcherMessageManager implements PriceWelcomeMessageController 
         for (MessageUpdateObserver observer : mObservers) {
             observer.onRestorePriceWelcomeMessage();
         }
+    }
+
+    public @Nullable TabGroupSuggestionMessageService getTabGroupSuggestionMessageService() {
+        return mTabGroupSuggestionMessageService;
     }
 
     private void appendNextMessage(@MessageService.MessageType int messageType) {
@@ -692,5 +720,26 @@ public class TabSwitcherMessageManager implements PriceWelcomeMessageController 
         assert mPriceMessageService == null
                 : "setPriceMessageServiceForTesting() must be before initWithNative().";
         mPriceMessageService = priceMessageService;
+    }
+
+    private void addTabGroupSuggestionMessage(@TabId int tabId) {
+        @MessageType int messageType = MessageType.TAB_GROUP_SUGGESTION_MESSAGE;
+
+        assert mMessageCardProviderCoordinator != null;
+        TabListCoordinator tabListCoordinator = mTabListCoordinatorSupplier.get();
+        if (tabListCoordinator == null) return;
+
+        MessageCardProviderMediator.Message nextMessage =
+                mMessageCardProviderCoordinator.getNextMessageItemForType(messageType);
+        if (nextMessage == null || !shouldAppendMessage(nextMessage)) return;
+
+        int index = tabListCoordinator.getIndexFromTabId(tabId);
+        if (index == TabModel.INVALID_TAB_INDEX) return;
+
+        tabListCoordinator.addSpecialListItem(
+                index + 1, TabProperties.UiType.MESSAGE, nextMessage.model);
+        for (MessageUpdateObserver observer : mObservers) {
+            observer.onAppendedMessage();
+        }
     }
 }

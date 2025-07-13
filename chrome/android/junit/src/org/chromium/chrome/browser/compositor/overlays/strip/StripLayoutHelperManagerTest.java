@@ -116,13 +116,10 @@ import java.util.List;
 /** Tests for {@link StripLayoutHelperManager}. */
 @RunWith(BaseRobolectricTestRunner.class)
 @Config(manifest = Config.NONE, qualifiers = "sw600dp")
-// TODO(crbug.com/419289558): Re-enable color surface feature flags
 @DisableFeatures({
     ChromeFeatureList.TAB_STRIP_INCOGNITO_MIGRATION,
     ChromeFeatureList.DATA_SHARING,
     ChromeFeatureList.ANDROID_SURFACE_COLOR_UPDATE,
-    ChromeFeatureList.GRID_TAB_SWITCHER_SURFACE_COLOR_UPDATE,
-    ChromeFeatureList.GRID_TAB_SWITCHER_UPDATE
 })
 public class StripLayoutHelperManagerTest {
     @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
@@ -146,7 +143,6 @@ public class StripLayoutHelperManagerTest {
     @Mock private Tab mSelectedTab;
     @Mock private StripLayoutTab mHoveredStripTab;
     @Mock private ViewStub mTabHoverCardViewStub;
-    @Mock private ViewStub mTooltipViewStub;
     @Mock private ObservableSupplierImpl<TabContentManager> mTabContentManagerSupplier;
     @Mock private BrowserControlsStateProvider mBrowserControlStateProvider;
     @Mock private WindowAndroid mWindowAndroid;
@@ -237,7 +233,6 @@ public class StripLayoutHelperManagerTest {
                         mDragDropDelegate,
                         mToolbarContainerView,
                         mTabHoverCardViewStub,
-                        mTooltipViewStub,
                         mTabContentManagerSupplier,
                         mBrowserControlStateProvider,
                         mWindowAndroid,
@@ -246,7 +241,8 @@ public class StripLayoutHelperManagerTest {
                         mActionConfirmationManager,
                         mDataSharingTabManager,
                         mBottomSheetController,
-                        () -> mShareDelegate);
+                        () -> mShareDelegate,
+                        /* xrSpaceModeObservableSupplier= */ null);
         mStripLayoutHelperManager.setTabModelSelector(mTabModelSelector, mTabCreatorManager);
         mStripLayoutHelperManager.setIsTabStripHiddenByHeightTransition(false);
     }
@@ -315,11 +311,7 @@ public class StripLayoutHelperManagerTest {
         var appHeaderState = Mockito.mock(AppHeaderState.class);
         doReturn(true).when(appHeaderState).isInDesktopWindow();
         when(mDesktopWindowStateManager.getAppHeaderState()).thenReturn(appHeaderState);
-        @ColorInt
-        int focusedColor =
-                isNightMode
-                        ? SemanticColorUtils.getColorSurfaceContainer(mActivity)
-                        : SemanticColorUtils.getColorSurfaceContainerHigh(mActivity);
+        @ColorInt int focusedColor = SemanticColorUtils.getColorSurfaceContainerHigh(mActivity);
         @ColorInt
         int unfocusedColor =
                 isNightMode
@@ -794,7 +786,7 @@ public class StripLayoutHelperManagerTest {
         initializeTest();
         assertNotNull(
                 "Tab drag source should be set.",
-                mStripLayoutHelperManager.getTabDragSourceForTesting());
+                mStripLayoutHelperManager.getTabStripDragHandlerForTesting());
     }
 
     @Test
@@ -803,7 +795,7 @@ public class StripLayoutHelperManagerTest {
         initializeTest();
         assertNull(
                 "Tab drag source should not be set.",
-                mStripLayoutHelperManager.getTabDragSourceForTesting());
+                mStripLayoutHelperManager.getTabStripDragHandlerForTesting());
     }
 
     @Test

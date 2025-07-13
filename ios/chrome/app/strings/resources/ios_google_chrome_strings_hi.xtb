@@ -90,6 +90,7 @@
 <translation id="2957447865124070833"><ph name="BEGIN_BOLD" />Chrome<ph name="END_BOLD" /> को चुनें</translation>
 <translation id="2986402782150919988">Chrome में बुकमार्क जोड़ें</translation>
 <translation id="3030414234702425231">क्‍योंकि आप <ph name="SIGNOUT_MANAGED_DOMAIN" /> की ओर से प्रबंधित खाते से साइन आउट कर रहे हैं, इसलिए आपका Chrome डेटा इस डिवाइस से मिट जाएगा. आपका डेटा आपके Google खाते में बना रहेगा.</translation>
+<translation id="3042447686908081308">Chrome में इंपोर्ट करें</translation>
 <translation id="3051521853355903257">Chrome में पासवर्ड मैनेज करें</translation>
 <translation id="309672519329227863">अन्य ऐप्लिकेशन में, अपने Chrome पासवर्ड वगैरह ऐक्सेस करें.</translation>
 <translation id="3109170945534582468">Chrome ऐक्शन</translation>
@@ -138,7 +139,6 @@
 <translation id="4724297637870447613">Chrome का सभी जगह इस्तेमाल करें</translation>
 <translation id="4738647308035481133">Google Chrome पेज</translation>
 <translation id="4742795653798179840">Chrome का डेटा मिटाया गया</translation>
-<translation id="4749294594657945639">सेव किए गए अपने पासवर्ड अन्य ऐप्लिकेशन में आसानी से इस्तेमाल करने के लिए, 'Chrome में ऑटोमैटिक भरने की सुविधा' को चुनें.</translation>
 <translation id="4761869838909035636">Chrome की सुरक्षा जांच करें</translation>
 <translation id="4798859546468762093">मनमुताबिक अनुभव और अन्य सुविधाएं पाने के लिए, <ph name="FEATURE_NAME_1" /> और <ph name="FEATURE_NAME_2" /> में Chrome को शामिल करें</translation>
 <translation id="4819268619367838612">Chrome ऐप्लिकेशन को बेहतर बनाने के लिए उसके इस्तेमाल और क्रैश का डेटा Google को भेजता है. <ph name="BEGIN_LINK" />मैनेज करें<ph name="END_LINK" /></translation>
@@ -215,6 +215,7 @@
 <translation id="6533470733797826516">Chrome में मौजूद, जानकारी ऑटोमैटिक भरने की सुविधा से चुटकियों में साइन इन करें</translation>
 <translation id="6536544321553662809">लिंक आसानी से खोलने और शेयर करने के लिए, Chrome को अपने डिफ़ॉल्ट ब्राउज़र के तौर पर सेट करें</translation>
 <translation id="6545449117344801102">Chrome, पतों को खोजता है और आपको रास्ते बताने और स्थानीय जानकारी देने के लिए, Google Maps का इस्तेमाल करता है.</translation>
+<translation id="6611692150236062461">सेव किए गए अपने पासवर्ड अन्य ऐप्लिकेशन में आसानी से इस्तेमाल करने के लिए, Chrome में ऑटोमैटिक भरने की सुविधा आज़माएं.</translation>
 <translation id="6636941099779251629">आपके संगठन के मुताबिक, यह ज़रूरी है कि Chrome का इस्तेमाल करने के लिए आप साइन इन करें. <ph name="BEGIN_LINK" />ज़्यादा जानें<ph name="END_LINK" /></translation>
 <translation id="6646696210740573446">यह आपके आईपी पते को छिपाने वाले निजी सर्वर की मदद से, Google को यूआरएल का अस्पष्ट हिस्सा भेजता है. अगर कोई साइट आपका पासवर्ड चुराने की कोशिश करती है या अगर आपने अनजाने में नुकसान पहुंचाने वाली कोई फ़ाइल डाउनलोड की है, तो Chrome उनके यूआरएल Google को भेज सकता है. यूआरएल के साथ-साथ पेज का कुछ कॉन्टेंट भी भेजा जाता है.</translation>
 <translation id="6647304104688527905">इससे Chrome में नया टैब खुलता है.</translation>
@@ -313,6 +314,7 @@ Chrome के अनुभव को बेहतर बनाने के ल�
 आपका डेटा, <ph name="TIME" /> को आपके लंबे पासवर्ड से एन्क्रिप्ट किया गया था. अपने Google खाते में Chrome डेटा सेव करने और इस्तेमाल करने के लिए इसे डालें.</translation>
 <translation id="8540666473246803645">Google Chrome</translation>
 <translation id="8544583291890527417">निजता या सुरक्षा से जुड़ी हर उस समस्या के बारे में सूचनाएं जिसके बारे में Chrome पता लगाता है.</translation>
+<translation id="855027533751209304">Chrome से जुड़ी सलाह: स्क्रीन पर दिख रही किसी भी चीज़ के बारे में खोजें</translation>
 <translation id="8558480467877843976">अब मैसेज, दस्तावेज़ों, और अन्य ऐप्लिकेशन में मौजूद लिंक को खोलकर सीधे Chrome पर जाया जा सकता है.</translation>
 <translation id="8603022514504485810">Google Password Manager सभी पासवर्ड की जांच नहीं कर सका. कृपया कल फिर से कोशिश करें या <ph name="BEGIN_LINK" />अपने Google खाते में सेव किए गए पासवर्ड की जांच करें.<ph name="END_LINK" /></translation>
 <translation id="8630122478628016441">“Chrome बंद करने पर, गुप्त टैब लॉक करें” को चालू करें.</translation>
@@ -336,6 +338,7 @@ Chrome के अनुभव को बेहतर बनाने के ल�
 <translation id="9176561303811134420">Chrome में पेमेंट का तरीका मैनेज करें</translation>
 <translation id="9181628561061032322">Chrome में हाल ही के टैब खोलता है.</translation>
 <translation id="948597495737267756">इससे आपका Chrome इतिहास पेज खुलता है.</translation>
+<translation id="954347330803595209">Chrome पर अपने पासवर्ड, इतिहास, बुकमार्क, और क्रेडिट कार्ड इस्तेमाल करने के लिए, अपना डेटा इंपोर्ट करें</translation>
 <translation id="97300214378190234">अन्य ऐप्लिकेशन में मिले लिंक पर टैप करके, किसी भी समय Chrome का इस्तेमाल करें.</translation>
 <translation id="997929539742564806">ऐप्लिकेशन और साइटों में तेज़ी से साइन इन करें. इसके लिए, Chrome में सेव किए गए पासवर्ड और पासकी ऑटोमैटिक भरने की सुविधा का इस्तेमाल करें</translation>
 <translation id="998677222109959694">Chrome की सेटिंग मैनेज करें</translation>

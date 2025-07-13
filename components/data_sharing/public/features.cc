@@ -10,11 +10,15 @@
 namespace data_sharing::features {
 namespace {
 const char kDataSharingDefaultUrl[] = "https://www.google.com/chrome/tabshare/";
-const char kLearnMoreSharedTabGroupPageDefaultUrl[] = "https://support.google.com/chrome/?p=chrome_collaboration";
-const char kLearnAboutBlockedAccountsDefaultUrl[] = "https://support.google.com/accounts/answer/6388749";
-const char kActivityLogsDefaultUrl[] = "https://myactivity.google.com/product/chrome_shared_tab_group_activity?utm_source=chrome_collab";
+const char kLearnMoreSharedTabGroupPageDefaultUrl[] =
+    "https://support.google.com/chrome/?p=chrome_collaboration";
+const char kLearnAboutBlockedAccountsDefaultUrl[] =
+    "https://support.google.com/accounts/answer/6388749";
+const char kActivityLogsDefaultUrl[] =
+    "https://myactivity.google.com/product/"
+    "chrome_shared_tab_group_activity?utm_source=chrome_collab";
 
-}
+}  // namespace
 
 BASE_FEATURE(kCollaborationAutomotive,
              "CollaborationAutomotive",
@@ -32,6 +36,18 @@ BASE_FEATURE(kDataSharingJoinOnly,
              "DataSharingJoinOnly",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+BASE_FEATURE(kDataSharingNonProductionEnvironment,
+             "DataSharingNonProductionEnvironment",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kSharedDataTypesKillSwitch,
+             "SharedDataTypesKillSwitch",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kDataSharingEnableUpdateChromeUI,
+             "DataSharingEnableUpdateChromeUI",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 bool IsDataSharingFunctionalityEnabled() {
   return base::FeatureList::IsEnabled(
              data_sharing::features::kDataSharingFeature) ||
@@ -39,9 +55,12 @@ bool IsDataSharingFunctionalityEnabled() {
              data_sharing::features::kDataSharingJoinOnly);
 }
 
-BASE_FEATURE(kDataSharingNonProductionEnvironment,
-             "DataSharingNonProductionEnvironment",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+bool ShouldInterceptUrlForVersioning() {
+  return !base::FeatureList::IsEnabled(
+             data_sharing::features::kSharedDataTypesKillSwitch) ||
+         base::FeatureList::IsEnabled(
+             data_sharing::features::kDataSharingEnableUpdateChromeUI);
+}
 
 constexpr base::FeatureParam<std::string> kDataSharingURL(
     &kDataSharingFeature,

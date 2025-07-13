@@ -1015,6 +1015,7 @@
 <translation id="4305817255990598646">స్విచ్</translation>
 <translation id="4307713728991152670">మీ ఫోన్‌లోని తాజా ఫోటోలను, మీడియాను, యాప్‌లను చూసే సదుపాయాన్ని సెటప్ చేయండి</translation>
 <translation id="4312840429157639164">కెమెరా ఎగువ కుడి మూలకు స్నాప్ చేయబడింది. సిస్టమ్ ప్లాట్‌ఫామ్‌కు విరుద్ధంగా.</translation>
+<translation id="4312935606722154789">రెండు పక్క పక్క విండోలను గ్రూప్ లేదా అన్‌గ్రూప్ చేయండి</translation>
 <translation id="4316910396681052118">అన్ని యాప్‌లు</translation>
 <translation id="4321179778687042513">ctrl</translation>
 <translation id="4322385711258710213">అన్ని Chrome బ్రౌజర్ సూచనలను దాచండి</translation>
@@ -1454,7 +1455,6 @@
 <translation id="5691772641933328258">వేలిముద్ర (ఫింగర్-ప్రింట్) మ్యాచ్ కాలేదు</translation>
 <translation id="5693255400847650006">మైక్రోఫోన్ ఉపయోగంలో ఉంది</translation>
 <translation id="5699366815052349604">డెస్క్‌లన్నింటికీ యాక్టివ్‌గా ఉన్న విండోను కేటాయించండి</translation>
-<translation id="5701785125601597013">ఫోన్ హబ్‌ను ఉపయోగించి మీ ఫోన్ మెసేజ్‌లను వేగంగా పంపండి లేదా వాటికి వేగంగా రిప్లయి ఇవ్వండి</translation>
 <translation id="570390244361237317">అన్ని యాప్‌లు, అన్ని యాప్‌లను యాక్సెస్ చేయడానికి బాణం కీలతో నావిగేట్ చేయండి</translation>
 <translation id="5705197514573687092">ఫోకస్ సెట్టింగ్‌లను చూపించండి. <ph name="FOCUS_DURATION" />‌కు టైమర్ సెట్ చేయబడింది.</translation>
 <translation id="5707775774148071965">మీ పరికరం మీ కేబుల్ కంటే ఎక్కువ డేటా రేట్‌ను సపోర్ట్ చేస్తుంది. పరికర పనితీరు పరిమితంగా ఉండవచ్చు.</translation>
@@ -1584,7 +1584,6 @@
 <translation id="6095425951508823973"><ph name="PROVIDER" />‌తో కనెక్షన్‌ను జోడించండి</translation>
 <translation id="6099678161144790572">గత నెలలో ఎడిట్ చేశారు</translation>
 <translation id="6103838137565245112">సిస్టమ్</translation>
-<translation id="610395411842312282">రెండు పక్క పక్క విండోలను గ్రూప్ చేయండి</translation>
 <translation id="6108952804512516814">AIతో క్రియేట్ చేయండి</translation>
 <translation id="6114505516289286752"><ph name="LANGUAGE" /> స్పీచ్ ఫైళ్లు డౌన్‌లోడ్ చేయబడ్డాయి</translation>
 <translation id="6119360623251949462"><ph name="CHARGING_STATE" />. <ph name="BATTERY_SAVER_STATE" /></translation>

@@ -7,6 +7,7 @@
 #import "base/feature_list.h"
 #import "components/breadcrumbs/core/breadcrumbs_status.h"
 #import "components/commerce/ios/browser/commerce_tab_helper.h"
+#import "components/data_sharing/public/features.h"
 #import "components/favicon/core/favicon_service.h"
 #import "components/favicon/ios/web_favicon_driver.h"
 #import "components/history/core/browser/top_sites.h"
@@ -71,6 +72,7 @@
 #import "ios/chrome/browser/link_to_text/model/link_to_text_tab_helper.h"
 #import "ios/chrome/browser/metrics/model/dwa_web_state_observer.h"
 #import "ios/chrome/browser/metrics/model/pageload_foreground_duration_tab_helper.h"
+#import "ios/chrome/browser/mini_map/model/mini_map_tab_helper.h"
 #import "ios/chrome/browser/ntp/model/new_tab_page_tab_helper.h"
 #import "ios/chrome/browser/optimization_guide/model/optimization_guide_service.h"
 #import "ios/chrome/browser/optimization_guide/model/optimization_guide_service_factory.h"
@@ -372,10 +374,16 @@ void AttachTabHelpers(web::WebState* web_state, TabHelperFilter filter_flags) {
   if (!is_off_the_record && !for_prerender) {
     auto* collaboration_service =
         collaboration::CollaborationServiceFactory::GetForProfile(profile);
-    if (IsSharedTabGroupsJoinEnabled(collaboration_service)) {
+    if (IsSharedTabGroupsJoinEnabled(collaboration_service) &&
+        data_sharing::features::ShouldInterceptUrlForVersioning()) {
       DataSharingTabHelper::CreateForWebState(web_state);
     }
   }
 
   EditMenuTabHelper::CreateForWebState(web_state);
+
+  if (!is_off_the_record &&
+      base::FeatureList::IsEnabled(kIOSMiniMapUniversalLink)) {
+    MiniMapTabHelper::CreateForWebState(web_state);
+  }
 }

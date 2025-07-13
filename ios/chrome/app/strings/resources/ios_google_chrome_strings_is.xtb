@@ -90,6 +90,7 @@ Prófaðu að bíða í nokkrar mínútur áður en þú skráir þig út. Ef þ
 <translation id="2957447865124070833">Veldu <ph name="BEGIN_BOLD" />Chrome<ph name="END_BOLD" /></translation>
 <translation id="2986402782150919988">Bæta bókamerkjum við Chrome</translation>
 <translation id="3030414234702425231">Vegna þess að þú ert að skrá þig út af reikningi sem stýrt er af <ph name="SIGNOUT_MANAGED_DOMAIN" /> verður Chrome gögnum þínum eytt úr þessu tæki. Gögnin verða áfram geymd á Google reikningnum þínum.</translation>
+<translation id="3042447686908081308">Flytja inn í Chrome</translation>
 <translation id="3051521853355903257">Stjórna aðgangsorðum í Chrome</translation>
 <translation id="309672519329227863">Nálgastu Chrome-aðgangsorðin þín og fleira í öðrum forritum.</translation>
 <translation id="3109170945534582468">Chrome-aðgerðir</translation>
@@ -138,7 +139,6 @@ Prófaðu að bíða í nokkrar mínútur áður en þú skráir þig út. Ef þ
 <translation id="4724297637870447613">Notaðu Chrome hvar sem er</translation>
 <translation id="4738647308035481133">Google Chrome-síða</translation>
 <translation id="4742795653798179840">Chrome-gögnum var eytt</translation>
-<translation id="4749294594657945639">Notaðu sjálfvirka útfyllingu í Chrome til að hafa greiðan aðgang að vistuðu aðgangsorðunum þínum í öðrum forritum.</translation>
 <translation id="4761869838909035636">Keyra öryggisathugun í Chrome</translation>
 <translation id="4798859546468762093">Hafðu Chrome með í <ph name="FEATURE_NAME_1" /> og <ph name="FEATURE_NAME_2" /> til að fá aðgang að sérsniði og öðrum eiginleikum</translation>
 <translation id="4819268619367838612">Chrome sendir gögn um notkun og hrun til Google til að bæta forritið. <ph name="BEGIN_LINK" />Stjórna<ph name="END_LINK" /></translation>
@@ -215,6 +215,7 @@ Gögnin þín eru dulkóðuð með aðgangsorði. Sláðu það inn til að nota
 <translation id="6533470733797826516">Skráðu þig inn í hvelli með sjálfvirkri útfyllingu Chrome</translation>
 <translation id="6536544321553662809">Stilla Chrome sem sjálfgefinn vafra til að deila og opna tengla á auðveldan hátt</translation>
 <translation id="6545449117344801102">Chrome greinir heimilisföng og notar Google-kort til að sýna þér leiðarlýsingu og staðbundnar upplýsingar.</translation>
+<translation id="6611692150236062461">Notaðu sjálfvirka útfyllingu í Chrome til að hafa greiðan aðgang að vistuðu aðgangsorðunum þínum í öðrum forritum.</translation>
 <translation id="6636941099779251629">Fyrirtækið þitt krefst þess að þú skráir þig inn til að nota Chrome. <ph name="BEGIN_LINK" />Nánar<ph name="END_LINK" /></translation>
 <translation id="6646696210740573446">Sendir ruglaðan hluta vefslóðarinnar til Google í gegnum traustan þjón sem felur IP-töluna þína. Ef vefsvæði reynir að stela aðgangsorðinu þínu, eða ef þú sækir skaðlega skrá, gæti Chrome einnig sent vefslóðir til Google, þar á meðal hluta af efni síðna.</translation>
 <translation id="6647304104688527905">Opnar nýjan flipa í Chrome.</translation>
@@ -313,6 +314,7 @@ Aðeins einstaklingar sem eru með aðgangsorðið þitt geta lesið dulkóðuð
 Gögnin þín voru dulkóðuð með aðgangsorði <ph name="TIME" />. Sláðu það inn til að nota og vista Chrome-gögn á Google-reikningnum þínum.</translation>
 <translation id="8540666473246803645">Google Chrome</translation>
 <translation id="8544583291890527417">Viðvaranir varðandi öll persónuverndar- eða öryggismál sem Chrome greinir fyrir þig.</translation>
+<translation id="855027533751209304">Chrome-ábending: Leitaðu að því sem þú sérð</translation>
 <translation id="8558480467877843976">Núna geturðu notað Chrome hvenær sem þú skoðar eða ýtir á tengil í skilaboðum, skjölum og öðrum forritum.</translation>
 <translation id="8603022514504485810">Google-aðgangsorðastjórnun gat ekki athugað öll aðgangsorð. Reyndu aftur á morgun eða <ph name="BEGIN_LINK" />athugaðu aðgangsorð á Google-reikningnum þínum.<ph name="END_LINK" /></translation>
 <translation id="8630122478628016441">Kveiktu á „Læsa huliðsflipum þegar þú lokar Chrome“.</translation>
@@ -336,6 +338,7 @@ Gögnin þín voru dulkóðuð með aðgangsorði <ph name="TIME" />. Sláðu þ
 <translation id="9176561303811134420">Stjórna greiðslumátum í Chrome</translation>
 <translation id="9181628561061032322">Opnar nýlega flipa Chrome.</translation>
 <translation id="948597495737267756">Opnar Chrome-ferilssíðuna þína.</translation>
+<translation id="954347330803595209">Flyttu gögnin þín inn til að nota aðgangsorðin þín, ferilinn, bókamerkin og kreditkortin í Chrome</translation>
 <translation id="97300214378190234">Notaðu Chrome þegar þú ýtir á tengla í öðrum forritum.</translation>
 <translation id="997929539742564806">Notaðu sjálfvirka útfyllingu aðgangsorða og aðgangslykla í Chrome til að skrá þig inn í forrit og á vefsvæði með fljótlegum hætti</translation>
 <translation id="998677222109959694">Stjórna stillingum Chrome</translation>

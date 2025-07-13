@@ -57,6 +57,7 @@
 #import "ios/chrome/browser/language/model/language_model_manager_factory.h"
 #import "ios/chrome/browser/net/model/crurl.h"
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_feature.h"
+#import "ios/chrome/browser/passwords/model/features.h"
 #import "ios/chrome/browser/passwords/model/ios_chrome_password_check_manager.h"
 #import "ios/chrome/browser/passwords/model/ios_chrome_password_check_manager_factory.h"
 #import "ios/chrome/browser/passwords/model/password_check_observer_bridge.h"
@@ -84,7 +85,6 @@
 #import "ios/chrome/browser/settings/ui_bundled/downloads/downloads_settings_coordinator_delegate.h"
 #import "ios/chrome/browser/settings/ui_bundled/elements/enterprise_info_popover_view_controller.h"
 #import "ios/chrome/browser/settings/ui_bundled/google_services/google_services_settings_coordinator.h"
-#import "ios/chrome/browser/settings/ui_bundled/google_services/manage_accounts/manage_accounts_coordinator.h"
 #import "ios/chrome/browser/settings/ui_bundled/google_services/manage_sync_settings_coordinator.h"
 #import "ios/chrome/browser/settings/ui_bundled/language/language_settings_mediator.h"
 #import "ios/chrome/browser/settings/ui_bundled/language/language_settings_table_view_controller.h"
@@ -188,6 +188,7 @@ struct EnhancedSafeBrowsingActivePromoData
 #pragma mark - SettingsTableViewController
 
 @interface SettingsTableViewController () <
+    AddressBarPreferenceCoordinatorDelegate,
     BooleanObserver,
     DiscoverFeedVisibilityObserver,
     DownloadsSettingsCoordinatorDelegate,
@@ -247,9 +248,6 @@ struct EnhancedSafeBrowsingActivePromoData
 
   // Passwords coordinator.
   PasswordsCoordinator* _passwordsCoordinator;
-
-  // Accounts coordinator.
-  ManageAccountsCoordinator* _manageAccountsCoordinator;
 
   // Feature engagement tracker for the signin IPH.
   raw_ptr<feature_engagement::Tracker> _featureEngagementTracker;
@@ -536,6 +534,10 @@ struct EnhancedSafeBrowsingActivePromoData
       toSectionWithIdentifier:SettingsSectionIdentifierInfo];
   if (shouldShowDownloadsSettings) {
     [model addItem:[self downloadsSettingsDetailItem]
+        toSectionWithIdentifier:SettingsSectionIdentifierInfo];
+  }
+  if (base::FeatureList::IsEnabled(kImportPasswordsFromSafari)) {
+    [model addItem:[self safariDataImportSettingsDetailItem]
         toSectionWithIdentifier:SettingsSectionIdentifierInfo];
   }
   [model addItem:[self bandwidthManagementDetailItem]
@@ -975,6 +977,17 @@ struct EnhancedSafeBrowsingActivePromoData
           accessibilityIdentifier:kSettingsDownloadsSettingsCellId];
 }
 
+- (TableViewItem*)safariDataImportSettingsDetailItem {
+  return [self
+           detailItemWithType:SettingsItemTypeSafariDataImport
+                         text:l10n_util::GetNSString(
+                                  IDS_IOS_SETTINGS_SAFARI_IMPORT_TITLE)
+                   detailText:nil
+                       symbol:DefaultSettingsRootSymbol(kSaveImageActionSymbol)
+        symbolBackgroundColor:[UIColor colorNamed:kGrey400Color]
+      accessibilityIdentifier:kSettingsSafariDataImportSettingsCellId];
+}
+
 - (TableViewItem*)tabsSettingsDetailItem {
   return [self detailItemWithType:SettingsItemTypeTabs
                              text:l10n_util::GetNSString(
@@ -1325,6 +1338,14 @@ struct EnhancedSafeBrowsingActivePromoData
       base::RecordAction(base::UserMetricsAction("Settings.Tabs"));
       [self showTabsSettings];
       break;
+    case SettingsItemTypeSafariDataImport: {
+      CHECK(base::FeatureList::IsEnabled(kImportPasswordsFromSafari));
+      base::RecordAction(base::UserMetricsAction("Settings.SafariImport"));
+      id<ApplicationCommands> handler = HandlerForProtocol(
+          _browser->GetCommandDispatcher(), ApplicationCommands);
+      [handler displaySafariDataImportEntryPointWithUIHandler:nil];
+      break;
+    }
     case SettingsItemTypeBandwidth:
       base::RecordAction(base::UserMetricsAction("Settings.Bandwidth"));
       controller = [[BandwidthManagementTableViewController alloc]
@@ -1510,6 +1531,7 @@ struct EnhancedSafeBrowsingActivePromoData
   _addressBarPreferenceCoordinator = [[AddressBarPreferenceCoordinator alloc]
       initWithBaseNavigationController:self.navigationController
                                browser:_browser];
+  _addressBarPreferenceCoordinator.delegate = self;
   [_addressBarPreferenceCoordinator start];
 }
 
@@ -2089,9 +2111,6 @@ struct EnhancedSafeBrowsingActivePromoData
   _passwordsCoordinator.delegate = nil;
   _passwordsCoordinator = nil;
 
-  [_manageAccountsCoordinator stop];
-  _manageAccountsCoordinator = nil;
-
   [_notificationsCoordinator stop];
   _notificationsCoordinator = nil;
 
@@ -2104,6 +2123,7 @@ struct EnhancedSafeBrowsingActivePromoData
   _tabsCoordinator = nil;
 
   [_addressBarPreferenceCoordinator stop];
+  _addressBarPreferenceCoordinator.delegate = nil;
   _addressBarPreferenceCoordinator = nil;
 
   [_downloadsSettingsCoordinator stop];
@@ -2177,6 +2197,17 @@ struct EnhancedSafeBrowsingActivePromoData
             ios::TemplateURLServiceFactory::GetForProfile(_profile)));
     [self reconfigureCellsForItems:@[ _defaultSearchEngineItem ]];
   }
+}
+
+#pragma mark - AddressBarPreferenceCoordinatorDelegate
+
+- (void)addressBarPreferenceCoordinatorViewControllerWasRemoved:
+    (AddressBarPreferenceCoordinator*)coordinator {
+  CHECK_EQ(_addressBarPreferenceCoordinator, coordinator,
+           base::NotFatalUntil::M139);
+  [_addressBarPreferenceCoordinator stop];
+  _addressBarPreferenceCoordinator.delegate = nil;
+  _addressBarPreferenceCoordinator = nil;
 }
 
 #pragma mark - BooleanObserver

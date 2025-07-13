@@ -1015,6 +1015,7 @@ Algunas funciones están limitadas para aumentar la duración de la batería.</t
 <translation id="4305817255990598646">Cambiar</translation>
 <translation id="4307713728991152670">Configurar la visualización de las fotos, el contenido multimedia y las apps recientes de tu teléfono</translation>
 <translation id="4312840429157639164">Se ajustó la cámara a la esquina superior derecha. Entra en conflicto con la superficie del sistema.</translation>
+<translation id="4312935606722154789">Agrupar o desagrupar dos ventanas contiguas</translation>
 <translation id="4316910396681052118">TODAS LAS APPS</translation>
 <translation id="4321179778687042513">ctrl</translation>
 <translation id="4322385711258710213">Ocultar todas las sugerencias del navegador Chrome</translation>
@@ -1454,7 +1455,6 @@ No hay dispositivos conectados.</translation>
 <translation id="5691772641933328258">No se reconoció la huella dactilar</translation>
 <translation id="5693255400847650006">Micrófono en uso</translation>
 <translation id="5699366815052349604">Asignar la ventana activa a todos los escritorios</translation>
-<translation id="5701785125601597013">Envía o responde mensajes rápidamente con Phone Hub en el teléfono</translation>
 <translation id="570390244361237317">Todas las apps, navega con las teclas de flechas para acceder a todas las apps</translation>
 <translation id="5705197514573687092">Mostrar la configuración del Modo sin distracciones. Se estableció el temporizador en <ph name="FOCUS_DURATION" />.</translation>
 <translation id="5707775774148071965">El dispositivo admite una mayor velocidad de datos que el cable. El rendimiento del dispositivo puede verse limitado.</translation>
@@ -1584,7 +1584,6 @@ No hay dispositivos conectados.</translation>
 <translation id="6095425951508823973">Agregar conexión con <ph name="PROVIDER" /></translation>
 <translation id="6099678161144790572">Se editó el mes pasado</translation>
 <translation id="6103838137565245112">sistema</translation>
-<translation id="610395411842312282">Agrupar dos ventanas contiguas</translation>
 <translation id="6108952804512516814">Crear con IA</translation>
 <translation id="6114505516289286752">Se descargaron los archivos de voz en <ph name="LANGUAGE" /></translation>
 <translation id="6119360623251949462"><ph name="CHARGING_STATE" />. <ph name="BATTERY_SAVER_STATE" />.</translation>
@@ -2312,7 +2311,7 @@ Para apagarlo, vuelve a mantener presionado el botón de encendido.</translation
 <translation id="851458219935658693">Está seleccionado el botón que muestra las ventanas del escritorio actual</translation>
 <translation id="851660987304951246">Usa Help me read para resumir contenido o hacer preguntas rápidamente</translation>
 <translation id="8517041960877371778">Tu <ph name="DEVICE_TYPE" /> podría no cargarse si el dispositivo está encendido.</translation>
-<translation id="8519329096920173967">Buscar en mi pantalla con Google Lens</translation>
+<translation id="8519329096920173967">Buscar contenido de mi pantalla con Google Lens</translation>
 <translation id="8535393432370007982">Deshacer el orden por color</translation>
 <translation id="8536886494750559755">Mostrar la configuración de Quick Share. Visible para todos durante <ph name="TIME_REMAINING" />.</translation>
 <translation id="8539803091108018926">Se copió el texto en el Portapapeles</translation>

@@ -162,7 +162,7 @@ public class NavigateTest {
     }
 
     @Test
-    @Restriction(DeviceFormFactor.TABLET)
+    @Restriction(DeviceFormFactor.TABLET_OR_DESKTOP)
     @MediumTest
     @Feature({"Navigation"})
     @DisabledTest(message = "Flaky. See crbug.com/380238040")
@@ -226,7 +226,7 @@ public class NavigateTest {
     @Test
     @MediumTest
     @Feature({"Navigation"})
-    @DisableIf.Device(DeviceFormFactor.TABLET) // https://crbug.com/339299609
+    @DisableIf.Device(DeviceFormFactor.ONLY_TABLET) // https://crbug.com/339299609
     public void testOpenLink() throws Exception {
         String url1 = mTestServer.getURL("/chrome/test/data/android/google.html");
         String url2 = mTestServer.getURL("/chrome/test/data/android/about.html");
@@ -310,7 +310,7 @@ public class NavigateTest {
     @Test
     @MediumTest
     @Feature({"Navigation"})
-    @DisableIf.Device(DeviceFormFactor.TABLET) // https://crbug.com/339299609
+    @DisableIf.Device(DeviceFormFactor.ONLY_TABLET) // https://crbug.com/339299609
     public void testTabObserverOnPageLoadStarted() throws Exception {
         final String url1 = mTestServer.getURL("/chrome/test/data/android/google.html");
         final String url2 = mTestServer.getURL("/chrome/test/data/android/about.html");
@@ -473,7 +473,7 @@ public class NavigateTest {
 
     /** Test back and forward buttons. */
     @Test
-    @Restriction(DeviceFormFactor.TABLET)
+    @Restriction(DeviceFormFactor.TABLET_OR_DESKTOP)
     @MediumTest
     @Feature({"Navigation"})
     public void testNavigateBackAndForwardButtons() throws Exception {
@@ -703,8 +703,10 @@ public class NavigateTest {
     @DisableIf.Build(hardware_is = "sprout", message = "fails on android-one: crbug.com/540723")
     @MediumTest
     @Feature({"Navigation"})
+    @CommandLineFlags.Add({"ip-address-space-overrides=[::1]:0=public"})
     public void testWindowOpenUrlSpoof() throws Exception {
-        // TODO(jbudorick): Convert this from TestWebServer to EmbeddedTestServer.
+        // TODO(jbudorick): Convert this from TestWebServer to EmbeddedTestServer.  Once its
+        // converted, should be able to remove the ip-address-space-overrides command line flag
         TestWebServer webServer = TestWebServer.start();
         try {
             // Make sure that we start with one tab.

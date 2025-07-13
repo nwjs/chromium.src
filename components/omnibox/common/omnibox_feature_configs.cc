@@ -20,16 +20,6 @@ constexpr auto enabled_by_default_desktop_only =
     base::FEATURE_ENABLED_BY_DEFAULT;
 #endif
 
-BASE_FEATURE(AutocompleteControllerMetricsOptimization::
-                 kAutocompleteControllerMetricsOptimization,
-             "AutocompleteControllerMetricsOptimization",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-AutocompleteControllerMetricsOptimization::
-    AutocompleteControllerMetricsOptimization() {
-  enabled =
-      base::FeatureList::IsEnabled(kAutocompleteControllerMetricsOptimization);
-}
-
 // TODO(manukh): Enabled by default in m120. Clean up 12/5 when after m121
 //   branch cut.
 // static
@@ -197,6 +187,37 @@ MiaZPS::MiaZPS() {
           .Get();
 }
 
+BASE_FEATURE(Toolbelt::kOmniboxToolbelt,
+             "OmniboxToolbelt",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+Toolbelt::Toolbelt() {
+  enabled = base::FeatureList::IsEnabled(kOmniboxToolbelt);
+  keep_toolbelt_after_input =
+      base::FeatureParam<bool>(&kOmniboxToolbelt, "KeepToolbeltAfterInput",
+                               false)
+          .Get();
+  always_include_lens_action =
+      base::FeatureParam<bool>(&kOmniboxToolbelt, "AlwaysIncludeLensAction",
+                               false)
+          .Get();
+  show_ai_search_action =
+      base::FeatureParam<bool>(&kOmniboxToolbelt, "ShowAiSearchAction", false)
+          .Get();
+  show_lens_action =
+      base::FeatureParam<bool>(&kOmniboxToolbelt, "ShowLensAction", false)
+          .Get();
+  show_bookmarks_action =
+      base::FeatureParam<bool>(&kOmniboxToolbelt, "ShowBookmarksAction", false)
+          .Get();
+  show_tabs_action =
+      base::FeatureParam<bool>(&kOmniboxToolbelt, "ShowTabsAction", false)
+          .Get();
+  show_history_action =
+      base::FeatureParam<bool>(&kOmniboxToolbelt, "ShowHistoryAction", false)
+          .Get();
+}
+
 DocumentProvider::DocumentProvider() {
   enabled = base::FeatureList::IsEnabled(omnibox::kDocumentProvider);
   min_query_length =
@@ -353,6 +374,10 @@ SearchAggregatorProvider::SearchAggregatorProvider() {
   scoring_people_score_boost =
       base::FeatureParam<int>(&kSearchAggregatorProvider,
                               "scoring_people_score_boost", 100)
+          .Get();
+  scoring_people_email_match_score_boost =
+      base::FeatureParam<int>(&kSearchAggregatorProvider,
+                              "scoring_people_email_match_score_boost", 400)
           .Get();
   scoring_prefer_contents_over_queries =
       base::FeatureParam<bool>(&kSearchAggregatorProvider,

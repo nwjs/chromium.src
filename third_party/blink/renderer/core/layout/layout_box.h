@@ -38,7 +38,6 @@
 #include "third_party/blink/renderer/core/layout/min_max_sizes_cache.h"
 #include "third_party/blink/renderer/core/layout/overflow_model.h"
 #include "third_party/blink/renderer/core/paint/paint_layer_scrollable_area.h"
-#include "third_party/blink/renderer/core/scroll/scrollbar_theme.h"
 #include "third_party/blink/renderer/core/style/style_overflow_clip_margin.h"
 #include "third_party/blink/renderer/platform/graphics/overlay_scrollbar_clip_behavior.h"
 #include "third_party/blink/renderer/platform/heap/collection_support/heap_hash_set.h"
@@ -450,7 +449,8 @@ class CORE_EXPORT LayoutBox : public LayoutBoxModelObject {
   // Returns element-native intrinsic size. Returns kIndefiniteSize if no such
   // size.
   LayoutUnit DefaultIntrinsicContentInlineSize() const;
-  LayoutUnit DefaultIntrinsicContentBlockSize() const;
+  LayoutUnit DefaultIntrinsicContentBlockSize(
+      bool children_have_geometry) const;
 
   // IE extensions. Used to calculate offsetWidth/Height. Overridden by inlines
   // (LayoutFlow) to return the remaining width on a given line (and the height
@@ -744,7 +744,14 @@ class CORE_EXPORT LayoutBox : public LayoutBoxModelObject {
     return rare_data_ ? rare_data_->spanner_placeholder_.Get() : nullptr;
   }
 
-  bool IsValidColumnSpanner() const final;
+  bool IsValidColumnSpanner() const final {
+    NOT_DESTROYED();
+    return IsValidColumnSpanner(StyleRef());
+  }
+
+  // Provide a ComputedStyle argument, so that this function may be used
+  // reliably during style changes.
+  bool IsValidColumnSpanner(const ComputedStyle&) const;
 
   bool MapToVisualRectInAncestorSpaceInternal(
       const LayoutBoxModelObject* ancestor,
@@ -837,7 +844,8 @@ class CORE_EXPORT LayoutBox : public LayoutBoxModelObject {
 
   bool HasUnsplittableScrollingOverflow() const;
 
-  PhysicalRect LocalCaretRect(int caret_offset) const override;
+  PhysicalRect LocalCaretRect(int caret_offset,
+                              CaretShape caret_shape) const override;
 
   // Returns the intersection of all overflow clips which apply.
   virtual PhysicalRect OverflowClipRect(
@@ -936,7 +944,7 @@ class CORE_EXPORT LayoutBox : public LayoutBoxModelObject {
   bool IsReadingFlowContainer() const;
   // Returns the nodes corresponding to this LayoutBox's layout children,
   // sorted in reading flow if IsReadingFlowContainer().
-  const HeapVector<Member<Node>>& ReadingFlowNodes() const;
+  const GCedHeapVector<Member<Node>>& ReadingFlowNodes() const;
 
   // See README.md for an explanation of scroll origin.
   gfx::Vector2d OriginAdjustmentForScrollbars() const;
@@ -1261,13 +1269,6 @@ class CORE_EXPORT LayoutBox : public LayoutBoxModelObject {
   void UpdateFromStyle() override;
 
   void InLayoutNGInlineFormattingContextWillChange(bool) final;
-
-  virtual ItemPosition SelfAlignmentNormalBehavior(
-      const LayoutBox* child = nullptr) const {
-    NOT_DESTROYED();
-    DCHECK(!child);
-    return ItemPosition::kStretch;
-  }
 
   PhysicalRect BackgroundPaintedExtent() const;
   virtual bool ForegroundIsKnownToBeOpaqueInRect(

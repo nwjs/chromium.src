@@ -818,7 +818,7 @@ enum HeaderBehaviour {
   _bookmarksCoordinator = nil;
 }
 
-#pragma mark - NSObject
+#pragma mark - UIAccessibilityAction
 
 - (BOOL)accessibilityPerformEscape {
   [self dismissPopups];
@@ -2242,6 +2242,10 @@ enum HeaderBehaviour {
 }
 
 - (void)initiateNewTabForegroundAnimationForWebState:(web::WebState*)webState {
+  BOOL isNTP = IsURLNewTabPage(webState->GetVisibleURL());
+  BOOL isIncognito = _isOffTheRecord;
+  __weak id<OmniboxCommands> omniboxHandler = self.omniboxCommandsHandler;
+
   // Initiates the new tab foreground animation, which is phone-specific.
   if (IsRegularXRegularSizeClass(self)) {
     if (self.foregroundTabWasAddedCompletionBlock) {
@@ -2250,6 +2254,10 @@ enum HeaderBehaviour {
       __weak BrowserViewController* weakSelf = self;
       base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
           FROM_HERE, base::BindOnce(^{
+            if (isNTP && isIncognito) {
+              [omniboxHandler focusOmniboxForVoiceOver];
+            }
+
             [weakSelf executeAndClearForegroundTabWasAddedCompletionBlock:YES];
           }));
     }
@@ -2481,27 +2489,10 @@ enum HeaderBehaviour {
                     action:@selector(authenticateIncognitoContent)
           forControlEvents:UIControlEventTouchUpInside];
 
-      DCHECK(self.applicationCommandsHandler);
-      __weak __typeof(self) weakSelf = self;
-      [self.blockingView.tabSwitcherButton
-                 addAction:[UIAction actionWithHandler:^(UIAction* action) {
-                   if (IsIOSSoftLockEnabled()) {
-                     base::UmaHistogramEnumeration(
-                         kIncognitoLockOverlayInteractionHistogram,
-                         IncognitoLockOverlayInteraction::
-                             kSeeOtherTabsButtonClicked);
-                     base::RecordAction(base::UserMetricsAction(
-                         "IOS.IncognitoLock.Overlay.SeeOtherTabs"));
-                   }
-                   [weakSelf.applicationCommandsHandler
-                       displayTabGridInMode:TabGridOpeningMode::kRegular];
-                 }]
-          forControlEvents:UIControlEventTouchUpInside];
-
       if (IsIOSSoftLockEnabled()) {
         base::WeakPtr<WebStateList> webStateList = _webStateList;
         id<IncognitoReauthCommands> reauthHandler = self.reauthHandler;
-        [self.blockingView.exitIncognitoButton
+        [self.blockingView.secondaryButton
                    addAction:[UIAction actionWithHandler:^(UIAction* action) {
                      if (IsIOSSoftLockEnabled()) {
                        base::UmaHistogramEnumeration(
@@ -2516,6 +2507,23 @@ enum HeaderBehaviour {
                                          WebStateList::CLOSE_USER_ACTION);
                      }
                      [reauthHandler manualAuthenticationOverride];
+                   }]
+            forControlEvents:UIControlEventTouchUpInside];
+      } else {
+        DCHECK(self.applicationCommandsHandler);
+        __weak __typeof(self) weakSelf = self;
+        [self.blockingView.secondaryButton
+                   addAction:[UIAction actionWithHandler:^(UIAction* action) {
+                     if (IsIOSSoftLockEnabled()) {
+                       base::UmaHistogramEnumeration(
+                           kIncognitoLockOverlayInteractionHistogram,
+                           IncognitoLockOverlayInteraction::
+                               kSeeOtherTabsButtonClicked);
+                       base::RecordAction(base::UserMetricsAction(
+                           "IOS.IncognitoLock.Overlay.SeeOtherTabs"));
+                     }
+                     [weakSelf.applicationCommandsHandler
+                         displayTabGridInMode:TabGridOpeningMode::kRegular];
                    }]
             forControlEvents:UIControlEventTouchUpInside];
       }

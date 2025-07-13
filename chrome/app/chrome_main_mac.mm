@@ -85,6 +85,7 @@ void SetUpBundleOverrides() {
         chrome::GetFrameworkBundlePath());
 
     NSBundle* base_bundle = chrome::OuterAppBundle();
+    base::apple::SetOverrideOuterBundle(base_bundle);
     base::apple::SetBaseBundleIDOverride(
         base::SysNSStringToUTF8(base_bundle.bundleIdentifier));
   }

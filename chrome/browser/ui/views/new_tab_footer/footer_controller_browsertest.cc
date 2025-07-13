@@ -2,6 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "chrome/browser/ui/views/new_tab_footer/footer_controller.h"
+
 #include <memory>
 
 #include "base/test/metrics/histogram_tester.h"
@@ -17,6 +19,7 @@
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/new_tab_footer/footer_web_view.h"
 #include "chrome/common/pref_names.h"
+#include "chrome/common/webui_url_constants.h"
 #include "chrome/test/base/chrome_test_utils.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
@@ -42,6 +45,10 @@ class FooterControllerExtensionTestBase
   void SetUpOnMainThread() override {
     extensions::ExtensionBrowserTest::SetUpOnMainThread();
     profile()->GetPrefs()->SetBoolean(prefs::kNtpFooterVisible, true);
+    browser()
+        ->GetFeatures()
+        .new_tab_footer_controller()
+        ->SkipErrorPageCheckForTesting(true);
   }
 
   scoped_refptr<const extensions::Extension> LoadNtpExtension() {

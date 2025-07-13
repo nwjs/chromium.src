@@ -512,11 +512,11 @@ namespace code_sign_clone_manager {
 
 BASE_FEATURE(kMacAppCodeSignClone,
              "MacAppCodeSignClone",
-             base::FEATURE_ENABLED_BY_DEFAULT);
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kMacAppCodeSignCloneRenameAsBundle,
              "MacAppCodeSignCloneRenameAsBundle",
-             base::FEATURE_ENABLED_BY_DEFAULT);
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 CodeSignCloneManager::CodeSignCloneManager(
     const base::FilePath& src_path,

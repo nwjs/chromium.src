@@ -25,6 +25,8 @@
 #include "base/memory/ptr_util.h"
 #include "base/memory/raw_ptr.h"
 #include "base/metrics/histogram_functions.h"
+#include "base/notimplemented.h"
+#include "base/strings/string_util.h"
 #include "base/strings/string_util_win.h"
 #include "base/strings/stringprintf.h"
 #include "base/task/current_thread.h"
@@ -1605,7 +1607,7 @@ void HWNDMessageHandler::ClientAreaSizeChanged() {
 
 bool HWNDMessageHandler::GetClientAreaInsets(gfx::Insets* insets,
                                              HMONITOR monitor) const {
-  int frame_thickness = ui::GetFrameThickness(
+  int frame_thickness = ui::GetResizableFrameThicknessFromMonitorInPixels(
       monitor, GetWindowLong(hwnd(), GWL_STYLE) & WS_CAPTION);
   if (delegate_->GetClientAreaInsets(insets, frame_thickness)) {
     return true;
@@ -2638,7 +2640,10 @@ void HWNDMessageHandler::OnPaint(HDC dc) {
   }
 
   if (!IsRectEmpty(&ps.rcPaint)) {
-    HBRUSH brush = reinterpret_cast<HBRUSH>(GetStockObject(BLACK_BRUSH));
+    HBRUSH brush = delegate_->GetBackgroundPaintBrush();
+    if (!brush) {
+      brush = reinterpret_cast<HBRUSH>(GetStockObject(BLACK_BRUSH));
+    }
 
     if (HasChildRenderingWindow()) {
       // If there's a child window that's being rendered to then clear the

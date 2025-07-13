@@ -57,6 +57,7 @@ import org.chromium.base.test.util.Batch;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.DisableIf;
 import org.chromium.base.test.util.DisabledTest;
+import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.base.test.util.Restriction;
 import org.chromium.blink.mojom.AuthenticatorAttachment;
@@ -108,7 +109,6 @@ import org.chromium.content_public.browser.WebContents;
 import org.chromium.content_public.browser.test.mock.MockRenderFrameHost;
 import org.chromium.content_public.browser.test.mock.MockWebContents;
 import org.chromium.content_public.common.ContentSwitches;
-import org.chromium.device.DeviceFeatureList;
 import org.chromium.net.test.EmbeddedTestServer;
 import org.chromium.ui.test.util.GmsCoreVersionRestriction;
 import org.chromium.url.GURL;
@@ -997,12 +997,6 @@ public class Fido2CredentialRequestTest {
     @Test
     @SmallTest
     public void testInternalAuthenticatorMakeCredential_attestationIncluded() {
-        // This test can't work on Android N because it lacks the java.nio.file
-        // APIs used to load the test data.
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
-            return;
-        }
-
         mIntentSender.setNextResultIntent(
                 Fido2ApiTestHelper.createSuccessfulMakeCredentialIntentWithAttestation());
 
@@ -1025,12 +1019,6 @@ public class Fido2CredentialRequestTest {
     @SmallTest
     public void testInternalAuthenticatorMakeCredential_rkRequired_attestationKept()
             throws Exception {
-        // This test can't work on Android N because it lacks the java.nio.file
-        // APIs used to load the test data.
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
-            return;
-        }
-
         mIntentSender.setNextResultIntent(
                 Fido2ApiTestHelper.createSuccessfulMakeCredentialIntentWithAttestation());
 
@@ -1058,12 +1046,6 @@ public class Fido2CredentialRequestTest {
     @SmallTest
     public void testInternalAuthenticatorMakeCredential_rkPreferred_attestationKept()
             throws Exception {
-        // This test can't work on Android N because it lacks the java.nio.file
-        // APIs used to load the test data.
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
-            return;
-        }
-
         mIntentSender.setNextResultIntent(
                 Fido2ApiTestHelper.createSuccessfulMakeCredentialIntentWithAttestation());
 
@@ -1090,12 +1072,6 @@ public class Fido2CredentialRequestTest {
     @Test
     @SmallTest
     public void testInternalAuthenticatorMakeCredential_credprops() throws Exception {
-        // This test can't work on Android N because it lacks the java.nio.file
-        // APIs used to load the test data.
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
-            return;
-        }
-
         mIntentSender.setNextResultIntent(
                 Fido2ApiTestHelper.createSuccessfulMakeCredentialIntentWithCredProps());
 
@@ -1625,6 +1601,7 @@ public class Fido2CredentialRequestTest {
 
     @Test
     @SmallTest
+    @DisableFeatures(BlinkFeatures.SECURE_PAYMENT_CONFIRMATION_BROWSER_BOUND_KEYS)
     public void testMakeCredential_isPaymentCredentialCreationPassedToFrameHost() {
         mIntentSender.setNextResultIntent(
                 Fido2ApiTestHelper.createErrorIntent(
@@ -1639,6 +1616,30 @@ public class Fido2CredentialRequestTest {
                 mOrigin,
                 mOrigin,
                 /* paymentOptions= */ null,
+                mCallback::onRegisterResponse,
+                mCallback::onError,
+                mCallback::onRequestOutcome);
+        Assert.assertTrue(mFrameHost.mIsPaymentCredentialCreation);
+    }
+
+    @Test
+    @SmallTest
+    @EnableFeatures(BlinkFeatures.SECURE_PAYMENT_CONFIRMATION_BROWSER_BOUND_KEYS)
+    public void
+            testMakeCredential_isPaymentCredentialCreationPassedToFrameHostWithPaymentOptions() {
+        mIntentSender.setNextResultIntent(
+                Fido2ApiTestHelper.createErrorIntent(
+                        Fido2Api.INVALID_STATE_ERR,
+                        "One of the excluded credentials exists on the local device"));
+
+        mCreationOptions.isPaymentCredentialCreation = true;
+        Assert.assertFalse(mFrameHost.mIsPaymentCredentialCreation);
+        mRequest.handleMakeCredentialRequest(
+                mCreationOptions,
+                mBrowserOptions,
+                mOrigin,
+                mOrigin,
+                Fido2ApiTestHelper.createPaymentOptions(),
                 mCallback::onRegisterResponse,
                 mCallback::onError,
                 mCallback::onRequestOutcome);
@@ -2729,7 +2730,6 @@ public class Fido2CredentialRequestTest {
     @Test
     @SmallTest
     @UseMethodParameter(SameOriginTestParams.class)
-    @EnableFeatures(DeviceFeatureList.WEBAUTHN_REMOTE_DESKTOP_ALLOWED_ORIGINS)
     public void testMakeCredential_remoteDesktopClientOverride_generatesCorrectClientDataJson(
             boolean sameOriginWithAncestors) {
         mIntentSender.setNextResultIntent(
@@ -2793,7 +2793,6 @@ public class Fido2CredentialRequestTest {
     @Test
     @SmallTest
     @UseMethodParameter(SameOriginTestParams.class)
-    @EnableFeatures(DeviceFeatureList.WEBAUTHN_REMOTE_DESKTOP_ALLOWED_ORIGINS)
     public void testGetAssertion_remoteDesktopClientOverride_generatesCorrectClientDataJson(
             boolean sameOriginWithAncestors) {
         mIntentSender.setNextResultIntent(Fido2ApiTestHelper.createSuccessfulGetAssertionIntent());

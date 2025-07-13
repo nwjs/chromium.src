@@ -8,7 +8,12 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import static org.chromium.chrome.browser.multiwindow.MultiWindowUtils.HISTOGRAM_DESKTOP_WINDOW_COUNT_EXISTING_INSTANCE_SUFFIX;
@@ -18,8 +23,11 @@ import static org.chromium.chrome.browser.multiwindow.MultiWindowUtils.HISTOGRAM
 
 import android.app.Activity;
 import android.content.Context;
+import android.content.res.Resources;
 import android.os.Build.VERSION_CODES;
 import android.util.SparseIntArray;
+
+import androidx.test.core.app.ApplicationProvider;
 
 import org.junit.After;
 import org.junit.Assert;
@@ -27,6 +35,7 @@ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
@@ -34,12 +43,22 @@ import org.robolectric.annotation.Config;
 import org.robolectric.annotation.Implementation;
 import org.robolectric.annotation.Implements;
 
+import org.chromium.base.FeatureOverrides;
+import org.chromium.base.SysUtils;
 import org.chromium.base.supplier.ObservableSupplier;
 import org.chromium.base.test.BaseRobolectricTestRunner;
+import org.chromium.base.test.util.CallbackHelper;
+import org.chromium.base.test.util.DisabledTest;
+import org.chromium.base.test.util.Features.DisableFeatures;
+import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.base.test.util.HistogramWatcher;
+import org.chromium.build.BuildConfig;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.homepage.HomepageManager;
 import org.chromium.chrome.browser.multiwindow.MultiWindowUtils.InstanceAllocationType;
 import org.chromium.chrome.browser.multiwindow.MultiWindowUtilsUnitTest.ShadowMultiInstanceManagerApi31;
+import org.chromium.chrome.browser.multiwindow.MultiWindowUtilsUnitTest.ShadowSysUtils;
+import org.chromium.chrome.browser.preferences.ChromePreferenceKeys;
 import org.chromium.chrome.browser.preferences.ChromeSharedPreferences;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tabmodel.TabGroupModelFilter;
@@ -49,17 +68,26 @@ import org.chromium.chrome.browser.tabwindow.TabWindowManager;
 import org.chromium.chrome.test.AutomotiveContextWrapperTestRule;
 import org.chromium.components.browser_ui.desktop_windowing.AppHeaderState;
 import org.chromium.components.browser_ui.desktop_windowing.DesktopWindowStateManager;
+import org.chromium.components.browser_ui.util.ConversionUtils;
 import org.chromium.components.embedder_support.util.UrlConstants;
+import org.chromium.components.messages.MessageBannerProperties;
+import org.chromium.components.messages.MessageDispatcher;
+import org.chromium.components.messages.MessageIdentifier;
+import org.chromium.ui.modelutil.PropertyModel;
+import org.chromium.ui.util.XrUtils;
 import org.chromium.url.GURL;
 
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
 
 /** Unit tests for {@link MultiWindowUtils}. */
 @RunWith(BaseRobolectricTestRunner.class)
 @Config(
         manifest = Config.NONE,
-        shadows = {ShadowMultiInstanceManagerApi31.class})
+        shadows = {ShadowMultiInstanceManagerApi31.class, ShadowSysUtils.class})
 public class MultiWindowUtilsUnitTest {
     /** Shadows {@link MultiInstanceManagerApi31} class for testing. */
     @Implements(MultiInstanceManagerApi31.class)
@@ -98,6 +126,21 @@ public class MultiWindowUtilsUnitTest {
         }
     }
 
+    /** Shadows {@link SysUtils} class for testing. */
+    @Implements(SysUtils.class)
+    public static class ShadowSysUtils {
+        private static int sMemoryInMB;
+
+        public static void setMemoryInMB(int memoryInMB) {
+            sMemoryInMB = memoryInMB;
+        }
+
+        @Implementation
+        public static int amountOfPhysicalMemoryKB() {
+            return sMemoryInMB * ConversionUtils.KILOBYTES_PER_MEGABYTE;
+        }
+    }
+
     @Rule public final MockitoRule mMockitoRule = MockitoJUnit.rule();
 
     @Rule
@@ -115,6 +158,8 @@ public class MultiWindowUtilsUnitTest {
     private static final String URL_3 = "url3";
     private static final GURL NTP_GURL = new GURL(UrlConstants.NTP_URL);
     private static final GURL TEST_GURL = new GURL("https://youtube.com/");
+    private static final String XR_DEVICE = "XrDevice";
+    private static final String DESKTOP_DEVICE = "DesktopDevice";
 
     private MultiWindowUtils mUtils;
     private boolean mIsInMultiWindowMode;
@@ -188,12 +233,16 @@ public class MultiWindowUtilsUnitTest {
         when(mAppHeaderState.isInDesktopWindow()).thenReturn(false);
         when(mTabModelSelector.getCurrentTabModelSupplier()).thenReturn(mTabModelSupplier);
         when(mTabModelSupplier.get()).thenReturn(mNormalTabModel);
+
+        ShadowSysUtils.setMemoryInMB(7000);
     }
 
     @After
     public void tearDown() {
         ShadowMultiInstanceManagerApi31.reset();
         mOverrideOpenInNewWindowSupported = false;
+        ChromeSharedPreferences.getInstance()
+                .removeKey(ChromePreferenceKeys.MULTI_INSTANCE_RESTORATION_MESSAGE_SHOWN);
     }
 
     @Test
@@ -420,7 +469,30 @@ public class MultiWindowUtilsUnitTest {
     }
 
     @Test
+    public void getInstanceCount_ExceedsLimit() {
+        when(mTabModelSelector.getModel(false)).thenReturn(mNormalTabModel);
+        when(mTabModelSelector.getModel(true)).thenReturn(mIncognitoTabModel);
+        int maxInstances = 3;
+        MultiWindowUtils.setMaxInstancesForTesting(maxInstances);
+
+        // Simulate persistence of instance state for max instances = 3.
+        writeInstanceInfo(
+                INSTANCE_ID_0, URL_1, /* tabCount= */ 3, /* incognitoTabCount= */ 2, TASK_ID_5);
+        writeInstanceInfo(
+                INSTANCE_ID_1, URL_2, /* tabCount= */ 0, /* incognitoTabCount= */ 0, TASK_ID_6);
+        writeInstanceInfo(
+                INSTANCE_ID_2, URL_3, /* tabCount= */ 6, /* incognitoTabCount= */ 2, TASK_ID_7);
+
+        // Simulate downgrade of instance limit.
+        MultiWindowUtils.setMaxInstancesForTesting(maxInstances - 1);
+
+        // Verify instance count.
+        assertEquals(3, MultiWindowUtils.getInstanceCount());
+    }
+
+    @Test
     @Config(sdk = 31)
+    @DisabledTest(message = "https://crbug.com/423920653")
     public void testGetInstanceIdForViewIntent_LessThanMaxInstancesOpen() {
         MultiWindowTestUtils.enableMultiInstance();
         when(mTabModelSelector.getModel(false)).thenReturn(mNormalTabModel);
@@ -452,6 +524,7 @@ public class MultiWindowUtilsUnitTest {
 
     @Test
     @Config(sdk = 31)
+    @DisabledTest(message = "https://crbug.com/423920653")
     public void testGetInstanceIdForViewIntent_MaxInstancesOpen_MaxRunningActivities() {
         MultiWindowTestUtils.enableMultiInstance();
         when(mTabModelSelector.getModel(false)).thenReturn(mNormalTabModel);
@@ -501,6 +574,7 @@ public class MultiWindowUtilsUnitTest {
 
     @Test
     @Config(sdk = 31)
+    @DisabledTest(message = "https://crbug.com/423920653")
     public void testGetInstanceIdForLinkIntent_LessThanMaxInstancesOpen() {
         MultiWindowTestUtils.enableMultiInstance();
         when(mTabModelSelector.getModel(false)).thenReturn(mNormalTabModel);
@@ -710,6 +784,277 @@ public class MultiWindowUtilsUnitTest {
     @Test
     public void testRecordTabCountForRelaunchWhenActivityPaused_MultiInstanceApi31Disabled() {
         testRecordTabCountForRelaunchWhenActivityPausedImpl(/* windowId= */ 0);
+    }
+
+    @Test
+    public void testInstanceRestorationMessage() {
+        MultiWindowUtils.setInstanceCountForTesting(5);
+        MultiWindowUtils.setMaxInstancesForTesting(3);
+        MessageDispatcher messageDispatcher = mock(MessageDispatcher.class);
+        Context context = ApplicationProvider.getApplicationContext();
+        CallbackHelper primaryActionCallbackHelper = new CallbackHelper();
+        int primaryActionClickCount = primaryActionCallbackHelper.getCallCount();
+
+        boolean shown =
+                MultiWindowUtils.maybeShowInstanceRestorationMessage(
+                        messageDispatcher, context, primaryActionCallbackHelper::notifyCalled);
+
+        assertTrue("Message should be enqueued.", shown);
+        assertTrue(
+                "SharedPreferences should be updated.",
+                ChromeSharedPreferences.getInstance()
+                        .readBoolean(
+                                ChromePreferenceKeys.MULTI_INSTANCE_RESTORATION_MESSAGE_SHOWN,
+                                false));
+        ArgumentCaptor<PropertyModel> message = ArgumentCaptor.forClass(PropertyModel.class);
+        verify(messageDispatcher).enqueueWindowScopedMessage(message.capture(), eq(false));
+
+        Resources resources = context.getResources();
+        Assert.assertEquals(
+                "Message identifier should match.",
+                MessageIdentifier.MULTI_INSTANCE_RESTORATION_ON_DOWNGRADED_LIMIT,
+                message.getValue().get(MessageBannerProperties.MESSAGE_IDENTIFIER));
+        Assert.assertEquals(
+                "Message title should match.",
+                resources.getString(R.string.multi_instance_restoration_message_title, 3),
+                message.getValue().get(MessageBannerProperties.TITLE));
+        Assert.assertEquals(
+                "Message description should match.",
+                resources.getString(R.string.multi_instance_restoration_message_description),
+                message.getValue().get(MessageBannerProperties.DESCRIPTION));
+        Assert.assertEquals(
+                "Message primary button text should match.",
+                resources.getString(R.string.multi_instance_restoration_message_button),
+                message.getValue().get(MessageBannerProperties.PRIMARY_BUTTON_TEXT));
+        Assert.assertEquals(
+                "Message icon resource ID should match.",
+                R.drawable.ic_chrome,
+                message.getValue().get(MessageBannerProperties.ICON_RESOURCE_ID));
+
+        // Simulate and verify primary button click.
+        message.getValue().get(MessageBannerProperties.ON_PRIMARY_ACTION).get();
+        assertEquals(
+                "Primary action callback was not called.",
+                primaryActionClickCount + 1,
+                primaryActionCallbackHelper.getCallCount());
+    }
+
+    @Test
+    public void testInstanceRestorationMessage_InstanceCountWithinLimit() {
+        MultiWindowUtils.setInstanceCountForTesting(2);
+        MultiWindowUtils.setMaxInstancesForTesting(3);
+        MessageDispatcher messageDispatcher = mock(MessageDispatcher.class);
+        Context context = ApplicationProvider.getApplicationContext();
+        CallbackHelper primaryActionCallbackHelper = new CallbackHelper();
+
+        boolean shown =
+                MultiWindowUtils.maybeShowInstanceRestorationMessage(
+                        messageDispatcher, context, primaryActionCallbackHelper::notifyCalled);
+        assertFalse("Message should not be enqueued.", shown);
+        assertFalse(
+                "SharedPreferences should not be updated.",
+                ChromeSharedPreferences.getInstance()
+                        .readBoolean(
+                                ChromePreferenceKeys.MULTI_INSTANCE_RESTORATION_MESSAGE_SHOWN,
+                                false));
+        verify(messageDispatcher, never()).enqueueWindowScopedMessage(any(), anyBoolean());
+    }
+
+    @Test
+    public void testInstanceRestorationMessage_ShownExactlyOnce() {
+        MultiWindowUtils.setInstanceCountForTesting(5);
+        MultiWindowUtils.setMaxInstancesForTesting(3);
+        MessageDispatcher messageDispatcher = mock(MessageDispatcher.class);
+        Context context = ApplicationProvider.getApplicationContext();
+        CallbackHelper primaryActionCallbackHelper = new CallbackHelper();
+
+        boolean shown =
+                MultiWindowUtils.maybeShowInstanceRestorationMessage(
+                        messageDispatcher, context, primaryActionCallbackHelper::notifyCalled);
+        assertTrue("Message should be enqueued.", shown);
+        assertTrue(
+                "SharedPreferences should be updated.",
+                ChromeSharedPreferences.getInstance()
+                        .readBoolean(
+                                ChromePreferenceKeys.MULTI_INSTANCE_RESTORATION_MESSAGE_SHOWN,
+                                false));
+
+        // Simulate second request to show message.
+        shown =
+                MultiWindowUtils.maybeShowInstanceRestorationMessage(
+                        messageDispatcher, context, primaryActionCallbackHelper::notifyCalled);
+        assertFalse("Message should not be enqueued.", shown);
+
+        verify(messageDispatcher, times(1)).enqueueWindowScopedMessage(any(), anyBoolean());
+    }
+
+    @Test
+    @DisableFeatures(ChromeFeatureList.DISABLE_INSTANCE_LIMIT)
+    public void testMaxInstances_DisableInstanceLimitDisabled() {
+        // Verify instance limit on Android S- devices.
+        MultiWindowUtils.setMultiInstanceApi31EnabledForTesting(false);
+        assertEquals(
+                "Instance limit for Android S- devices is incorrect.",
+                3,
+                MultiWindowUtils.getMaxInstances());
+
+        // Verify instance limit when FF is disabled.
+        MultiWindowUtils.setMultiInstanceApi31EnabledForTesting(true);
+        assertEquals(
+                "Instance limit when feature is disabled is incorrect.",
+                5,
+                MultiWindowUtils.getMaxInstances());
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.DISABLE_INSTANCE_LIMIT)
+    public void testMaxInstances_DefaultValues() {
+        setupMaxInstanceCountTestConfig(/* deviceType= */ null);
+
+        // Verify default instance limit for low-memory device, using default memory threshold.
+        ShadowSysUtils.setMemoryInMB(4000);
+        assertEquals(
+                "Instance limit on low-memory device is incorrect.",
+                5,
+                MultiWindowUtils.getMaxInstances());
+
+        // Verify default instance limit for high-memory device, using default memory threshold.
+        ShadowSysUtils.setMemoryInMB(7000);
+        assertEquals(
+                "Instance limit on high-memory device is incorrect.",
+                20,
+                MultiWindowUtils.getMaxInstances());
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.DISABLE_INSTANCE_LIMIT)
+    public void testMaxInstances_CustomInstanceLimit_HighMemoryDevice() {
+        setupMaxInstanceCountTestConfig(/* deviceType= */ null);
+        Map<String, Integer> featureParams = new HashMap<>();
+        featureParams.put("max_instance_limit", 50);
+        updateFeatureParams(ChromeFeatureList.DISABLE_INSTANCE_LIMIT, featureParams);
+
+        assertEquals(
+                "Instance limit on high-memory device is incorrect.",
+                50,
+                MultiWindowUtils.getMaxInstances());
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.DISABLE_INSTANCE_LIMIT)
+    public void testMaxInstances_CustomInstanceLimit_LowMemoryDevice() {
+        setupMaxInstanceCountTestConfig(/* deviceType= */ null);
+        ShadowSysUtils.setMemoryInMB(4000);
+        Map<String, Integer> featureParams = new HashMap<>();
+        featureParams.put("max_instance_limit", 50);
+        updateFeatureParams(ChromeFeatureList.DISABLE_INSTANCE_LIMIT, featureParams);
+
+        assertEquals(
+                "Instance limit on high-memory device is incorrect.",
+                5,
+                MultiWindowUtils.getMaxInstances());
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.DISABLE_INSTANCE_LIMIT)
+    public void testMaxInstances_CustomMemoryThreshold_HighMemoryDevice() {
+        setupMaxInstanceCountTestConfig(/* deviceType= */ null);
+        ShadowSysUtils.setMemoryInMB(8500);
+        Map<String, Integer> featureParams = new HashMap<>();
+        featureParams.put("max_instance_limit_memory_threshold_mb", 8000);
+        updateFeatureParams(ChromeFeatureList.DISABLE_INSTANCE_LIMIT, featureParams);
+
+        assertEquals(
+                "Instance limit on high-memory device is incorrect.",
+                20,
+                MultiWindowUtils.getMaxInstances());
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.DISABLE_INSTANCE_LIMIT)
+    public void testMaxInstances_CustomMemoryThreshold_LowMemoryDevice() {
+        setupMaxInstanceCountTestConfig(/* deviceType= */ null);
+        ShadowSysUtils.setMemoryInMB(7500);
+        Map<String, Integer> featureParams = new HashMap<>();
+        featureParams.put("max_instance_limit_memory_threshold_mb", 8000);
+        updateFeatureParams(ChromeFeatureList.DISABLE_INSTANCE_LIMIT, featureParams);
+
+        assertEquals(
+                "Instance limit on low-memory device is incorrect.",
+                5,
+                MultiWindowUtils.getMaxInstances());
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.DISABLE_INSTANCE_LIMIT)
+    public void testMaxInstances_CustomInstanceLimit_CustomMemoryThreshold_HighMemoryDevice() {
+        setupMaxInstanceCountTestConfig(/* deviceType= */ null);
+        ShadowSysUtils.setMemoryInMB(8500);
+        Map<String, Integer> featureParams = new HashMap<>();
+        featureParams.put("max_instance_limit", 50);
+        featureParams.put("max_instance_limit_memory_threshold_mb", 8000);
+        updateFeatureParams(ChromeFeatureList.DISABLE_INSTANCE_LIMIT, featureParams);
+
+        assertEquals(
+                "Instance limit on high-memory device is incorrect.",
+                50,
+                MultiWindowUtils.getMaxInstances());
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.DISABLE_INSTANCE_LIMIT)
+    public void testMaxInstances_CustomInstanceLimit_CustomMemoryThreshold_LowMemoryDevice() {
+        setupMaxInstanceCountTestConfig(/* deviceType= */ null);
+        ShadowSysUtils.setMemoryInMB(7500);
+        Map<String, Integer> featureParams = new HashMap<>();
+        featureParams.put("max_instance_limit", 50);
+        featureParams.put("max_instance_limit_memory_threshold_mb", 8000);
+        updateFeatureParams(ChromeFeatureList.DISABLE_INSTANCE_LIMIT, featureParams);
+
+        assertEquals(
+                "Instance limit on low-memory device is incorrect.",
+                5,
+                MultiWindowUtils.getMaxInstances());
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.DISABLE_INSTANCE_LIMIT)
+    public void testMaxInstances_XrDevice() {
+        setupMaxInstanceCountTestConfig(XR_DEVICE);
+        assertEquals(
+                "Instance limit on XR device is incorrect.",
+                1000,
+                MultiWindowUtils.getMaxInstances());
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.DISABLE_INSTANCE_LIMIT)
+    public void testMaxInstances_DesktopDevice() {
+        setupMaxInstanceCountTestConfig(DESKTOP_DEVICE);
+        assertEquals(
+                "Instance limit on desktop device is incorrect.",
+                1000,
+                MultiWindowUtils.getMaxInstances());
+    }
+
+    private void setupMaxInstanceCountTestConfig(String deviceType) {
+        if (XR_DEVICE.equals(deviceType)) {
+            XrUtils.setXrDeviceForTesting(true);
+        } else if (DESKTOP_DEVICE.equals(deviceType)) {
+            BuildConfig.IS_DESKTOP_ANDROID = true;
+        } else {
+            XrUtils.setXrDeviceForTesting(false);
+            BuildConfig.IS_DESKTOP_ANDROID = false;
+        }
+        MultiWindowUtils.setMultiInstanceApi31EnabledForTesting(true);
+    }
+
+    private void updateFeatureParams(String feature, Map<String, Integer> featureParams) {
+        FeatureOverrides.Builder overrides = FeatureOverrides.newBuilder().enable(feature);
+        for (Entry<String, Integer> entry : featureParams.entrySet()) {
+            overrides = overrides.param(entry.getKey(), entry.getValue());
+        }
+        overrides.apply();
     }
 
     private void testRecordTabCountForRelaunchWhenActivityPausedImpl(int windowId) {

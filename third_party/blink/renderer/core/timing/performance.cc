@@ -71,6 +71,7 @@
 #include "third_party/blink/renderer/core/timing/back_forward_cache_restoration.h"
 #include "third_party/blink/renderer/core/timing/background_tracing_helper.h"
 #include "third_party/blink/renderer/core/timing/dom_window_performance.h"
+#include "third_party/blink/renderer/core/timing/interaction_contentful_paint.h"
 #include "third_party/blink/renderer/core/timing/largest_contentful_paint.h"
 #include "third_party/blink/renderer/core/timing/layout_shift.h"
 #include "third_party/blink/renderer/core/timing/measure_memory/measure_memory_controller.h"
@@ -116,6 +117,9 @@ const char kSwapsPerInsertionHistogram[] =
 const char kParserResumeByUserTiming[] =
     "Blink.HTMLParsing.ResumedByUserTiming";
 
+const char kParserResumingCalledBeforePausing[] =
+    "Blink.HTMLParsing.IsParserResumingCalledBeforePausing";
+
 bool IsMeasureOptionsEmpty(const PerformanceMeasureOptions& options) {
   return !options.hasDetail() && !options.hasEnd() && !options.hasStart() &&
          !options.hasDuration();
@@ -159,6 +163,7 @@ PerformanceEntry::EntryType kDroppableEntryTypes[] = {
     PerformanceEntry::kPaint,
     PerformanceEntry::kBackForwardCacheRestoration,
     PerformanceEntry::kSoftNavigation,
+    PerformanceEntry::kInteractionContentfulPaint,
 };
 
 void SwapEntries(PerformanceEntryVector& entries,
@@ -176,24 +181,6 @@ inline bool CheckName(const PerformanceEntry* entry,
     return true;
   }
   return entry->name() == maybe_name;
-}
-
-// |output_entries| either gets reassigned to or is appended to.
-// Therefore, it must point to a valid PerformanceEntryVector.
-void FilterEntriesTriggeredBySoftNavigationIfNeeded(
-    PerformanceEntryVector& input_entries,
-    PerformanceEntryVector** output_entries,
-    bool include_soft_navigation_observations) {
-  if (include_soft_navigation_observations) {
-    *output_entries = &input_entries;
-  } else {
-    DCHECK(output_entries && *output_entries);
-    std::copy_if(input_entries.begin(), input_entries.end(),
-                 std::back_inserter(**output_entries),
-                 [&](const PerformanceEntry* entry) {
-                   return !entry->IsTriggeredBySoftNavigation();
-                 });
-  }
 }
 
 }  // namespace
@@ -265,6 +252,7 @@ constexpr size_t kDefaultContainerTimingBufferSize = 150;
 constexpr size_t kDefaultElementTimingBufferSize = 150;
 constexpr size_t kDefaultLayoutShiftBufferSize = 150;
 constexpr size_t kDefaultLargestContenfulPaintSize = 150;
+constexpr size_t kDefaultInteractionContenfulPaintSize = 150;
 constexpr size_t kDefaultLongTaskBufferSize = 200;
 constexpr size_t kDefaultLongAnimationFrameBufferSize = 200;
 constexpr size_t kDefaultBackForwardCacheRestorationBufferSize = 200;
@@ -526,10 +514,7 @@ PerformanceEntryVector Performance::getEntriesByTypeInternal(
     case PerformanceEntry::kPaint: {
       UseCounter::Count(GetExecutionContext(),
                         WebFeature::kPaintTimingRequested);
-
-      FilterEntriesTriggeredBySoftNavigationIfNeeded(
-          paint_entries_timing_, &entries,
-          include_soft_navigation_observations);
+      entries = &paint_entries_timing_;
       break;
     }
 
@@ -547,9 +532,15 @@ PerformanceEntryVector Performance::getEntriesByTypeInternal(
       break;
 
     case PerformanceEntry::kLargestContentfulPaint:
-      FilterEntriesTriggeredBySoftNavigationIfNeeded(
-          largest_contentful_paint_buffer_, &entries,
-          include_soft_navigation_observations);
+      entries = &largest_contentful_paint_buffer_;
+      break;
+
+    case PerformanceEntry::kInteractionContentfulPaint:
+      // TODO(crbug.com/424433918): Change to expose this without
+      // soft-navigation requirement.
+      if (include_soft_navigation_observations) {
+        entries = &interaction_contentful_paint_buffer_;
+      }
       break;
 
     case PerformanceEntry::kVisibilityState:
@@ -753,6 +744,20 @@ void Performance::AddLargestContentfulPaint(LargestContentfulPaint* entry) {
   }
 }
 
+void Performance::AddInteractionContentfulPaint(
+    InteractionContentfulPaint* entry) {
+  probe::PerformanceEntryAdded(GetExecutionContext(), entry);
+  if (interaction_contentful_paint_buffer_.size() <
+      kDefaultInteractionContenfulPaintSize) {
+    InsertEntryIntoSortedBuffer(interaction_contentful_paint_buffer_, *entry,
+                                kRecordSwaps);
+  } else {
+    ++(dropped_entries_count_map_
+           .find(PerformanceEntry::kInteractionContentfulPaint)
+           ->value);
+  }
+}
+
 void Performance::AddSoftNavigationToPerformanceTimeline(
     SoftNavigationEntry* entry) {
   probe::PerformanceEntryAdded(GetExecutionContext(), entry);
@@ -914,6 +919,7 @@ PerformanceMark* Performance::mark(ScriptState* script_state,
         Document* document = window->GetFrame()->GetDocument();
         if (mark_name == mark_parser_blocking) {
           document->NotifyParserPauseByUserTiming();
+          is_parser_yielded_ = true;
           // Schedule a timeout based resume event here since pausing the parser
           // can be a potential footgun. It's not guaranteed that the parser
           // resume mark is called after the parser pause mark.
@@ -931,6 +937,8 @@ PerformanceMark* Performance::mark(ScriptState* script_state,
                   WrapPersistent(document)),
               base::Milliseconds(timeout));
         } else if (mark_name == mark_parser_restart) {
+          base::UmaHistogramBoolean(kParserResumingCalledBeforePausing,
+                                    !is_parser_yielded_);
           // If the parser is pausing, resume it. This has to be called as a new
           // task to ensure that the script is not running to resume the parser.
           document->GetTaskRunner(TaskType::kInternalLoading)
@@ -1283,11 +1291,10 @@ bool Performance::CanExposeNode(Node* node) {
 }
 
 void Performance::AddPaintTiming(PerformancePaintTiming::PaintType type,
-                                 const DOMPaintTimingInfo& paint_timing_info,
-                                 bool is_triggered_by_soft_navigation) {
+                                 const DOMPaintTimingInfo& paint_timing_info) {
   PerformancePaintTiming* entry = MakeGarbageCollected<PerformancePaintTiming>(
-      type, paint_timing_info, DynamicTo<LocalDOMWindow>(GetExecutionContext()),
-      is_triggered_by_soft_navigation);
+      type, paint_timing_info,
+      DynamicTo<LocalDOMWindow>(GetExecutionContext()));
   DCHECK((type == PerformancePaintTiming::PaintType::kFirstPaint) ||
          (type == PerformancePaintTiming::PaintType::kFirstContentfulPaint));
 
@@ -1348,6 +1355,7 @@ void Performance::Trace(Visitor* visitor) const {
   visitor->Trace(event_timing_buffer_);
   visitor->Trace(layout_shift_buffer_);
   visitor->Trace(largest_contentful_paint_buffer_);
+  visitor->Trace(interaction_contentful_paint_buffer_);
   visitor->Trace(longtask_buffer_);
   visitor->Trace(visibility_state_buffer_);
   visitor->Trace(back_forward_cache_restoration_buffer_);
@@ -1430,14 +1438,6 @@ void Performance::SetClocksForTesting(const base::Clock* clock,
 
 void Performance::ResetTimeOriginForTesting(base::TimeTicks time_origin) {
   time_origin_ = time_origin;
-}
-
-// TODO(https://crbug.com/1457049): remove this once visited links are
-// partitioned.
-bool Performance::softNavPaintMetricsSupported() const {
-  CHECK(
-      RuntimeEnabledFeatures::SoftNavigationHeuristicsExposeFPAndFCPEnabled());
-  return true;
 }
 
 }  // namespace blink

@@ -9,6 +9,7 @@ import static androidx.browser.customtabs.CustomTabsIntent.ACTIVITY_SIDE_SHEET_P
 import static androidx.browser.customtabs.CustomTabsIntent.ACTIVITY_SIDE_SHEET_ROUNDED_CORNERS_POSITION_NONE;
 import static androidx.browser.customtabs.CustomTabsIntent.CLOSE_BUTTON_POSITION_DEFAULT;
 import static androidx.browser.customtabs.CustomTabsIntent.OPEN_IN_BROWSER_STATE_OFF;
+import static androidx.browser.customtabs.CustomTabsIntent.SHARE_STATE_OFF;
 
 import android.app.PendingIntent;
 import android.content.ComponentName;
@@ -682,8 +683,13 @@ public abstract class BrowserServicesIntentDataProvider {
         return ACTIVITY_SIDE_SHEET_POSITION_END;
     }
 
-    /** Return whether calling package should be allowed to present an interactive Omnibox. */
+    /** Return whether omnibox is allowed to be displayed in the CCT. */
     public boolean isInteractiveOmniboxAllowed() {
+        return false;
+    }
+
+    /** Return whether omnibox should be enabled for the calling package. */
+    public boolean isInteractiveOmniboxEnabled() {
         return false;
     }
 
@@ -769,11 +775,25 @@ public abstract class BrowserServicesIntentDataProvider {
     }
 
     /**
-     * @return the TWA startup timestamp associated with an intent in the uptimeMillis timebase, or
-     *     null.
+     * @return the developer option specified for Share action button in the custom tab toolbar.
      */
-    public @Nullable Long getTwaStartupUptimeMillis() {
-        return null;
+    public int getShareButtonState() {
+        return SHARE_STATE_OFF;
+    }
+
+    /**
+     * @return if optional button on the toolbar can be shown.
+     */
+    public boolean isOptionalButtonSupported() {
+        return false;
+    }
+
+    /**
+     * @return the TWA startup timestamp associated with an intent in the uptimeMillis timebase, or
+     *     zero.
+     */
+    public long getTwaStartupUptimeMillis() {
+        return 0;
     }
 
     /**

@@ -243,7 +243,7 @@ Pro začátek můžete vyzkoušet třeba tohle.</translation>
 <translation id="1747827819627189109">Softwarová klávesnice je aktivována</translation>
 <translation id="1749109475624620922">Okno <ph name="WINDOW_TITLE" /> vylo přidruženo ke všem plochám</translation>
 <translation id="1750088060796401187">Je povoleno max. <ph name="MAX_DESK_LIMIT" /> ploch. Pokud chcete otevřít novou plochu, odstraňte stávající.</translation>
-<translation id="1751335846119670066">Pomoz mi číst</translation>
+<translation id="1751335846119670066">Pomoz mi přečíst</translation>
 <translation id="1755408179247123630">Zapnout poslech vybraného textu?</translation>
 <translation id="1755556344721611131">Diagnostická aplikace</translation>
 <translation id="1756833229520115364">Šablonu nelze uložit. Máte uloženo příliš mnoho oken nebo karet.</translation>
@@ -1014,6 +1014,7 @@ Některé funkce jsou za účelem prodloužení výdrže baterie omezeny.</trans
 <translation id="4305817255990598646">Přejít</translation>
 <translation id="4307713728991152670">Nastavit zobrazování nedávných fotek, médií a aplikací z telefonu</translation>
 <translation id="4312840429157639164">Kamera byla připnuta do pravého horního rohu Konflikt s platformou systému.</translation>
+<translation id="4312935606722154789">Seskupit dvě okna vedle sebe nebo jejich seskupení zrušit</translation>
 <translation id="4316910396681052118">VŠECHNY APLIKACE</translation>
 <translation id="4321179778687042513">ctrl</translation>
 <translation id="4322385711258710213">Skrýt všechny návrhy prohlížeče Chrome</translation>
@@ -1453,7 +1454,6 @@ Nejsou připojena žádná zařízení.</translation>
 <translation id="5691772641933328258">Otisk prstu nebyl rozpoznán</translation>
 <translation id="5693255400847650006">Používá se mikrofon</translation>
 <translation id="5699366815052349604">Přidružit aktivní okno ke všem plochám</translation>
-<translation id="5701785125601597013">Pomocí Telefonního centra můžete rychle odesílat zprávy z telefonu nebo na ně odpovídat</translation>
 <translation id="570390244361237317">Všechny aplikace, můžete je procházet pomocí kláves se šipkami</translation>
 <translation id="5705197514573687092">Zobrazit nastavení soustředění. Časovač je nastaven na <ph name="FOCUS_DURATION" />.</translation>
 <translation id="5707775774148071965">Vaše zařízení podporuje vyšší přenosovou rychlost než kabel. Výkon zařízení může být omezen.</translation>
@@ -1583,7 +1583,6 @@ Nejsou připojena žádná zařízení.</translation>
 <translation id="6095425951508823973">Přidat propojení s poskytovatelem <ph name="PROVIDER" /></translation>
 <translation id="6099678161144790572">Upraveno v uplynulém měsíci</translation>
 <translation id="6103838137565245112">systém</translation>
-<translation id="610395411842312282">Seskupit dvě okna vedle sebe</translation>
 <translation id="6108952804512516814">Vytvořit pomocí AI</translation>
 <translation id="6114505516289286752">Byly staženy řečové soubory pro jazyk <ph name="LANGUAGE" /></translation>
 <translation id="6119360623251949462"><ph name="CHARGING_STATE" />. <ph name="BATTERY_SAVER_STATE" /></translation>
@@ -1948,7 +1947,7 @@ Nová instalace</translation>
 <translation id="735745346212279324">Síť VPN je odpojena</translation>
 <translation id="7360036564632145207">Změnou nastavení ochrany přístupu k datům pro periferní zařízení můžete optimalizovat výkon</translation>
 <translation id="736045644501761622">Nastavit tapetu a styl</translation>
-<translation id="7368041336688136012">Používat funkce Pomoz mi číst a Pomoz mi psát a vytvářet obrázky pomocí AI můžou jen uživatelé starší 18 let.</translation>
+<translation id="7368041336688136012">Používat funkce Pomoz mi přečíst a Pomoz mi psát a vytvářet obrázky pomocí AI můžou jen uživatelé starší 18 let.</translation>
 <translation id="7371404428569700291">Zaznamenat okno</translation>
 <translation id="7372069265635026568">K dispozici je toto množství paměti: <ph name="AVAILABLE_MEMORY" /> z celkem <ph name="TOTAL_MEMORY" /></translation>
 <translation id="737315737514430195">Umožňuje přístup k mikrofonu všem aplikacím a webům s oprávněním k mikrofonu</translation>
@@ -2308,7 +2307,7 @@ Pokud zařízení chcete vypnout, znovu podržte tlačítko napájení na zaří
 <translation id="85123341071060231">Bluetooth v Chromebooku je vypnuté. Pokud chcete odemknout Chromebook, zadejte heslo.</translation>
 <translation id="8513108775083588393">Autom. otáčení</translation>
 <translation id="851458219935658693">Zobrazit okna z aktuální plochy, je vybrán přepínač</translation>
-<translation id="851660987304951246">Pomocí funkce Pomoz mi číst si můžete nechat rychle shrnout obsah nebo se na něco zeptat</translation>
+<translation id="851660987304951246">Pomocí funkce Pomoz mi přečíst si můžete nechat rychle shrnout obsah nebo se na něco zeptat</translation>
 <translation id="8517041960877371778">Je možné, že když bude zařízení <ph name="DEVICE_TYPE" /> zapnuté, nebude se nabíjet.</translation>
 <translation id="8519329096920173967">Prohledat obrazovku pomocí Google Lens</translation>
 <translation id="8535393432370007982">Zrušit řazení podle barvy</translation>

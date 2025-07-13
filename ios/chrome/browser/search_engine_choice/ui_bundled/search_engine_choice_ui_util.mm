@@ -23,6 +23,11 @@
 #endif
 
 namespace {
+
+const CGFloat kSearchEngineMinFaviconSizePt = 8;
+
+}  // namespace
+
 int GetResourceIdFromTemplateURL(const TemplateURL& template_url) {
 #if BUILDFLAG(ENABLE_BUILTIN_SEARCH_PROVIDER_ASSETS)
   // This would be better served by ResourcesUtil::GetThemeResourceId(), but
@@ -50,7 +55,6 @@ int GetResourceIdFromTemplateURL(const TemplateURL& template_url) {
 
   return IDR_DEFAULT_FAVICON;
 }
-}  // namespace
 
 UIImage* SearchEngineFaviconFromTemplateURL(const TemplateURL& template_url) {
   // Only works for prepopulated search engines.
@@ -89,11 +93,12 @@ void GetSearchEngineFavicon(
         TemplateURLRef::SearchTermsArgs(std::u16string()),
         template_url_service->search_terms_data()));
     favicon_loader->FaviconForPageUrl(
-        itemURL, kDesiredMediumFaviconSizePt, kMinFaviconSizePt,
+        itemURL, kDesiredMediumFaviconSizePt, kSearchEngineMinFaviconSizePt,
         /*fallback_to_google_server=*/YES, favicon_block_handler);
   } else {
     GURL itemURL = template_url.favicon_url();
     favicon_loader->FaviconForIconUrl(itemURL, kDesiredMediumFaviconSizePt,
-                                      kMinFaviconSizePt, favicon_block_handler);
+                                      kSearchEngineMinFaviconSizePt,
+                                      favicon_block_handler);
   }
 }

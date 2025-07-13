@@ -2562,7 +2562,9 @@ IN_PROC_BROWSER_TEST_P(PdfDownloadTestSplitCacheEnabled,
   net::IsolationInfo expected_isolation_info = net::IsolationInfo::Create(
       net::IsolationInfo::RequestType::kSubFrame, top_frame_origin,
       url::Origin::Create(https_test_server()->GetURL("b.test", "/")),
-      expected_site_for_cookies);
+      expected_site_for_cookies, /*nonce=*/std::nullopt,
+      net::NetworkIsolationPartition::kGeneral,
+      net::IsolationInfo::FrameAncestorRelation::kSameOrigin);
 
   content::WebContents* web_contents =
       browser()->tab_strip_model()->GetActiveWebContents();
@@ -2671,7 +2673,9 @@ IN_PROC_BROWSER_TEST_P(DownloadTestSplitCacheEnabled,
   net::IsolationInfo expected_isolation_info = net::IsolationInfo::Create(
       net::IsolationInfo::RequestType::kSubFrame, top_frame_origin,
       url::Origin::Create(https_test_server()->GetURL("b.test", "/")),
-      expected_site_for_cookies);
+      expected_site_for_cookies, /*nonce=*/std::nullopt,
+      net::NetworkIsolationPartition::kGeneral,
+      net::IsolationInfo::FrameAncestorRelation::kSameOrigin);
 
   content::WebContents* web_contents =
       browser()->tab_strip_model()->GetActiveWebContents();
@@ -2753,7 +2757,9 @@ IN_PROC_BROWSER_TEST_P(PdfDownloadTestSplitCacheEnabled,
   net::IsolationInfo expected_isolation_info = net::IsolationInfo::Create(
       net::IsolationInfo::RequestType::kSubFrame, top_frame_origin,
       url::Origin::Create(https_test_server()->GetURL("b.test", "/")),
-      expected_site_for_cookies);
+      expected_site_for_cookies, /*nonce=*/std::nullopt,
+      net::NetworkIsolationPartition::kGeneral,
+      net::IsolationInfo::FrameAncestorRelation::kSameOrigin);
 
   content::WebContents* web_contents =
       browser()->tab_strip_model()->GetActiveWebContents();

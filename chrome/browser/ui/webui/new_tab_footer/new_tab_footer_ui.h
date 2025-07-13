@@ -44,7 +44,7 @@ class NewTabFooterUI
   explicit NewTabFooterUI(content::WebUI* web_ui);
   ~NewTabFooterUI() override;
 
-  static constexpr std::string GetWebUIName() { return "NewTabFooter"; }
+  static constexpr std::string_view GetWebUIName() { return "NewTabFooter"; }
 
   static void RegisterProfilePrefs(PrefRegistrySimple* registry);
 
@@ -67,6 +67,9 @@ class NewTabFooterUI
                      customize_buttons::mojom::CustomizeButtonsHandlerFactory>
                          pending_receiver);
 
+  // Passthrough that calls the NewTabFooterDocument's AttachedTabStateUpdated.
+  void AttachedTabStateUpdated(const GURL& url);
+
  private:
   // new_tab_footer::mojom::NewTabFooterHandlerFactory:
   void CreateNewTabFooterHandler(
@@ -82,6 +85,7 @@ class NewTabFooterUI
       mojo::PendingReceiver<customize_buttons::mojom::CustomizeButtonsHandler>
           pending_page_handler) override;
 
+  GURL source_tab_url_;
   std::unique_ptr<WebuiLoadTimer> webui_load_timer_;
   std::unique_ptr<NewTabFooterHandler> handler_;
   mojo::Receiver<new_tab_footer::mojom::NewTabFooterHandlerFactory>

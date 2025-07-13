@@ -169,6 +169,10 @@
     "META": {"sizes": {"includes": [10],}},
     "includes": [2740],
   },
+  "<(SHARED_INTERMEDIATE_DIR)/chrome/browser/resources/actor_internals/resources.grd": {
+    "META": {"sizes": {"includes": [10],}},
+    "includes": [2750],
+  },
   "<(SHARED_INTERMEDIATE_DIR)/chrome/browser/resources/app_home/resources.grd": {
     "META": {"sizes": {"includes": [20]}},
     "includes": [2760],
@@ -212,6 +216,10 @@
   "<(SHARED_INTERMEDIATE_DIR)/chrome/browser/resources/browsing_topics/resources.grd": {
     "META": {"sizes": {"includes": [10]}},
     "includes": [2940],
+  },
+  "<(SHARED_INTERMEDIATE_DIR)/chrome/browser/resources/certificate_manager/resources.grd": {
+    "META": {"sizes": {"includes": [40],}},
+    "includes": [2950],
   },
   "<(SHARED_INTERMEDIATE_DIR)/chrome/browser/resources/certificate_viewer/resources.grd": {
     "META": {"sizes": {"includes": [10],}},
@@ -676,18 +684,17 @@
   "<(SHARED_INTERMEDIATE_DIR)/chrome/browser/resources/support_tool/resources.grd": {
     "META": {"sizes": {"includes": [30]}},
     "includes": [5020],
+  }, "<(SHARED_INTERMEDIATE_DIR)/chrome/browser/resources/tab_group_home/resources.grd": {
+    "META": {"sizes": {"includes": [10]}},
+    "includes": [5030],
   },
   "<(SHARED_INTERMEDIATE_DIR)/chrome/browser/resources/tab_search/resources.grd": {
     "META": {"sizes": {"includes": [90]}},
     "includes": [5040],
   },
   "<(SHARED_INTERMEDIATE_DIR)/chrome/browser/resources/tab_strip/resources.grd": {
-    "META": {"sizes": {"includes": [30]}},
+    "META": {"sizes": {"includes": [40]}},
     "includes": [5060],
-  },
-  "<(SHARED_INTERMEDIATE_DIR)/chrome/browser/resources/tabs/tab_group_home/resources.grd": {
-    "META": {"sizes": {"includes": [10]}},
-    "includes": [5065],
   },
   "<(SHARED_INTERMEDIATE_DIR)/chrome/browser/resources/tts_engine/resources.grd": {
     "META": {"sizes": {"includes": [20]}},
@@ -1531,7 +1538,7 @@
     "messages": [10080],
   },
 
-  "third_party/search_engines_data/resources/search_engines_scaled_resources.grd": {
+  "third_party/search_engines_data/resources_internal/search_engines_scaled_resources.grd": {
     "structures": [10100],
   },
 
@@ -1542,8 +1549,4 @@
   # Please read the header and find the right section above instead.
 
   # Resource ids starting at 31000 are reserved for projects built on Chromium.
-  "chrome/browser/nwjs_resources.grd": {
-    "includes": [32000],
-    "structures": [32450],
-  },
 }

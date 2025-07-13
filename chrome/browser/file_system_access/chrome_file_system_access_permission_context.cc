@@ -1873,7 +1873,6 @@ void ChromeFileSystemAccessPermissionContext::CheckPathAgainstBlocklist(
     std::move(callback).Run(/*should_block=*/false);
     return;
   }
-
   // Unlike the DIR_USER_DATA check, this handles the --user-data-dir override.
   // We check for the user data dir in two different ways: directly, via the
   // profile manager, where it exists (it does not in unit tests), and via the

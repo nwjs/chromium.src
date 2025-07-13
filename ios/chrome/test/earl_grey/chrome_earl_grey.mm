@@ -357,12 +357,6 @@ id<GREYAction> grey_longPressWithDuration(base::TimeDelta duration) {
   GREYWaitForAppToIdle(@"App failed to idle");
 }
 
-- (void)simulateAddAccountFromWeb {
-  [ChromeEarlGreyAppInterface simulateAddAccountFromWeb];
-  [self waitForPageToFinishLoading];
-  GREYWaitForAppToIdle(@"App failed to idle");
-}
-
 - (void)closeCurrentTab {
   [ChromeEarlGreyAppInterface closeCurrentTab];
   GREYWaitForAppToIdle(@"App failed to idle");
@@ -1746,9 +1740,9 @@ id<GREYAction> grey_longPressWithDuration(base::TimeDelta duration) {
   if (@available(iOS 17, *)) {
     XCUIApplication* currentApplication = [[XCUIApplication alloc] init];
     BOOL hostStringPresent = [currentApplication.otherElements[hostString]
-        waitForExistenceWithTimeout:2];
+        waitForExistenceWithTimeout:kWaitForUIElementTimeout.InSecondsF()];
     BOOL pageTitlePresent = [currentApplication.otherElements[pageTitle]
-        waitForExistenceWithTimeout:2];
+        waitForExistenceWithTimeout:kWaitForUIElementTimeout.InSecondsF()];
     GREYAssert(hostStringPresent || pageTitlePresent,
                @"Either hostString %d or pageTitle %d was not present",
                hostStringPresent, pageTitlePresent);

@@ -1265,7 +1265,7 @@ mojom::blink::FetchAPIRequestPtr Request::CreateFetchAPIRequest() const {
     HTTPHeaderMap::AddResult result = headers.Add(key, value);
     if (!result.is_new_entry) {
       result.stored_value->value =
-          AtomicString(WTF::StrCat({result.stored_value->value, ", ", value}));
+          AtomicString(StrCat({result.stored_value->value, ", ", value}));
     }
   }
   for (const auto& pair : headers)

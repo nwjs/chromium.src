@@ -52,6 +52,8 @@ const char kNoAssociatedAppWindow[] =
 const char kDevChannelOnly[] =
     "This function is currently only available in the Dev channel.";
 
+const char kInvalidIconURL[] = "The icon URL is invalid.";
+
 const char kRequiresFramelessWindow[] =
     "This function requires a frameless window (frame:none).";
 
@@ -98,11 +100,11 @@ void GetConstraintHeight(const std::optional<int>& height,
 
 namespace bounds {
 
-enum BoundsType {
-  INNER_BOUNDS,
-  OUTER_BOUNDS,
-  DEPRECATED_BOUNDS,
-  INVALID_TYPE
+enum class BoundsType {
+  kInnerBounds,
+  kOuterBounds,
+  kDeprecatedBounds,
+  kInvalidType
 };
 
 const char kInnerBoundsType[] = "innerBounds";
@@ -111,13 +113,13 @@ const char kDeprecatedBoundsType[] = "bounds";
 
 BoundsType GetBoundsType(const std::string& type_as_string) {
   if (type_as_string == kInnerBoundsType)
-    return INNER_BOUNDS;
+    return BoundsType::kInnerBounds;
   else if (type_as_string == kOuterBoundsType)
-    return OUTER_BOUNDS;
+    return BoundsType::kOuterBounds;
   else if (type_as_string == kDeprecatedBoundsType)
-    return DEPRECATED_BOUNDS;
+    return BoundsType::kDeprecatedBounds;
   else
-    return INVALID_TYPE;
+    return BoundsType::kInvalidType;
 }
 
 }  // namespace bounds
@@ -204,7 +206,7 @@ AppCurrentWindowInternalSetBoundsFunction::Run() {
   CHECK(params);
 
   bounds::BoundsType bounds_type = bounds::GetBoundsType(params->bounds_type);
-  if (bounds_type == bounds::INVALID_TYPE) {
+  if (bounds_type == bounds::BoundsType::kInvalidType) {
     NOTREACHED();
   }
 
@@ -218,7 +220,7 @@ AppCurrentWindowInternalSetBoundsFunction::Run() {
   const Bounds& bounds_spec = params->bounds;
 
   switch (bounds_type) {
-    case bounds::DEPRECATED_BOUNDS: {
+    case bounds::BoundsType::kDeprecatedBounds: {
       // We need to maintain backcompatibility with a bug on Windows and
       // ChromeOS, which sets the position of the window but the size of the
       // content.
@@ -232,17 +234,17 @@ AppCurrentWindowInternalSetBoundsFunction::Run() {
         window_bounds.set_height(*bounds_spec.height + frame_insets.height());
       break;
     }
-    case bounds::OUTER_BOUNDS: {
+    case bounds::BoundsType::kOuterBounds: {
       GetBoundsFields(bounds_spec, &window_bounds);
       break;
     }
-    case bounds::INNER_BOUNDS: {
+    case bounds::BoundsType::kInnerBounds: {
       window_bounds.Inset(frame_insets);
       GetBoundsFields(bounds_spec, &window_bounds);
       window_bounds.Inset(-frame_insets);
       break;
     }
-    case bounds::INVALID_TYPE:
+    case bounds::BoundsType::kInvalidType:
       NOTREACHED();
   }
 
@@ -281,8 +283,8 @@ AppCurrentWindowInternalSetSizeConstraintsFunction::Run() {
   CHECK(params);
 
   bounds::BoundsType bounds_type = bounds::GetBoundsType(params->bounds_type);
-  if (bounds_type != bounds::INNER_BOUNDS &&
-      bounds_type != bounds::OUTER_BOUNDS) {
+  if (bounds_type != bounds::BoundsType::kInnerBounds &&
+      bounds_type != bounds::BoundsType::kOuterBounds) {
     NOTREACHED();
   }
 
@@ -298,7 +300,7 @@ AppCurrentWindowInternalSetSizeConstraintsFunction::Run() {
   // Use the frame insets to convert window size constraints to content size
   // constraints.
   gfx::Insets insets;
-  if (bounds_type == bounds::OUTER_BOUNDS)
+  if (bounds_type == bounds::BoundsType::kOuterBounds)
     insets = window()->GetBaseWindow()->GetFrameInsets();
 
   GetConstraintWidth(constraints.min_width, insets, &min_size);
@@ -326,8 +328,12 @@ AppCurrentWindowInternalSetIconFunction::Run() {
   // The |icon_url| parameter may be a blob url (e.g. an image fetched with an
   // XMLHttpRequest) or a resource url.
   GURL url(params->icon_url);
-  if (!url.is_valid())
-    url = extension()->GetResourceURL(params->icon_url);
+  if (!url.is_valid()) {
+    url = extension()->ResolveExtensionURL(params->icon_url);
+    if (!url.is_valid()) {
+      return RespondNow(Error(kInvalidIconURL));
+    }
+  }
 
   window()->SetAppIconUrl(url);
   return RespondNow(NoArguments());

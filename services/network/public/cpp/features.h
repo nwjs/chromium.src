@@ -188,7 +188,9 @@ BASE_DECLARE_FEATURE_PARAM(int, kDeprecateUnloadBucket);
 COMPONENT_EXPORT(NETWORK_CPP_FLAGS_AND_SWITCHES)
 BASE_DECLARE_FEATURE_PARAM(std::string, kDeprecateUnloadAllowlist);
 COMPONENT_EXPORT(NETWORK_CPP_FLAGS_AND_SWITCHES)
-BASE_DECLARE_FEATURE(kFrameAncestorHeaders);
+BASE_DECLARE_FEATURE(kFrameTopHeader);
+COMPONENT_EXPORT(NETWORK_CPP_FLAGS_AND_SWITCHES)
+BASE_DECLARE_FEATURE(kFrameAncestorsHeader);
 
 // Updates the request body, headers, and referrer policy for CORS
 // redirects, following 4.4. HTTP-redirect fetch:
@@ -290,6 +292,9 @@ BASE_DECLARE_FEATURE(kGetCookiesOnSet);
 COMPONENT_EXPORT(NETWORK_CPP_FLAGS_AND_SWITCHES)
 BASE_DECLARE_FEATURE(kIncreaseCookieAccessCacheSize);
 
+COMPONENT_EXPORT(NETWORK_CPP_FLAGS_AND_SWITCHES)
+BASE_DECLARE_FEATURE_PARAM(int, kCookieAccessCacheSize);
+
 // If enabled, permissions policies relevant to a request are populated on
 // `network:ResourceRequest`.
 //
@@ -318,6 +323,11 @@ BASE_DECLARE_FEATURE(kDeviceBoundSessionAccessObserverSharedRemote);
 COMPONENT_EXPORT(NETWORK_CPP_FLAGS_AND_SWITCHES)
 BASE_DECLARE_FEATURE(kCSPScriptSrcV2);
 
+// When enabled, allowlisting script urls and scripts used in eval via hashes
+// will be supported in script-src.
+COMPONENT_EXPORT(NETWORK_CPP_FLAGS_AND_SWITCHES)
+BASE_DECLARE_FEATURE(kCSPScriptSrcHashesInV1);
+
 // When enabled, fetches for "pervasive" scripts that match one of the
 // configured patterns will use a shared, single-keyed cache.
 // See https://chromestatus.com/feature/5202380930678784
@@ -339,6 +349,11 @@ BASE_DECLARE_FEATURE_PARAM(size_t, kSharedDictionaryCacheSize);
 // Maximum size of dictionaries that are allowed to be stored in the cache.
 COMPONENT_EXPORT(NETWORK_CPP_FLAGS_AND_SWITCHES)
 BASE_DECLARE_FEATURE_PARAM(size_t, kSharedDictionaryCacheMaxSizeBytes);
+
+// When enabled, Network Service Scheduler is enabled on the Network
+// Service's IO Thread.
+COMPONENT_EXPORT(NETWORK_CPP_FLAGS_AND_SWITCHES)
+BASE_DECLARE_FEATURE(kNetworkServiceScheduler);
 
 }  // namespace network::features
 

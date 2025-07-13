@@ -724,7 +724,7 @@ Bestela, <ph name="TIMEOUT_SECONDS" /> barru gaituko da berriro ukipen-panel int
 <translation id="3434107140712555581">% <ph name="BATTERY_PERCENTAGE" /></translation>
 <translation id="343571671045587506">Editatu gogorarazpena</translation>
 <translation id="3435967511775410570">Ezagutu da hatz-marka</translation>
-<translation id="3437677362970530951">Play Store-ko eta beste bideojoko-plataformetako jokoak</translation>
+<translation id="3437677362970530951">Google Play Store-ko eta beste bideojoko-plataformetako jokoak</translation>
 <translation id="3439896670700055005">Kargatu orria berriro, baina cacheko edukia erabili gabe</translation>
 <translation id="3441920967307853524"><ph name="RECEIVED_BYTES" />/<ph name="TOTAL_BYTES" /></translation>
 <translation id="3443917186865471894">Pertsonalizatu sagua</translation>
@@ -1015,6 +1015,7 @@ Bateriaren iraupena luzatzeko, eginbide batzuk mugatu dira.</translation>
 <translation id="4305817255990598646">Aldatu</translation>
 <translation id="4307713728991152670">Konfiguratu telefonoko azkenaldiko argazkiak, multimedia-elementuak eta aplikazioak ikusteko aukera</translation>
 <translation id="4312840429157639164">Atxiki egin da kamera goiko eskuinaldeko izkinan, sistemaren beste gainazal batean gainjartzen zelako.</translation>
+<translation id="4312935606722154789">Taldekatu edo kendu taldetik bata bestearen alboan dauden 2 leiho</translation>
 <translation id="4316910396681052118">APLIKAZIO GUZTIAK</translation>
 <translation id="4321179778687042513">ktrl</translation>
 <translation id="4322385711258710213">Ezkutatu Chrome arakatzailearen iradokizunak</translation>
@@ -1174,7 +1175,7 @@ Gailu bat dago konektatuta.</translation>
 <translation id="481749895090480684">Zereginen zerrenda: <ph name="GLANCEABLES_TASKS_LIST_NAME" /></translation>
 <translation id="4826588772550366629">kamera eta mikrofonoa</translation>
 <translation id="4828935196674083554">Gehitzen…</translation>
-<translation id="482908187605862807">Play Store-n erabilgarri dauden aplikazioak</translation>
+<translation id="482908187605862807">Google Play Store-n erabilgarri dauden aplikazioak</translation>
 <translation id="4831034276697007977">Ziur klik automatikoak desaktibatu nahi dituzula?</translation>
 <translation id="4835677468087803981">Ezkutatu PINa</translation>
 <translation id="4849058404725798627">Nabarmendu teklatuaren fokua duen objektua</translation>
@@ -1454,7 +1455,6 @@ Ez dago gailurik konektatuta.</translation>
 <translation id="5691772641933328258">Ez da ezagutu hatz-marka</translation>
 <translation id="5693255400847650006">Mikrofonoa abian da</translation>
 <translation id="5699366815052349604">Esleitu leiho aktiboa lan-eremu guztiei</translation>
-<translation id="5701785125601597013">Bidali mezuak edo erantzun azkar telefonoan jasotako mezuei Phone Hub bidez</translation>
 <translation id="570390244361237317">Aplikazio guztiak, erabili gezi-teklak aplikazio guztiak atzitzeko</translation>
 <translation id="5705197514573687092">Erakutsi kontzentratzeko moduaren ezarpenak. Tenporizadorea: <ph name="FOCUS_DURATION" />.</translation>
 <translation id="5707775774148071965">Gailuak kableak baino bizkorrago transferi ditzake datuak. Baliteke gailuaren errendimendua mugatuta egotea.</translation>
@@ -1584,7 +1584,6 @@ Ez dago gailurik konektatuta.</translation>
 <translation id="6095425951508823973">Gehitu <ph name="PROVIDER" /> bidezko konexioa</translation>
 <translation id="6099678161144790572">Azken hilabetean editatu da</translation>
 <translation id="6103838137565245112">sistema</translation>
-<translation id="610395411842312282">Taldekatu bata bestearen alboan dauden bi leiho</translation>
 <translation id="6108952804512516814">Sortu AA bidez</translation>
 <translation id="6114505516289286752">Deskargatu dira hizketa-fitxategiak (<ph name="LANGUAGE" />)</translation>
 <translation id="6119360623251949462"><ph name="CHARGING_STATE" />. <ph name="BATTERY_SAVER_STATE" /></translation>

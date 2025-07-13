@@ -375,8 +375,8 @@ ConsoleMessage* MixedContentChecker::CreateConsoleMessageAboutFetch(
     const KURL& url,
     mojom::blink::RequestContextType request_context,
     bool allowed,
-    std::unique_ptr<SourceLocation> source_location) {
-  String message = WTF::StrCat(
+    SourceLocation* source_location) {
+  String message = StrCat(
       {"Mixed Content: The page at '", main_resource_url.ElidedString(),
        "' was loaded over HTTPS, but requested an insecure ",
        RequestContextName(request_context), " '", url.ElidedString(), "'. ",
@@ -389,7 +389,7 @@ ConsoleMessage* MixedContentChecker::CreateConsoleMessageAboutFetch(
   if (source_location) {
     return MakeGarbageCollected<ConsoleMessage>(
         mojom::ConsoleMessageSource::kSecurity, message_level, message,
-        std::move(source_location));
+        source_location);
   }
   return MakeGarbageCollected<ConsoleMessage>(
       mojom::ConsoleMessageSource::kSecurity, message_level, message);
@@ -739,7 +739,7 @@ ConsoleMessage* MixedContentChecker::CreateConsoleMessageAboutWebSocket(
     const KURL& main_resource_url,
     const KURL& url,
     bool allowed) {
-  String message = WTF::StrCat(
+  String message = StrCat(
       {"Mixed Content: The page at '", main_resource_url.ElidedString(),
        "' was loaded over HTTPS, but attempted to connect to the insecure "
        "WebSocket endpoint '",
@@ -1015,11 +1015,11 @@ void MixedContentChecker::MixedContentFound(
     bool was_allowed,
     const KURL& url_before_redirects,
     bool had_redirect,
-    std::unique_ptr<SourceLocation> source_location) {
+    SourceLocation* source_location) {
   // Logs to the frame console.
   frame->GetDocument()->AddConsoleMessage(CreateConsoleMessageAboutFetch(
       main_resource_url, mixed_content_url, request_context, was_allowed,
-      std::move(source_location)));
+      source_location));
 
   AuditsIssue::ReportMixedContentIssue(
       main_resource_url, mixed_content_url, request_context, frame,

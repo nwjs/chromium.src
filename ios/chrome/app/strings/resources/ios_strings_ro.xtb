@@ -18,6 +18,7 @@
 <translation id="1054745118061919935">Dacă alegi să continui, ești de acord cu <ph name="BEGIN_LINK" />Termenii și condițiile<ph name="END_LINK" />.</translation>
 <translation id="10614374240317010">Nu se salvează niciodată</translation>
 <translation id="1062138828266376352">PIN-ul nu a fost schimbat. Verifică-ți conexiunea la internet și încearcă din nou.</translation>
+<translation id="1063070031224282617">Alege unde vrei să salvezi <ph name="BEGIN_BOLD" /><ph name="FILENAME" /><ph name="END_BOLD" /> (<ph name="FILE_SIZE" />)</translation>
 <translation id="1072476005125066234">Recenzii bazate pe interesele tale</translation>
 <translation id="1074827084851510304">Ești pe cale să ștergi {password_count} parole și lista de site-uri și aplicații pentru care ai ales să nu salvezi niciodată informațiile de conectare. Conturile pe care le-ai creat pentru site-uri și aplicații nu se vor șterge.</translation>
 <translation id="1076421457278169141">Codul a fost scanat</translation>
@@ -170,6 +171,7 @@
 <translation id="1657011748321897393">Nu s-a trimis, pentru că nu te-ai conectat la rețea.</translation>
 <translation id="1668001730617725852">Deschide într-un nou grup de file</translation>
 <translation id="1674504678466460478">Din <ph name="SOURCE_LANGUAGE" /> în <ph name="TARGET_LANGUAGE" /></translation>
+<translation id="168389590065701766">Acum poți deschide Google Lens din bara de adrese și poți căuta tot ce vezi</translation>
 <translation id="1689333818294560261">Pseudonim</translation>
 <translation id="169048873465870056">Elimini fila și ștergi grupul?</translation>
 <translation id="1698090540708020240">Importă parole…</translation>
@@ -210,6 +212,7 @@
 <translation id="1838089197478136166">Deschizi în Portofel?</translation>
 <translation id="183878838231635348">Acest card afișează toate problemele de confidențialitate sau de securitate pe care Verificarea de siguranță le detectează automat pentru tine.</translation>
 <translation id="1845230888742614096">Păstrează grupul</translation>
+<translation id="1853692000353488670">Filă incognito nouă</translation>
 <translation id="1854463785401910334">Caută în filele deschise</translation>
 <translation id="1861067954551502701">{count,plural, =1{{position} din {count} parolă}few{{position} din {count} parole}other{{position} din {count} de parole}}</translation>
 <translation id="1861262398884155592">Acest dosar este gol</translation>
@@ -265,6 +268,7 @@
 <translation id="2044681667265133332">Contul <ph name="USER_EMAIL" /> este gestionat de <ph name="HOSTED_DOMAIN" />, care poate să vadă anumite informații. <ph name="BEGIN_LINK" />Află mai multe<ph name="END_LINK" /></translation>
 <translation id="20485545164632846">articol nou</translation>
 <translation id="2049727122989709386"><ph name="COUNT" /> conturi folosesc aceeași parolă</translation>
+<translation id="205013082884273671">Caută orice de pe ecran</translation>
 <translation id="2054044186557130763">Conectează-te ca <ph name="NAME" /> <ph name="EMAIL" />, gestionat de organizația ta.</translation>
 <translation id="2059166748188874810">Municipiu</translation>
 <translation id="2060638295449304809">Adresa se salvează numai pe acest dispozitiv. Pentru a o folosi pe celelalte dispozitive, salveaz-o în Contul Google, <ph name="USER_EMAIL" /></translation>
@@ -384,6 +388,7 @@ Site-urile nu pot folosi cookie-uri pentru a-ți vedea activitatea de navigare d
 <translation id="251837347827266434">Vei fi deconectat(ă), filele se vor închide, datele de navigare se vor șterge</translation>
 <translation id="2520787026086861736">Pentru a dezactiva, accesează <ph name="BEGIN_LINK" />Completare automată și parole<ph name="END_LINK" /></translation>
 <translation id="2523295204312809179">Când închizi un grup de file, acesta se salvează automat aici</translation>
+<translation id="2524699375503213836">Transferă datele din Safari</translation>
 <translation id="2529021024822217800">Deschide-le pe toate</translation>
 <translation id="2536991091671391962">Poți folosi parolele salvate pe orice dispozitiv. Acestea se salvează în Managerul de parole Google pentru <ph name="EMAIL" />.</translation>
 <translation id="2538103551183528357">Parolă ascunsă</translation>
@@ -457,6 +462,7 @@ Motorul tău de căutare este <ph name="DSE_NAME" />. Vezi instrucțiunile pentr
 <translation id="2819667972867209401">Când opțiunea este activată, datele se salvează în Contul Google. Când este dezactivată, datele se salvează numai pe acest dispozitiv și se șterg dacă te deconectezi.</translation>
 <translation id="2827760117436553203">Păstrezi datele separat?</translation>
 <translation id="2829172210806130158">Caută pe ecran</translation>
+<translation id="2831109159746537587">Încercuiește sau atinge imaginea pentru a căuta</translation>
 <translation id="2834399722155632105">3. Atinge Opțiuni pentru parolă</translation>
 <translation id="2834956026595107950"><ph name="TITLE" />, <ph name="STATE" />, <ph name="URL" /></translation>
 <translation id="2841013758207633010">Oră</translation>
@@ -545,6 +551,7 @@ Vezi instrucțiunile motorului de căutare pentru ștergerea istoricului căută
 <translation id="3227137524299004712">Microfon</translation>
 <translation id="3235063766008841141">A fost introdusă pe un site înșelător și folosită pentru încălcarea securității datelor</translation>
 <translation id="3235242129752692527">Editează detaliile evenimentului și atinge Salvează.</translation>
+<translation id="323863549127671026">Filele și grupurile de file deschise</translation>
 <translation id="3240426699337459095">Linkul a fost copiat</translation>
 <translation id="3244271242291266297">LL</translation>
 <translation id="3245429137663807393">Dacă trimiți rapoarte privind folosirea Chrome, acestea includ adresele URL pe care le accesezi</translation>
@@ -592,6 +599,7 @@ Vezi instrucțiunile motorului de căutare pentru ștergerea istoricului căută
 <translation id="3476450923187944815">Accesează-ți parolele în alte aplicații.</translation>
 <translation id="3488501490964659223">Filele au fost închise și datele de navigare au fost șterse. Te-ai deconectat.</translation>
 <translation id="3493531032208478708"><ph name="BEGIN_LINK" />Află mai multe<ph name="END_LINK" /> despre conținutul sugerat</translation>
+<translation id="349446645805573740">Alege unde vrei să salvezi <ph name="BEGIN_BOLD" /><ph name="FILENAME" /><ph name="END_BOLD" /></translation>
 <translation id="3504377992102007712">Setări</translation>
 <translation id="35083190962747987">Deschide ${url}</translation>
 <translation id="3511519535430890904">Adaugă protecție pentru navigare</translation>
@@ -611,7 +619,6 @@ Vezi instrucțiunile motorului de căutare pentru ștergerea istoricului căută
 <translation id="3557336313807607643">Adaugă în Agendă</translation>
 <translation id="355765753469272474">Anulează</translation>
 <translation id="3565930036634619844">Filă. <ph name="TAB_INDEX" /> din <ph name="NUMBER_OF_TABS" />.</translation>
-<translation id="3570693105179140209">Atinge de două ori pentru mai multe parole.</translation>
 <translation id="3572607909481582402">În Contul Google</translation>
 <translation id="3575234738189584619">Caută cu Lens</translation>
 <translation id="3575426792457739946">Această listă conține toate profilurile încărcate.</translation>
@@ -624,6 +631,7 @@ Vezi instrucțiunile motorului de căutare pentru ștergerea istoricului căută
 <translation id="3596414637720633074">Blochează cookie-urile terță parte în modul incognito</translation>
 <translation id="3602260545951981695">Alege Protecție îmbunătățită</translation>
 <translation id="3608436266458100337">Modul Cititor</translation>
+<translation id="3610041351087301930">Ascunde modul Cititor</translation>
 <translation id="3622175633937495219">Istoricul căutărilor (găsite: <ph name="COUNT" />)</translation>
 <translation id="3625008969091706597">Poți să glisezi pe margine pentru a te deplasa înapoi.</translation>
 <translation id="362709345066740529">Personalizează-ți aici cardurile, feedul și multe altele</translation>
@@ -654,7 +662,6 @@ Vezi instrucțiunile motorului de căutare pentru ștergerea istoricului căută
 <translation id="3779810277399252432">Nicio conexiune la internet.</translation>
 <translation id="3782614601387961027">Respinge avertismentul</translation>
 <translation id="3789841737615482174">Instalează</translation>
-<translation id="3795478177331815672">File deschise și grupuri de file</translation>
 <translation id="380329542618494757">Nume</translation>
 <translation id="3803696231112616155">Oferă traducerea acestui site</translation>
 <translation id="3808311849069021992">Afișează detaliile motorului de căutare</translation>
@@ -671,6 +678,7 @@ Vezi instrucțiunile motorului de căutare pentru ștergerea istoricului căută
 <translation id="385051799172605136">Înapoi</translation>
 <translation id="3850952228519377137">Ascunde opțiunea Urmărește prețurile din file</translation>
 <translation id="3851938967634752633">Parolele pentru <ph name="WEBSITE" />, <ph name="SECOND_WEBSITE" /> și încă <ph name="NUMBER_OF_ACCOUNTS" /> se vor șterge. Conturile tale nu se vor șterge.</translation>
+<translation id="3853162385423733133">Folosește și salvează în continuare parolele în Contul Google <ph name="EMAIL" /></translation>
 <translation id="3858860766373142691">Nume</translation>
 <translation id="3868495844258915202">Afișează adresa URL completă</translation>
 <translation id="3875783148670536197">Arată-mi cum</translation>
@@ -691,6 +699,7 @@ Vezi instrucțiunile motorului de căutare pentru ștergerea istoricului căută
 <translation id="3922395466317605522">Personalizează meniul</translation>
 <translation id="3929457972718048006">Adrese</translation>
 <translation id="3931215329146376310">{count,plural, =1{Parolă nouă pentru acest site}few{Parole noi pentru acest site}other{Parole noi pentru acest site}}</translation>
+<translation id="3934905113567851655">Ciupește pentru redimensionare</translation>
 <translation id="3940195383040445971">Urmărește prețurile din file</translation>
 <translation id="3941941395924123592">{COUNT,plural, =1{Închide {COUNT} filă}few{Închide {COUNT} file}other{Închide {COUNT} de file}}</translation>
 <translation id="3948600256434252210">Poți glisa spre dreapta pentru a naviga în modul incognito.</translation>
@@ -699,7 +708,6 @@ Vezi instrucțiunile motorului de căutare pentru ștergerea istoricului căută
 <translation id="3955740319737378355">Terminat</translation>
 <translation id="3955822496205734389">Ai parole slabe.</translation>
 <translation id="3958312024468322930">Trage-o în bara de andocare din partea de jos a ecranului de pornire</translation>
-<translation id="3960218941754097036">Caută orice pe ecran folosind Google Lens</translation>
 <translation id="3962326069546168954">Salvează</translation>
 <translation id="3967327056943561740">Marcaje</translation>
 <translation id="3967822245660637423">Descărcare finalizată</translation>
@@ -966,7 +974,6 @@ Vezi instrucțiunile motorului de căutare pentru ștergerea istoricului căută
 <translation id="4979397965658815378">Conectează-te folosind Contul Google pentru a accesa marcajele, parolele, istoricul și alte setări pe toate dispozitivele</translation>
 <translation id="4985921635659180565">După ce un fișier este programat pentru ștergere, nu mai poate fi anulat.</translation>
 <translation id="498624032394115435">Oricine are linkul poate să editeze toate filele.</translation>
-<translation id="4989065233040279145">Alege unde vrei să salvezi <ph name="FILENAME" /></translation>
 <translation id="499122600724363620"><ph name="NAME" />, <ph name="EMAIL" />, gestionat de organizația ta.</translation>
 <translation id="4992255726304765516">Culoarea grupului de file <ph name="COLOR" /></translation>
 <translation id="5005498671520578047">Copiază parola</translation>
@@ -1002,6 +1009,7 @@ Vezi instrucțiunile motorului de căutare pentru ștergerea istoricului căută
 <translation id="5132942445612118989">Sincronizează parolele, istoricul și alte date pe toate dispozitivele</translation>
 <translation id="5141363746588976328">Ascunde scăderile de preț din cardul cu file</translation>
 <translation id="5145331760738811130">Părăsește comutatorul de file</translation>
+<translation id="5148717509369231739">Importare din Safari</translation>
 <translation id="5157638238828697074">A apărut o eroare. Aplicația nu s-a putut deschide.</translation>
 <translation id="5163417375525818870">Fișiere PDF</translation>
 <translation id="5168414296986405587">Creat pentru iPadOS</translation>
@@ -1065,6 +1073,7 @@ Vezi instrucțiunile motorului de căutare pentru ștergerea istoricului căută
 <translation id="5431252637281434233">Vei fi deconectat(ă)</translation>
 <translation id="543338862236136125">Editează parola</translation>
 <translation id="5433691172869980887">Numele de utilizator a fost copiat</translation>
+<translation id="5437480232219631455">Poți deschide Gemini aici</translation>
 <translation id="5439618055789623719">Te-ai conectat ca <ph name="USER_EMAIL" /></translation>
 <translation id="5443636120437209490">Navigare mai eficientă în mod prestabilit</translation>
 <translation id="5444892875087332195">Marcaje</translation>
@@ -1086,7 +1095,6 @@ Vezi instrucțiunile motorului de căutare pentru ștergerea istoricului căută
 <translation id="5524590039848017563">Butonul barei de instrumente principale restrânse</translation>
 <translation id="553151287733286479">{COUNT,plural, =1{{COUNT} parolă slabă}few{{COUNT} parole slabe}other{{COUNT} de parole slabe}}</translation>
 <translation id="5532545557415295622">Casetă de dialog cu limita de inactivitate</translation>
-<translation id="5547868626772433490">Întreabă Gemini</translation>
 <translation id="5548760955356983418">Cu Handoff, începi să navighezi pe un site de pe acest dispozitiv, apoi continui cu ușurință de pe Mac. Site-ul deschis actual va apărea în Dock pe Mac.
 
 Trebuie să activezi Handoff în secțiunea General din Setări, iar dispozitivele trebuie să folosească același cont iCloud.</translation>
@@ -1100,6 +1108,7 @@ Trebuie să activezi Handoff în secțiunea General din Setări, iar dispozitive
 <translation id="5576885723883013398">Fereastră nouă</translation>
 <translation id="5578795271662203820">Caută imaginea cu <ph name="SEARCH_ENGINE" /></translation>
 <translation id="5579012242779565775">Ascunde Lista de lecturi</translation>
+<translation id="5581786858144165447">Întreabă Modul AI</translation>
 <translation id="5585019845078534178">Carduri</translation>
 <translation id="5595485650161345191">Editează adresa</translation>
 <translation id="559567008082979829">Setează ștergerea descărcărilor după o lună.</translation>
@@ -1114,6 +1123,7 @@ Trebuie să activezi Handoff în secțiunea General din Setări, iar dispozitive
 <translation id="5626245204502895507">Momentan, fișierul nu a putut fi descărcat.</translation>
 <translation id="562753339521713441">Rulează Verificarea de siguranță</translation>
 <translation id="5628388627414062173">{count,plural, =1{{count} pagină din Lista de lecturi}few{{count} pagini din Lista de lecturi}other{{count} de pagini din Lista de lecturi}}</translation>
+<translation id="5632194969640946913">Află mai multe în timp ce navighezi și caută ce vezi pe orice pagină pentru a explora produse, locații și text.</translation>
 <translation id="5632485077360054581">Arată-mi cum</translation>
 <translation id="5633237939819267663">{count,plural, =1{Marcajul s-a salvat în {title}}few{{count} marcaje s-au salvat în {title}}other{{count} de marcaje s-au salvat în {title}}}</translation>
 <translation id="564170563478022912">Te deconectezi? Datele nesalvate ale contului se vor șterge.</translation>
@@ -1444,6 +1454,7 @@ Site-urile nu pot folosi cookie-uri pentru a-ți vedea activitatea de navigare d
 <translation id="6831043979455480757">Tradu</translation>
 <translation id="6842136130964845393">Confirmă-ți identitatea ca să te asiguri că ai în permanență acces la parolele salvate</translation>
 <translation id="6851516051005285358">Solicită site desktop</translation>
+<translation id="6857446173140146664">Șterge fundalul</translation>
 <translation id="6858718102216837409">Adaugă o limbă…</translation>
 <translation id="6858855187367714033">Scanat</translation>
 <translation id="6859944681507688231">Pentru a scana un cod QR sau un card de credit, activează camera foto din setări.</translation>
@@ -1650,7 +1661,6 @@ Site-urile nu pot folosi cookie-uri pentru a-ți vedea activitatea de navigare d
 <translation id="7724085059277147439">{count,plural, =1{Elementul a fost salvat în Contul Google {email}}few{Elementele au fost salvate în Contul Google {email}}other{Elementele au fost salvate în Contul Google {email}}}</translation>
 <translation id="7729458878441927652">Pentru a vedea filele de pe alte dispozitive, sincronizează filele și istoricul.</translation>
 <translation id="7730020510075123961">Nu, îmbină datele</translation>
-<translation id="7730973429297233609">Selectează contul pe care vrei să-l folosești pentru a economisi <ph name="FILENAME" /> – <ph name="FILESIZE" /></translation>
 <translation id="7733646263819020771"><ph name="BOOKMRK_NAME" />. Numai pe acest dispozitiv.</translation>
 <translation id="7744192722284567281">S-a găsit în urma încălcării securității datelor</translation>
 <translation id="7749790401023484470">Nu ai selectat niciun text.</translation>
@@ -1698,6 +1708,7 @@ Site-urile nu pot folosi cookie-uri pentru a-ți vedea activitatea de navigare d
 <translation id="7925108652071887026">Datele de completare automată</translation>
 <translation id="7926975587469166629">Pseudonimul cardului</translation>
 <translation id="7927711904086083099">Neselectat</translation>
+<translation id="7927902634113905831">Selectează contul pe care vrei să-l folosești pentru a salva <ph name="BEGIN_BOLD" /><ph name="FILENAME" /><ph name="END_BOLD" /> – <ph name="FILESIZE" /></translation>
 <translation id="7930998711684428189">Te avertizează dacă parolele au fost expuse în urma încălcării securității datelor.</translation>
 <translation id="7933880123415105005">Caută <ph name="SEARCH_PROVIDER" /></translation>
 <translation id="7938254975914653459">FaceTime</translation>
@@ -1811,6 +1822,7 @@ Site-urile pot folosi cookie-uri pentru a vedea activitatea ta de navigare de pe
 <translation id="8343993175958086504">Fă backup datelor și folosește-le pe orice dispozitiv.</translation>
 <translation id="8348530355586151720">Atinge meniul cu trei puncte</translation>
 <translation id="8349305172487531364">Bara de marcaje</translation>
+<translation id="8363484128299778310">Recuperare temporară în cazul în care apar probleme</translation>
 <translation id="8364563001733875155">Pentru a schimba PIN-ul, mai întâi setează un cod de acces pe dispozitiv.</translation>
 <translation id="8366466717204352506">Nu s-a făcut niciodată verificarea</translation>
 <translation id="8368001212524806591">Urmărește prețul</translation>
@@ -1833,7 +1845,6 @@ Site-urile pot folosi cookie-uri pentru a vedea activitatea ta de navigare de pe
 <translation id="8428045167754449968">Oraș</translation>
 <translation id="8428213095426709021">Setări</translation>
 <translation id="8428634594422941299">Am înțeles</translation>
-<translation id="8430694217306051839">Alege unde vrei să salvezi <ph name="FILENAME" /> (<ph name="FILE_SIZE" />)</translation>
 <translation id="8434837876193928924">Detaliile grupului de file</translation>
 <translation id="8438566539970814960">Îmbunătățește căutările și navigarea</translation>
 <translation id="8439758443371991593">Ascunde opțiunea Adaugă în lista de lecturi</translation>

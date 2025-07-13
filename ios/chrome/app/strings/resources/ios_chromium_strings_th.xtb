@@ -174,8 +174,10 @@
 <translation id="5203244847421322551">บันทึกและป้อนรหัสผ่านอัตโนมัติใน Chromium</translation>
 <translation id="5224391634244552924">ไม่มีรหัสผ่านที่บันทึกไว้ Chromium จะตรวจสอบรหัสผ่านได้เมื่อคุณบันทึกรหัสผ่านไว้</translation>
 <translation id="5259423875997548710">ค้นหาภาพใน Chromium</translation>
+<translation id="5284913972719948193">นําเข้าข้อมูลเพื่อใช้รหัสผ่าน ประวัติการเข้าชม บุ๊กมาร์ก และบัตรเครดิตใน Chromium</translation>
 <translation id="5308226104666789935">Chromium ตรวจหาอัปเดตไม่ได้</translation>
 <translation id="5311557153294205270">เพิ่ม URL ที่ป้อนไปยังบุ๊กมาร์กใน Chromium</translation>
+<translation id="5383251701169024761">หากต้องการเรียกข้อมูลรหัสผ่านที่บันทึกไว้ในแอปอื่นๆ ได้อย่างง่ายดาย ให้เลือก Chromium สำหรับการป้อนข้อความอัตโนมัติ</translation>
 <translation id="538767207339317086">อนุญาตให้ลงชื่อเข้าใช้ Chromium</translation>
 <translation id="5389058611415066188">ปลอดภัยเสมอด้วย Chromium</translation>
 <translation id="5415273218238091735">เคล็ดลับสำหรับ Chromium</translation>
@@ -276,7 +278,6 @@
 <translation id="7763454117143368771">ใช้ Chromium เป็นเบราว์เซอร์เริ่มต้นเพื่อป้องกันเว็บไซต์อันตรายและรักษารหัสผ่านให้ปลอดภัย</translation>
 <translation id="7784950022329154821">ล็อกแท็บที่ไม่ระบุตัวตนเมื่อปิด Chromium</translation>
 <translation id="78025249032851484">Chromium ของคุณเป็นเวอร์ชันเก่า</translation>
-<translation id="7811371919871579588">หากต้องการเรียกข้อมูลรหัสผ่านที่บันทึกไว้ในแอปอื่นๆ ได้อย่างง่ายดาย ให้เลือก Chromium สำหรับการป้อนข้อความอัตโนมัติ</translation>
 <translation id="7859018312476869945">เมื่อคุณพิมพ์ในแถบที่อยู่หรือช่องค้นหา Chromium จะส่งสิ่งที่คุณพิมพ์ไปยังเครื่องมือค้นหาเริ่มต้นเพื่อให้ได้รับการแนะนำที่ดียิ่งขึ้น ตัวเลือกนี้จะปิดไว้ในโหมดไม่ระบุตัวตน</translation>
 <translation id="7890287942691234100">เริ่มใช้โปรแกรมสแกนของ Chromium</translation>
 <translation id="7905064834449738336">เมื่อใช้รหัสผ่าน Chromium จะเตือนคุณหากมีการเผยแพร่รหัสผ่านออนไลน์ เราเข้ารหัสชื่อผู้ใช้และรหัสผ่านเมื่อทำการตรวจสอบเพื่อไม่ให้ผู้ใดอ่านข้อมูลดังกล่าวได้ รวมถึง Google</translation>
@@ -307,6 +308,7 @@
 <translation id="865600487977764604">รักษาความปลอดภัยของคุณใน Chromium และอาจใช้เพื่อปรับปรุงความปลอดภัยในแอปอื่นๆ ของ Google เมื่อลงชื่อเข้าใช้</translation>
 <translation id="8663480472502753423">อัปเดต Chromium อยู่เสมอ</translation>
 <translation id="8685813584220679697">ลงชื่อเข้าใช้เว็บไซต์นี้และ Chromium</translation>
+<translation id="8698780336333802489">นำเข้าไปยัง Chromium</translation>
 <translation id="8730503818204408000">เปิดการตั้งค่า Chromium เพื่อตั้งค่า Chromium เป็นเบราว์เซอร์เริ่มต้น</translation>
 <translation id="8754966941001340678">Chromium ขอแนะนําการปกป้องที่ดียิ่งขึ้น</translation>
 <translation id="8759037115129007407">สมาชิกในครอบครัวของคุณไม่สามารถรับรหัสผ่านได้ในขณะนี้ ขอให้สมาชิกอัปเดต Chromium และซิงค์รหัสผ่าน <ph name="BEGIN_LINK" />ดูข้อมูลเพิ่มเติม<ph name="END_LINK" /></translation>
@@ -331,6 +333,7 @@
 <translation id="9050790730841755540">ใช้ Chromium ทุกครั้งที่คุณแตะลิงก์ในแอปอื่นๆ</translation>
 <translation id="9059693977935746710">คุณไม่จำเป็นต้องจำรหัสผ่านนี้ เพราะระบบจะบันทึกไว้ในเครื่องมือจัดการรหัสผ่านสำหรับ <ph name="EMAIL" /></translation>
 <translation id="9089354809943900324">Chromium ล้าสมัย</translation>
+<translation id="9105645282262300612">เคล็ดลับสำหรับ Chromium: ค้นหาสิ่งที่คุณเห็น</translation>
 <translation id="9152995302810511799">เคล็ดลับสำหรับ Chromium: รับการรักษาความปลอดภัยที่เข้มงวดที่สุดของ Chromium</translation>
 <translation id="9177628952266852500"><ph name="EMAIL" /> Chromium ได้รับการจัดการ</translation>
 <translation id="921174536258924340">Chromium ตรวจสอบรหัสผ่านได้ไม่ครบทั้งหมด โปรดลองอีกครั้งในวันพรุ่งนี้หรือ<ph name="BEGIN_LINK" />ตรวจสอบรหัสผ่านในบัญชี Google<ph name="END_LINK" /></translation>

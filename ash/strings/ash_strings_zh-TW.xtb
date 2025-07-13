@@ -320,7 +320,7 @@
 <translation id="2017998995161831444">在「探索」應用程式中開啟「說明」</translation>
 <translation id="2018630726571919839">講個笑話</translation>
 <translation id="2021864487439853900">按一下即可解鎖</translation>
-<translation id="2034971124472263449">繼續儲存</translation>
+<translation id="2034971124472263449">仍要儲存</translation>
 <translation id="2041220428661959602">電池電量：<ph name="BATTERY_PERCENTAGE" />%</translation>
 <translation id="204259843076055848">「<ph name="SIX_PACK_KEY_NAME" />」快速鍵目前已關閉</translation>
 <translation id="2049240716062114887">已將桌面名稱變更為「<ph name="DESK_NAME" />」</translation>
@@ -1011,6 +1011,7 @@
 <translation id="4305817255990598646">切換</translation>
 <translation id="4307713728991152670">配置以下設定：查看手機上最近的相片、媒體和應用程式</translation>
 <translation id="4312840429157639164">攝影機已對齊右上角，與系統平台發生衝突。</translation>
+<translation id="4312935606722154789">將兩個並排視窗設為同一組或取消分組</translation>
 <translation id="4316910396681052118">所有應用程式</translation>
 <translation id="4321179778687042513">Ctrl</translation>
 <translation id="4322385711258710213">隱藏所有 Chrome 瀏覽器建議</translation>
@@ -1450,7 +1451,6 @@
 <translation id="5691772641933328258">指紋辨識失敗</translation>
 <translation id="5693255400847650006">麥克風正在使用中</translation>
 <translation id="5699366815052349604">將使用中的視窗指派給所有桌面</translation>
-<translation id="5701785125601597013">使用 Phone Hub 快速傳送訊息或回覆手機的訊息</translation>
 <translation id="570390244361237317">所有的應用程式，以方向鍵瀏覽即可存取所有的應用程式</translation>
 <translation id="5705197514573687092">顯示專注模式設定。計時器已設為 <ph name="FOCUS_DURATION" />。</translation>
 <translation id="5707775774148071965">你使用的連接線無法達到裝置所支援的資料傳輸速率。裝置效能可能會因此受到限制。</translation>
@@ -1580,7 +1580,6 @@
 <translation id="6095425951508823973">新增「<ph name="PROVIDER" />」連線</translation>
 <translation id="6099678161144790572">過去一個月內編輯過</translation>
 <translation id="6103838137565245112">系統</translation>
-<translation id="610395411842312282">將兩個並排視窗設為同一組</translation>
 <translation id="6108952804512516814">使用 AI 製作</translation>
 <translation id="6114505516289286752">已下載<ph name="LANGUAGE" />語音檔案</translation>
 <translation id="6119360623251949462"><ph name="CHARGING_STATE" />。<ph name="BATTERY_SAVER_STATE" /></translation>

@@ -137,7 +137,7 @@ Dữ liệu của bạn được mã hoá bằng cụm mật khẩu. Nhập cụ
 <translation id="4302397443352897529">Cài đặt Chromium</translation>
 <translation id="4408912345039114853">Chạy quy trình Kiểm tra an toàn trên Chromium</translation>
 <translation id="4432744876818348753">Đăng nhập để khai thác tối đa Chromium.</translation>
-<translation id="4445228361214254027">Tổ chức của bạn đã tắt tính năng sử dụng và lưu dữ liệu Chromium vào Tài khoản Google. Dấu trang, mật khẩu mới và các nội dung khác sẽ chỉ được lưu vào thiết bị này.</translation>
+<translation id="4445228361214254027">Tổ chức của bạn đã tắt tính năng sử dụng và lưu dữ liệu Chromium vào Tài khoản Google. Dấu trang, mật khẩu mới và các nội dung khác sẽ chỉ được lưu trên thiết bị này.</translation>
 <translation id="4498832288620833153">Thêm các URL đã nhập vào danh sách đọc trong Chromium.</translation>
 <translation id="4508268628669724828">Quay lại đây để xem thêm các mẹo hữu ích giúp khai thác tối đa Chromium.</translation>
 <translation id="452436063477828504">Đảm bảo bạn luôn có thể sử dụng dữ liệu Chromium trong Tài khoản Google của mình</translation>
@@ -174,8 +174,10 @@ Dữ liệu của bạn được mã hoá bằng cụm mật khẩu. Nhập cụ
 <translation id="5203244847421322551">Lưu và tự động điền mật khẩu trong Chromium</translation>
 <translation id="5224391634244552924">Bạn chưa lưu mật khẩu nào. Chromium có thể kiểm tra các mật khẩu của bạn khi bạn lưu các mật khẩu đó.</translation>
 <translation id="5259423875997548710">Tìm kiếm hình ảnh trong Chromium.</translation>
+<translation id="5284913972719948193">Nhập dữ liệu để sử dụng mật khẩu, nhật ký, dấu trang và thẻ tín dụng của bạn trên Chromium</translation>
 <translation id="5308226104666789935">Chromium không thể kiểm tra xem có bản cập nhật mới nào không</translation>
 <translation id="5311557153294205270">Thêm các URL đã nhập vào danh sách dấu trang trong Chromium.</translation>
+<translation id="5383251701169024761">Để dễ dàng sử dụng mật khẩu đã lưu trong các ứng dụng khác, hãy chọn tính năng Tự động điền trong Chromium.</translation>
 <translation id="538767207339317086">Cho phép đăng nhập vào Chromium</translation>
 <translation id="5389058611415066188">Luôn an toàn khi dùng Chromium</translation>
 <translation id="5415273218238091735">Mẹo khi dùng Chromium</translation>
@@ -276,7 +278,6 @@ Chỉ những người có cụm mật khẩu mới đọc được dữ liệu 
 <translation id="7763454117143368771">Hãy đặt Chromium làm trình duyệt mặc định để luôn được bảo vệ khỏi các trang web nguy hiểm và giữ cho mật khẩu của bạn an toàn</translation>
 <translation id="7784950022329154821">Khoá các thẻ ẩn danh khi bạn đóng Chromium</translation>
 <translation id="78025249032851484">Chromium của bạn đã lỗi thời.</translation>
-<translation id="7811371919871579588">Để dễ dàng sử dụng mật khẩu đã lưu trong các ứng dụng khác, hãy chọn tính năng Tự động điền trong Chromium.</translation>
 <translation id="7859018312476869945">Khi bạn nhập vào thanh địa chỉ hoặc hộp tìm kiếm, Chromium sẽ gửi nội dung bạn nhập đến công cụ tìm kiếm mặc định để đề xuất cho bạn cụm từ phù hợp hơn. Tính năng này bị tắt trong chế độ Ẩn danh.</translation>
 <translation id="7890287942691234100">Bắt đầu dùng trình quét của Chromium</translation>
 <translation id="7905064834449738336">Khi bạn dùng một mật khẩu đã bị công khai trên mạng, Chromium sẽ cảnh báo cho bạn. Trong quá trình này, mật khẩu và tên người dùng của bạn được mã hoá nên không ai đọc được, kể cả Google.</translation>
@@ -300,13 +301,14 @@ Chỉ những người có cụm mật khẩu mới đọc được dữ liệu 
 <translation id="830951810931292870">Mở các URL đã nhập bằng chế độ Ẩn danh trong Chromium.</translation>
 <translation id="8390323835464055390">Đăng nhập bằng mật khẩu và khoá truy cập đã lưu từ mọi ứng dụng bằng cách sử dụng Chromium làm dịch vụ tự động điền</translation>
 <translation id="8409374867500149834">Chromium sở hữu khả năng bảo mật mạnh nhất để bảo vệ bạn trước các trang web có hại</translation>
-<translation id="8543509361021925846">{THRESHOLD,plural, =1{Việc này diễn ra sau {THRESHOLD} phút bạn không dùng đến Chromium. Những dữ liệu chỉ được lưu vào thiết bị này khi bạn đăng nhập sẽ bị xoá. Dữ liệu này có thể bao gồm nhật ký và mật khẩu.}other{Việc này diễn ra sau {THRESHOLD} phút bạn không dùng đến Chromium. Những dữ liệu chỉ được lưu vào thiết bị này khi bạn đăng nhập sẽ bị xoá. Dữ liệu này có thể bao gồm nhật ký và mật khẩu.}}</translation>
+<translation id="8543509361021925846">{THRESHOLD,plural, =1{Việc này diễn ra sau {THRESHOLD} phút bạn không dùng đến Chromium. Những dữ liệu chỉ được lưu trên thiết bị này khi bạn đăng nhập sẽ bị xoá. Dữ liệu này có thể bao gồm nhật ký và mật khẩu.}other{Việc này diễn ra sau {THRESHOLD} phút bạn không dùng đến Chromium. Những dữ liệu chỉ được lưu trên thiết bị này khi bạn đăng nhập sẽ bị xoá. Dữ liệu này có thể bao gồm nhật ký và mật khẩu.}}</translation>
 <translation id="858114650497379505">Bạn có thể sử dụng mật khẩu đã lưu vào Trình quản lý mật khẩu trong ứng dụng khác trên iPhone.</translation>
 <translation id="8586442755830160949">Bản quyền <ph name="YEAR" /> Tác giả Chromium. Mọi quyền được bảo lưu.</translation>
 <translation id="8602103377623855616">Trang Chromium</translation>
 <translation id="865600487977764604">Giữ cho bạn an toàn trên Chromium và có thể dùng để cải thiện mức độ bảo mật trên các ứng dụng khác của Google khi bạn đăng nhập.</translation>
 <translation id="8663480472502753423">Giữ cho Chromium luôn cập nhật</translation>
 <translation id="8685813584220679697">Đăng nhập vào trang web này và Chromium.</translation>
+<translation id="8698780336333802489">Nhập vào Chromium</translation>
 <translation id="8730503818204408000">Mở phần cài đặt Chromium để đặt Chromium làm trình duyệt mặc định.</translation>
 <translation id="8754966941001340678">Chromium khuyên dùng chế độ bảo vệ nâng cao</translation>
 <translation id="8759037115129007407">Thành viên gia đình bạn hiện không thể nhận mật khẩu. Hãy đề nghị họ cập nhật Chromium và đồng bộ hoá mật khẩu của họ. <ph name="BEGIN_LINK" />Tìm hiểu thêm<ph name="END_LINK" /></translation>
@@ -324,13 +326,14 @@ Chỉ những người có cụm mật khẩu mới đọc được dữ liệu 
 <translation id="8975812008711371178">Tìm kiếm bằng giọng nói trong Chromium.</translation>
 <translation id="900560297598578021">Bạn đã đăng nhập bằng <ph name="EMAIL" />.
 
-Dữ liệu của bạn đã được mã hoá bằng cụm mật khẩu vào <ph name="TIME" />. Nhập cụm mật khẩu để sử dụng và lưu dữ liệu Chromium vào Tài khoản Google của bạn.</translation>
+Dữ liệu của bạn đã được mã hoá bằng cụm mật khẩu vào <ph name="TIME" />. Nhập cụm mật khẩu để sử dụng và lưu dữ liệu trên Chromium vào Tài khoản Google của bạn.</translation>
 <translation id="9022552996538154597">Đăng nhập vào Chromium</translation>
 <translation id="9031260906956926157">Một số dữ liệu Chromium của bạn chưa được lưu vào Tài khoản Google.
 Trước khi đăng xuất, hãy đợi một vài phút. Nếu bạn đăng xuất ngay, dữ liệu này sẽ bị xoá.</translation>
 <translation id="9050790730841755540">Dùng Chromium mỗi khi bạn nhấn vào đường liên kết trong các ứng dụng khác.</translation>
 <translation id="9059693977935746710">Bạn không cần nhớ mật khẩu này. Mật khẩu này sẽ được lưu vào Trình quản lý mật khẩu cho <ph name="EMAIL" /></translation>
 <translation id="9089354809943900324">Chromium đã lỗi thời</translation>
+<translation id="9105645282262300612">Mẹo khi dùng Chromium: Tìm thông tin về những gì bạn thấy</translation>
 <translation id="9152995302810511799">Mẹo khi dùng Chromium: Sở hữu chế độ bảo mật mạnh nhất của Chromium</translation>
 <translation id="9177628952266852500"><ph name="EMAIL" />. Chromium được quản lý.</translation>
 <translation id="921174536258924340">Chromium không thể kiểm tra một số mật khẩu. Hãy thử lại vào ngày mai hoặc <ph name="BEGIN_LINK" />kiểm tra các mật khẩu trong Tài khoản Google của bạn.<ph name="END_LINK" /></translation>

@@ -18,6 +18,7 @@
 <translation id="1054745118061919935">ਜਾਰੀ ਰੱਖ ਕੇ, ਤੁਸੀਂ <ph name="BEGIN_LINK" />ਸੇਵਾ ਦੇ ਨਿਯਮਾਂ<ph name="END_LINK" /> ਨਾਲ ਸਹਿਮਤ ਹੁੰਦੇ ਹੋ।</translation>
 <translation id="10614374240317010">ਕਦੇ ਵੀ ਸੁਰੱਖਿਅਤ ਨਹੀਂ ਕੀਤਾ</translation>
 <translation id="1062138828266376352">ਤੁਹਾਡਾ ਪਿੰਨ ਬਦਲਿਆ ਨਹੀਂ ਗਿਆ। ਆਪਣੇ ਇੰਟਰਨੈੱਟ ਕਨੈਕਸ਼ਨ ਦੀ ਜਾਂਚ ਕਰ ਕੇ ਦੁਬਾਰਾ ਕੋਸ਼ਿਸ਼ ਕਰੋ</translation>
+<translation id="1063070031224282617">ਚੁਣੋ ਕਿ "<ph name="BEGIN_BOLD" /><ph name="FILENAME" /><ph name="END_BOLD" />" (<ph name="FILE_SIZE" />) ਨੂੰ ਕਿੱਥੇ ਰੱਖਿਅਤ ਕਰਨਾ ਹੈ</translation>
 <translation id="1072476005125066234">ਤੁਹਾਡੀਆਂ ਦਿਲਚਸਪੀਆਂ ਦੇ ਆਧਾਰ 'ਤੇ ਸਮੀਖਿਆਵਾਂ</translation>
 <translation id="1074827084851510304">ਤੁਸੀਂ {password_count} ਪਾਸਵਰਡ ਅਤੇ ਉਨ੍ਹਾਂ ਸਾਈਟਾਂ ਅਤੇ ਐਪਾਂ ਦੀ ਸੂਚੀ ਨੂੰ ਮਿਟਾਉਣ ਜਾ ਰਹੇ ਹੋ, ਜਿਨ੍ਹਾਂ ਲਈ ਤੁਸੀਂ ਸਾਈਨ-ਇਨ ਜਾਣਕਾਰੀ ਨੂੰ ਕਦੇ ਵੀ ਰੱਖਿਅਤ ਨਾ ਕਰਨ ਦਾ ਵਿਕਲਪ ਚੁਣਿਆ ਹੈ। ਸਾਈਟਾਂ ਅਤੇ ਐਪਾਂ ਲਈ ਤੁਹਾਡੇ ਵੱਲੋਂ ਬਣਾਇਆ ਗਿਆ ਕੋਈ ਵੀ ਖਾਤਾ ਨਹੀਂ ਮਿਟਾਇਆ ਜਾਵੇਗਾ।</translation>
 <translation id="1076421457278169141">ਕੋਡ ਸਕੈਨ ਕੀਤਾ ਗਿਆ</translation>
@@ -170,6 +171,7 @@
 <translation id="1657011748321897393">ਸ਼ੇਅਰ ਕਰਨਾ ਅਸਫਲ ਕਿਉਂਕਿ ਤੁਸੀਂ ਨੈੱਟਵਰਕ ਨਾਲ ਕਨੈਕਟ ਨਹੀਂ ਕੀਤਾ ਹੋਇਆ ਹੈ।</translation>
 <translation id="1668001730617725852">ਨਵੇਂ ਟੈਬ ਗਰੁੱਪ ਵਿੱਚ ਖੋਲ੍ਹੋ</translation>
 <translation id="1674504678466460478"><ph name="SOURCE_LANGUAGE" /> ਤੋਂ <ph name="TARGET_LANGUAGE" /></translation>
+<translation id="168389590065701766">ਹੁਣ ਤੁਸੀਂ ਆਪਣੀ ਪਤਾ ਬਾਰ ਤੋਂ Google Lens ਖੋਲ੍ਹ ਸਕਦੇ ਹੋ ਅਤੇ ਦਿਖ ਰਹੀ ਕਿਸੇ ਵੀ ਚੀਜ਼ ਬਾਰੇ ਜਾਣਕਾਰੀ ਖੋਜ ਸਕਦੇ ਹੋ</translation>
 <translation id="1689333818294560261">ਉਪਨਾਮ</translation>
 <translation id="169048873465870056">ਕੀ ਟੈਬ ਹਟਾ ਕੇ ਗਰੁੱਪ ਨੂੰ ਮਿਟਾਉਣਾ ਹੈ?</translation>
 <translation id="1698090540708020240">ਪਾਸਵਰਡਾਂ ਨੂੰ ਆਯਾਤ ਕਰੋ…</translation>
@@ -210,6 +212,7 @@
 <translation id="1838089197478136166">ਕੀ Wallet ਵਿੱਚ ਖੋਲ੍ਹਣੀ ਹੈ?</translation>
 <translation id="183878838231635348">ਇਹ ਕਾਰਡ ਅਜਿਹੀਆਂ ਪਰਦੇਦਾਰੀ ਜਾਂ ਸੁਰੱਖਿਆ ਸੰਬੰਧੀ ਸਮੱਸਿਆਵਾਂ ਨੂੰ ਦਿਖਾਉਂਦਾ ਹੈ ਜਿਨ੍ਹਾਂ ਦਾ 'ਸੁਰੱਖਿਆ ਜਾਂਚ' ਵਿਸ਼ੇਸ਼ਤਾ ਤੁਹਾਡੇ ਲਈ ਸਵੈਚਲਿਤ ਤੌਰ 'ਤੇ ਪਤਾ ਲਗਾਉਂਦੀ ਹੈ।</translation>
 <translation id="1845230888742614096">ਗਰੁੱਪ ਨੂੰ ਬਣਾਈ ਰੱਖੋ</translation>
+<translation id="1853692000353488670">ਨਵੀਂ ਇਨਕੋਗਨਿਟੋ ਟੈਬ</translation>
 <translation id="1854463785401910334">ਖੁੱਲ੍ਹੀਆਂ ਟੈਬਾਂ ਵਿੱਚ ਖੋਜੋ</translation>
 <translation id="1861067954551502701">{count,plural, =1{{count} ਪਾਸਵਰਡ ਵਿੱਚੋਂ {position}}one{{count} ਪਾਸਵਰਡ ਵਿੱਚੋਂ {position}}other{{count} ਪਾਸਵਰਡਾਂ ਵਿੱਚੋਂ {position}}}</translation>
 <translation id="1861262398884155592">ਇਹ ਫੋਲਡਰ ਖਾਲੀ ਹੈ</translation>
@@ -265,6 +268,7 @@
 <translation id="2044681667265133332"><ph name="USER_EMAIL" /> ਖਾਤੇ ਦਾ ਪ੍ਰਬੰਧਨ <ph name="HOSTED_DOMAIN" /> ਵੱਲੋਂ ਕੀਤਾ ਜਾਂਦਾ ਹੈ, ਜਿਸ ਵੱਲੋਂ ਕੁਝ ਜਾਣਕਾਰੀ ਨੂੰ ਦੇਖਿਆ ਜਾ ਸਕਦਾ ਹੈ। <ph name="BEGIN_LINK" />ਹੋਰ ਜਾਣੋ<ph name="END_LINK" /></translation>
 <translation id="20485545164632846">ਨਵੀਂ ਆਈਟਮ</translation>
 <translation id="2049727122989709386">ਇੱਕੋ ਪਾਸਵਰਡ ਵਰਤਣ ਵਾਲੇ <ph name="COUNT" /> ਖਾਤੇ</translation>
+<translation id="205013082884273671">ਆਪਣੀ ਸਕ੍ਰੀਨ 'ਤੇ ਕੁਝ ਵੀ ਖੋਜੋ</translation>
 <translation id="2054044186557130763"><ph name="NAME" /> <ph name="EMAIL" /> ਵਜੋਂ ਸਾਈਨ-ਇਨ ਕਰੋ, ਤੁਹਾਡੀ ਸੰਸਥਾ ਵੱਲੋਂ ਪ੍ਰਬੰਧਿਤ ਹੈ।</translation>
 <translation id="2059166748188874810">ਨਗਰ ਪਾਲਿਕਾ</translation>
 <translation id="2060638295449304809">ਇਹ ਪਤਾ ਸਿਰਫ਼ ਇਸ ਡੀਵਾਈਸ 'ਤੇ ਰੱਖਿਅਤ ਕੀਤਾ ਗਿਆ ਹੈ। ਦੂਜੇ ਡੀਵਾਈਸਾਂ 'ਤੇ ਵਰਤਣ ਲਈ, ਇਸਨੂੰ ਆਪਣੇ Google ਖਾਤੇ <ph name="USER_EMAIL" /> ਵਿੱਚ ਰੱਖਿਅਤ ਕਰੋ</translation>
@@ -384,6 +388,7 @@
 <translation id="251837347827266434">ਤੁਸੀਂ ਸਾਈਨ-ਆਊਟ ਹੋ ਜਾਵੋਗੇ, ਟੈਬਾਂ ਬੰਦ ਹੋ ਜਾਣਗੀਆਂ, ਬ੍ਰਾਊਜ਼ਿੰਗ ਡਾਟਾ ਮਿਟਾ ਦਿੱਤਾ ਜਾਵੇਗਾ</translation>
 <translation id="2520787026086861736">ਇਸਨੂੰ ਬੰਦ ਕਰਨ ਲਈ, <ph name="BEGIN_LINK" />ਆਟੋਫਿਲ ਅਤੇ ਪਾਸਵਰਡ<ph name="END_LINK" /> 'ਤੇ ਜਾਓ</translation>
 <translation id="2523295204312809179">ਜਦੋਂ ਤੁਸੀਂ ਕਿਸੇ ਟੈਬ ਗਰੁੱਪ ਨੂੰ ਬੰਦ ਕਰਦੇ ਹੋ, ਤਾਂ ਉਹ ਇੱਥੇ ਸਵੈਚਲਿਤ ਤੌਰ 'ਤੇ ਰੱਖਿਅਤ ਹੋ ਜਾਂਦਾ ਹੈ</translation>
+<translation id="2524699375503213836">Safari ਤੋਂ ਆਪਣਾ ਡਾਟਾ ਆਯਾਤ ਕਰੋ</translation>
 <translation id="2529021024822217800">ਸਭ ਖੋਲ੍ਹੋ</translation>
 <translation id="2536991091671391962">ਤੁਸੀਂ ਕਿਸੇ ਵੀ ਡੀਵਾਈਸ 'ਤੇ ਰੱਖਿਅਤ ਕੀਤੇ ਪਾਸਵਰਡ ਵਰਤ ਸਕਦੇ ਹੋ। ਉਹ <ph name="EMAIL" /> ਦੇ ਲਈ Google Password Manager ਵਿੱਚ ਰੱਖਿਅਤ ਕੀਤੇ ਗਏ ਹਨ।</translation>
 <translation id="2538103551183528357">ਲੁਕਿਆ, ਪਾਸਵਰਡ</translation>
@@ -457,6 +462,7 @@
 <translation id="2819667972867209401">ਚਾਲੂ ਹੋਣ 'ਤੇ, ਡਾਟਾ ਤੁਹਾਡੇ Google ਖਾਤੇ ਵਿੱਚ ਰੱਖਿਅਤ ਕੀਤਾ ਜਾਂਦਾ ਹੈ। ਬੰਦ ਹੋਣ 'ਤੇ, ਡਾਟਾ ਸਿਰਫ਼ ਇਸ ਡੀਵਾਈਸ 'ਤੇ ਰੱਖਿਅਤ ਕੀਤਾ ਜਾਂਦਾ ਹੈ ਅਤੇ ਸਾਈਨ-ਆਊਟ ਕਰਨ 'ਤੇ ਮਿਟਾ ਦਿੱਤਾ ਜਾਂਦਾ ਹੈ।</translation>
 <translation id="2827760117436553203">ਕੀ ਡਾਟੇ ਨੂੰ ਵੱਖ ਰੱਖਣਾ ਹੈ?</translation>
 <translation id="2829172210806130158">ਆਪਣੀ ਸਕ੍ਰੀਨ ਖੋਜੋ</translation>
+<translation id="2831109159746537587">ਖੋਜਣ ਲਈ ਤਸਵੀਰ 'ਤੇ ਚੱਕਰ ਲਗਾਓ ਜਾਂ ਉਸ 'ਤੇ ਟੈਪ ਕਰੋ</translation>
 <translation id="2834399722155632105">3. ਪਾਸਵਰਡ ਵਿਕਲਪਾਂ 'ਤੇ ਟੈਪ ਕਰੋ</translation>
 <translation id="2834956026595107950"><ph name="TITLE" />, <ph name="STATE" />, <ph name="URL" /></translation>
 <translation id="2841013758207633010">ਸਮਾਂ</translation>
@@ -545,6 +551,7 @@
 <translation id="3227137524299004712">ਮਾਈਕ੍ਰੋਫੋਨ</translation>
 <translation id="3235063766008841141">ਕਿਸੇ ਭਰਮਾਊ ਸਾਈਟ 'ਤੇ ਦਾਖਲ ਕੀਤਾ ਗਿਆ ਅਤੇ ਡਾਟਾ ਉਲੰਘਣਾ ਵਿੱਚ ਲੱਭਿਆ</translation>
 <translation id="3235242129752692527">ਇਵੈਂਟ ਵੇਰਵਿਆਂ ਦਾ ਸੰਪਾਦਨ ਕਰੋ ਅਤੇ “ਰੱਖਿਅਤ ਕਰੋ“ 'ਤੇ ਟੈਪ ਕਰੋ।</translation>
+<translation id="323863549127671026">ਖੁੱਲ੍ਹੀਆਂ ਹੋਈਆਂ ਟੈਬਾਂ ਅਤੇ ਟੈਬ ਗਰੁੱਪ</translation>
 <translation id="3240426699337459095">ਲਿੰਕ ਕਾਪੀ ਕੀਤਾ</translation>
 <translation id="3244271242291266297">MM</translation>
 <translation id="3245429137663807393">ਜੇ ਤੁਸੀਂ Chrome ਵਰਤੋਂ ਸੰਬੰਧੀ ਰਿਪੋਰਟਾਂ ਨੂੰ ਵੀ ਸਾਂਝਾ ਕਰਦੇ ਹੋ, ਤਾਂ ਇਨ੍ਹਾਂ ਰਿਪੋਰਟਾਂ ਵਿੱਚ ਤੁਹਾਡੇ ਵੱਲੋਂ ਖੋਲ੍ਹੇ ਜਾਣ ਵਾਲੇ URL ਵੀ ਸ਼ਾਮਲ ਹੁੰਦੇ ਹਨ</translation>
@@ -592,6 +599,7 @@
 <translation id="3476450923187944815">ਹੋਰ ਐਪਾਂ ਵਿਚਕਾਰ ਆਪਣੇ ਪਾਸਵਰਡਾਂ ਤੱਕ ਪਹੁੰਚ ਕਰੋ।</translation>
 <translation id="3488501490964659223">ਟੈਬਾਂ ਬੰਦ ਹੋ ਗਈਆਂ ਸਨ ਅਤੇ ਬ੍ਰਾਊਜ਼ਿੰਗ ਡਾਟਾ ਮਿਟਾ ਦਿੱਤਾ ਗਿਆ ਸੀ। ਤੁਹਾਨੂੰ ਸਾਈਨ-ਆਊਟ ਹੋ ਗਏ ਸੀ</translation>
 <translation id="3493531032208478708">ਸੁਝਾਈ ਗਈ ਸਮੱਗਰੀ ਬਾਰੇ <ph name="BEGIN_LINK" />ਹੋਰ ਜਾਣੋ<ph name="END_LINK" /></translation>
+<translation id="349446645805573740">ਚੁਣੋ ਕਿ "<ph name="BEGIN_BOLD" /><ph name="FILENAME" /><ph name="END_BOLD" />" ਨੂੰ ਕਿੱਥੇ ਰੱਖਿਅਤ ਕਰਨਾ ਹੈ</translation>
 <translation id="3504377992102007712">ਸੈਟਿੰਗਾਂ</translation>
 <translation id="35083190962747987">${url} ਖੋਲ੍ਹੋ</translation>
 <translation id="3511519535430890904">ਬ੍ਰਾਊਜ਼ਿੰਗ ਨਾਲ ਸੰਬੰਧਿਤ ਸੁਰੱਖਿਆ ਸ਼ਾਮਲ ਕਰੋ</translation>
@@ -611,7 +619,6 @@
 <translation id="3557336313807607643">ਸੰਪਰਕਾਂ ਵਿੱਚ ਸ਼ਾਮਲ ਕਰੋ</translation>
 <translation id="355765753469272474">ਅਣਕੀਤਾ ਕਰੋ</translation>
 <translation id="3565930036634619844">ਟੈਬ। <ph name="NUMBER_OF_TABS" /> ਵਿੱਚੋਂ <ph name="TAB_INDEX" />.</translation>
-<translation id="3570693105179140209">ਹੋਰ ਪਾਸਵਰਡਾਂ ਲਈ ਡਬਲ ਟੈਪ ਕਰੋ।</translation>
 <translation id="3572607909481582402">ਤੁਹਾਡੇ Google ਖਾਤੇ ਵਿੱਚ</translation>
 <translation id="3575234738189584619">Lens ਨਾਲ ਖੋਜੋ</translation>
 <translation id="3575426792457739946">ਇਸ ਸੂਚੀ ਵਿੱਚ ਸਾਰੇ ਲੋਡ ਕੀਤੇ ਗਏ ਪ੍ਰੋਫਾਈਲ ਸ਼ਾਮਲ ਹਨ।</translation>
@@ -624,6 +631,7 @@
 <translation id="3596414637720633074">ਇਨਕੋਗਨਿਟੋ ਵਿੱਚ ਤੀਜੀ-ਧਿਰ ਦੀਆਂ ਕੁਕੀਜ਼ ਨੂੰ ਬਲਾਕ ਕਰੋ</translation>
 <translation id="3602260545951981695">"ਵਿਸਤ੍ਰਿਤ ਸੁਰੱਖਿਆ" ਚੁਣੋ</translation>
 <translation id="3608436266458100337">ਪਾਠਕ ਮੋਡ</translation>
+<translation id="3610041351087301930">ਰੀਡਰ ਮੋਡ ਲੁਕਾਓ</translation>
 <translation id="3622175633937495219">ਖੋਜ ਇਤਿਹਾਸ (<ph name="COUNT" /> ਮੇਲ ਖਾਂਦੀਆਂ ਆਈਟਮਾਂ ਮਿਲੀਆਂ)</translation>
 <translation id="3625008969091706597">ਤੁਸੀਂ ਪਿੱਛੇ ਜਾਣ ਲਈ ਕੋਨੇ 'ਤੇ ਸਵਾਈਪ ਕਰ ਸਕਦੇ ਹੋ।</translation>
 <translation id="362709345066740529">ਇੱਥੇ ਆਪਣੇ ਕਾਰਡਾਂ, ਫ਼ੀਡ ਅਤੇ ਹੋਰ ਚੀਜ਼ਾਂ ਨੂੰ ਵਿਉਂਤਬੱਧ ਕਰੋ</translation>
@@ -654,7 +662,6 @@
 <translation id="3779810277399252432">ਕੋਈ ਇੰਟਰਨੈੱਟ ਕਨੈਕਸ਼ਨ ਨਹੀਂ ਹੈ।</translation>
 <translation id="3782614601387961027">ਚਿਤਾਵਨੀ ਖਾਰਜ ਕਰੋ</translation>
 <translation id="3789841737615482174">ਸਥਾਪਤ ਕਰੋ</translation>
-<translation id="3795478177331815672">ਟੈਬਾਂ ਅਤੇ ਟੈਬ ਗਰੁੱਪਾਂ ਨੂੰ ਖੋਲ੍ਹੋ</translation>
 <translation id="380329542618494757">ਨਾਮ</translation>
 <translation id="3803696231112616155">ਇਸ ਸਾਈਟ ਨੂੰ ਅਨੁਵਾਦ ਕਰਨ ਦੀ ਪੇਸ਼ਕਸ਼</translation>
 <translation id="3808311849069021992">ਖੋਜ ਇੰਜਣ ਦੇ ਵੇਰਵੇ ਦਿਖਾਓ</translation>
@@ -671,6 +678,7 @@
 <translation id="385051799172605136">ਪਿੱਛੇ</translation>
 <translation id="3850952228519377137">"ਆਪਣੀਆਂ ਟੈਬਾਂ ਤੋਂ ਕੀਮਤਾਂ ਟਰੈਕ ਕਰੋ" ਨੂੰ ਲੁਕਾਓ</translation>
 <translation id="3851938967634752633"><ph name="WEBSITE" />, <ph name="SECOND_WEBSITE" />, ਅਤੇ ਹੋਰ <ph name="NUMBER_OF_ACCOUNTS" /> ਦੇ ਪਾਸਵਰਡਾਂ ਨੂੰ ਮਿਟਾ ਦਿੱਤਾ ਜਾਵੇਗਾ। ਤੁਹਾਡੇ ਖਾਤਿਆਂ ਨੂੰ ਮਿਟਾਇਆ ਨਹੀਂ ਜਾਵੇਗਾ।</translation>
+<translation id="3853162385423733133">ਆਪਣੇ Google ਖਾਤੇ <ph name="EMAIL" /> ਵਿੱਚ ਪਾਸਵਰਡਾਂ ਨੂੰ ਵਰਤਣਾ ਅਤੇ ਉਨ੍ਹਾਂ ਨੂੰ ਰੱਖਿਅਤ ਕਰਨਾ ਜਾਰੀ ਰੱਖੋ</translation>
 <translation id="3858860766373142691">ਨਾਮ</translation>
 <translation id="3868495844258915202">ਪੂਰਾ URL ਦਿਖਾਓ</translation>
 <translation id="3875783148670536197">ਮੈਨੂੰ ਤਰੀਕਾ ਦਿਖਾਓ</translation>
@@ -691,6 +699,7 @@
 <translation id="3922395466317605522">ਮੀਨੂ ਨੂੰ ਵਿਉਂਤਬੱਧ ਕਰੋ</translation>
 <translation id="3929457972718048006">ਪਤੇ</translation>
 <translation id="3931215329146376310">{count,plural, =1{ਇਸ ਸਾਈਟ ਲਈ ਨਵਾਂ ਪਾਸਵਰਡ}one{ਇਸ ਸਾਈਟ ਲਈ ਨਵਾਂ ਪਾਸਵਰਡ}other{ਇਸ ਸਾਈਟ ਲਈ ਨਵੇਂ ਪਾਸਵਰਡ}}</translation>
+<translation id="3934905113567851655">ਆਕਾਰ ਬਦਲਣ ਲਈ ਚੂੰਢੀ ਭਰੋ</translation>
 <translation id="3940195383040445971">ਟੈਬਾਂ ਵਿੱਚ ਕੀਮਤਾਂ 'ਤੇ ਨਜ਼ਰ ਰੱਖੋ</translation>
 <translation id="3941941395924123592">{COUNT,plural, =1{{COUNT} ਟੈਬ ਨੂੰ ਬੰਦ ਕਰੋ}one{{COUNT} ਟੈਬ ਨੂੰ ਬੰਦ ਕਰੋ}other{{COUNT} ਟੈਬਾਂ ਨੂੰ ਬੰਦ ਕਰੋ}}</translation>
 <translation id="3948600256434252210">ਤੁਸੀਂ ਇਨਕੋਗਨਿਟੋ ਵਿੱਚ ਬ੍ਰਾਊਜ਼ ਕਰਨ ਲਈ ਸੱਜੇ ਸਵਾਈਪ ਕਰ ਸਕਦੇ ਹੋ।</translation>
@@ -699,7 +708,6 @@
 <translation id="3955740319737378355">ਹੋ ਗਿਆ</translation>
 <translation id="3955822496205734389">ਤੁਹਾਡੇ ਪਾਸਵਰਡ ਕਮਜ਼ੋਰ ਹਨ।</translation>
 <translation id="3958312024468322930">ਇਸਨੂੰ ਆਪਣੀ ਹੋਮ ਸਕ੍ਰੀਨ ਦੇ ਹੇਠਾਂ ਡੌਕ ਤੱਕ ਘਸੀਟੋ</translation>
-<translation id="3960218941754097036">Google Lens ਨਾਲ ਆਪਣੀ ਸਕ੍ਰੀਨ 'ਤੇ ਮੌਜੂਦ ਸਮੱਗਰੀ ਖੋਜੋ</translation>
 <translation id="3962326069546168954">ਰੱਖਿਅਤ ਕਰੋ</translation>
 <translation id="3967327056943561740">ਬੁੱਕਮਾਰਕ</translation>
 <translation id="3967822245660637423">ਡਾਊਨਲੋਡ ਪੂਰਾ ਹੋਇਆ</translation>
@@ -966,7 +974,6 @@
 <translation id="4979397965658815378">ਆਪਣੇ ਸਾਰੇ ਡੀਵਾਈਸਾਂ 'ਤੇ ਆਪਣੇ ਬੁੱਕਮਾਰਕਾਂ, ਪਾਸਵਰਡਾਂ, ਇਤਿਹਾਸ ਅਤੇ ਹੋਰ ਸੈਟਿੰਗਾਂ ਨੂੰ ਪ੍ਰਾਪਤ ਕਰਨ ਲਈ ਆਪਣੇ Google ਖਾਤੇ ਨਾਲ ਸਾਈਨ-ਇਨ ਕਰੋ</translation>
 <translation id="4985921635659180565">ਇੱਕ ਵਾਰ ਜਦੋਂ ਫ਼ਾਈਲ ਨੂੰ ਮਿਟਾਉਣ ਲਈ ਨਿਯਤ ਕੀਤਾ ਜਾਂਦਾ ਹੈ, ਤਾਂ ਇਸ ਕਾਰਵਾਈ ਨੂੰ ਰੱਦ ਨਹੀਂ ਕੀਤਾ ਜਾ ਸਕਦਾ।</translation>
 <translation id="498624032394115435">ਜਿਸ ਕੋਲ ਵੀ ਲਿੰਕ ਹੈ, ਉਹ ਸਾਰੀਆਂ ਟੈਬਾਂ ਦਾ ਸੰਪਾਦਨ ਕਰ ਸਕਦਾ ਹੈ।</translation>
-<translation id="4989065233040279145"><ph name="FILENAME" /> ਰੱਖਿਅਤ ਕਰਨ ਲਈ ਕੋਈ ਥਾਂ ਚੁਣੋ</translation>
 <translation id="499122600724363620"><ph name="NAME" />, <ph name="EMAIL" />, ਤੁਹਾਡੀ ਸੰਸਥਾ ਵੱਲੋਂ ਪ੍ਰਬੰਧਿਤ ਹੈ।</translation>
 <translation id="4992255726304765516">ਟੈਬ ਗਰੁੱਪ ਦਾ ਰੰਗ <ph name="COLOR" /></translation>
 <translation id="5005498671520578047">ਪਾਸਵਰਡ ਕਾਪੀ ਕਰੋ</translation>
@@ -1002,6 +1009,7 @@
 <translation id="5132942445612118989">ਸਾਰੇ ਡੀਵਾਈਸਾਂ 'ਤੇ ਤੁਹਾਡੇ ਪਾਸਵਰਡਾਂ, ਇਤਿਹਾਸ ਅਤੇ ਹੋਰ ਬਹੁਤ ਕੁਝ ਦਾ ਸਿੰਕ ਕਰੋ</translation>
 <translation id="5141363746588976328">ਆਪਣੇ ਟੈਬ ਕਾਰਡ 'ਤੇ ਕੀਮਤ ਘਟਣ ਦੀ ਜਾਣਕਾਰੀ ਨੂੰ ਲੁਕਾਓ</translation>
 <translation id="5145331760738811130">ਟੈਬ ਸਵਿੱਚਰ ਨੂੰ ਛੱਡੋ</translation>
+<translation id="5148717509369231739">Safari ਆਯਾਤ</translation>
 <translation id="5157638238828697074">ਕੋਈ ਗੜਬੜ ਹੋ ਗਈ। ਐਪਲੀਕੇਸ਼ਨ ਨੂੰ ਖੋਲ੍ਹਿਆ ਨਹੀਂ ਜਾ ਸਕਿਆ।</translation>
 <translation id="5163417375525818870">PDF</translation>
 <translation id="5168414296986405587">iPadOS ਲਈ ਬਣਾਇਆ ਗਿਆ</translation>
@@ -1065,6 +1073,7 @@
 <translation id="5431252637281434233">ਤੁਸੀਂ ਸਾਈਨ-ਆਊਟ ਹੋ ਜਾਵੋਗੇ</translation>
 <translation id="543338862236136125">ਪਾਸਵਰਡ ਦਾ ਸੰਪਾਦਨ ਕਰੋ</translation>
 <translation id="5433691172869980887">ਵਰਤੋਂਕਾਰ ਨਾਮ ਕਾਪੀ ਕੀਤਾ ਗਿਆ</translation>
+<translation id="5437480232219631455">ਤੁਸੀਂ ਇੱਥੇ Gemini ਖੋਲ੍ਹ ਸਕਦੇ ਹੋ</translation>
 <translation id="5439618055789623719"><ph name="USER_EMAIL" /> ਵਜੋਂ ਸਾਈਨ-ਇਨ ਹੋ</translation>
 <translation id="5443636120437209490">ਪੂਰਵ-ਨਿਰਧਾਰਿਤ ਤੌਰ 'ਤੇ ਬਿਹਤਰ ਬ੍ਰਾਊਜ਼ਿੰਗ</translation>
 <translation id="5444892875087332195">ਬੁੱਕਮਾਰਕ</translation>
@@ -1086,7 +1095,6 @@
 <translation id="5524590039848017563">ਮੁੱਖ ਟੂਲਬਾਰ ਬਟਨ ਨੂੰ ਸਮੇਟਿਆ ਗਿਆ</translation>
 <translation id="553151287733286479">{COUNT,plural, =1{{COUNT} ਕਮਜ਼ੋਰ ਪਾਸਵਰਡ}one{{COUNT} ਕਮਜ਼ੋਰ ਪਾਸਵਰਡ}other{{COUNT} ਕਮਜ਼ੋਰ ਪਾਸਵਰਡ}}</translation>
 <translation id="5532545557415295622">ਅਕਿਰਿਆਸ਼ੀਲ ਹੋਣ 'ਤੇ ਸਮਾਂ ਸਮਾਪਤੀ ਸੰਬੰਧੀ ਵਿੰਡੋ</translation>
-<translation id="5547868626772433490">Gemini ਤੋਂ ਪੁੱਛੋ</translation>
 <translation id="5548760955356983418">Handoff ਤੁਹਾਨੂੰ ਇਸ ਡੀਵਾਈਸ 'ਤੇ ਵੈੱਬਸਾਈਟ ਬ੍ਰਾਊਜ਼ ਕਰਨਾ ਸ਼ੁਰੂ ਕਰਨ ਅਤੇ ਫਿਰ ਆਸਾਨੀ ਨਾਲ ਤੁਹਾਡੇ Mac 'ਤੇ ਜਾਰੀ ਰੱਖਣ ਦਿੰਦਾ ਹੈ। ਮੌਜੂਦਾ ਖੁੱਲ੍ਹੀ ਵੈੱਬਸਾਈਟ ਤੁਹਾਡੇ Mac ਦੇ 'ਡੌਕ' ਵਿੱਚ ਦਿਖਾਈ ਦੇਵੇਗੀ।
 
 Handoff ਨੂੰ ਵੀ ਸੈਟਿੰਗਾਂ ਦੇ 'ਆਮ' ਸੈਕਸ਼ਨ ਵਿੱਚ ਚਾਲੂ ਕੀਤਾ ਜਾਣਾ ਚਾਹੀਦਾ ਹੈ ਅਤੇ ਤੁਹਾਡੇ ਡੀਵਾਈਸ ਨੂੰ ਓਹੀ iCloud ਖਾਤਾ ਵਰਤਣਾ ਚਾਹੀਦਾ ਹੈ।</translation>
@@ -1100,6 +1108,7 @@ Handoff ਨੂੰ ਵੀ ਸੈਟਿੰਗਾਂ ਦੇ 'ਆਮ' ਸੈਕਸ਼�
 <translation id="5576885723883013398">ਨਵੀਂ ਵਿੰਡੋ</translation>
 <translation id="5578795271662203820">ਇਸ ਚਿੱਤਰ ਲਈ <ph name="SEARCH_ENGINE" /> ਖੋਜੋ</translation>
 <translation id="5579012242779565775">"ਪੜ੍ਹਨ-ਸੂਚੀ" ਨੂੰ ਲੁਕਾਓ</translation>
+<translation id="5581786858144165447">AI ਮੋਡ ਤੋਂ ਪੁੱਛੋ</translation>
 <translation id="5585019845078534178">ਕਾਰਡ</translation>
 <translation id="5595485650161345191">ਪਤਾ ਸੰਪਾਦਿਤ ਕਰੋ</translation>
 <translation id="559567008082979829">ਆਪਣੇ ਡਾਊਨਲੋਡਾਂ ਨੂੰ ਇੱਕ ਮਹੀਨੇ ਬਾਅਦ ਮਿਟਾਉਣ ਲਈ ਸੈੱਟ ਕਰੋ।</translation>
@@ -1114,6 +1123,7 @@ Handoff ਨੂੰ ਵੀ ਸੈਟਿੰਗਾਂ ਦੇ 'ਆਮ' ਸੈਕਸ਼�
 <translation id="5626245204502895507">ਇਸ ਵੇਲੇ ਫਾਈਲ ਡਾਊਨਲੋਡ ਨਹੀਂ ਕੀਤੀ ਜਾ ਸਕਦੀ।</translation>
 <translation id="562753339521713441">ਸੁਰੱਖਿਆ ਜਾਂਚ ਚਲਾਓ</translation>
 <translation id="5628388627414062173">{count,plural, =1{ਤੁਹਾਡੀ ਪੜ੍ਹਨ-ਸੂਚੀ ਵਿੱਚ {count} ਪੰਨਾ}one{ਤੁਹਾਡੀ ਪੜ੍ਹਨ-ਸੂਚੀ ਵਿੱਚ {count} ਪੰਨੇ}other{ਤੁਹਾਡੀ ਪੜ੍ਹਨ-ਸੂਚੀ ਵਿੱਚ {count} ਪੰਨੇ}}</translation>
+<translation id="5632194969640946913">ਉਤਪਾਦਾਂ, ਥਾਵਾਂ ਅਤੇ ਲਿਖਤ ਦੀ ਪੜਚੋਲ ਕਰਨ ਲਈ ਤੁਹਾਨੂੰ ਪੰਨੇ 'ਤੇ ਜੋ ਵੀ ਦਿਖਾਈ ਦਿੰਦਾ ਹੈ ਉਸਨੂੰ ਬ੍ਰਾਊਜ਼ ਕਰਨ ਅਤੇ ਖੋਜਣ ਵੇਲੇ ਹੋਰ ਜਾਣੋ।</translation>
 <translation id="5632485077360054581">ਮੈਨੂੰ ਤਰੀਕਾ ਦਿਖਾਓ</translation>
 <translation id="5633237939819267663">{count,plural, =1{ਬੁੱਕਮਾਰਕ ਨੂੰ "{title}" ਵਿੱਚ ਰੱਖਿਅਤ ਕੀਤਾ ਗਿਆ}one{{count} ਬੁੱਕਮਾਰਕ ਨੂੰ "{title}" ਵਿੱਚ ਰੱਖਿਅਤ ਕੀਤਾ ਗਿਆ}other{{count} ਬੁੱਕਮਾਰਕਾਂ ਨੂੰ "{title}" ਵਿੱਚ ਰੱਖਿਅਤ ਕੀਤਾ ਗਿਆ}}</translation>
 <translation id="564170563478022912">ਕੀ ਸਾਈਨ-ਆਊਟ ਕਰਨਾ ਹੈ? ਅਣਰੱਖਿਅਤ ਖਾਤੇ ਸੰਬੰਧੀ ਡਾਟਾ ਮਿਟਾ ਦਿੱਤਾ ਜਾਵੇਗਾ।</translation>
@@ -1444,6 +1454,7 @@ Handoff ਨੂੰ ਵੀ ਸੈਟਿੰਗਾਂ ਦੇ 'ਆਮ' ਸੈਕਸ਼�
 <translation id="6831043979455480757">ਅਨੁਵਾਦ ਕਰੋ</translation>
 <translation id="6842136130964845393">ਇਹ ਪੱਕਾ ਕਰਨ ਲਈ ਕਿ ਤੁਸੀਂ ਆਪਣੇ ਰੱਖਿਅਤ ਕੀਤੇ ਪਾਸਵਰਡਾਂ ਤੱਕ ਹਮੇਸ਼ਾਂ ਪਹੁੰਚ ਕਰ ਸਕੋ, ਆਪਣੀ ਪਛਾਣ ਦੀ ਪੁਸ਼ਟੀ ਕਰੋ</translation>
 <translation id="6851516051005285358">ਡੈਸਕਟਾਪ ਸਾਈਟ ਦੀ ਬੇਨਤੀ ਕਰੋ</translation>
+<translation id="6857446173140146664">ਬੈਕਗ੍ਰਾਊਂਡ ਮਿਟਾਓ</translation>
 <translation id="6858718102216837409">ਭਾਸ਼ਾ ਸ਼ਾਮਲ ਕਰੋ…</translation>
 <translation id="6858855187367714033">ਸਕੈਨ ਕੀਤਾ ਗਿਆ</translation>
 <translation id="6859944681507688231">QR ਕੋਡ ਜਾਂ ਕ੍ਰੈਡਿਟ ਕਾਰਡ ਸਕੈਨ ਕਰਨ ਲਈ, ਸੈਟਿੰਗਾਂ ਤੋਂ ਕੈਮਰਾ ਚਾਲੂ ਕਰੋ।</translation>
@@ -1650,7 +1661,6 @@ Handoff ਨੂੰ ਵੀ ਸੈਟਿੰਗਾਂ ਦੇ 'ਆਮ' ਸੈਕਸ਼�
 <translation id="7724085059277147439">{count,plural, =1{ਤੁਹਾਡੇ Google ਖਾਤੇ {email} ਵਿੱਚ ਰੱਖਿਅਤ ਕੀਤੀ ਆਈਟਮ}one{ਤੁਹਾਡੇ Google ਖਾਤੇ {email} ਵਿੱਚ ਰੱਖਿਅਤ ਕੀਤੀ ਆਈਟਮ}other{ਤੁਹਾਡੇ Google ਖਾਤੇ {email} ਵਿੱਚ ਰੱਖਿਅਤ ਕੀਤੀਆਂ ਆਈਟਮਾਂ}}</translation>
 <translation id="7729458878441927652">ਤੁਹਾਡੇ ਹੋਰ ਡੀਵਾਈਸਾਂ ਤੋਂ ਟੈਬਾਂ ਨੂੰ ਦੇਖਣ ਲਈ, ਆਪਣੀਆਂ ਟੈਬਾਂ ਅਤੇ ਇਤਿਹਾਸ ਨੂੰ ਸਿੰਕ ਕਰੋ।</translation>
 <translation id="7730020510075123961">ਨਹੀਂ, ਡਾਟਾ ਮਿਲਾਓ</translation>
-<translation id="7730973429297233609">ਉਹ ਖਾਤਾ ਚੁਣੋ ਜਿਸਦੀ ਵਰਤੋਂ ਤੁਸੀਂ <ph name="FILENAME" /> - <ph name="FILESIZE" /> ਨੂੰ ਰੱਖਿਅਤ ਕਰਨ ਲਈ ਵਰਤਣਾ ਚਾਹੁੰਦੇ ਹੋ</translation>
 <translation id="7733646263819020771"><ph name="BOOKMRK_NAME" />। ਸਿਰਫ਼ ਇਸ ਡੀਵਾਈਸ 'ਤੇ।</translation>
 <translation id="7744192722284567281">ਡਾਟਾ ਉਲੰਘਣਾ ਵਿੱਚ ਮਿਲਿਆ</translation>
 <translation id="7749790401023484470">ਤੁਸੀਂ ਕੋਈ ਲਿਖਤ ਨਹੀਂ ਚੁਣੀ।</translation>
@@ -1698,6 +1708,7 @@ Handoff ਨੂੰ ਵੀ ਸੈਟਿੰਗਾਂ ਦੇ 'ਆਮ' ਸੈਕਸ਼�
 <translation id="7925108652071887026">ਆਟੋਫਿਲ ਡਾਟਾ</translation>
 <translation id="7926975587469166629">ਕਾਰਡ ਦਾ ਉਪਨਾਮ</translation>
 <translation id="7927711904086083099">ਨਹੀਂ ਚੁਣਿਆ</translation>
+<translation id="7927902634113905831">ਉਹ ਖਾਤਾ ਚੁਣੋ, ਜਿਸਦੀ ਵਰਤੋਂ ਤੁਸੀਂ "<ph name="BEGIN_BOLD" /><ph name="FILENAME" /><ph name="END_BOLD" />" - <ph name="FILESIZE" /> ਨੂੰ ਰੱਖਿਅਤ ਕਰਨ ਲਈ ਕਰਨਾ ਚਾਹੁੰਦੇ ਹੋ</translation>
 <translation id="7930998711684428189">ਡਾਟਾ ਉਲੰਘਣਾ ਵਜੋਂ ਪਾਸਵਰਡਾਂ ਦਾ ਖੁਲਾਸਾ ਹੋਣ 'ਤੇ ਤੁਹਾਨੂੰ ਚਿਤਾਵਨੀ ਦਿੱਤੀ ਜਾਂਦੀ ਹੈ।</translation>
 <translation id="7933880123415105005"><ph name="SEARCH_PROVIDER" /> ਖੋਜੋ</translation>
 <translation id="7938254975914653459">FaceTime</translation>
@@ -1811,6 +1822,7 @@ Handoff ਨੂੰ ਵੀ ਸੈਟਿੰਗਾਂ ਦੇ 'ਆਮ' ਸੈਕਸ਼�
 <translation id="8343993175958086504">ਆਪਣੀ ਸਮੱਗਰੀ ਦਾ ਬੈਕਅੱਪ ਲਓ ਅਤੇ ਇਸਨੂੰ ਕਿਸੇ ਵੀ ਡੀਵਾਈਸ 'ਤੇ ਵਰਤੋ।</translation>
 <translation id="8348530355586151720">ਤਿੰਨ-ਬਿੰਦੂਆਂ ਵਾਲੇ ਮੀਨੂ 'ਤੇ ਟੈਪ ਕਰੋ</translation>
 <translation id="8349305172487531364">ਬੁੱਕਮਾਰਕਸ ਬਾਰ</translation>
+<translation id="8363484128299778310">ਸਾਈਨ-ਇਨ ਦੌਰਾਨ ਸਮੱਸਿਆ ਆਉਣ 'ਤੇ ਰਿਕਵਰੀ ਪਾਸਵਰਡ ਵਰਤੋ</translation>
 <translation id="8364563001733875155">ਆਪਣਾ ਪਿੰਨ ਬਦਲਣ ਲਈ, ਪਹਿਲਾਂ ਆਪਣੇ ਡੀਵਾਈਸ 'ਤੇ ਪਾਸਕੋਡ ਦਾ ਸੈੱਟਅੱਪ ਕਰੋ।</translation>
 <translation id="8366466717204352506">ਕਦੇ ਵੀ ਜਾਂਚ ਨਹੀਂ ਹੋਈ</translation>
 <translation id="8368001212524806591">ਕੀਮਤ 'ਤੇ ਨਜ਼ਰ ਰੱਖੋ</translation>
@@ -1833,7 +1845,6 @@ Handoff ਨੂੰ ਵੀ ਸੈਟਿੰਗਾਂ ਦੇ 'ਆਮ' ਸੈਕਸ਼�
 <translation id="8428045167754449968">ਸ਼ਹਿਰ / ਕਸਬਾ</translation>
 <translation id="8428213095426709021">ਸੈਟਿੰਗਾਂ</translation>
 <translation id="8428634594422941299">ਸਮਝ ਲਿਆ</translation>
-<translation id="8430694217306051839"><ph name="FILENAME" /> (<ph name="FILE_SIZE" />) ਰੱਖਿਅਤ ਕਰਨ ਲਈ ਕੋਈ ਥਾਂ ਚੁਣੋ</translation>
 <translation id="8434837876193928924">ਟੈਬ ਗਰੁੱਪ ਸੰਬੰਧੀ ਵੇਰਵੇ</translation>
 <translation id="8438566539970814960">ਖੋਜਾਂ ਅਤੇ ਬ੍ਰਾਊਜ਼ਿੰਗ ਬਿਹਤਰ ਬਣਾਓ</translation>
 <translation id="8439758443371991593">'ਪੜ੍ਹਨ-ਸੂਚੀ ਵਿੱਚ ਸ਼ਾਮਲ ਕਰੋ' ਨੂੰ ਲੁਕਾਓ</translation>

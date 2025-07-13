@@ -318,6 +318,17 @@ public class ToolbarPositionController implements OnSharedPreferenceChangeListen
     }
 
     /**
+     * Whether the current position matches the user-configured one, e.g. if the configured position
+     * is bottom but the omnibox is focused.
+     */
+    public boolean doesPrefMismatchPosition() {
+        @ControlsPosition
+        int positionForPref =
+                isToolbarConfiguredToShowOnTop() ? ControlsPosition.TOP : ControlsPosition.BOTTOM;
+        return mCurrentPosition != positionForPref;
+    }
+
+    /**
      * Returns whether the given {context, device, cct-ness} combo is eligible for toolbar position
      * customization.
      *
@@ -423,7 +434,7 @@ public class ToolbarPositionController implements OnSharedPreferenceChangeListen
                                 (LayoutParams) mToolbarProgressBarContainer.getLayoutParams();
                         progressBarLayoutParams.setAnchorId(mControlContainer.getView().getId());
                         progressBarLayoutParams.anchorGravity = Gravity.BOTTOM;
-                        progressBarLayoutParams.gravity = Gravity.TOP;
+                        progressBarLayoutParams.gravity = Gravity.CENTER;
                         mToolbarProgressBarContainer.setLayoutParams(progressBarLayoutParams);
                     };
 
@@ -519,9 +530,8 @@ public class ToolbarPositionController implements OnSharedPreferenceChangeListen
         if (newControlsPosition == currentPosition) {
             // Don't do anything for non-transitions.
             return StateTransition.NONE;
-        } else if (formFieldStateChanged || prefStateChanged) {
-            // Animate when the pref changes (i.e. the long press menu is invoked) or the keyboard
-            // shows/hides.
+        } else if (prefStateChanged) {
+            // Animate when the pref changes (i.e. the long press menu is invoked).
             return switchingToBottom
                     ? StateTransition.ANIMATE_TO_BOTTOM
                     : StateTransition.ANIMATE_TO_TOP;

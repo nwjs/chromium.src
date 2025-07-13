@@ -16,6 +16,7 @@
 #include <string>
 #include <utility>
 
+#include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/strings/stringprintf.h"
 #include "base/task/thread_pool.h"
@@ -24,6 +25,7 @@
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/sync/sync_ui_util.h"
 #include "components/browsing_data/content/browsing_data_helper.h"
+#include "components/browsing_data/core/features.h"
 #include "components/browsing_data/core/pref_names.h"
 #include "components/history/core/common/pref_names.h"
 #include "components/prefs/pref_service.h"
@@ -77,8 +79,6 @@ uint64_t MaskForKey(const char* key) {
     return content::BrowsingDataRemover::DATA_TYPE_SERVICE_WORKERS;
   if (strcmp(key, extension_browsing_data_api_constants::kCacheStorageKey) == 0)
     return content::BrowsingDataRemover::DATA_TYPE_CACHE_STORAGE;
-  if (strcmp(key, extension_browsing_data_api_constants::kWebSQLKey) == 0)
-    return content::BrowsingDataRemover::DATA_TYPE_WEB_SQL;
 
   return 0ULL;
 }
@@ -100,6 +100,15 @@ bool IsRemovalPermitted(uint64_t removal_mask, PrefService* prefs) {
 bool BrowsingDataSettingsFunction::isDataTypeSelected(
     BrowsingDataType data_type,
     ClearBrowsingDataTab tab) {
+  if (data_type == BrowsingDataType::PASSWORDS
+#if !BUILDFLAG(IS_ANDROID)
+      &&
+      base::FeatureList::IsEnabled(browsing_data::features::kDbdRevampDesktop)
+#endif  // !BUILDFLAG(IS_ANDROID)
+  ) {
+    return false;
+  }
+
   std::string pref_name;
   bool success = GetDeletionPreferenceFromDataType(data_type, tab, &pref_name);
   return success && prefs_->GetBoolean(pref_name);
@@ -160,9 +169,6 @@ ExtensionFunction::ResponseAction BrowsingDataSettingsFunction::Run() {
              delete_site_data);
   SetDetails(&selected, &permitted,
              extension_browsing_data_api_constants::kLocalStorageKey,
-             delete_site_data);
-  SetDetails(&selected, &permitted,
-             extension_browsing_data_api_constants::kWebSQLKey,
              delete_site_data);
   SetDetails(&selected, &permitted,
              extension_browsing_data_api_constants::kServiceWorkersKey,
@@ -530,6 +536,7 @@ bool BrowsingDataRemoveCacheStorageFunction::GetRemovalMask(
 }
 
 bool BrowsingDataRemoveWebSQLFunction::GetRemovalMask(uint64_t* removal_mask) {
-  *removal_mask = content::BrowsingDataRemover::DATA_TYPE_WEB_SQL;
+  // TODO(http://crbug.com/420857719): Deprecate and remove this extension api.
+  *removal_mask = 0;
   return true;
 }

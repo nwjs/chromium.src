@@ -1256,6 +1256,10 @@ IN_PROC_BROWSER_TEST_P(SitePerProcessBrowserTest, ScrollByRAF) {
 // Make sure that when a relevant feature of the main frame changes, e.g. the
 // frame width, that the browser is notified.
 IN_PROC_BROWSER_TEST_P(SitePerProcessBrowserTest, TextAutosizerPageInfo) {
+  if (base::FeatureList::IsEnabled(blink::features::kForceOffTextAutosizing)) {
+    GTEST_SKIP() << "Test does not apply when forcing off text autosizing.";
+  }
+
   UpdateTextAutosizerInfoProxyObserver update_text_autosizer_info_observer;
 
   blink::web_pref::WebPreferences prefs =
@@ -1315,8 +1319,8 @@ IN_PROC_BROWSER_TEST_P(SitePerProcessBrowserTest, TextAutosizerPageInfo) {
       web_contents()->GetSiteInstance()->GetRelatedSiteInstance(c_url);
   // Force creation of a render process for c's SiteInstance, this will get
   // used when we dynamically create the new frame.
-  auto* c_rph =
-      static_cast<RenderProcessHostImpl*>(c_site->GetOrCreateProcess());
+  auto* c_rph = static_cast<RenderProcessHostImpl*>(
+      c_site->GetOrCreateProcessForTesting());
   ASSERT_TRUE(c_rph);
   ASSERT_NE(c_rph, root->current_frame_host()->GetProcess());
   ASSERT_NE(c_rph, b_child->current_frame_host()->GetProcess());

@@ -1014,6 +1014,7 @@ Algunes funcions estan limitades per allargar la durada de la bateria.</translat
 <translation id="4305817255990598646">Canvia</translation>
 <translation id="4307713728991152670">Configura la visualització de les aplicacions, dels fitxers multimèdia i de les fotos recents del telèfon</translation>
 <translation id="4312840429157639164">La càmera s'ha ajustat a l'extrem superior dret. S'ha produït un conflicte amb la superfície del sistema.</translation>
+<translation id="4312935606722154789">Agrupa o desagrupa dues finestres l'una al costat de l'altra</translation>
 <translation id="4316910396681052118">TOTES LES APLICACIONS</translation>
 <translation id="4321179778687042513">ctrl</translation>
 <translation id="4322385711258710213">Amaga tots els suggeriments del navegador Chrome</translation>
@@ -1453,7 +1454,6 @@ No hi ha cap dispositiu connectat.</translation>
 <translation id="5691772641933328258">L'empremta digital no s'ha reconegut</translation>
 <translation id="5693255400847650006">Micròfon en ús</translation>
 <translation id="5699366815052349604">Assigna una finestra activa a tots els escriptoris</translation>
-<translation id="5701785125601597013">Envia missatges o respon als que reps al teu telèfon ràpidament amb El meu telèfon</translation>
 <translation id="570390244361237317">Totes les aplicacions, navega amb les tecles de fletxa per accedir a totes les aplicacions</translation>
 <translation id="5705197514573687092">Mostra la configuració de Sense distraccions. El temporitzador està establert en <ph name="FOCUS_DURATION" />.</translation>
 <translation id="5707775774148071965">El dispositiu admet una velocitat de transferència de dades més alta que el cable. És possible que el rendiment del dispositiu es vegi limitat.</translation>
@@ -1583,7 +1583,6 @@ No hi ha cap dispositiu connectat.</translation>
 <translation id="6095425951508823973">Afegeix una connexió amb <ph name="PROVIDER" /></translation>
 <translation id="6099678161144790572">Editat durant el darrer mes</translation>
 <translation id="6103838137565245112">sistema</translation>
-<translation id="610395411842312282">Agrupa dues finestres l'una al costat de l'altra</translation>
 <translation id="6108952804512516814">Crea amb IA</translation>
 <translation id="6114505516289286752">S'han baixat fitxers de veu en <ph name="LANGUAGE" /></translation>
 <translation id="6119360623251949462"><ph name="CHARGING_STATE" />. <ph name="BATTERY_SAVER_STATE" />.</translation>

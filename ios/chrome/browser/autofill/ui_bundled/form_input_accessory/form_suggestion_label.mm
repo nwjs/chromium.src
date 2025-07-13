@@ -24,7 +24,12 @@
 #import "ui/base/device_form_factor.h"
 #import "ui/base/l10n/l10n_util.h"
 
+using autofill::SuggestionType;
+
 namespace {
+
+// The string ' ••••••••' appended to the username of a password suggestion.
+constexpr NSString* kPasswordFormSuggestionSuffix = @" ••••••••";
 
 // Font size of button titles.
 constexpr CGFloat kIpadFontSize = 15;
@@ -172,7 +177,7 @@ UILabel* AttributedTextLabel(NSString* suggestion_text,
 // Splits a credit card label into 2 labels, with one being an incompressible
 // credit card number label. Returns the label as is if this is not a credit
 // card.
-UIView* splitLabel(UILabel* label, BOOL is_credit_card) {
+UIView* SplitLabel(UILabel* label, BOOL is_credit_card) {
   if (!is_credit_card) {
     return label;
   }
@@ -220,22 +225,100 @@ NSArray<UIView*>* TextViews(NSString* suggestion_text,
   UILabel* value_label =
       TextLabel(suggestion_text, [UIColor colorNamed:kTextPrimaryColor],
                 /*bold=*/YES, /*is_title=*/YES);
-  [views addObject:splitLabel(value_label, is_credit_card)];
+  [views addObject:SplitLabel(value_label, is_credit_card)];
 
   if ([minor_value length] > 0) {
     UILabel* minor_value_label =
         TextLabel(minor_value, [UIColor colorNamed:kTextPrimaryColor],
                   /*bold=*/YES, /*is_title=*/NO);
-    [views addObject:splitLabel(minor_value_label, is_credit_card)];
+    [views addObject:SplitLabel(minor_value_label, is_credit_card)];
   }
 
   if ([display_description length] > 0) {
     UILabel* description =
         TextLabel(display_description, [UIColor colorNamed:kTextSecondaryColor],
                   /*bold=*/NO, /*is_title=*/NO);
-    [views addObject:splitLabel(description, is_credit_card)];
+    [views addObject:SplitLabel(description, is_credit_card)];
   }
   return views;
+}
+
+// Returns whether the provided `suggestion` is a password suggestion from the
+// user's saved data.
+bool IsPasswordSuggestion(FormSuggestion* suggestion) {
+  switch (suggestion.type) {
+    case SuggestionType::kPasswordEntry:
+    case SuggestionType::kBackupPasswordEntry:
+      return true;
+    case SuggestionType::kAutocompleteEntry:
+    case SuggestionType::kAddressEntry:
+    case SuggestionType::kAddressEntryOnTyping:
+    case SuggestionType::kAddressFieldByFieldFilling:
+    case SuggestionType::kManageAddress:
+    case SuggestionType::kManageAutofillAi:
+    case SuggestionType::kManageCreditCard:
+    case SuggestionType::kManageIban:
+    case SuggestionType::kManagePlusAddress:
+    case SuggestionType::kManageLoyaltyCard:
+    case SuggestionType::kComposeResumeNudge:
+    case SuggestionType::kComposeDisable:
+    case SuggestionType::kComposeGoToSettings:
+    case SuggestionType::kComposeNeverShowOnThisSiteAgain:
+    case SuggestionType::kComposeProactiveNudge:
+    case SuggestionType::kComposeSavedStateNotification:
+    case SuggestionType::kDatalistEntry:
+    case SuggestionType::kTroubleSigningInEntry:
+    case SuggestionType::kFreeformFooter:
+    case SuggestionType::kAllSavedPasswordsEntry:
+    case SuggestionType::kGeneratePasswordEntry:
+    case SuggestionType::kAccountStoragePasswordEntry:
+    case SuggestionType::kPasswordFieldByFieldFilling:
+    case SuggestionType::kFillPassword:
+    case SuggestionType::kViewPasswordDetails:
+    case SuggestionType::kCreditCardEntry:
+    case SuggestionType::kInsecureContextPaymentDisabledMessage:
+    case SuggestionType::kSaveAndFillCreditCardEntry:
+    case SuggestionType::kScanCreditCard:
+    case SuggestionType::kVirtualCreditCardEntry:
+    case SuggestionType::kIbanEntry:
+    case SuggestionType::kBnplEntry:
+    case SuggestionType::kCreateNewPlusAddress:
+    case SuggestionType::kCreateNewPlusAddressInline:
+    case SuggestionType::kFillExistingPlusAddress:
+    case SuggestionType::kPlusAddressError:
+    case SuggestionType::kMerchantPromoCodeEntry:
+    case SuggestionType::kSeePromoCodeDetails:
+    case SuggestionType::kWebauthnCredential:
+    case SuggestionType::kWebauthnSignInWithAnotherDevice:
+    case SuggestionType::kIdentityCredential:
+    case SuggestionType::kTitle:
+    case SuggestionType::kSeparator:
+    case SuggestionType::kUndoOrClear:
+    case SuggestionType::kMixedFormMessage:
+    case SuggestionType::kDevtoolsTestAddresses:
+    case SuggestionType::kDevtoolsTestAddressByCountry:
+    case SuggestionType::kDevtoolsTestAddressEntry:
+    case SuggestionType::kFillAutofillAi:
+    case SuggestionType::kPendingStateSignin:
+    case SuggestionType::kLoyaltyCardEntry:
+    case SuggestionType::kAllLoyaltyCardsEntry:
+      return false;
+  }
+  NOTREACHED();
+}
+
+// Returns the text to display for a password suggestion.
+NSString* PasswordSuggestionDisplayText(NSString* suggestion_value) {
+  if (!IsKeyboardAccessoryUpgradeEnabled()) {
+    return [suggestion_value
+        stringByAppendingString:kPasswordFormSuggestionSuffix];
+  }
+
+  if ([suggestion_value length] == 0) {
+    return l10n_util::GetNSString(IDS_IOS_AUTOFILL_PASSWORD_NO_USERNAME);
+  }
+
+  return suggestion_value;
 }
 
 }  // namespace
@@ -281,8 +364,12 @@ NSArray<UIView*>* TextViews(NSString* suggestion_text,
       [stackView addArrangedSubview:iconView];
     }
 
+    NSString* suggestionText =
+        IsPasswordSuggestion(suggestion)
+            ? PasswordSuggestionDisplayText(suggestion.value)
+            : suggestion.value;
+
     BOOL isTablet = ui::GetDeviceFormFactor() == ui::DEVICE_FORM_FACTOR_TABLET;
-    NSString* suggestionText = suggestion.value;
     if (IsKeyboardAccessoryUpgradeEnabled()) {
       // On phones, store the suggestion information in a stack view so that it
       // can be selectively truncated if necessary.
@@ -299,16 +386,6 @@ NSArray<UIView*>* TextViews(NSString* suggestion_text,
 
         // Insert the next subviews vertically instead of horizonatally.
         stackView = verticalStackView;
-      }
-
-      if ([suggestionText hasSuffix:kPasswordFormSuggestionSuffix]) {
-        suggestionText = [suggestionText
-            substringToIndex:suggestionText.length -
-                             kPasswordFormSuggestionSuffix.length];
-        if ([suggestionText length] == 0) {
-          suggestionText =
-              l10n_util::GetNSString(IDS_IOS_AUTOFILL_PASSWORD_NO_USERNAME);
-        }
       }
     }
 
@@ -425,9 +502,8 @@ NSArray<UIView*>* TextViews(NSString* suggestion_text,
 
 // Returns whether this label is for a credit card suggestion.
 - (BOOL)isCreditCardSuggestion {
-  return (_suggestion.type == autofill::SuggestionType::kCreditCardEntry) ||
-         (_suggestion.type ==
-          autofill::SuggestionType::kVirtualCreditCardEntry);
+  return (_suggestion.type == SuggestionType::kCreditCardEntry) ||
+         (_suggestion.type == SuggestionType::kVirtualCreditCardEntry);
 }
 
 // Resize the icon if it's a credit card icon which requires an upscaling.
@@ -453,15 +529,15 @@ NSArray<UIView*>* TextViews(NSString* suggestion_text,
   CGSize windowSize = [[UIScreen mainScreen] bounds].size;
   CGFloat portraitScreenWidth = MIN(windowSize.width, windowSize.height);
   switch (_suggestion.type) {
-    case autofill::SuggestionType::kCreditCardEntry:
-    case autofill::SuggestionType::kVirtualCreditCardEntry: {
+    case SuggestionType::kCreditCardEntry:
+    case SuggestionType::kVirtualCreditCardEntry: {
       // Max width is just enough to show half of the credit card icon on the
       // 2nd suggestion, in portrait mode.
       CGFloat staticButtonsWidth = accessoryTrailingView.frame.size.width;
       maxWidth = (portraitScreenWidth - staticButtonsWidth) -
                  kHalfCreditCardIconOffset;
     } break;
-    case autofill::SuggestionType::kAddressEntry:
+    case SuggestionType::kAddressEntry:
       // Max width is half width, in portrait mode.
       maxWidth = portraitScreenWidth * 0.5;
       break;

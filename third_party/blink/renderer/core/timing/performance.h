@@ -67,6 +67,7 @@ class EventCounts;
 class ExceptionState;
 class ExecutionContext;
 class LargestContentfulPaint;
+class InteractionContentfulPaint;
 class LayoutShift;
 class MemoryInfo;
 class MemoryMeasurement;
@@ -219,6 +220,7 @@ class CORE_EXPORT Performance : public EventTarget {
   void AddToLayoutShiftBuffer(LayoutShift&);
 
   void AddLargestContentfulPaint(LargestContentfulPaint*);
+  void AddInteractionContentfulPaint(InteractionContentfulPaint*);
 
   void AddSoftNavigationToPerformanceTimeline(SoftNavigationEntry*);
 
@@ -328,10 +330,6 @@ class CORE_EXPORT Performance : public EventTarget {
     return cross_origin_isolated_capability_;
   }
 
-  // TODO(https://crbug.com/1457049): remove this once visited links are
-  // partitioned.
-  bool softNavPaintMetricsSupported() const;
-
   base::SingleThreadTaskRunner& GetTaskRunner() { return *task_runner_; }
 
  private:
@@ -390,8 +388,7 @@ class CORE_EXPORT Performance : public EventTarget {
   virtual void BuildJSONValue(V8ObjectBuilder&) const;
 
   void AddPaintTiming(PerformancePaintTiming::PaintType,
-                      const DOMPaintTimingInfo& paint_timing_info,
-                      bool is_triggered_by_soft_navigation);
+                      const DOMPaintTimingInfo& paint_timing_info);
 
   PerformanceEntryVector resource_timing_buffer_;
   // The secondary RT buffer, used to store incoming entries after the main
@@ -410,6 +407,7 @@ class CORE_EXPORT Performance : public EventTarget {
   unsigned element_timing_buffer_max_size_;
   PerformanceEntryVector layout_shift_buffer_;
   PerformanceEntryVector largest_contentful_paint_buffer_;
+  PerformanceEntryVector interaction_contentful_paint_buffer_;
   PerformanceEntryVector longtask_buffer_;
   PerformanceEntryVector visibility_state_buffer_;
   PerformanceEntryVector back_forward_cache_restoration_buffer_;
@@ -443,7 +441,12 @@ class CORE_EXPORT Performance : public EventTarget {
   // Running counter for LongTask observations.
   size_t long_task_counter_ = 0;
 
+  // Telling a document to pause/resume the parser for more optimized task
+  // scheduling to priroitize key loading milestones. To explore this idea, the
+  // user timing API is used as a signal to the document. crbug.com/425962649
+  // for more details.
   TaskHandle parser_yield_task_handle_;
+  bool is_parser_yielded_ = false;
 };
 
 }  // namespace blink

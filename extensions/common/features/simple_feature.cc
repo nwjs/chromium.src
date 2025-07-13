@@ -276,15 +276,10 @@ Feature::Availability SimpleFeature::IsAvailableToContextImpl(
       return manifest_availability;
   }
 
-  bool is_for_service_worker = false;
-  if (extension != nullptr && BackgroundInfo::IsServiceWorkerBased(extension) &&
-      url.is_valid()) {
-    const GURL script_url = extension->GetResourceURL(
-        BackgroundInfo::GetBackgroundServiceWorkerScript(extension));
-    if (script_url == url) {
-      is_for_service_worker = true;
-    }
-  }
+  bool is_for_service_worker =
+      extension && BackgroundInfo::IsServiceWorkerBased(extension) &&
+      url.is_valid() &&
+      url == BackgroundInfo::GetBackgroundServiceWorkerScriptURL(extension);
 
   if (!(extension && extension->is_nwjs_app() && context != mojom::ContextType::kWebPage)) {
   Availability context_availability =

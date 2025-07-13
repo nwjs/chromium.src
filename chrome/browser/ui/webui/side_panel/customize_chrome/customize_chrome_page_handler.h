@@ -144,8 +144,6 @@ class CustomizeChromePageHandler
   bool IsCustomLinksEnabled() const;
   bool IsShortcutsVisible() const;
 
-  std::u16string GetManagingThirdPartyName() const;
-
   // Returns the type of New Tab Page the SidePanel is attached to.
   side_panel::mojom::NewTabPageType GetNewTabPageType(const GURL& url);
 
@@ -196,6 +194,9 @@ class CustomizeChromePageHandler
   // value needs to be requeried by the page.
   GURL last_source_url_{GURL(chrome::kChromeUINewTabPageURL)};
 
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+  PrefChangeRegistrar browser_pref_change_registrar_;
+#endif
   PrefChangeRegistrar pref_change_registrar_;
   base::ScopedObservation<ui::NativeTheme, ui::NativeThemeObserver>
       native_theme_observation_{this};

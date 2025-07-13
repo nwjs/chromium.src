@@ -173,8 +173,10 @@ Wenn du diese Einstellung ändern möchtest, <ph name="BEGIN_LINK" />lösche die
 <translation id="5203244847421322551">Passwörter in Chromium speichern und automatisch ausfüllen</translation>
 <translation id="5224391634244552924">Keine gespeicherten Passwörter. Chromium kann deine Passwörter prüfen, wenn du sie speicherst.</translation>
 <translation id="5259423875997548710">Bilder in Chromium suchen.</translation>
+<translation id="5284913972719948193">Importiere deine Daten, um deine Passwörter, deinen Verlauf, deine Lesezeichen und deine Kreditkarten in Chromium zu verwenden</translation>
 <translation id="5308226104666789935">Chromium kann nicht nach Aktualisierungen suchen</translation>
 <translation id="5311557153294205270">Fügt die eingegebenen URLs zu deinen Lesezeichen in Chromium hinzu.</translation>
+<translation id="5383251701169024761">Wähle die Funktion „Autofill“ in Chromium, um deine gespeicherten Passwörter ganz einfach in deinen anderen Apps abzurufen.</translation>
 <translation id="538767207339317086">Anmeldung in Chromium zulassen</translation>
 <translation id="5389058611415066188">Sicherer surfen mit Chromium</translation>
 <translation id="5415273218238091735">Chromium-Tipp</translation>
@@ -275,7 +277,6 @@ Nur Personen, die deine Passphrase kennen, können deine verschlüsselten Daten 
 <translation id="7763454117143368771">Wenn du Chromium als Standardbrowser verwendest, bist du bestmöglich vor gefährlichen Websites geschützt und kannst auch deine Passwörter besser schützen</translation>
 <translation id="7784950022329154821">Inkognitotabs sperren, wenn Chromium geschlossen wird</translation>
 <translation id="78025249032851484">Deine Chromium-Version ist veraltet.</translation>
-<translation id="7811371919871579588">Wähle die Funktion „Autofill“ in Chromium, um deine gespeicherten Passwörter ganz einfach in deinen anderen Apps abzurufen.</translation>
 <translation id="7859018312476869945">Wenn du etwas in die Adressleiste oder das Suchfeld eingibst, sendet Chromium deine Eingabe an deine Standardsuchmaschine, damit du bessere Vorschläge erhältst. Im Inkognitomodus ist diese Funktion deaktiviert.</translation>
 <translation id="7890287942691234100">Jetzt Chromium-Scanner verwenden</translation>
 <translation id="7905064834449738336">Wenn du ein Passwort verwendest, wirst du von Chromium gewarnt, falls es online veröffentlicht wurde. Dabei werden deine Passwörter und Nutzernamen verschlüsselt, damit sie von niemandem gelesen werden können, auch nicht von Google.</translation>
@@ -306,6 +307,7 @@ Nur Personen, die deine Passphrase kennen, können deine verschlüsselten Daten 
 <translation id="865600487977764604">Schützt dich in Chromium und erhöht möglicherweise die Sicherheit in anderen Google-Apps, wenn du angemeldet bist.</translation>
 <translation id="8663480472502753423">Chromium auf dem neuesten Stand halten</translation>
 <translation id="8685813584220679697">Melde dich bei dieser Website und in Chromium an.</translation>
+<translation id="8698780336333802489">In Chromium importieren</translation>
 <translation id="8730503818204408000">Öffnet die Chromium-Einstellung, mit der Chromium als Standardbrowser festgelegt wird.</translation>
 <translation id="8754966941001340678">Chromium empfiehlt den erweiterten Schutz</translation>
 <translation id="8759037115129007407">Dein Familienmitglied kann derzeit keine Passwörter erhalten. Bitte es, Chromium zu aktualisieren und seine Passwörter zu synchronisieren. <ph name="BEGIN_LINK" />Weitere Informationen<ph name="END_LINK" /></translation>
@@ -330,6 +332,7 @@ Warte einige Minuten, bevor du dich abmeldest. Wenn du dich jetzt abmeldest, wer
 <translation id="9050790730841755540">Du kannst Chromium jederzeit nutzen, wenn du in anderen Apps auf Links tippst.</translation>
 <translation id="9059693977935746710">Du musst dir dieses Passwort nicht merken. Es wird im Passwortmanager für <ph name="EMAIL" /> gespeichert.</translation>
 <translation id="9089354809943900324">Chromium ist veraltet.</translation>
+<translation id="9105645282262300612">Chromium-Tipp: Suchen, was du siehst</translation>
 <translation id="9152995302810511799">Chromium-Tipp: Den stärksten Chromium-Schutz nutzen</translation>
 <translation id="9177628952266852500"><ph name="EMAIL" />. Chromium wird verwaltet.</translation>
 <translation id="921174536258924340">Chromium konnte nicht alle Passwörter prüfen. Versuche es morgen noch einmal oder <ph name="BEGIN_LINK" />prüfe die Passwörter in deinem Google-Konto<ph name="END_LINK" />.</translation>

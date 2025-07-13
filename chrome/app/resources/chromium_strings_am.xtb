@@ -5,6 +5,7 @@
 <translation id="1029669172902658969">&amp;ChromiumOSን ለማዘመን ዳግም ያስነሱት</translation>
 <translation id="1040916596585577953">Chromium ይህን ቅጥያ እንዲገመግሙ ይመክርዎታል</translation>
 <translation id="1042552502243217427">አንድ ጣቢያ በገጻቸው ላይ በግል አገናኞችን ቅድሚያ ለመጫን ሲጠይቅ Chromium የGoogle አገልጋዮችን ይጠቀማል። ይህ ማንነትዎን ቅድሚያ ከተጫነው ጣቢያ ይደብቃል ነገር ግን Google ምን ጣቢያዎች ቅድሚያ እንደሚጫኑ ያውቃል።</translation>
+<translation id="1051793555070215510">ይህን የ1 ደቂቃ የዳሰሳ ጥናት በመውሰድ ማንነት የማያሳውቅን እንድናሻሽል ያግዙን።</translation>
 <translation id="1065672644894730302">አማራጮችዎ ሊነበቡ አልቻሉም።
 
 አንዳንድ ባህሪያት ላይገኙ ይችላሉ፣ እና በአማራጮች ላይ የተደረጉ ለውጦች አይቀመጡም።</translation>
@@ -87,7 +88,6 @@
 <translation id="2126108037660393668">የወረደው ፋይል ማረጋገጫን አላለፈም።</translation>
 <translation id="2137162749895930932">የመተርጎሚያ ማያ ገፅን ዝጋ</translation>
 <translation id="215352261310130060">ጣቢያው ደህንነቱ የተጠበቀ ግንኙነት እየተጠቀመ ስላልሆነ እና ፋይሉ ተነካክቶ ሊሆን ስለሚችል Chromium ይህን ውርድ አግዷል</translation>
-<translation id="2157600032285353789">ዕልባቶችን፣ የንባብ ሁነታን እና ሌሎችንም ከChromium ምናሌው መክፈት ይችላሉ</translation>
 <translation id="2174178932569897599">Chromiumን አብጅ</translation>
 <translation id="2174917724755363426">መጫኑ አልተጠናቀቀም። እርግጠኛ ነዎት መሰረዝ ይፈልጋሉ?</translation>
 <translation id="2185166961232948079">Chromium - በአውታረ መረብ ወደ መለያ መግባት - <ph name="PAGE_TITLE" /></translation>
@@ -222,6 +222,7 @@
 <translation id="3954172517175569325">የእርስዎ የይለፍ ቃላቶች፣ የመክፈያ ዘዴዎች እና በGoogle መለያዎ ውስጥ ያስቀመጧቸው አድራሻዎች ከዚህ መሣሪያ ይወገዳሉ። እንደገና Chromium ውስጥ እነሱን ለመጠቀም መልሰው በመለያ ይግቡ።</translation>
 <translation id="395904275706073188">የተጠብቁ ገፆች ሊነበቡ አይችሉም። የተለተ ገፅ ይሞክሩ።</translation>
 <translation id="3962647064319009959">Chromium እንዴት ደህንነትዎን እንደሚጠብቅ ይወቁ</translation>
+<translation id="3971865010372729242">የአድራሻ አሞሌው ወይም የፍለጋ ሳጥኑ ውስጥ ሲተይቡ ወይም መታ ሲያደርጉ Chromium ጥቆማዎችን ለማግኘት ወደ ድርጅትዎ ፍለጋ፣ ሰው ሠራሽ አስተውሎት እና ወኪል መሣሪያዎች ውስጥ የሚተይቡትን ነገር ይልካል።</translation>
 <translation id="3975724895399328945">ስለ Google Chrome ለሙከራ</translation>
 <translation id="3997429360543082038">ስለChromiumOS</translation>
 <translation id="4019629340646866719">ChromiumOS እና <ph name="BEGIN_LINK_LINUX_OSS" />የLinux ግንባታ ምህዳር<ph name="END_LINK_LINUX_OSS" /> ሊሠሩ የቻሉት በተጨማሪ <ph name="BEGIN_LINK_CROS_OSS" />የክፍት ምንጭ ሶፍትዌር<ph name="END_LINK_CROS_OSS" /> ነው።</translation>
@@ -248,6 +249,7 @@
 <translation id="4281844954008187215">የአግልግሎት ውል</translation>
 <translation id="4285930937574705105">ተለይቶ ባልታወቀ ስህተት ምክንያት ጭነት ከሽፏል። Chromium አሁን እያሄደ ከሆነ እባክዎ ይዝጉትና እንደገና ይሞክሩ።</translation>
 <translation id="4304713468139749426">የይለፍ ቃል አስተዳዳሪ</translation>
+<translation id="4334241893986177674">ይህን ቅጽበታዊ ገጽ እይታ ይፈልጉ</translation>
 <translation id="4334294535648607276">ማውረድ ተጠናቅቋል።</translation>
 <translation id="439358628917130594"><ph name="MANAGER" /> ይህን መሣሪያ ከመጠቀምዎ በፊት የሚከተለውን የአገልግሎት ውል እንዲያነብቡት እና እንዲቀበሉት ይፈለጋል። ይህ ውል የChromiumOS ውሉን አያስፋፋውም፣ አይቀይረውም ወይም አይገድበውም።</translation>
 <translation id="4407044323746248786">የሆነው ሆኖ ከChromium ይወጣ?</translation>
@@ -344,6 +346,7 @@
 <translation id="5775198138441669627">የይለፍ ሐረግዎን ከረሱ ወይም ይህን ቅንብር መለወጥ ከፈለጉ በመለያዎ ውስጥ ያለውን የChromium ውሂብ <ph name="SETTINGS_LINK" /></translation>
 <translation id="5800158606660203929">Chromiumን ያብጁ እና ይቆጣጠሩ። Chromiumን እንደ ነባሪ ያቀናብሩት።</translation>
 <translation id="5809516625706423866">ከበይነመረብ ጋር መገናኘት አልተቻለም። ኤችቲቲፒኤስ 401 አልተፈቀደም። እባክዎ ተኪ ውቅረትዎን ይፈትሹ።</translation>
+<translation id="5817952762723416573">በChromium V8 ሞተር ጣቢያዎችን ያፋጥናል ነገር ግን የChromiumን ጥቃቶችን የመቋቋም አቅም በመጠኑ ያነሰ ያደርገዋል። ይህ ቅንብር ጠፍቷል።</translation>
 <translation id="5821520528363214608">የChromium ውሂብን በGoogle መለያዎ ላይ ለመጠቀም እና ለማስቀመጥ Chromium ያዘምኑ</translation>
 <translation id="5824893331272123205">ይህን ፓነል መጫን አልተቻለም፣ እንደገና ይሞክሩ</translation>
 <translation id="5862307444128926510">ወደ Chromium እንኳን በደህና መጡ</translation>
@@ -360,7 +363,6 @@
 <translation id="5987687638152509985">ስምረትን ለመጀመር Chromiumን ያዘምኑ</translation>
 <translation id="5988505247484123880">የሚጎበኟቸው ጣቢያዎች ልምድዎን ግላዊነት ማላበስ እንዲችሉ እርስዎ የሚፈልጓቸውን ነገሮች ማስታወስ የተለመደ ነው። እንዲሁም ጣቢያዎች ስለዝንባሌዎችዎ መረጃን በChromium አማካኝነት ማከማቸት ይችላሉ።</translation>
 <translation id="6003112304606738118">በማውረድ ላይ... <ph name="HOURS" /> ሰዓት(ታት) ይቀራል(ሉ)</translation>
-<translation id="6019451407441383358">ከላይ በስተቀኝ ካለው የChromium ምናሌ ሆነው ዕልባቶችን፣ የንባብ ሁነታን እና ሌሎችንም መክፈት ይችላሉ</translation>
 <translation id="6040143037577758943">ዝጋ</translation>
 <translation id="6058380562449900225">ውሂብዎን ለመጠበቅ እርስዎ በቅርቡ ካልጎበኟቸው ጣቢያዎች Chromium ፈቃዶችን እንዲያስወግድ ይፍቀዱ። ማሳወቂያዎችን አያቆምም።</translation>
 <translation id="6063093106622310249">በChromium ውስጥ &amp;ክፈት</translation>
@@ -434,6 +436,7 @@
 <translation id="6729124504294600478">ግላዊነት ማላበስን እና ሌሎች ባህሪያትን ለማግኘት Chromiumን በድር እና በመተግበሪያ እንቅስቃሴ እና በተገናኙ የGoogle አገልግሎቶች ውስጥ ያካትቱ</translation>
 <translation id="6734291798041940871">Chromium ለሁሉም በእርስዎ ኮምፒውተር ላይ ላሉ ተጠቃሚዎች አስቀድሞ ተጭኗል።</translation>
 <translation id="674245979920622322">በቅርብ ጊዜ አልጎበኙም። Chromium <ph name="PERMISSION_1" />፣ <ph name="PERMISSION_2" />፣ እና <ph name="COUNT" /> ጨምሮ አስወግዷል</translation>
+<translation id="6751374565094704799">በChromium V8 ሞተር ጣቢያዎችን ያፋጥናል ነገር ግን የChromiumን ጥቃቶችን የመቋቋም አቅም በመጠኑ ያነሰ ያደርገዋል። ይህ ቅንብር በርቷል።</translation>
 <translation id="67706546131546258">Chromium ይህ ፋይል አደገኛ ሊሆን ስለሚችል እንዲቃኙት ይመክራል።</translation>
 <translation id="6779406956731413166">ChromiumOS በተጨማሪ <ph name="BEGIN_LINK_CROS_OSS" />ክፍት ምንጭ ሶፍትዌር<ph name="END_LINK_CROS_OSS" /> እውን ሊሆን ችሏል።</translation>
 <translation id="6831043979455480757">መተርጎም</translation>
@@ -530,7 +533,6 @@ Chromium ቅንብሮችዎን ማስመለስ አልቻለም።</translation>
 <translation id="8118331347066725040">በሌንስ ለፍለጋ ግብረ መልስ ይላኩ</translation>
 <translation id="8133124826068723441">ማስመር ለጎራዎ ስለማይገኝ ChromiumOS ውሂብዎን ማስመር አይችልም።</translation>
 <translation id="813913629614996137">በማስጀመር ላይ…</translation>
-<translation id="8166782796394721554">ተጨማሪ ጥበቃን በChromium ጃቫስክሪፕት እና በWebAssembly ሞተር ውስጥ ያብሩ</translation>
 <translation id="81770708095080097">ይህ ፋይል አደገኛ ስለሆነ Chromium አግዶታል።</translation>
 <translation id="8177472873527554730">በገፅ ውስጥ ያለ ይዘትን ማግኘት አይቻልም</translation>
 <translation id="8200109504272824693">Chromium ውሂብን በእርስዎ መለያ <ph name="USER_EMAIL" /> ውስጥ ለመጠቀም እና ለማስቀመጥ የይለፍ ሐረግዎን ያስገቡ</translation>
@@ -576,6 +578,7 @@ Chromium ቅንብሮችዎን ማስመለስ አልቻለም።</translation>
 <translation id="8704119203788522458">ይሄ የእርስዎ Chromium ነው</translation>
 <translation id="8719993436687031146">ወደ Chromium ይግቡ?</translation>
 <translation id="8747073452963259673">የፍለጋው አካባቢ ከታች በስተግራ ጥግ፦ ግራ <ph name="LEFT" />%፣ ከታች <ph name="BOTTOM" />%</translation>
+<translation id="8768722695577490596">የይለፍ ቃሎች መሰረዝ የሚችሉት ከChromium ውጭ ብቻ ነው</translation>
 <translation id="878572486461146056">የጭነት ስህተት፦ የእርስዎ የአውታረ መረብ አስተዳዳሪ ጭነትን የሚከላከል የቡድን መመሪያ ተግባራዊ አድርጓል፦ <ph name="INSTALL_ERROR" /></translation>
 <translation id="8796602469536043152">Chromium ለዚህ ጣቢያ የእርስዎን ካሜራ እና ማይክሮፎን ለመድረስ ፈቃድ ያስፈልገዋል</translation>
 <translation id="8818550178040858407">ወደ Chromium ይግቡ?</translation>

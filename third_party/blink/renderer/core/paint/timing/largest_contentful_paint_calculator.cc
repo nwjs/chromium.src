@@ -122,15 +122,23 @@ void LargestContentfulPaintCalculator::UpdateWebExposedLargestContentfulImage(
   const AtomicString& image_id =
       image_element ? image_element->GetIdAttribute() : AtomicString();
 
-  window_performance_->OnLargestContentfulPaintUpdated(
-      expose_paint_time_to_api
-          ? std::make_optional(largest_image->paint_timing_info)
-          : std::nullopt,
-      /*paint_size=*/largest_image->recorded_size,
-      /*load_time=*/largest_image->load_time,
-
-      /*id=*/image_id, /*url=*/image_url, /*element=*/image_element,
-      is_triggered_by_soft_navigation);
+  if (!is_triggered_by_soft_navigation) {
+    window_performance_->OnLargestContentfulPaintUpdated(
+        expose_paint_time_to_api
+            ? std::make_optional(largest_image->paint_timing_info)
+            : std::nullopt,
+        /*paint_size=*/largest_image->recorded_size,
+        /*load_time=*/largest_image->load_time,
+        /*id=*/image_id, /*url=*/image_url, /*element=*/image_element);
+  } else {
+    window_performance_->OnInteractionContentfulPaintUpdated(
+        expose_paint_time_to_api
+            ? std::make_optional(largest_image->paint_timing_info)
+            : std::nullopt,
+        /*paint_size=*/largest_image->recorded_size,
+        /*load_time=*/largest_image->load_time,
+        /*id=*/image_id, /*url=*/image_url, /*element=*/image_element);
+  }
 
   // TODO: update trace value with animated frame data
   if (LocalDOMWindow* window = window_performance_->DomWindow()) {
@@ -164,14 +172,23 @@ void LargestContentfulPaintCalculator::UpdateWebExposedLargestContentfulText(
       text_node->IsInShadowTree() ? nullptr : DynamicTo<Element>(text_node);
   const AtomicString& text_id =
       text_element ? text_element->GetIdAttribute() : AtomicString();
+
   // Always use paint time as start time for text LCP candidate.
-  window_performance_->OnLargestContentfulPaintUpdated(
-      largest_text.paint_timing_info,
-      /*paint_size=*/largest_text.recorded_size,
-      /*load_time=*/base::TimeTicks(),
-      /*id=*/text_id,
-      /*url=*/g_empty_string, /*element=*/text_element,
-      is_triggered_by_soft_navigation);
+  if (!is_triggered_by_soft_navigation) {
+    window_performance_->OnLargestContentfulPaintUpdated(
+        largest_text.paint_timing_info,
+        /*paint_size=*/largest_text.recorded_size,
+        /*load_time=*/base::TimeTicks(),
+        /*id=*/text_id,
+        /*url=*/g_empty_string, /*element=*/text_element);
+  } else {
+    window_performance_->OnInteractionContentfulPaintUpdated(
+        largest_text.paint_timing_info,
+        /*paint_size=*/largest_text.recorded_size,
+        /*load_time=*/base::TimeTicks(),
+        /*id=*/text_id,
+        /*url=*/g_empty_string, /*element=*/text_element);
+  }
 
   if (LocalDOMWindow* window = window_performance_->DomWindow()) {
     TRACE_EVENT_MARK_WITH_TIMESTAMP2(

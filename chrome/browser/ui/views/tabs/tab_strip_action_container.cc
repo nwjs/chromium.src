@@ -15,7 +15,6 @@
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/browser_window.h"
-#include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/color/chrome_color_id.h"
 #include "chrome/browser/ui/layout_constants.h"
 #include "chrome/browser/ui/tabs/organization/tab_declutter_controller.h"
@@ -254,7 +253,7 @@ TabStripActionContainer::TabStripActionContainer(
   // `glic_nudge_controller_` will be null if feature is not enabled.
   if (glic_nudge_controller_) {
 #if BUILDFLAG(ENABLE_GLIC)
-    tab_glic_nudge_observation_.Observe(glic_nudge_controller_);
+    glic_nudge_controller_->SetDelegate(this);
 #else
     NOTREACHED();
 #endif  // BUILDFLAG(ENABLE_GLIC)
@@ -272,8 +271,8 @@ TabStripActionContainer::TabStripActionContainer(
     product_specifications_button =
         std::make_unique<ProductSpecificationsButton>(
             tab_strip_controller, browser_window_interface->GetTabStripModel(),
-            browser_window_interface->GetFeatures()
-                .product_specifications_entry_point_controller(),
+            commerce::ProductSpecificationsEntryPointController::From(
+                browser_window_interface),
             /*render_tab_search_before_tab_strip_*/ false, this);
     product_specifications_button->SetProperty(views::kCrossAxisAlignmentKey,
                                                views::LayoutAlignment::kCenter);
@@ -323,6 +322,9 @@ TabStripActionContainer::TabStripActionContainer(
 TabStripActionContainer::~TabStripActionContainer() {
   if (scoped_tab_strip_modal_ui_) {
     scoped_tab_strip_modal_ui_.reset();
+  }
+  if (glic_nudge_controller_) {
+    glic_nudge_controller_->SetDelegate(nullptr);
   }
 }
 
@@ -378,6 +380,11 @@ TabStripActionContainer::CreateAutoTabGroupButton(
 #if BUILDFLAG(ENABLE_GLIC)
 std::unique_ptr<glic::GlicButton> TabStripActionContainer::CreateGlicButton(
     TabStripController* tab_strip_controller) {
+  glic::GlicKeyedService* service =
+      glic::GlicKeyedService::Get(tab_strip_controller_->GetProfile());
+  std::u16string tooltip_text = l10n_util::GetStringUTF16(
+      service->IsWindowOrFreShowing() ? IDS_GLIC_TAB_STRIP_BUTTON_TOOLTIP_CLOSE
+                                      : IDS_GLIC_TAB_STRIP_BUTTON_TOOLTIP);
   std::unique_ptr<glic::GlicButton> glic_button =
       std::make_unique<glic::GlicButton>(
           tab_strip_controller,
@@ -391,7 +398,7 @@ std::unique_ptr<glic::GlicButton> TabStripActionContainer::CreateGlicButton(
                               base::Unretained(this)),
           glic::GlicVectorIconManager::GetVectorIcon(
               IDR_GLIC_BUTTON_VECTOR_ICON),
-          l10n_util::GetStringUTF16(IDS_GLIC_TAB_STRIP_BUTTON_TOOLTIP));
+          tooltip_text);
 
   glic_button->SetProperty(views::kCrossAxisAlignmentKey,
                            views::LayoutAlignment::kCenter);
@@ -501,7 +508,9 @@ void TabStripActionContainer::OnGlicButtonMouseDown() {
   // cache the results for future calls. Which is why the callback does nothing.
   glic::GlicKeyedService* glic_service =
       glic::GlicKeyedServiceFactory::GetGlicKeyedService(profile);
-  glic_service->FetchZeroStateSuggestions(false, base::DoNothing());
+  glic_service->FetchZeroStateSuggestions(
+      /*is_first_run=*/false, /*supported_tools=*/std::nullopt,
+      base::DoNothing());
 }
 #endif  // BUILDFLAG(ENABLE_GLIC)
 
@@ -510,8 +519,6 @@ void TabStripActionContainer::OnTriggerGlicNudgeUI(std::string label) {
 
   CHECK(glic_button_);
   if (!label.empty()) {
-    glic_nudge_controller_->OnNudgeActivity(
-        tabs::GlicNudgeActivity::kNudgeShown);
     glic_button_->SetText(base::UTF8ToUTF16(label));
     ShowTabStripNudge(glic_button_);
   } else {
@@ -521,6 +528,14 @@ void TabStripActionContainer::OnTriggerGlicNudgeUI(std::string label) {
 
 #else
   NOTREACHED();
+#endif  // BUILDFLAG(ENABLE_GLIC)
+}
+
+bool TabStripActionContainer::GetIsShowingGlicNudge() {
+#if BUILDFLAG(ENABLE_GLIC)
+  return glic_button_ && glic_button_->GetIsShowingNudge();
+#else
+  return false;
 #endif  // BUILDFLAG(ENABLE_GLIC)
 }
 

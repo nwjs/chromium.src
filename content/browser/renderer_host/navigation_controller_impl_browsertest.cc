@@ -11995,6 +11995,141 @@ IN_PROC_BROWSER_TEST_P(NavigationControllerBrowserTest,
   EXPECT_TRUE(child->current_frame_host()->IsRenderFrameLive());
 }
 
+class ValidateCommitOriginTest : public NavigationControllerBrowserTest {
+ public:
+  ValidateCommitOriginTest() {
+    scoped_feature_list_.InitAndEnableFeature(
+        features::kValidateCommitOriginAtCommit);
+  }
+
+ private:
+  base::test::ScopedFeatureList scoped_feature_list_;
+};
+
+// This test uses ASSERT_DEATH, which is not supported on Android.
+#if !BUILDFLAG(IS_ANDROID)
+// Test that if a frame's committed origin in session history is manually
+// corrupted, navigating back to it will fail a CHECK in
+// NavigationRequest::ValidateCommitOrigin due to an origin mismatch.
+//
+// This ensures that origin integrity is enforced even during history
+// navigations, and protects against session history corruption.
+// See https://crbug.com/41492620 for context.
+//
+// TODO: Disabled on ChromeOS until M140, re-enable after M140.
+// See crbug.com/422251948.
+#if BUILDFLAG(IS_CHROMEOS)
+#define MAYBE_CorruptedSessionHistoryMismatch \
+  DISABLED_CorruptedSessionHistoryMismatch
+#else
+#define MAYBE_CorruptedSessionHistoryMismatch CorruptedSessionHistoryMismatch
+#endif
+IN_PROC_BROWSER_TEST_P(ValidateCommitOriginTest,
+                       MAYBE_CorruptedSessionHistoryMismatch) {
+  // Navigate to a page and store the session history.
+  GURL url1(embedded_test_server()->GetURL("a.com", "/title1.html"));
+  EXPECT_TRUE(NavigateToURL(shell(), url1));
+  GURL url2(embedded_test_server()->GetURL("b.com", "/title2.html"));
+  EXPECT_TRUE(NavigateToURL(shell(), url2));
+
+  NavigationController& controller = shell()->web_contents()->GetController();
+  NavigationEntryImpl* entry =
+      static_cast<NavigationEntryImpl*>(controller.GetEntryAtIndex(0));
+  ASSERT_TRUE(entry);
+
+  // Corrupt the committed origin in the FrameNavigationEntry.
+  FrameNavigationEntry* frame_entry = entry->root_node()->frame_entry.get();
+  ASSERT_TRUE(frame_entry);
+  frame_entry->set_committed_origin(
+      url::Origin::Create(GURL("https://evil.com")));
+
+  ASSERT_DEATH_IF_SUPPORTED(
+      {
+        controller.GoBack();
+        EXPECT_TRUE(WaitForLoadStop(shell()->web_contents()));
+      },
+      "");
+}
+#endif  // !BUILDFLAG(IS_ANDROID)
+
+// Test extra lines of defense against https://crbug.com/41487933, similar to
+// SubframeBackFromSubframeLocationReplace. This test recreates the session
+// history that originally occurred, where the middle frame's
+// FrameNavigationEntry is incorrectly shared with the first NavigationEntry.
+//
+// This causes the back navigation in step 4 to navigate only the innermost
+// frame from about:blank_A to srcdoc_B, while its parent frame remains on
+// origin A.
+//
+// This test ensures that the navigation does not successfully commit in the
+// wrong origin, due to followup fixes in NavigationRequest's CheckAboutSrcDoc
+// and ValidateCommitOrigin.
+IN_PROC_BROWSER_TEST_P(
+    ValidateCommitOriginTest,
+    SubframeBackFromSubframeLocationReplace_IncorrectSrcdocOrigin) {
+  FrameTreeNode* root = static_cast<WebContentsImpl*>(shell()->web_contents())
+                            ->GetPrimaryFrameTree()
+                            .root();
+  NavigationControllerImpl& controller = static_cast<NavigationControllerImpl&>(
+      shell()->web_contents()->GetController());
+
+  // 1. Navigate to A(B(srcdoc_B)).
+  GURL main_url(
+      embedded_test_server()->GetURL("a.com", "/page_with_blank_iframe.html"));
+  GURL middle_frame_url(embedded_test_server()->GetURL(
+      "b.com", "/frame_tree/page_with_srcdoc_frame.html"));
+  EXPECT_TRUE(NavigateToURL(shell(), main_url));
+  FrameTreeNode* child = root->child_at(0);
+  {
+    FrameNavigateParamsCapturer capturer(child);
+    EXPECT_TRUE(NavigateToURLFromRenderer(child, middle_frame_url));
+    capturer.Wait();
+    EXPECT_EQ(NAVIGATION_TYPE_AUTO_SUBFRAME, capturer.navigation_type());
+  }
+  FrameTreeNode* grandchild = child->child_at(0);
+  NavigationEntryImpl* entry1 = controller.GetLastCommittedEntry();
+
+  // 2. Navigate innermost frame to about:blank_A, from the main frame.
+  {
+    FrameNavigateParamsCapturer capturer(grandchild);
+    EXPECT_TRUE(ExecJs(root, "frames[0][0].location = 'about:blank';"));
+    capturer.Wait();
+    EXPECT_EQ(NAVIGATION_TYPE_NEW_SUBFRAME, capturer.navigation_type());
+  }
+  NavigationEntryImpl* entry2 = controller.GetLastCommittedEntry();
+
+  // 3. Location.replace in middle frame, to A(A(about:blank_A)).
+  {
+    FrameNavigateParamsCapturer capturer(child);
+    EXPECT_TRUE(
+        ExecJs(root, JsReplace("frames[0].location.replace($1)", main_url)));
+    capturer.Wait();
+    EXPECT_TRUE(capturer.did_replace_entry());
+    EXPECT_EQ(NAVIGATION_TYPE_AUTO_SUBFRAME, capturer.navigation_type());
+  }
+
+  // 4. Corrupt the middle frame entry to share with the previous entry.
+  // This simulates a NavigationEntryImpl::UpdatePolicy::kUpdate outcome
+  // for step 3's location.replace, instead of the expected kReplace.
+  {
+    entry1->root_node()->children[0]->frame_entry =
+        entry2->root_node()->children[0]->frame_entry;
+  }
+
+  // 5. Go back.
+  // This navigation should fail—either by being blocked as an invalid
+  // cross-origin srcdoc navigation, or by crashing due to an attempt
+  // to commit a document in the wrong origin.
+  {
+    TestNavigationObserver observer(shell()->web_contents());
+    EXPECT_TRUE(ExecJs(root, "history.back()"));
+    observer.Wait();
+  }
+
+  FrameTreeNode* current_grandchild = child->child_at(0);
+  EXPECT_TRUE(current_grandchild->current_frame_host()->IsErrorDocument());
+}
+
 // Ensure that a redirect or failure that changes the main frame's
 // FrameNavigationEntry replaces it and doesn't affect NavigationEntries that
 // were previously sharing it.
@@ -17810,8 +17945,9 @@ IN_PROC_BROWSER_TEST_P(NavigationControllerBrowserTest,
   EXPECT_NE(success_site_instance, error_site_instance);
   EXPECT_TRUE(
       success_site_instance->IsRelatedSiteInstance(error_site_instance.get()));
-  EXPECT_NE(success_site_instance->GetOrCreateProcess()->GetDeprecatedID(),
-            error_site_instance->GetProcess()->GetDeprecatedID());
+  EXPECT_NE(
+      success_site_instance->GetOrCreateProcessForTesting()->GetDeprecatedID(),
+      error_site_instance->GetProcess()->GetDeprecatedID());
   EXPECT_EQ(GURL(kUnreachableWebDataURL), error_site_instance->GetSiteURL());
 
   EXPECT_TRUE(
@@ -22852,12 +22988,12 @@ IN_PROC_BROWSER_TEST_P(NavigationControllerBrowserTest,
   EXPECT_EQ(origin_to_commit.value(), committed_origin);
 
   GURL site_url = contents()->GetSiteInstance()->GetSiteURL();
-  if (AreAllSitesIsolatedForTesting()) {
+  if (AreStrictSiteInstancesEnabled()) {
     EXPECT_EQ(site_url.spec(),
               "data:" + origin_to_commit->GetNonceForTesting()->ToString());
   } else {
-    // Without site isolation, the data: URL ends up in the default
-    // SiteInstance.
+    // Without site isolation and without DefaultSiteInstanceGroups, the data:
+    // URL ends up in the default SiteInstance.
     EXPECT_EQ(site_url.spec(), "http://unisolated.invalid/");
   }
 }
@@ -23128,6 +23264,86 @@ IN_PROC_BROWSER_TEST_P(NavigationControllerBrowserTest,
   }
 }
 
+// Test the active document count per NetworkIsolationKey with some navigation
+// cases.
+IN_PROC_BROWSER_TEST_P(NavigationControllerBrowserTest,
+                       ActiveDocumentCountPerNetworkIsolationKey) {
+  GURL url_a(embedded_test_server()->GetURL("a.com", "/title1.html"));
+  GURL url_b(embedded_test_server()->GetURL("b.com", "/title2.html"));
+  GURL url_c(embedded_test_server()->GetURL("c.com", "/page_with_iframe.html"));
+
+  // Navigate to `url_a`.
+  ASSERT_TRUE(NavigateToURL(shell(), url_a));
+  StoragePartitionImpl* storage_partition = static_cast<StoragePartitionImpl*>(
+      contents()->GetPrimaryMainFrame()->GetStoragePartition());
+  net::NetworkIsolationKey nik_a =
+      contents()->GetPrimaryMainFrame()->GetNetworkIsolationKey();
+  ASSERT_EQ(storage_partition->GetActiveDocumentCount(nik_a), 1);
+
+  // Navigate cross-site to `url_b`
+  ASSERT_TRUE(NavigateToURL(shell(), url_b));
+  net::NetworkIsolationKey nik_b =
+      contents()->GetPrimaryMainFrame()->GetNetworkIsolationKey();
+  ASSERT_NE(nik_a, nik_b);
+  ASSERT_EQ(storage_partition->GetActiveDocumentCount(nik_a), 0);
+  ASSERT_EQ(storage_partition->GetActiveDocumentCount(nik_b), 1);
+
+  // Open an about:blank popup, which should be same-origin with `url_b`.
+  Shell* new_shell = OpenPopup(shell(), GURL(url::kAboutBlankURL), "foo");
+  EXPECT_TRUE(new_shell);
+  ASSERT_EQ(storage_partition->GetActiveDocumentCount(nik_a), 0);
+  ASSERT_EQ(storage_partition->GetActiveDocumentCount(nik_b), 2);
+
+  // Navigate same-origin to `url_b`.
+  ASSERT_TRUE(NavigateToURL(new_shell, url_b));
+  ASSERT_EQ(storage_partition->GetActiveDocumentCount(nik_a), 0);
+  ASSERT_EQ(storage_partition->GetActiveDocumentCount(nik_b), 2);
+
+  // Navigate cross-origin to `url_c`, which has a same-origin iframe.
+  ASSERT_TRUE(NavigateToURL(new_shell, url_c));
+  RenderFrameHostImpl* rfh_c_main_frame = static_cast<RenderFrameHostImpl*>(
+      new_shell->web_contents()->GetPrimaryMainFrame());
+  net::NetworkIsolationKey nik_c = rfh_c_main_frame->GetNetworkIsolationKey();
+  ASSERT_NE(nik_a, nik_c);
+  ASSERT_NE(nik_b, nik_c);
+  ASSERT_EQ(storage_partition->GetActiveDocumentCount(nik_a), 0);
+  ASSERT_EQ(storage_partition->GetActiveDocumentCount(nik_b), 1);
+  ASSERT_EQ(storage_partition->GetActiveDocumentCount(nik_c), 2);
+
+  // Navigate the iframe to `url_a`. It will have a NetworkIsolationKey that's
+  // different from a main frame `url_a`, since it's embedded under the `url_c`
+  // origin.
+  EXPECT_TRUE(NavigateToURLFromRenderer(rfh_c_main_frame->child_at(0), url_a));
+  net::NetworkIsolationKey nik_a_under_c = rfh_c_main_frame->child_at(0)
+                                               ->current_frame_host()
+                                               ->GetNetworkIsolationKey();
+  ASSERT_NE(nik_a, nik_a_under_c);
+  ASSERT_NE(nik_b, nik_a_under_c);
+  ASSERT_NE(nik_c, nik_a_under_c);
+  ASSERT_EQ(storage_partition->GetActiveDocumentCount(nik_a), 0);
+  ASSERT_EQ(storage_partition->GetActiveDocumentCount(nik_b), 1);
+  ASSERT_EQ(storage_partition->GetActiveDocumentCount(nik_c), 1);
+  ASSERT_EQ(storage_partition->GetActiveDocumentCount(nik_a_under_c), 1);
+
+  // Close the popup, which will delete the popup main frame and iframe.
+  new_shell->Close();
+  ASSERT_EQ(storage_partition->GetActiveDocumentCount(nik_a), 0);
+  ASSERT_EQ(storage_partition->GetActiveDocumentCount(nik_b), 1);
+  ASSERT_EQ(storage_partition->GetActiveDocumentCount(nik_c), 0);
+  ASSERT_EQ(storage_partition->GetActiveDocumentCount(nik_a_under_c), 0);
+
+  // Navigate back to `url_a`.
+  TestNavigationObserver back_load_observer(contents());
+  NavigationControllerImpl& controller =
+      static_cast<NavigationControllerImpl&>(contents()->GetController());
+  controller.GoBack();
+  back_load_observer.Wait();
+  ASSERT_EQ(storage_partition->GetActiveDocumentCount(nik_a), 1);
+  ASSERT_EQ(storage_partition->GetActiveDocumentCount(nik_b), 0);
+  ASSERT_EQ(storage_partition->GetActiveDocumentCount(nik_c), 0);
+  ASSERT_EQ(storage_partition->GetActiveDocumentCount(nik_a_under_c), 0);
+}
+
 class IgnoreDuplicateNavsBrowserTest
     : public NavigationControllerBrowserTestBase,
       public testing::WithParamInterface<
@@ -23353,6 +23569,12 @@ INSTANTIATE_TEST_SUITE_P(
     testing::Combine(testing::ValuesIn(RenderDocumentFeatureLevelValues()),
                      testing::Bool()),
     InitialEmptyDocNavigationControllerBrowserTest::DescribeParams);
+INSTANTIATE_TEST_SUITE_P(
+    All,
+    ValidateCommitOriginTest,
+    testing::Combine(testing::ValuesIn(RenderDocumentFeatureLevelValues()),
+                     testing::Bool()),
+    NavigationControllerBrowserTest::DescribeParams);
 INSTANTIATE_TEST_SUITE_P(
     All,
     LoadDataWithBaseURLWithPossiblyEmptyURLsBrowserTest,

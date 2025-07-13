@@ -80,6 +80,9 @@ class SafeBrowsingPrivateEventRouter : public KeyedService {
   static const char kKeyTabUrl[];
   static constexpr char kKeyContentTransferMethod[] = "contentTransferMethod";
   static constexpr char kKeyHasWatermarking[] = "hasWatermarking";
+  static constexpr char kKeyWebAppSignedInAccount[] = "webAppSignedInAccount";
+  static constexpr char kKeySourceWebAppSignedInAccount[] =
+      "sourceWebAppSignedInAccount";
   static const char kKeyUnscannedReason[];
 
   // String constants for the "trigger" event field.  This corresponds to
@@ -148,6 +151,7 @@ class SafeBrowsingPrivateEventRouter : public KeyedService {
       const std::string& trigger,
       const std::string& scan_id,
       const std::string& content_transfer_method,
+      const std::string& source_email,
       safe_browsing::DeepScanAccessPoint access_point,
       const enterprise_connectors::ContentAnalysisResponse::Result& result,
       const int64_t content_size,
@@ -298,6 +302,7 @@ class SafeBrowsingPrivateEventRouter : public KeyedService {
       const std::string& trigger,
       const std::string& scan_id,
       const std::string& content_transfer_method,
+      const std::string& source_email,
       const enterprise_connectors::ContentAnalysisResponse::Result& result,
       const int64_t content_size,
       const safe_browsing::ReferrerChain& referrer_chain,

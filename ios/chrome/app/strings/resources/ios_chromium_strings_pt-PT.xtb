@@ -174,8 +174,10 @@ Para alterar esta definição, <ph name="BEGIN_LINK" />elimine os dados do Chrom
 <translation id="5203244847421322551">Guarde e preencha automaticamente palavras-passe no Chromium</translation>
 <translation id="5224391634244552924">Não existem palavras-passe guardadas. O Chromium consegue verificar as suas palavras-passe quando as guarda.</translation>
 <translation id="5259423875997548710">Pesquise imagens no Chromium.</translation>
+<translation id="5284913972719948193">Importe os seus dados para usar as palavras-passe, o histórico, os marcadores e os cartões de crédito no Chromium</translation>
 <translation id="5308226104666789935">O Chromium não consegue verificar se existem atualizações.</translation>
 <translation id="5311557153294205270">Adiciona os URLs introduzidos aos marcadores no Chromium.</translation>
+<translation id="5383251701169024761">Para ter facilmente as suas palavras-passe guardadas noutras apps, escolha o Chromium para o preenchimento automático.</translation>
 <translation id="538767207339317086">Permitir o início de sessão no Chromium</translation>
 <translation id="5389058611415066188">Proteja-se com o Chromium</translation>
 <translation id="5415273218238091735">Sugestão do Chromium</translation>
@@ -276,7 +278,6 @@ Só alguém com a sua frase de acesso pode ler os dados encriptados. A Google n�
 <translation id="7763454117143368771">Utilize o Chromium como o navegador predefinido para obter proteção contra sites perigosos e manter as suas palavras-passe protegidas</translation>
 <translation id="7784950022329154821">Bloquear separadores de navegação anónima quando fecha o Chromium</translation>
 <translation id="78025249032851484">O Chromium está desatualizado.</translation>
-<translation id="7811371919871579588">Para ter facilmente as suas palavras-passe guardadas noutras apps, escolha o Chromium para o preenchimento automático.</translation>
 <translation id="7859018312476869945">Quando escreve na barra de endereço ou caixa de pesquisa, o Chromium envia o que escreve para o motor de pesquisa predefinido de forma a obter melhores sugestões. Esta opção está desativada na Navegação anónima.</translation>
 <translation id="7890287942691234100">Comece a utilizar o leitor do Chromium</translation>
 <translation id="7905064834449738336">Quando usa uma palavra-passe, o Chromium avisa se esta tiver sido publicada online. Ao fazê-lo, as suas palavras-passe e nomes de utilizador estão encriptados e, por isso, não podem ser lidos por ninguém, incluindo a Google.</translation>
@@ -307,6 +308,7 @@ Só alguém com a sua frase de acesso pode ler os dados encriptados. A Google n�
 <translation id="865600487977764604">Mantém a sua segurança no Chromium e pode ser usada para melhorar a sua segurança noutras apps Google quando tem sessão iniciada</translation>
 <translation id="8663480472502753423">Mantenha o Chromium atualizado.</translation>
 <translation id="8685813584220679697">Inicie sessão neste site e no Chromium.</translation>
+<translation id="8698780336333802489">Importar para Chromium</translation>
 <translation id="8730503818204408000">Abre a definição do Chromium para definir o Chromium como o navegador predefinido.</translation>
 <translation id="8754966941001340678">O Chromium recomenda a Proteção melhorada</translation>
 <translation id="8759037115129007407">De momento, o membro da sua família não pode receber palavras-passe. Peça-lhe para atualizar o Chromium e sincronizar as respetivas palavras-passe. <ph name="BEGIN_LINK" />Saiba mais<ph name="END_LINK" /></translation>
@@ -331,6 +333,7 @@ Experimente aguardar alguns minutos antes de terminar sessão. Se terminar sess�
 <translation id="9050790730841755540">Use o Chromium sempre que tocar em links noutras apps.</translation>
 <translation id="9059693977935746710">Não terá de memorizar esta palavra-passe. Será guardada no Gestor de palavras-passe de <ph name="EMAIL" /></translation>
 <translation id="9089354809943900324">O Chromium está desatualizado</translation>
+<translation id="9105645282262300612">Dica do Chromium: pesquise o que vê</translation>
 <translation id="9152995302810511799">Sugestão do Chromium: usufrua da segurança mais avançada do Chromium</translation>
 <translation id="9177628952266852500"><ph name="EMAIL" />. O Chromium é gerido.</translation>
 <translation id="921174536258924340">O Chromium não conseguiu verificar todas as palavras-passe. Tente novamente amanhã ou <ph name="BEGIN_LINK" />verifique as palavras-passe na sua Conta Google<ph name="END_LINK" />.</translation>

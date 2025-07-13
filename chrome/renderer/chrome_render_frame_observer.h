@@ -6,6 +6,8 @@
 #define CHROME_RENDERER_CHROME_RENDER_FRAME_OBSERVER_H_
 
 #pragma clang diagnostic ignored "-Wunused-private-field"
+
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -22,9 +24,14 @@
 
 #if !BUILDFLAG(IS_ANDROID)
 #include "chrome/common/actor.mojom.h"
+#include "chrome/renderer/actor/tool_executor.h"
 #endif
 
 class SkBitmap;
+
+namespace actor {
+class Journal;
+}
 
 namespace gfx {
 class Size;
@@ -124,6 +131,9 @@ class ChromeRenderFrameObserver : public content::RenderFrameObserver,
 #if !BUILDFLAG(IS_ANDROID)
   void InvokeTool(actor::mojom::ToolInvocationPtr request,
                   InvokeToolCallback callback) override;
+  void StartActorJournal(
+      mojo::PendingAssociatedRemote<actor::mojom::JournalClient> client)
+      override;
 #endif
 
   // Initialize a |phishing_classifier_delegate_|.
@@ -174,12 +184,20 @@ class ChromeRenderFrameObserver : public content::RenderFrameObserver,
       phishing_image_embedder_ = nullptr;
 #endif
 
+#if !BUILDFLAG(IS_ANDROID)
+  std::unique_ptr<actor::Journal> actor_journal_;
+#endif
+
   // Owned by ChromeContentRendererClient and outlive us.
   raw_ptr<web_cache::WebCacheImpl> web_cache_impl_;
 
 #if !BUILDFLAG(IS_ANDROID)
   // Save the JavaScript to preload if ExecuteWebUIJavaScript is invoked.
   std::vector<std::u16string> webui_javascript_;
+#endif
+
+#if !BUILDFLAG(IS_ANDROID)
+  std::unique_ptr<actor::ToolExecutor> tool_executor_;
 #endif
 
   mojo::AssociatedReceiverSet<chrome::mojom::ChromeRenderFrame> receivers_;

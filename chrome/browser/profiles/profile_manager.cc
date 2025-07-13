@@ -17,6 +17,7 @@
 
 #include "base/command_line.h"
 #include "base/containers/contains.h"
+#include "base/debug/crash_logging.h"
 #include "base/debug/dump_without_crashing.h"
 #include "base/debug/stack_trace.h"
 #include "base/feature_list.h"
@@ -1192,11 +1193,6 @@ void ProfileManager::InitProfileUserPrefs(Profile* profile) {
     profile->GetPrefs()->SetString(prefs::kSupervisedUserId,
                                    supervised_user_id);
   }
-#if !BUILDFLAG(IS_ANDROID)
-  if (profile->IsNewProfile()) {
-    profile->GetPrefs()->SetBoolean(prefs::kHasSeenWelcomePage, false);
-  }
-#endif  // !BUILDFLAG(IS_ANDROID)
 }
 
 void ProfileManager::RegisterTestingProfile(std::unique_ptr<Profile> profile,
@@ -1266,6 +1262,12 @@ void ProfileManager::AddKeepAlive(const Profile* profile,
             << "The keepalive was not added. This may cause a crash during "
             << "teardown. (except in unit tests, where Profiles may not be "
             << "registered with the ProfileManager)";
+    // TODO(crbug.com/368360956): Not incrementing the refcount will cause
+    // `profile` to get destroyed too early. Remove or convert to a CHECK() once
+    // the root cause is fixed.
+    SCOPED_CRASH_KEY_STRING32("ProfileKeepAlive", "origin",
+                              GetKeepAliveOriginName(origin));
+    base::debug::DumpWithoutCrashing();
     return;
   }
 
@@ -2045,12 +2047,8 @@ void ProfileManager::SetProfileAsLastUsed(Profile* last_active) {
         identity_manager->GetPrimaryAccountInfo(signin::ConsentLevel::kSignin);
     AccountInfo extended_info =
         identity_manager->FindExtendedAccountInfo(account_info);
-    signin::Tribool is_managed =
-        extended_info.hosted_domain.empty()
-            ? signin::Tribool::kUnknown
-            : signin::TriboolFromBool(extended_info.IsManaged());
     active_primary_accounts_metrics_recorder->MarkAccountAsActiveNow(
-        account_info.gaia, is_managed);
+        account_info.gaia, extended_info.IsManaged());
   }
 
   // Don't remember ephemeral profiles as last because they are not going to

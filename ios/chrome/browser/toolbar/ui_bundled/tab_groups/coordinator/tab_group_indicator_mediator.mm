@@ -22,7 +22,6 @@
 #import "ios/chrome/browser/share_kit/model/share_kit_face_pile_configuration.h"
 #import "ios/chrome/browser/share_kit/model/share_kit_manage_configuration.h"
 #import "ios/chrome/browser/share_kit/model/share_kit_service.h"
-#import "ios/chrome/browser/share_kit/model/share_kit_share_group_configuration.h"
 #import "ios/chrome/browser/share_kit/model/sharing_state.h"
 #import "ios/chrome/browser/shared/model/url/chrome_url_constants.h"
 #import "ios/chrome/browser/shared/model/web_state_list/tab_group.h"
@@ -47,11 +46,6 @@ using ScopedDataSharingSyncObservation =
     base::ScopedObservation<data_sharing::DataSharingService,
                             data_sharing::DataSharingService::Observer>;
 using tab_groups::SharingState;
-
-namespace {
-// The preferred size in points for the avatar icons.
-constexpr CGFloat kFacePileAvatarSize = 20;
-}  // namespace
 
 @interface TabGroupIndicatorMediator () <DataSharingServiceObserverDelegate,
                                          TabGroupSyncServiceObserverDelegate,
@@ -275,14 +269,10 @@ constexpr CGFloat kFacePileAvatarSize = 20;
   if (!tabGroup) {
     return;
   }
-  if (confirmation) {
-    [_delegate startLeaveOrDeleteSharedGroup:tabGroup->GetWeakPtr()
-                                   forAction:TabGroupActionType::
-                                                 kDeleteSharedTabGroup];
-    return;
-  }
-  [self takeActionForActionType:TabGroupActionType::kDeleteSharedTabGroup
-                 sharedTabGroup:tabGroup];
+  [_delegate
+      startLeaveOrDeleteSharedGroup:tabGroup->GetWeakPtr()
+                          forAction:TabGroupActionType::kDeleteSharedTabGroup
+                   withConfirmation:confirmation];
 }
 
 - (void)leaveSharedGroupWithConfirmation:(BOOL)confirmation {
@@ -290,14 +280,10 @@ constexpr CGFloat kFacePileAvatarSize = 20;
   if (!tabGroup) {
     return;
   }
-  if (confirmation) {
-    [_delegate
-        startLeaveOrDeleteSharedGroup:tabGroup->GetWeakPtr()
-                            forAction:TabGroupActionType::kLeaveSharedTabGroup];
-    return;
-  }
-  [self takeActionForActionType:TabGroupActionType::kLeaveSharedTabGroup
-                 sharedTabGroup:tabGroup];
+  [_delegate
+      startLeaveOrDeleteSharedGroup:tabGroup->GetWeakPtr()
+                          forAction:TabGroupActionType::kLeaveSharedTabGroup
+                   withConfirmation:confirmation];
 }
 
 #pragma mark - SceneStateObserver
@@ -392,48 +378,6 @@ constexpr CGFloat kFacePileAvatarSize = 20;
   [self updateFacePileUI];
 }
 
-// Takes the corresponded action to `actionType` for the shared `group`.
-// TabGroupActionType must be kLeaveSharedTabGroup or kDeleteSharedTabGroup.
-- (void)takeActionForActionType:(TabGroupActionType)actionType
-                 sharedTabGroup:(const TabGroup*)group {
-  CHECK(_collaborationService);
-
-  const tab_groups::CollaborationId collabId =
-      tab_groups::utils::GetTabGroupCollabID(group, _tabGroupSyncService);
-  CHECK(!collabId->empty());
-  const data_sharing::GroupId groupId = data_sharing::GroupId(collabId.value());
-
-  __weak TabGroupIndicatorMediator* weakSelf = self;
-  auto callback = base::BindOnce(^(bool success) {
-    [weakSelf handleTakeActionForActionTypeOutcome:success];
-  });
-
-  // TODO(crbug.com/393073658): Block the screen.
-
-  // Asynchronously call on the server.
-  switch (actionType) {
-    case TabGroupActionType::kLeaveSharedTabGroup:
-      _collaborationService->LeaveGroup(groupId, std::move(callback));
-      break;
-    case TabGroupActionType::kDeleteSharedTabGroup:
-      _collaborationService->DeleteGroup(groupId, std::move(callback));
-      break;
-    case TabGroupActionType::kUngroupTabGroup:
-    case TabGroupActionType::kDeleteTabGroup:
-    case TabGroupActionType::kLeaveOrKeepSharedTabGroup:
-    case TabGroupActionType::kDeleteOrKeepSharedTabGroup:
-      NOTREACHED();
-  }
-}
-
-// Called when `takeActionForActionType:forSharedTabGroup:` server's call
-// returned.
-- (void)handleTakeActionForActionTypeOutcome:(BOOL)success {
-  // TODO(crbug.com/393073658):
-  // - Unblock the screen.
-  // - Show an error if needed.
-}
-
 // Tries to present the IPH to be presented when the app is foregrounded with a
 // shared tab group visible.
 - (void)presentForegroundIPHIfNeeded {
@@ -464,17 +408,12 @@ constexpr CGFloat kFacePileAvatarSize = 20;
 
   // Prevent the face pile from being set up for tab groups that are not shared.
   if (!isShared) {
-    [_consumer setFacePileView:nil];
+    [_consumer setFacePileProvider:nil];
   }
 
-  // Configure the face pile.
-  ShareKitFacePileConfiguration* config =
-      [[ShareKitFacePileConfiguration alloc] init];
-  config.collabID = base::SysUTF8ToNSString(savedCollabID.value());
-  config.showsEmptyState = NO;
-  config.avatarSize = kFacePileAvatarSize;
-
-  [_consumer setFacePileView:_shareKitService->FacePileView(config)];
+  [_consumer
+      setFacePileProvider:[_delegate facePileProviderForGroupID:savedCollabID
+                                                                    .value()]];
 }
 
 // Closes all tabs in `tabGroup`. If `deleteGroup` is false, the group is closed

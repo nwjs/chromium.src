@@ -20,6 +20,7 @@ import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.bookmarks.BookmarkModel;
 import org.chromium.chrome.browser.bookmarks.TabBookmarker;
 import org.chromium.chrome.browser.collaboration.CollaborationServiceFactory;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.share.ShareDelegate;
 import org.chromium.chrome.browser.share.ShareUtils;
@@ -61,6 +62,7 @@ public class TabGridContextMenuCoordinator extends TabOverflowMenuCoordinator<@T
     private final Activity mActivity;
     private final TabGroupModelFilter mTabGroupModelFilter;
     private final BookmarkModel mBookmarkModel;
+    private boolean mIsMenuFocusableUponCreation;
 
     TabGridContextMenuCoordinator(
             Activity activity,
@@ -135,8 +137,11 @@ public class TabGridContextMenuCoordinator extends TabOverflowMenuCoordinator<@T
      * @param anchorViewRectProvider The context menu's anchor view rect provider. These are screen
      *     coordinates.
      * @param tabId The tab id of the interacting tab group.
+     * @param focusable True if the menu should be focusable by default, false otherwise.
      */
-    public void showMenu(RectProvider anchorViewRectProvider, int tabId) {
+    public void showMenu(RectProvider anchorViewRectProvider, int tabId, boolean focusable) {
+        mIsMenuFocusableUponCreation = focusable;
+        boolean isIncognito = mTabGroupModelFilter.getTabModel().isIncognitoBranded();
         createAndShowMenu(
                 anchorViewRectProvider,
                 tabId,
@@ -145,8 +150,15 @@ public class TabGridContextMenuCoordinator extends TabOverflowMenuCoordinator<@T
                 /* animStyle= */ ResourcesCompat.ID_NULL,
                 HorizontalOrientation.LAYOUT_DIRECTION,
                 mActivity,
-                /* isIncognito= */ false);
+                isIncognito);
         recordUserActionWithPrefix("Shown");
+    }
+
+    @Override
+    protected void afterCreate() {
+        // Update the focusable state before the menu window is shown to prevent the menu from
+        // stealing focus from other components.
+        setMenuFocusable(mIsMenuFocusableUponCreation);
     }
 
     @VisibleForTesting
@@ -171,7 +183,7 @@ public class TabGridContextMenuCoordinator extends TabOverflowMenuCoordinator<@T
                 recordUserActionWithPrefix("ShareTab");
             } else if (menuId == R.id.add_to_new_tab_group) {
                 tabGroupModelFilter.createSingleTabGroup(tab);
-                Token groupId = tab.getTabGroupId();
+                Token groupId = assumeNonNull(tab.getTabGroupId());
                 dialogManager.showDialog(groupId, tabGroupModelFilter);
                 recordUserActionWithPrefix("AddToNewGroup");
             } else if (menuId == R.id.add_to_tab_group) {
@@ -203,49 +215,70 @@ public class TabGridContextMenuCoordinator extends TabOverflowMenuCoordinator<@T
         @Nullable Tab tab = getTabById(mTabGroupModelFilter::getTabModel, id);
         if (tab == null) return;
 
+        boolean isIncognito = tab.isIncognitoBranded();
         if (ShareUtils.shouldEnableShare(tab)) {
             itemList.add(
-                    BrowserUiListMenuUtils.buildMenuListItem(
-                            R.string.share, R.id.share_tab, R.drawable.tab_list_editor_share_icon));
+                    BrowserUiListMenuUtils.buildMenuListItemWithIncognitoBranding(
+                            R.string.share,
+                            R.id.share_tab,
+                            R.drawable.tab_list_editor_share_icon,
+                            isIncognito));
         }
 
         if (mTabGroupModelFilter.getTabGroupCount() == 0) {
             itemList.add(
-                    BrowserUiListMenuUtils.buildMenuListItem(
+                    BrowserUiListMenuUtils.buildMenuListItemWithIncognitoBranding(
                             R.string.menu_add_tab_to_new_group,
                             R.id.add_to_new_tab_group,
-                            R.drawable.ic_widgets));
+                            R.drawable.ic_widgets,
+                            isIncognito));
         } else {
             itemList.add(
-                    BrowserUiListMenuUtils.buildMenuListItem(
+                    BrowserUiListMenuUtils.buildMenuListItemWithIncognitoBranding(
                             tab.getTabGroupId() == null
                                     ? R.string.menu_add_tab_to_group
                                     : R.string.menu_move_tab_to_group,
                             R.id.add_to_tab_group,
-                            R.drawable.ic_widgets));
+                            R.drawable.ic_widgets,
+                            isIncognito));
         }
 
         if (mBookmarkModel.hasBookmarkIdForTab(tab)) {
             itemList.add(
-                    BrowserUiListMenuUtils.buildMenuListItem(
+                    BrowserUiListMenuUtils.buildMenuListItemWithIncognitoBranding(
                             R.string.edit_bookmark,
                             R.id.edit_bookmark,
-                            R.drawable.btn_star_filled));
+                            R.drawable.btn_star_filled,
+                            isIncognito));
         } else {
             itemList.add(
-                    BrowserUiListMenuUtils.buildMenuListItem(
+                    BrowserUiListMenuUtils.buildMenuListItemWithIncognitoBranding(
                             R.string.add_to_bookmarks,
                             R.id.add_to_bookmarks,
-                            R.drawable.star_outline_24dp));
+                            R.drawable.star_outline_24dp,
+                            isIncognito));
         }
 
         itemList.add(
-                BrowserUiListMenuUtils.buildMenuListItem(
-                        R.string.select_tab, R.id.select_tabs, R.drawable.ic_edit_24dp));
+                BrowserUiListMenuUtils.buildMenuListItemWithIncognitoBranding(
+                        R.string.select_tab,
+                        R.id.select_tabs,
+                        R.drawable.ic_edit_24dp,
+                        isIncognito));
+
+        // TODO(crbug.com/425953251): Add tests once callback is established.
+        if (shouldBuildPinTabMenuItem()) {
+            itemList.add(
+                    BrowserUiListMenuUtils.buildMenuListItemWithIncognitoBranding(
+                            R.string.pin_tab, R.id.pin_tab, R.drawable.ic_keep_24dp, isIncognito));
+        }
 
         itemList.add(
-                BrowserUiListMenuUtils.buildMenuListItem(
-                        R.string.close_tab, R.id.close_tab, R.drawable.material_ic_close_24dp));
+                BrowserUiListMenuUtils.buildMenuListItemWithIncognitoBranding(
+                        R.string.close_tab,
+                        R.id.close_tab,
+                        R.drawable.material_ic_close_24dp,
+                        isIncognito));
     }
 
     @Override
@@ -271,5 +304,9 @@ public class TabGridContextMenuCoordinator extends TabOverflowMenuCoordinator<@T
 
     private static void recordUserActionWithPrefix(String action) {
         RecordUserAction.record(MENU_USER_ACTION_PREFIX + action);
+    }
+
+    private static boolean shouldBuildPinTabMenuItem() {
+        return ChromeFeatureList.sAndroidPinnedTabs.isEnabled();
     }
 }

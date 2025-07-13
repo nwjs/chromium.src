@@ -90,6 +90,7 @@
 <translation id="2957447865124070833">‏اختيار <ph name="BEGIN_BOLD" />Chrome<ph name="END_BOLD" /></translation>
 <translation id="2986402782150919988">‏إضافة الإشارات المرجعية إلى متصفِّح Chrome</translation>
 <translation id="3030414234702425231">‏نظرًا لتسجيل خروجك من حساب يديره <ph name="SIGNOUT_MANAGED_DOMAIN" />، ستُحذَف بيانات Chrome من هذا الجهاز، ولكن ستظل البيانات محفوظة في حسابك على Google.</translation>
+<translation id="3042447686908081308">‏الاستيراد إلى Chrome</translation>
 <translation id="3051521853355903257">‏إدارة كلمات المرور في Chrome</translation>
 <translation id="309672519329227863">‏يمكنك الوصول إلى كلمات مرورك على Chrome وغيرها من البيانات في التطبيقات الأخرى.</translation>
 <translation id="3109170945534582468">‏إجراءات Chrome</translation>
@@ -138,7 +139,6 @@
 <translation id="4724297637870447613">‏استخدام Chrome في كل مكان</translation>
 <translation id="4738647308035481133">‏صفحة Google Chrome</translation>
 <translation id="4742795653798179840">‏تم حذف بيانات Chrome</translation>
-<translation id="4749294594657945639">‏للوصول بسهولة إلى كلمات المرور المحفوظة واستخدامها في تطبيقاتك الأخرى، ما عليك سوى استخدام ميزة "الملء التلقائي" في Chrome.</translation>
 <translation id="4761869838909035636">‏تفعيل ميزة "التحقّق من الأمان" في Chrome</translation>
 <translation id="4798859546468762093">‏للحصول على خيارات مخصَّصة والاستفادة من ميزات أخرى، يمكنك تضمين متصفّح Chrome في "<ph name="FEATURE_NAME_1" />" و<ph name="FEATURE_NAME_2" /></translation>
 <translation id="4819268619367838612">‏للمساعدة في تحسين التطبيق، يرسِل متصفِّح Chrome بيانات الاستخدام والأعطال إلى Google. <ph name="BEGIN_LINK" />إدارة<ph name="END_LINK" /></translation>
@@ -215,6 +215,7 @@
 <translation id="6533470733797826516">‏يمكنك تسجيل الدخول بشكل أسرع باستخدام ميزة "الملء التلقائي" في Chrome</translation>
 <translation id="6536544321553662809">‏ننصحك بضبط Chrome كمتصفّح تلقائي لمشاركة الروابط وفتحها بسهولة</translation>
 <translation id="6545449117344801102">‏يرصد Chrome العناوين ويستخدم "خرائط Google" لإعلامك بالاتجاهات مع معلومات محلية.</translation>
+<translation id="6611692150236062461">‏للوصول بسهولة إلى كلمات المرور المحفوظة واستخدامها في التطبيقات الأخرى، ما عليك سوى استخدام ميزة "الملء التلقائي" في Chrome.</translation>
 <translation id="6636941099779251629">‏تطلُب المؤسسة منك تسجيل الدخول لاستخدام Chrome. <ph name="BEGIN_LINK" />مزيد من المعلومات<ph name="END_LINK" /></translation>
 <translation id="6646696210740573446">‏يتم إرسال جزء مشفّر من عنوان URL إلى Google من خلال خادم لحماية الخصوصية يخفي عنوان IP الخاص بجهازك. وإذا حاول موقع إلكتروني سرقة كلمة المرور أو إذا نزّلْت ملفًا ضارًا، قد يرسل متصفّح Chrome أيضًا عناوين URL تتضمّن أجزاءً من محتوى الصفحة إلى Google.</translation>
 <translation id="6647304104688527905">‏يؤدي هذا الاختصار إلى فتح علامة تبويب جديدة في Chrome.</translation>
@@ -313,6 +314,7 @@
 تم تشفير بياناتك باستخدام عبارة المرور في ‎<ph name="TIME" />. عليك إدخال عبارة المرور لاستخدام بيانات Chrome وحفظها في حسابك على Google.</translation>
 <translation id="8540666473246803645">Google Chrome</translation>
 <translation id="8544583291890527417">‏تتعلّق هذه التنبيهات بشأن أي مشاكل في الخصوصية أو الأمان يرصدها Chrome.</translation>
+<translation id="855027533751209304">‏نصيحة من Chrome: ابحث عن المحتوى الذي يظهر لك</translation>
 <translation id="8558480467877843976">‏يمكنك الآن استخدام Chrome في أي وقت تتصفَّح فيه أو تنقر فيه على الروابط في الرسائل والمستندات والتطبيقات الأخرى.</translation>
 <translation id="8603022514504485810">‏تعذَّر على "مدير كلمات المرور في Google" التأكد من جميع كلمات المرور. يُرجى إعادة المحاولة غدًا أو <ph name="BEGIN_LINK" />التأكد من كلمات المرور في حسابك على Google<ph name="END_LINK" />.</translation>
 <translation id="8630122478628016441">‏فعِّل "قفل علامات التبويب في وضع التصفّح المتخفي عند إغلاق Chrome".</translation>
@@ -336,6 +338,7 @@
 <translation id="9176561303811134420">‏إدارة "طرق الدفع" في Chrome</translation>
 <translation id="9181628561061032322">‏فتح علامات التبويب الأخيرة في Chrome</translation>
 <translation id="948597495737267756">‏يؤدي هذا الاختصار إلى فتح صفحة "سجلّ Chrome".</translation>
+<translation id="954347330803595209">‏يمكنك استيراد بياناتك لاستخدام كلمات المرور والسجلّ والإشارات المرجعية وبطاقات الائتمان على Chrome</translation>
 <translation id="97300214378190234">‏سيفتح Chrome تلقائيًا عند النقر على روابط في تطبيقات أخرى.</translation>
 <translation id="997929539742564806">‏يمكنك تسجيل الدخول بسرعة إلى التطبيقات والمواقع الإلكترونية من خلال ملء كلمات المرور ومفاتيح المرور تلقائيًا من Chrome</translation>
 <translation id="998677222109959694">‏إدارة إعدادات Chrome</translation>

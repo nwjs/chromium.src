@@ -684,18 +684,6 @@ std::vector<std::pair<double, int>> GetPiecewiseMappingBreakPoints(
     PiecewiseMappingVariant mapping_variant =
         PiecewiseMappingVariant::kRegular);
 
-// Ipad suggestions limit ->
-
-constexpr base::FeatureParam<int> kIpadAdditionalTrendingQueries(
-    &omnibox::kIpadZeroSuggestMatches,
-    "IpadAdditionalTrendingQueries",
-    5);
-
-constexpr base::FeatureParam<int> kIpadZPSLimit(
-    &omnibox::kIpadZeroSuggestMatches,
-    "IpadZPSSuggestionsLimit",
-    20);
-
 // <- Ipad suggestions limit
 // ---------------------------------------------------------
 // <- ML Relevance Scoring
@@ -734,7 +722,7 @@ extern const base::FeatureParam<int>
 // DB or TemplateURLService's copy of the URL.
 extern const base::FeatureParam<std::string> kGeminiUrlOverride;
 
-// Whether the expansion pack (the StarterPackID::kGemini keyword/engine) for
+// Whether the expansion pack (the `StarterPackId::kGemini` keyword/engine) for
 // the site search starter pack is enabled.
 bool IsStarterPackExpansionEnabled();
 
@@ -743,20 +731,6 @@ bool IsStarterPackExpansionEnabled();
 bool IsStarterPackIPHEnabled();
 
 // <- Site Search Starter Pack
-// ---------------------------------------------------------
-// Android Hub Search -->
-//
-// Controls different variations of android hub search including what
-// primitives are included.
-#if BUILDFLAG(IS_ANDROID)
-constexpr base::FeatureParam<bool> kAndroidHubSearchEnableBookmarkProvider{
-    &omnibox::kAndroidHubSearch, "enable_bookmark_provider", true};
-
-constexpr base::FeatureParam<bool> kAndroidHubSearchEnableHistoryProvider{
-    &omnibox::kAndroidHubSearch, "enable_history_provider", true};
-#endif
-
-// <- Android Hub Search
 // ---------------------------------------------------------
 // Power Tools -->
 constexpr base::FeatureParam<size_t> kOmniboxNumNtpZpsRecentSearches{

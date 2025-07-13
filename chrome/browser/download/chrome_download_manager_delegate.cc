@@ -22,6 +22,7 @@
 #include "base/metrics/histogram_macros.h"
 #include "base/path_service.h"
 #include "base/rand_util.h"
+#include "base/strings/string_number_conversions.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/task/single_thread_task_runner.h"
@@ -689,7 +690,9 @@ bool ChromeDownloadManagerDelegate::DetermineDownloadTarget(
   DownloadPathReservationTracker::FilenameConflictAction action =
       kDefaultPlatformConflictAction;
 #if BUILDFLAG(IS_ANDROID)
-  if (download->IsTransient()) {
+  if (base::android::BuildInfo::GetInstance()->is_desktop()) {
+    action = DownloadPathReservationTracker::UNIQUIFY;
+  } else if (download->IsTransient()) {
     if (download_path.empty() && download->GetMimeType() == pdf::kPDFMimeType &&
         !download->IsMustDownload()) {
       if (profile_->IsOffTheRecord() && download->GetDownloadFile() &&

@@ -59,6 +59,7 @@
 #include "components/omnibox/browser/omnibox_popup_selection.h"
 #include "components/omnibox/browser/omnibox_prefs.h"
 #include "components/omnibox/browser/omnibox_text_util.h"
+#include "components/omnibox/common/omnibox_feature_configs.h"
 #include "components/omnibox/common/omnibox_features.h"
 #include "components/prefs/pref_service.h"
 #include "components/security_state/core/security_state.h"
@@ -604,9 +605,10 @@ void OmniboxViewViews::ExecuteCommand(int command_id, int event_flags) {
     case IDC_PASTE_AND_GO:
       model()->PasteAndGo(GetClipboardText(/*notify_if_restricted=*/true));
       return;
+    case IDC_EDIT_SEARCH_ENGINES:
     case IDC_SHOW_FULL_URLS:
     case IDC_SHOW_GOOGLE_LENS_SHORTCUT:
-    case IDC_EDIT_SEARCH_ENGINES:
+    case IDC_SHOW_SEARCH_TOOLS:
       location_bar_view_->command_updater()->ExecuteCommand(command_id);
       return;
 
@@ -1530,7 +1532,7 @@ void OmniboxViewViews::OnBlur() {
   model()->OnKillFocus();
 
   // Deselect the text. Ensures the cursor is an I-beam.
-  SetSelectedRange(gfx::Range(0));
+  SetSelectedRange(gfx::Range(GetCursorPosition()));
 
   // When deselected, elide and reset scroll position. After eliding, the old
   // scroll offset is meaningless (since the string is guaranteed to fit within
@@ -1612,7 +1614,8 @@ bool OmniboxViewViews::IsCommandIdEnabled(int command_id) const {
 
   // These menu items are only shown when they are valid.
   if (command_id == IDC_SHOW_FULL_URLS ||
-      command_id == IDC_SHOW_GOOGLE_LENS_SHORTCUT) {
+      command_id == IDC_SHOW_GOOGLE_LENS_SHORTCUT ||
+      command_id == IDC_SHOW_SEARCH_TOOLS) {
     return true;
   }
 
@@ -1738,7 +1741,9 @@ void OmniboxViewViews::CandidateWindowClosed(
 #endif
 
 void OmniboxViewViews::ContentsChanged(views::Textfield* sender,
-                                       const std::u16string& new_contents) {}
+                                       const std::u16string& new_contents) {
+  saved_selection_for_focus_change_ = gfx::Range::InvalidRange();
+}
 
 bool OmniboxViewViews::HandleKeyEvent(views::Textfield* textfield,
                                       const ui::KeyEvent& event) {
@@ -2059,6 +2064,11 @@ void OmniboxViewViews::UpdateContextMenu(ui::SimpleMenuModel* menu_contents) {
         IDC_SHOW_GOOGLE_LENS_SHORTCUT,
         IDS_CONTEXT_MENU_SHOW_GOOGLE_LENS_SHORTCUT);
   }
+
+  if (omnibox_feature_configs::Toolbelt::Get().enabled) {
+    menu_contents->AddCheckItemWithStringId(IDC_SHOW_SEARCH_TOOLS,
+                                            IDS_CONTEXT_MENU_SHOW_SEARCH_TOOLS);
+  }
 }
 
 bool OmniboxViewViews::IsCommandIdChecked(int id) const {
@@ -2069,6 +2079,10 @@ bool OmniboxViewViews::IsCommandIdChecked(int id) const {
   if (id == IDC_SHOW_GOOGLE_LENS_SHORTCUT) {
     return location_bar_view_->profile()->GetPrefs()->GetBoolean(
         omnibox::kShowGoogleLensShortcut);
+  }
+  if (id == IDC_SHOW_SEARCH_TOOLS) {
+    return location_bar_view_->profile()->GetPrefs()->GetBoolean(
+        omnibox::kShowSearchTools);
   }
   return false;
 }
@@ -2134,10 +2148,12 @@ void OmniboxViewViews::PerformDrop(
   if (std::optional<ui::OSExchangeData::UrlInfo> url_result =
           data.GetURLAndTitle(ui::FilenameToURLPolicy::CONVERT_FILENAMES);
       url_result.has_value()) {
-    text = omnibox::StripJavascriptSchemas(base::UTF8ToUTF16(url_result->url.spec()));
+    text = omnibox::StripJavascriptSchemas(
+        base::UTF8ToUTF16(url_result->url.spec()));
   } else if (const std::optional<std::u16string> text_result = data.GetString();
              text_result.has_value()) {
-    text = omnibox::StripJavascriptSchemas(base::CollapseWhitespace(*text_result, true));
+    text = omnibox::StripJavascriptSchemas(
+        base::CollapseWhitespace(*text_result, true));
   } else {
     output_drag_op = DragOperation::kNone;
     return;

@@ -52,6 +52,9 @@ BASE_DECLARE_FEATURE(kSegmentationPlatformDeviceSwitcher);
 // Feature flag for enabling reader mode action feature.
 BASE_DECLARE_FEATURE(kContextualPageActionShareModel);
 
+// Feature flag for enabling tab grouping action feature.
+BASE_DECLARE_FEATURE(kContextualPageActionTabGrouping);
+
 // Feature flag for enabling shopping user segment feature.
 BASE_DECLARE_FEATURE(kShoppingUserSegmentFeature);
 
@@ -191,6 +194,10 @@ extern const base::FeatureParam<int> kMaxAuxiliarySearchCardImpressions;
 
 // Feature flag for enabling FedCM user segment.
 BASE_DECLARE_FEATURE(kSegmentationPlatformFedCmUser);
+
+// Feature flag enabling checking a propensity model before showing a default
+// browser promo.
+BASE_DECLARE_FEATURE(kDefaultBrowserPromoPropensityModel);
 
 }  // namespace segmentation_platform::features
 

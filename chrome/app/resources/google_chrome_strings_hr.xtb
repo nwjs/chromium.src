@@ -7,6 +7,7 @@
 <translation id="102763973188675173">Prilagodite i kontrolirajte Google Chrome. Dostupno je ažuriranje.</translation>
 <translation id="1028061813283459617">Da biste podatke o pregledavanju izbrisali samo s ovog uređaja, a zadržali ih na svojem Google računu, <ph name="BEGIN_LINK" />odjavite se iz Chromea<ph name="END_LINK" />.</translation>
 <translation id="1042270987544905725">Kliknite da biste zatvorili dijaloški okvir za prijavu u Chrome</translation>
+<translation id="1051793555070215510">Pomozite nam da poboljšamo anonimni način rada ispunjavanjem ove jednominutne ankete.</translation>
 <translation id="1059838145689930908">Da biste upotrebljavali ovo proširenje kao <ph name="USER_EMAIL_ADDRESS" />, prijavite se u Chrome.</translation>
 <translation id="1065672644894730302">Vaše postavke nije moguće čitati. Neke značajke možda nisu dostupne i promjene postavki neće biti spremljene.</translation>
 <translation id="1086486568852410168">Pretraži pomoću Google objektiva</translation>
@@ -52,6 +53,7 @@
 <translation id="1662146548738125461">O ChromeOS Flexu</translation>
 <translation id="1674870198290878346">Otvori vezu u ano&amp;nimnom prozoru Chromea</translation>
 <translation id="1682634494516646069">Google Chrome ne može čitati iz svojeg podatkovnog direktorija niti u njega pisati: <ph name="USER_DATA_DIRECTORY" /></translation>
+<translation id="1688214853608504530">Kad upisujete u adresnu traku ili okvir za pretraživanje, ono što upišete Chrome šalje alatima za pretraživanje, AI alatima i alatima za agente vaše organizacije kako bi vam pružio prijedloge.</translation>
 <translation id="1698376642261615901">Google Chrome jest web-preglednik koji web-stranice i aplikacije pokreće brzinom svjetlosti. Brz je, stabilan i jednostavan za upotrebu. Sigurnije pregledavajte web uz zaštitu protiv zlonamjernog i špijunskog softvera koja je ugrađena u Google Chrome.</translation>
 <translation id="1713301662689114961">{0,plural, =1{Chrome će se ponovo pokrenuti za sat vremena}one{Chrome će se ponovo pokrenuti za # h}few{Chrome će se ponovo pokrenuti za # h}other{Chrome će se ponovo pokrenuti za # h}}</translation>
 <translation id="1722488837206509557">To će vam omogućiti odabir između dostupnih uređaja i prikaz sadržaja na njima.</translation>
@@ -60,6 +62,7 @@
 <translation id="178701303897325119">Ovo proširenje više nije podržano. Chrome preporučuje da ga uklonite.</translation>
 <translation id="1812689907177901597">Ako isključite tu opciju, možete se prijaviti na Googleove web-lokacije kao što je Gmail bez prijavljivanja u Chrome</translation>
 <translation id="1821644463306970002">{NUM_TABS,plural, =1{Chrome preporučuje pauziranje kartice koja usporava preglednik}one{Chrome preporučuje pauziranje kartica koje usporavaju preglednik}few{Chrome preporučuje pauziranje kartica koje usporavaju preglednik}other{Chrome preporučuje pauziranje kartica koje usporavaju preglednik}}</translation>
+<translation id="1832046143430087831">Ubrzava web-lokacije s Chromeovom tražilicom V8, ali Chrome čini malo manje otpornim na napade. Postavka je isključena.</translation>
 <translation id="1838374766361614909">Brisanje pretraživanja</translation>
 <translation id="1860536484129686729">Chrome treba dopuštenje za pristup kameri za ovu web-lokaciju</translation>
 <translation id="1873233029667955273">Google Chrome nije vaš zadani preglednik</translation>
@@ -117,6 +120,7 @@
 <translation id="2569974318947988067">Chrome će pokušati nadograditi kretanja na HTTPS</translation>
 <translation id="2571392474191184472">Vaša organizacija upravlja Chromeom</translation>
 <translation id="2574930892358684005">Korisnik <ph name="EXISTING_USER" /> već je prijavljen na taj profil u Chromeu. Da bi vaše pregledavanje ostalo odvojeno, Chrome vam može izraditi vlastiti profil.</translation>
+<translation id="2579190314336775785">Zaporke se mogu izbrisati samo izvan Chromea</translation>
 <translation id="2580411288591421699">Nije moguće instalirati istu verziju programa Google Chrome koja je trenutačno pokrenuta. Zatvorite Google Chrome i pokušajte ponovo.</translation>
 <translation id="2586406160782125153">Time će se izbrisati podaci o pregledavanju s uređaja. Da biste kasnije dohvatili svoje podatke, prijavite se na Chrome kao <ph name="USER_EMAIL" />.</translation>
 <translation id="259935314519650377">Spremanje preuzetog alata za instalaciju u predmemoriju nije uspjelo. Pogreška: <ph name="UNPACK_CACHING_ERROR_CODE" />.</translation>
@@ -265,6 +269,7 @@
 <translation id="4326552909330437744">{NUM_TABS,plural, =1{Chrome preporučuje pauziranje kartice koja usporava preglednik}one{Chrome preporučuje pauziranje kartica koje usporavaju preglednik}few{Chrome preporučuje pauziranje kartica koje usporavaju preglednik}other{Chrome preporučuje pauziranje kartica koje usporavaju preglednik}}</translation>
 <translation id="4328355335528187361">Google Chrome Dev (mDNS-In)</translation>
 <translation id="4329315893554541805">Da biste dobili personalizaciju i druge značajke, uključite Chrome u aktivnost na webu i u aplikacijama te povezane Googleove usluge</translation>
+<translation id="4334241893986177674">Pretražite ovu snimku zaslona</translation>
 <translation id="4334294535648607276">Preuzimanje je dovršeno.</translation>
 <translation id="4337324600316876133">Da biste primali buduća ažuriranja Google Chromea, trebat će vam macOS 12 ili novija verzija. Na ovom se računalu upotrebljava macOS 11.</translation>
 <translation id="4343195214584226067">Proširenje <ph name="EXTENSION_NAME" /> dodano je u Chrome</translation>
@@ -442,12 +447,12 @@
 <translation id="6718739135284199302">Ubrzajte Chrome</translation>
 <translation id="6735387454586646204">Sustav ChromeOS Flex</translation>
 <translation id="6750954913813541382">Chrome šalje Googleu tekst koji utipkate u preglednik radi ispravljanja pravopisnih pogrešaka</translation>
+<translation id="6760235774835597023">Ubrzava web-lokacije s Chromeovom tražilicom V8, ali Chrome čini malo manje otpornim na napade. Postavka je uključena.</translation>
 <translation id="677276454032249905">Želite li ipak zatvoriti Chrome?</translation>
 <translation id="6794858689789885890">Podaci web-lokacije uvijek se brišu s uređaja kad zatvorite Chrome</translation>
 <translation id="6831043979455480757">Prevedi</translation>
 <translation id="683440813066116847">Ulazno pravilo kako bi Google Chrome Canary dopustio mDNS promet.</translation>
 <translation id="684888714667046800">Povezivanje s internetom nije moguće. Ako upotrebljavate vatrozid, provjerite je li <ph name="PRODUCT_EXE_NAME" /> na popisu dopuštenih.</translation>
-<translation id="6851981911629679515">Uključite dodatnu zaštitu u Chromeovom alatu za JavaScript i WebAssembly</translation>
 <translation id="6877155553248388166">donji desni kut područja za pretraživanje: desno <ph name="RIGHT" />%, dno <ph name="BOTTOM" />%</translation>
 <translation id="6881299373831449287">Ažuriranje Chromea</translation>
 <translation id="6885412569789873916">Aplikacije preglednika Chrome Beta</translation>
@@ -507,7 +512,6 @@
 <translation id="7572537927358445944">Isključeno • Chrome ne može provjeriti odakle dolazi ovo proširenje</translation>
 <translation id="7583399374488819119">Program za instalaciju <ph name="COMPANY_NAME" /></translation>
 <translation id="7606334485649076285">Google ChromeOS Flex</translation>
-<translation id="7626032353295482388">Dobro došli u Chrome</translation>
 <translation id="7626072681686626474"><ph name="MANAGER" /> zahtijeva da pročitate i prihvatite sljedeće uvjete pružanja usluge prije upotrebe ovog uređaja. Ti uvjeti ne predstavljaju proširenje, izmjenu ni ograničenje uvjeta Google Chrome OS-a.</translation>
 <translation id="7629695634924605473">Chrome će vas obavijestiti ako vaše zaporke budu ugrožene</translation>
 <translation id="7641148173327520642">Vaš administrator sustava konfigurirao je Google Chrome da otvara <ph name="ALTERNATIVE_BROWSER_NAME" /> za pristup URL-u <ph name="TARGET_URL_HOSTNAME" />.</translation>
@@ -551,7 +555,6 @@
 <translation id="8019103195866286235">Razvojni programer poništio je objavljivanje tog proširenja i možda nije sigurno. Uklonite ga iz Chromea kako više ne bi moglo vidjeti i mijenjati vaše podatke na web-lokacijama koje posjećujete, uključujući vaše osobne podatke.</translation>
 <translation id="8040768861829554732">Proširenje traži da se prijavite na Chrome</translation>
 <translation id="80471789339884597">Zahvaljujemo što ste izvršili instaliranje. Da biste mogli koristiti <ph name="BUNDLE_NAME" />, morate ponovno pokrenuti sve preglednike.</translation>
-<translation id="8064015041956107954">Možete otvoriti oznake, čitački način rada i druge značajke putem izbornika preglednika Chrome u gornjem desnom kutu</translation>
 <translation id="8064015586118426197">ChromeOS Flex</translation>
 <translation id="8077579734294125741">Ostali profili na Chromeu</translation>
 <translation id="8086881907087796310">Instalacija nije uspjela jer vaše računalo ne zadovoljava minimalne zahtjeve za hardver.</translation>
@@ -563,7 +566,6 @@
 <translation id="8177472873527554730">Sadržaj na stranici nije pronađen</translation>
 <translation id="8221491193165283816">Uglavnom blokirate obavijesti. Da biste dopustili web-lokaciji prikazivanje obavijesti, kliknite ovdje.</translation>
 <translation id="8255190535488645436">Google Chrome upotrebljava vašu kameru i mikrofon.</translation>
-<translation id="8257796129973882597">Možete otvoriti oznake, čitački način rada i druge značajke putem izbornika preglednika Chrome</translation>
 <translation id="8267953129876836456">Chrome je pronašao neke sigurnosne preporuke za vaš pregled</translation>
 <translation id="8286862437124483331">Google Chrome pokušava prikazati zaporke. Upišite svoju zaporku za Windows da biste to dopustili.</translation>
 <translation id="829923460755755423">Dodavanje prečaca Google upravitelju zaporki</translation>

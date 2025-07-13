@@ -75,6 +75,7 @@ extern NSString* const kTabGroupsSymbol;
 extern NSString* const kLanguageSymbol;
 extern NSString* const kLocationSymbol;
 extern NSString* const kPasswordSymbol;
+extern NSString* const kCropSymbol;
 #if !BUILDFLAG(IS_IOS_MACCATALYST)
 extern NSString* const kMulticolorPasswordSymbol;
 #endif  // BUILDFLAG(IS_IOS_MACCATALYST)
@@ -99,6 +100,8 @@ extern NSString* const kMyDriveSymbol;
 extern NSString* const kSharedDrivesSymbol;
 extern NSString* const kEllipsisSquareFillSymbol;
 extern NSString* const kMagnifyingglassSparkSymbol;
+extern NSString* const kPasswordManagerTrustedVaultWidgetPromoImage;
+extern NSString* const kPasswordManagerTrustedVaultWidgetPromoDisabledImage;
 
 // Custom symbol names which can be configured with a color palette. iOS 15+
 // only.
@@ -199,6 +202,8 @@ extern NSString* const kExpandSymbol;
 extern NSString* const kBackSymbol;
 extern NSString* const kForwardSymbol;
 extern NSString* const kPersonFillSymbol;
+extern NSString* const kPersonClockFillSymbol;
+extern NSString* const kPersonFillBadgePlusSymbol;
 extern NSString* const kMailFillSymbol;
 extern NSString* const kPhoneFillSymbol;
 extern NSString* const kDownloadPromptFillSymbol;
@@ -262,6 +267,7 @@ extern NSString* const kPencilSymbol;
 extern NSString* const kMagicStackSymbol;
 extern NSString* const kDiscoverFeedSymbol;
 extern NSString* const kFilterSymbol;
+extern NSString* const kCounterClockWiseSymbol;
 extern NSString* const kSelectedFilterSymbol;
 extern NSString* const kPersonTwoSymbol;
 extern NSString* const kSquareFilledOnSquareSymbol;
@@ -281,6 +287,7 @@ extern NSString* const kShieldedEnvelope;
 extern NSString* const kReaderModeSymbolPreIOS18;
 extern NSString* const kReaderModeSymbolPostIOS18;
 extern NSString* const kCircleBadgeFill;
+extern NSString* const kTextSparkSymbol;
 
 // Names of the default symbol being non-monochrome by default. When using them,
 // you probably want to set their color to monochrome.

@@ -174,8 +174,10 @@ Da promijenite ovu postavku, <ph name="BEGIN_LINK" />izbrišite podatke Chromium
 <translation id="5203244847421322551">Pohranjujte i automatski popunjavajte lozinke u Chromiumu</translation>
 <translation id="5224391634244552924">Nema sačuvanih lozinki. Chromium može provjeravati vaše lozinke kada ih sačuvate.</translation>
 <translation id="5259423875997548710">Pretraživanje vizuelnih elemenata u Chromiumu.</translation>
+<translation id="5284913972719948193">Uvezite podatke da koristite lozinke, historiju, oznake i kreditne kartice u Chromiumu</translation>
 <translation id="5308226104666789935">Chromium ne može provjeriti ima li ažuriranja</translation>
 <translation id="5311557153294205270">Dodaje unesene URL-ove u vaše oznake u Chromiumu.</translation>
+<translation id="5383251701169024761">Da lako dobijate sačuvane lozinke u drugim aplikacijama, odaberite Chromium za automatsko popunjavanje.</translation>
 <translation id="538767207339317086">Dozvoli prijavljivanje u Chromium</translation>
 <translation id="5389058611415066188">Budite sigurni uz Chromium</translation>
 <translation id="5415273218238091735">Savjet za Chromium</translation>
@@ -276,7 +278,6 @@ Vaše šifrirane podatke može čitati samo osoba koja ima vaš pristupni izraz.
 <translation id="7763454117143368771">Koristite Chromium kao zadani preglednik da se zaštitite od opasnih web lokacija i da zaštitite lozinke</translation>
 <translation id="7784950022329154821">Zaključaj anonimne kartice prilikom zatvaranja Chromiuma</translation>
 <translation id="78025249032851484">Chromium je zastario.</translation>
-<translation id="7811371919871579588">Da lako dobijate sačuvane lozinke u drugim aplikacijama, odaberite Chromium za automatsko popunjavanje.</translation>
 <translation id="7859018312476869945">Kad pišete u traci za adresu ili u okviru za pretraživanje, Chromium šalje ono što upišete zadanom pretraživaču radi dobijanja boljih prijedloga. Ovo je isključeno u anonimnom načinu rada.</translation>
 <translation id="7890287942691234100">Počnite koristiti Chromium skener</translation>
 <translation id="7905064834449738336">Kada koristite lozinku, Chromium vas upozorava ako je objavljena online. Prilikom toga, vaše lozinke i korisnička imena su šifrirani i niko, uključujući Google, ih ne može pročitati.</translation>
@@ -307,6 +308,7 @@ Vaše šifrirane podatke može čitati samo osoba koja ima vaš pristupni izraz.
 <translation id="865600487977764604">Štiti vas na Chromiumu i može se koristiti da poboljša vašu sigurnost u drugim Googleovim aplikacijama kada ste prijavljeni.</translation>
 <translation id="8663480472502753423">Redovno ažurirajte Chromium</translation>
 <translation id="8685813584220679697">Prijavite se na ovu web lokaciju i u Chromium.</translation>
+<translation id="8698780336333802489">Uvezi u Chromium</translation>
 <translation id="8730503818204408000">Otvara Chromiumovu postavku za namještanje Chromiuma kao zadanog preglednika.</translation>
 <translation id="8754966941001340678">Chromium preporučuje poboljšanu zaštitu</translation>
 <translation id="8759037115129007407">Član porodice trenutno ne može primiti lozinke. Zatražite da ažurira Chromium i sinhronizira lozinke. <ph name="BEGIN_LINK" />Saznajte više<ph name="END_LINK" /></translation>
@@ -331,6 +333,7 @@ Pričekajte nekoliko minuta prije odjave. Ako se sada odjavite, ovi podaci će s
 <translation id="9050790730841755540">Koristite Chromium svaki put kada dodirnete linkove u drugim aplikacijama.</translation>
 <translation id="9059693977935746710">Nećete morati zapamtiti ovu lozinku. Sačuvat će se u Upravitelju lozinki za račun <ph name="EMAIL" /></translation>
 <translation id="9089354809943900324">Chromium nije ažuriran</translation>
+<translation id="9105645282262300612">Savjet za Chromium: pretražite ono što vidite</translation>
 <translation id="9152995302810511799">Savjet za Chromium: dobijte Chromiumovu najjaču zaštitu</translation>
 <translation id="9177628952266852500"><ph name="EMAIL" />. Chromiumom se upravlja.</translation>
 <translation id="921174536258924340">Chromium nije mogao provjeriti sve lozinke. Pokušajte ponovo sutra ili <ph name="BEGIN_LINK" />provjerite lozinke na Google računu.<ph name="END_LINK" /></translation>

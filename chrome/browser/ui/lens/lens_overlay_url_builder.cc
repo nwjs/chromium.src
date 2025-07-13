@@ -9,6 +9,7 @@
 #include "base/base64url.h"
 #include "base/notreached.h"
 #include "base/strings/escape.h"
+#include "base/strings/string_number_conversions.h"
 #include "base/strings/stringprintf.h"
 #include "chrome/browser/browser_process.h"
 #include "components/language/core/common/language_util.h"
@@ -276,6 +277,8 @@ GURL AppendInvocationSourceParamToURL(
     case lens::LensOverlayInvocationSource::kLVFShutterButton:
     case lens::LensOverlayInvocationSource::kLVFGallery:
     case lens::LensOverlayInvocationSource::kContextMenu:
+    case lens::LensOverlayInvocationSource::kAIHub:
+    case lens::LensOverlayInvocationSource::kFREPromo:
       NOTREACHED() << "Invocation source not supported.";
   }
   return net::AppendOrReplaceQueryParameter(
@@ -535,7 +538,8 @@ GURL GetSidePanelNewTabUrl(const GURL& side_panel_url, std::string vsrid) {
                                             kRequestIdParameterKey, vsrid);
 }
 
-GURL BuildTranslateLanguagesURL(std::string country, std::string language) {
+GURL BuildTranslateLanguagesURL(std::string_view country,
+                                std::string_view language) {
   GURL url = GURL(lens::features::GetLensOverlayTranslateEndpointURL());
   url =
       net::AppendOrReplaceQueryParameter(url, kCountryQueryParameter, country);

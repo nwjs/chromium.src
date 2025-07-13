@@ -13,9 +13,9 @@
 #import "components/strings/grit/components_strings.h"
 #import "ios/chrome/browser/keyboard/ui_bundled/UIKeyCommand+Chrome.h"
 #import "ios/chrome/browser/menu/ui_bundled/action_factory.h"
+#import "ios/chrome/browser/saved_tab_groups/ui/face_pile_providing.h"
 #import "ios/chrome/browser/share_kit/model/sharing_state.h"
 #import "ios/chrome/browser/shared/model/web_state_list/tab_group.h"
-#import "ios/chrome/browser/shared/public/commands/application_commands.h"
 #import "ios/chrome/browser/shared/public/commands/tab_groups_commands.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/shared/ui/elements/extended_touch_target_button.h"
@@ -175,6 +175,8 @@ UIButton* TopToolbarButton(NSString* symbol_name,
   UIView* _containerBackground;
   // The gesture recognizer to swipe to dismiss the tab group view.
   UIPanGestureRecognizer* _swipeDownGestureRecognizer;
+  // Face pile provider.
+  id<FacePileProviding> _facePileProvider;
 }
 
 #pragma mark - Public
@@ -182,9 +184,6 @@ UIButton* TopToolbarButton(NSString* symbol_name,
 - (instancetype)initWithHandler:(id<TabGroupsCommands>)handler
                       incognito:(BOOL)incognito
                        tabGroup:(const TabGroup*)tabGroup {
-  CHECK(IsTabGroupInGridEnabled())
-      << "You should not be able to create a tab group view controller outside "
-         "the Tab Groups experiment.";
   CHECK(tabGroup);
   if ((self = [super init])) {
     _handler = handler;
@@ -548,13 +547,14 @@ UIButton* TopToolbarButton(NSString* symbol_name,
   }
 }
 
-- (void)setFacePileView:(UIView*)facePileView {
-  if (_facePileView == facePileView) {
+- (void)setFacePileProvider:(id<FacePileProviding>)facePileProvider {
+  if (_facePileProvider == facePileProvider) {
     return;
   }
+  _facePileProvider = facePileProvider;
 
   if (IsContainedTabGroupEnabled()) {
-    if (_facePileView.superview == _facePileContainer) {
+    if ([_facePileView isDescendantOfView:self.view]) {
       [_facePileView removeFromSuperview];
     }
     [_facePileContainer removeFromSuperview];
@@ -562,7 +562,7 @@ UIButton* TopToolbarButton(NSString* symbol_name,
     [_facePileView removeFromSuperview];
   }
 
-  _facePileView = facePileView;
+  _facePileView = _facePileProvider.facePileView;
 
   if (!_facePileView) {
     return;
@@ -953,12 +953,7 @@ UIButton* TopToolbarButton(NSString* symbol_name,
     [bottomToolbar
         setScrollViewScrolledToEdge:self.gridViewController.scrolledToBottom];
   }
-  [bottomToolbar setEditButtonHidden:YES];
-  [bottomToolbar setDoneButtonHidden:YES];
-
-  if (IsTabGroupSendFeedbackAvailable()) {
-    [bottomToolbar setTabGroupFeedbackVisible:YES];
-  }
+  bottomToolbar.isInTabGroupView = YES;
 
   [_container addSubview:bottomToolbar];
 
@@ -1357,7 +1352,7 @@ UIButton* TopToolbarButton(NSString* symbol_name,
 }
 
 - (void)keyCommand_close {
-  base::RecordAction(base::UserMetricsAction("MobileKeyCommandClose"));
+  base::RecordAction(base::UserMetricsAction(kMobileKeyCommandClose));
   [self didTapCloseButton];
 }
 
@@ -1415,13 +1410,6 @@ UIButton* TopToolbarButton(NSString* symbol_name,
 
 - (void)selectTabsButtonTapped:(id)sender {
   NOTREACHED();
-}
-
-- (void)sendFeedbackGroupTapped:(id)sender {
-  // TODO(crbug.com/398183785): Remove once we got feedback.
-  [self.applicationHandler
-      showReportAnIssueFromViewController:self
-                                   sender:UserFeedbackSender::TabGroup];
 }
 
 @end

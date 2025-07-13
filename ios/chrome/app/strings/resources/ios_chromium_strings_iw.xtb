@@ -174,8 +174,10 @@
 <translation id="5203244847421322551">‏שמירה ומילוי אוטומטי של סיסמאות ב-Chromium</translation>
 <translation id="5224391634244552924">‏אין סיסמאות שמורות. Chromium יכול לבדוק את הסיסמאות שלך רק אם שמרת אותן.</translation>
 <translation id="5259423875997548710">‏חיפוש רכיבים חזותיים ב-Chromium.</translation>
+<translation id="5284913972719948193">‏כדי להשתמש בסיסמאות, בהיסטוריה, בסימניות ובכרטיסי האשראי שלך ב-Chromium, צריך לייבא את הנתונים שלך</translation>
 <translation id="5308226104666789935">‏Chromium לא יכול לחפש עדכונים</translation>
 <translation id="5311557153294205270">‏הוספה של כתובות ה-URL שהוזנו לסימניות ב-Chromium.</translation>
+<translation id="5383251701169024761">‏כדי לגשת בקלות לסיסמאות השמורות שלך באפליקציות אחרות, אפשר לבחור ב-Chromium למילוי אוטומטי.</translation>
 <translation id="538767207339317086">‏התרת כניסה אל Chromium</translation>
 <translation id="5389058611415066188">‏שמירה על הבטיחות בעזרת Chromium</translation>
 <translation id="5415273218238091735">‏טיפ ל-Chromium</translation>
@@ -276,7 +278,6 @@
 <translation id="7763454117143368771">‏כדאי להשתמש ב-Chromium כדפדפן ברירת המחדל כדי ליהנות מהגנה מפני אתרים מסוכנים ולשמור על אבטחת הסיסמאות</translation>
 <translation id="7784950022329154821">‏נעילת הכרטיסיות הפרטיות כשסוגרים את Chromium</translation>
 <translation id="78025249032851484">‏Chromium לא מעודכן.</translation>
-<translation id="7811371919871579588">‏אפשר לבחור ב-Chromium למילוי אוטומטי כדי לגשת בקלות לסיסמאות השמורות שלך באפליקציות אחרות.</translation>
 <translation id="7859018312476869945">‏כשמקלידים טקסט בסרגל הכתובות או בתיבת החיפוש, Chromium שולח את הטקסט הזה למנוע החיפוש שמוגדר כברירת מחדל כדי לקבל הצעות טובות יותר. האפשרות הזו מושבתת במצב הפרטי.</translation>
 <translation id="7890287942691234100">‏התחלת השימוש בסורק של Chromium</translation>
 <translation id="7905064834449738336">‏אם משתמשים בסיסמה והיא פורסמה באינטרנט, מוצגת אזהרה ב-Chromium. כשהבדיקה הזו מתבצעת, הסיסמאות ושמות המשתמשים מוצפנים, כך שאיש לא יכול לקרוא אותם, כולל Google.</translation>
@@ -307,6 +308,7 @@
 <translation id="865600487977764604">‏מגן עליך ב‑Chromium ועשוי לשפר את רמת האבטחה באפליקציות אחרות של Google. ההגנה הזו פעילה רק אם נכנסים לחשבון.</translation>
 <translation id="8663480472502753423">‏Chromium יתעדכן באופן קבוע</translation>
 <translation id="8685813584220679697">‏יש להיכנס לאתר הזה ול-Chromium.</translation>
+<translation id="8698780336333802489">‏ייבוא אל Chromium</translation>
 <translation id="8730503818204408000">‏פתיחה של הגדרות Chromium כדי להגדיר את Chromium כדפדפן ברירת המחדל.</translation>
 <translation id="8754966941001340678">‏ההמלצה של Chromium היא הגנה משופרת</translation>
 <translation id="8759037115129007407">‏בן המשפחה שלך לא יכול לקבל סיסמאות כרגע. צריך לבקש ממנו לעדכן את Chromium ולסנכרן את הסיסמאות. <ph name="BEGIN_LINK" />מידע נוסף<ph name="END_LINK" /></translation>
@@ -331,6 +333,7 @@
 <translation id="9050790730841755540">‏שימוש ב-Chromium בכל פעם שלוחצים על קישורים באפליקציות אחרות.</translation>
 <translation id="9059693977935746710">אין צורך לזכור את הסיסמה הזו. היא תישמר במנהל הסיסמאות בחשבון <ph name="EMAIL" /></translation>
 <translation id="9089354809943900324">‏Chromium אינו מעודכן</translation>
+<translation id="9105645282262300612">‏טיפ ל-Chromium: מחפשים את מה שרואים</translation>
 <translation id="9152995302810511799">‏טיפ ל-Chromium: כדאי ליהנות מרמת האבטחה הכי יעילה של Chromium</translation>
 <translation id="9177628952266852500">‏‫<ph name="EMAIL" />. Chromium מנוהל.</translation>
 <translation id="921174536258924340">‏Chromium לא הצליח לבדוק את כל הסיסמאות. אפשר לנסות שוב מחר או <ph name="BEGIN_LINK" />לבדוק את הסיסמאות בחשבון Google.<ph name="END_LINK" /></translation>

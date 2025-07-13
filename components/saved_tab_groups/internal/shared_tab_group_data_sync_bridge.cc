@@ -585,7 +585,7 @@ SharedTabGroupDataSyncBridge::MergeFullSyncData(
       std::move(metadata_change_list), std::move(entity_data));
 
   model_wrapper_->OnSyncBridgeUpdateTypeChanged(
-      SyncBridgeUpdateType::kDefaultState);
+      SyncBridgeUpdateType::kCompletedInitialMergeThisSession);
   return result;
 }
 
@@ -868,7 +868,7 @@ void SharedTabGroupDataSyncBridge::ApplyDisableSyncChanges(
   store_->DeleteAllDataAndMetadata(base::DoNothing());
 
   model_wrapper_->OnSyncBridgeUpdateTypeChanged(
-      SyncBridgeUpdateType::kDefaultState);
+      SyncBridgeUpdateType::kCompletedDisableSyncThisSession);
 }
 
 sync_pb::EntitySpecifics

@@ -5,6 +5,7 @@
 <translation id="1029669172902658969">&amp;ChromiumOS ਨੂੰ ਅੱਪਡੇਟ ਕਰਨ ਲਈ ਮੁੜ-ਲਾਂਚ ਕਰੋ</translation>
 <translation id="1040916596585577953">Chromium ਤੁਹਾਨੂੰ ਇਸ ਐਕਸਟੈਂਸ਼ਨ ਦੀ ਸਮੀਖਿਆ ਕਰਨ ਦੀ ਸਿਫ਼ਾਰਸ਼ ਕਰਦਾ ਹੈ</translation>
 <translation id="1042552502243217427">ਜਦੋਂ ਕੋਈ ਸਾਈਟ ਆਪਣੇ ਪੰਨੇ 'ਤੇ ਨਿੱਜੀ ਤੌਰ 'ਤੇ ਲਿੰਕਾਂ ਨੂੰ ਪ੍ਰੀਲੋਡ ਕਰਨ ਲਈ ਕਹਿੰਦੀ ਹੈ, ਤਾਂ Chromium Google ਸਰਵਰਾਂ ਦੀ ਵਰਤੋਂ ਕਰਦਾ ਹੈ। ਇਹ ਪ੍ਰੀਲੋਡ ਕੀਤੀ ਸਾਈਟ ਤੋਂ ਤੁਹਾਡੀ ਪਛਾਣ ਨੂੰ ਲੁਕਾਉਂਦਾ ਹੈ, ਪਰ Google ਨੂੰ ਪਤਾ ਲੱਗ ਜਾਂਦਾ ਹੈ ਕਿ ਕਿਹੜੀਆਂ ਸਾਈਟਾਂ ਨੂੰ ਪ੍ਰੀਲੋਡ ਕੀਤਾ ਗਿਆ ਹੈ।</translation>
+<translation id="1051793555070215510">ਇਸ 1 ਮਿੰਟ ਦੇ ਸਰਵੇਖਣ ਨੂੰ ਭਰ ਕੇ ਇਨਕੋਗਨਿਟੋ ਨੂੰ ਬਿਹਤਰ ਬਣਾਉਣ ਵਿੱਚ ਮਦਦ ਕਰੋ।</translation>
 <translation id="1065672644894730302">ਤੁਹਾਡੀਆਂ ਤਰਜੀਹਾਂ ਪੜ੍ਹੀਆਂ ਨਹੀਂ ਜਾ ਸਕਦੀਆਂ।
 
 ਕੁਝ ਵਿਸ਼ੇਸ਼ਤਾਵਾਂ ਅਣਉਪਲਬਧ ਹੋ ਸਕਦੀਆਂ ਹਨ ਅਤੇੇ ਤਰਜੀਹਾਂ ਵਿੱਚ ਕੀਤੇ ਬਦਲਾਵ ਸੁਰੱਖਿਅਤ ਨਹੀਂ ਕੀਤੇ ਜਾਣਗੇ।</translation>
@@ -87,7 +88,6 @@
 <translation id="2126108037660393668">ਡਾਊਨਲੋਡ ਕੀਤੀ ਫ਼ਾਈਲ ਦਾ ਪੁਸ਼ਟੀਕਰਨ ਅਸਫਲ ਰਿਹਾ।</translation>
 <translation id="2137162749895930932">ਅਨੁਵਾਦ ਸਕ੍ਰੀਨ ਨੂੰ ਬੰਦ ਕਰੋ</translation>
 <translation id="215352261310130060">Chromium ਨੇ ਇਸ ਡਾਊਨਲੋਡ ਨੂੰ ਬਲਾਕ ਕਰ ਦਿੱਤਾ ਹੈ ਕਿਉਂਕਿ ਸਾਈਟ ਸੁਰੱਖਿਅਤ ਕਨੈਕਸ਼ਨ ਨਹੀਂ ਵਰਤ ਰਹੀ ਅਤੇ ਹੋ ਸਕਦਾ ਹੈ ਕਿ ਫ਼ਾਈਲ ਨਾਲ ਛੇੜਛਾੜ ਹੋਈ ਹੋਵੇ</translation>
-<translation id="2157600032285353789">ਤੁਸੀਂ Chromium ਮੀਨੂ ਤੋਂ ਬੁੱਕਮਾਰਕ, ਪੜ੍ਹਨ ਸੰਬੰਧੀ ਮੋਡ ਅਤੇ ਹੋਰ ਬਹੁਤ ਕੁਝ ਖੋਲ੍ਹ ਸਕਦੇ ਹੋ</translation>
 <translation id="2174178932569897599">Chromium ਨੂੰ ਵਿਉਂਤਬੱਧ ਕਰੋ</translation>
 <translation id="2174917724755363426">ਸਥਾਪਨਾ ਪੂਰੀ ਨਹੀਂ ਹੋਈ। ਕੀ ਤੁਸੀਂ ਪੱਕਾ ਰੱਦ ਕਰਨਾ ਚਾਹੁੰਦੇ ਹੋ?</translation>
 <translation id="2185166961232948079">Chromium - ਨੈੱਟਵਰਕ ਸਾਈਨ-ਇਨ - <ph name="PAGE_TITLE" /></translation>
@@ -222,6 +222,7 @@
 <translation id="3954172517175569325">ਤੁਹਾਡੇ Google ਖਾਤੇ ਵਿੱਚ ਰੱਖਿਅਤ ਕੀਤੇ ਪਾਸਵਰਡਾਂ, ਭੁਗਤਾਨ ਵਿਧੀਆਂ ਅਤੇ ਪਤਿਆਂ ਨੂੰ ਇਸ ਡੀਵਾਈਸ ਤੋਂ ਹਟਾ ਦਿੱਤਾ ਜਾਵੇਗਾ। ਉਨ੍ਹਾਂ ਨੂੰ Chromium ਵਿੱਚ ਦੁਬਾਰਾ ਵਰਤਣ ਲਈ, ਵਾਪਸ ਸਾਈਨ-ਇਨ ਕਰੋ।</translation>
 <translation id="395904275706073188">ਸੁਰੱਖਿਅਤ ਪੰਨਿਆਂ ਨੂੰ ਪੜ੍ਹਿਆ ਨਹੀਂ ਜਾ ਸਕਦਾ। ਇੱਕ ਵੱਖਰਾ ਪੰਨਾ ਅਜ਼ਮਾਓ।</translation>
 <translation id="3962647064319009959">ਜਾਣੋ ਕਿ Chromium ਤੁਹਾਨੂੰ ਕਿਵੇਂ ਸੁਰੱਖਿਅਤ ਰੱਖਦਾ ਹੈ</translation>
+<translation id="3971865010372729242">ਜਦੋਂ ਤੁਸੀਂ ਪਤਾ ਬਾਰ ਜਾਂ ਖੋਜ ਬਾਕਸ ਵਿੱਚ ਟਾਈਪ ਕਰਦੇ ਹੋ, ਤਾਂ, Chromium ਤੁਹਾਡੇ ਵੱਲੋਂ ਟਾਈਪ ਕੀਤੇ ਗਏ ਸ਼ਬਦਾਂ ਨੂੰ ਸੁਝਾਅ ਪ੍ਰਾਪਤ ਕਰਨ ਲਈ ਤੁਹਾਡੀ ਸੰਸਥਾ ਦੇ ਖੋਜ, AI ਅਤੇ ਏਜੰਟ ਟੂਲਾਂ ਨੂੰ ਭੇਜਦਾ ਹੈ।</translation>
 <translation id="3975724895399328945">Google Chrome for Testing ਬਾਰੇ</translation>
 <translation id="3997429360543082038">ChromiumOS ਬਾਰੇ</translation>
 <translation id="4019629340646866719">ChromiumOS ਨੂੰ ਵਧੀਕ <ph name="BEGIN_LINK_CROS_OSS" />ਖੁੱਲ੍ਹੇ ਸਰੋਤ ਸਾਫ਼ਟਵੇਅਰ<ph name="END_LINK_CROS_OSS" /> ਕਰਕੇ ਸੰਭਵ ਬਣਾਇਆ ਗਿਆ ਹੈ, ਜਿਵੇਂ ਕਿ <ph name="BEGIN_LINK_LINUX_OSS" />Linux ਵਿਕਾਸ ਵਾਤਾਵਰਨ<ph name="END_LINK_LINUX_OSS" />।</translation>
@@ -248,6 +249,7 @@
 <translation id="4281844954008187215">ਸੇਵਾ ਦੀਆਂ ਮਦਾਂ</translation>
 <translation id="4285930937574705105">ਅਚਨਚੇਤ ਗੜਬੜ ਕਾਰਨ ਸਥਾਪਨਾ ਅਸਫਲ ਹੋ ਗਈ। ਜੇਕਰ ਇਸ ਵੇਲੇ Chromium ਚੱਲ ਰਿਹਾ ਹੈ, ਤਾਂ ਕਿਰਪਾ ਕਰਕੇ ਇਸਨੂੰ ਬੰਦ ਕਰਕੇ ਦੁਬਾਰਾ ਕੋਸ਼ਿਸ਼ ਕਰੋ।</translation>
 <translation id="4304713468139749426">ਪਾਸਵਰਡ ਪ੍ਰਬੰਧਕ</translation>
+<translation id="4334241893986177674">ਇਸ ਸਕ੍ਰੀਨਸ਼ਾਟ ਨੂੰ ਖੋਜੋ</translation>
 <translation id="4334294535648607276">ਡਾਉਨਲੋਡ ਪੂਰਾ ਹੋਇਆ</translation>
 <translation id="439358628917130594"><ph name="MANAGER" /> ਦੀ ਸ਼ਰਤ ਹੈ ਕਿ ਤੁਸੀਂ ਇਸ ਡੀਵਾਈਸ ਨੂੰ ਵਰਤਣ ਤੋਂ ਪਹਿਲਾਂ ਹੇਠਾਂ ਦਿੱਤੇ ਸੇਵਾ ਦੇ ਨਿਯਮ ਪੜ੍ਹ ਕੇ ਸਵੀਕਾਰ ਕਰੋ। ਇਹ ਨਿਯਮ ChromiumOS ਦੇ ਨਿਯਮਾਂ ਦਾ ਵਿਸਤਾਰ ਨਹੀਂ ਕਰਦੇ, ਇਨ੍ਹਾਂ ਵਿੱਚ ਕੋਈ ਸੋਧ ਨਹੀਂ ਕਰਦੇ ਜਾਂ ਇਨ੍ਹਾਂ ਨੂੰ ਸੀਮਤ ਨਹੀਂ ਕਰਦੇ ਹਨ।</translation>
 <translation id="4407044323746248786">ਕੀ ਫਿਰ ਵੀ Chromium ਤੋਂ ਬਾਹਰ ਜਾਣਾ ਹੈ?</translation>
@@ -344,6 +346,7 @@
 <translation id="5775198138441669627">ਜੇ ਤੁਸੀਂ ਆਪਣਾ ਪਾਸਫਰੇਜ਼ ਭੁੱਲ ਗਏ ਹੋ ਜਾਂ ਇਸ ਸੈਟਿੰਗ ਨੂੰ ਬਦਲਣਾ ਚਾਹੁੰਦੇ ਹੋ, ਤਾਂ ਆਪਣੇ ਖਾਤੇ ਵਿੱਚ Chromium ਡਾਟਾ <ph name="SETTINGS_LINK" /></translation>
 <translation id="5800158606660203929">Chromium ਨੂੰ ਵਿਉਂਤਬੱਧ ਕਰਕੇ ਕੰਟਰੋਲ ਕਰੋ। Chromium ਨੂੰ ਆਪਣੇ ਪੂਰਵ-ਨਿਰਧਾਰਿਤ ਬ੍ਰਾਊਜ਼ਰ ਵਜੋਂ ਸੈੱਟ ਕਰੋ।</translation>
 <translation id="5809516625706423866">ਇੰਟਰਨੈੱਟ ਨਾਲ ਕਨੈਕਟ ਨਹੀਂ ਕੀਤਾ ਜਾ ਸਕਿਆ। HTTP 401 ਅਣਅਧਿਕਾਰਿਤ। ਕਿਰਪਾ ਕਰਕੇ ਆਪਣੇ ਪ੍ਰੌਕਸੀ ਸੰਰੂਪਣ ਦੀ ਜਾਂਚ ਕਰੋ।</translation>
+<translation id="5817952762723416573">ਇਸ ਨਾਲ Chromium ਦੇ V8 ਇੰਜਣ ਨਾਲ ਸਾਈਟਾਂ ਦੀ ਗਤੀ ਵਧ ਜਾਂਦੀ ਹੈ, ਪਰ Chromium 'ਤੇ ਹਮਲਿਆਂ ਤੋਂ ਸੁਰੱਖਿਆ ਘਟ ਜਾਂਦੀ ਹੈ। ਇਹ ਸੈਟਿੰਗ ਬੰਦ ਹੈ।</translation>
 <translation id="5821520528363214608">ਆਪਣੇ Google ਖਾਤੇ ਵਿੱਚ Chromium ਡਾਟੇ ਨੂੰ ਵਰਤਣ ਅਤੇ ਰੱਖਿਅਤ ਕਰਨ ਲਈ, Chromium ਨੂੰ ਅੱਪਡੇਟ ਕਰੋ</translation>
 <translation id="5824893331272123205">ਇਸ ਪੈਨਲ ਨੂੰ ਲੋਡ ਨਹੀਂ ਕੀਤਾ ਜਾ ਸਕਿਆ, ਦੁਬਾਰਾ ਕੋਸ਼ਿਸ਼ ਕਰੋ</translation>
 <translation id="5862307444128926510">Chromium ਵਿੱਚ ਸੁਆਗਤ ਹੈ</translation>
@@ -360,7 +363,6 @@
 <translation id="5987687638152509985">ਸਿੰਕ ਸ਼ੁਰੂ ਕਰਨ ਲਈ Chromium ਅੱਪਡੇਟ ਕਰੋ</translation>
 <translation id="5988505247484123880">ਤੁਹਾਡੇ ਅਨੁਭਵ ਨੂੰ ਵਿਅਕਤੀਗਤ ਬਣਾਉਣ ਲਈ, ਤੁਹਾਡੀ ਦਿਲਚਸਪੀ ਵਾਲੀਆਂ ਚੀਜ਼ਾਂ ਨੂੰ ਯਾਦ ਰੱਖਣਾ ਉਨ੍ਹਾਂ ਸਾਈਟਾਂ ਲਈ ਆਮ ਗੱਲ ਹੈ ਜਿਨ੍ਹਾਂ 'ਤੇ ਤੁਸੀਂ ਜਾਂਦੇ ਹੋ। ਸਾਈਟਾਂ ਤੁਹਾਡੀਆਂ ਦਿਲਚਸਪੀਆਂ ਬਾਰੇ Chromium ਵਿੱਚ ਜਾਣਕਾਰੀ ਵੀ ਸਟੋਰ ਕਰ ਸਕਦੀਆਂ ਹਨ।</translation>
 <translation id="6003112304606738118">ਡਾਊਨਲੋਡ ਕੀਤਾ ਜਾ ਰਿਹਾ ਹੈ... <ph name="HOURS" /> ਘੰਟੇ ਬਾਕੀ</translation>
-<translation id="6019451407441383358">ਤੁਸੀਂ ਸਿਖਰ 'ਤੇ ਸੱਜੇ ਪਾਸੇ Chromium ਮੀਨੂ ਤੋਂ ਬੁੱਕਮਾਰਕ, ਪੜ੍ਹਨ ਸੰਬੰਧੀ ਮੋਡ ਅਤੇ ਹੋਰ ਬਹੁਤ ਕੁਝ ਖੋਲ੍ਹ ਸਕਦੇ ਹੋ</translation>
 <translation id="6040143037577758943">ਬੰਦ ਕਰੋ</translation>
 <translation id="6058380562449900225">ਆਪਣੇ ਡਾਟੇ ਨੂੰ ਸੁਰੱਖਿਅਤ ਕਰਨ ਲਈ, Chromium ਨੂੰ ਉਨ੍ਹਾਂ ਸਾਈਟਾਂ ਤੋਂ ਇਜਾਜ਼ਤਾਂ ਹਟਾਉਣ ਦਿਓ ਜਿਨ੍ਹਾਂ 'ਤੇ ਤੁਸੀਂ ਹਾਲ ਹੀ ਵਿੱਚ ਨਹੀਂ ਗਏ ਹੋ। ਸੂਚਨਾਵਾਂ ਨੂੰ ਨਹੀਂ ਰੋਕਦਾ ਹੈ।</translation>
 <translation id="6063093106622310249">ਅਤੇ Chromium ਵਿੱਚ ਖੋਲ੍ਹੋ</translation>
@@ -434,6 +436,7 @@
 <translation id="6729124504294600478">ਵਿਅਕਤੀਗਤਕਰਨ ਅਤੇ ਹੋਰ ਵਿਸ਼ੇਸ਼ਤਾਵਾਂ ਲਈ, 'ਵੈੱਬ ਅਤੇ ਐਪ ਸਰਗਰਮੀ' ਅਤੇ ਲਿੰਕ ਕੀਤੀਆਂ Google ਸੇਵਾਵਾਂ ਵਿੱਚ Chromium ਸ਼ਾਮਲ ਕਰੋ</translation>
 <translation id="6734291798041940871">Chromium ਤੁਹਾਡੇ ਕੰਪਿਊਟਰ 'ਤੇ ਪਹਿਲਾਂ ਹੀ ਸਾਰੇ ਵਰਤੋਂਕਾਰਾਂ ਲਈ ਸਥਾਪਤ ਕੀਤਾ ਗਿਆ ਹੈ।</translation>
 <translation id="674245979920622322">ਜਿਨ੍ਹਾਂ 'ਤੇ ਤੁਸੀਂ ਹਾਲ ਹੀ ਵਿੱਚ ਨਹੀਂ ਗਏ ਹੋ। Chromium ਨੇ <ph name="PERMISSION_1" />, <ph name="PERMISSION_2" />, ਅਤੇ <ph name="COUNT" /> ਹੋਰ ਨੂੰ ਹਟਾ ਦਿੱਤਾ ਹੈ</translation>
+<translation id="6751374565094704799">ਇਸ ਨਾਲ Chromium ਦੇ V8 ਇੰਜਣ ਨਾਲ ਸਾਈਟਾਂ ਦੀ ਗਤੀ ਵਧ ਜਾਂਦੀ ਹੈ, ਪਰ Chromium 'ਤੇ ਹਮਲਿਆਂ ਤੋਂ ਸੁਰੱਖਿਆ ਘਟ ਜਾਂਦੀ ਹੈ। ਇਹ ਸੈਟਿੰਗ ਚਾਲੂ ਹੈ।</translation>
 <translation id="67706546131546258">Chromium ਵੱਲੋਂ ਇਸ ਫ਼ਾਈਲ ਨੂੰ ਸਕੈਨ ਕਰਨ ਦੀ ਸਿਫ਼ਾਰਸ਼ ਕੀਤੀ ਜਾਂਦੀ ਹੈ ਕਿਉਂਕਿ ਇਹ ਹਾਨੀਕਾਰਕ ਹੋ ਸਕਦੀ ਹੈ।</translation>
 <translation id="6779406956731413166">ChromiumOS ਨੂੰ ਵਧੀਕ <ph name="BEGIN_LINK_CROS_OSS" />ਖੁੱਲ੍ਹੇ ਸਰੋਤ ਸਾਫ਼ਟਵੇਅਰ<ph name="END_LINK_CROS_OSS" /> ਕਰਕੇ ਸੰਭਵ ਬਣਾਇਆ ਗਿਆ ਹੈ।</translation>
 <translation id="6831043979455480757">ਅਨੁਵਾਦ ਕਰੋ</translation>
@@ -530,7 +533,6 @@ Chromium ਤੁਹਾਡੀਆਂ ਸੈਟਿੰਗਾਂ ਮੁੜ-ਹਾਸ�
 <translation id="8118331347066725040">Lens ਨਾਲ ਖੋਜ ਲਈ ਵਿਚਾਰ ਭੇਜੋ</translation>
 <translation id="8133124826068723441">ChromiumOS ਤੁਹਾਡਾ ਡਾਟਾ ਸਿੰਕ ਨਹੀਂ ਕਰ ਸਕਿਆ ਕਿਉਂਕਿ ਸਿੰਕ ਤੁਹਾਡੇ ਡੋਮੇਨ ਲਈ ਉਪਲਬਧ ਨਹੀਂ ਹੈ।</translation>
 <translation id="813913629614996137">ਸ਼ੁਰੂ ਕੀਤਾ ਜਾ ਰਿਹਾ ਹੈ...</translation>
-<translation id="8166782796394721554">Chromium ਦੇ JavaScript ਅਤੇ WebAssembly ਇੰਜਣ ਵਿੱਚ ਵਧੀਕ ਸੁਰੱਖਿਆ ਦੀ ਸੁਵਿਧਾ ਨੂੰ ਚਾਲੂ ਕਰੋ</translation>
 <translation id="81770708095080097">ਇਹ ਫ਼ਾਈਲ ਖਤਰਨਾਕ ਹੈ, ਇਸ ਲਈ Chromium ਨੇ ਇਸਨੂੰ ਬਲੌਕ ਕਰ ਦਿੱਤਾ ਹੈ।</translation>
 <translation id="8177472873527554730">ਪੰਨੇ ਵਿੱਚ ਸਮੱਗਰੀ ਨੂੰ ਲੱਭਿਆ ਨਹੀਂ ਜਾ ਸਕਦਾ</translation>
 <translation id="8200109504272824693">ਆਪਣੇ ਖਾਤੇ, <ph name="USER_EMAIL" /> ਵਿੱਚ Chromium ਡਾਟੇ ਨੂੰ ਵਰਤਣ ਅਤੇ ਰੱਖਿਅਤ ਕਰਨ ਲਈ ਆਪਣਾ ਪਾਸਫਰੇਜ਼ ਦਾਖਲ ਕਰੋ</translation>
@@ -576,6 +578,7 @@ Chromium ਤੁਹਾਡੀਆਂ ਸੈਟਿੰਗਾਂ ਮੁੜ-ਹਾਸ�
 <translation id="8704119203788522458">ਇਹ ਤੁਹਾਡਾ Chromium ਹੈ</translation>
 <translation id="8719993436687031146">ਕੀ Chromium ਵਿੱਚ ਸਾਈਨ-ਇਨ ਕਰਨਾ ਹੈ?</translation>
 <translation id="8747073452963259673">ਖੋਜ ਖੇਤਰ ਦਾ ਹੇਠਲਾ ਖੱਬਾ ਕੋਨਾ: ਖੱਬੇ ਤੋਂ <ph name="LEFT" />%, ਹੇਠਾਂ ਤੋਂ <ph name="BOTTOM" />%</translation>
+<translation id="8768722695577490596">ਪਾਸਵਰਡਾਂ ਨੂੰ ਸਿਰਫ਼ Chromium ਤੋਂ ਬਾਹਰ ਹੀ ਮਿਟਾਇਆ ਜਾ ਸਕਦਾ ਹੈ</translation>
 <translation id="878572486461146056">ਸਥਾਪਤ ਕਰਨ ਵਿੱਚ ਗੜਬੜ: ਤੁਹਾਡੇ ਨੈੱਟਵਰਕ ਪ੍ਰਸ਼ਾਸਕ ਨੇ ਇੱਕ ਗਰੁੱਪ ਨੀਤੀ ਲਾਗੂ ਕੀਤੀ ਹੈ ਜੋ ਸਥਾਪਨਾ ਨੂੰ ਰੋਕਦੀ ਹੈ: <ph name="INSTALL_ERROR" /></translation>
 <translation id="8796602469536043152">Chromium ਨੂੰ ਇਸ ਸਾਈਟ ਵਾਸਤੇ ਤੁਹਾਡੇ ਕੈਮਰੇ ਅਤੇ ਮਾਈਕ੍ਰੋਫ਼ੋਨ 'ਤੇ ਪਹੁੰਚ ਕਰਨ ਲਈ ਇਜਾਜ਼ਤ ਦੀ ਲੋੜ ਹੈ</translation>
 <translation id="8818550178040858407">ਕੀ Chromium ਵਿੱਚ ਸਾਈਨ-ਇਨ ਕਰਨਾ ਹੈ?</translation>

@@ -90,6 +90,7 @@
 <translation id="2957447865124070833">[<ph name="BEGIN_BOLD" />Chrome<ph name="END_BOLD" />] を選択する</translation>
 <translation id="2986402782150919988">ブックマークを Chrome に追加する</translation>
 <translation id="3030414234702425231"><ph name="SIGNOUT_MANAGED_DOMAIN" /> で管理されているアカウントからログアウトするにあたり、Chrome データはこのデバイスから削除されます（ただし Google アカウントには残ります）。</translation>
+<translation id="3042447686908081308">Chrome にインポート</translation>
 <translation id="3051521853355903257">Chrome でパスワードを管理する</translation>
 <translation id="309672519329227863">他のアプリから Chrome のパスワードなどにアクセスできます。</translation>
 <translation id="3109170945534582468">Chrome アクション</translation>
@@ -138,7 +139,6 @@
 <translation id="4724297637870447613">Chrome をどこでも使用</translation>
 <translation id="4738647308035481133">Google Chrome ページ</translation>
 <translation id="4742795653798179840">Chrome データを削除しました</translation>
-<translation id="4749294594657945639">保存したパスワードを他のアプリで簡単に使用できるようするには、Chrome の自動入力を選択します。</translation>
 <translation id="4761869838909035636">Chrome の安全チェックを実行</translation>
 <translation id="4798859546468762093">パーソナライズなどの機能を利用するには、Chrome を <ph name="FEATURE_NAME_1" /> と、<ph name="FEATURE_NAME_2" /> に追加します</translation>
 <translation id="4819268619367838612">アプリを改善するため、Chrome では使用状況とクラッシュに関するデータが Google に送信されます。<ph name="BEGIN_LINK" />管理<ph name="END_LINK" /></translation>
@@ -215,6 +215,7 @@
 <translation id="6533470733797826516">Chrome の自動入力機能ですばやくログイン</translation>
 <translation id="6536544321553662809">Chrome を既定のブラウザに設定すると、リンクを簡単に共有したり開いたりできます</translation>
 <translation id="6545449117344801102">Chrome では、住所を検出し、Google マップを使用して経路やローカル情報を表示しています。</translation>
+<translation id="6611692150236062461">保存したパスワードを他のアプリで簡単に使用できるようするには、Chrome の自動入力を選択します。</translation>
 <translation id="6636941099779251629">組織が、Chrome を使用するにはログインすることを求めています。<ph name="BEGIN_LINK" />詳細<ph name="END_LINK" /></translation>
 <translation id="6646696210740573446">ユーザーの　IP アドレスを隠すプライバシー サーバーを介して、URL の一部を難読化して Google に送信します。サイトがパスワードを不正に取得しようとしている場合や、ユーザーが安全でないファイルをダウンロードしようとした場合は、URL とページ コンテンツの一部を　Google　に送信することがあります</translation>
 <translation id="6647304104688527905">Chrome で新しいタブを開きます。</translation>
@@ -313,6 +314,7 @@ Chrome を使いやすくするためにデータを使用するその他の設�
 データは <ph name="TIME" /> にパスフレーズで暗号化されました。Google アカウントで Chrome のデータを使用して保存するには、パスフレーズを入力してください。</translation>
 <translation id="8540666473246803645">Google Chrome</translation>
 <translation id="8544583291890527417">Chrome で検出されたプライバシーやセキュリティの問題についてのアラートです。</translation>
+<translation id="855027533751209304">Chrome のヒント: 見たものをそのまま検索</translation>
 <translation id="8558480467877843976">ブラウジングするときや、メッセージ、ドキュメント、他のアプリのリンクをタップしたときに、常に Chrome が使えるようになります。</translation>
 <translation id="8603022514504485810">Google パスワード マネージャーですべてのパスワードを確認できませんでした。明日もう一度お試しいただくか、<ph name="BEGIN_LINK" />Google アカウント内のパスワードをご確認ください<ph name="END_LINK" />。</translation>
 <translation id="8630122478628016441">[Chrome を終了するときにシークレット タブをロックする] をオンにする。</translation>
@@ -336,6 +338,7 @@ Chrome を使いやすくするためにデータを使用するその他の設�
 <translation id="9176561303811134420">Chrome でお支払い方法を管理する</translation>
 <translation id="9181628561061032322">Chrome で最近使ったタブを開きます。</translation>
 <translation id="948597495737267756">Chrome の履歴ページを開きます。</translation>
+<translation id="954347330803595209">データをインポートすると、Chrome でパスワード、履歴、ブックマーク、クレジット カードを使用できます</translation>
 <translation id="97300214378190234">他のアプリのリンクをタップしたときに、常に Chrome で開くよう設定できます。</translation>
 <translation id="997929539742564806">Chrome からパスワードやパスキーを自動入力して、アプリやサイトにすばやくログインできます</translation>
 <translation id="998677222109959694">Chrome の設定を管理</translation>

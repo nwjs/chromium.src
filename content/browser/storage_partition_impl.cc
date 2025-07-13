@@ -797,9 +797,6 @@ storage::QuotaClientTypes StoragePartitionImpl::GenerateQuotaClientTypes(
   if (remove_mask & StoragePartition::REMOVE_DATA_MASK_FILE_SYSTEMS) {
     quota_client_types.insert(storage::QuotaClientType::kFileSystem);
   }
-  if (remove_mask & StoragePartition::REMOVE_DATA_MASK_WEBSQL) {
-    quota_client_types.insert(storage::QuotaClientType::kDatabase);
-  }
   if (remove_mask & StoragePartition::REMOVE_DATA_MASK_INDEXEDDB) {
     quota_client_types.insert(storage::QuotaClientType::kIndexedDatabase);
   }
@@ -1015,15 +1012,34 @@ class StoragePartitionImpl::ServiceWorkerCookieAccessObserver
   void OnCookiesAccessed(std::vector<network::mojom::CookieAccessDetailsPtr>
                              details_vector) override {
     DCHECK_CURRENTLY_ON(BrowserThread::UI);
+    // TODO(https://crbug.com/423472677): Group multiple cookie access details
+    // with the same RenderFrameHost. This UMA metrics is to decide whether to
+    // optimize this method or not.
+    base::UmaHistogramCounts1M(
+        "Cookie.OnCookiesAccessed.BatchSize.CookieAccessObserver",
+        details_vector.size());
+    std::optional<base::ElapsedTimer> timer;
+    if (base::ShouldRecordSubsampledMetric(0.01)) {
+      timer.emplace();
+    }
     for (auto& details : details_vector) {
       for (GlobalRenderFrameHostId frame_id : GetRoutingIdsForOrigin(
                storage_partition_, url::Origin::Create(details->url))) {
         if (RenderFrameHostImpl* rfh = RenderFrameHostImpl::FromID(frame_id)) {
+          std::vector<network::mojom::CookieAccessDetailsPtr> details_list;
+          details_list.reserve(1);
+          details_list.push_back(mojo::Clone(details));
           rfh->NotifyCookiesAccessed(
-              mojo::Clone(details_vector),
+              std::move(details_list),
               CookieAccessDetails::Source::kNonNavigation);
         }
       }
+    }
+    if (timer) {
+      base::UmaHistogramCustomMicrosecondsTimes(
+          "Browser.CookieAccessObserver.StoragePartitionImpl.Duration."
+          "Subsampled",
+          timer->Elapsed(), base::Microseconds(1), base::Seconds(1), 100);
     }
   }
 
@@ -1456,7 +1472,7 @@ void StoragePartitionImpl::Initialize(
 
   if (blink::features::IsKeepAliveURLLoaderServiceEnabled()) {
     keep_alive_url_loader_service_ =
-        std::make_unique<KeepAliveURLLoaderService>(browser_context_);
+        std::make_unique<KeepAliveURLLoaderService>(this);
   }
 
   cookie_store_manager_ =
@@ -1561,13 +1577,15 @@ void StoragePartitionImpl::Initialize(
   }
 }
 
-void StoragePartitionImpl::OnStorageServiceDisconnected() {
-  // This will be lazily re-bound on next use.
-  remote_partition_.reset();
-
-  dom_storage_context_->RecoverFromStorageServiceCrash();
+void StoragePartitionImpl::ResetSessionStorageConnections() {
   for (const auto& client : dom_storage_clients_) {
-    client.second->ResetStorageAreaAndNamespaceConnections();
+    client.second->ResetSessionStorageConnections();
+  }
+}
+
+void StoragePartitionImpl::ResetLocalStorageConnections() {
+  for (const auto& client : dom_storage_clients_) {
+    client.second->ResetLocalStorageConnections();
   }
 }
 
@@ -2489,12 +2507,6 @@ void StoragePartitionImpl::OnAdAuctionEventRecordHeaderReceived(
       top_frame_origin, std::move(event_record));
 }
 
-#if BUILDFLAG(IS_MAC)
-bool StoragePartitionImpl::IsStorageServiceRemoteValid() const {
-  return GetStorageServiceRemoteStorage().is_bound();
-}
-#endif  // BUILDFLAG(IS_MAC)
-
 void StoragePartitionImpl::Clone(
     mojo::PendingReceiver<network::mojom::URLLoaderNetworkServiceObserver>
         observer) {
@@ -3057,13 +3069,15 @@ void StoragePartitionImpl::DataDeletionHelper::ClearDataOnUIThread(
         base::IgnoreArgs<bool>(mojo::WrapCallbackWithDefaultInvokeIfNotRun(
             CreateTaskCompletionClosure(TracingDataType::kCdmStorage))));
 
-    cdm_storage_manager->DeleteData(generic_filter, storage_key, begin, end,
-                                    std::move(cdm_deletion_callback));
+    GetUIThreadTaskRunner({})->PostTask(
+        FROM_HERE, base::BindOnce(&CdmStorageManager::DeleteData,
+                                  base::Unretained(cdm_storage_manager),
+                                  generic_filter, storage_key, begin, end,
+                                  std::move(cdm_deletion_callback)));
   }
 #endif  // BUILDFLAG(ENABLE_LIBRARY_CDMS)
 
   if (remove_mask_ & REMOVE_DATA_MASK_INDEXEDDB ||
-      remove_mask_ & REMOVE_DATA_MASK_WEBSQL ||
       remove_mask_ & REMOVE_DATA_MASK_FILE_SYSTEMS ||
       remove_mask_ & REMOVE_DATA_MASK_SERVICE_WORKERS ||
       remove_mask_ & REMOVE_DATA_MASK_CACHE_STORAGE) {
@@ -3436,25 +3450,17 @@ BrowserContext* StoragePartitionImpl::browser_context() const {
   return browser_context_;
 }
 
-storage::mojom::Partition* StoragePartitionImpl::GetStorageServicePartition() {
-  if (!remote_partition_) {
-    std::optional<base::FilePath> storage_path;
-    if (!is_in_memory()) {
-      storage_path =
-          browser_context_->GetPath().Append(relative_partition_path_);
-    }
-    GetStorageServiceRemote()->BindPartition(
-        storage_path, remote_partition_.BindNewPipeAndPassReceiver());
-    remote_partition_.set_disconnect_handler(
-        base::BindOnce(&StoragePartitionImpl::OnStorageServiceDisconnected,
-                       base::Unretained(this)));
+std::optional<base::FilePath> StoragePartitionImpl::GetStoragePartitionPath()
+    const {
+  if (is_in_memory()) {
+    return std::nullopt;
   }
-  return remote_partition_.get();
+  return browser_context_->GetPath().Append(relative_partition_path_);
 }
 
 // static
 mojo::Remote<storage::mojom::StorageService>&
-StoragePartitionImpl::GetStorageServiceForTesting() {
+StoragePartitionImpl::GetStorageService() {
   return GetStorageServiceRemote();
 }
 
@@ -3805,6 +3811,36 @@ StoragePartitionImpl::GetRenderFrameHostIdFromNetworkContext() {
   // not `kRenderFrameHostContext`.
   return render_frame_host ? render_frame_host->GetGlobalId()
                            : GlobalRenderFrameHostId();
+}
+
+void StoragePartitionImpl::IncrementActiveDocumentCount(
+    const net::NetworkIsolationKey& nik) {
+  if (active_document_per_nik_count_.contains(nik)) {
+    active_document_per_nik_count_[nik]++;
+    CHECK_GT(active_document_per_nik_count_[nik], 1);
+  } else {
+    active_document_per_nik_count_[nik] = 1;
+    if (keep_alive_url_loader_service_) {
+      keep_alive_url_loader_service_->DidObserveNewlyActiveDocumentWithNIK(nik);
+    }
+  }
+}
+
+void StoragePartitionImpl::DecrementActiveDocumentCount(
+    const net::NetworkIsolationKey& nik) {
+  CHECK(active_document_per_nik_count_.contains(nik));
+  active_document_per_nik_count_[nik]--;
+  if (active_document_per_nik_count_[nik] == 0) {
+    active_document_per_nik_count_.erase(nik);
+  }
+}
+
+int StoragePartitionImpl::GetActiveDocumentCount(
+    const net::NetworkIsolationKey& nik) {
+  if (!active_document_per_nik_count_.contains(nik)) {
+    return 0;
+  }
+  return active_document_per_nik_count_[nik];
 }
 
 StoragePartitionImpl::URLLoaderNetworkContext::URLLoaderNetworkContext(

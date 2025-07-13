@@ -113,6 +113,21 @@ TEST_F(AutofillFieldTest, IsFieldFillable) {
   EXPECT_TRUE(field.IsFieldFillable());
 }
 
+TEST_F(AutofillFieldTest, LoyaltyCardPredictionsIgnoredIfFlagIsDisabled) {
+  base::test::ScopedFeatureList feature_;
+  feature_.InitAndDisableFeature(
+      features::kAutofillEnableEmailOrLoyaltyCardsFilling);
+
+  AutofillField field;
+  EXPECT_EQ(UNKNOWN_TYPE, field.Type().GetStorableType());
+
+  // Both types set.
+  field.set_heuristic_type(GetActiveHeuristicSource(), NAME_FIRST);
+  field.set_server_predictions({CreateFieldPrediction(LOYALTY_MEMBERSHIP_ID)});
+
+  EXPECT_EQ(NAME_FIRST, field.Type().GetStorableType());
+}
+
 TEST_F(AutofillFieldTest, NoPredictions) {
   AutofillField field;
   EXPECT_EQ(field.Type().GetStorableType(), UNKNOWN_TYPE);
@@ -456,6 +471,24 @@ INSTANTIATE_TEST_SUITE_P(
             .heuristic_type = EMAIL_OR_LOYALTY_MEMBERSHIP_ID,
             .expected_result = EMAIL_OR_LOYALTY_MEMBERSHIP_ID,
             .expected_source = AutofillPredictionSource::kHeuristics},
+        AutofillLocalHeuristicsOverridesParams{
+            .html_field_type = HtmlFieldType::kUnrecognized,
+            .server_type = NO_SERVER_DATA,
+            .heuristic_type = LOYALTY_MEMBERSHIP_ID,
+            .expected_result = LOYALTY_MEMBERSHIP_ID,
+            .expected_source = AutofillPredictionSource::kHeuristics},
+        AutofillLocalHeuristicsOverridesParams{
+            .html_field_type = HtmlFieldType::kUnrecognized,
+            .server_type = UNKNOWN_TYPE,
+            .heuristic_type = LOYALTY_MEMBERSHIP_ID,
+            .expected_result = LOYALTY_MEMBERSHIP_ID,
+            .expected_source = AutofillPredictionSource::kHeuristics},
+        AutofillLocalHeuristicsOverridesParams{
+            .html_field_type = HtmlFieldType::kUnrecognized,
+            .server_type = PHONE_HOME_NUMBER,
+            .heuristic_type = LOYALTY_MEMBERSHIP_ID,
+            .expected_result = PHONE_HOME_NUMBER,
+            .expected_source = AutofillPredictionSource::kServerCrowdsourcing},
         // Test non-override behaviour.
         AutofillLocalHeuristicsOverridesParams{
             .html_field_type = HtmlFieldType::kStreetAddress,

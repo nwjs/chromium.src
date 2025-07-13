@@ -617,7 +617,10 @@ void FederatedAuthRequestImpl::ResolveTokenRequest(
 void FederatedAuthRequestImpl::SetIdpSigninStatus(
     const url::Origin& idp_origin,
     blink::mojom::IdpSigninStatus status,
-    const std::optional<blink::common::webid::LoginStatusOptions>& options) {
+    const std::optional<blink::common::webid::LoginStatusOptions>& options,
+    SetIdpSigninStatusCallback callback) {
+  auto scoped_closure = base::ScopedClosureRunner(std::move(callback));
+
   if (render_frame_host().IsNestedWithinFencedFrame()) {
     RecordSetLoginStatusIgnoredReason(
         FedCmSetLoginStatusIgnoredReason::kInFencedFrame);
@@ -2103,7 +2106,11 @@ void FederatedAuthRequestImpl::OnClose() {
   request_dialog_controller_->CloseModalDialog();
 
   // If we have not gotten a signin status change, abort the flow.
-  if (idps_user_tried_to_signin_to_.empty() &&
+  // The same goes if we did get a status change but the accounts fetch
+  // failed.
+  if ((idps_user_tried_to_signin_to_.empty() ||
+       (fetch_data_.pending_idps.empty() &&
+        !fetch_data_.did_succeed_for_at_least_one_idp)) &&
       dialog_type_ == kLoginToIdpPopup) {
     CompleteRequestWithError(FederatedAuthRequestResult::kError,
                              TokenStatus::kLoginPopupClosedWithoutSignin,

@@ -174,8 +174,10 @@ Bu ayarı dəyişmək üçün <ph name="BEGIN_LINK" />hesabda Chromium datasın�
 <translation id="5203244847421322551">Chromium-da parolları yadda saxlayın və avtomatik doldurun</translation>
 <translation id="5224391634244552924">Yadda saxlanmış parol yoxdur. Parollarınızı yadda saxladıqda Chromium onları yoxlaya bilər.</translation>
 <translation id="5259423875997548710">Chromium-da vizualları axtarın.</translation>
+<translation id="5284913972719948193">Chromium-da parolları, tarixçəni, əlfəcinləri və kredit kartlarını istifadə etmək üçün datanızı import edin</translation>
 <translation id="5308226104666789935">Chromium güncəlləmələri yoxlaya bilmir</translation>
 <translation id="5311557153294205270">Daxil edilən URL-ləri Chromium-dakı əlfəcinlərinizə əlavə edir.</translation>
+<translation id="5383251701169024761">Yadda saxlanılmış parolları digər tətbiqlərdə asanlıqla əldə etmək məqsədilə Avtodoldurma üçün Chromium seçin.</translation>
 <translation id="538767207339317086">Chromium girişinə icazə verin</translation>
 <translation id="5389058611415066188">Chromium ilə təhlükəsiz qalın</translation>
 <translation id="5415273218238091735">Chromium ipucusu</translation>
@@ -276,7 +278,6 @@ Yalnız parol ifadəsini bilən şəxs şifrələnmiş datanı oxuya bilər. Goo
 <translation id="7763454117143368771">Təhlükəli saytlardan qorunmaq və parollarınızı qorumaq üçün defolt brauzeriniz olaraq Chromium istifadə edin</translation>
 <translation id="7784950022329154821">Chromium bağlandıqda Anonim tablar kilidlənsin</translation>
 <translation id="78025249032851484">Chromium köhnəlib.</translation>
-<translation id="7811371919871579588">Yadda saxlanmış parolları digər tətbiqlərdə asanlıqla əldə etmək məqsədilə Avtodoldurma üçün Chromium seçin.</translation>
 <translation id="7859018312476869945">Ünvan panelinə və ya axtarış xanasına mətn daxil etdiyiniz zaman Chromium sizə daha yaxşı təkliflər təqdim etmək üçün yazdıqlarınızı defolt axtarış sisteminizə göndərir. Bu, Anonim rejimdə deaktivdir.</translation>
 <translation id="7890287942691234100">Chromium skanerindən istifadə etməyə başlayın</translation>
 <translation id="7905064834449738336">İstifadə edilən parol onlayn yayımlanıbsa, Chromium xəbərdarlıq edir. Parol və istifadəçi adları şifrələnir və hətta Google-a da görünmür.</translation>
@@ -307,6 +308,7 @@ Yalnız parol ifadəsini bilən şəxs şifrələnmiş datanı oxuya bilər. Goo
 <translation id="865600487977764604">Daxil olduğunuzda Chromium'da sizi qoruyur və digər Google tətbiqlərində təhlükəsizliyinizi artırmaq üçün istifadə edilə bilər.</translation>
 <translation id="8663480472502753423">Chromium'u yeni saxlayın</translation>
 <translation id="8685813584220679697">Bu sayta və Chromium'a daxil olun.</translation>
+<translation id="8698780336333802489">Chromium-a import edin</translation>
 <translation id="8730503818204408000">Chromium-u defolt brauzer təyin etmək üçün Chromium ayarı açılır.</translation>
 <translation id="8754966941001340678">Chromium təkmil qoruma tövsiyə edir</translation>
 <translation id="8759037115129007407">Ailə üzvü parol qəbul edə bilmir. Chromium-u güncəlləməsini və parolları sinxronlaşdırmasını istəyin. <ph name="BEGIN_LINK" />Ətraflı məlumat<ph name="END_LINK" /></translation>
@@ -331,6 +333,7 @@ Data <ph name="TIME" /> tarixində parol ifadəsi ilə şifrələnib. Google Hes
 <translation id="9050790730841755540">Digər tətbiqlərdə keçidləri Chromium ilə açın.</translation>
 <translation id="9059693977935746710">Bu parolu yadda saxlamağa ehtiyac yoxdur. O, <ph name="EMAIL" /> üçün Parol Menecerində saxlanacaq</translation>
 <translation id="9089354809943900324">Chromium'un vaxtı keçib</translation>
+<translation id="9105645282262300612">Chromium ipucusu: Gördüyünüzü axtarın</translation>
 <translation id="9152995302810511799">Chromium məsləhəti: Chromium-un ən güclü təhlükəsizlik səviyyəsini əldə edin</translation>
 <translation id="9177628952266852500"><ph name="EMAIL" />. Chromium idarə edilir.</translation>
 <translation id="921174536258924340">Chromium bütün parolları yoxlaya bilmədi. Sabah yenidən cəhd edin və ya <ph name="BEGIN_LINK" />Google Hesabınızda parolları yoxlayın.<ph name="END_LINK" /></translation>

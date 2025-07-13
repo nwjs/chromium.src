@@ -27,11 +27,14 @@
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/strings/strcat.h"
+#include "base/strings/string_number_conversions.h"
 #include "base/strings/string_split.h"
 #include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/values.h"
+#include "chrome/browser/browser_process.h"
+#include "chrome/browser/enterprise/util/managed_browser_utils.h"
 #include "chrome/browser/new_tab_page/feature_promo_helper/new_tab_page_feature_promo_helper.h"
 #include "chrome/browser/new_tab_page/microsoft_auth/microsoft_auth_service.h"
 #include "chrome/browser/new_tab_page/microsoft_auth/microsoft_auth_service_factory.h"
@@ -56,6 +59,7 @@
 #include "chrome/browser/ui/hats/hats_service.h"
 #include "chrome/browser/ui/hats/hats_service_factory.h"
 #include "chrome/browser/ui/views/side_panel/customize_chrome/customize_chrome_utils.h"
+#include "chrome/browser/ui/webui/new_tab_footer/new_tab_footer_helper.h"
 #include "chrome/browser/ui/webui/new_tab_page/ntp_pref_names.h"
 #include "chrome/browser/ui/webui/webui_util_desktop.h"
 #include "chrome/common/chrome_features.h"
@@ -531,6 +535,27 @@ NewTabPageHandler::NewTabPageHandler(
       prefs::kSeedColorChangeCount,
       base::BindRepeating(&NewTabPageHandler::MaybeShowWebstoreToast,
                           base::Unretained(this)));
+  pref_change_registrar_.Add(
+      prefs::kNtpFooterVisible,
+      base::BindRepeating(&NewTabPageHandler::OnFooterVisibilityUpdated,
+                          base::Unretained(this)));
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+  local_state_pref_change_registrar_.Init(g_browser_process->local_state());
+  local_state_pref_change_registrar_.Add(
+      prefs::kNTPFooterManagementNoticeEnabled,
+      base::BindRepeating(&NewTabPageHandler::OnFooterVisibilityUpdated,
+                          base::Unretained(this)));
+  // If the management notice customization policies are hidden, we should fall
+  // back to the footer visibility set by the user.
+  local_state_pref_change_registrar_.Add(
+      prefs::kEnterpriseCustomLabelForBrowser,
+      base::BindRepeating(&NewTabPageHandler::OnFooterVisibilityUpdated,
+                          base::Unretained(this)));
+  local_state_pref_change_registrar_.Add(
+      prefs::kEnterpriseLogoUrlForBrowser,
+      base::BindRepeating(&NewTabPageHandler::OnFooterVisibilityUpdated,
+                          base::Unretained(this)));
+#endif
 }
 
 NewTabPageHandler::~NewTabPageHandler() {
@@ -873,6 +898,10 @@ void NewTabPageHandler::UpdateModulesLoadable() {
   if (!microsoft_auth_service_ || SyncMicrosoftModulesWithAuth()) {
     page_->SetModulesLoadable();
   }
+}
+
+void NewTabPageHandler::UpdateFooterVisibility() {
+  OnFooterVisibilityUpdated();
 }
 
 void NewTabPageHandler::MaybeShowFeaturePromo(
@@ -1397,7 +1426,7 @@ void NewTabPageHandler::MaybeLaunchInteractionSurvey(
   CHECK(hats_service);
   hats_service->LaunchDelayedSurveyForWebContents(
       kHatsSurveyTriggerNtpModules, web_contents_, delay_time_ms, {}, {},
-      HatsService::NavigationBehaviour::ALLOW_ANY, base::DoNothing(),
+      HatsService::NavigationBehavior::ALLOW_ANY, base::DoNothing(),
       base::DoNothing(), module_trigger_id);
 }
 
@@ -1484,6 +1513,11 @@ bool NewTabPageHandler::SyncMicrosoftModulesWithAuth() {
   }
 
   return state != MicrosoftAuthService::AuthState::kNone;
+}
+
+void NewTabPageHandler::OnFooterVisibilityUpdated() {
+  page_->FooterVisibilityUpdated(ntp_footer::WillShowManagementNotice(
+      GURL(chrome::kChromeUINewTabURL), web_contents_, profile_));
 }
 
 void NewTabPageHandler::ConnectToParentDocument(

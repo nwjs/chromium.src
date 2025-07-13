@@ -1014,6 +1014,7 @@
 <translation id="4305817255990598646">جابه‌جایی</translation>
 <translation id="4307713728991152670">راه‌اندازی مشاهده عکس‌ها، رسانه‌ها، و برنامه‌های جدید تلفن</translation>
 <translation id="4312840429157639164">دوربین به گوشه بالا سمت راست چسبید. تداخلی با سطح سیستم روی داد.</translation>
+<translation id="4312935606722154789">گروه‌بندی یا لغو گروه‌بندی دو پنجره پهلوبه‌پهلو</translation>
 <translation id="4316910396681052118">همه برنامه‌ها</translation>
 <translation id="4321179778687042513">مهار</translation>
 <translation id="4322385711258710213">‏پنهان کردن همه پیشنهادهای مرورگر Chrome</translation>
@@ -1453,7 +1454,6 @@
 <translation id="5691772641933328258">اثر انگشت تشخیص داده نشد</translation>
 <translation id="5693255400847650006">میکروفون درحال استفاده است</translation>
 <translation id="5699366815052349604">واگذاری پنجره فعال به همه میزکارها</translation>
-<translation id="5701785125601597013">بااستفاده از «مرکز کنترل تلفن»، به‌سرعت از تلفنتان پیام ارسال کنید یا به پیام‌ها پاسخ دهید</translation>
 <translation id="570390244361237317">همه برنامه‌ها؛ برای دسترسی به همه برنامه‌ها با کلیدهای جهت‌نما پیمایش کنید</translation>
 <translation id="5705197514573687092">نمایش تنظیمات «تمرکز». زمان‌سنج روی <ph name="FOCUS_DURATION" /> تنظیم شده است.</translation>
 <translation id="5707775774148071965">دستگاه از سرعت انتقال داده بیشتری نسبت به کابلتان پشتیبانی می‌کند. ممکن است عملکرد دستگاه محدود شود.</translation>
@@ -1583,7 +1583,6 @@
 <translation id="6095425951508823973">افزودن اتصال با <ph name="PROVIDER" /></translation>
 <translation id="6099678161144790572">ماه گذشته ویرایش شده است</translation>
 <translation id="6103838137565245112">سیستم</translation>
-<translation id="610395411842312282">گروه‌بندی دو پنجره پهلو به پهلو</translation>
 <translation id="6108952804512516814">ساخت با هوش مصنوعی</translation>
 <translation id="6114505516289286752">فایل‌های گفتار <ph name="LANGUAGE" /> بارگیری شد</translation>
 <translation id="6119360623251949462"><ph name="CHARGING_STATE" />. <ph name="BATTERY_SAVER_STATE" /></translation>
@@ -1989,7 +1988,7 @@
 <translation id="7497767806359279797">انتخاب زبان و صفحه‌کلید</translation>
 <translation id="7507162824403726948">تأیید هویت خود را تکمیل کنید</translation>
 <translation id="7508690557411636492">ماه گذشته باز شده است</translation>
-<translation id="7509246181739783082">هویتتان را به‌تأیید برسانید</translation>
+<translation id="7509246181739783082">هویتتان را درستی‌سنجی کنید</translation>
 <translation id="7512509370370076552">میان‌بر کلیک راست از دگرساز + کلیک به کلید <ph name="LAUNCHER_KEY_NAME" /> + کلیک تغییر کرده است</translation>
 <translation id="7512726380443357693"><ph name="BUTTON_LABEL" />، انتخاب نشده</translation>
 <translation id="7513057995673284840">می‌توانید کنش دکمه‌های <ph name="PERIPHERAL_NAME" /> را شخصی‌سازی کنید</translation>
@@ -2379,7 +2378,7 @@
 <translation id="8747464587821437069"><ph name="CAMERA_AND_MICROPHONE_ACCESS_STATUS" />، <ph name="SCREEN_SHARE_STATUS" /></translation>
 <translation id="8751299148074971734">همین‌طور ادامه دهید!</translation>
 <translation id="8753368202781196133">درحال‌حاضر این زبان پشتیبانی نمی‌شود.</translation>
-<translation id="8755498163081687682">هویتتان را به‌تأیید برسانید: <ph name="ORIGIN_NAME" /> می‌خواهید تأیید کند این فرد شما هستید</translation>
+<translation id="8755498163081687682">هویتتان را درستی‌سنجی کنید: <ph name="ORIGIN_NAME" /> می‌خواهید تأیید کند این فرد شما هستید</translation>
 <translation id="875593634123171288">‏نمایش تنظیمات VPN</translation>
 <translation id="8756799553341497810">پس‌از خروج از این نما می‌توانید سفارشی‌سازی چیدمان برنامه‌تان را شروع کنید.</translation>
 <translation id="8759408218731716181">تنظیم ورود چندگانه به سیستم ممکن نیست</translation>

@@ -17,6 +17,8 @@ import org.chromium.chrome.browser.tab.TabCreationState;
 import org.chromium.chrome.browser.tab.TabLaunchType;
 import org.chromium.chrome.browser.tab.TabSelectionType;
 
+import java.util.Iterator;
+
 /**
  * A TabModel implementation that handles off the record tabs.
  *
@@ -41,6 +43,8 @@ class IncognitoTabModelImpl implements IncognitoTabModelInternal {
     private final IncognitoTabModelDelegate mDelegate;
     private final ObserverList<TabModelObserver> mObservers = new ObserverList<>();
     private final ObserverList<IncognitoTabModelObserver> mIncognitoObservers =
+            new ObserverList<>();
+    private final ObserverList<Callback<TabModelInternal>> mDelegateModelObservers =
             new ObserverList<>();
     private final Callback<@Nullable Tab> mDelegateModelCurrentTabSupplierObserver;
     private final ObservableSupplierImpl<@Nullable Tab> mCurrentTabSupplier =
@@ -112,6 +116,9 @@ class IncognitoTabModelImpl implements IncognitoTabModelInternal {
         for (TabModelObserver observer : mObservers) {
             mDelegateModel.addObserver(observer);
         }
+        for (Callback<TabModelInternal> delegateModelObserver : mDelegateModelObservers) {
+            delegateModelObserver.onResult(mDelegateModel);
+        }
     }
 
     /**
@@ -139,6 +146,9 @@ class IncognitoTabModelImpl implements IncognitoTabModelInternal {
         mTabCountSupplier.set(0);
 
         mDelegateModel = EmptyTabModel.getInstance(true);
+        for (Callback<TabModelInternal> delegateModelObserver : mDelegateModelObservers) {
+            delegateModelObserver.onResult(mDelegateModel);
+        }
     }
 
     private boolean isEmpty() {
@@ -216,6 +226,12 @@ class IncognitoTabModelImpl implements IncognitoTabModelInternal {
     }
 
     @Override
+    public Iterator<Tab> iterator() {
+        // The underlying model already returns a read-only iterator.
+        return mDelegateModel.iterator();
+    }
+
+    @Override
     public int index() {
         return mDelegateModel.index();
     }
@@ -238,6 +254,16 @@ class IncognitoTabModelImpl implements IncognitoTabModelInternal {
     @Override
     public void moveTab(int id, int newIndex) {
         mDelegateModel.moveTab(id, newIndex);
+    }
+
+    @Override
+    public void pinTab(int tabId) {
+        mDelegateModel.pinTab(tabId);
+    }
+
+    @Override
+    public void unpinTab(int tabId) {
+        mDelegateModel.unpinTab(tabId);
     }
 
     @Override
@@ -311,6 +337,14 @@ class IncognitoTabModelImpl implements IncognitoTabModelInternal {
     public void removeObserver(TabModelObserver observer) {
         mObservers.removeObserver(observer);
         mDelegateModel.removeObserver(observer);
+    }
+
+    @Override
+    public void addDelegateModelObserver(Callback<TabModelInternal> delegateModelObserver) {
+        mDelegateModelObservers.addObserver(delegateModelObserver);
+        if (mDelegateModel != null) {
+            delegateModelObserver.onResult(mDelegateModel);
+        }
     }
 
     @Override

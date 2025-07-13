@@ -385,7 +385,7 @@ public class FeedV2NewTabPageTest {
     @MediumTest
     @Feature({"FeedNewTabPage"})
     public void testSignInPromo_AccountsNotReady() {
-        try (var unused = mSigninTestRule.blockGetCoreAccountInfosUpdate(false)) {
+        try (var unused = mSigninTestRule.blockGetAccountsUpdate(false)) {
             openNewTabPage();
             // Check that the sign-in promo is not shown if accounts are not ready.
             onView(withId(R.id.feed_stream_recycler_view))
@@ -506,7 +506,7 @@ public class FeedV2NewTabPageTest {
         RecyclerView recyclerView = getRecyclerView();
         FeedV2TestHelper.waitForRecyclerItems(MIN_ITEMS_AFTER_LOAD, recyclerView);
 
-        mRenderTestRule.render(recyclerView, "feedContent_landscape_with_scrollable_mvt_v3");
+        mRenderTestRule.render(recyclerView, "feedContent_landscape_with_scrollable_mvt_v5");
     }
 
     @Test
@@ -554,7 +554,7 @@ public class FeedV2NewTabPageTest {
      */
     private int getFakeboxTop(final NewTabPage ntp) {
         return ThreadUtils.runOnUiThreadBlocking(
-                new Callable<Integer>() {
+                new Callable<>() {
                     @Override
                     public Integer call() {
                         final View fakebox = ntp.getView().findViewById(R.id.search_box);

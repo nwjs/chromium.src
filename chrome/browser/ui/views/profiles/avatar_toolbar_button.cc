@@ -127,9 +127,11 @@ void AvatarToolbarButton::UpdateIcon() {
   }
 
   const int icon_size = GetIconSize();
+  const ui::ColorProvider* const color_provider = GetColorProvider();
+  CHECK(color_provider);
   ui::ImageModel icon = delegate_->GetAvatarIcon(
       icon_size, GetForegroundColor(ButtonState::STATE_NORMAL),
-      GetColorProvider());
+      *color_provider);
 
   SetImageModel(ButtonState::STATE_NORMAL, icon);
   SetImageModel(ButtonState::STATE_DISABLED,
@@ -151,6 +153,14 @@ void AvatarToolbarButton::AddedToWidget() {
   // not be processed since the delegate was not initialized yet.
   // This will also end up calling `UpdateIcon()`.
   OnThemeChanged();
+}
+
+void AvatarToolbarButton::OnBoundsChanged(const gfx::Rect& previous_bounds) {
+  ToolbarButton::OnBoundsChanged(previous_bounds);
+  // This is needed to update the layout insets when the button is resized.
+  // `ToolbarButton::SetHighlight` may NOT clear the text immediately when the
+  // text is empty (clearing is delayed until the bounds are changed).
+  UpdateLayoutInsets();
 }
 
 void AvatarToolbarButton::Layout(PassKey) {
@@ -180,7 +190,7 @@ void AvatarToolbarButton::UpdateText() {
   CHECK(color_provider);
 
   SetTooltipText(delegate_->GetAvatarTooltipText());
-  auto [text, color] = delegate_->GetTextAndColor(color_provider);
+  auto [text, color] = delegate_->GetTextAndColor(*color_provider);
   SetHighlight(text, color);
   UpdateAccessibilityLabel();
   // Update the layout insets after `SetHighlight()` since
@@ -247,7 +257,7 @@ void AvatarToolbarButton::UpdateAccessibilityLabel() {
 std::optional<SkColor> AvatarToolbarButton::GetHighlightTextColor() const {
   const auto* const color_provider = GetColorProvider();
   CHECK(color_provider);
-  return delegate_->GetHighlightTextColor(color_provider);
+  return delegate_->GetHighlightTextColor(*color_provider);
 }
 
 std::optional<SkColor> AvatarToolbarButton::GetHighlightBorderColor() const {
@@ -266,19 +276,23 @@ bool AvatarToolbarButton::ShouldPaintBorder() const {
 }
 
 bool AvatarToolbarButton::ShouldBlendHighlightColor() const {
-  return delegate_->ShouldBlendHighlightColor();
+  if (base::FeatureList::IsEnabled(
+          features::kEnableAppMenuButtonColorsForDefaultAvatarButtonStates)) {
+    return false;
+  }
+  return GetWidget() && GetWidget()->GetCustomTheme();
 }
 
 base::ScopedClosureRunner AvatarToolbarButton::SetExplicitButtonState(
     const std::u16string& text,
     std::optional<std::u16string> accessibility_label,
-    std::optional<base::RepeatingClosure> explicit_action) {
+    std::optional<base::RepeatingCallback<void(bool)>> explicit_action) {
   return delegate_->SetExplicitButtonState(text, std::move(accessibility_label),
                                            std::move(explicit_action));
 }
 
-bool AvatarToolbarButton::HasExplicitButtonAction() const {
-  return !explicit_button_pressed_action_.is_null();
+bool AvatarToolbarButton::HasExplicitButtonState() const {
+  return delegate_->HasExplicitButtonState();
 }
 
 void AvatarToolbarButton::SetButtonActionDisabled(bool disabled) {
@@ -419,14 +433,7 @@ void AvatarToolbarButton::ButtonPressed(bool is_source_accelerator) {
   }
 #endif
 
-  if (!explicit_button_pressed_action_.is_null()) {
-    explicit_button_pressed_action_.Run();
-    return;
-  }
-
-  // Default behavior, shows the profile menu.
-  ProfileMenuCoordinator::GetOrCreateForBrowser(browser_)->Show(
-      is_source_accelerator);
+  delegate_->OnButtonPressed(is_source_accelerator);
 }
 
 void AvatarToolbarButton::AfterPropertyChange(const void* key,
@@ -440,20 +447,28 @@ void AvatarToolbarButton::AfterPropertyChange(const void* key,
 }
 
 SkColor AvatarToolbarButton::GetForegroundColor(ButtonState state) const {
-  bool has_custom_theme =
-      this->GetWidget() && this->GetWidget()->GetCustomTheme();
+  if (base::FeatureList::IsEnabled(
+          features::kEnableAppMenuButtonColorsForDefaultAvatarButtonStates)) {
+    if (IsLabelPresentAndVisible()) {
+      return GetHighlightTextColor().value_or(GetColorProvider()->GetColor(
+          kColorAvatarButtonHighlightDefaultForeground));
+    }
+  } else {
+    const bool has_custom_theme =
+        this->GetWidget() && this->GetWidget()->GetCustomTheme();
 
-  // If there is a custom theme use the `ToolbarButton` version of
-  // `GetForegroundColor()` This is to avoid creating new colorIds for icons for
-  // all the different states. With chrome refresh and without any custom theme,
-  // the color would be same as the label color.
-  if (!has_custom_theme && IsLabelPresentAndVisible()) {
-    const std::optional<SkColor> foreground_color = GetHighlightTextColor();
-    const auto* const color_provider = GetColorProvider();
-    return foreground_color.has_value()
-               ? foreground_color.value()
-               : color_provider->GetColor(
-                     kColorAvatarButtonHighlightDefaultForeground);
+    // If there is a custom theme use the `ToolbarButton` version of
+    // `GetForegroundColor()` This is to avoid creating new colorIds for icons
+    // for all the different states. With chrome refresh and without any custom
+    // theme, the color would be same as the label color.
+    if (!has_custom_theme && IsLabelPresentAndVisible()) {
+      const std::optional<SkColor> foreground_color = GetHighlightTextColor();
+      const auto* const color_provider = GetColorProvider();
+      return foreground_color.has_value()
+                 ? foreground_color.value()
+                 : color_provider->GetColor(
+                       kColorAvatarButtonHighlightDefaultForeground);
+    }
   }
 
   return ToolbarButton::GetForegroundColor(state);
@@ -464,15 +479,6 @@ bool AvatarToolbarButton::IsLabelPresentAndVisible() const {
     return false;
   }
   return label()->GetVisible() && !label()->GetText().empty();
-}
-
-void AvatarToolbarButton::UpdateButtonAction() {
-  explicit_button_pressed_action_.Reset();
-  std::optional<base::RepeatingClosure> button_action =
-      delegate_->GetButtonAction();
-  if (button_action.has_value()) {
-    explicit_button_pressed_action_ = *std::move(button_action);
-  }
 }
 
 void AvatarToolbarButton::UpdateLayoutInsets() {
@@ -506,12 +512,14 @@ void AvatarToolbarButton::TriggerTimeoutForTesting(AvatarDelayType delay_type) {
   delegate_->TriggerTimeoutForTesting(delay_type);  // IN-TEST
 }
 
+#if BUILDFLAG(ENABLE_DICE_SUPPORT)
 // static
 base::AutoReset<std::optional<base::TimeDelta>> AvatarToolbarButton::
     CreateScopedZeroDelayOverrideSigninPendingTextForTesting() {
   return AvatarToolbarButtonDelegate::
       CreateScopedZeroDelayOverrideSigninPendingTextForTesting();
 }
+#endif  // BUILDFLAG(ENABLE_DICE_SUPPORT)
 
 BEGIN_METADATA(AvatarToolbarButton)
 END_METADATA

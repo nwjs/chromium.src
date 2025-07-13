@@ -20,6 +20,7 @@
 #include "base/files/file_util.h"
 #include "base/memory/raw_ptr_exclusion.h"
 #include "base/path_service.h"
+#include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
 #include "base/test/bind.h"
 #include "base/test/metrics/histogram_tester.h"
@@ -245,14 +246,6 @@ constexpr char kCheckSidePanelThumbnailShownScript[] =
     "const imageSrc = thumbnailRoot.getElementById('image').src;"
     "return window.getComputedStyle(thumbContainer).display !== 'none' && "
     "       imageSrc.startsWith('data:image/jpeg');})();";
-
-constexpr char kCheckSidePanelToastShownScript[] =
-    "(function() {const appRoot = "
-    "document.getElementsByTagName('lens-side-panel-app')[0].shadowRoot;"
-    "const toast = appRoot.getElementById('messageToast');"
-    "const toastStyle = window.getComputedStyle(toast);"
-    "return toastStyle.visibility !== 'hidden' && "
-    "        toastStyle.opacity !== 0;})();";
 
 constexpr char kHistoryStateScript[] =
     "(function() {history.replaceState({'test':1}, 'test'); "
@@ -778,7 +771,8 @@ class LensOverlayControllerBrowserTest : public InProcessBrowserTest {
          {lens::features::kLensOverlayLatencyOptimizations,
           {{"enable-early-start-query-flow-optimization", "true"}}},
          {lens::features::kLensOverlaySurvey, {}},
-         {lens::features::kLensOverlaySidePanelOpenInNewTab, {}}},
+         {lens::features::kLensOverlaySidePanelOpenInNewTab, {}},
+         {lens::features::kLensOverlayBackToPage, {}}},
         /*disabled_features=*/{
             lens::features::kLensOverlaySimplifiedSelection});
   }
@@ -2820,7 +2814,6 @@ IN_PROC_BROWSER_TEST_F(
       [&]() { return controller->state() == State::kOverlay; }));
   EXPECT_TRUE(content::WaitForLoadStop(GetOverlayWebContents()));
   EXPECT_TRUE(controller->GetOverlayViewForTesting()->GetVisible());
-  int tabs = browser()->tab_strip_model()->count();
 
   controller->IssueSearchBoxRequestForTesting(
       kTestTime, "green", AutocompleteMatchType::Type::SEARCH_WHAT_YOU_TYPED,
@@ -2863,6 +2856,7 @@ IN_PROC_BROWSER_TEST_F(
   const GURL nav_url = embedded_test_server()->GetURL(relative_url);
 
   // Simulate a cross-origin navigation on the results frame.
+  ui_test_utils::AllBrowserTabAddedWaiter add_tab;
   EXPECT_TRUE(content::ExecJs(
       results_frame, content::JsReplace(kSameTabLinkClickScript, nav_url),
       content::EvalJsOptions::EXECUTE_SCRIPT_NO_RESOLVE_PROMISES));
@@ -2877,19 +2871,20 @@ IN_PROC_BROWSER_TEST_F(
                                                         ->GetPrimaryPage());
   EXPECT_FALSE(manager);
 
-  // It should not open a new tab as this URL matched exactly what is loaded on
-  // the page.
-  EXPECT_EQ(tabs, browser()->tab_strip_model()->count());
-  // Verify that the side panel searchbox displays a toast.
-  EXPECT_TRUE(base::test::RunUntil([&]() {
-    return content::EvalJs(controller->GetSidePanelWebContentsForTesting(),
-                           kCheckSidePanelToastShownScript)
-        .ExtractBool();
-  }));
+  // Verify the new tab has the URL.
+  content::WebContents* new_tab = add_tab.Wait();
+  EXPECT_TRUE(content::WaitForLoadStop(new_tab));
+  EXPECT_EQ(new_tab->GetLastCommittedURL(), nav_url);
+
+  // Verify the loading state was never set.
+  EXPECT_EQ(test_side_panel_coordinator->side_panel_loading_set_to_true_, 0);
+  EXPECT_EQ(test_side_panel_coordinator->side_panel_loading_set_to_false_, 0);
+
+  // Record the text directive result.
   histogram_tester.ExpectTotalCount("Lens.Overlay.TextDirectiveResult", 1);
   histogram_tester.ExpectUniqueSample(
       "Lens.Overlay.TextDirectiveResult",
-      lens::LensOverlayTextDirectiveResult::kNotFoundOnPage, 1);
+      lens::LensOverlayTextDirectiveResult::kOpenedInNewTab, 1);
 }
 
 // TODO(crbug.com/413042395): This test is not testing overlay logic, but
@@ -2920,7 +2915,6 @@ IN_PROC_BROWSER_TEST_F(
       [&]() { return controller->state() == State::kOverlay; }));
   EXPECT_TRUE(content::WaitForLoadStop(GetOverlayWebContents()));
   EXPECT_TRUE(controller->GetOverlayViewForTesting()->GetVisible());
-  int tabs = browser()->tab_strip_model()->count();
 
   controller->IssueSearchBoxRequestForTesting(
       kTestTime, "green", AutocompleteMatchType::Type::SEARCH_WHAT_YOU_TYPED,
@@ -2963,6 +2957,7 @@ IN_PROC_BROWSER_TEST_F(
   const GURL nav_url = embedded_test_server()->GetURL(relative_url);
 
   // Simulate a cross-origin navigation on the results frame.
+  ui_test_utils::AllBrowserTabAddedWaiter add_tab;
   EXPECT_TRUE(content::ExecJs(
       results_frame, content::JsReplace(kSameTabLinkClickScript, nav_url),
       content::EvalJsOptions::EXECUTE_SCRIPT_NO_RESOLVE_PROMISES));
@@ -2977,19 +2972,20 @@ IN_PROC_BROWSER_TEST_F(
                                                         ->GetPrimaryPage());
   EXPECT_FALSE(manager);
 
-  // It should not open a new tab as this URL matched exactly what is loaded on
-  // the page.
-  EXPECT_EQ(tabs, browser()->tab_strip_model()->count());
-  // Verify that the side panel searchbox displays a toast.
-  EXPECT_TRUE(base::test::RunUntil([&]() {
-    return content::EvalJs(controller->GetSidePanelWebContentsForTesting(),
-                           kCheckSidePanelToastShownScript)
-        .ExtractBool();
-  }));
+  // Verify the new tab has the URL.
+  content::WebContents* new_tab = add_tab.Wait();
+  EXPECT_TRUE(content::WaitForLoadStop(new_tab));
+  EXPECT_EQ(new_tab->GetLastCommittedURL(), nav_url);
+
+  // Verify the loading state was never set.
+  EXPECT_EQ(test_side_panel_coordinator->side_panel_loading_set_to_true_, 0);
+  EXPECT_EQ(test_side_panel_coordinator->side_panel_loading_set_to_false_, 0);
+
+  // Record the text directive result.
   histogram_tester.ExpectTotalCount("Lens.Overlay.TextDirectiveResult", 1);
   histogram_tester.ExpectUniqueSample(
       "Lens.Overlay.TextDirectiveResult",
-      lens::LensOverlayTextDirectiveResult::kNotFoundOnPage, 1);
+      lens::LensOverlayTextDirectiveResult::kOpenedInNewTab, 1);
 }
 
 // TODO(crbug.com/413042395): This test is not testing overlay logic, but
@@ -3494,7 +3490,6 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   VerifySearchQueryParameters(loaded_search_query->search_query_url_);
   VerifyTextQueriesAreEqual(loaded_search_query->search_query_url_,
                             first_search_url);
-  EXPECT_TRUE(loaded_search_query->selected_region_thumbnail_uri_.empty());
   EXPECT_FALSE(loaded_search_query->selected_region_);
   EXPECT_FALSE(loaded_search_query->selected_text_);
   EXPECT_FALSE(loaded_search_query->translate_options_);
@@ -3523,7 +3518,6 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   VerifySearchQueryParameters(loaded_search_query->search_query_url_);
   VerifyTextQueriesAreEqual(loaded_search_query->search_query_url_,
                             second_search_url);
-  EXPECT_TRUE(loaded_search_query->selected_region_thumbnail_uri_.empty());
   EXPECT_FALSE(loaded_search_query->selected_region_);
   EXPECT_FALSE(loaded_search_query->selected_text_);
   EXPECT_FALSE(loaded_search_query->translate_options_);
@@ -3546,7 +3540,6 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   VerifySearchQueryParameters(loaded_search_query->search_query_url_);
   VerifyTextQueriesAreEqual(loaded_search_query->search_query_url_,
                             first_search_url);
-  EXPECT_TRUE(loaded_search_query->selected_region_thumbnail_uri_.empty());
   EXPECT_FALSE(loaded_search_query->selected_region_);
   EXPECT_FALSE(loaded_search_query->selected_text_);
   EXPECT_FALSE(loaded_search_query->translate_options_);
@@ -3667,7 +3660,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   EXPECT_EQ(controller->get_selected_region_for_testing(), kTestRegion);
   EXPECT_FALSE(controller->get_selected_text_for_region());
   EXPECT_EQ(fake_query_controller->last_queried_region(), kTestRegion);
-  EXPECT_FALSE(fake_query_controller->last_queried_region_bytes().has_value());
+  EXPECT_TRUE(fake_query_controller->last_queried_region_bytes().has_value());
   EXPECT_EQ(fake_query_controller->last_lens_selection_type(),
             lens::REGION_SEARCH);
 
@@ -4526,7 +4519,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest, FindBarClosesOverlay) {
       [&]() { return controller->state() == State::kOverlay; }));
 
   // Open the find bar.
-  browser()->GetFindBarController()->Show();
+  browser()->GetFeatures().GetFindBarController()->Show();
 
   // Verify the overlay turns off.
   ASSERT_TRUE(base::test::RunUntil(
@@ -4600,10 +4593,8 @@ class LensOverlayControllerEntrypointsBrowserTest
   void SetupFeatureList() override {
     std::vector<base::test::FeatureRefAndParams> enabled_features = {
         {lens::features::kLensOverlay, {}},
-        {lens::features::kLensOverlayContextualSearchbox,
-         {
-
-         }},
+        {lens::features::kLensOverlayContextualSearchbox, {}},
+        {lens::features::kLensOverlayOmniboxEntryPoint, {}},
         {lens::features::kLensOverlaySurvey, {}},
         {lens::features::kLensOverlaySidePanelOpenInNewTab, {}}};
     if (IsPageActionsMigrationEnabled()) {
@@ -5255,8 +5246,10 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserFullscreenDisabled,
       [&]() { return controller->state() == State::kOverlay; }));
 
   // Enter into fullscreen mode.
-  FullscreenController* fullscreen_controller =
-      browser()->exclusive_access_manager()->fullscreen_controller();
+  FullscreenController* fullscreen_controller = browser()
+                                                    ->GetFeatures()
+                                                    .exclusive_access_manager()
+                                                    ->fullscreen_controller();
   content::WebContents* tab_web_contents =
       browser()->tab_strip_model()->GetActiveWebContents();
   fullscreen_controller->EnterFullscreenModeForTab(
@@ -5281,8 +5274,10 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserFullscreenDisabled,
       IDC_CONTENT_CONTEXT_LENS_OVERLAY));
 
   // Enter into fullscreen mode.
-  FullscreenController* fullscreen_controller =
-      browser()->exclusive_access_manager()->fullscreen_controller();
+  FullscreenController* fullscreen_controller = browser()
+                                                    ->GetFeatures()
+                                                    .exclusive_access_manager()
+                                                    ->fullscreen_controller();
   content::WebContents* tab_web_contents =
       browser()->tab_strip_model()->GetActiveWebContents();
   fullscreen_controller->EnterFullscreenModeForTab(
@@ -5340,6 +5335,7 @@ class LensOverlayControllerBrowserPDFTest
   std::vector<base::test::FeatureRef> GetDisabledFeatures() const override {
     auto disabled = PDFExtensionTestBase::GetDisabledFeatures();
     disabled.emplace_back(lens::features::kLensOverlayContextualSearchbox);
+    disabled.emplace_back(lens::features::kLensOverlayKeyboardSelection);
     return disabled;
   }
 
@@ -6344,6 +6340,11 @@ class LensOverlayControllerBrowserWithPixelsTest
   void SetUpCommandLine(base::CommandLine* command_line) override {
     command_line->AppendSwitch(::switches::kEnablePixelOutputInTests);
     InProcessBrowserTest::SetUpCommandLine(command_line);
+  }
+
+  void SetupFeatureList() override {
+    feature_list_.InitAndDisableFeature(
+        lens::features::kLensOverlayVisualSelectionUpdates);
   }
 
   bool IsNotEmptyAndNotTransparentBlack(SkBitmap bitmap) {

@@ -15,6 +15,8 @@
 #include "base/metrics/user_metrics_action.h"
 #include "base/strings/escape.h"
 #include "base/strings/utf_string_conversions.h"
+#include "chrome/browser/browser_process.h"
+#include "chrome/browser/enterprise/util/managed_browser_utils.h"
 #include "chrome/browser/extensions/settings_api_helpers.h"
 #include "chrome/browser/new_tab_page/new_tab_page_util.h"
 #include "chrome/browser/profiles/profile.h"
@@ -138,6 +140,21 @@ CustomizeChromePageHandler::CustomizeChromePageHandler(
       prefs::kNtpFooterVisible,
       base::BindRepeating(&CustomizeChromePageHandler::UpdateFooterSettings,
                           base::Unretained(this)));
+  pref_change_registrar_.Add(
+      prefs::kNTPFooterExtensionAttributionEnabled,
+      base::BindRepeating(&CustomizeChromePageHandler::UpdateFooterSettings,
+                          base::Unretained(this)));
+
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+  PrefService* local_state = g_browser_process->local_state();
+  if (local_state) {
+    browser_pref_change_registrar_.Init(local_state);
+    browser_pref_change_registrar_.Add(
+        prefs::kNTPFooterManagementNoticeEnabled,
+        base::BindRepeating(&CustomizeChromePageHandler::UpdateFooterSettings,
+                            base::Unretained(this)));
+  }
+#endif
 
   ntp_custom_background_service_observation_.Observe(
       ntp_custom_background_service_.get());
@@ -383,14 +400,14 @@ void CustomizeChromePageHandler::UpdateThemeEditable(bool is_theme_editable) {
 
 void CustomizeChromePageHandler::OpenChromeWebStore() {
   open_url_callback_.Run(
-      GURL("https://chrome.google.com/webstore?category=theme"));
+      GURL("https://chromewebstore.google.com/category/themes"));
   UMA_HISTOGRAM_ENUMERATION("NewTabPage.ChromeWebStoreOpen",
                             NtpChromeWebStoreOpen::kAppearance);
 }
 
 void CustomizeChromePageHandler::OpenThirdPartyThemePage(
     const std::string& theme_id) {
-  open_url_callback_.Run(GURL("https://chrome.google.com/webstore/detail/" +
+  open_url_callback_.Run(GURL("https://chromewebstore.google.com/detail/" +
                               base::EscapePath(theme_id)));
   UMA_HISTOGRAM_ENUMERATION("NewTabPage.ChromeWebStoreOpen",
                             NtpChromeWebStoreOpen::kCollections);
@@ -480,7 +497,10 @@ void CustomizeChromePageHandler::SetFooterVisible(bool visible) {
 
 void CustomizeChromePageHandler::UpdateFooterSettings() {
   page_->SetFooterSettings(
-      profile_->GetPrefs()->GetBoolean(prefs::kNtpFooterVisible));
+      profile_->GetPrefs()->GetBoolean(prefs::kNtpFooterVisible),
+      enterprise_util::CanShowEnterpriseBadgingForNTPFooter(profile_),
+      profile_->GetPrefs()->GetBoolean(
+          prefs::kNTPFooterExtensionAttributionEnabled));
 }
 
 void CustomizeChromePageHandler::SetModulesVisible(bool visible) {
@@ -546,8 +566,22 @@ void CustomizeChromePageHandler::UpdateAttachedTabState() {
 }
 
 void CustomizeChromePageHandler::UpdateNtpManagedByName() {
-  page_->NtpManagedByNameUpdated(
-      base::UTF16ToUTF8(GetManagingThirdPartyName()));
+  std::string name;
+  std::string description;
+
+  // Check overriding extensions first.
+  const extensions::Extension* extension_managing_ntp =
+      extensions::GetExtensionOverridingNewTabPage(profile_);
+  if (extension_managing_ntp) {
+    name = extension_managing_ntp->short_name();
+    description = l10n_util::GetStringUTF8(IDS_NTP_MANAGED_BY_EXTENSION);
+  } else if (IsNtpManagedByThirdPartySearchEngine()) {
+    name = base::UTF16ToUTF8(
+        template_url_service_->GetDefaultSearchProvider()->short_name());
+    description = l10n_util::GetStringUTF8(IDS_NTP_MANAGED_BY_SEARCH_ENGINE);
+  }
+
+  page_->NtpManagedByNameUpdated(name, description);
 }
 
 void CustomizeChromePageHandler::LogEvent(NTPLoggingEventType event) {
@@ -581,22 +615,6 @@ bool CustomizeChromePageHandler::IsCustomLinksEnabled() const {
 
 bool CustomizeChromePageHandler::IsShortcutsVisible() const {
   return profile_->GetPrefs()->GetBoolean(ntp_prefs::kNtpShortcutsVisible);
-}
-
-std::u16string CustomizeChromePageHandler::GetManagingThirdPartyName() const {
-  // Check overriding extensions first.
-  const extensions::Extension* extension_managing_ntp =
-      extensions::GetExtensionOverridingNewTabPage(profile_);
-  if (extension_managing_ntp) {
-    return base::UTF8ToUTF16(extension_managing_ntp->short_name());
-  }
-
-  // Check 3rd party search engines next.
-  if (IsNtpManagedByThirdPartySearchEngine()) {
-    return template_url_service_->GetDefaultSearchProvider()->short_name();
-  }
-
-  return std::u16string();
 }
 
 void CustomizeChromePageHandler::OnNativeThemeUpdated(

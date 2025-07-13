@@ -49,10 +49,10 @@ import com.google.android.material.tabs.TabLayout.OnTabSelectedListener;
 import com.google.android.material.tabs.TabLayout.Tab;
 
 import org.chromium.base.Callback;
+import org.chromium.base.supplier.ObservableSupplier;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.hub.HubToolbarProperties.PaneButtonLookup;
-import org.chromium.components.omnibox.OmniboxFeatures;
 import org.chromium.ui.animation.AnimationHandler;
 
 import java.util.List;
@@ -75,6 +75,7 @@ public class HubToolbarView extends LinearLayout {
     private boolean mApplyDelayForSearchBoxAnimation;
     private final AnimationHandler mHubSearchAnimatorHandler;
     private final Handler mHandler;
+    private @Nullable ObservableSupplier<Boolean> mXrSpaceModeObservableSupplier;
 
     /** Default {@link LinearLayout} constructor called by inflation. */
     public HubToolbarView(Context context, AttributeSet attributeSet) {
@@ -122,11 +123,13 @@ public class HubToolbarView extends LinearLayout {
 
             int buttonSize =
                     getResources().getDimensionPixelSize(R.dimen.hub_toolbar_action_button_size);
+            int startMarginPx =
+                    getResources()
+                            .getDimensionPixelSize(R.dimen.hub_toolbar_action_button_start_margin);
+
             FrameLayout.LayoutParams params =
                     (FrameLayout.LayoutParams) mActionButton.getLayoutParams();
-            params.leftMargin =
-                    getResources()
-                            .getDimensionPixelSize(R.dimen.hub_toolbar_action_button_left_margin);
+            params.setMarginStart(startMarginPx);
             params.width = buttonSize;
             params.height = buttonSize;
             params.gravity = Gravity.START | Gravity.CENTER_VERTICAL;
@@ -231,9 +234,7 @@ public class HubToolbarView extends LinearLayout {
 
     void setColorMixer(HubColorMixer mixer) {
         registerColorBlends(mixer);
-        if (OmniboxFeatures.sAndroidHubSearch.isEnabled()) {
-            registerSearchBoxColorBlends(mixer);
-        }
+        registerSearchBoxColorBlends(mixer);
     }
 
     private void registerColorBlends(HubColorMixer mixer) {
@@ -243,7 +244,7 @@ public class HubToolbarView extends LinearLayout {
         mixer.registerBlend(
                 new SingleHubViewColorBlend(
                         PANE_COLOR_BLEND_ANIMATION_DURATION_MS,
-                        colorScheme -> HubColors.getBackgroundColor(context, colorScheme),
+                        colorScheme -> getBackgroundColor(context, colorScheme),
                         this::setBackgroundColor));
 
         if (isGtsUpdateEnabled) {
@@ -260,7 +261,7 @@ public class HubToolbarView extends LinearLayout {
                             colorScheme ->
                                     HubColors.getToolbarActionButtonBackgroundColor(
                                             context, colorScheme),
-                            this::updateActionButtonColorInternal));
+                            color -> updateActionButtonColorInternal(context, color)));
         }
 
         mixer.registerBlend(
@@ -380,12 +381,14 @@ public class HubToolbarView extends LinearLayout {
     }
 
     private void updateActionButtonIconColorInternal(Context context, @ColorInt int color) {
-        ColorStateList actionButtonColor = HubColors.getActionButtonColor(context, color);
+        ColorStateList actionButtonColor =
+                HubColors.getActionButtonColor(context, color, HubUtils.isGtsUpdateEnabled());
         TextViewCompat.setCompoundDrawableTintList(mActionButton, actionButtonColor);
     }
 
-    private void updateActionButtonColorInternal(@ColorInt int color) {
-        mActionButton.setBackgroundTintList(ColorStateList.valueOf(color));
+    private void updateActionButtonColorInternal(Context context, @ColorInt int color) {
+        ColorStateList actionButtonBgColor = HubColors.getActionButtonBgColor(context, color);
+        mActionButton.setBackgroundTintList(actionButtonBgColor);
     }
 
     private void updateSearchLoupeColor(@ColorInt int color) {
@@ -456,9 +459,7 @@ public class HubToolbarView extends LinearLayout {
     }
 
     void updateIncognitoElements(boolean isIncognito) {
-        if (OmniboxFeatures.sAndroidHubSearch.isEnabled()) {
-            updateSearchBoxElements(isIncognito);
-        }
+        updateSearchBoxElements(isIncognito);
     }
 
     private @Nullable View getButtonView(int index) {
@@ -545,5 +546,16 @@ public class HubToolbarView extends LinearLayout {
         hoverDrawable.setShape(GradientDrawable.RECTANGLE);
         hoverDrawable.setCornerRadius(radius);
         return hoverDrawable;
+    }
+
+    private @ColorInt int getBackgroundColor(Context context, @HubColorScheme int colorScheme) {
+        boolean isXrFullSpaceMode =
+                mXrSpaceModeObservableSupplier != null && mXrSpaceModeObservableSupplier.get();
+        return HubColors.getBackgroundColor(context, colorScheme, isXrFullSpaceMode);
+    }
+
+    public void setXrSpaceModeObservableSupplier(
+            @Nullable ObservableSupplier<Boolean> xrSpaceModeObservableSupplier) {
+        mXrSpaceModeObservableSupplier = xrSpaceModeObservableSupplier;
     }
 }

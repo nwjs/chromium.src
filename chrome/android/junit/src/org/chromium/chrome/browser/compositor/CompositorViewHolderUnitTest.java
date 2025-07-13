@@ -83,7 +83,7 @@ import org.chromium.content_public.browser.WebContents;
 import org.chromium.ui.KeyboardVisibilityDelegate;
 import org.chromium.ui.base.ApplicationViewportInsetSupplier;
 import org.chromium.ui.base.WindowAndroid;
-import org.chromium.ui.InsetObserver;
+import org.chromium.ui.insets.InsetObserver;
 import org.chromium.ui.mojom.VirtualKeyboardMode;
 import org.chromium.ui.resources.ResourceManager;
 import org.chromium.ui.resources.dynamics.DynamicResourceLoader;

@@ -1011,6 +1011,7 @@ Alcune funzionalità sono limitate per aumentare la durata della batteria.</tran
 <translation id="4305817255990598646">Cambia</translation>
 <translation id="4307713728991152670">Configura la visualizzazione di app, contenuti multimediali e foto recenti dello smartphone</translation>
 <translation id="4312840429157639164">Fotocamera allineata all'angolo in alto a destra. Conflitto con la piattaforma di sistema.</translation>
+<translation id="4312935606722154789">Raggruppa o separa due finestre affiancate</translation>
 <translation id="4316910396681052118">TUTTE LE APP</translation>
 <translation id="4321179778687042513">ctrl</translation>
 <translation id="4322385711258710213">Nascondi tutti i suggerimenti del browser Chrome</translation>
@@ -1450,7 +1451,6 @@ Nessun dispositivo connesso.</translation>
 <translation id="5691772641933328258">Impronta digitale non riconosciuta</translation>
 <translation id="5693255400847650006">Microfono in uso</translation>
 <translation id="5699366815052349604">Assegna la finestra attiva a tutte le scrivanie</translation>
-<translation id="5701785125601597013">Invia messaggi o rispondi rapidamente ai messaggi dello smartphone usando Phone Hub</translation>
 <translation id="570390244361237317">Tutte le app: usa i tasti freccia per accedere a tutte le app</translation>
 <translation id="5705197514573687092">Mostra le impostazioni della modalità Niente distrazioni. Timer impostato su <ph name="FOCUS_DURATION" />.</translation>
 <translation id="5707775774148071965">Il dispositivo supporta una velocità dati superiore rispetto al cavo. Le prestazioni del dispositivo potrebbero essere limitate.</translation>
@@ -1580,7 +1580,6 @@ Nessun dispositivo connesso.</translation>
 <translation id="6095425951508823973">Aggiungi una connessione con <ph name="PROVIDER" /></translation>
 <translation id="6099678161144790572">Modificato il mese scorso</translation>
 <translation id="6103838137565245112">sistema</translation>
-<translation id="610395411842312282">Raggruppa due finestre affiancate</translation>
 <translation id="6108952804512516814">Crea con l'AI</translation>
 <translation id="6114505516289286752">File di contenuti vocali scaricati per questa la lingua: <ph name="LANGUAGE" /></translation>
 <translation id="6119360623251949462"><ph name="CHARGING_STATE" />. <ph name="BATTERY_SAVER_STATE" /></translation>

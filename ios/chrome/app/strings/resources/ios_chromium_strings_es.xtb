@@ -174,8 +174,10 @@ Para cambiar este ajuste, <ph name="BEGIN_LINK" />elimina los datos de Chromium 
 <translation id="5203244847421322551">Guarda y autocompleta contraseñas en Chromium</translation>
 <translation id="5224391634244552924">No hay ninguna contraseña guardada. Chromium puede comprobar tus contraseñas si las guardas.</translation>
 <translation id="5259423875997548710">Busca elementos visuales en Chromium.</translation>
+<translation id="5284913972719948193">Importa tus datos para usar tus contraseñas, historial, marcadores y tarjetas de crédito en Chromium</translation>
 <translation id="5308226104666789935">Chromium no puede comprobar si hay actualizaciones</translation>
 <translation id="5311557153294205270">Añade las URLs introducidas a tus marcadores de Chromium.</translation>
+<translation id="5383251701169024761">Para obtener fácilmente tus contraseñas guardadas en otras aplicaciones, elige Autocompletar en Chromium.</translation>
 <translation id="538767207339317086">Permitir el inicio de sesión en Chromium</translation>
 <translation id="5389058611415066188">Protégete con Chromium</translation>
 <translation id="5415273218238091735">Consejo de Chromium</translation>
@@ -276,7 +278,6 @@ Solo las personas que tengan tu frase de contraseña podrán leer tus datos cifr
 <translation id="7763454117143368771">Usa Chromium como tu navegador predeterminado para protegerte de sitios peligrosos y mantener a salvo tus contraseñas</translation>
 <translation id="7784950022329154821">Bloquear las pestañas de Incógnito al cerrar Chromium</translation>
 <translation id="78025249032851484">Tu Chromium no está actualizado.</translation>
-<translation id="7811371919871579588">Para obtener fácilmente tus contraseñas guardadas en otras aplicaciones, elige Autocompletar en Chromium.</translation>
 <translation id="7859018312476869945">Al escribir en la barra de direcciones o en el cuadro de búsqueda, Chromium envía lo que escribes al buscador predeterminado para que obtengas mejores sugerencias. Esta función está desactivada en el modo Incógnito.</translation>
 <translation id="7890287942691234100">Empezar a usar el escáner de Chromium</translation>
 <translation id="7905064834449738336">Cuando usas una contraseña, Chromium te avisa si se ha publicado online. Al hacerlo, tus contraseñas y nombres de usuario se cifran para que nadie pueda leerlos, ni siquiera Google.</translation>
@@ -307,6 +308,7 @@ Solo las personas que tengan tu frase de contraseña podrán leer tus datos cifr
 <translation id="865600487977764604">Te protege en Chromium y se puede usar para mejorar tu seguridad en otras aplicaciones de Google cuando has iniciado sesión.</translation>
 <translation id="8663480472502753423">Mantén Chromium actualizado</translation>
 <translation id="8685813584220679697">Inicia sesión en este sitio y en Chromium.</translation>
+<translation id="8698780336333802489">Importar a Chromium</translation>
 <translation id="8730503818204408000">Abre el ajuste de Chromium para establecer Chromium como navegador predeterminado.</translation>
 <translation id="8754966941001340678">Chromium recomienda la protección mejorada</translation>
 <translation id="8759037115129007407">Este miembro de tu familia no puede recibir contraseñas en este momento. Pídele que actualice Chromium y sincronice sus contraseñas. <ph name="BEGIN_LINK" />Más información<ph name="END_LINK" /></translation>
@@ -331,6 +333,7 @@ Prueba a esperar unos minutos antes de cerrar sesión. Si cierras sesión ahora,
 <translation id="9050790730841755540">Usa Chromium siempre que toques enlaces de otras aplicaciones.</translation>
 <translation id="9059693977935746710">No tendrás que recordar esta contraseña. Se guardará en el gestor de contraseñas de <ph name="EMAIL" />.</translation>
 <translation id="9089354809943900324">Chromium no está actualizado</translation>
+<translation id="9105645282262300612">Consejo de Chromium: busca lo que ves</translation>
 <translation id="9152995302810511799">Consejo de Chromium: consigue la seguridad más potente de Chromium</translation>
 <translation id="9177628952266852500"><ph name="EMAIL" />. Chromium está gestionado.</translation>
 <translation id="921174536258924340">Chromium no ha podido comprobar todas las contraseñas. Vuelve a intentarlo mañana o <ph name="BEGIN_LINK" />comprueba las contraseñas en tu cuenta de Google<ph name="END_LINK" />.</translation>

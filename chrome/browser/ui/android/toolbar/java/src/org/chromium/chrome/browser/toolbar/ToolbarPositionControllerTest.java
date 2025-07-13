@@ -303,7 +303,7 @@ public class ToolbarPositionControllerTest {
         mBrowserControlsSizer.setControlsPosition(
                 ControlsPosition.TOP, TOOLBAR_HEIGHT, 0, 0, 0, 0, 0);
         mControlContainerLayoutParams.gravity = Gravity.START | Gravity.TOP;
-        mProgressBarLayoutParams.gravity = Gravity.TOP;
+        mProgressBarLayoutParams.gravity = Gravity.CENTER;
         mProgressBarLayoutParams.anchorGravity = Gravity.BOTTOM;
         mProgressBarLayoutParams.setAnchorId(CONTROL_CONTAINER_ID);
 
@@ -490,9 +490,9 @@ public class ToolbarPositionControllerTest {
 
         mIsFormFieldFocused.onNodeAttributeUpdated(true, false);
         mKeyboardVisibilityDelegate.setVisibilityForTests(true);
-        assertEquals(-TOOLBAR_HEIGHT, mBrowserControlsSizer.getTopControlOffset());
+        assertEquals(0, mBrowserControlsSizer.getTopControlOffset());
         assertControlsAtTop();
-        verify(mControlContainerView, times(2)).setVisibility(View.INVISIBLE);
+        verify(mControlContainerView, times(1)).setVisibility(View.INVISIBLE);
 
         mKeyboardVisibilityDelegate.setVisibilityForTests(false);
         assertEquals(TOOLBAR_HEIGHT, mBrowserControlsSizer.getBottomControlOffset());
@@ -698,7 +698,7 @@ public class ToolbarPositionControllerTest {
                         ControlsPosition.TOP));
 
         assertEquals(
-                StateTransition.ANIMATE_TO_BOTTOM,
+                StateTransition.SNAP_TO_BOTTOM,
                 ToolbarPositionController.calculateStateTransition(
                         true,
                         prefStateChanged,
@@ -900,7 +900,7 @@ public class ToolbarPositionControllerTest {
         assertEquals(TOOLBAR_HEIGHT, mHairlineLayoutParams.topMargin);
         assertEquals(0, mHairlineLayoutParams.bottomMargin);
         assertEquals(Gravity.START | Gravity.TOP, mControlContainerLayoutParams.gravity);
-        assertEquals(Gravity.TOP, mProgressBarLayoutParams.gravity);
+        assertEquals(Gravity.CENTER, mProgressBarLayoutParams.gravity);
         assertEquals(Gravity.BOTTOM, mProgressBarLayoutParams.anchorGravity);
         assertEquals(CONTROL_CONTAINER_ID, mProgressBarLayoutParams.getAnchorId());
     }

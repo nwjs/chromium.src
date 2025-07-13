@@ -104,14 +104,6 @@ class ScopedConfigForTesting : Config<T> {
 
 // Add new configs below, ordered alphabetically.
 
-// If enabled, use more efficient codepaths when capturing autocomplete metrics.
-struct AutocompleteControllerMetricsOptimization
-    : Config<AutocompleteControllerMetricsOptimization> {
-  DECLARE_FEATURE(kAutocompleteControllerMetricsOptimization);
-  AutocompleteControllerMetricsOptimization();
-  bool enabled;
-};
-
 // If enabled, adds recent calc suggestions.
 struct CalcProvider : Config<CalcProvider> {
   DECLARE_FEATURE(kCalcProvider);
@@ -233,6 +225,35 @@ struct MiaZPS : Config<MiaZPS> {
   bool suppress_psuggest_backfill_with_mia;
 };
 
+// A config struct for the omnibox toolbelt.
+struct Toolbelt : Config<Toolbelt> {
+  DECLARE_FEATURE(kOmniboxToolbelt);
+
+  Toolbelt();
+
+  // Whether the toolbelt is to be included in the omnibox.
+  bool enabled;
+
+  // Whether the toolbelt will be preserved after user types (after
+  // input clears the zero suggest).
+  bool keep_toolbelt_after_input;
+
+  // Whether the lens entrypoint action should stay unconditionally on the
+  // toolbelt. When this is false, the regular triggering conditions apply
+  // so the action can sometimes be included or sometimes not.
+  bool always_include_lens_action;
+
+  // Some of the variants we want to experiment with want a subset of actions.
+  // For flexibility, may as well make all the actions finch params.
+  bool show_ai_search_action;
+  // Disabling `show_lens_action` takes precedence over
+  // `always_include_lens_action`.
+  bool show_lens_action;
+  bool show_bookmarks_action;
+  bool show_tabs_action;
+  bool show_history_action;
+};
+
 // If enabled, adjusts the indentation of the omnibox input and matches to fix
 // the visual shift in omnibox input text when the omnibox popup opens.
 struct AdjustOmniboxIndent : Config<AdjustOmniboxIndent> {
@@ -349,6 +370,7 @@ struct SearchAggregatorProvider : Config<SearchAggregatorProvider> {
   int scoring_score_per_weak_text_match;
   int scoring_max_text_score;
   int scoring_people_score_boost;
+  int scoring_people_email_match_score_boost;
   bool scoring_prefer_contents_over_queries;
   size_t scoring_scoped_max_low_quality_matches;
   size_t scoring_unscoped_max_low_quality_matches;

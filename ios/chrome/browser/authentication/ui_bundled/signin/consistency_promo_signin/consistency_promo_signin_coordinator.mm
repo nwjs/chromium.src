@@ -139,6 +139,16 @@
             continuationProvider:continuationProvider];
 }
 
+- (void)dealloc {
+  CHECK(!self.navigationController, base::NotFatalUntil::M142);
+  CHECK(!self.defaultAccountCoordinator, base::NotFatalUntil::M142);
+  CHECK(!self.alertCoordinator, base::NotFatalUntil::M142);
+  CHECK(!self.accountChooserCoordinator, base::NotFatalUntil::M142);
+  CHECK(!self.addAccountCoordinator, base::NotFatalUntil::M142);
+  CHECK(!self.reauthCoordinator, base::NotFatalUntil::M142);
+  CHECK(!self.consistencyPromoSigninMediator, base::NotFatalUntil::M142);
+}
+
 #pragma mark - ChromeCoordinator
 
 - (void)start {
@@ -225,7 +235,7 @@
                     completionIdentity:completionIdentity];
 }
 
-#pragma mark - StopAnimatedSigninCoordinator
+#pragma mark - AnimatedCoordinator
 
 - (void)stopAnimated:(BOOL)animated {
   [self stopAlertCoordinator];
@@ -350,6 +360,10 @@
 // If `hasAccounts == NO`, the added account will be used to sign in to Chrome
 // directly after the AddAccountSigninCoordinator finishes.
 - (void)openAddAccountCoordinatorWithHasAccounts:(BOOL)hasAccounts {
+  if (self.addAccountCoordinator) {
+    // This can occur in case of double tap.
+    return;
+  }
   if (hasAccounts) {
     RecordConsistencyPromoUserAction(
         signin_metrics::AccountConsistencyPromoAction::ADD_ACCOUNT_STARTED,
@@ -360,7 +374,6 @@
             ADD_ACCOUNT_STARTED_WITH_NO_DEVICE_ACCOUNT,
         self.accessPoint);
   }
-  DCHECK(!self.addAccountCoordinator);
   self.addAccountCoordinator = [SigninCoordinator
       addAccountCoordinatorWithBaseViewController:self.navigationController
                                           browser:self.browser
@@ -408,6 +421,14 @@
   [self openAddAccountCoordinatorWithHasAccounts:YES];
 }
 
+- (void)consistencyAccountChooserCoordinatorWantsToBeStopped:
+    (ConsistencyAccountChooserCoordinator*)coordinator {
+  CHECK_EQ(coordinator, self.accountChooserCoordinator,
+           base::NotFatalUntil::M140);
+  [self stopAccountChooserCoordinator];
+  [self.navigationController popViewControllerAnimated:YES];
+}
+
 #pragma mark - ConsistencyDefaultAccountCoordinatorDelegate
 
 - (void)consistencyDefaultAccountCoordinatorSkip:
@@ -430,12 +451,12 @@
     (ConsistencyDefaultAccountCoordinator*)coordinator {
   self.accountChooserCoordinator = [[ConsistencyAccountChooserCoordinator alloc]
       initWithBaseViewController:self.navigationController
-                         browser:self.browser];
+                         browser:self.browser
+                selectedIdentity:self.defaultAccountCoordinator
+                                     .selectedIdentity];
   self.accountChooserCoordinator.delegate = self;
   self.accountChooserCoordinator.layoutDelegate = self;
-  [self.accountChooserCoordinator
-      startWithSelectedIdentity:self.defaultAccountCoordinator
-                                    .selectedIdentity];
+  [self.accountChooserCoordinator start];
   [self.navigationController
       pushViewController:self.accountChooserCoordinator.viewController
                 animated:YES];
@@ -514,6 +535,8 @@
   if (self.navigationController.viewControllers.count == 1 &&
       self.accountChooserCoordinator) {
     // AccountChooserCoordinator has been removed by "Back" button.
+    base::RecordAction(base::UserMetricsAction(
+        "Signin_BottomSheet_IdentityChooser_ClosedByUser"));
     [self stopAccountChooserCoordinator];
   }
 }

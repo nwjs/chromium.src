@@ -82,6 +82,7 @@ source_set("sync") {
     "//chrome/app:generated_resources_grit",
     "//chrome/browser:browser_process",
     "//chrome/browser/plus_addresses",
+    "//chrome/browser/ui/toolbar",
 
     # TODO(crbug.com/374910357): Investigate for a better dependency injection.
     "//chrome/browser/autofill",
@@ -107,6 +108,7 @@ source_set("sync") {
     "//components/language/core/common",
     "//components/live_caption:constants",
     "//components/metrics/demographics",
+    "//components/password_manager/core/browser/features:password_features",
     "//components/password_manager/core/browser/features:utils",
     "//components/password_manager/core/browser/password_store:password_store_interface",
     "//components/password_manager/core/browser/sharing",
@@ -161,10 +163,6 @@ source_set("sync") {
     ]
   } else {
     sources += [
-      "glue/extension_data_type_controller.cc",
-      "glue/extension_data_type_controller.h",
-      "glue/extension_setting_data_type_controller.cc",
-      "glue/extension_setting_data_type_controller.h",
       "sessions/browser_list_router_helper.cc",
       "sessions/browser_list_router_helper.h",
     ]
@@ -174,19 +172,28 @@ source_set("sync") {
     ]
     deps += [
       "//chrome/browser/accessibility/tree_fixing:prefs",
-      "//chrome/browser/themes",
       "//chrome/browser/ui/tabs:tab_strip",
+    ]
+  }
+  if (enable_extensions_core) {
+    sources += [
+      "glue/extension_data_type_controller.cc",
+      "glue/extension_data_type_controller.h",
+      "glue/extension_setting_data_type_controller.cc",
+      "glue/extension_setting_data_type_controller.h",
+    ]
+    public_deps += [ "//extensions/buildflags" ]
+    deps += [
+      "//extensions/browser",
+      "//extensions/browser/api/storage",
+      "//extensions/common",
+    ]
+  }
+  if (enable_extensions) {
+    deps += [
+      "//chrome/browser/themes",
       "//chrome/browser/web_applications",
     ]
-
-    if (enable_extensions) {
-      public_deps += [ "//extensions/buildflags" ]
-      deps += [
-        "//extensions/browser",
-        "//extensions/browser/api/storage",
-        "//extensions/common",
-      ]
-    }
   }
   if (is_chromeos) {
     sources += [
@@ -241,5 +248,6 @@ source_set("factories") {
   public_deps = [
     "//base",
     "//chrome/browser/profiles",
+    "//components/sync/engine",
   ]
 }

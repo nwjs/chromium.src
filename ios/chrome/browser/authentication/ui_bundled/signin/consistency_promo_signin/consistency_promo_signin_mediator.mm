@@ -51,7 +51,7 @@ constexpr base::TimeDelta kSigninTimeout = base::Seconds(10);
   NSMutableSet* _addedGaiaIDs;
 
   // Identity for the sign-in in progress.
-  __weak id<SystemIdentity> _signingIdentity;
+  id<SystemIdentity> _signingIdentity;
 
   // Observer for changes to the user's Google identities.
   // TODO(crbug.com/395789708): Remove after launching
@@ -119,9 +119,10 @@ constexpr base::TimeDelta kSigninTimeout = base::Seconds(10);
 }
 
 - (void)dealloc {
-  DCHECK(!_accountManagerService && !_authenticationService &&
-         !_identityManager && !_accountReconcilor && !_prefService &&
-         !_identityManagerObserverBridge.get())
+  CHECK(!_accountManagerService && !_authenticationService &&
+            !_identityManager && !_accountReconcilor && !_prefService &&
+            !_identityManagerObserverBridge.get(),
+        base::NotFatalUntil::M142)
       << "_accountManagerService: " << _accountManagerService
       << ", _authenticationService: " << _authenticationService
       << ", _identityManager: " << _identityManager
@@ -267,10 +268,11 @@ constexpr base::TimeDelta kSigninTimeout = base::Seconds(10);
       FROM_HERE, _cookieTimeoutClosure.callback(), kSigninTimeout);
 }
 
-- (ChangeProfileContinuation)authenticationFlowWillChangeProfile {
+- (void)authenticationFlowWillSwitchProfileWithReadyCompletion:
+    (ReadyForProfileSwitchingCompletion)readyCompletion {
   _authenticationFlow.delegate = nil;
   _authenticationFlow = nil;
-  return [self.delegate changeProfileContinuation];
+  std::move(readyCompletion).Run([self.delegate changeProfileContinuation]);
 }
 
 #pragma mark - Private
@@ -339,7 +341,7 @@ constexpr base::TimeDelta kSigninTimeout = base::Seconds(10);
       // Since sign-in UI blocks all other Chrome screens until it is dismissed
       // an account change event must come from the consistency sheet.
       // TODO(crbug.com/40691525): Update if sign-in UI becomes non-blocking.
-      CHECK(_signingIdentity);
+      CHECK(_signingIdentity, base::NotFatalUntil::M141);
       id<SystemIdentity> signedInIdentity =
           _authenticationService->GetPrimaryIdentity(
               signin::ConsentLevel::kSignin);

@@ -7,6 +7,8 @@
 #include "base/trace_event/trace_event.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/sync/sync_service_factory.h"
+#include "chrome/browser/webid/federated_identity_auto_reauthn_permission_context.h"
+#include "chrome/browser/webid/federated_identity_auto_reauthn_permission_context_factory.h"
 #include "components/password_manager/core/browser/features/password_features.h"
 #include "components/password_manager/core/browser/password_manager_settings_service.h"
 #include "components/password_manager/core/browser/password_manager_settings_service_impl.h"
@@ -67,6 +69,21 @@ PasswordManagerSettingsServiceFactory::BuildServiceInstanceForBrowserContext(
     content::BrowserContext* context) const {
   TRACE_EVENT0("passwords", "PasswordManagerSettingsServiceCreation");
   Profile* profile = Profile::FromBrowserContext(context);
+  std::unique_ptr<password_manager::PasswordManagerSettingsService>
+      settings_service = CreateService(profile);
+  if (settings_service) {
+    if (FederatedIdentityAutoReauthnPermissionContext* reauthn_context =
+            FederatedIdentityAutoReauthnPermissionContextFactory::GetForProfile(
+                profile)) {
+      reauthn_context->OnPasswordManagerSettingsServiceInitialized(
+          settings_service.get());
+    }
+  }
+  return settings_service;
+}
+
+std::unique_ptr<password_manager::PasswordManagerSettingsService>
+PasswordManagerSettingsServiceFactory::CreateService(Profile* profile) const {
 #if BUILDFLAG(IS_ANDROID)
   if (base::FeatureList::IsEnabled(
           password_manager::features::kLoginDbDeprecationAndroid)) {

@@ -1076,7 +1076,7 @@ TEST_F(ExtensionServiceTest, LoadAllExtensionsFromDirectorySuccess) {
   EXPECT_EQ(std::string(good1), loaded_extensions()[1]->id());
   EXPECT_EQ(std::string("My extension 2"), loaded_extensions()[1]->name());
   EXPECT_EQ(std::string(), loaded_extensions()[1]->description());
-  EXPECT_EQ(loaded_extensions()[1]->GetResourceURL("background.html"),
+  EXPECT_EQ(loaded_extensions()[1]->ResolveExtensionURL("background.html"),
             BackgroundInfo::GetBackgroundURL(loaded_extensions()[1].get()));
   EXPECT_TRUE(
       ContentScriptsInfo::GetContentScripts(loaded_extensions()[1].get())
@@ -6082,6 +6082,29 @@ TEST_F(ExtensionServiceTest, DisableLoadExtensionCommandLineSwitch) {
   ValidatePrefKeyCount(0);
 
   histograms.ExpectTotalCount("Extensions.LoadingFromCommandLine", 0);
+}
+
+TEST_F(ExtensionServiceTest, DisableDisableExtensionsExceptCommandLineSwitch) {
+  base::test::ScopedFeatureList feature_list(
+      /*enable_feature=*/extensions_features::
+          kDisableDisableExtensionsExceptCommandLineSwitch);
+  InitializeEmptyExtensionServiceWithTestingPrefs();
+
+  // Try to load an extension from command line.
+  base::FilePath path =
+      base::MakeAbsoluteFilePath(data_dir().AppendASCII("good_unpacked"));
+  base::CommandLine::ForCurrentProcess()->AppendSwitchPath(
+      switches::kDisableExtensionsExcept, path);
+  service()->Init();
+
+  ExtensionSystem* extension_system = ExtensionSystem::Get(profile());
+  // Wait until the extension system is ready.
+  base::RunLoop run_loop;
+  extension_system->ready().Post(FROM_HERE, run_loop.QuitClosure());
+  run_loop.Run();
+
+  ASSERT_EQ(0u, loaded_extensions().size());
+  ValidatePrefKeyCount(0);
 }
 
 // Tests that we generate IDs when they are not specified in the manifest for

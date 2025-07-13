@@ -961,7 +961,7 @@ IN_PROC_BROWSER_TEST_F(ContentVerifierTest, VerificationFailureOnNavigate) {
     ASSERT_TRUE(base::AppendToFile(real_path, extra));
   }
 
-  GURL page_url = extension->GetResourceURL("script.js");
+  GURL page_url = extension->ResolveExtensionURL("script.js");
   NavigateToResourceAndExpectExtensionDisabled(kExtensionId, page_url);
 }
 
@@ -1081,7 +1081,7 @@ IN_PROC_BROWSER_TEST_F(ContentVerifierTest, TamperLargeSizedResource) {
   }
 
   NavigateToResourceAndExpectExtensionDisabled(
-      extension->id(), extension->GetResourceURL(kResource));
+      extension->id(), extension->ResolveExtensionURL(kResource));
 }
 
 #if BUILDFLAG(ENABLE_EXTENSIONS)
@@ -1110,7 +1110,7 @@ IN_PROC_BROWSER_TEST_F(ContentVerifierTest,
   // the implementation detail a little too much.
   const char kLargeResource[] = "ten_meg_background.js";
   ui_test_utils::NavigateToURLWithDisposition(
-      browser(), extension->GetResourceURL(kLargeResource),
+      browser(), extension->ResolveExtensionURL(kLargeResource),
       WindowOpenDisposition::NEW_FOREGROUND_TAB,
       ui_test_utils::BROWSER_TEST_NO_WAIT);
 }
@@ -1146,7 +1146,7 @@ IN_PROC_BROWSER_TEST_F(ContentVerifierTest,
   ASSERT_TRUE(extension);
   const ExtensionId kExtensionId = extension->id();
 
-  GURL page_url = extension->GetResourceURL("script.js/");
+  GURL page_url = extension->ResolveExtensionURL("script.js/");
   // The page should not load.
   ASSERT_FALSE(NavigateToURL(page_url));
   ASSERT_FALSE(content::WaitForLoadStop(GetActiveWebContents()));
@@ -1166,7 +1166,7 @@ IN_PROC_BROWSER_TEST_F(ContentVerifierTest,
   ASSERT_TRUE(extension);
   const ExtensionId kExtensionId = extension->id();
 
-  GURL page_url = extension->GetResourceURL("script.js.");
+  GURL page_url = extension->ResolveExtensionURL("script.js.");
   // The page should not load.
   ASSERT_FALSE(NavigateToURL(page_url));
   ASSERT_FALSE(content::WaitForLoadStop(GetActiveWebContents()));
@@ -1192,7 +1192,7 @@ IN_PROC_BROWSER_TEST_F(ContentVerifierTest,
   TestContentVerifySingleJobObserver job_observer(
       extension_id, base::FilePath().AppendASCII(kIncorrectCasePath));
 
-  GURL page_url = extension->GetResourceURL(kIncorrectCasePath);
+  GURL page_url = extension->ResolveExtensionURL(kIncorrectCasePath);
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
   // Some platforms are case insensitive, load should succeed.
   ASSERT_TRUE(NavigateToURL(page_url));

@@ -36,7 +36,7 @@
 <translation id="1634522710245925681">‏برای دریافت آسان‌تر اطلاعات آماری قیمت، Chrome را به‌عنوان مرورگر پیش‌فرض تنظیم کنید</translation>
 <translation id="1646463005043273333">‏«تنظیمات Chrome» را برای تنظیم کردن Chrome به‌عنوان مرورگر پیش‌فرض باز می‌کند.</translation>
 <translation id="1670609221633730681">‏نکته Chrome: موقعیت نوار نشانی را انتخاب کنید</translation>
-<translation id="1683863426423719967">‏برای دریافت «یادآورهای برگه» از Chrome، اعلان‌ها را در «تنظیمات» iOS روشن کنید.</translation>
+<translation id="1683863426423719967">‏برای دریافت «یادآورهای زبانه» از Chrome، اعلان‌ها را در «تنظیمات» iOS روشن کنید.</translation>
 <translation id="1759842336958782510">Chrome</translation>
 <translation id="1784567647421309104">‏گذرواژه‌هایتان را در Chrome ذخیره کنید</translation>
 <translation id="1790080846677398234">‏نشانی‌های وب واردشده را به نشانک‌های شما در Chrome اضافه می‌کند.</translation>
@@ -90,6 +90,7 @@
 <translation id="2957447865124070833">‏<ph name="BEGIN_BOLD" />Chrome<ph name="END_BOLD" /> را انتخاب کنید</translation>
 <translation id="2986402782150919988">‏افزودن نشانک به Chrome</translation>
 <translation id="3030414234702425231">‏ازآنجایی‌که درحال خارج شدن از حسابی هستید که <ph name="SIGNOUT_MANAGED_DOMAIN" /> آن را مدیریت می‌کند، داده‌های Chrome شما از این دستگاه حذف خواهد شد. داده‌هایتان در حساب Google شما باقی می‌ماند.</translation>
+<translation id="3042447686908081308">‏وارد کردن در Chrome</translation>
 <translation id="3051521853355903257">‏مدیریت کردن گذرواژه‌ها در Chrome</translation>
 <translation id="309672519329227863">‏در سایر برنامه‌ها به گذرواژه‌های Chrome و موارد دیگر دسترسی داشته باشید.</translation>
 <translation id="3109170945534582468">‏کنش‌های Chrome</translation>
@@ -138,7 +139,6 @@
 <translation id="4724297637870447613">‏استفاده از Chrome در همه‌جا</translation>
 <translation id="4738647308035481133">‏صفحه Google Chrome</translation>
 <translation id="4742795653798179840">‏داده‌های Chrome حذف شد</translation>
-<translation id="4749294594657945639">‏برای دریافت آسان گذرواژه‌های ذخیره‌شده در برنامه‌های دیگر، «Chrome برای تکمیل خودکار» را انتخاب کنید.</translation>
 <translation id="4761869838909035636">‏راندن «بررسی ایمنی» در Chrome</translation>
 <translation id="4798859546468762093">‏برای دریافت شخصی‌سازی و ویژگی‌های دیگر، Chrome را به <ph name="FEATURE_NAME_1" /> و <ph name="FEATURE_NAME_2" /> اضافه کنید</translation>
 <translation id="4819268619367838612">‏برای کمک به بهبود برنامه، Chrome داده‌های استفاده و ازکارافتادگی را به Google ارسال می‌کند. <ph name="BEGIN_LINK" />مدیریت<ph name="END_LINK" /></translation>
@@ -215,6 +215,7 @@
 <translation id="6533470733797826516">‏با تکمیل خودکار Chrome سریع‌تر به سیستم وارد شوید</translation>
 <translation id="6536544321553662809">‏با تنظیم کردن Chrome به‌عنوان مرورگر پیش‌فرض، به‌راحتی پیوندها را هم‌رسانی و باز کنید.</translation>
 <translation id="6545449117344801102">‏‫Chrome نشانی‌ها را شناسایی می‌کند و برای ارائه مسیرها و اطلاعات محلی از Google Maps استفاده می‌کند.</translation>
+<translation id="6611692150236062461">‏برای دریافت آسان گذرواژه‌های ذخیره‌شده در برنامه‌های دیگر، «Chrome برای تکمیل خودکار» را انتخاب کنید.</translation>
 <translation id="6636941099779251629">‏سازمانتان از شما می‌خواهد برای استفاده از Chrome به سیستم وارد شوید. <ph name="BEGIN_LINK" />بیشتر بدانید<ph name="END_LINK" /></translation>
 <translation id="6646696210740573446">‏بخش مبهم‌سازی‌شده‌ای از نشانی وب را ازطریق سرور حافظ حریم خصوصی که نشانی IP شما را پنهان می‌کند به Google ارسال می‌کند. اگر سایتی تلاش کند گذرواژه‌تان را به‌سرقت ببرد، یا وقتی فایل مخربی بارگیری می‌کنید، Chrome ممکن است نشانی‌های وب را نیز به‌همراه بخش‌های کوچکی از محتوای صفحه به Google ارسال کند.</translation>
 <translation id="6647304104688527905">‏برگه جدیدی را در Chrome باز می‌کند.</translation>
@@ -313,6 +314,7 @@
 داده‌هایتان بااستفاده از گذرعبارت شما در تاریخ <ph name="TIME" /> رمزگذاری شد. برای استفاده از داده‌های Chrome و ذخیره کردن این داده‌ها در «حساب Google»، این گذرعبارت را وارد کنید.</translation>
 <translation id="8540666473246803645">Google Chrome</translation>
 <translation id="8544583291890527417">‏برای هر مشکل حریم خصوصی یا امنیتی که Chrome تشخیص می‌دهد به شما هشدار می‌دهد.</translation>
+<translation id="855027533751209304">‏نکته Chrome: جستجوی آنچه می‌بینید</translation>
 <translation id="8558480467877843976">‏اکنون هرزمان بخواهید می‌توانید با مرور کردن یا ضربه زدن روی پیوندهای موجود در پیام‌ها، اسناد، و دیگر برنامه‌ها، از Chrome استفاده کنید.</translation>
 <translation id="8603022514504485810">‏«مدیر گذرواژه Google» نتوانست همه گذرواژه‌ها را بررسی کند. فردا دوباره امتحان کنید یا <ph name="BEGIN_LINK" />گذرواژه‌ها را در «حساب Google» خود بررسی کنید.<ph name="END_LINK" /></translation>
 <translation id="8630122478628016441">‏«قفل کردن برگه‌های ناشناس هنگام بستن Chrome» را روشن کنید.</translation>
@@ -336,6 +338,7 @@
 <translation id="9176561303811134420">‏مدیریت کردن روش‌های پرداخت در Chrome</translation>
 <translation id="9181628561061032322">‏برگه‌های اخیر Chrome را باز می‌کند.</translation>
 <translation id="948597495737267756">‏صفحه «سابقه Chrome» را باز می‌کند.</translation>
+<translation id="954347330803595209">‏برای استفاده از گذرواژه‌ها، سابقه، نشانک‌ها، و کارت‌های اعتباری در Chrome، داده‌هایتان را وارد کنید</translation>
 <translation id="97300214378190234">‏با ضربه زدن روی پیوندهای موجود در برنامه‌های دیگر، از Chrome استفاده کنید.</translation>
 <translation id="997929539742564806">‏بااستفاده از تکمیل خودکار گذرواژه‌ها و گذرکلیدها در Chrome، سریع‌تر به سیستم برنامه‌ها و سایت‌ها وارد شوید</translation>
 <translation id="998677222109959694">‏مدیریت تنظیمات Chrome</translation>

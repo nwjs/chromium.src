@@ -74,9 +74,13 @@ chromium-metrics-reviews@google.com.
     <variant name="DropScrollToHighlight"/>
     <variant name="EnableDragResize"/>
     <variant name="GetContextFromFocusedTab"/>
+    <variant name="GetContextFromTab"/>
     <variant name="GetOsMicrophonePermissionStatus"/>
     <variant name="GetUserProfileInfo"/>
     <variant name="GetZeroStateSuggestionsForFocusedTab"/>
+    <variant name="MaybeRefreshUserStatus"/>
+    <variant name="OnClosedCaptionsShown"/>
+    <variant name="OnRequestStarted"/>
     <variant name="OnResponseRated"/>
     <variant name="OnResponseStarted"/>
     <variant name="OnResponseStopped"/>
@@ -85,6 +89,7 @@ chromium-metrics-reviews@google.com.
     <variant name="OpenGlicSettingsPage"/>
     <variant name="OpenOsPermissionSettingsMenu"/>
     <variant name="PauseActorTask"/>
+    <variant name="PinTabs"/>
     <variant name="RefreshSignInCookies"/>
     <variant name="ResizeWindow"/>
     <variant name="ResumeActorTask"/>
@@ -93,6 +98,7 @@ chromium-metrics-reviews@google.com.
     <variant name="SetClosedCaptioningState"/>
     <variant name="SetContextAccessIndicator"/>
     <variant name="SetLocationPermissionState"/>
+    <variant name="SetMaximumNumberOfPinnedTabs"/>
     <variant name="SetMicrophonePermissionState"/>
     <variant name="SetMinimumWidgetSize"/>
     <variant name="SetSyntheticExperimentState"/>
@@ -100,6 +106,8 @@ chromium-metrics-reviews@google.com.
     <variant name="SetWindowDraggableAreas"/>
     <variant name="ShowProfilePicker"/>
     <variant name="StopActorTask"/>
+    <variant name="UnpinAllTabs"/>
+    <variant name="UnpinTabs"/>
     <variant name="WebClientCreated"/>
     <variant name="WebClientInitialized"/>
   </token>
@@ -169,7 +177,17 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="Glic.FreModalWebUiState.FinishState" enum="FreWebUiState"
+<histogram name="Glic.FRE.InvocationSource" enum="GlicInvocationSource"
+    expires_after="2026-01-15">
+  <owner>cuianthony@google.com</owner>
+  <owner>iwells@google.com</owner>
+  <summary>
+    Records the entry point used to trigger the opening of the glic FRE modal.
+    Recorded when the FRE is shown to the user.
+  </summary>
+</histogram>
+
+<histogram name="Glic.FreModalWebUiState.FinishState2" enum="FreWebUiState"
     expires_after="2026-01-15">
   <owner>cuianthony@google.com</owner>
   <owner>iwells@google.com</owner>
@@ -326,18 +344,6 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="Glic.PageContextFetcher.PageContextEligible"
-    enum="BooleanEligible" expires_after="2026-01-15">
-  <owner>carlosk@chromium.org</owner>
-  <owner>harringtond@chromium.org</owner>
-  <owner>erikchen@chromium.org</owner>
-  <owner>sophiechang@chromium.org</owner>
-  <summary>
-    Recorded when a page context gets context eligibility and records whether
-    the page is eligible.
-  </summary>
-</histogram>
-
 <histogram name="Glic.PageContextFetcher.Total" units="ms"
     expires_after="2026-01-15">
   <owner>carlosk@chromium.org</owner>
@@ -474,6 +480,26 @@ chromium-metrics-reviews@google.com.
   <summary>Record the current state when the the panel is closed.</summary>
 </histogram>
 
+<histogram name="Glic.PositionOnDisplay.OnClose" enum="DisplayPosition"
+    expires_after="2026-01-15">
+  <owner>andreaxg@google.com</owner>
+  <owner>iwells@google.com</owner>
+  <summary>
+    Record the position of the glic window on close relative to the current
+    display. The value Unknown is not expected to be recorded but is a backup.
+  </summary>
+</histogram>
+
+<histogram name="Glic.PositionOnDisplay.OnOpen" enum="DisplayPosition"
+    expires_after="2026-01-15">
+  <owner>andreaxg@google.com</owner>
+  <owner>iwells@google.com</owner>
+  <summary>
+    Record the position of the glic window on open relative to the display glic
+    opens in. The value Unknown is not expected to be recorded but is a backup.
+  </summary>
+</histogram>
+
 <histogram name="Glic.Response.Attached" enum="Boolean"
     expires_after="2026-01-15">
   <owner>carlosk@chromium.org</owner>
@@ -483,6 +509,17 @@ chromium-metrics-reviews@google.com.
     When glic returns a response to user input, whether glic was attached or
     detached at the time the response started. Only emitted if glic was visible
     when the response started.
+  </summary>
+</histogram>
+
+<histogram name="Glic.Response.ClosedCaptionsShown" enum="Boolean"
+    expires_after="2026-01-15">
+  <owner>sanaakbani@google.com</owner>
+  <owner>carlosk@chromium.org</owner>
+  <summary>
+    Records if closed captions were being shown at the moment when glic returns
+    a response to the user. Records true if the closed captions pref was enabled
+    by the user; records false otherwise (an error condition).
   </summary>
 </histogram>
 
@@ -667,8 +704,8 @@ chromium-metrics-reviews@google.com.
   <owner>dullweber@chromium.org</owner>
   <owner>erikchen@chromium.org</owner>
   <summary>
-    Recorded when a session ends. The number of times the panel was attached or
-    detached.
+    The number of times the panel was attached or detached between openning and
+    closing. Recorded when the panel is closed.
   </summary>
 </histogram>
 
@@ -676,7 +713,10 @@ chromium-metrics-reviews@google.com.
   <owner>carlosk@chromium.org</owner>
   <owner>harringtond@chromium.org</owner>
   <owner>erikchen@chromium.org</owner>
-  <summary>Recorded when a session ends. The duration of the session.</summary>
+  <summary>
+    Time in milliseconds from when the window opens until it is closed. Recorded
+    each time the glic window is closed.
+  </summary>
 </histogram>
 
 <histogram name="Glic.Session.InputModesUsed" enum="GlicInputModesUsed"
@@ -684,7 +724,17 @@ chromium-metrics-reviews@google.com.
   <owner>dullweber@chromium.org</owner>
   <owner>erikchen@chromium.org</owner>
   <summary>
-    Recorded when a session ends. The input modes that were used during the
+    The input modes that were used during the session. Recorded when the panel
+    is closed.
+  </summary>
+</histogram>
+
+<histogram name="Glic.Session.InputSubmit.BrowserActiveState"
+    enum="GlicBrowserActiveState" expires_after="2026-03-15">
+  <owner>harringtond@chromium.org</owner>
+  <owner>carlosk@chromium.org</owner>
+  <summary>
+    Records the browser active state when user input is submitted in a Glic
     session.
   </summary>
 </histogram>
@@ -696,6 +746,15 @@ chromium-metrics-reviews@google.com.
   <owner>erikchen@chromium.org</owner>
   <summary>
     Recorded when a session starts. Records whether the window is attached.
+  </summary>
+</histogram>
+
+<histogram name="Glic.Session.Open.BrowserActiveState"
+    enum="GlicBrowserActiveState" expires_after="2026-03-15">
+  <owner>harringtond@chromium.org</owner>
+  <owner>carlosk@chromium.org</owner>
+  <summary>
+    Records the browser active state when a Glic session starts.
   </summary>
 </histogram>
 
@@ -715,8 +774,37 @@ chromium-metrics-reviews@google.com.
   <owner>harringtond@chromium.org</owner>
   <owner>erikchen@chromium.org</owner>
   <summary>
-    Recorded when a session ends. The number of responses during that session.
+    The number of responses during the session. Recorded when the panel is
+    closed.
   </summary>
+</histogram>
+
+<histogram name="Glic.Session.ResponseStart.BrowserActiveState"
+    enum="GlicBrowserActiveState" expires_after="2026-03-15">
+  <owner>harringtond@chromium.org</owner>
+  <owner>carlosk@chromium.org</owner>
+  <summary>
+    Records the browser active state when a Glic response starts rendering.
+  </summary>
+</histogram>
+
+<histogram name="Glic.Sharing.ActiveTabSharingState.{Event}"
+    enum="ActiveTabSharingState" expires_after="2026-01-15">
+  <owner>harringtond@chromium.org</owner>
+  <owner>carlosk@chromium.org</owner>
+  <summary>
+    Records the active tab's focus state at the moment when {Event}.
+  </summary>
+  <token key="Event">
+    <variant name="OnPanelOpenAndReady"
+        summary="the Glic panel has been opened and is ready to receive user
+                 input"/>
+    <variant name="OnTabContextPermissionGranted"
+        summary="the user grants tab context access to Glic while the panel
+                 is open"/>
+    <variant name="OnUserInputSubmitted"
+        summary="the user submits their input"/>
+  </token>
 </histogram>
 
 <histogram name="Glic.ShouldPreload" enum="Boolean" expires_after="2026-01-15">

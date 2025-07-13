@@ -38,7 +38,6 @@ build_webui("build") {
     "searchbox_compose_button.css",
     "searchbox_dropdown_shared_style.css",
   ]
-  html_to_wrapper_template = "detect"
 
   mojo_files_deps = [
     ":mojo_bindings_ts__generator",

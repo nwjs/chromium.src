@@ -28,11 +28,11 @@ import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider
 import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider.Observer;
 import org.chromium.chrome.browser.omnibox.LocationBar;
 import org.chromium.components.browser_ui.widget.TouchEventObserver;
-import org.chromium.ui.InsetObserver;
-import org.chromium.ui.InsetObserver.WindowInsetsAnimationListener;
 import org.chromium.ui.KeyboardVisibilityDelegate;
 import org.chromium.ui.KeyboardVisibilityDelegate.KeyboardVisibilityListener;
 import org.chromium.ui.base.ViewUtils;
+import org.chromium.ui.insets.InsetObserver;
+import org.chromium.ui.insets.InsetObserver.WindowInsetsAnimationListener;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -236,9 +236,7 @@ public class MiniOriginBarController implements Observer {
         boolean isChangingVisibility =
                 isMiniOriginBarVisibleForState(newMiniOriginState)
                         != isMiniOriginBarVisibleForState(mMiniOriginBarState);
-        boolean finishingShowAnimation =
-                mMiniOriginBarState == MiniOriginState.ANIMATING
-                        && newMiniOriginState == MiniOriginState.SHOWING;
+        boolean finishedShowing = newMiniOriginState == MiniOriginState.SHOWING;
         boolean startingHideAnimation =
                 mMiniOriginBarState == MiniOriginState.SHOWING
                         && newMiniOriginState == MiniOriginState.ANIMATING;
@@ -250,7 +248,7 @@ public class MiniOriginBarController implements Observer {
             // jump is hidden by the keyboard.
             mControlContainerHeightSupplier.set(LayoutParams.WRAP_CONTENT);
         }
-        if (finishingShowAnimation) {
+        if (finishedShowing) {
             setMinimizationProgress(1.0f);
             // Re-set the control container height at the end of a show animation in case the hide
             // animation, which sets the height at its start, was cancelled, which can happen for
@@ -461,7 +459,7 @@ public class MiniOriginBarController implements Observer {
         mLocationBar.getContainerView().setScaleX(scale);
         mLocationBar.getContainerView().setScaleY(scale);
         mLocationBar.getContainerView().setPivotY(mLocationBar.getUrlBarHeight() / 2);
-        mLocationBar.getContainerView().setPivotX(0.5f);
+        mLocationBar.getContainerView().setPivotX(0.0f);
     }
 
     @VisibleForTesting

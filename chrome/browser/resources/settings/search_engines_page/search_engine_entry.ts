@@ -71,6 +71,16 @@ export class SettingsSearchEngineEntryElement extends
         type: Boolean,
         value: false,
       },
+
+      showSecondaryButton_: {
+        type: Boolean,
+        computed: 'computeShowSecondaryButton_(engine)',
+      },
+
+      disableDots_: {
+        type: Boolean,
+        computed: 'computeDisableDots_(engine)',
+      },
     };
   }
 
@@ -82,6 +92,8 @@ export class SettingsSearchEngineEntryElement extends
       SearchEnginesBrowserProxyImpl.getInstance();
   declare private showEditIcon_: boolean;
   declare private showDownloadedIcon_: boolean;
+  declare private showSecondaryButton_: boolean;
+  declare private disableDots_: boolean;
   private timeoutId_: number|null = null;
 
   private onEngineChanged_(
@@ -114,7 +126,18 @@ export class SettingsSearchEngineEntryElement extends
 
   private computeShowEditIcon_(): boolean {
     return !this.engine.isStarterPack && !this.engine.canBeActivated &&
-        !this.engine.isManaged;
+        !(this.engine.isManaged && !this.engine.canBeEdited);
+  }
+
+  private computeShowSecondaryButton_(): boolean {
+    return !this.engine.canBeActivated &&
+        (this.engine.isManaged && !this.engine.canBeEdited);
+  }
+
+  private computeDisableDots_(): boolean {
+    return this.engine.default ||
+        (this.engine.isManaged && !this.engine.canBeActivated &&
+         !this.engine.canBeDeactivated && !this.engine.canBeRemoved);
   }
 
   private onDeleteClick_(e: Event) {

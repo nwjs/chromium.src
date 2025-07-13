@@ -76,6 +76,7 @@
 #include "third_party/blink/renderer/core/paint/timing/container_timing.h"
 #include "third_party/blink/renderer/core/performance_entry_names.h"
 #include "third_party/blink/renderer/core/timing/animation_frame_timing_info.h"
+#include "third_party/blink/renderer/core/timing/interaction_contentful_paint.h"
 #include "third_party/blink/renderer/core/timing/largest_contentful_paint.h"
 #include "third_party/blink/renderer/core/timing/layout_shift.h"
 #include "third_party/blink/renderer/core/timing/performance_container_timing.h"
@@ -1304,17 +1305,15 @@ void WindowPerformance::QueueLongAnimationFrameTiming(
 }
 
 void WindowPerformance::AddFirstPaintTiming(
-    const DOMPaintTimingInfo& paint_timing_info,
-    bool is_triggered_by_soft_navigation) {
+    const DOMPaintTimingInfo& paint_timing_info) {
   AddPaintTiming(PerformancePaintTiming::PaintType::kFirstPaint,
-                 paint_timing_info, is_triggered_by_soft_navigation);
+                 paint_timing_info);
 }
 
 void WindowPerformance::AddFirstContentfulPaintTiming(
-    const DOMPaintTimingInfo& paint_timing_info,
-    bool is_triggered_by_soft_navigation) {
+    const DOMPaintTimingInfo& paint_timing_info) {
   AddPaintTiming(PerformancePaintTiming::PaintType::kFirstContentfulPaint,
-                 paint_timing_info, is_triggered_by_soft_navigation);
+                 paint_timing_info);
 }
 
 void WindowPerformance::AddLongAnimationFrameEntry(PerformanceEntry* entry) {
@@ -1426,14 +1425,17 @@ void WindowPerformance::AddVisibilityStateEntry(bool is_visible,
   }
 }
 
-void WindowPerformance::AddSoftNavigationEntry(const AtomicString& name,
-                                               base::TimeTicks timestamp) {
+void WindowPerformance::AddSoftNavigationEntry(
+    const AtomicString& name,
+    base::TimeTicks timestamp,
+    const DOMPaintTimingInfo& paint_timing_info) {
   if (!RuntimeEnabledFeatures::SoftNavigationHeuristicsEnabled(
           GetExecutionContext())) {
     return;
   }
   SoftNavigationEntry* entry = MakeGarbageCollected<SoftNavigationEntry>(
-      name, MonotonicTimeToDOMHighResTimeStamp(timestamp), DomWindow());
+      name, MonotonicTimeToDOMHighResTimeStamp(timestamp), paint_timing_info,
+      DomWindow());
 
   if (HasObserverFor(PerformanceEntry::kSoftNavigation)) {
     UseCounter::Count(GetExecutionContext(),
@@ -1485,8 +1487,7 @@ void WindowPerformance::OnLargestContentfulPaintUpdated(
     base::TimeTicks load_time,
     const AtomicString& id,
     const String& url,
-    Element* element,
-    bool is_triggered_by_soft_navigation) {
+    Element* element) {
   DOMHighResTimeStamp load_timestamp =
       MonotonicTimeToDOMHighResTimeStamp(load_time);
 
@@ -1494,8 +1495,7 @@ void WindowPerformance::OnLargestContentfulPaintUpdated(
       paint_timing_info.has_value() ? paint_timing_info->presentation_time
                                     : load_timestamp,
       paint_timing_info.has_value() ? paint_timing_info->presentation_time : 0,
-      paint_size, load_timestamp, id, url, element, DomWindow(),
-      is_triggered_by_soft_navigation);
+      paint_size, load_timestamp, id, url, element, DomWindow());
 
   if (paint_timing_info) {
     entry->SetPaintTimingInfo(paint_timing_info.value());
@@ -1527,6 +1527,36 @@ void WindowPerformance::OnLargestContentfulPaintUpdated(
       }
     }
   }
+}
+
+void WindowPerformance::OnInteractionContentfulPaintUpdated(
+    std::optional<DOMPaintTimingInfo> paint_timing_info,
+    uint64_t paint_size,
+    base::TimeTicks load_time,
+    const AtomicString& id,
+    const String& url,
+    Element* element) {
+  if (!RuntimeEnabledFeatures::SoftNavigationHeuristicsEnabled(
+          GetExecutionContext())) {
+    return;
+  }
+  DOMHighResTimeStamp load_timestamp =
+      MonotonicTimeToDOMHighResTimeStamp(load_time);
+
+  auto* entry = MakeGarbageCollected<InteractionContentfulPaint>(
+      paint_timing_info.has_value() ? paint_timing_info->presentation_time
+                                    : load_timestamp,
+      paint_timing_info.has_value() ? paint_timing_info->presentation_time : 0,
+      paint_size, load_timestamp, id, url, element, DomWindow());
+
+  if (paint_timing_info) {
+    entry->SetPaintTimingInfo(paint_timing_info.value());
+  }
+
+  if (HasObserverFor(PerformanceEntry::kInteractionContentfulPaint)) {
+    NotifyObserversOfEntry(*entry);
+  }
+  AddInteractionContentfulPaint(entry);
 }
 
 void WindowPerformance::OnPaintFinished() {

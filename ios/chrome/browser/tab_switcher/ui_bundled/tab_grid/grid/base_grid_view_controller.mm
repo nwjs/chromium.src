@@ -1669,7 +1669,8 @@ NSString* GroupGridCellAccessibilityIdentifier(NSUInteger index) {
   cell.title = item.title;
   cell.accessibilityIdentifier = GroupGridCellAccessibilityIdentifier(index);
 
-  cell.facePile = [self.gridProvider facePileViewForItem:groupItemIdentifier];
+  cell.facePileProvider =
+      [self.gridProvider facePileProviderForItem:groupItemIdentifier];
 
   if (self.mode == TabGridMode::kSelection) {
     if ([self.gridProvider isItemSelected:groupItemIdentifier]) {
@@ -1684,15 +1685,15 @@ NSString* GroupGridCellAccessibilityIdentifier(NSUInteger index) {
   cell.activityLabelData =
       [self.gridProvider activityLabelDataForItem:groupItemIdentifier];
 
-  auto completionBlock = ^(
-      TabGroupItem* innerItem,
-      NSArray<TabSnapshotAndFavicon*>* tabSnapshotsAndFavicons) {
+  auto completionBlock = ^(TabGroupItem* innerItem, NSInteger tabIndex,
+                           TabSnapshotAndFavicon* tabSnapshotAndFavicon) {
     if ([cell.itemIdentifier.tabGroupItem isEqual:innerItem]) {
-      [cell configureWithSnapshotsAndFavicons:tabSnapshotsAndFavicons
-                               totalTabsCount:innerItem.numberOfTabsInGroup];
+      [cell configureTabSnapshotAndFavicon:tabSnapshotAndFavicon
+                                  tabIndex:tabIndex];
     }
   };
-  [self.gridProvider fetchTabGroupItemInfo:item completion:completionBlock];
+  [self.gridProvider fetchTabGroupItemSnapshotsAndFavicons:item
+                                                completion:completionBlock];
 }
 
 // Configures `cell`'s identifier and title synchronously, and favicon and

@@ -51,6 +51,7 @@ class CONTENT_EXPORT TouchEmulatorImpl : public input::TouchEmulator {
   void SetDeviceScaleFactor(float device_scale_factor) override;
   void SetDoubleTapSupportForPageEnabled(bool enabled) override;
   bool IsEnabled() const override;
+  bool ShouldUpdateCursor(input::RenderWidgetHostViewInput*) const override;
   bool HandleTouchEvent(const blink::WebTouchEvent& event) override;
   void OnGestureEventAck(
       const blink::WebGestureEvent& event,

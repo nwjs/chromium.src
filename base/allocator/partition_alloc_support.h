@@ -16,8 +16,8 @@
 #include "base/task/sequenced_task_runner.h"
 #include "base/thread_annotations.h"
 #include "partition_alloc/buildflags.h"
-#include "partition_alloc/lightweight_quarantine_support.h"
 #include "partition_alloc/partition_alloc_config.h"
+#include "partition_alloc/scheduler_loop_quarantine_support.h"
 #include "partition_alloc/thread_cache.h"
 
 namespace base::allocator {
@@ -54,6 +54,8 @@ class BASE_EXPORT PartitionAllocSupport {
 
     // TODO(https://crbug.com/371135823): Remove after the investigation.
     size_t extra_extras_size = 0;
+    bool suppress_double_free_detected_crash = false;
+    bool suppress_corruption_detected_crash = false;
   };
 
   // Reconfigure* functions re-configure PartitionAlloc. It is impossible to
@@ -172,6 +174,11 @@ class BASE_EXPORT MemoryReclaimerSupport {
 // This is useful if you want to investigate crashes at `free()`,
 // to know which point at execution it goes wrong.
 BASE_EXPORT void CheckHeapIntegrity(const void* ptr);
+
+// The function here is called right before crashing with
+// `DoubleFreeOrCorruptionDetected()`. We provide an address for the slot start
+// to the function, and it may use that for debugging purpose.
+BASE_EXPORT void SetDoubleFreeOrCorruptionDetectedFn(void (*fn)(uintptr_t));
 
 using partition_alloc::ScopedSchedulerLoopQuarantineExclusion;
 

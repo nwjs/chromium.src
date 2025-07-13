@@ -7,9 +7,10 @@ import ios_chrome_browser_shared_ui_util_util_swift
 import ios_chrome_browser_tab_switcher_ui_bundled_tab_strip_ui_swift_constants
 
 /// View Controller displaying the TabStrip.
+@MainActor
 @objcMembers
-class TabStripViewController: UIViewController,
-  TabStripConsumer, TabStripNewTabButtonDelegate, TabStripGroupCellDelegate, TabStripTabCellDelegate
+class TabStripViewController: UIViewController, TabStripConsumer, TabStripNewTabButtonDelegate,
+  @preconcurrency TabStripGroupCellDelegate, @preconcurrency TabStripTabCellDelegate
 {
 
   // The enum used by the data source to manage the sections.
@@ -82,6 +83,8 @@ class TabStripViewController: UIViewController,
   public weak var contextMenuProvider: TabStripContextMenuProvider?
   /// Handles snapshots and favicons fetches.
   public weak var snapshotAndfaviconDataSource: TabSwitcherItemSnapShotAndFaviconDataSource?
+  /// Data source for fetching `TabStripTabGroupCell` properties.
+  public weak var tabGroupCellDataSource: TabStripTabGroupCellDataSource?
   /// Handler for tab group confirmation commands.
   public weak var tabGroupConfirmationHandler: TabGroupConfirmationCommands?
 
@@ -142,21 +145,13 @@ class TabStripViewController: UIViewController,
     newTabButton.isIncognito = isIncognito
     view.addSubview(newTabButton)
 
-    if TabStripFeaturesUtils.isModernTabStripNewTabButtonDynamic {
-      NSLayoutConstraint.activate([
-        collectionView.trailingAnchor.constraint(
-          equalTo: view.trailingAnchor, constant: -TabStripConstants.NewTabButton.width),
-        newTabButton.leadingAnchor.constraint(
-          greaterThanOrEqualTo: view.leadingAnchor),
-        newTabButton.trailingAnchor.constraint(lessThanOrEqualTo: view.trailingAnchor),
-      ])
-    } else {
-      NSLayoutConstraint.activate([
-        newTabButton.leadingAnchor.constraint(
-          equalTo: collectionView.trailingAnchor),
-        newTabButton.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-      ])
-    }
+    NSLayoutConstraint.activate([
+      collectionView.trailingAnchor.constraint(
+        equalTo: view.trailingAnchor, constant: -TabStripConstants.NewTabButton.width),
+      newTabButton.leadingAnchor.constraint(
+        greaterThanOrEqualTo: view.leadingAnchor),
+      newTabButton.trailingAnchor.constraint(lessThanOrEqualTo: view.trailingAnchor),
+    ])
 
     NSLayoutConstraint.activate(
       [
@@ -585,10 +580,20 @@ class TabStripViewController: UIViewController,
         }
       }
 
+      // Mark `nonisolated(unsafe)` to opt out of Swift’s concurrency checking. The Swift compiler
+      // doesn't ensure if it's safe to pass `cell.item` across threads since NSObject doesn't
+      // conform to Sendable protocol.
+      nonisolated(unsafe)
+      let cellItem = cell.item
       let completion = {
-        (item: TabSwitcherItem?, tabSnapshotAndFavicon: TabSnapshotAndFavicon?) -> Void in
-        if let item = item, item == cell.item {
-          cell.setFaviconImage(tabSnapshotAndFavicon?.favicon)
+        @Sendable (item: TabSwitcherItem?, tabSnapshotAndFavicon: TabSnapshotAndFavicon?) -> Void in
+        if let item = item, item == cellItem {
+          guard let favicon = tabSnapshotAndFavicon?.favicon else {
+            return
+          }
+          Task { @MainActor in
+            cell.setFaviconImage(favicon)
+          }
         }
       }
       self.snapshotAndfaviconDataSource?.fetchTabSnapshotAndFavicon(item, completion: completion)
@@ -616,9 +621,10 @@ class TabStripViewController: UIViewController,
       guard let item = itemIdentifier.tabGroupItem else { return }
       let itemData = self.itemData[itemIdentifier] as? TabStripItemData
       cell.title = item.title
-      cell.titleContainerBackgroundColor = item.groupColor
+      cell.contentContainerBackgroundColor = item.groupColor
       cell.titleTextColor = item.foregroundColor
       cell.collapsed = item.collapsed
+      cell.facePileProvider = self.tabGroupCellDataSource?.facePileProvider(forItem: itemIdentifier)
       cell.delegate = self
       cell.groupStrokeColor = itemData?.groupStrokeColor
       cell.hasNotificationDot = itemData?.hasNotificationDot == true && item.collapsed
@@ -902,6 +908,21 @@ extension TabStripViewController: UICollectionViewDelegateFlowLayout {
     }
   }
 
+  func collectionView(
+    _ collectionView: UICollectionView,
+    willDisplay cell: UICollectionViewCell,
+    forItemAt indexPath: IndexPath
+  ) {
+    guard let tabStripGroupCell = cell as? TabStripGroupCell else {
+      return
+    }
+    // Tab group cells that include a face pile must recalculate their size when they appear.
+    // This ensures their width properly accounts for the face pile, preventing them from using
+    // the approximate nonSharedWidth.
+    if tabStripGroupCell.facePileProvider != nil {
+      layout.invalidateLayout()
+    }
+  }
 }
 
 extension TabStripViewController: UICollectionViewDragDelegate, UICollectionViewDropDelegate {

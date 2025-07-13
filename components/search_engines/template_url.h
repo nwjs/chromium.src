@@ -21,6 +21,7 @@
 #include "components/search_engines/search_terms_data.h"
 #include "components/search_engines/template_url_data.h"
 #include "components/search_engines/template_url_id.h"
+#include "components/search_engines/template_url_starter_pack_data.h"
 #include "third_party/metrics_proto/omnibox_event.pb.h"
 #include "third_party/metrics_proto/omnibox_focus_type.pb.h"
 #include "third_party/metrics_proto/omnibox_input_type.pb.h"
@@ -817,6 +818,12 @@ class TemplateURL {
   void set_is_active(TemplateURLData::ActiveStatus active_status);
 
   int starter_pack_id() const { return data().starter_pack_id; }
+  // Some starter packs are considered 'ask a question' kind of starter packs.
+  // This can be used to condition UI text or a11y strings.
+  bool is_ask_starter_pack() const {
+    return starter_pack_id() == template_url_starter_pack_data::kGemini ||
+           starter_pack_id() == template_url_starter_pack_data::kAiMode;
+  }
 
   const std::vector<TemplateURLRef>& url_refs() const { return url_refs_; }
   const TemplateURLRef& url_ref() const {
@@ -990,6 +997,11 @@ class TemplateURL {
   const std::optional<TemplateURLData>& GetAccountData() const;
 
   void CopyActiveValueToLocalAndAccount();
+
+  // Returns whether this search engine can be overridden and added to the
+  // overridden keyword pref list. Should be used for engines that are created
+  // by an Enterprise policy that doesn't define the Default Search Provider.
+  bool CanPolicyBeOverridden() const;
 
  private:
   // Resizes the |url_refs_| vector, which always holds the search URL as the

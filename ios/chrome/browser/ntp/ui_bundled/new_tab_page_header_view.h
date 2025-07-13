@@ -9,6 +9,7 @@
 
 @class GradientView;
 @class TabGroupIndicatorView;
+@protocol NewTabPageShortcutsHandler;
 @class OmniboxContainerView;
 
 // Header view for the NTP. The header view contains all views that are
@@ -31,11 +32,15 @@
 // The entrypoint for the Home customization menu.
 @property(nonatomic, strong) UIButton* customizationMenuButton;
 
-// Voice search button.
+// Voice search button. May be nil for some variations where MIA button takes
+// the entire available space.
 @property(nonatomic, strong, readonly) UIButton* voiceSearchButton;
 
 // The button that opens Lens. May be nil if Lens is not enabled.
 @property(nonatomic, strong, readonly) UIButton* lensButton;
+
+// The button that opens MIA. May be nil if MIA is not enabled.
+@property(nonatomic, strong, readonly) UIButton* miaButton;
 
 // Fake cancel button, used for animations. Hidden by default.
 @property(nonatomic, strong) UIView* cancelButton;
@@ -61,6 +66,9 @@
 // Should be set to YES if an animation will run that requires animating the
 // font scale, for example, during a fakebox defocus animation.
 @property(nonatomic, assign) BOOL allowFontScaleAnimation;
+
+// Handles the actions for the NTP shortcuts, like Lens or voice search.
+@property(nonatomic, weak) id<NewTabPageShortcutsHandler> NTPShortcutsHandler;
 
 // Adds the separator to the searchField. Must be called after the searchField
 // is added as a subview.
@@ -92,6 +100,9 @@
 // Adds views necessary to customize the NTP search box.
 - (void)addViewsToSearchField:(UIView*)searchField;
 
+// Configures the current default search engine logo.
+- (void)setDefaultSearchEngineLogo:(UIImage*)logo;
+
 // Highlights the fake omnibox.
 - (void)setFakeboxHighlighted:(BOOL)highlighted;
 
@@ -116,6 +127,9 @@
 // Returns a snapshot view of the fakebox's buttons to be used during focus
 // and defocus animations.
 - (UIView*)fakeboxButtonsSnapshot;
+
+// Whether MIA is allowed from a policy perspective.
+- (void)setMIAAllowedByPolicy:(BOOL)policyAllowed;
 
 @end
 

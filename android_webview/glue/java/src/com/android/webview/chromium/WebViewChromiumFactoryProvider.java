@@ -448,13 +448,13 @@ public class WebViewChromiumFactoryProvider implements WebViewFactoryProvider {
                 }
                 Log.i(
                         TAG,
-                        "version=%s (%s) minSdkVersion=%s isBundle=%s multiprocess=%s packageId=%s",
+                        "version=%s (%s) minSdkVersion=%s multiprocess=%s packageId=%s splits=%s",
                         VersionConstants.PRODUCT_VERSION,
                         BuildConfig.VERSION_CODE,
                         BuildConfig.MIN_SDK_VERSION,
-                        BundleUtils.isBundle(),
                         multiProcess,
-                        packageId);
+                        packageId,
+                        BundleUtils.getInstalledSplitNamesForLogging());
 
                 // Enable modern SameSite cookie behavior if the app targets at least S.
                 if (ctx.getApplicationInfo().targetSdkVersion >= Build.VERSION_CODES.S) {
@@ -608,13 +608,32 @@ public class WebViewChromiumFactoryProvider implements WebViewFactoryProvider {
                 "Android.WebView.Startup.CreationTime.Stage1.FactoryInit", mInitInfo.mDuration);
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            mInitInfo.mTotalFactoryInitStartTime =
-                    mWebViewDelegate.getStartupTimestamps().getWebViewLoadStart();
+            WebViewFactory.StartupTimestamps startupTimestamps =
+                    mWebViewDelegate.getStartupTimestamps();
+            mInitInfo.mTotalFactoryInitStartTime = startupTimestamps.getWebViewLoadStart();
             mInitInfo.mTotalFactoryInitDuration =
                     SystemClock.uptimeMillis() - mInitInfo.mTotalFactoryInitStartTime;
             RecordHistogram.recordTimesHistogram(
                     "Android.WebView.Startup.CreationTime.TotalFactoryInitTime",
                     mInitInfo.mTotalFactoryInitDuration);
+            RecordHistogram.recordTimesHistogram(
+                    "Android.WebView.Startup.CreationTime.CreateContextTime",
+                    startupTimestamps.getCreateContextEnd()
+                            - startupTimestamps.getCreateContextStart());
+            RecordHistogram.recordTimesHistogram(
+                    "Android.WebView.Startup.CreationTime.AssetsAddTime",
+                    startupTimestamps.getAddAssetsEnd() - startupTimestamps.getAddAssetsStart());
+            RecordHistogram.recordTimesHistogram(
+                    "Android.WebView.Startup.CreationTime.GetClassLoaderTime",
+                    startupTimestamps.getGetClassLoaderEnd()
+                            - startupTimestamps.getGetClassLoaderStart());
+            RecordHistogram.recordTimesHistogram(
+                    "Android.WebView.Startup.CreationTime.NativeLoadTime",
+                    startupTimestamps.getNativeLoadEnd() - startupTimestamps.getNativeLoadStart());
+            RecordHistogram.recordTimesHistogram(
+                    "Android.WebView.Startup.CreationTime.GetProviderClassForNameTime",
+                    startupTimestamps.getProviderClassForNameEnd()
+                            - startupTimestamps.getProviderClassForNameStart());
         }
     }
 
@@ -669,7 +688,7 @@ public class WebViewChromiumFactoryProvider implements WebViewFactoryProvider {
     }
 
     public static boolean preloadInZygote() {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P && BundleUtils.isBundle()) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P && BundleUtils.hasAnyInstalledSplits()) {
             // Apply workaround if we're a bundle on O, where the split APK handling bug exists.
             SplitApkWorkaround.apply();
         }
@@ -883,6 +902,9 @@ public class WebViewChromiumFactoryProvider implements WebViewFactoryProvider {
     }
 
     void startYourEngines(boolean onMainThread) {
+        if (isChromiumInitialized()) {
+            return;
+        }
         try (ScopedSysTraceEvent e1 =
                 ScopedSysTraceEvent.scoped("WebViewChromiumFactoryProvider.startYourEngines")) {
             mAwInit.startYourEngines(onMainThread);

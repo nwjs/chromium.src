@@ -187,6 +187,12 @@ BASE_FEATURE(kNtpModulesLoad,
              "NtpModulesLoad",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+// If enabled, makes browser sign-in requirement per-module, instead of a
+// requirement for all modules.
+BASE_FEATURE(kNtpModuleSignInRequirement,
+             "NtpModuleSignInRequirement",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // If enabled, OneGoogleBar will be shown.
 // This is a kill switch. Keep indefinitely.
 BASE_FEATURE(kNtpOneGoogleBar,
@@ -509,5 +515,9 @@ std::string GetMobilePromoTargetURL() {
       ntp_features::kNtpMobilePromo,
       ntp_features::kNtpMobilePromoTargetUrlParam);
   return (field_trial_url.empty()) ? kMobilePromoQRCodeURL : field_trial_url;
+}
+
+bool IsNtpComposeboxEnabled() {
+  return base::FeatureList::IsEnabled(ntp_features::kNtpSearchboxComposebox);
 }
 }  // namespace ntp_features

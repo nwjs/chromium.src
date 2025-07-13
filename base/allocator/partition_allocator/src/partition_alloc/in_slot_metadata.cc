@@ -4,6 +4,8 @@
 
 #include "partition_alloc/in_slot_metadata.h"
 
+#include <atomic>
+
 #include "partition_alloc/build_config.h"
 #include "partition_alloc/buildflags.h"
 #include "partition_alloc/partition_alloc_base/logging.h"
@@ -44,10 +46,28 @@ bool IsInFreelist(uintptr_t slot_start,
   return false;
 }
 
+#if PA_BUILDFLAG(IS_IOS)
+std::atomic_bool suppress_double_free_detected_crash = false;
+std::atomic_bool suppress_corruption_detected_crash = false;
+#endif  // PA_BUILDFLAG(IS_IOS)
+std::atomic<void (*)(uintptr_t)> corruption_detected_fn = nullptr;
 }  // namespace
 
-[[noreturn]] PA_NOINLINE PA_NOT_TAIL_CALLED void DoubleFreeDetected(
-    size_t position) {
+// static
+void InSlotMetadata::SetCorruptionDetectedFn(void (*fn)(uintptr_t)) {
+  corruption_detected_fn.store(fn, std::memory_order_relaxed);
+}
+
+#if !PA_BUILDFLAG(IS_IOS)
+[[noreturn]]
+#endif  // !PA_BUILDFLAG(IS_IOS)
+PA_NOINLINE PA_NOT_TAIL_CALLED void DoubleFreeDetected(size_t position) {
+#if PA_BUILDFLAG(IS_IOS)
+  if (suppress_double_free_detected_crash) {
+    return;
+  }
+#endif  // PA_BUILDFLAG(IS_IOS)
+
   // If the double free happens very soon, `position` will be small.
   // We can use the value to estimate how large buffer we need to remember
   // freed slots. i.e. |slot_size * position| bytes.
@@ -58,14 +78,26 @@ bool IsInFreelist(uintptr_t slot_start,
   PA_IMMEDIATE_CRASH();
 }
 
-[[noreturn]] PA_NOINLINE PA_NOT_TAIL_CALLED void CorruptionDetected() {
+#if !PA_BUILDFLAG(IS_IOS)
+[[noreturn]]
+#endif  // !PA_BUILDFLAG(IS_IOS)
+PA_NOINLINE PA_NOT_TAIL_CALLED void CorruptionDetected() {
+#if PA_BUILDFLAG(IS_IOS)
+  if (suppress_corruption_detected_crash) {
+    return;
+  }
+#endif  // PA_BUILDFLAG(IS_IOS)
+
   // If we want to add more data related to the corruption, we will
   // add PA_DEBUG_DATA_ON_STACK() here.
   PA_NO_CODE_FOLDING();
   PA_IMMEDIATE_CRASH();
 }
 
-[[noreturn]] PA_NOINLINE PA_NOT_TAIL_CALLED void
+#if !PA_BUILDFLAG(IS_IOS)
+[[noreturn]]
+#endif  // !PA_BUILDFLAG(IS_IOS)
+PA_NOINLINE PA_NOT_TAIL_CALLED void
 InSlotMetadata::DoubleFreeOrCorruptionDetected(
     InSlotMetadata::CountType count,
     uintptr_t slot_start,
@@ -82,6 +114,12 @@ InSlotMetadata::DoubleFreeOrCorruptionDetected(
   // will have `slot_size` in its stack data.
   PA_DEBUG_DATA_ON_STACK("slotsize", slot_size);
 
+  void (*hook)(uintptr_t) =
+      corruption_detected_fn.load(std::memory_order_relaxed);
+  if (hook) {
+    (*hook)(slot_start);
+  }
+
   auto* thread_cache = root->GetThreadCache();
   if (ThreadCache::IsValid(thread_cache)) {
     size_t bucket_index = slot_span->bucket - root->buckets;
@@ -95,6 +133,15 @@ InSlotMetadata::DoubleFreeOrCorruptionDetected(
 
   CorruptionDetected();
 }
+
+#if PA_BUILDFLAG(IS_IOS)
+void SuppressDoubleFreeDetectedCrash() {
+  suppress_double_free_detected_crash = true;
+}
+void SuppressCorruptionDetectedCrash() {
+  suppress_corruption_detected_crash = true;
+}
+#endif  // PA_BUILDFLAG(IS_IOS)
 
 }  // namespace partition_alloc::internal
 

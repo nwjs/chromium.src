@@ -47,6 +47,8 @@ CONTENT_EXPORT extern const base::FeatureParam<int>
     kAndroidSpareRendererMemoryThreshold;
 CONTENT_EXPORT extern const base::FeatureParam<bool>
     kAndroidSpareRendererKillWhenBackgrounded;
+CONTENT_EXPORT extern const base::FeatureParam<bool>
+    kAndroidSpareRendererOnlyForNavigation;
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kAttachUnownedInnerWebContents);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kAudioServiceLaunchOnStartup);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kAudioServiceOutOfProcess);
@@ -65,6 +67,7 @@ CONTENT_EXPORT BASE_DECLARE_FEATURE(
     kBrokerFileOperationsOnDiskCacheInNetworkService);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kCacheControlNoStoreEnterBackForwardCache);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kCapturedSurfaceControlKillswitch);
+CONTENT_EXPORT BASE_DECLARE_FEATURE(kCheckSiteInstanceOnHistoryNavigation);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(
     kClearCrossSiteCrossBrowsingContextGroupWindowName);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kCompositeBGColorAnimation);
@@ -182,9 +185,9 @@ CONTENT_EXPORT BASE_DECLARE_FEATURE(kPartitionedPopinsHeaderPolicyBypass);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kPdfEnforcements);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kPeriodicBackgroundSync);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kPrefetchPrerenderIntegration);
+CONTENT_EXPORT BASE_DECLARE_FEATURE(kPrefetchProxy);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kFeaturePolicyHeader);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kPrefetchBrowserInitiatedTriggers);
-CONTENT_EXPORT BASE_DECLARE_FEATURE(kPrerender2NewLimitAndScheduler);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kPrivacySandboxAdsAPIsOverride);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kPrivateNetworkAccessForNavigations);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(
@@ -204,6 +207,11 @@ CONTENT_EXPORT BASE_DECLARE_FEATURE(kRegionCaptureOfOtherTabs);
 #endif
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kRenderDocument);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kRenderDocumentCompositorReuse);
+#if BUILDFLAG(IS_ANDROID)
+CONTENT_EXPORT BASE_DECLARE_FEATURE(kRendererProcessLimitOnAndroid);
+CONTENT_EXPORT BASE_DECLARE_FEATURE_PARAM(size_t,
+                                          kRendererProcessLimitOnAndroidCount);
+#endif
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kRestrictThreadPoolInBackground);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kSetIsolatesPriority);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kSpareRendererProcessPriority);
@@ -274,7 +282,11 @@ CONTENT_EXPORT BASE_DECLARE_FEATURE(kUseContextSnapshot);
 #endif
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kUnrestrictedSharedArrayBuffer);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kVerifyDidCommitParams);
+CONTENT_EXPORT BASE_DECLARE_FEATURE(kValidateCommitOriginAtCommit);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kV8VmFuture);
+#if BUILDFLAG(IS_ANDROID)
+CONTENT_EXPORT BASE_DECLARE_FEATURE(kV8AndroidDesktopHighEndConfig);
+#endif
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kWebAppSystemMediaControls);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kWebAssemblyBaseline);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kEnableExperimentalWebAssemblyJSPI);
@@ -296,14 +308,23 @@ CONTENT_EXPORT extern const base::FeatureParam<bool>
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kWebUIJSErrorReportingExtended);
 #endif
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kWebUsb);
+CONTENT_EXPORT BASE_DECLARE_FEATURE(kWebViewPrefetchHighestPrefetchPriority);
+CONTENT_EXPORT extern const base::FeatureParam<size_t>
+    kWebViewPrefetchHighestPrefetchPriorityBurstLimit;
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kWebXr);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kWebPermissionsApi);
 
 #if BUILDFLAG(IS_ANDROID)
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kAccessibilityDeprecateJavaNodeCache);
+CONTENT_EXPORT extern const base::FeatureParam<bool>
+    kAccessibilityDeprecateJavaNodeCacheOptimizeScroll;
+CONTENT_EXPORT extern const base::FeatureParam<bool>
+    kAccessibilityDeprecateJavaNodeCacheDisableCache;
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kAccessibilityDeprecateTypeAnnounce);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kAccessibilityIncludeLongClickAction);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kAccessibilityPageZoomV2);
+CONTENT_EXPORT BASE_DECLARE_FEATURE(
+    kAccessibilityPopulateSupplementalDescriptionApi);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kAccessibilityUnifiedSnapshots);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(
     kAccessibilityManageBroadcastReceiverOnBackground);

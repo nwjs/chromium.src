@@ -90,6 +90,7 @@
 <translation id="2957447865124070833">Виберіть <ph name="BEGIN_BOLD" />Chrome<ph name="END_BOLD" /></translation>
 <translation id="2986402782150919988">Додати закладки в Chrome</translation>
 <translation id="3030414234702425231">Оскільки ви виходите з облікового запису, зареєстрованого в домені <ph name="SIGNOUT_MANAGED_DOMAIN" />, ваші дані Chrome буде видалено з цього пристрою. Вони залишаться в обліковому записі Chrome.</translation>
+<translation id="3042447686908081308">Імпорт у Chrome</translation>
 <translation id="3051521853355903257">Керувати паролями в Chrome</translation>
 <translation id="309672519329227863">Отримуйте доступ до паролів Chrome тощо в інших додатках.</translation>
 <translation id="3109170945534582468">Дії в Chrome</translation>
@@ -138,7 +139,6 @@
 <translation id="4724297637870447613">Використовуйте Chrome на всіх пристроях</translation>
 <translation id="4738647308035481133">Сторінка Google Chrome</translation>
 <translation id="4742795653798179840">Дані Chrome видалено</translation>
-<translation id="4749294594657945639">Щоб легко вводити збережені паролі в інших додатках, увімкніть автозаповнення в Chrome.</translation>
 <translation id="4761869838909035636">Виконати перевірку безпеки Chrome</translation>
 <translation id="4798859546468762093">Щоб користуватися персоналізацією і іншими можливостями, включіть Chrome у такі функції: <ph name="FEATURE_NAME_1" /> і <ph name="FEATURE_NAME_2" /></translation>
 <translation id="4819268619367838612">Щоб покращити додаток, Chrome надсилає в Google дані про використання та збої. <ph name="BEGIN_LINK" />Керувати<ph name="END_LINK" /></translation>
@@ -215,6 +215,7 @@
 <translation id="6533470733797826516">Швидше входьте в обліковий запис за допомогою автозаповнення в Chrome</translation>
 <translation id="6536544321553662809">Зробіть Chrome вебпереглядачем за умовчанням, щоб легко надсилати й відкривати посилання</translation>
 <translation id="6545449117344801102">Chrome визначає адреси й використовує Карти Google, щоб прокладати маршрути й надавати місцеву інформацію.</translation>
+<translation id="6611692150236062461">Щоб легко вводити збережені паролі в інших додатках, увімкніть автозаповнення в Chrome.</translation>
 <translation id="6636941099779251629">За вимогами вашої організації, ви повинні ввійти в обліковий запис, щоб використовувати Chrome. <ph name="BEGIN_LINK" />Докладніше<ph name="END_LINK" /></translation>
 <translation id="6646696210740573446">Надсилає в Google обфусковану частину URL-адреси через сервер конфіденційності, який приховує вашу IP-адресу. Якщо сайт намагається викрасти ваш пароль або ви завантажуєте шкідливий файл, Chrome також може надсилати в Google URL-адреси, зокрема уривки контенту сторінки.</translation>
 <translation id="6647304104688527905">Відкриває нову вкладку в Chrome.</translation>
@@ -313,6 +314,7 @@
 Ваші дані було зашифровано за допомогою парольної фрази <ph name="TIME" />. Введіть її, щоб використовувати й зберігати дані Chrome в обліковому записі Google.</translation>
 <translation id="8540666473246803645">Google Chrome</translation>
 <translation id="8544583291890527417">Отримувати сповіщення про будь-які проблеми з конфіденційністю чи безпекою, які виявляє Chrome.</translation>
+<translation id="855027533751209304">Порада для Chrome: шукайте інформацію про те, що бачите навколо</translation>
 <translation id="8558480467877843976">Тепер ви можете переглядати й відкривати в Chrome посилання з повідомлень, документів та інших додатків.</translation>
 <translation id="8603022514504485810">Google Менеджеру паролів не вдалося перевірити всі паролі. Спробуйте завтра або <ph name="BEGIN_LINK" />перевірте паролі в обліковому записі Google<ph name="END_LINK" />.</translation>
 <translation id="8630122478628016441">Увімкніть опцію "Блокувати анонімні вкладки після закриття Chrome".</translation>
@@ -336,6 +338,7 @@
 <translation id="9176561303811134420">Керувати способами оплати в Chrome</translation>
 <translation id="9181628561061032322">Відкриває останні вкладки в Chrome.</translation>
 <translation id="948597495737267756">Відкриває сторінку історії Chrome.</translation>
+<translation id="954347330803595209">Імпортуйте дані, щоб використовувати паролі, історію, закладки й кредитні картки в Chrome</translation>
 <translation id="97300214378190234">Відкривайте посилання в інших додатках за допомогою Chrome.</translation>
 <translation id="997929539742564806">Швидко входьте в облікові записи в додатках і на сайтах, автоматично заповнюючи паролі й ключі доступу з Chrome</translation>
 <translation id="998677222109959694">Керувати налаштуваннями Chrome</translation>

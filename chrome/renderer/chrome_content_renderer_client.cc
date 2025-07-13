@@ -493,7 +493,7 @@ void ChromeContentRendererClient::RenderThreadStarted() {
   blink::WebScriptController::RegisterExtension(
       extensions_v8::LoadTimesExtension::Get());
 
-  if (command_line->HasSwitch(variations::switches::kEnableBenchmarking)) {
+  if (command_line->HasSwitch(variations::switches::kEnableBenchmarkingApi)) {
     blink::WebScriptController::RegisterExtension(
         extensions_v8::BenchmarkingExtension::Get());
   }

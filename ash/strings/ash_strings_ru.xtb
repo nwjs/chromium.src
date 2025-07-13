@@ -300,7 +300,7 @@
 <translation id="1957958912175573503">Выберите язык</translation>
 <translation id="1961239773406905488">Предварительный просмотр для камеры выключен</translation>
 <translation id="1961832440516943645"><ph name="DATE" />, <ph name="TIME" /></translation>
-<translation id="1962969542251276847">Блокировать экран</translation>
+<translation id="1962969542251276847">Заблок. экран</translation>
 <translation id="1967970931040389207">Включить точку доступа</translation>
 <translation id="1969011864782743497"><ph name="DEVICE_NAME" /> (USB)</translation>
 <translation id="1971815855639997522">Рабочий стол и окна удалены. Нажмите Ctrl + Z, чтобы отменить последнее действие.</translation>
@@ -1014,6 +1014,7 @@
 <translation id="4305817255990598646">Переключиться</translation>
 <translation id="4307713728991152670">Настроить просмотр недавних фотографий, медиафайлов и приложений с телефона</translation>
 <translation id="4312840429157639164">Окно предварительного просмотра камеры привязано к правому верхнему углу, так как перекрывало элементы системного интерфейса</translation>
+<translation id="4312935606722154789">Сгруппировать или разгруппировать два параллельных окна</translation>
 <translation id="4316910396681052118">ВСЕ ПРИЛОЖЕНИЯ</translation>
 <translation id="4321179778687042513">ctrl</translation>
 <translation id="4322385711258710213">Скрыть все подсказки браузера Chrome</translation>
@@ -1453,7 +1454,6 @@
 <translation id="5691772641933328258">Не удалось распознать отпечаток</translation>
 <translation id="5693255400847650006">Используется микрофон</translation>
 <translation id="5699366815052349604">Назначить в качестве активного окна всем рабочим столам</translation>
-<translation id="5701785125601597013">Быстро отправляйте и получайте сообщения на телефоне с помощью функции "Управление телефоном".</translation>
 <translation id="570390244361237317">Все приложения. Чтобы листать список, нажимайте клавиши со стрелками.</translation>
 <translation id="5705197514573687092">Настроить режим концентрации внимания. Время таймера: <ph name="FOCUS_DURATION" />.</translation>
 <translation id="5707775774148071965">Поддерживаемая скорость передачи данных для устройства выше, чем для кабеля. Производительность устройства может быть ограничена.</translation>
@@ -1583,7 +1583,6 @@
 <translation id="6095425951508823973">Добавить подключение от поставщика "<ph name="PROVIDER" />"</translation>
 <translation id="6099678161144790572">Изменено за последний месяц</translation>
 <translation id="6103838137565245112">система</translation>
-<translation id="610395411842312282">Сгруппировать 2 параллельных окна</translation>
 <translation id="6108952804512516814">Создать с помощью ИИ</translation>
 <translation id="6114505516289286752">Скачаны файлы распознавания речи для языка: <ph name="LANGUAGE" /></translation>
 <translation id="6119360623251949462"><ph name="CHARGING_STATE" />. <ph name="BATTERY_SAVER_STATE" />.</translation>
@@ -2030,7 +2029,7 @@
 <translation id="7600875258240007829">Показать все уведомления</translation>
 <translation id="7601417191446344542">Напоминать включить микрофон?</translation>
 <translation id="7602187221150705972">Поиск эмодзи, GIF и не только</translation>
-<translation id="7607002721634913082">Приостановлен</translation>
+<translation id="7607002721634913082">Приостановлено</translation>
 <translation id="7609951632080598826">Календарь: <ph name="TIME" />, <ph name="DATE" /></translation>
 <translation id="7611213136657090146">Камера переподключена.</translation>
 <translation id="7613620083300976559">Включить элементы управления</translation>
