@@ -113,7 +113,7 @@ void ExtensionBrowserWindowHelper::CleanUpTabsOnUnload(
     if (ShouldCloseTabOnExtensionUnload(extension, browser_, web_contents)) {
       // Do not close the last tab if it belongs to the extension. Instead
       // replace it with the default NTP.
-      if (tab_strip_model->count() == 1) {
+      if (false && tab_strip_model->count() == 1) {
         const GURL new_tab_url(chrome::kChromeUINewTabURL);
         // Replace the extension page with default NTP. This behavior is similar
         // to how Chrome URL overrides (such as NTP overrides) are handled by
