@@ -999,16 +999,6 @@ TEST_F(AILanguageModelTest, MultimodalInput) {
 }
 
 TEST_F(AILanguageModelTest, ModelDownload) {
-  EXPECT_EQ(GetAIManagerDownloadProgressObserversSize(), 0u);
-  AITestUtils::FakeMonitor mock_monitor;
-
-  EXPECT_CALL(component_update_service_, GetComponentIDs()).Times(1);
-  GetAIManagerRemote()->AddModelDownloadProgressObserver(
-      mock_monitor.BindNewPipeAndPassRemote());
-
-  ASSERT_TRUE(base::test::RunUntil(
-      [this] { return GetAIManagerDownloadProgressObserversSize() == 1u; }));
-
   // This is the component id of the on device model. The `AIManager` sends
   // updates for it to the `CreateMonitor`s.
   std::string model_component_id =
@@ -1016,6 +1006,22 @@ TEST_F(AILanguageModelTest, ModelDownload) {
           GetOnDeviceModelExtensionId();
   AITestUtils::FakeComponent model_component(model_component_id,
                                              kTestModelDownloadSize);
+
+  EXPECT_EQ(GetAIManagerDownloadProgressObserversSize(), 0u);
+  AITestUtils::FakeMonitor mock_monitor;
+
+  EXPECT_CALL(component_update_service_, GetComponentDetails(_, _))
+      .WillOnce(
+          [&](const std::string& id, component_updater::CrxUpdateItem* item) {
+            *item = model_component.CreateUpdateItem(
+                update_client::ComponentState::kNew, 0);
+            return true;
+          });
+  GetAIManagerRemote()->AddModelDownloadProgressObserver(
+      mock_monitor.BindNewPipeAndPassRemote());
+
+  ASSERT_TRUE(base::test::RunUntil(
+      [this] { return GetAIManagerDownloadProgressObserversSize() == 1u; }));
 
   component_update_service_.SendUpdate(model_component.CreateUpdateItem(
       update_client::ComponentState::kDownloading, kTestModelDownloadSize));
@@ -1210,6 +1216,54 @@ TEST_F(AILanguageModelTest, ServiceCrash) {
 }
 
 // TODO(crbug.com/414632884): This test is flaky on Linux TSAN.
+#if !BUILDFLAG(IS_LINUX) || !defined(THREAD_SANITIZER)
+TEST_F(AILanguageModelTest, CrashRecovery) {
+  auto session = CreateSession();
+  Append(*session, MakeInput("foo"));
+
+  fake_broker_.CrashService();
+
+  EXPECT_THAT(Prompt(*session, MakeInput("bar")),
+              ElementsAre("UfooE", "UbarEM"));
+}
+
+TEST_F(AILanguageModelTest, CrashRecoveryWithMultipleCrashes) {
+  auto session = CreateSession();
+  Append(*session, MakeInput("foo"));
+  fake_broker_.CrashService();
+
+  Append(*session, MakeInput("bar"));
+  fake_broker_.CrashService();
+
+  EXPECT_THAT(Prompt(*session, MakeInput("baz")),
+              ElementsAre("UfooEUbarE", "UbazEM"));
+}
+
+TEST_F(AILanguageModelTest, CrashRecoveryWithInitialPrompts) {
+  auto options = blink::mojom::AILanguageModelCreateOptions::New();
+  options->initial_prompts.push_back(MakePrompt(Role::kSystem, "hi"));
+  auto session = CreateSession(std::move(options));
+  Append(*session, MakeInput("foo"));
+
+  fake_broker_.CrashService();
+
+  EXPECT_THAT(Prompt(*session, MakeInput("bar")),
+              ElementsAre("ShiE", "UfooE", "UbarEM"));
+}
+
+TEST_F(AILanguageModelTest, CrashRecoveryMeasureInputUsage) {
+  auto session = CreateSession();
+  Append(*session, MakeInput("foo"));
+
+  fake_broker_.CrashService();
+
+  base::test::TestFuture<std::optional<uint32_t>> measure_future;
+  session->MeasureInputUsage(MakeInput("foo"), measure_future.GetCallback());
+  EXPECT_EQ(measure_future.Get(), std::string("UfooEM").size());
+}
+#endif
+
+// TODO(crbug.com/414632884): This test is flaky on Linux TSAN.
 #if BUILDFLAG(IS_LINUX) && defined(THREAD_SANITIZER)
 #define MAYBE_CanCreate_WaitsForEligibility \
   DISABLED_CanCreate_WaitsForEligibility
@@ -1284,6 +1338,23 @@ TEST_F(AILanguageModelTest, CanCreate_UnsupportedOutputLanguages) {
           AITestUtils::ToMojoLanguageCodes({"ja"})));
   GetAIManagerInterface()->CanCreateLanguageModel(std::move(options),
                                                   callback.Get());
+}
+
+TEST_F(AILanguageModelTest, CanCreate_UnavailableWhenAdaptationNotAvailable) {
+  EXPECT_CALL(*mock_optimization_guide_keyed_service_,
+              GetOnDeviceModelEligibilityAsync(_, _, _))
+      .WillOnce([](auto feature, auto capabilities, auto callback) {
+        std::move(callback).Run(
+            optimization_guide::OnDeviceModelEligibilityReason::
+                kModelAdaptationNotAvailable);
+      });
+
+  base::test::TestFuture<blink::mojom::ModelAvailabilityCheckResult>
+      result_future;
+  GetAIManagerInterface()->CanCreateLanguageModel({},
+                                                  result_future.GetCallback());
+  EXPECT_EQ(result_future.Get(), blink::mojom::ModelAvailabilityCheckResult::
+                                     kUnavailableModelAdaptationNotAvailable);
 }
 
 // Tests the `AILanguageModel::Context` that's initialized with/without any

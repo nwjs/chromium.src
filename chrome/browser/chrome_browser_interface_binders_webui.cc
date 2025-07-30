@@ -104,6 +104,7 @@
 #include "chrome/browser/ui/webui/new_tab_footer/new_tab_footer.mojom.h"
 #include "chrome/browser/ui/webui/new_tab_footer/new_tab_footer_ui.h"
 #include "chrome/browser/ui/webui/new_tab_page/composebox/composebox.mojom.h"
+#include "chrome/browser/ui/webui/new_tab_page/composebox/composebox_fieldtrial.h"
 #include "chrome/browser/ui/webui/new_tab_page/new_tab_page.mojom.h"
 #include "chrome/browser/ui/webui/new_tab_page/new_tab_page_ui.h"
 #include "chrome/browser/ui/webui/new_tab_page_third_party/new_tab_page_third_party_ui.h"
@@ -705,9 +706,9 @@ void PopulateChromeWebUIFrameBinders(
         file_suggestion::mojom::MicrosoftFilesPageHandler, NewTabPageUI>(map);
   }
 
-  if (ntp_features::IsNtpComposeboxEnabled()) {
+  if (ntp_composebox::FeatureConfig::Get().enabled) {
     RegisterWebUIControllerInterfaceBinder<
-        composebox::mojom::ComposeboxPageHandler, NewTabPageUI>(map);
+        composebox::mojom::PageHandlerFactory, NewTabPageUI>(map);
   }
 
 #if BUILDFLAG(IS_CHROMEOS)

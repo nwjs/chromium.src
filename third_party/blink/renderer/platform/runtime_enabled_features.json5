@@ -375,6 +375,7 @@
         "default": "",
       },
       origin_trial_feature_name: "AIRewriterAPI",
+      origin_trial_os: ["win", "mac", "linux"],
       origin_trial_allows_third_party: true,
       base_feature_status: "enabled",
       copied_from_base_feature_if: "overridden",
@@ -405,6 +406,7 @@
         "default": "",
       },
       origin_trial_feature_name: "AIWriterAPI",
+      origin_trial_os: ["win", "mac", "linux"],
       origin_trial_allows_third_party: true,
       base_feature_status: "enabled",
       copied_from_base_feature_if: "overridden",
@@ -1089,6 +1091,14 @@
       status: "stable",
     },
     {
+      // When enabled, allowlisting script urls and scripts used in eval via
+      // hashes will be supported in script-src. Controlled by the
+      // network::features::kCSPScriptSrcHashesInV1 flag.
+      // See crbug.com/392657736 for details.
+      name: "CSPHashesV1",
+      base_feature: "none",
+    },
+    {
       name: "CSPReportHash",
       status: "stable",
     },
@@ -1177,7 +1187,7 @@
     {
       // https://chromestatus.com/feature/5082469066604544
       name: "CSSCaretAnimation",
-      status: "stable",
+      status: "experimental",
     },
     {
       // Need a feature entry
@@ -1254,7 +1264,7 @@
       // Include custom properties in CSSComputedStyleDeclaration::item/length.
       // https://crbug.com/949807
       name: "CSSEnumeratedCustomProperties",
-      status: "stable",
+      status: "test",
     },
     {
       name: "CSSExponentialFunctions",
@@ -1372,7 +1382,7 @@
     {
       // Kill switch for crbug.com/378966977
       name: "CSSNegatedFeatureless",
-      status: "stable",
+      status: "test",
     },
     {
       name: "CSSNestedPseudoElements",
@@ -2186,8 +2196,20 @@
       status: "stable",
     },
     {
+      // The retry ability for Fetch keepalive requests.
+      // https://chromestatus.com/feature/5181984581877760
       name: "FetchRetry",
+      origin_trial_feature_name: "FetchRetry",
+      origin_trial_allows_third_party: true,
       status: "experimental",
+      base_feature: "FetchRetry",
+      // base_feature is meant as kill-switch. This runtime-enabled feature
+      // should follow the Origin Trial unless explicitly overriden by Finch or
+      // commandline flags.
+      base_feature_status: "enabled",
+      // Enables the Blink feature only when the base::Feature is overridden by
+      // field trial or command line.
+      copied_from_base_feature_if: "overridden",
     },
     {
       name: "FetchUploadStreaming",
@@ -3663,7 +3685,7 @@
       // The flag will enable us to land the feature over multiple CLs, and will
       // be enabled after the feature has been fully implemented.
       name: "PermissionElementIcon",
-      status: "test",
+      status: "stable",
       depends_on: ["PermissionElement"],
     },
     {
@@ -3990,7 +4012,7 @@
       // http://crbug.com/40228234
       // https://chromestatus.com/feature/6278918763708416
       name: "RelaxDOMValidNames",
-      status: "stable",
+      status: "experimental",
     },
     {
       name: "RelOpenerBcgDependencyHint",
@@ -5219,7 +5241,7 @@
       // This flag uses the original DOM text for input when the password
       // echo is enabled to create the offset_map.
       name: "UseOriginalDomOffsetsForOffsetMap",
-      status: "stable",
+      status: "test",
     },
     {
       name: "UsePositionForPointInFlexibleBoxWithSingleChildElement",

@@ -2563,6 +2563,11 @@ extern const char
 extern const char kGroupPromoPrototypeName[];
 extern const char kGroupPromoPrototypeDescription[];
 
+#if BUILDFLAG(IS_ANDROID)
+extern const char kGroupPromoPrototypeCpaName[];
+extern const char kGroupPromoPrototypeCpaDescription[];
+#endif  // BUILDFLAG(IS_ANDROID)
+
 extern const char kV8VmFutureName[];
 extern const char kV8VmFutureDescription[];
 
@@ -3405,8 +3410,8 @@ extern const char kNtpCalendarModuleDescription[];
 extern const char kNtpChromeCartModuleName[];
 extern const char kNtpChromeCartModuleDescription[];
 
-extern const char kNtpSearchboxComposeboxName[];
-extern const char kNtpSearchboxComposeboxDescription[];
+extern const char kNtpComposeboxName[];
+extern const char kNtpComposeboxDescription[];
 
 extern const char kNtpSearchboxComposeEntrypointName[];
 extern const char kNtpSearchboxComposeEntrypointDescription[];

@@ -17,36 +17,10 @@
 #include "components/prefs/pref_service.h"
 #include "components/tabs/public/tab_interface.h"
 #include "content/public/browser/navigation_entry.h"
+#include "content/public/browser/navigation_handle.h"
 #include "content/public/common/url_constants.h"
 
 namespace new_tab_footer {
-
-namespace {
-// Adding any new conditions that show the footer on the 1P NTP should also
-// update the visibility confition for the `Customize Chrome` buttons amd theme
-// attribution on the NTP.
-// LINT.IfChange(WillShowFooter)
-bool WillShowFooter(const GURL& url,
-                    content::WebContents* web_contents,
-                    Profile* profile,
-                    bool skip_error_page_check) {
-  const bool is_error_page =
-      web_contents->GetSiteInstance()->GetSiteURL().SchemeIs(
-          content::kChromeErrorScheme);
-  if (is_error_page && !skip_error_page_check) {
-    return false;
-  }
-
-  const bool will_show_extension =
-      ntp_footer::IsExtensionNtp(url, profile) &&
-      profile->GetPrefs()->GetBoolean(
-          prefs::kNTPFooterExtensionAttributionEnabled) &&
-      profile->GetPrefs()->GetBoolean(prefs::kNtpFooterVisible);
-  return will_show_extension ||
-         ntp_footer::WillShowManagementNotice(url, web_contents, profile);
-}
-// LINT.ThenChange(chrome/browser/ui/webui/new_tab_page/new_tab_footer_handler.cc:OnFooterVisibilityUpdated)
-}  // namespace
 
 NewTabFooterController::NewTabFooterController(BrowserWindowInterface* browser,
                                                NewTabFooterWebView* footer)
@@ -100,7 +74,10 @@ void NewTabFooterController::TearDown() {
 
 void NewTabFooterController::DidFinishNavigation(
     content::NavigationHandle* navigation_handle) {
-  UpdateFooterVisibility(/*log_on_load_metric=*/true);
+  if (navigation_handle->HasCommitted() &&
+      navigation_handle->IsInPrimaryMainFrame()) {
+    UpdateFooterVisibility(/*log_on_load_metric=*/true);
+  }
 }
 
 void NewTabFooterController::UpdateFooterVisibility(bool log_on_load_metric) {
@@ -116,16 +93,29 @@ void NewTabFooterController::UpdateFooterVisibility(bool log_on_load_metric) {
     url = web_contents()->GetController().GetVisibleEntry()->GetURL();
   }
 
-  const bool show = WillShowFooter(url, web_contents(), profile_,
-                                   skip_error_page_check_for_testing_);
+  const bool show_managed = ShouldShowManagedFooter(url);
+  const bool show_extension = ShouldShowExtensionFooter(url);
+  const bool show = show_managed || show_extension;
   if (show) {
     footer_->ShowUI(load_start_timestamp, url);
   } else {
     footer_->CloseUI();
   }
 
-  if (ntp_footer::IsNtp(url, web_contents(), profile_) && log_on_load_metric) {
+  if (!log_on_load_metric) {
+    return;
+  }
+
+  if (ntp_footer::IsNtp(url, web_contents(), profile_)) {
     base::UmaHistogramBoolean("NewTabPage.Footer.VisibleOnLoad", show);
+  }
+  if (show_managed) {
+    base::UmaHistogramEnumeration("NewTabPage.Footer.NoticeItem",
+                                  FooterNoticeItem::kManagementNotice);
+  }
+  if (show_extension) {
+    base::UmaHistogramEnumeration("NewTabPage.Footer.NoticeItem",
+                                  FooterNoticeItem::kExtensionAttribution);
   }
 }
 
@@ -133,6 +123,33 @@ void NewTabFooterController::OnActiveTabChanged(
     BrowserWindowInterface* browser) {
   Observe(browser->GetActiveTabInterface()->GetContents());
   UpdateFooterVisibility(/*log_on_load_metric=*/true);
+}
+
+bool NewTabFooterController::ShouldSkipForErrorPage() const {
+  if (skip_error_page_check_for_testing_) {
+    return false;
+  }
+  return web_contents()->GetSiteInstance()->GetSiteURL().SchemeIs(
+      content::kChromeErrorScheme);
+}
+
+bool NewTabFooterController::ShouldShowManagedFooter(const GURL& url) {
+  if (ShouldSkipForErrorPage()) {
+    return false;
+  }
+  return ntp_footer::IsNtp(url, web_contents(), profile_) &&
+         enterprise_util::CanShowEnterpriseBadgingForNTPFooter(profile_);
+}
+
+bool NewTabFooterController::ShouldShowExtensionFooter(const GURL& url) {
+  if (ShouldSkipForErrorPage()) {
+    return false;
+  }
+
+  return ntp_footer::IsExtensionNtp(url, profile_) &&
+         profile_->GetPrefs()->GetBoolean(
+             prefs::kNTPFooterExtensionAttributionEnabled) &&
+         profile_->GetPrefs()->GetBoolean(prefs::kNtpFooterVisible);
 }
 
 }  // namespace new_tab_footer

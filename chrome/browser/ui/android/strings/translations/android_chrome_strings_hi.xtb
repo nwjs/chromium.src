@@ -110,6 +110,7 @@ Chrome के अनुभव को बेहतर बनाने के ल�
 <translation id="1419753403124156396">क्या Chrome को रीस्टार्ट करना है?</translation>
 <translation id="1428770807407000502">क्या आपको सिंक करने की सुविधा बंद करनी है?</translation>
 <translation id="1430915738399379752">प्रिंट करें</translation>
+<translation id="1433478348197382180">रीडिंग मोड</translation>
 <translation id="1435593198351412143">PDF फ़ाइलें अपने-आप खुलें</translation>
 <translation id="1437543266176261764"><ph name="APP_NAME" /> में चल रही है</translation>
 <translation id="1448440926884431741">ट्रैक किए गए प्रॉडक्ट को Bookmarks में व्यवस्थित करें</translation>
@@ -1759,7 +1760,7 @@ Chrome के अनुभव को बेहतर बनाने के ल�
 <translation id="8576426273246268132">ज़्यादा से ज़्यादा <ph name="MAX_WINDOW_COUNT" /> विंडो खोले जा सकते हैं. कोई नई विंडो खोलने के लिए, ऐक्टिव और इनऐक्टिव विंडो की कुल संख्या <ph name="MAX_WINDOW_COUNT_MINUS_ONE" /> या इससे कम करें.</translation>
 <translation id="8580435650274205305">खत्म होने की तारीख डालना ज़रूरी है</translation>
 <translation id="8582529315803410153">आपको दूसरे डिवाइस पर खोले गए अपने टैब यहां दिखेंगे</translation>
-<translation id="8585103689515290060">जानकारी ऑटोमैटिक भरने वाली सेवाएं</translation>
+<translation id="8585103689515290060">जानकारी अपने-आप भरने वाली सेवाएं</translation>
 <translation id="859046281437143747">'ज़्यादा विकल्प' बटन से कीमत ट्रैक करें</translation>
 <translation id="859064343657890103"><ph name="TAB_GROUP_TITLE" /> टैब ग्रुप मिटाया गया</translation>
 <translation id="860043288473659153">कार्डधारक का नाम</translation>

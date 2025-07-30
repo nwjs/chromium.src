@@ -12476,11 +12476,96 @@ should be able to be added at any place in this file.
   <description>Logged if the FRE is accepted.</description>
 </action>
 
+<action name="Glic.Fre.CheckAuthBeforeShowSync" not_user_triggered="true">
+  <owner>birnie@chromium.org</owner>
+  <owner>carlosk@chromium.org</owner>
+  <description>
+    Recorded each time the Glic FRE flow triggers the synchronous authentication
+    check.
+  </description>
+</action>
+
+<action name="Glic.Fre.CloseByClickOutside">
+  <owner>birnie@google.com</owner>
+  <description>
+    User clicked outside of the Glic First Run Experience dialog to close it.
+  </description>
+</action>
+
+<action name="Glic.Fre.CloseByClosingHostTab">
+  <owner>birnie@google.com</owner>
+  <description>
+    User closed the tab hosting the First Run Experience dialog to close it.
+  </description>
+</action>
+
+<action name="Glic.Fre.CloseByMovingHostTab">
+  <owner>birnie@google.com</owner>
+  <description>
+    User moved the tab hosting the First Run Experience dialog which closes it.
+  </description>
+</action>
+
+<action name="Glic.Fre.CloseWithEsc">
+  <owner>birnie@google.com</owner>
+  <description>
+    User pressed the Escape key to close the Glic First Run Experience dialog.
+  </description>
+</action>
+
+<action name="Glic.Fre.CloseWithToggle">
+  <owner>birnie@google.com</owner>
+  <owner>erikchen@chromium.org</owner>
+  <description>
+    User closed the FRE by toggling the glic feature invocation source.
+  </description>
+</action>
+
+<action name="Glic.Fre.CloseWithX">
+  <owner>birnie@google.com</owner>
+  <description>
+    User clicked the 'X' button to close the Glic First Run Experience dialog.
+  </description>
+</action>
+
+<action name="Glic.Fre.ErrorPanelClosed">
+  <owner>birnie@google.com</owner>
+  <owner>erikchen@chromium.org</owner>
+  <description>
+    User closed the error panel in the FRE by clicking the 'X' button.
+  </description>
+</action>
+
+<action name="Glic.Fre.ErrorPanelTryAgainClicked">
+  <owner>birnie@google.com</owner>
+  <owner>erikchen@chromium.org</owner>
+  <description>
+    User clicked the 'Try Again' button on the error panel in the FRE.
+  </description>
+</action>
+
 <action name="Glic.Fre.HelpCenterLinkOpened">
   <owner>dullweber@chromium.org</owner>
   <owner>erikchen@chromium.org</owner>
   <description>
     Logged if a help center link is opened from the FRE.
+  </description>
+</action>
+
+<action name="Glic.Fre.LoadingPanelClosed">
+  <owner>birnie@google.com</owner>
+  <owner>erikchen@chromium.org</owner>
+  <description>
+    User closed the loading state panel in the FRE by clicking the 'X' button
+  </description>
+</action>
+
+<action name="Glic.Fre.LoadSuccess">
+  <owner>birnie@google.com</owner>
+  <owner>erikchen@chromium.org</owner>
+  <description>
+    The FRE has successfully loaded all its resources and is ready to be
+    displayed.
   </description>
 </action>
 
@@ -12494,6 +12579,15 @@ should be able to be added at any place in this file.
   <owner>iwells@google.com</owner>
   <owner>erikchen@chromium.org</owner>
   <description>Logged if the user clicked on No Thanks in the FRE.</description>
+</action>
+
+<action name="Glic.Fre.OfflinePanelClosed">
+  <owner>birnie@google.com</owner>
+  <owner>erikchen@chromium.org</owner>
+  <description>
+    User closed the offline panel in the FRE by clicking the 'X' button on that
+    panel.
+  </description>
 </action>
 
 <action name="Glic.Fre.PolicyLinkOpened">
@@ -12510,10 +12604,42 @@ should be able to be added at any place in this file.
   </description>
 </action>
 
+<action name="Glic.Fre.ReadyPanelClosed">
+  <owner>birnie@google.com</owner>
+  <owner>erikchen@chromium.org</owner>
+  <description>User closed the FRE while it was fully loaded.</description>
+</action>
+
 <action name="Glic.Fre.Shown">
   <owner>iwells@google.com</owner>
   <owner>erikchen@chromium.org</owner>
-  <description>Logged if the glic FRE is shown.</description>
+  <description>
+    Logged if the glic FRE is shown. Logged as soon as the widget is visible.
+    This occurs before the UI is fully loaded.
+  </description>
+</action>
+
+<action name="Glic.Fre.UninitializedPanelClosed">
+  <owner>birnie@google.com</owner>
+  <owner>erikchen@chromium.org</owner>
+  <description>
+    The Fre panel was closed while in the uninitialized state.
+  </description>
+</action>
+
+<action name="Glic.Fre.WebviewLoadAborted" not_user_triggered="true">
+  <owner>birnie@google.com</owner>
+  <description>
+    Recorded when the Glic FRE webview fails to load for any reason other than a
+    timeout.
+  </description>
+</action>
+
+<action name="Glic.Fre.WebviewLoadTimedOut" not_user_triggered="true">
+  <owner>birnie@google.com</owner>
+  <description>
+    Recorded when the Glic FRE webview fails to load due to a timeout.
+  </description>
 </action>
 
 <action name="Glic.Pinned">
@@ -45812,6 +45938,14 @@ should be able to be added at any place in this file.
   </description>
 </action>
 
+<action name="TabSwitcher.GroupSuggest">
+  <owner>mfiaz@google.com</owner>
+  <owner>clank-tab-dev@google.com</owner>
+  <description>
+    Recorded when a group suggestion is shown in the tab switcher.
+  </description>
+</action>
+
 <action name="TaskManagement.OpenInChromeActionButtonClicked">
   <obsolete>The button option was removed and code deleted.</obsolete>
   <owner>dfalcantara@chromium.org</owner>
@@ -49767,6 +49901,8 @@ should be able to be added at any place in this file.
   <suffix name="MediaDownload" label="For MediaDownload feature."/>
   <suffix name="MerchantTrust" label="For MerchantTrust feature."/>
   <suffix name="MicToolbar" label="In product help for toolbar mic."/>
+  <suffix name="MostVisitedTilesCustomizationPin"
+      label="In product help for MVT Customization feature to pin a shortcut."/>
   <suffix name="NewTab" label="For NewTab feature."/>
   <suffix name="NewTabPageButton" label="Deprecated in M79-."/>
   <suffix name="NewTabPageHomeButton"
@@ -50778,6 +50914,19 @@ should be able to be added at any place in this file.
   <suffix name="Yes"
       label="Recorded when user opts into auto delete through the promo."/>
   <affected-action name="Tabs.ArchivedTabAutoDeletePromo"/>
+</action-suffix>
+
+<action-suffix separator="." ordering="suffix">
+  <suffix name="Accepted"
+      label="Recorded when user accepts the group suggestion."/>
+  <suffix name="Dismissed"
+      label="Recorded when user dismisses the group suggestion."/>
+  <suffix name="Ignored"
+      label="Recorded when user ignores the group suggestion."/>
+  <suffix name="Invalidated"
+      label="Recorded when a group suggestion is considered invalid."/>
+  <suffix name="Shown" label="Recorded when a group suggestion is shown."/>
+  <affected-action name="TabSwitcher.GroupSuggest"/>
 </action-suffix>
 
 </actions>

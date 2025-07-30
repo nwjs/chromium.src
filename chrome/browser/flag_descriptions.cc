@@ -5856,8 +5856,8 @@ const char kNtpChromeCartModuleName[] = "NTP Chrome Cart Module";
 const char kNtpChromeCartModuleDescription[] =
     "Shows the chrome cart module on the New Tab Page.";
 
-const char kNtpSearchboxComposeboxName[] = "NTP Composebox";
-const char kNtpSearchboxComposeboxDescription[] =
+const char kNtpComposeboxName[] = "NTP Composebox";
+const char kNtpComposeboxDescription[] =
     "Shows the Composebox on the New Tab Page Searchbox upon clicking the "
     "entrypoint.";
 
@@ -8436,6 +8436,13 @@ const char kTaskManagerDesktopRefreshDescription[] =
 const char kGroupPromoPrototypeName[] = "Group Promo Prototype";
 const char kGroupPromoPrototypeDescription[] =
     "Enables prototype for group promo.";
+
+#if BUILDFLAG(IS_ANDROID)
+const char kGroupPromoPrototypeCpaName[] =
+    "Group Promo Prototype - Contextual page action";
+const char kGroupPromoPrototypeCpaDescription[] =
+    "Enables contextual toolbar button for group promo prototype.";
+#endif  // BUILDFLAG(IS_ANDROID)
 
 #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
 const char kEnableNetworkServiceSandboxName[] =

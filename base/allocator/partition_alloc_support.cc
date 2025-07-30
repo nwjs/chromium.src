@@ -877,6 +877,8 @@ PartitionAllocSupport::GetSchedulerLoopQuarantineConfiguration(
       break;
     case features::internal::SchedulerLoopQuarantineBranchType::
         kThreadLocalDefault:
+      config.leak_on_destruction = false;
+      break;
     case features::internal::SchedulerLoopQuarantineBranchType::kMain:
       config.leak_on_destruction = false;
       if (process_type == "") {
@@ -887,6 +889,11 @@ PartitionAllocSupport::GetSchedulerLoopQuarantineConfiguration(
       break;
   }
 #endif  // PA_BUILDFLAG(USE_PARTITION_ALLOC_AS_MALLOC)
+
+  if (config.branch_capacity_in_bytes == 0) {
+    config.enable_quarantine = false;
+    config.enable_zapping = false;
+  }
 
   return config;
 }
@@ -970,6 +977,15 @@ void PartitionAllocSupport::ReconfigureEarlyish(
   if (process_type != switches::kZygoteProcess) {
     ReconfigurePartitionForKnownProcess(process_type);
   }
+
+#if PA_BUILDFLAG(ENABLE_PARTITION_LOCK_PRIORITY_INHERITANCE) && \
+    PA_BUILDFLAG(IS_ANDROID)
+  if (base::android::BackgroundThreadPoolFieldTrial::
+          ShouldUsePriorityInheritanceLocks()) {
+    partition_alloc::internal::SpinningMutex::EnableUsePriorityInheritance();
+  }
+#endif  // PA_BUILDFLAG(ENABLE_PARTITION_LOCK_PRIORITY_INHERITANCE) &&
+        // PA_BUILDFLAG(IS_ANDROID)
 
   // These initializations are only relevant for PartitionAlloc-Everywhere
   // builds.
@@ -1189,15 +1205,6 @@ void PartitionAllocSupport::ReconfigureAfterFeatureListInit(
     }
   }
 #endif  // PA_BUILDFLAG(HAS_MEMORY_TAGGING)
-
-#if PA_BUILDFLAG(ENABLE_PARTITION_LOCK_PRIORITY_INHERITANCE) && \
-    PA_BUILDFLAG(IS_ANDROID)
-  if (base::android::BackgroundThreadPoolFieldTrial::
-          ShouldUsePriorityInheritanceLocks()) {
-    partition_alloc::internal::SpinningMutex::EnableUsePriorityInheritance();
-  }
-#endif  // PA_BUILDFLAG(ENABLE_PARTITION_LOCK_PRIORITY_INHERITANCE) &&
-        // PA_BUILDFLAG(IS_ANDROID)
 
   allocator_shim::ConfigurePartitions(
       allocator_shim::EnableBrp(brp_config.enable_brp),

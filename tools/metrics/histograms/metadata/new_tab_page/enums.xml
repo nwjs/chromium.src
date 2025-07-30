@@ -38,6 +38,13 @@ chromium-metrics-reviews@google.com.
   <int value="2" label="Discover Feed Bottom Sheet"/>
 </enum>
 
+<enum name="ComposeboxFileValidationError">
+  <int value="0" label="No error"/>
+  <int value="1" label="Too many files uploaded"/>
+  <int value="2" label="File is empty"/>
+  <int value="3" label="File size is too large"/>
+</enum>
+
 <enum name="Entry">
   <summary/>
   <int value="0" label="App Menu"/>
@@ -54,6 +61,7 @@ chromium-metrics-reviews@google.com.
 
 <enum name="FooterContextMenuItem">
   <int value="0" label="Hide footer clicked."/>
+  <int value="1" label="Customize chrome clicked."/>
 </enum>
 
 <enum name="FooterCustomizeChromeEntryPoint">
@@ -63,12 +71,17 @@ chromium-metrics-reviews@google.com.
 </enum>
 
 <enum name="FooterElement">
-  <int value="0" label="Other Element clicked"/>
-  <int value="1" label="Customize Chrome Button clicked"/>
-  <int value="2" label="Extension name clicked"/>
-  <int value="3" label="Management notice clicked"/>
-  <int value="4" label="Background name clicked"/>
+  <int value="0" label="Other Element"/>
+  <int value="1" label="Customize Chrome Button"/>
+  <int value="2" label="Extension name"/>
+  <int value="3" label="Management notice"/>
+  <int value="4" label="Background name"/>
   <int value="5" label="Context menu opened"/>
+</enum>
+
+<enum name="FooterNoticeItem">
+  <int value="0" label="Extension name"/>
+  <int value="1" label="Management notice"/>
 </enum>
 
 <enum name="ItemSuggestRequestResult">
@@ -315,6 +328,12 @@ chromium-metrics-reviews@google.com.
     Rising Artists Collection
   </int>
   <int value="1967788069" label="solidcolors_for_NTP">Colors for NTP</int>
+</enum>
+
+<enum name="NtpComposeboxMultimodalState">
+  <int value="1" label="Text Only"/>
+  <int value="2" label="File Only"/>
+  <int value="3" label="Text and File"/>
 </enum>
 
 <enum name="NTPCustomizeChromeBackgroundAction">

@@ -13,8 +13,13 @@
 
 #include "base/functional/callback.h"
 #include "components/endpoint_fetcher/endpoint_fetcher.h"
+#include "components/variations/variations_client.h"
 #include "composebox_query_controller.h"
 #include "third_party/lens_server_proto/lens_overlay_server.pb.h"
+
+namespace lens {
+class LensOverlayClientContext;
+}  // namespace lens
 
 class FakeEndpointFetcher : public endpoint_fetcher::EndpointFetcher {
  public:
@@ -29,6 +34,16 @@ class FakeEndpointFetcher : public endpoint_fetcher::EndpointFetcher {
   endpoint_fetcher::EndpointResponse response_;
 };
 
+// Fake VariationsClient for testing.
+class FakeVariationsClient : public variations::VariationsClient {
+ public:
+  ~FakeVariationsClient() override = default;
+
+  bool IsOffTheRecord() const override;
+
+  variations::mojom::VariationsHeadersPtr GetVariationsHeaders() const override;
+};
+
 // Helper for testing features that use the ComposeboxQueryController.
 // The only logic in this class should be for setting up fake network responses
 // and tracking sent request data to maximize testing coverage.
@@ -37,7 +52,11 @@ class TestComposeboxQueryController : public ComposeboxQueryController {
   explicit TestComposeboxQueryController(
       signin::IdentityManager* identity_manager,
       scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory,
-      version_info::Channel channel);
+      version_info::Channel channel,
+      std::string locale,
+      TemplateURLService* template_url_service,
+      variations::VariationsClient* variations_client,
+      bool send_lns_surface);
   ~TestComposeboxQueryController() override;
 
   // Mutators.
@@ -56,6 +75,10 @@ class TestComposeboxQueryController : public ComposeboxQueryController {
       bool set_next_file_upload_request_should_return_error) {
     next_file_upload_request_should_return_error_ =
         set_next_file_upload_request_should_return_error;
+  }
+
+  void set_enable_cluster_info_ttl(bool enable_cluster_info_ttl) {
+    enable_cluster_info_ttl_ = enable_cluster_info_ttl;
   }
 
   void set_on_query_controller_state_changed_callback(
@@ -94,6 +117,16 @@ class TestComposeboxQueryController : public ComposeboxQueryController {
     return last_sent_file_upload_request_;
   }
 
+  // Gets the last sent cors exempt headers.
+  std::vector<std::string> last_sent_cors_exempt_headers() const {
+    return last_sent_cors_exempt_headers_;
+  }
+
+  // Gets the client context used for the requests.
+  lens::LensOverlayClientContext client_context() const {
+    return ComposeboxQueryController::CreateClientContext();
+  }
+
  protected:
   std::unique_ptr<endpoint_fetcher::EndpointFetcher> CreateEndpointFetcher(
       std::string request_string,
@@ -103,6 +136,8 @@ class TestComposeboxQueryController : public ComposeboxQueryController {
       const std::vector<std::string>& request_headers,
       const std::vector<std::string>& cors_exempt_headers,
       UploadProgressCallback upload_progress_callback) override;
+
+  void ResetRequestClusterInfoState(int session_id) override;
 
   // The fake response to return for cluster info requests.
   lens::LensOverlayServerClusterInfoResponse fake_cluster_info_response_;
@@ -119,11 +154,19 @@ class TestComposeboxQueryController : public ComposeboxQueryController {
   // If true, the next file upload request will return an error.
   bool next_file_upload_request_should_return_error_ = false;
 
+  // If true, the cluster info will expire when the TTL expires as normal.
+  // Set to false by default to prevent flakiness in tests that expect the
+  // cluster info to be available.
+  bool enable_cluster_info_ttl_ = false;
+
   // The last url for which a fetch request was sent by the query controller.
   GURL last_sent_fetch_url_;
 
   // The last sent file upload request.
   std::optional<lens::LensOverlayServerRequest> last_sent_file_upload_request_;
+
+  // The last sent cors exempt headers.
+  std::vector<std::string> last_sent_cors_exempt_headers_;
 };
 
 #endif  // COMPONENTS_OMNIBOX_COMPOSEBOX_TEST_COMPOSEBOX_QUERY_CONTROLLER_H_

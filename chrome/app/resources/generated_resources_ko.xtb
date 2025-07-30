@@ -1788,7 +1788,7 @@
 <translation id="2229161054156947610">1시간 이상 남음</translation>
 <translation id="222931766245975952">파일이 잘림</translation>
 <translation id="2231160360698766265">사이트가 보호된 콘텐츠를 재생할 수 있음</translation>
-<translation id="2231351769755997720">추천사항이 없습니다. 이 페이지에 대해 직접 질문해 보세요.</translation>
+<translation id="2231351769755997720">추천 사항이 없습니다. 이 페이지에 대해 직접 질문해 보세요.</translation>
 <translation id="2232751457155581899">사이트에서 카메라 위치 추적을 요청할 수 있음</translation>
 <translation id="2233502537820838181">추가 정보</translation>
 <translation id="223356358902285214">웹 및 앱 활동</translation>
@@ -5052,7 +5052,7 @@
 <translation id="4500647907053779331">선택사항을 <ph name="LANGUAGE" />로 번역(&amp;T)</translation>
 <translation id="450099669180426158">느낌표 아이콘</translation>
 <translation id="4501530680793980440">삭제 확인</translation>
-<translation id="4502423230170890588">기기에서 삭제</translation>
+<translation id="4502423230170890588">이 기기에서 삭제</translation>
 <translation id="4502477450742595012">탭을 마우스 오른쪽 버튼으로 클릭하고 '새 그룹에 탭 추가'를 선택합니다.</translation>
 <translation id="4503748371388753124">컴퓨터에 신뢰할 수 있는 플랫폼 모듈(TPM) 보안 기기가 있습니다. 이 기기는 ChromeOS Flex에서 여러 중요한 보안 기능을 구현하는 데 사용됩니다. 자세히 알아보려면 Chromebook 고객센터의 다음 페이지를 방문하세요.
 https://support.google.com/chromebook/?p=tpm</translation>
@@ -5066,7 +5066,7 @@ https://support.google.com/chromebook/?p=tpm</translation>
 <translation id="450867954911715010">접근성 설정</translation>
 <translation id="4508765956121923607">소스 보기(&amp;O)</translation>
 <translation id="4509277363725254222"><ph name="BEGIN_BOLD_USERNAME" />사용자 이름<ph name="END_BOLD_USERNAME" />과 <ph name="BEGIN_BOLD_PASSWORD" />비밀번호<ph name="END_BOLD_PASSWORD" /> 사본을 공유하면 가족 구성원이 Google 비밀번호 관리자를 사용하여 입력할 수 있습니다.</translation>
-<translation id="4509421746503122514">다시 실행하여 업데이트하세요.</translation>
+<translation id="4509421746503122514">업데이트를 위해 다시 시작</translation>
 <translation id="4509741852167209430">광고 실적을 측정하기 위해 제한된 유형의 데이터(예: 사이트 방문 후 구매했는지)가 사이트 간에 공유됩니다.</translation>
 <translation id="4510195992002502722">의견을 보낼 수 없어 다시 시도하는 중입니다...</translation>
 <translation id="4510479820467554003">부모 계정 목록</translation>
@@ -5339,7 +5339,7 @@ https://support.google.com/chromebook/?p=tpm</translation>
 <translation id="4694604912444486114">원숭이</translation>
 <translation id="4694820450536519583">권한</translation>
 <translation id="4695318956047767909">어두운 테마, 화면 보호기</translation>
-<translation id="4697071790493980729">검색결과 없음</translation>
+<translation id="4697071790493980729">검색 결과 없음</translation>
 <translation id="4697231114332146850">커서를 이동하려면 7, 8, 9, 4, 6, 1, 2, 3 키를 사용하세요.</translation>
 <translation id="4697551882387947560">탐색 세션이 종료될 때</translation>
 <translation id="469838979880025581">사이트에서 마이크 사용을 요청할 수 있음</translation>
@@ -6135,7 +6135,7 @@ https://support.google.com/chromebook/?p=tpm</translation>
 <translation id="5264252276333215551">앱을 키오스크 모드로 실행하려면 인터넷에 연결하세요.</translation>
 <translation id="5265797726250773323">설치 중 오류 발생</translation>
 <translation id="526622169288322445"><ph name="ADDRESS_SUMMARY" />의 작업 메뉴 더보기</translation>
-<translation id="5267572070504076962">세이프 브라우징을 사용 설정하여 위험한 사이트로부터 보호하세요</translation>
+<translation id="5267572070504076962">세이프 브라우징을 사용 설정하여 위험한 사이트로부터 보호받으세요.</translation>
 <translation id="5269977353971873915">인쇄 실패</translation>
 <translation id="5271578170655641944">Google Drive 액세스 권한을 삭제하시겠습니까?</translation>
 <translation id="5273806377963980154">사이트 URL 수정</translation>
@@ -8911,7 +8911,7 @@ https://support.google.com/chromebook/?p=tpm</translation>
 <translation id="7287949630503871403">앱에 저장된 데이터</translation>
 <translation id="7288676996127329262"><ph name="HORIZONTAL_DPI" />x<ph name="VERTICAL_DPI" />dpi</translation>
 <translation id="7288761372977133974"><ph name="SUBJECT" />의 최근 AI 테마 <ph name="INDEX" /></translation>
-<translation id="7289049772085228972">Chrome의 가장 강력한 보안 기능을 갖추고 있습니다</translation>
+<translation id="7289049772085228972">Chrome의 가장 강력한 보안 기능을 갖추고 있습니다.</translation>
 <translation id="7289303553784750393">온라인 상태인데도 이 문제가 계속 발생하는 경우 <ph name="SITE_ETLD_PLUS_ONE" />에서 계속하기 위한 다른 방법을 시도해 보세요.</translation>
 <translation id="7289386924227731009"><ph name="WINDOW_TITLE" /> - 권한 요청됨, F6 키를 눌러 응답</translation>
 <translation id="7290005709287747471">비활성화</translation>
@@ -8939,7 +8939,7 @@ https://support.google.com/chromebook/?p=tpm</translation>
 <translation id="7308643132139167865">웹사이트 언어</translation>
 <translation id="7309214454733221756"><ph name="APP_NAME" /> 로그인에 사용할 패스키를 생성할까요?</translation>
 <translation id="7311005168897771689">오프라인 상태에서 Google Drive 파일에 액세스</translation>
-<translation id="7311244614769792472">검색결과 없음</translation>
+<translation id="7311244614769792472">검색 결과 없음</translation>
 <translation id="7312040805247765153">앱을 설치할 수 없음</translation>
 <translation id="7312210124139670355">관리자가 eSIM을 재설정하는 중입니다. 몇 분 정도 소요될 수 있습니다.</translation>
 <translation id="7313539585802573958">키보드 백라이트 색상</translation>

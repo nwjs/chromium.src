@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+import {FileUploadStatus} from 'chrome://new-tab-page/composebox_query.mojom-webui.js';
 import {ComposeboxFileThumbnailElement} from 'chrome://new-tab-page/lazy_load.js';
 import {assertEquals, assertTrue} from 'chrome://webui-test/chai_assert.js';
 import {eventToPromise, microtasksFinished} from 'chrome://webui-test/test_util.js';
@@ -17,6 +18,20 @@ suite('NewTabPageComposeboxFileThumbnailTest', () => {
     document.body.appendChild(fileThumbnailElement);
   });
 
+  test('display loading spinner', async () => {
+    // Arrange.
+    fileThumbnailElement.file = createComposeboxFile(1, {
+      type: 'image/jpeg',
+      objectUrl: 'data:foo',
+      status: FileUploadStatus.kUploadStarted,
+    });
+    await microtasksFinished();
+
+    // Assert.
+    const spinner = fileThumbnailElement.shadowRoot.querySelector('.spinner');
+    assertTrue(!!spinner);
+  });
+
   test('display image file', async () => {
     // Arrange.
     fileThumbnailElement.file =
@@ -25,7 +40,7 @@ suite('NewTabPageComposeboxFileThumbnailTest', () => {
 
     // Assert one image file.
     const thumbnail =
-        fileThumbnailElement.shadowRoot.querySelector('.thumbnail');
+        fileThumbnailElement.shadowRoot.querySelector('.img-thumbnail');
     assertTrue(!!thumbnail);
     assertEquals(thumbnail.tagName, 'IMG');
     assertEquals(
@@ -40,13 +55,30 @@ suite('NewTabPageComposeboxFileThumbnailTest', () => {
 
     // Assert one image file.
     const thumbnail =
-        fileThumbnailElement.shadowRoot.querySelector('.thumbnail');
+        fileThumbnailElement.shadowRoot.querySelector('.pdf-title');
     assertTrue(!!thumbnail);
     assertEquals(thumbnail.tagName, 'P');
     assertEquals(thumbnail.textContent, fileThumbnailElement.file.name);
   });
 
-  test('clicking delete button sends event', async () => {
+  test('clicking image delete button sends event', async () => {
+    // Arrange.
+    fileThumbnailElement.file =
+        createComposeboxFile(1, {type: 'image/jpeg', objectUrl: 'data:foo'});
+    await microtasksFinished();
+
+    // Act.
+    const deleteEventPromise =
+        eventToPromise('delete-file', fileThumbnailElement) as
+        Promise<CustomEvent>;
+    fileThumbnailElement.$.removeImgButton.click();
+
+    // Assert.
+    const deleteEvent = await deleteEventPromise;
+    assertEquals(deleteEvent.detail.uuid, '1');
+  });
+
+  test('clicking pdf delete button sends event', async () => {
     // Arrange.
     fileThumbnailElement.file = createComposeboxFile(0);
     await microtasksFinished();
@@ -55,7 +87,7 @@ suite('NewTabPageComposeboxFileThumbnailTest', () => {
     const deleteEventPromise =
         eventToPromise('delete-file', fileThumbnailElement) as
         Promise<CustomEvent>;
-    fileThumbnailElement.$.deleteButton.click();
+    fileThumbnailElement.$.removePdfButton.click();
 
     // Assert.
     const deleteEvent = await deleteEventPromise;

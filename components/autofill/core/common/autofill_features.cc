@@ -673,6 +673,21 @@ BASE_FEATURE(kAutofillGreekRegexes,
              "AutofillGreekRegexes",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+// Enables uploading of more data to the Autofill server to use for computing
+// signatures: go/autofill-signatures-more-data.
+COMPONENT_EXPORT(AUTOFILL)
+BASE_FEATURE(kAutofillServerUploadMoreData,
+             "AutofillServerUploadMoreData",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Replaces the secondary signature with the structural signature for Uploads.
+// For Queries still only the secondary (alternative) signature is used.
+// TODO(crbug.com/431737839): Clean up when roll out finishes successfully.
+COMPONENT_EXPORT(AUTOFILL)
+BASE_FEATURE(kUseStructuralSignatureInsteadOfSecondary,
+             "AutofillUseStructuralSignatureInsteadOfSecondary",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
 // When enabled, the field classification model uses runtime caching to not run
 // models on the same inputs multiple times.
 // TODO(crbug.com/371933424). Clean up when launched, if not used for Autofill

@@ -56,10 +56,6 @@ void ForwardVizInputTransferToken(
       surface_handle, viz_input_token_java);
 }
 
-void DestroyReceiverData(
-    std::unique_ptr<input::InputReceiverData> receiver_data) {
-  receiver_data.reset();
-}
 
 #endif  // BUILDFLAG(IS_ANDROID)
 
@@ -273,12 +269,12 @@ void InputManager::OnDestroyedCompositorFrameSink(
   }
 
   if (receiver_data_ && receiver_data_->root_frame_sink_id() == frame_sink_id) {
-    receiver_data_->OnDestroyedCompositorFrameSink();
     if (base::android::android_info::sdk_int() >=
         base::android::android_info::SdkVersion::SDK_VERSION_BAKLAVA) {
-      base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
-          FROM_HERE,
-          base::BindOnce(&DestroyReceiverData, std::move(receiver_data_)));
+      input::InputReceiverData* receiver = receiver_data_.get();
+      receiver->OnDestroyedCompositorFrameSink(std::move(receiver_data_));
+    } else {
+      receiver_data_->OnDestroyedCompositorFrameSink(nullptr);
     }
   }
 #endif  // BUILDFLAG(IS_ANDROID)
@@ -451,6 +447,7 @@ RenderInputRouterSupportBase* InputManager::GetRootRenderInputRouterSupport(
   FrameSinkId current_id = frame_sink_id;
 
   while (
+      parent_frame_sink_id.is_valid() &&
       !frame_sink_manager_->IsFrameSinkIdInRootSinkMap(parent_frame_sink_id)) {
     current_id = parent_frame_sink_id;
     parent_frame_sink_id = frame_sink_manager_->GetOldestParentByChildFrameId(
@@ -458,7 +455,8 @@ RenderInputRouterSupportBase* InputManager::GetRootRenderInputRouterSupport(
   }
 
   auto it = frame_sink_metadata_map_.find(current_id);
-  if (it != frame_sink_metadata_map_.end()) {
+  if (it != frame_sink_metadata_map_.end() &&
+      !it->second.rir_support->IsRenderInputRouterSupportChildFrame()) {
     return it->second.rir_support.get();
   }
   return nullptr;

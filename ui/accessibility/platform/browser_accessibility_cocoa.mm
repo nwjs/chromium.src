@@ -620,9 +620,10 @@ bool ui::IsNSRange(id value) {
 
   if (![self instanceActive])
     return nil;
+
   if (!_children) {
     base::AutoReset<bool> set_getting_children(&_gettingChildren, true);
-    // PlatformChildCount may add extra mac nodes if the node requires them.
+    // PlatformChildCount adds extra mac nodes if the node requires them.
     uint32_t childCount = _owner->PlatformChildCount();
     _children = [[NSMutableArray alloc] initWithCapacity:childCount];
     for (auto it = _owner->PlatformChildrenBegin();
@@ -632,12 +633,14 @@ bool ui::IsNSRange(id value) {
               it->GetNativeViewAccessible().Get());
       if (![cocoa_child instanceActive]) {
         // TODO(crbug.com/425758499): change to CHECK once root cause addressed.
-        DCHECK(false) << "Tried to add destroyed child, parent = " << _owner;
+        DCHECK(false) << "Tried to add destroyed child, parent = "
+                      << _owner->ToString();
         continue;
       }
       if (![cocoa_child nodeDelegate]) {
         // TODO(crbug.com/425758499): change to CHECK once root cause addressed.
-        DCHECK(false) << "No delegate for child, parent = " << _owner;
+        DCHECK(false) << "No delegate for child, parent = "
+                      << _owner->ToString();
         continue;
       }
       [_children addObject:cocoa_child];
@@ -652,7 +655,7 @@ bool ui::IsNSRange(id value) {
         // This only became necessary as a result of https://crbug.com/41440696.
         // It should be a DCHECK in the future.
         DCHECK(false) << "Tried to add null indirect child, parent = "
-                      << _owner;
+                      << _owner->ToString();
         continue;
       }
       AXPlatformNodeCocoa* cocoa_child =
@@ -661,15 +664,41 @@ bool ui::IsNSRange(id value) {
       if (![cocoa_child instanceActive]) {
         // TODO(crbug.com/425758499): change to CHECK once root cause addressed.
         DCHECK(false) << "Tried to add destroyed indirect child, parent = "
-                      << _owner;
+                      << _owner->ToString();
         continue;
       }
       if (![cocoa_child nodeDelegate]) {
         // TODO(crbug.com/425758499): change to CHECK once root cause addressed.
-        DCHECK(false) << "No delegate for indirect child, parent = " << _owner;
+        DCHECK(false) << "No delegate for indirect child, parent = "
+                      << _owner->ToString();
         continue;
       }
       [_children addObject:cocoa_child];
+    }
+  } else {
+    // Loop through the cached _children and check that they are still active
+    // instances. If not, it's likely that a childrenChanged() call is missing.
+    // For now, remove the item and log an issue.
+    // TODO(accessibility): debug all of the root causes of this and ensure
+    // childrenChanged() is called.
+    for (NSInteger child_index = [_children count] - 1; child_index >= 0;
+         --child_index) {
+      BrowserAccessibilityCocoa* child = _children[child_index];
+      bool invalid = false;
+
+      if (![child instanceActive]) {
+        invalid = true;
+        DCHECK(false) << "Cached child is no longer active, parent = "
+                      << _owner->ToString();
+      } else if (![child nodeDelegate]) {
+        DCHECK(false) << "Cached child is missing a delegate, parent = "
+                      << _owner->ToString();
+        invalid = true;
+      }
+
+      if (invalid) {
+        [_children removeObjectAtIndex:child_index];
+      }
     }
   }
   return NSAccessibilityUnignoredChildren(_children);

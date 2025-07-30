@@ -8374,6 +8374,7 @@ from previous Chrome versions.
   <int value="-2080227937" label="ImeTrayHideVoiceButton:enabled"/>
   <int value="-2079347889" label="CCTBeforeUnload:disabled"/>
   <int value="-2077268643" label="disable-device-enumeration"/>
+  <int value="-2076848010" label="NtpComposebox:disabled"/>
   <int value="-2076313806" label="TrustTokens:disabled"/>
   <int value="-2075870708" label="MediaRemotingEncrypted:disabled"/>
   <int value="-2075807193" label="enable-webusb-on-any-origin"/>
@@ -14837,6 +14838,7 @@ from previous Chrome versions.
   <int value="319578317" label="PasswordFormGroupedAffiliations:disabled"/>
   <int value="319683583" label="ContentSuggestionsDebugLog:enabled"/>
   <int value="320121752" label="DelegateOverscrollSwipes:disabled"/>
+  <int value="320614166" label="ContextualPageActionTabGrouping:disabled"/>
   <int value="321023965" label="IPH_LauncherSearchHelpUi:disabled"/>
   <int value="321366101" label="WebXRARDOMOverlay:enabled"/>
   <int value="321616293" label="DrawWebEdgeToEdge:disabled"/>
@@ -16313,6 +16315,7 @@ from previous Chrome versions.
   <int value="866536801" label="PDFViewerUpdate:disabled"/>
   <int value="867061581" label="AllowWindowDragUsingSystemDragDrop:enabled"/>
   <int value="867512869" label="mark-non-secure-as"/>
+  <int value="867832137" label="NtpComposebox:enabled"/>
   <int value="868009556" label="AutofillUpstream:enabled"/>
   <int value="868791094" label="PermissionsAIv1:disabled"/>
   <int value="868879861" label="TpcdMetadataGrants:disabled"/>
@@ -19808,6 +19811,7 @@ from previous Chrome versions.
   <int value="2139048614" label="UseSurfaceLayerForVideo:enabled"/>
   <int value="2139164626"
       label="TimeOfDayWallpaperForcedAutoSchedule:disabled"/>
+  <int value="2139325088" label="ContextualPageActionTabGrouping:enabled"/>
   <int value="2139520082" label="EnableRestrictedWebApis:disabled"/>
   <int value="2140205372" label="ScreenAI"/>
   <int value="2140453427"
@@ -20050,6 +20054,7 @@ from previous Chrome versions.
   <int value="0" label="Unknown"/>
   <int value="1" label="Clear Key"/>
   <int value="2" label="Widevine"/>
+  <int value="3" label="PlayReady"/>
 </enum>
 
 <enum name="MediaKeySystemLegacy">

@@ -36,6 +36,20 @@ namespace glic {
 
 class GlicFreDialogView;
 
+// This enum is used to record the reason for the FRE error state.
+// These values are persisted to logs.
+// LINT.IfChange(FreErrorStateReason)
+enum class FreErrorStateReason {
+  // Sign-in is required.
+  kSignInRequired = 0,
+  // Error while re-syncing cookies before showing FRE.
+  kErrorResyncingCookies = 1,
+  // Timeout exceeded during loading error.
+  kTimeoutExceeded = 2,
+  kMaxValue = kTimeoutExceeded,
+};
+// LINT.ThenChange(tools/metrics/histograms/metadata/glic/enums.xml:FreErrorStateReason)
+
 // This class owns and manages the glic FRE modal dialog, and is owned by a
 // GlicWindowController.
 class GlicFreController {
@@ -85,7 +99,7 @@ class GlicFreController {
   void AcceptFre();
 
   // Closes the FRE dialog.
-  void DismissFre();
+  void DismissFre(mojom::FreWebUiState panel);
 
   // Used when the native window is closed directly.
   void CloseWithReason(views::Widget::ClosedReason reason);
@@ -93,11 +107,11 @@ class GlicFreController {
   // Re-sync cookies to FRE webview.
   void PrepareForClient(base::OnceCallback<void(bool)> callback);
 
+  // Loading timeout was exceeded.
+  void ExceededTimeoutError();
+
   // Notify FRE controller that the user clicked on a link.
   void OnLinkClicked(const GURL& url);
-
-  // Notify FRE controller that the user clicked "no thanks" in the FRE.
-  void OnNoThanksClicked();
 
   // Attempts to warm the FRE web contents.
   void TryPreload();
@@ -120,6 +134,8 @@ class GlicFreController {
   gfx::Size GetFreInitialSize();
 
   void UpdateFreWidgetSize(const gfx::Size& new_size);
+
+  void LogWebUiLoadComplete();
 
   AuthController& GetAuthControllerForTesting() { return auth_controller_; }
 
@@ -167,8 +183,17 @@ class GlicFreController {
   base::RepeatingCallbackList<void(mojom::FreWebUiState)>
       webui_state_callback_list_;
 
-  // The timestamp when the FRE window is shown.
+  // The timestamp when the FRE window is requested to be shown.
   base::TimeTicks show_start_time_;
+
+  // The timestamp when the FRE widget creation starts.
+  base::TimeTicks widget_creation_start_time_;
+
+  // The timestamp when the FRE WebUI loading starts.
+  base::TimeTicks webui_load_start_time_;
+
+  // The timestamp when the FRE web content loading starts.
+  base::TimeTicks web_client_load_start_time_;
 
   base::WeakPtrFactory<GlicFreController> weak_ptr_factory_{this};
 };

@@ -27,6 +27,7 @@ import type {CrLinkRowElement} from 'chrome://resources/cr_elements/cr_link_row/
 import {WebUiListenerMixin} from 'chrome://resources/cr_elements/web_ui_listener_mixin.js';
 import {assert, assertNotReached} from 'chrome://resources/js/assert.js';
 import {FocusOutlineManager} from 'chrome://resources/js/focus_outline_manager.js';
+import {focusWithoutInk} from 'chrome://resources/js/focus_without_ink.js';
 import {afterNextRender, PolymerElement} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
 
 import type {SettingsCheckboxElement} from '../controls/settings_checkbox.js';
@@ -399,7 +400,14 @@ export class SettingsClearBrowsingDataDialogV2Element extends
     this.$.deleteBrowsingDataDialog
         .querySelectorAll<SettingsCheckboxElement>(
             'settings-checkbox[no-set-pref]')
-        .forEach(checkbox => checkbox.sendPrefChange());
+        .forEach(
+            checkbox =>
+                // Manually update the checkboxes' pref value. This is a
+                // temporary fix as the `SettingsCheckbox.sendPrefChange` does
+                // not update prefs when they are passed dynamically.
+                // TODO(crbug.com/431174247): Figure out why
+                // `SettingsCheckbox.sendPrefChange` is not working.
+            this.setPrefValue(checkbox.pref!.key, checkbox.checked));
     this.$.timePicker.sendPrefChange();
 
     const {showHistoryNotice} =
@@ -497,10 +505,8 @@ export class SettingsClearBrowsingDataDialogV2Element extends
   private onOtherGoogleDataDialogClose_(e: Event) {
     e.stopPropagation();
     this.showOtherGoogleDataDialog_ = false;
-    afterNextRender(this, () => {
-      this.$.cancelButton.focus();
-      this.setFocusOutlineToVisible_();
-    });
+    afterNextRender(
+        this, () => focusWithoutInk(this.$.manageOtherGoogleDataRow));
   }
 
   private onCheckboxSubLabelLinkClick_(e: CustomEvent<{id: string}>) {

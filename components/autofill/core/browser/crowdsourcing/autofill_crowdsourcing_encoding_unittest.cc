@@ -129,8 +129,11 @@ Matcher<AutofillUploadContents> SerializesAndDeepEquals(
   auto strip_metadata = [](AutofillUploadContents upload_content) {
     upload_content.clear_language();
     upload_content.clear_randomized_form_metadata();
+    upload_content.clear_three_bit_hashed_form_metadata();
     for (int i = 0; i < upload_content.field_data_size(); ++i) {
       upload_content.mutable_field_data(i)->clear_randomized_field_metadata();
+      upload_content.mutable_field_data(i)
+          ->clear_three_bit_hashed_field_metadata();
     }
     return upload_content;
   };
@@ -171,7 +174,7 @@ Matcher<AutofillUploadContents> SerializesAndDeepEquals(
   Property(#property, &AutofillUploadContents::property, expected.property())
   return AllOf(
       PROPERTY_EQ(client_version), PROPERTY_EQ(form_signature),
-      PROPERTY_EQ(secondary_form_signature), PROPERTY_EQ(autofill_used),
+      PROPERTY_EQ(structural_form_signature), PROPERTY_EQ(autofill_used),
       PROPERTY_EQ(data_present), PROPERTY_EQ(action_signature),
       PROPERTY_EQ(login_form_signature), PROPERTY_EQ(submission),
       PROPERTY_EQ(form_name), PROPERTY_EQ(passwords_revealed),
@@ -332,8 +335,8 @@ TEST_F(AutofillCrowdsourcingEncoding, EncodeUploadRequest) {
   upload.set_client_version(
       std::string(GetProductNameAndVersionForUserAgent()));
   upload.set_form_signature(form_structure->form_signature().value());
-  upload.set_secondary_form_signature(
-      form_structure->alternative_form_signature().value());
+  upload.set_structural_form_signature(
+      form_structure->structural_form_signature().value());
   upload.set_autofill_used(false);
   upload.set_data_present("1442000308");
   upload.set_has_form_tag(true);
@@ -379,8 +382,8 @@ TEST_F(AutofillCrowdsourcingEncoding, EncodeUploadRequest) {
 
   // Adjust the expected proto string.
   upload.set_form_signature(form_structure->form_signature().value());
-  upload.set_secondary_form_signature(
-      form_structure->alternative_form_signature().value());
+  upload.set_structural_form_signature(
+      form_structure->structural_form_signature().value());
   upload.set_autofill_used(false);
   upload.set_submission_event(
       AutofillUploadContents_SubmissionIndicatorEvent_HTML_FORM_SUBMISSION);
@@ -434,8 +437,8 @@ TEST_F(AutofillCrowdsourcingEncoding,
   upload.set_client_version(
       std::string(GetProductNameAndVersionForUserAgent()));
   upload.set_form_signature(form_structure->form_signature().value());
-  upload.set_secondary_form_signature(
-      form_structure->alternative_form_signature().value());
+  upload.set_structural_form_signature(
+      form_structure->structural_form_signature().value());
   upload.set_autofill_used(false);
   upload.set_data_present("10");
   upload.set_submission_event(
@@ -492,8 +495,8 @@ TEST_F(AutofillCrowdsourcingEncoding, EncodeUploadRequestWithFormatStrings) {
   upload.set_client_version(
       std::string(GetProductNameAndVersionForUserAgent()));
   upload.set_form_signature(form_structure->form_signature().value());
-  upload.set_secondary_form_signature(
-      form_structure->alternative_form_signature().value());
+  upload.set_structural_form_signature(
+      form_structure->structural_form_signature().value());
   upload.set_autofill_used(false);
   upload.set_data_present("10");
   upload.set_submission_event(
@@ -603,8 +606,8 @@ TEST_F(AutofillCrowdsourcingEncoding,
   upload.set_client_version(
       std::string(GetProductNameAndVersionForUserAgent()));
   upload.set_form_signature(form_structure->form_signature().value());
-  upload.set_secondary_form_signature(
-      form_structure->alternative_form_signature().value());
+  upload.set_structural_form_signature(
+      form_structure->structural_form_signature().value());
   upload.set_autofill_used(false);
   upload.set_data_present("1440000000000000000802");
   upload.set_login_form_signature(42);
@@ -706,8 +709,8 @@ TEST_F(AutofillCrowdsourcingEncoding, EncodeUploadRequestWithPropertiesMask) {
   upload.set_client_version(
       std::string(GetProductNameAndVersionForUserAgent()));
   upload.set_form_signature(form_structure->form_signature().value());
-  upload.set_secondary_form_signature(
-      form_structure->alternative_form_signature().value());
+  upload.set_structural_form_signature(
+      form_structure->structural_form_signature().value());
   upload.set_autofill_used(false);
   upload.set_data_present("1440");
   upload.set_submission_event(
@@ -773,8 +776,8 @@ TEST_F(AutofillCrowdsourcingEncoding,
   upload.set_client_version(
       std::string(GetProductNameAndVersionForUserAgent()));
   upload.set_form_signature(form_structure->form_signature().value());
-  upload.set_secondary_form_signature(
-      form_structure->alternative_form_signature().value());
+  upload.set_structural_form_signature(
+      form_structure->structural_form_signature().value());
   upload.set_autofill_used(false);
   upload.set_data_present("1440");
   upload.set_submission_event(
@@ -830,8 +833,8 @@ TEST_F(AutofillCrowdsourcingEncoding, EncodeUploadRequest_WithLabels) {
   upload.set_client_version(
       std::string(GetProductNameAndVersionForUserAgent()));
   upload.set_form_signature(form_structure->form_signature().value());
-  upload.set_secondary_form_signature(
-      form_structure->alternative_form_signature().value());
+  upload.set_structural_form_signature(
+      form_structure->structural_form_signature().value());
   upload.set_autofill_used(false);
   upload.set_data_present("1440");
   upload.set_submission_event(
@@ -908,8 +911,8 @@ TEST_F(AutofillCrowdsourcingEncoding, EncodeUploadRequest_WithSubForms) {
     upload.set_client_version(
         std::string(GetProductNameAndVersionForUserAgent()));
     upload.set_form_signature(form_structure->form_signature().value());
-    upload.set_secondary_form_signature(
-        form_structure->alternative_form_signature().value());
+    upload.set_structural_form_signature(
+        form_structure->structural_form_signature().value());
     upload.set_autofill_used(false);
     upload.set_data_present("0000000000001850");
     upload.set_has_form_tag(true);
@@ -970,6 +973,111 @@ TEST_F(AutofillCrowdsourcingEncoding, EncodeUploadRequest_WithSubForms) {
                                    SerializesAndDeepEquals(upload_cvc)));
 }
 
+TEST_F(AutofillCrowdsourcingEncoding,
+       EncodeUploadRequest_ThreeBitHashedMetadata) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeature(features::kAutofillServerUploadMoreData);
+
+  FormData form;
+  form.set_id_attribute(u"form-id");
+  form.set_name_attribute(u"form-name");
+  form.set_action(GURL("http://www.foo.com/submit"));
+  form.set_button_titles({std::make_pair(
+      u"Submit Button", mojom::ButtonTitleType::BUTTON_ELEMENT_SUBMIT_TYPE)});
+
+  FormFieldData field;
+  field.set_id_attribute(u"field1-id");
+  field.set_name_attribute(u"field1-name");
+  field.set_label(u"Field 1 Label");
+  field.set_aria_label(u"Field 1 Aria Label");
+  field.set_aria_description(u"Field 1 Aria Description");
+  field.set_placeholder(u"Field 1 Placeholder");
+  field.set_autocomplete_attribute("name");
+  field.set_pattern(u"[0-9]*");
+  field.set_form_control_type(FormControlType::kInputText);
+  field.set_value(u"initial value 1");
+  field.set_renderer_id(test::MakeFieldRendererId());
+  test_api(form).Append(field);
+
+  FormStructure form_structure(form);
+  EncodeUploadRequestOptions options;
+
+  std::vector<AutofillUploadContents> uploads =
+      EncodeUploadRequest(form_structure, options);
+  ASSERT_EQ(1u, uploads.size());
+  const AutofillUploadContents& upload = uploads.front();
+
+  // Verify form metadata hashes.
+  ASSERT_TRUE(upload.has_three_bit_hashed_form_metadata());
+  const ThreeBitHashedFormMetadata& form_metadata =
+      upload.three_bit_hashed_form_metadata();
+  EXPECT_EQ(form_metadata.id(), StrToHash3Bit(form.id_attribute()));
+  EXPECT_EQ(form_metadata.name(), StrToHash3Bit(form.name_attribute()));
+  EXPECT_EQ(form_metadata.button_titles_concatenated(),
+            StrToHash3Bit(form.button_titles()[0].first));
+
+  // Verify field metadata hashes.
+  ASSERT_EQ(upload.field_data_size(), 1);
+
+  const ThreeBitHashedFieldMetadata& field_metadata =
+      upload.field_data(0).three_bit_hashed_field_metadata();
+  EXPECT_EQ(field_metadata.id(), StrToHash3Bit(field.id_attribute()));
+  EXPECT_EQ(field_metadata.name(), StrToHash3Bit(field.name_attribute()));
+  EXPECT_EQ(field_metadata.type(),
+            StrToHash3Bit(FormControlTypeToString(field.form_control_type())));
+  EXPECT_EQ(field_metadata.label(), StrToHash3Bit(field.label()));
+  EXPECT_EQ(field_metadata.aria_label(), StrToHash3Bit(field.aria_label()));
+  EXPECT_EQ(field_metadata.aria_description(),
+            StrToHash3Bit(field.aria_description()));
+  EXPECT_EQ(field_metadata.placeholder(), StrToHash3Bit(field.placeholder()));
+  EXPECT_EQ(field_metadata.initial_value(), StrToHash3Bit(field.value()));
+  EXPECT_EQ(field_metadata.autocomplete(),
+            StrToHash3Bit(field.autocomplete_attribute()));
+  EXPECT_EQ(field_metadata.pattern(), StrToHash3Bit(field.pattern()));
+}
+
+TEST_F(AutofillCrowdsourcingEncoding,
+       EncodeUploadRequest_ThreeBitHashedMetadata_FlagDisabled) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndDisableFeature(features::kAutofillServerUploadMoreData);
+
+  FormData form;
+  form.set_id_attribute(u"form-id");
+  form.set_name_attribute(u"form-name");
+  form.set_action(GURL("http://www.foo.com/submit"));
+  form.set_button_titles({std::make_pair(
+      u"Submit Button", mojom::ButtonTitleType::BUTTON_ELEMENT_SUBMIT_TYPE)});
+
+  FormFieldData field;
+  field.set_id_attribute(u"field1-id");
+  field.set_name_attribute(u"field1-name");
+  field.set_label(u"Field 1 Label");
+  field.set_aria_label(u"Field 1 Aria Label");
+  field.set_aria_description(u"Field 1 Aria Description");
+  field.set_placeholder(u"Field 1 Placeholder");
+  field.set_autocomplete_attribute("name");
+  field.set_pattern(u"[0-9]*");
+  field.set_form_control_type(FormControlType::kInputText);
+  field.set_value(u"initial value 1");
+  field.set_renderer_id(test::MakeFieldRendererId());
+  test_api(form).Append(field);
+
+  FormStructure form_structure(form);
+  EncodeUploadRequestOptions options;
+
+  std::vector<AutofillUploadContents> uploads =
+      EncodeUploadRequest(form_structure, options);
+  ASSERT_EQ(1u, uploads.size());
+  const AutofillUploadContents& upload = uploads.front();
+
+  // Verify form metadata hashes are NOT present.
+  EXPECT_FALSE(upload.has_three_bit_hashed_form_metadata());
+
+  // Verify field metadata hashes are NOT present.
+  ASSERT_EQ(upload.field_data_size(), 1);
+  EXPECT_FALSE(upload.field_data(0).has_three_bit_hashed_field_metadata());
+}
+
 // Check that we compute the "datapresent" string correctly for the given
 // |available_types|.
 TEST_F(AutofillCrowdsourcingEncoding, CheckDataPresence) {
@@ -998,8 +1106,8 @@ TEST_F(AutofillCrowdsourcingEncoding, CheckDataPresence) {
   upload.set_client_version(
       std::string(GetProductNameAndVersionForUserAgent()));
   upload.set_form_signature(form_structure.form_signature().value());
-  upload.set_secondary_form_signature(
-      form_structure.alternative_form_signature().value());
+  upload.set_structural_form_signature(
+      form_structure.structural_form_signature().value());
   upload.set_autofill_used(false);
   upload.set_data_present("");
   upload.set_submission_event(
@@ -1229,8 +1337,8 @@ TEST_F(AutofillCrowdsourcingEncoding, CheckMultipleTypes) {
   upload.set_client_version(
       std::string(GetProductNameAndVersionForUserAgent()));
   upload.set_form_signature(form_structure->form_signature().value());
-  upload.set_secondary_form_signature(
-      form_structure->alternative_form_signature().value());
+  upload.set_structural_form_signature(
+      form_structure->structural_form_signature().value());
   upload.set_autofill_used(false);
   upload.set_data_present("1440000360000008");
   upload.set_has_form_tag(false);

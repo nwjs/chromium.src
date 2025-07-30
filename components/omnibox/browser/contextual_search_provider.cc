@@ -96,6 +96,17 @@ bool IsLensEntrypointAvailable(const AutocompleteInput& input,
          input.IsZeroSuggest() && client->IsLensEnabled();
 }
 
+// Whether the feature param is enabled for the current page context.
+bool ActionEnabledForPageContext(const AutocompleteInput& input,
+                                 bool enabled_non_ntp,
+                                 bool enabled_ntp) {
+  return input.current_page_classification() ==
+                 metrics::OmniboxEventProto::
+                     INSTANT_NTP_WITH_OMNIBOX_AS_STARTING_FOCUS
+             ? enabled_ntp
+             : enabled_non_ntp;
+}
+
 }  // namespace
 
 void ContextualSearchProvider::Start(
@@ -419,14 +430,10 @@ bool ContextualSearchProvider::MaybeAddToolbeltMatch(
     match.description_class = {{0, ACMatchClassification::NONE}};
   }
 
-  // AI and contextual search are only allowed if the DSE is google and locale
-  // is EN.
-  auto* turl_service = client()->GetTemplateURLService();
-  bool google_dse = search::DefaultSearchProviderIsGoogle(turl_service);
-  bool english_locale =
-      l10n_util::GetLanguage(client()->GetApplicationLocale()) == "en";
-
-  if (config.show_lens_action && google_dse && english_locale &&
+  // Lens is only allowed if the DSE is google, but that's already checked in
+  // `client->IsLensEnabled()`. Lens is not restricted by locale.
+  if (ActionEnabledForPageContext(input, config.show_lens_action_on_non_ntp,
+                                  config.show_lens_action_on_ntp) &&
       (config.always_include_lens_action ||
        IsLensEntrypointAvailable(input, client()))) {
     match.actions.push_back(
@@ -435,6 +442,7 @@ bool ContextualSearchProvider::MaybeAddToolbeltMatch(
 
   // Add the starter pack entry actions only if the given starter pack keyword
   // is enabled.
+  auto* turl_service = client()->GetTemplateURLService();
   auto check_and_add = [&]<typename T>(int starter_pack_id) {
     const TemplateURL* turl =
         turl_service->FindStarterPackTemplateURL(starter_pack_id);
@@ -444,15 +452,32 @@ bool ContextualSearchProvider::MaybeAddToolbeltMatch(
       return;
     match.actions.push_back(base::MakeRefCounted<T>());
   };
-  if (config.show_history_action) {
+
+  // AI mode is only allowed if the DSE is google, locale is EN, and the
+  // `kAIModeSettings` policy is enabled.
+  bool google_dse = search::DefaultSearchProviderIsGoogle(turl_service);
+  bool english_locale =
+      l10n_util::GetLanguage(client()->GetApplicationLocale()) == "en";
+  if (google_dse && english_locale &&
+      omnibox::IsAimAllowedByPolicy(client()->GetPrefs()) &&
+      ActionEnabledForPageContext(input, config.show_ai_mode_action_on_non_ntp,
+                                  config.show_ai_mode_action_on_ntp)) {
+    check_and_add.operator()<StarterPackAiModeAction>(
+        template_url_starter_pack_data::StarterPackId::kAiMode);
+  }
+  if (ActionEnabledForPageContext(input, config.show_history_action_on_non_ntp,
+                                  config.show_history_action_on_ntp)) {
     check_and_add.operator()<StarterPackHistoryAction>(
         template_url_starter_pack_data::StarterPackId::kHistory);
   }
-  if (config.show_bookmarks_action) {
+  if (ActionEnabledForPageContext(input,
+                                  config.show_bookmarks_action_on_non_ntp,
+                                  config.show_bookmarks_action_on_ntp)) {
     check_and_add.operator()<StarterPackBookmarksAction>(
         template_url_starter_pack_data::StarterPackId::kBookmarks);
   }
-  if (config.show_tabs_action) {
+  if (ActionEnabledForPageContext(input, config.show_tabs_action_on_non_ntp,
+                                  config.show_tabs_action_on_ntp)) {
     check_and_add.operator()<StarterPackTabsAction>(
         template_url_starter_pack_data::StarterPackId::kTabs);
   }

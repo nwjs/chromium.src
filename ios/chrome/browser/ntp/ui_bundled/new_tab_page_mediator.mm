@@ -220,6 +220,17 @@ const CGFloat kIconPointSize = 18.0;
           : @"";
   [self.headerConsumer setDefaultSearchEngineName:dseName];
 
+  if (self.placeholderService) {
+    // The DSE icon might have already been fetched. In this case, no updated
+    // will be delivered. Therefore we should query the cache, as the icon store
+    // might have already been updated.
+    UIImage* fetchedIcon =
+        self.placeholderService->GetDefaultSearchEngineIcon(kIconPointSize);
+    if (fetchedIcon) {
+      [self.headerConsumer setDefaultSearchEngineImage:fetchedIcon];
+    }
+  }
+
   [self updateAccountImage];
   [self updateAccountErrorBadge];
   [self startObservingPrefs];
@@ -234,7 +245,7 @@ const CGFloat kIconPointSize = 18.0;
     [self updateBackground];
   }
 
-  BOOL miaPolicyAllowed = omnibox::IsMiaAllowedByPolicy(_prefService);
+  BOOL miaPolicyAllowed = omnibox::IsAimAllowedByPolicy(_prefService);
   [self.consumer setMIAAllowedByPolicy:miaPolicyAllowed];
   [self.headerConsumer setMIAAllowedByPolicy:miaPolicyAllowed];
 }
@@ -260,7 +271,8 @@ const CGFloat kIconPointSize = 18.0;
   _backgroundCustomizationServiceObserverBridge = nullptr;
   _backgroundCustomizationService = nullptr;
   _imageFetcherService = nullptr;
-  if (base::FeatureList::IsEnabled(omnibox::kOmniboxMobileParityUpdate)) {
+  if (base::FeatureList::IsEnabled(omnibox::kOmniboxMobileParityUpdate) ||
+      base::FeatureList::IsEnabled(omnibox::kOmniboxMobileParityUpdateV2)) {
     self.placeholderService = nullptr;
   }
 }
@@ -293,7 +305,8 @@ const CGFloat kIconPointSize = 18.0;
 }
 
 - (void)setPlaceholderService:(PlaceholderService*)placeholderService {
-  CHECK(base::FeatureList::IsEnabled(omnibox::kOmniboxMobileParityUpdate));
+  CHECK(base::FeatureList::IsEnabled(omnibox::kOmniboxMobileParityUpdate) ||
+        base::FeatureList::IsEnabled(omnibox::kOmniboxMobileParityUpdateV2));
 
   _placeholderService = placeholderService;
 
@@ -362,6 +375,10 @@ const CGFloat kIconPointSize = 18.0;
 #pragma mark - PlaceholderServiceObserving
 
 - (void)placeholderImageUpdated {
+  if (!base::FeatureList::IsEnabled(omnibox::kOmniboxMobileParityUpdateV2)) {
+    return;
+  }
+
   // Show Default Search Engine favicon.
   // Remember what is the Default Search Engine provider that the icon is
   // for, in case the user changes Default Search Engine while this is being

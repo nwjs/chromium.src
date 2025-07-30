@@ -13,6 +13,7 @@ import 'chrome://resources/cr_elements/cr_button/cr_button.js';
 import type {CustomizeButtonsElement} from 'chrome://new-tab-page/shared/customize_buttons/customize_buttons.js';
 import {ColorChangeUpdater} from 'chrome://resources/cr_components/color_change_listener/colors_css_updater.js';
 import {HelpBubbleMixinLit} from 'chrome://resources/cr_components/help_bubble/help_bubble_mixin_lit.js';
+import type {SearchboxElement} from 'chrome://resources/cr_components/searchbox/searchbox.js';
 import type {CrToastElement} from 'chrome://resources/cr_elements/cr_toast/cr_toast.js';
 import type {ClickInfo} from 'chrome://resources/js/browser_command.mojom-webui.js';
 import {Command} from 'chrome://resources/js/browser_command.mojom-webui.js';
@@ -29,6 +30,8 @@ import type {SkColor} from 'chrome://resources/mojo/skia/public/mojom/skcolor.mo
 import {getCss} from './app.css.js';
 import {getHtml} from './app.html.js';
 import {BackgroundManager} from './background_manager.js';
+import type {ComposeboxElement} from './composebox/composebox.js';
+import {ComposeboxProxyImpl} from './composebox/composebox_proxy.js';
 import type {CustomizeButtonsDocumentCallbackRouter, CustomizeButtonsHandlerRemote} from './customize_buttons.mojom-webui.js';
 import {CustomizeChromeSection, SidePanelOpenTrigger} from './customize_buttons.mojom-webui.js';
 import {CustomizeButtonsProxy} from './customize_buttons_proxy.js';
@@ -137,6 +140,8 @@ export interface AppElement {
     customizeButtons: CustomizeButtonsElement,
     oneGoogleBarClipPath: HTMLElement,
     logo: LogoElement,
+    searchbox: SearchboxElement,
+    composebox: ComposeboxElement,
   };
 }
 
@@ -202,6 +207,7 @@ export class AppElement extends AppElementBase {
         notify: true,
       },
 
+      composeboxCloseByClickOutside_: {type: Boolean},
       composeboxEnabled: {type: Boolean},
       composeButtonEnabled: {type: Boolean},
 
@@ -300,6 +306,8 @@ export class AppElement extends AppElementBase {
   protected accessor showWallpaperSearchButton_: boolean = false;
   accessor composeButtonEnabled: boolean =
       loadTimeData.getBoolean('searchboxShowComposeEntrypoint');
+  protected accessor composeboxCloseByClickOutside_: boolean =
+      loadTimeData.getBoolean('composeboxCloseByClickOutside');
   accessor composeboxEnabled: boolean =
       loadTimeData.getBoolean('searchboxShowComposebox');
   protected accessor isFooterVisible_: boolean = false;
@@ -531,6 +539,11 @@ export class AppElement extends AppElementBase {
       this.singleColoredLogo_ = this.computeSingleColoredLogo_();
     }
 
+    if (changedPrivateProperties.has('showComposebox_')) {
+      this.logoColor_ = this.computeLogoColor_();
+      this.singleColoredLogo_ = this.computeSingleColoredLogo_();
+    }
+
     // theme_, showLensUploadDialog_
     this.realboxShown_ = this.computeRealboxShown_();
 
@@ -572,7 +585,8 @@ export class AppElement extends AppElementBase {
     }
 
     if (changedPrivateProperties.has('oneGoogleBarLoaded_') ||
-        changedPrivateProperties.has('theme_')) {
+        changedPrivateProperties.has('theme_') ||
+        changedPrivateProperties.has('showComposebox_')) {
       this.updateOneGoogleBarAppearance_();
     }
   }
@@ -580,8 +594,13 @@ export class AppElement extends AppElementBase {
   // Called to update the OGB of relevant NTP state changes.
   private updateOneGoogleBarAppearance_() {
     if (this.oneGoogleBarLoaded_) {
-      const isNtpDarkTheme =
-          this.theme_ && (!!this.theme_.backgroundImage || this.theme_.isDark);
+      let isNtpDarkTheme;
+      if (this.showComposebox_) {
+        isNtpDarkTheme = this.theme_ && this.theme_.isDark;
+      } else {
+        isNtpDarkTheme = this.theme_ &&
+            (!!this.theme_.backgroundImage || this.theme_.isDark);
+      }
       $$<IframeElement>(this, '#oneGoogleBar')!.postMessage({
         type: 'updateAppearance',
         // We should be using a light OGB for dark themes and vice versa.
@@ -642,6 +661,28 @@ export class AppElement extends AppElementBase {
 
   protected toggleComposebox_() {
     this.showComposebox_ = !this.showComposebox_;
+  }
+
+  protected onComposeboxClickOutside_() {
+    this.closeComposebox_(this.$.composebox.getText());
+  }
+
+  protected closeComposebox_(e: CustomEvent|string) {
+    let composeboxText: string;
+
+    if (typeof e === 'string') {
+      composeboxText = e;
+    } else {
+      composeboxText = e.detail.uuid;
+    }
+
+    if (composeboxText && composeboxText.trim()) {
+      this.$.searchbox.setInputText(composeboxText);
+    }
+    this.$.composebox.resetText();
+    this.toggleComposebox_();
+    const composeboxHandler = ComposeboxProxyImpl.getInstance().handler;
+    composeboxHandler.notifySessionAbandoned();
   }
 
   protected onOpenVoiceSearch_() {
@@ -805,11 +846,18 @@ export class AppElement extends AppElementBase {
       return null;
     }
 
+    if (this.showComposebox_) {
+      return this.theme_.isDark ? hexColorToSkColor('#ffffff') : null;
+    }
+
     return this.theme_.logoColor ||
         (this.theme_.isDark ? hexColorToSkColor('#ffffff') : null);
   }
 
   private computeSingleColoredLogo_(): boolean {
+    if (this.showComposebox_) {
+      return !!this.theme_ && this.theme_.isDark;
+    }
     return !!this.theme_ && (!!this.theme_.logoColor || this.theme_.isDark);
   }
 
