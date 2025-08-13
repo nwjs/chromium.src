@@ -95,14 +95,15 @@ void LensSearchController::Initialize(
 
   lens_contextualization_controller_ =
       CreateLensSearchContextualizationController();
+  // Create the page context eligibility API as soon as possible as it is needed
+  // for every contextualization request.
+  lens_contextualization_controller_->CreatePageContextEligibilityAPI();
 
   lens_overlay_event_handler_ =
       std::make_unique<lens::LensOverlayEventHandler>(this);
 
   lens_session_metrics_logger_ =
       std::make_unique<lens::LensSessionMetricsLogger>();
-
-  CreatePageContextEligibilityAPI();
 }
 
 // static.
@@ -396,16 +397,6 @@ LensSearchController::lens_overlay_event_handler() {
   return lens_overlay_event_handler_.get();
 }
 
-optimization_guide::PageContextEligibility*
-LensSearchController::page_context_eligibility() {
-  CheckInitialized(initialized_);
-  if (page_context_eligibility_) {
-    return page_context_eligibility_;
-  }
-
-  return nullptr;
-}
-
 lens::LensSearchContextualizationController*
 LensSearchController::lens_search_contextualization_controller() {
   CheckInitialized(initialized_);
@@ -467,20 +458,6 @@ LensSearchController::CreateLensSearchboxController() {
 std::unique_ptr<lens::LensSearchContextualizationController>
 LensSearchController::CreateLensSearchContextualizationController() {
   return std::make_unique<lens::LensSearchContextualizationController>(this);
-}
-
-void LensSearchController::CreatePageContextEligibilityAPI() {
-  // Post to a background thread to avoid blocking the set up of the overlay.
-  base::ThreadPool::PostTaskAndReplyWithResult(
-      FROM_HERE, {base::TaskPriority::BEST_EFFORT, base::MayBlock()},
-      base::BindOnce(&optimization_guide::PageContextEligibility::Get),
-      base::BindOnce(&LensSearchController::OnPageContextEligibilityAPILoaded,
-                     weak_ptr_factory_.GetWeakPtr()));
-}
-
-void LensSearchController::OnPageContextEligibilityAPILoaded(
-    optimization_guide::PageContextEligibility* page_context_eligibility) {
-  page_context_eligibility_ = page_context_eligibility;
 }
 
 std::unique_ptr<lens::LensOverlayQueryController>
@@ -556,8 +533,15 @@ bool LensSearchController::RunLensEligibilityChecks(
 }
 
 void LensSearchController::NotifyOverlayOpened() {
-  CHECK(state() == State::kInitializing);
-  state_ = State::kActive;
+  CHECK(state() != State::kOff);
+  // The search controller could be backgrounded as the overlay controller
+  // is being initialized. If so, set the backgrounded state to active and
+  // record the invocation instead of setting the current state to active.
+  if (state_ == State::kBackground) {
+    backgrounded_state_ = State::kActive;
+  } else {
+    state_ = State::kActive;
+  }
 
   // Record the UMA for lens overlay invocation.
   lens_session_metrics_logger_->RecordInvocation();
@@ -676,7 +660,7 @@ void LensSearchController::TabForegrounded(tabs::TabInterface* tab) {
   // restore to the previous state.
   lens_overlay_controller_->TabForegrounded(tab);
 
-  state_ = State::kActive;
+  state_ = backgrounded_state_;
 }
 
 void LensSearchController::TabWillEnterBackground(tabs::TabInterface* tab) {
@@ -689,10 +673,20 @@ void LensSearchController::TabWillEnterBackground(tabs::TabInterface* tab) {
     return;
   }
 
+  // If the overlay is not active when the tab is backgrounded, then the entire
+  // Lens session should be closed. Note that the overlay is considered active
+  // when it is hidden and the side panel is open.
+  if (!lens_overlay_controller_->IsOverlayActive()) {
+    CloseLensSync(
+        lens::LensOverlayDismissalSource::kTabBackgroundedWhileScreenshotting);
+    return;
+  }
+
   // Notify the overlay controller of the tab will enter background event so
   // it can hide the overlay.
   lens_overlay_controller_->TabWillEnterBackground(tab);
 
+  backgrounded_state_ = state_;
   state_ = State::kBackground;
 }
 

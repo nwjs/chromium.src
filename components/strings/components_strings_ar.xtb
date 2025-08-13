@@ -420,7 +420,7 @@
 <translation id="1706625117072057435">مستويات التكبير أو التصغير</translation>
 <translation id="1706922226983368260">مفتاح المرور • <ph name="PHONE_NAME" /></translation>
 <translation id="1706954506755087368">{1,plural, =1{هذا الخادم لم يتمكن من إثبات أن ذلك <ph name="DOMAIN" />؛ من المفترض أن تبدأ شهادة أمانه من الغد. ربما يكون السبب في ذلك خطأ في الإعداد أو مهاجمًا يعترض اتصالك.}zero{هذا الخادم لم يتمكن من إثبات أن ذلك <ph name="DOMAIN" />؛ من المفترض أن تبدأ شهادة أمانه خلال # يوم في المستقبل. ربما يكون السبب في ذلك خطأ في الإعداد أو مهاجمًا يعترض اتصالك.}two{هذا الخادم لم يتمكن من إثبات أن ذلك <ph name="DOMAIN" />؛ من المفترض أن تبدأ شهادة أمانه خلال يومين (#) في المستقبل. ربما يكون السبب في ذلك خطأ في الإعداد أو مهاجمًا يعترض اتصالك.}few{هذا الخادم لم يتمكن من إثبات أن ذلك <ph name="DOMAIN" />؛ من المفترض أن تبدأ شهادة أمانه خلال # أيام في المستقبل. ربما يكون السبب في ذلك خطأ في الإعداد أو مهاجمًا يعترض اتصالك.}many{هذا الخادم لم يتمكن من إثبات أن ذلك <ph name="DOMAIN" />؛ من المفترض أن تبدأ شهادة أمانه خلال # يومًا في المستقبل. ربما يكون السبب في ذلك خطأ في الإعداد أو مهاجمًا يعترض اتصالك.}other{هذا الخادم لم يتمكن من إثبات أن ذلك <ph name="DOMAIN" />؛ من المفترض أن تبدأ شهادة أمانه خلال # يوم في المستقبل. ربما يكون السبب في ذلك خطأ في الإعداد أو مهاجمًا يعترض اتصالك.}}</translation>
-<translation id="1709711942721576168">زر "وضع البحث بالذكاء الاصطناعي"، عليك تفعيله لطرح سؤال في "وضع البحث بالذكاء الاصطناعي"</translation>
+<translation id="1709711942721576168">‏زر "وضع AI"، عليك تفعيله لطرح سؤال في "وضع AI"</translation>
 <translation id="1710259589646384581">نظام التشغيل</translation>
 <translation id="1711234383449478798">تم تجاهل السياسة بسبب عدم ضبط <ph name="POLICY_NAME" /> على <ph name="VALUE" />.</translation>
 <translation id="1712552549805331520">يريد <ph name="URL" /> تخزين بيانات على جهاز الكمبيوتر المحلي بشكل دائم.</translation>
@@ -434,7 +434,7 @@
 <translation id="1719434663396780149">ميزة "إشعارات بانخفاض الأسعار" مفعَّلة. يمكنك إيقافها من خلال <ph name="BEGIN_LINK" /><ph name="NOTIFICATION_SETTINGS" /><ph name="END_LINK" />.</translation>
 <translation id="1719838434204287058">24 × 30 بوصة</translation>
 <translation id="1720941539803966190">إغلاق البرنامج التعليمي</translation>
-<translation id="1721424275792716183">* هناك حقل مطلوب</translation>
+<translation id="1721424275792716183">* يجب ملء الحقل</translation>
 <translation id="1725591448053514783">‏ظرف You 6</translation>
 <translation id="1727613060316725209">الشهادة صالحة</translation>
 <translation id="1728677426644403582">أنت تعرض مصدر صفحة ويب</translation>
@@ -1344,7 +1344,7 @@
 <translation id="3266367459139339908">‏سيطلق Chrome طرقًا جديدة لتحديد المعلومات التي يمكن للمواقع الإلكترونية معرفتها عنك عندما تعرض لك إعلانات مخصّصة، مثل:</translation>
 <translation id="3266793032086590337">القيمة (المتعارضة)</translation>
 <translation id="3268451620468152448">علامات التبويب المفتوحة</translation>
-<translation id="3270041629388773465">‏الدفع بشكل أسرع بعد حفظ رموز التحقُّق من البطاقة (CVC)</translation>
+<translation id="3270041629388773465">‏يمكنك الدفع بشكل أسرع بعد حفظ رموز التحقُّق من البطاقة (CVC)</translation>
 <translation id="3270847123878663523">تراجع عن إعادة الت&amp;رتيب</translation>
 <translation id="3271648667212143903">يريد <ph name="ORIGIN" /> الاتصال</translation>
 <translation id="3272091146646336650">Super B</translation>
@@ -1445,7 +1445,7 @@
 <translation id="343474037147570563">‏يتم إرسال الملفات التي تحمِّلها أو ترفقها إلى Google Cloud أو جهات خارجية لتحليلها. على سبيل المثال، قد يتم فحص هذه الملفات بحثًا عن بيانات حسّاسة أو برامج ضارة وتخزينها استنادًا إلى سياسات الشركة، وقد تظهر للمشرف.</translation>
 <translation id="3435557549311968410">غير متقطع (قصير)</translation>
 <translation id="3435738964857648380">أمن المعلومات</translation>
-<translation id="3436118221454753036">وضع "لِنسأل الذكاء الاصطناعي"</translation>
+<translation id="3436118221454753036">‏اسأل في "وضع AI"</translation>
 <translation id="3440783957068352691">صفحة مربّعة</translation>
 <translation id="3441653493275994384">الشاشة</translation>
 <translation id="3443504041532578451">قرص ضوئي (برّاق)</translation>
@@ -1679,7 +1679,7 @@
 <translation id="380329542618494757">الاسم</translation>
 <translation id="3803481123869276674">‏عند إجراء عمليات شراء على Chrome، يمكنك استخدام المحفظة الإلكترونية كخيار للدفع</translation>
 <translation id="3803801106042434208">محركات البحث هذه رائجة في منطقتك</translation>
-<translation id="380666903981445943">‏يمكنك حفظ طريقة دفع في حسابك على Google لمل بيانات بطاقة الائتمان تلقائيًا عند إجراء عمليات شراء في Chrome</translation>
+<translation id="380666903981445943">‏يمكنك حفظ طريقة دفع في حسابك على Google لملء بيانات البطاقة تلقائيًا عند إجراء عمليات شراء في Chrome</translation>
 <translation id="3807366285948165054">Image X shift</translation>
 <translation id="3807709094043295184">موسيقى "روك" كلاسيكية وقديمة</translation>
 <translation id="3807873520724684969">تم حظر المحتوى الضار.</translation>
@@ -2087,7 +2087,7 @@
 <translation id="4480760608050410381">‏فيديو MP4</translation>
 <translation id="448363931695049633">مطاعم بيتزا</translation>
 <translation id="4489023393592172404">‏ظرف Kaku 4</translation>
-<translation id="4489977488133295402">يجب إثبات هويتك لاستخدام ميزة "الملء التلقائي" لإدخال بيانات طريقة الدفع</translation>
+<translation id="4489977488133295402">إثبات هويتك لملء بيانات طريقة الدفع تلقائيًا</translation>
 <translation id="4490717597759821841">A7</translation>
 <translation id="449126573531210296">‏ترميز كلمات المرور التي تمت مزامنتها باستخدام حسابك على Google</translation>
 <translation id="4493480324863638523">‏عنوان URL غير صحيح. يجب أن يحتوي عنوان URL على نظام عادي، مثل http://example.com أو https://example.com.</translation>
@@ -2935,7 +2935,7 @@
 <translation id="5967592137238574583">تعديل معلومات الاتصال</translation>
 <translation id="5967867314010545767">إزالة من السجل</translation>
 <translation id="5968022600320704045">لم يتم العثور نتائج بحث.</translation>
-<translation id="5968400720580217226">وضع البحث بالذكاء الاصطناعي</translation>
+<translation id="5968400720580217226">‏وضع AI</translation>
 <translation id="5969199813874624822">حفظ السعر وتتبُّعه</translation>
 <translation id="5973514677932942122">‏‫‎<ph name="EXPIRATION_DATE" />‏ | <ph name="SECURITY_CODE" /></translation>
 <translation id="5974052231147553524">اللفافة السادسة</translation>
@@ -3031,7 +3031,7 @@
 <translation id="6108849843016142864">زواحف وبرمائيات</translation>
 <translation id="610911394827799129">‏قد يتضمّن حسابك على Google نماذج أخرى من سجلّ التصفّح على <ph name="BEGIN_LINK" />myactivity.google.com<ph name="END_LINK" /></translation>
 <translation id="611018310643025551">‏يتم إرسال عمليات البحث وأفضل النتائج المطابِقة ومحتوى الصفحات إلى Google، وقد يطّلع عليها فريق من المراجعين لتحسين هذه الميزة.</translation>
-<translation id="6115793664998531464">‏‫<ph name="STARTER_PACK_AI_MODE_FOCUSED_FRIENDLY_MATCH_TEXT" />: يمكنك الضغط على مفتاح Enter لطرح سؤال في "وضع البحث بالذكاء الاصطناعي"</translation>
+<translation id="6115793664998531464">‏‫<ph name="STARTER_PACK_AI_MODE_FOCUSED_FRIENDLY_MATCH_TEXT" />: يمكنك الضغط على مفتاح Enter لطرح سؤال في "وضع AI"</translation>
 <translation id="6116338172782435947">الاطلاع على النصوص والصور التي تم نسخها إلى الحافظة</translation>
 <translation id="6117833587752089929">تصوير (برّاق)</translation>
 <translation id="6118782133429281336">قائمة المصادر فارغة.</translation>

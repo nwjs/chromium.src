@@ -4870,7 +4870,7 @@ Möchtest du <ph name="CONTROL_PANEL_APPLET_NAME" /> starten?</translation>
 <translation id="437809255587011096">Textstil ansagen</translation>
 <translation id="4378154925671717803">Telefon</translation>
 <translation id="4378308539633073595">Weiterscrollen</translation>
-<translation id="4378551569595875038">Verbindung...</translation>
+<translation id="4378551569595875038">Verbinden...</translation>
 <translation id="4378556263712303865">Geräteanforderung</translation>
 <translation id="4378589147979399051">Mauscursor mit der primären Tastatur steuern</translation>
 <translation id="4379097572583973456">Auf einer Website können auch von anderen Websites stammende Inhalte eingebettet sein, z. B. Bilder, Werbung und Text. Diese anderen Websites können ebenfalls Daten speichern.</translation>
@@ -5458,7 +5458,7 @@ Zum Herauszoomen drücke Strg + Alt + „Helligkeit verringern“.</translatio
 <translation id="4804827417948292437">Avocado</translation>
 <translation id="4806071198808203109">Video&amp;frame speichern unter…</translation>
 <translation id="4806457879608775995">Diese Bedingungen prüfen und deine Daten kontrollieren</translation>
-<translation id="4807098396393229769">Name auf Karte</translation>
+<translation id="4807098396393229769">Name auf der Karte</translation>
 <translation id="4807122856660838973">Safe Browsing aktivieren</translation>
 <translation id="4807514039636325497">DBus-Details</translation>
 <translation id="4808525520374557629">Du erhältst Benachrichtigungen mit Vorschlägen, wie sich erkannte Leistungsprobleme verringern lassen. <ph name="BEGIN_LINK" />Weitere Informationen zu Benachrichtigungen zu Leistungsproblemen<ph name="END_LINK" /></translation>
@@ -8022,7 +8022,6 @@ Du hast # weitere kompromittierte Passwörter. Der Google Passwortmanager empfi
 <translation id="6667187897999649121">Derzeit kannst du Passwörter nur mit Familienmitgliedern teilen. <ph name="BEGIN_LINK" />Erstelle eine Familiengruppe<ph name="END_LINK" /> mit bis zu 6 Mitgliedern, damit du deine Produkte und Abos bei Google optimal nutzen kannst.</translation>
 <translation id="666731172850799929">In <ph name="APP_NAME" /> öffnen</translation>
 <translation id="6669195257625975787">Die Daten werden genauso behandelt wie die Website, die du gerade besuchst.</translation>
-<translation id="6669637573228217624">Datei hochladen</translation>
 <translation id="6670142487971298264">Die App "<ph name="APP_NAME" />" ist jetzt verfügbar</translation>
 <translation id="6670767097276846646">Mit einigen Erweiterungen können Suchmaschinen zu Chrome hinzugefügt werden</translation>
 <translation id="6670983860904543332">Durch automatische Updates erhältst du die neuesten Funktionen. Sieh dir die wichtigsten Informationen zu den letzten Updates an.</translation>
@@ -8699,7 +8698,7 @@ Du hast # weitere kompromittierte Passwörter. Der Google Passwortmanager empfi
 <translation id="7141105143012495934">Du konntest nicht angemeldet werden, weil deine Kontodetails nicht abgerufen werden konnten. Bitte wende dich an deinen Administrator oder versuche es noch einmal.</translation>
 <translation id="7141844554192012199">Passwortcheck</translation>
 <translation id="714301620504747562">Surfen und Suchen ist schneller als beim standardmäßigen Vorabladen</translation>
-<translation id="7143207342074048698">Verbindung...</translation>
+<translation id="7143207342074048698">Verbinden...</translation>
 <translation id="7143409552554575716">ChromeOS-Flags</translation>
 <translation id="7144363643182336710">Benachrichtigungen erscheinen nicht auf dem Bildschirm. Wenn du weiterhin Benachrichtigungen sehen möchtest, klicke rechts unten auf dem Bildschirm auf das „Bitte nicht stören“-Symbol.</translation>
 <translation id="7144856456372460176"><ph name="APP" /> &amp;installieren…</translation>

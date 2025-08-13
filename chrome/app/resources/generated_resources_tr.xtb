@@ -1996,7 +1996,7 @@ Cihazınızda Family Link uygulamasını yükleyerek bu hesabın ayarlarını y�
 <translation id="2363744066037724557">&amp;Pencereyi geri yükle</translation>
 <translation id="2365507699358342471">Bu site, panoya kopyalanan metin ve resimleri görebilir.</translation>
 <translation id="2367972762794486313">Uygulamaları göster</translation>
-<translation id="2369058545741334020">Okuma Modu'nda Aç</translation>
+<translation id="2369058545741334020">Okuma modunda aç</translation>
 <translation id="236939127352773362">Yakındaki cihazlar paylaşırken</translation>
 <translation id="2371076942591664043">İşlem tamamlandığın&amp;da aç</translation>
 <translation id="237336063998926520">Konumu belirlemek için IP adresinizi kullanın</translation>
@@ -7875,7 +7875,7 @@ Hassas bilgileri vermediğinizden emin olun.</translation>
 <translation id="655384502888039633"><ph name="USER_COUNT" /> kullanıcı</translation>
 <translation id="6555432686520421228">Tüm kullanıcı hesaplarını kaldırın ve <ph name="IDS_SHORT_PRODUCT_NAME" /> cihazınızı sıfırlayarak yepyeni hale getirin.</translation>
 <translation id="6555604601707417276">Linux yedeklemesi geri yüklendi</translation>
-<translation id="6556866813142980365">Yeniden Yap</translation>
+<translation id="6556866813142980365">Yeniden yap</translation>
 <translation id="6556903358015358733">Tema ve Duvar Kağıdı</translation>
 <translation id="6557199166823345360">Aramanızı daraltmak için daha fazla ayrıntı ekleyin veya seçiminizle ilgili soru sorun.</translation>
 <translation id="6557290421156335491">Kısayollarım</translation>
@@ -8028,7 +8028,6 @@ Sızdırılmış # şifreniz daha var. Google Şifre Yöneticisi bu şifreleri h
 <translation id="6667187897999649121">Şu anda şifreleri yalnızca aile üyelerinizle paylaşabilirsiniz. En fazla 6 üye içeren bir <ph name="BEGIN_LINK" />aile grubu oluşturun<ph name="END_LINK" />, Google'daki ürün ve aboneliklerinizden daha fazla yararlanın.</translation>
 <translation id="666731172850799929"><ph name="APP_NAME" /> uygulamasında aç</translation>
 <translation id="6669195257625975787">Veriler, görüntülediğiniz siteyle aynı şekilde işlenir</translation>
-<translation id="6669637573228217624">Dosya yükle</translation>
 <translation id="6670142487971298264"><ph name="APP_NAME" /> artık kullanılabilir</translation>
 <translation id="6670767097276846646">Bazı uzantılar Chrome'a arama motoru ekleyebilir</translation>
 <translation id="6670983860904543332">Otomatik güncellemeler en yeni özellikleri sunar. Son güncellemelerdeki öne çıkan özellikleri keşfedin.</translation>

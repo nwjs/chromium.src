@@ -7894,7 +7894,7 @@ Flere kontakter kan tildeles denne handling.</translation>
 <translation id="655384502888039633"><ph name="USER_COUNT" /> brugere</translation>
 <translation id="6555432686520421228">Fjern alle brugerkonti, og nulstil din <ph name="IDS_SHORT_PRODUCT_NAME" />-enhed, så den er som ny.</translation>
 <translation id="6555604601707417276">Din Linux-sikkerhedskopi er gendannet</translation>
-<translation id="6556866813142980365">Gør det igen</translation>
+<translation id="6556866813142980365">Annuller fortryd</translation>
 <translation id="6556903358015358733">Tema og baggrund</translation>
 <translation id="6557199166823345360">Tilføj flere oplysninger, eller stil et spørgsmål om dit valg for at finjustere din søgning</translation>
 <translation id="6557290421156335491">Mine genveje</translation>
@@ -8049,7 +8049,6 @@ Du har # andre kompromitterede adgangskoder. Google Adgangs­kode­admin­istrat
 <translation id="6667187897999649121">Indtil videre kan du kun dele adgangskoder med familiemedlemmer. <ph name="BEGIN_LINK" />Opret en familiegruppe<ph name="END_LINK" /> med op til 6 medlemmer, og få mere ud af dine produkter og abonnementer fra Google.</translation>
 <translation id="666731172850799929">Åbn i <ph name="APP_NAME" /></translation>
 <translation id="6669195257625975787">Data behandles på samme måde som det website, du besøger</translation>
-<translation id="6669637573228217624">Upload en fil</translation>
 <translation id="6670142487971298264"><ph name="APP_NAME" /> er nu tilgængelig</translation>
 <translation id="6670767097276846646">Nogle udvidelser kan føje søgemaskiner til Chrome</translation>
 <translation id="6670983860904543332">Automatiske opdateringer giver dig de nyeste funktioner. Se højdepunkter fra de seneste opdateringer.</translation>

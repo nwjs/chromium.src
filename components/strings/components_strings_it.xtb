@@ -291,7 +291,7 @@ In caso contrario l'uso sarà bloccato dalle impostazioni sulla privacy. I conte
 <translation id="147358896496811705">2A0</translation>
 <translation id="1474576429883213321">Servizi di pulizia</translation>
 <translation id="1476595624592550506">Cambia la password</translation>
-<translation id="1482372785911828880">Sottilissimo</translation>
+<translation id="1482372785911828880">Molto sottile</translation>
 <translation id="1482879811280872320">Ciclismo</translation>
 <translation id="1483493594462132177">Invia</translation>
 <translation id="1484449009683144042">Si tratta di un supporto per la scrittura sperimentale basato sull'IA che non funzionerà sempre correttamente.
@@ -1762,7 +1762,7 @@ In caso contrario l'uso sarà bloccato dalle impostazioni sulla privacy. I conte
 <translation id="3959969108528118741">Proprietario</translation>
 <translation id="3961148744525529027">Il foglio per la gestione dei pagamenti è aperto nella parte inferiore dello schermo</translation>
 <translation id="3962859241508114581">Traccia precedente</translation>
-<translation id="3963721102035795474">Modalità Reader</translation>
+<translation id="3963721102035795474">Modalità Lettura</translation>
 <translation id="3965672182149944205">Salvare l'indirizzo?</translation>
 <translation id="3966044442021752214">Sicurezza del prodotto</translation>
 <translation id="3969869202926863008">Accesso alla rete locale</translation>
@@ -2161,7 +2161,7 @@ In caso contrario l'uso sarà bloccato dalle impostazioni sulla privacy. I conte
 <translation id="4644567637638438744">I file possono essere caricati solo se hai eseguito l'accesso a Microsoft OneDrive</translation>
 <translation id="4644670975240021822">Ordine inverso a faccia in giù</translation>
 <translation id="4648262692072505866">L'hash deve essere nel formato SHA-256.</translation>
-<translation id="4652266463001779298">Non consentita</translation>
+<translation id="4652266463001779298">Autorizzazione non concessa</translation>
 <translation id="4652440160515225514">La tua organizzazione ha bloccato questo sito perché viola una policy.</translation>
 <translation id="4658638640878098064">Pinzatura in alto a sinistra</translation>
 <translation id="4661556981531699496">Animali e animali domestici</translation>
@@ -4019,7 +4019,7 @@ Ulteriori dettagli:
 <translation id="7755624218968747854">Rullo principale</translation>
 <translation id="7758069387465995638">Il software antivirus o il firewall potrebbe avere bloccato la connessione.</translation>
 <translation id="7759147511335618829">Controllo e riprogr. disp. MIDI</translation>
-<translation id="7759809451544302770">Facoltative</translation>
+<translation id="7759809451544302770">Facoltativo</translation>
 <translation id="776110834126722255">Obsoleto</translation>
 <translation id="7761159795823346334">Vuoi consentire l'accesso alla fotocamera?</translation>
 <translation id="7761701407923456692">Il certificato del server non corrisponde all'URL.</translation>

@@ -134,7 +134,7 @@ A Proteção avançada controla estas configurações do Chrome:
 <translation id="2570922361219980984">O acesso ao local também está desativado para este dispositivo. Ative-o nas <ph name="BEGIN_LINK" />Configurações do Android<ph name="END_LINK" />.</translation>
 <translation id="257931822824936280">Visualização expandida. Clique para recolher</translation>
 <translation id="2586657967955657006">Área de transferência</translation>
-<translation id="2588271083332682494">Deixe tudo em ordem com os grupos de guias</translation>
+<translation id="2588271083332682494">Aproveite os grupos de guias</translation>
 <translation id="2597457036804169544">Não aplicar o tema escuro para sites</translation>
 <translation id="2606760465469169465">Verificação automática</translation>
 <translation id="2621115761605608342">Permitir JavaScript para um site específico.</translation>
@@ -217,7 +217,7 @@ A Proteção avançada controla estas configurações do Chrome:
 <translation id="358794129225322306">Permite que um site faça o download de vários arquivos automaticamente.</translation>
 <translation id="3594780231884063836">Desativar som do vídeo</translation>
 <translation id="3600792891314830896">Silenciar sites com áudio</translation>
-<translation id="3602290021589620013">Visualizar</translation>
+<translation id="3602290021589620013">Prévia</translation>
 <translation id="3611658447322220736">Os sites fechados recentemente podem terminar de enviar e receber dados</translation>
 <translation id="3628308229821498208">Pesquisas sugeridas</translation>
 <translation id="3641456520301071208">Os sites podem solicitar sua localização</translation>
@@ -385,7 +385,7 @@ A Proteção avançada controla estas configurações do Chrome:
 <translation id="5591840828808741583"><ph name="SITE_NAME" /> bloqueado</translation>
 <translation id="560980142378233747">Isso significa que os recursos do site vão funcionar conforme o esperado, mas talvez você tenha menos proteção de navegação. <ph name="BEGIN_LINK" />Enviar feedback<ph name="END_LINK" /></translation>
 <translation id="5617702678271228680">Página inferior de cards da página "Nova guia"</translation>
-<translation id="5632485077360054581">Me ajude a fazer isso</translation>
+<translation id="5632485077360054581">Saiba como</translation>
 <translation id="5649053991847567735">Downloads automáticos</translation>
 <translation id="5668404140385795438">Aplicar zoom mesmo que o site tente impedir</translation>
 <translation id="5668843533782548925">Os sites ficam mais lentos, mas mais seguros</translation>
@@ -397,7 +397,7 @@ A Proteção avançada controla estas configurações do Chrome:
 <translation id="571222594670061844">Sites podem mostrar solicitações de login de serviços de identificação</translation>
 <translation id="5723967018671998714">Os cookies de terceiros são bloqueados no modo de navegação anônima</translation>
 <translation id="5740126560802162366">Os sites podem salvar dados no seu dispositivo</translation>
-<translation id="5743425052258407233">Tenha seu histórico em todos os dispositivos para continuar facilmente de onde parou</translation>
+<translation id="5743425052258407233">Com seu histórico em todos os dispositivos, fica fácil continuar de onde você parou</translation>
 <translation id="5749158352074143502">Continuar com esta guia</translation>
 <translation id="5750869797196646528">Rastreamento de mãos</translation>
 <translation id="5753570386948603678">Excluir do histórico</translation>

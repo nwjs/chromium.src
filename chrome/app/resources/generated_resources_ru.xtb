@@ -4733,7 +4733,7 @@
 <translation id="4275291496240508082">Звук при включении</translation>
 <translation id="4275397969489577657">Включить ведение журнала событий</translation>
 <translation id="4275788652681621337">Закрыть боковую панель</translation>
-<translation id="4275830172053184480">Перезапуск устройства</translation>
+<translation id="4275830172053184480">Перезапустить устройство</translation>
 <translation id="4276598757692536305">PPD-файл для принтера</translation>
 <translation id="4276856098224910511">Не удалось выполнить установку. Установите все запланированные обновления ОС, перезапустите устройство и повторите попытку. Код ошибки: <ph name="ERROR" />.</translation>
 <translation id="4277434192562187284">Источник конфигурации XML</translation>
@@ -8039,7 +8039,6 @@
 <translation id="6667187897999649121">Сейчас вы можете предоставлять доступ к паролям только участникам семейной группы. <ph name="BEGIN_LINK" />Создайте ее<ph name="END_LINK" /> максимум для шести человек и пользуйтесь дополнительными возможностями продуктов и подписок Google.</translation>
 <translation id="666731172850799929">Открыть в <ph name="APP_NAME" /></translation>
 <translation id="6669195257625975787">К данным применяются параметры, выбранные для сайта, который вы просматриваете</translation>
-<translation id="6669637573228217624">Загрузить файл</translation>
 <translation id="6670142487971298264">Срок блокировки приложения "<ph name="APP_NAME" />" истек.</translation>
 <translation id="6670767097276846646">Некоторые расширения могут добавлять поисковые системы в Chrome.</translation>
 <translation id="6670983860904543332">Благодаря автоматическому обновлению у вас всегда есть доступ к самым последним функциям. Оцените некоторые из них.</translation>
@@ -9990,7 +9989,7 @@
 <translation id="8028060951694135607">Восстановление ключей Microsoft</translation>
 <translation id="8028138772801251745">Автозаполнение с помощью ИИ</translation>
 <translation id="8028803902702117856">Скачивание файла <ph name="FILE_NAME" /> (<ph name="SIZE" />)</translation>
-<translation id="8028993641010258682">Размер</translation>
+<translation id="8028993641010258682">Толщина</translation>
 <translation id="8029412171914613589">{SELECTED_ITEMS,plural, =0{Список для чтения}=1{Список для чтения ({SELECTED_ITEMS})}one{Список для чтения ({SELECTED_ITEMS})}few{Список для чтения ({SELECTED_ITEMS})}many{Список для чтения ({SELECTED_ITEMS})}other{Список для чтения ({SELECTED_ITEMS})}}</translation>
 <translation id="8029492516535178472"><ph name="WINDOW_TITLE" /> – требуется разрешение. Нажмите ⌘ + Option + Стрелка вверх, чтобы ответить.</translation>
 <translation id="8030169304546394654">Отключено</translation>
@@ -10639,7 +10638,7 @@
 <translation id="8472623782143987204">требуется оборудование</translation>
 <translation id="8473540203671727883">Произносить текст под указателем мыши</translation>
 <translation id="8473863474539038330">Адреса и другие данные</translation>
-<translation id="847433688444405067">Работайте на разных устройствах</translation>
+<translation id="847433688444405067">Нужные страницы на всех устройствах</translation>
 <translation id="8474378002946546633">Разрешить оповещения</translation>
 <translation id="8474561048882755118">Позволяет размещать похожие товары рядом и сравнивать их по важным для вас критериям.</translation>
 <translation id="8475313423285172237">Одна из программ на вашем компьютере установила расширение, которое может влиять на работу Chrome.</translation>
