@@ -495,7 +495,7 @@ String LayoutText::PlainText() const {
 
     String text =
         text_.Substring(text_box.dom_start_offset, text_box.dom_length)
-            .SimplifyWhiteSpace(WTF::kDoNotStripWhiteSpace);
+            .SimplifyWhiteSpace(kDoNotStripWhiteSpace);
     plain_text_builder.Append(text);
   }
   return plain_text_builder.ToString();
@@ -750,7 +750,7 @@ bool LayoutText::IsAllCollapsibleWhitespace() const {
   }
 
   const ComputedStyle& style = StyleRef();
-  return WTF::VisitCharacters(text_, [&style](auto chars) {
+  return VisitCharacters(text_, [&style](auto chars) {
     return std::ranges::all_of(
         chars, [&style](auto ch) { return style.IsCollapsibleWhiteSpace(ch); });
   });
@@ -1063,7 +1063,7 @@ void LayoutText::TextDidChangeWithoutInvalidation() {
       GetDocument().GetSettings()->GetPasswordEchoEnabled();
   String original_text =
       (RuntimeEnabledFeatures::UseOriginalDomOffsetsForOffsetMapEnabled() &&
-       OriginalText() && is_password_echo_enabled)
+       !OriginalText().empty() && is_password_echo_enabled)
           ? OriginalText()
           : text_;
   wtf_size_t original_length = original_text.length();

@@ -118,19 +118,14 @@ public class SearchEngineUtils implements Destroyable, TemplateUrlServiceObserve
         void onSearchEngineIconChanged(@Nullable StatusIconResource newIcon);
     }
 
-    @VisibleForTesting
-    SearchEngineUtils(Profile profile, FaviconHelper faviconHelper) {
+    private SearchEngineUtils(
+            Profile profile, FaviconHelper faviconHelper, ImageFetcher imageFetcher) {
         mProfile = profile;
         mIsOffTheRecord = profile.isOffTheRecord();
         mFaviconHelper = faviconHelper;
         mContext = ContextUtils.getApplicationContext();
 
-        mImageFetcher =
-                ImageFetcherFactory.createImageFetcher(
-                        ImageFetcherConfig.IN_MEMORY_WITH_DISK_CACHE,
-                        profile.getProfileKey(),
-                        GlobalDiscardableReferencePool.getReferencePool(),
-                        MAX_IMAGE_CACHE_SIZE_BYTES);
+        mImageFetcher = imageFetcher;
 
         mSearchEngineLogoTargetSizePixels =
                 mContext.getResources()
@@ -146,6 +141,23 @@ public class SearchEngineUtils implements Destroyable, TemplateUrlServiceObserve
         mDefaultSearchEngineMetadata = CachedZeroSuggestionsManager.readSearchEngineMetadata();
 
         onTemplateURLServiceChanged();
+    }
+
+    @VisibleForTesting
+    SearchEngineUtils(Profile profile, FaviconHelper faviconHelper) {
+        this(
+                profile,
+                faviconHelper,
+                ImageFetcherFactory.createImageFetcher(
+                        ImageFetcherConfig.IN_MEMORY_WITH_DISK_CACHE,
+                        profile.getProfileKey(),
+                        GlobalDiscardableReferencePool.getReferencePool(),
+                        MAX_IMAGE_CACHE_SIZE_BYTES));
+    }
+
+    public static SearchEngineUtils createSearchEngineUtilsForTesting(
+            Profile profile, FaviconHelper faviconHelper, ImageFetcher imageFetcher) {
+        return new SearchEngineUtils(profile, faviconHelper, imageFetcher);
     }
 
     /** Get the instance of SearchEngineUtils associated with the supplied Profile. */
@@ -254,11 +266,23 @@ public class SearchEngineUtils implements Destroyable, TemplateUrlServiceObserve
         if (!mTemplateUrlService.isDefaultSearchEngineGoogle()) {
             // Fall back to next source.
             recordEvent(Events.FETCH_NON_GOOGLE_LOGO_REQUEST);
-            retrieveFaviconFromFaviconUrl(templateUrl);
+            retrieveFaviconFromBuiltinResources(templateUrl);
             return;
         }
 
         setSearchEngineIcon(new StatusIconResource(R.drawable.ic_logo_googleg_20dp, 0));
+    }
+
+    private void retrieveFaviconFromBuiltinResources(TemplateUrl templateUrl) {
+        if (OmniboxFeatures.sOmniboxParityRetrieveBuiltInEngineIcon.getValue()) {
+            @Nullable Bitmap bm = templateUrl.getBuiltInSearchEngineIcon();
+            if (bm != null) {
+                onFaviconRetrieveCompleted(templateUrl.getFaviconURL(), bm);
+                return;
+            }
+        }
+
+        retrieveFaviconFromFaviconUrl(templateUrl);
     }
 
     private void retrieveFaviconFromFaviconUrl(TemplateUrl templateUrl) {

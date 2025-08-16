@@ -156,7 +156,6 @@ class ChromeComposeClientTest : public BrowserWithTestWindowTest {
   void SetUp() override {
     scoped_compose_enabled_ = ComposeEnabling::ScopedEnableComposeForTesting();
     BrowserWithTestWindowTest::SetUp();
-    MockOptimizationGuideKeyedService::InitializeWithExistingTestLocalState();
 
     mock_hats_service_ = static_cast<MockHatsService*>(
         HatsServiceFactory::GetInstance()->SetTestingFactoryAndUse(
@@ -174,7 +173,7 @@ class ChromeComposeClientTest : public BrowserWithTestWindowTest {
 
     GetOptimizationGuide().SetModelQualityLogsUploaderServiceForTesting(
         std::make_unique<TestModelQualityLogsUploaderService>(
-            profile_manager()->local_state()->Get()));
+            TestingBrowserProcess::GetGlobal()->local_state()));
 
     GetProfile()->GetPrefs()->SetBoolean(prefs::kPrefHasCompletedComposeFRE,
                                          true);
@@ -244,7 +243,8 @@ class ChromeComposeClientTest : public BrowserWithTestWindowTest {
               compose::ComposeHintMetadata compose_hint_metadata;
               compose_hint_metadata.set_decision(
                   compose::ComposeHintDecision::COMPOSE_HINT_DECISION_ENABLED);
-              metadata->SetAnyMetadataForTesting(compose_hint_metadata);
+              metadata->set_any_metadata(
+                  optimization_guide::AnyWrapProto(compose_hint_metadata));
               return optimization_guide::OptimizationGuideDecision::kTrue;
             });
   }
@@ -258,7 +258,6 @@ class ChromeComposeClientTest : public BrowserWithTestWindowTest {
     ukm_recorder_.reset();
     // Needed for feature params to reset.
     compose::ResetConfigForTesting();
-    MockOptimizationGuideKeyedService::ResetForTesting();
     BrowserWithTestWindowTest::TearDown();
   }
 

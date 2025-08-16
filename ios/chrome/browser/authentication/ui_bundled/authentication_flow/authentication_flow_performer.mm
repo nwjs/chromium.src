@@ -4,8 +4,6 @@
 
 #import "ios/chrome/browser/authentication/ui_bundled/authentication_flow/authentication_flow_performer.h"
 
-#import <MaterialComponents/MaterialSnackbar.h>
-
 #import <memory>
 #import <optional>
 
@@ -55,10 +53,8 @@
 #import "ios/chrome/browser/shared/model/web_state_list/web_state_list.h"
 #import "ios/chrome/browser/shared/public/commands/command_dispatcher.h"
 #import "ios/chrome/browser/shared/public/commands/show_signin_command.h"
-#import "ios/chrome/browser/shared/public/commands/snackbar_commands.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/shared/public/features/system_flags.h"
-#import "ios/chrome/browser/shared/ui/util/snackbar_util.h"
 #import "ios/chrome/browser/shared/ui/util/uikit_ui_util.h"
 #import "ios/chrome/browser/signin/model/account_profile_mapper.h"
 #import "ios/chrome/browser/signin/model/authentication_service_factory.h"
@@ -211,11 +207,11 @@ policy::ProfileSeparationPolicies GetFakePolicyResponseForTesting() {
           GetApplicationContext()->GetSharedURLLoaderFactory());
 
   __weak __typeof(self) weakSelf = self;
-  base::OnceCallback<void(const policy::ProfileSeparationPolicies&)> callback =
+  base::OnceCallback<void(policy::ProfileSeparationPolicies)> callback =
       base::BindOnce(
           [](__typeof(self) strongSelf,
-             const policy::ProfileSeparationPolicies& policies) {
-            [strongSelf didFetchProfileSeparationPolicies:policies];
+             policy::ProfileSeparationPolicies policies) {
+            [strongSelf didFetchProfileSeparationPolicies:std::move(policies)];
           },
           weakSelf);
 
@@ -310,7 +306,8 @@ policy::ProfileSeparationPolicies GetFakePolicyResponseForTesting() {
                         skipBrowsingDataMigration:skipBrowsingDataMigration
                        mergeBrowsingDataByDefault:mergeBrowsingDataByDefault
             browsingDataMigrationDisabledByPolicy:
-                browsingDataMigrationDisabledByPolicy];
+                browsingDataMigrationDisabledByPolicy
+                       multiProfileForceMigration:NO];
     _managedConfirmationScreenCoordinator.delegate = self;
     [_managedConfirmationScreenCoordinator start];
     return;
@@ -403,7 +400,7 @@ policy::ProfileSeparationPolicies GetFakePolicyResponseForTesting() {
 
 // Called when separation policies have been fetched, and calls the delegate.
 - (void)didFetchProfileSeparationPolicies:
-    (const policy::ProfileSeparationPolicies&)policies {
+    (policy::ProfileSeparationPolicies)policies {
   CHECK(_accountLevelSigninRestrictionPolicyFetcher);
   _accountLevelSigninRestrictionPolicyFetcher.reset();
   auto profile_separation_data_migration_settings =

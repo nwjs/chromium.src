@@ -661,7 +661,7 @@ LocalDOMWindow* CurrentDOMWindow(v8::Isolate* isolate) {
 
 ExecutionContext* ToExecutionContext(v8::Local<v8::Context> context) {
   DCHECK(!context.IsEmpty());
-  v8::Isolate* isolate = context->GetIsolate();
+  v8::Isolate* isolate = v8::Isolate::GetCurrent();
   ScriptState* script_state = ScriptState::MaybeFrom(isolate, context);
   return script_state ? ToExecutionContext(script_state) : nullptr;
 }
@@ -687,7 +687,7 @@ static ScriptState* ToScriptStateImpl(LocalFrame* frame,
   v8::Local<v8::Context> context = ToV8ContextEvenIfDetached(frame, world);
   if (context.IsEmpty())
     return nullptr;
-  v8::Isolate* isolate = context->GetIsolate();
+  v8::Isolate* isolate = v8::Isolate::GetCurrent();
   ScriptState* script_state = ScriptState::From(isolate, context);
   if (!script_state->ContextIsValid())
     return nullptr;
@@ -802,11 +802,13 @@ v8::Isolate* ToIsolate(const LocalFrame* frame) {
 }
 
 v8::Local<v8::Value> FromJSONString(ScriptState* script_state,
-                                    const String& stringified_json) {
+                                    const String& stringified_json,
+                                    std::optional<v8::ScriptOrigin> origin) {
   auto v8_string = V8String(script_state->GetIsolate(), stringified_json);
   v8::Local<v8::Value> parsed;
-  std::ignore =
-      v8::JSON::Parse(script_state->GetContext(), v8_string).ToLocal(&parsed);
+
+  std::ignore = v8::JSON::Parse(script_state->GetContext(), v8_string, origin)
+                    .ToLocal(&parsed);
   return parsed;
 }
 

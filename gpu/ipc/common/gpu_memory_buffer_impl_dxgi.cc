@@ -21,9 +21,7 @@
 #include "base/threading/thread_restrictions.h"
 #include "base/unguessable_token.h"
 #include "base/win/scoped_handle.h"
-#include "gpu/command_buffer/client/gpu_memory_buffer_manager.h"
 #include "ui/gfx/buffer_format_util.h"
-#include "ui/gfx/gpu_memory_buffer.h"
 #include "ui/gl/gl_angle_util_win.h"
 #include "ui/gl/gl_switches.h"
 
@@ -39,15 +37,12 @@ GpuMemoryBufferImplDXGI::CreateFromHandle(
     gfx::GpuMemoryBufferHandle handle,
     const gfx::Size& size,
     gfx::BufferFormat format,
-    gfx::BufferUsage usage,
-    DestructionCallback callback,
-    GpuMemoryBufferManager* gpu_memory_buffer_manager,
+    CopyNativeBufferToShMemCallback copy_native_buffer_to_shmem_callback,
     scoped_refptr<base::UnsafeSharedMemoryPool> pool) {
   DCHECK(handle.dxgi_handle().IsValid());
-  return base::WrapUnique(
-      new GpuMemoryBufferImplDXGI(handle.id, size, format, std::move(callback),
-                                  std::move(handle).dxgi_handle(),
-                                  gpu_memory_buffer_manager, std::move(pool)));
+  return base::WrapUnique(new GpuMemoryBufferImplDXGI(
+      size, format, std::move(handle).dxgi_handle(),
+      std::move(copy_native_buffer_to_shmem_callback), std::move(pool)));
 }
 
 base::OnceClosure GpuMemoryBufferImplDXGI::AllocateForTesting(
@@ -95,10 +90,8 @@ base::OnceClosure GpuMemoryBufferImplDXGI::AllocateForTesting(
       &texture_handle);
   DCHECK(SUCCEEDED(hr));
 
-  gfx::GpuMemoryBufferId kBufferId(1);
   *handle = gfx::GpuMemoryBufferHandle(
       gfx::DXGIHandle(base::win::ScopedHandle(texture_handle)));
-  handle->id = kBufferId;
   return base::DoNothing();
 }
 
@@ -168,7 +161,7 @@ GpuMemoryBufferImplDXGI::DoMapAsync(base::OnceCallback<void(bool)> result_cb) {
     return base::BindOnce(std::move(result_cb), true);
   }
 
-  CHECK(gpu_memory_buffer_manager_);
+  CHECK(copy_native_buffer_to_shmem_callback_);
   CHECK(shared_memory_pool_);
 
   if (!shared_memory_handle_) {
@@ -187,7 +180,7 @@ GpuMemoryBufferImplDXGI::DoMapAsync(base::OnceCallback<void(bool)> result_cb) {
   // Need to perform mapping in GPU process
   // Unretained is safe because of GMB isn't destroyed before the callback
   // executes. This is CHECKed in the destructor.
-  gpu_memory_buffer_manager_->CopyGpuMemoryBufferAsync(
+  copy_native_buffer_to_shmem_callback_.Run(
       CloneHandle(), shared_memory_handle_->GetRegion().Duplicate(),
       base::BindOnce(&GpuMemoryBufferImplDXGI::CheckAsyncMapResult,
                      base::Unretained(this)));
@@ -261,7 +254,6 @@ gfx::GpuMemoryBufferType GpuMemoryBufferImplDXGI::GetType() const {
 
 gfx::GpuMemoryBufferHandle GpuMemoryBufferImplDXGI::CloneHandle() const {
   gfx::GpuMemoryBufferHandle handle(dxgi_handle_.Clone());
-  handle.id = id_;
   handle.offset = 0;
   handle.stride = stride(0);
 
@@ -276,7 +268,6 @@ gfx::GpuMemoryBufferHandle GpuMemoryBufferImplDXGI::CloneHandleWithRegion(
     base::UnsafeSharedMemoryRegion region) const {
   gfx::GpuMemoryBufferHandle handle(
       dxgi_handle_.CloneWithRegion(std::move(region)));
-  handle.id = id_;
   handle.offset = 0;
   handle.stride = stride(0);
   return handle;
@@ -291,16 +282,15 @@ const gfx::DXGIHandleToken& GpuMemoryBufferImplDXGI::GetToken() const {
 }
 
 GpuMemoryBufferImplDXGI::GpuMemoryBufferImplDXGI(
-    gfx::GpuMemoryBufferId id,
     const gfx::Size& size,
     gfx::BufferFormat format,
-    DestructionCallback callback,
     gfx::DXGIHandle dxgi_handle,
-    gpu::GpuMemoryBufferManager* gpu_memory_buffer_manager,
+    CopyNativeBufferToShMemCallback copy_native_buffer_to_shmem_callback,
     scoped_refptr<base::UnsafeSharedMemoryPool> pool)
-    : GpuMemoryBufferImpl(id, size, format, std::move(callback)),
+    : GpuMemoryBufferImpl(size, format),
       dxgi_handle_(std::move(dxgi_handle)),
-      gpu_memory_buffer_manager_(gpu_memory_buffer_manager),
+      copy_native_buffer_to_shmem_callback_(
+          std::move(copy_native_buffer_to_shmem_callback)),
       shared_memory_pool_(std::move(pool)) {}
 
 }  // namespace gpu

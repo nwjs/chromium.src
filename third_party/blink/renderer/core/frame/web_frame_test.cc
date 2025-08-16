@@ -449,7 +449,7 @@ class WebFrameTest : public PageTestBase {
 
   // Both sets the inner html and runs the document lifecycle.
   void InitializeWithHTML(LocalFrame& frame, const String& html_content) {
-    frame.GetDocument()->body()->setInnerHTML(html_content);
+    frame.GetDocument()->body()->SetInnerHTMLWithoutTrustedTypes(html_content);
     frame.GetDocument()->View()->UpdateAllLifecyclePhasesForTest();
   }
 
@@ -955,8 +955,8 @@ TEST_F(WebFrameTest, RequestExecuteV8FunctionWhileSuspended) {
   v8::Local<v8::Function> function =
       v8::Function::New(context, callback).ToLocalChecked();
   main_frame->RequestExecuteV8Function(context, function,
-                                       v8::Undefined(context->GetIsolate()), 0,
-                                       nullptr, callback_helper.Callback());
+                                       v8::Undefined(v8::Isolate::GetCurrent()),
+                                       0, nullptr, callback_helper.Callback());
   RunPendingTasks();
   EXPECT_FALSE(callback_helper.DidComplete());
 
@@ -1221,7 +1221,7 @@ TEST_F(WebFrameTest, ChromePageNoJavascript) {
   // TODO(crbug.com/1329535): Remove if threaded preload scanner doesn't launch.
   // This is needed because the preload scanner creates a thread when loading a
   // page.
-  WTF::SetIsBeforeThreadCreatedForTest();
+  SetIsBeforeThreadCreatedForTest();
 #endif
   WebSecurityPolicy::RegisterURLSchemeAsNotAllowingJavascriptURLs("chrome");
   frame_test_helpers::LoadFrame(web_view_helper.GetWebView()->MainFrameImpl(),
@@ -4819,7 +4819,7 @@ class ContextLifetimeTestWebFrameClient
                  v8::Local<v8::Context> context,
                  int32_t world_id)
         : frame(frame),
-          context(context->GetIsolate(), context),
+          context(v8::Isolate::GetCurrent(), context),
           world_id(world_id) {}
 
     ~Notification() { context.Reset(); }
@@ -10627,7 +10627,7 @@ TEST_F(WebFrameTest, SiteForCookiesFromChildWithRemoteMainFrame) {
   // TODO(crbug.com/1329535): Remove if threaded preload scanner doesn't launch.
   // This is needed because the preload scanner creates a thread when loading a
   // page.
-  WTF::SetIsBeforeThreadCreatedForTest();
+  SetIsBeforeThreadCreatedForTest();
 #endif
   SchemeRegistry::RegisterURLSchemeAsFirstPartyWhenTopLevel("http");
   EXPECT_TRUE(net::SiteForCookies::FromUrl(GURL(not_base_url_))
@@ -14225,7 +14225,7 @@ TEST_F(WebFrameTest, FaviconURLUpdateEvent) {
   LocalFrame* frame = web_view->MainFrameImpl()->GetFrame();
 
   // An event should be sent when a favicon url exists.
-  frame->GetDocument()->documentElement()->setInnerHTML(
+  frame->GetDocument()->documentElement()->SetInnerHTMLWithoutTrustedTypes(
       "<html>"
       "<head>"
       "<link rel='icon' href='http://www.google.com/favicon.ico'>"
@@ -14239,7 +14239,7 @@ TEST_F(WebFrameTest, FaviconURLUpdateEvent) {
 
   // An event should not be sent if no favicon url exists. This is an assumption
   // made by some of Chrome's favicon handling.
-  frame->GetDocument()->documentElement()->setInnerHTML(
+  frame->GetDocument()->documentElement()->SetInnerHTMLWithoutTrustedTypes(
       "<html>"
       "<head>"
       "</head>"
@@ -14275,9 +14275,12 @@ TEST_F(WebFrameTest, FocusElementCallsFocusedElementChanged) {
   RunPendingTasks();
   auto* main_frame = web_view_helper.GetWebView()->MainFrameImpl();
 
-  main_frame->GetFrame()->GetDocument()->documentElement()->setInnerHTML(
-      "<input id='test1' value='hello1'></input>"
-      "<input id='test2' value='hello2'></input>");
+  main_frame->GetFrame()
+      ->GetDocument()
+      ->documentElement()
+      ->SetInnerHTMLWithoutTrustedTypes(
+          "<input id='test1' value='hello1'></input>"
+          "<input id='test2' value='hello2'></input>");
   RunPendingTasks();
 
   EXPECT_FALSE(frame_host.did_notify_);
@@ -14312,7 +14315,7 @@ TEST_F(WebFrameTest, FormSubmitCancelsNavigation) {
   auto* local_frame = main_frame->GetFrame();
   auto* window = local_frame->DomWindow();
 
-  window->document()->documentElement()->setInnerHTML(
+  window->document()->documentElement()->SetInnerHTMLWithoutTrustedTypes(
       "<form id=formid action='http://internal.test/bar.html'></form>");
   ASSERT_FALSE(local_frame->Loader().HasProvisionalNavigation());
 

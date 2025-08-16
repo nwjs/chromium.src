@@ -18,6 +18,7 @@
 #include "components/content_settings/core/common/content_settings_types.h"
 #include "components/content_settings/core/common/pref_names.h"
 #include "components/permissions/features.h"
+#include "components/prefs/pref_service.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
 #include "net/dns/mock_host_resolver.h"
@@ -34,6 +35,7 @@ DEFINE_LOCAL_CUSTOM_ELEMENT_EVENT_TYPE(
 const WebContentsInteractionTestUtil::DeepQuery kAskButton{
     "settings-ui",
     "settings-main",
+    "settings-privacy-page-index",
     "settings-basic-page",
     "settings-privacy-page",
     "settings-notifications-page",
@@ -43,30 +45,34 @@ const WebContentsInteractionTestUtil::DeepQuery kAskButton{
 const WebContentsInteractionTestUtil::DeepQuery kQuietButton{
     "settings-ui",
     "settings-main",
+    "settings-privacy-page-index",
     "settings-basic-page",
     "settings-privacy-page",
     "settings-notifications-page",
-    "#notification-ask-quiet"};
+    "#notificationAskQuiet"};
 
 const WebContentsInteractionTestUtil::DeepQuery kCpssButton{
     "settings-ui",
     "settings-main",
+    "settings-privacy-page-index",
     "settings-basic-page",
     "settings-privacy-page",
     "settings-notifications-page",
-    "#notification-ask-cpss"};
+    "#notificationAskCpss"};
 
 const WebContentsInteractionTestUtil::DeepQuery kLoudButton{
     "settings-ui",
     "settings-main",
+    "settings-privacy-page-index",
     "settings-basic-page",
     "settings-privacy-page",
     "settings-notifications-page",
-    "#notification-ask-loud"};
+    "#notificationAskLoud"};
 
 const WebContentsInteractionTestUtil::DeepQuery kBlockButton{
     "settings-ui",
     "settings-main",
+    "settings-privacy-page-index",
     "settings-basic-page",
     "settings-privacy-page",
     "settings-notifications-page",
@@ -216,10 +222,11 @@ class PredictionSettingsPageBrowserTest : public InteractiveBrowserTest {
               const WebContentsInteractionTestUtil::DeepQuery kAskQuiet{
                   "settings-ui",
                   "settings-main",
+                  "settings-privacy-page-index",
                   "settings-basic-page",
                   "settings-privacy-page",
                   "settings-notifications-page",
-                  "#notification-ask-quiet"};
+                  "#notificationAskQuiet"};
               util->EvaluateAt(kAskQuiet, "kAskQuiet => kAskQuiet.click()");
               EXPECT_EQ(CONTENT_SETTING_ASK,
                         settings_map->GetDefaultContentSetting(
@@ -241,10 +248,11 @@ class PredictionSettingsPageBrowserTest : public InteractiveBrowserTest {
               const WebContentsInteractionTestUtil::DeepQuery kAskCpss{
                   "settings-ui",
                   "settings-main",
+                  "settings-privacy-page-index",
                   "settings-basic-page",
                   "settings-privacy-page",
                   "settings-notifications-page",
-                  "#notification-ask-cpss"};
+                  "#notificationAskCpss"};
               util->EvaluateAt(kAskCpss, "kAskCpss => kAskCpss.click()");
               EXPECT_EQ(CONTENT_SETTING_ASK,
                         settings_map->GetDefaultContentSetting(
@@ -316,10 +324,11 @@ class PredictionSettingsPageBrowserTest : public InteractiveBrowserTest {
               const WebContentsInteractionTestUtil::DeepQuery kAskQuiet{
                   "settings-ui",
                   "settings-main",
+                  "settings-privacy-page-index",
                   "settings-basic-page",
                   "settings-privacy-page",
                   "settings-notifications-page",
-                  "#notification-ask-quiet"};
+                  "#notificationAskQuiet"};
               util->EvaluateAt(kAskQuiet, "kAskQuiet => kAskQuiet.click()");
               EXPECT_EQ(CONTENT_SETTING_ASK,
                         settings_map->GetDefaultContentSetting(
@@ -357,10 +366,11 @@ class PredictionSettingsPageBrowserTest : public InteractiveBrowserTest {
               const WebContentsInteractionTestUtil::DeepQuery kAskCpss{
                   "settings-ui",
                   "settings-main",
+                  "settings-privacy-page-index",
                   "settings-basic-page",
                   "settings-privacy-page",
                   "settings-notifications-page",
-                  "#notification-ask-cpss"};
+                  "#notificationAskCpss"};
               util->EvaluateAt(kAskCpss, "kAskCpss => kAskCpss.click()");
               EXPECT_EQ(CONTENT_SETTING_ASK,
                         settings_map->GetDefaultContentSetting(

@@ -71,8 +71,20 @@ const NSUInteger kSearchCharacterLimit = 1000;
 // Creates a file in `app_group::ShareExtensionItemsFolder()` containing a
 // serialized NSDictionary.
 // If `cancel` is true, `actionType` is ignored.
+// TODO(crbug.com/40278725): Remove this function once the MIM experience is
+// fully launched.
 - (void)queueActionItemURL:(NSURL*)URL
                      title:(NSString*)title
+                    action:(app_group::ShareExtensionItemType)actionType
+                    cancel:(BOOL)cancel
+                completion:(ProceduralBlock)completion;
+
+// Creates a file in `app_group::ShareExtensionItemsFolder()` containing a
+// serialized NSDictionary with gaia id info.
+// If `cancel` is true, `actionType` is ignored.
+- (void)queueActionItemURL:(NSURL*)URL
+                     title:(NSString*)title
+                    gaiaID:(NSString*)gaiaID
                     action:(app_group::ShareExtensionItemType)actionType
                     cancel:(BOOL)cancel
                 completion:(ProceduralBlock)completion;
@@ -108,7 +120,7 @@ const NSUInteger kSearchCharacterLimit = 1000;
     [UISheetPresentationControllerDetent largeDetent]
   ];
   presentationController.preferredCornerRadius = kShareSheetCornerRadius;
-  [self loadSelectedAccountInfo];
+  [self loadAvailableAccounts];
   [self loadElementsFromContext];
 }
 
@@ -172,8 +184,10 @@ const NSUInteger kSearchCharacterLimit = 1000;
                                style:UIAlertActionStyleCancel
                              handler:nil];
 
-  [moreActionsAlertController addAction:[self addToBookmarksAlertAction]];
-  [moreActionsAlertController addAction:[self addToReadingListAlertAction]];
+  [moreActionsAlertController
+      addAction:[self addToBookmarksAlertActionWithGaiaID:gaiaID]];
+  [moreActionsAlertController
+      addAction:[self addToReadingListAlertActionWithGaiaID:gaiaID]];
   [moreActionsAlertController
       addAction:[self openInIncognitoAlertActionWithGaiaID:gaiaID]];
   [moreActionsAlertController addAction:cancelAlertAction];
@@ -282,52 +296,48 @@ const NSUInteger kSearchCharacterLimit = 1000;
   }
 }
 
-- (AccountInfo*)accountInfoWithGaiaID:(NSString*)gaiaID {
-  CHECK(app_group::MultiProfileShareExtensionEnabled());
-  AccountInfo* accountInfo = [[AccountInfo alloc] init];
-  if (!gaiaID) {
-    accountInfo.gaiaID = @"Default";
-    return accountInfo;
-  }
-
-  NSUserDefaults* shared_defaults = app_group::GetGroupUserDefaults();
-  NSDictionary* accounts =
-      [shared_defaults dictionaryForKey:app_group::kAccountsOnDevice];
-  if (!accounts || ![accounts isKindOfClass:[NSDictionary class]]) {
-    return nil;
-  }
-
-  // TODO(crbug.com/425571657): Rename the avatar folder path function.
-  NSURL* avatars_folder_path = app_group::WidgetsAvatarFolder();
-  NSURL* avatar_directory = [avatars_folder_path
-      URLByAppendingPathComponent:[NSString stringWithFormat:@"\%@%@", gaiaID,
-                                                             @".png"]];
-  UIImage* avatar = [UIImage imageWithContentsOfFile:[avatar_directory path]];
-
-  accountInfo.gaiaID = gaiaID;
-  accountInfo.avatar = avatar;
-  accountInfo.fullName = accounts[gaiaID][app_group::kFullName];
-  accountInfo.email = accounts[gaiaID][app_group::kEmail];
-
-  return accountInfo;
-}
-
-- (void)loadSelectedAccountInfo {
+- (void)loadAvailableAccounts {
   if (!app_group::MultiProfileShareExtensionEnabled()) {
     return;
   }
-  NSUserDefaults* shared_defaults = app_group::GetGroupUserDefaults();
-  NSString* primary_account =
-      [shared_defaults objectForKey:app_group::kPrimaryAccount];
+  NSUserDefaults* sharedDefaults = app_group::GetGroupUserDefaults();
+  NSString* primaryAccount =
+      [sharedDefaults stringForKey:app_group::kPrimaryAccount];
+  NSDictionary* accounts = base::apple::ObjCCast<NSDictionary>(
+      [sharedDefaults dictionaryForKey:app_group::kAccountsOnDevice]);
 
-  if (!primary_account || ![primary_account length]) {
-    self.shareSheet.selectedAccountInfo = [self accountInfoWithGaiaID:nil];
+  if (!accounts) {
     return;
   }
+  NSURL* avatarsFolderPath = app_group::WidgetsAvatarFolder();
 
-  self.shareSheet.selectedAccountInfo =
-      [self accountInfoWithGaiaID:primary_account];
-  return;
+  NSMutableArray* loadedAccounts = [[NSMutableArray alloc] init];
+
+  for (NSString* gaiaID in accounts) {
+    NSURL* avatarDirectory = [avatarsFolderPath
+        URLByAppendingPathComponent:[NSString stringWithFormat:@"\%@%@", gaiaID,
+                                                               @".png"]];
+    UIImage* avatar = [UIImage imageWithContentsOfFile:[avatarDirectory path]];
+
+    AccountInfo* account = [[AccountInfo alloc] init];
+    account.gaiaID = gaiaID;
+    account.avatar = avatar;
+    account.fullName = accounts[gaiaID][app_group::kFullName];
+    account.email = accounts[gaiaID][app_group::kEmail];
+    [loadedAccounts addObject:account];
+
+    if (gaiaID.length && [gaiaID isEqualToString:primaryAccount]) {
+      self.shareSheet.selectedAccountInfo = account;
+    }
+  }
+
+  if (!primaryAccount || ![primaryAccount length]) {
+    AccountInfo* accountInfo = [[AccountInfo alloc] init];
+    accountInfo.gaiaID = app_group::kNoAccount;
+    self.shareSheet.selectedAccountInfo = accountInfo;
+    [loadedAccounts addObject:accountInfo];
+  }
+  [self.shareSheet setAccounts:loadedAccounts];
 }
 
 - (void)handleImageSharingForCommand:(AppGroupCommand*)command
@@ -624,6 +634,73 @@ const NSUInteger kSearchCharacterLimit = 1000;
   }
 }
 
+- (void)queueActionItemURL:(NSURL*)URL
+                     title:(NSString*)title
+                    gaiaID:(NSString*)gaiaID
+                    action:(app_group::ShareExtensionItemType)actionType
+                    cancel:(BOOL)cancel
+                completion:(ProceduralBlock)completion {
+  CHECK(app_group::MultiProfileShareExtensionEnabled());
+  CHECK(gaiaID && [gaiaID length]);
+  NSURL* readingListURL = app_group::ExternalCommandsItemsFolder();
+  if (![[NSFileManager defaultManager]
+          fileExistsAtPath:[readingListURL path]]) {
+    [[NSFileManager defaultManager] createDirectoryAtPath:[readingListURL path]
+                              withIntermediateDirectories:YES
+                                               attributes:nil
+                                                    error:nil];
+  }
+  NSDate* date = [NSDate date];
+  NSDateFormatter* dateFormatter = [[NSDateFormatter alloc] init];
+  // This format sorts files by alphabetical order.
+  [dateFormatter setDateFormat:@"yyyy-MM-dd-HH-mm-ss.SSSSSS"];
+  NSTimeZone* timeZone = [NSTimeZone timeZoneWithName:@"UTC"];
+  [dateFormatter setTimeZone:timeZone];
+  NSString* dateString = [dateFormatter stringFromDate:date];
+  NSURL* fileURL = [readingListURL URLByAppendingPathComponent:dateString
+                                                   isDirectory:NO];
+
+  NSMutableDictionary* dict = [[NSMutableDictionary alloc] init];
+
+  [dict setObject:gaiaID forKey:app_group::kShareItemGaiaID];
+  if (URL) {
+    [dict setObject:URL forKey:app_group::kShareItemURL];
+  }
+  if (title) {
+    [dict setObject:title forKey:app_group::kShareItemTitle];
+  }
+
+  [dict setObject:date forKey:app_group::kShareItemDate];
+  [dict setObject:app_group::kShareItemSourceShareExtension
+           forKey:app_group::kShareItemSource];
+
+  if (!cancel) {
+    NSNumber* entryType = [NSNumber numberWithInteger:actionType];
+    [dict setObject:entryType forKey:app_group::kShareItemType];
+  }
+
+  [dict setValue:[NSNumber numberWithBool:cancel]
+          forKey:app_group::kShareItemCancel];
+  NSError* error = nil;
+  NSData* data = [NSKeyedArchiver archivedDataWithRootObject:dict
+                                       requiringSecureCoding:NO
+                                                       error:&error];
+
+  if (!data || error) {
+    DLOG(WARNING) << "Error serializing data for title: "
+                  << base::SysNSStringToUTF8(title)
+                  << base::SysNSStringToUTF8([error description]);
+    return;
+  }
+
+  [[NSFileManager defaultManager] createFileAtPath:[fileURL path]
+                                          contents:data
+                                        attributes:nil];
+  if (completion) {
+    completion();
+  }
+}
+
 - (void)handleURLItem:(NSExtensionItem*)item
          itemProvider:(NSItemProvider*)itemProvider {
   NSString* typeURL = UTTypeURL.identifier;
@@ -688,28 +765,30 @@ const NSUInteger kSearchCharacterLimit = 1000;
   }
 }
 
-- (UIAlertAction*)addToBookmarksAlertAction {
+- (UIAlertAction*)addToBookmarksAlertActionWithGaiaID:(NSString*)gaiaID {
   __weak ExtendedShareViewController* weakSelf = self;
   NSString* addToBookmarksTitle = NSLocalizedString(
       @"IDS_IOS_ADD_BOOKMARKS_SHARE_EXTENSION",
       @"The Add to bookmarks button text in share extension.");
-  return [UIAlertAction actionWithTitle:addToBookmarksTitle
-                                  style:UIAlertActionStyleDefault
-                                handler:^(UIAlertAction* action) {
-                                  [weakSelf handleAddingToBookmark];
-                                }];
+  return [UIAlertAction
+      actionWithTitle:addToBookmarksTitle
+                style:UIAlertActionStyleDefault
+              handler:^(UIAlertAction* action) {
+                [weakSelf handleAddingToBookmarkWithGaiaID:gaiaID];
+              }];
 }
 
-- (UIAlertAction*)addToReadingListAlertAction {
+- (UIAlertAction*)addToReadingListAlertActionWithGaiaID:(NSString*)gaiaID {
   __weak ExtendedShareViewController* weakSelf = self;
   NSString* addToReadingListTitle = NSLocalizedString(
       @"IDS_IOS_ADD_READING_LIST_SHARE_EXTENSION",
       @"The add to reading list button text in share extension.");
-  return [UIAlertAction actionWithTitle:addToReadingListTitle
-                                  style:UIAlertActionStyleDefault
-                                handler:^(UIAlertAction* action) {
-                                  [weakSelf handleAddingToReadingList];
-                                }];
+  return [UIAlertAction
+      actionWithTitle:addToReadingListTitle
+                style:UIAlertActionStyleDefault
+              handler:^(UIAlertAction* action) {
+                [weakSelf handleAddingToReadingListWithGaiaID:gaiaID];
+              }];
 }
 
 - (UIAlertAction*)openInIncognitoAlertActionWithGaiaID:(NSString*)gaiaID {
@@ -725,11 +804,12 @@ const NSUInteger kSearchCharacterLimit = 1000;
               }];
 }
 
-- (void)handleAddingToBookmark {
+- (void)handleAddingToBookmarkWithGaiaID:(NSString*)gaiaID {
   self.shareSheet.dismissedFromSheetAction = YES;
   __weak ExtendedShareViewController* weakSelf = self;
   [self queueActionItemURL:_shareURL
                      title:_shareTitle
+                    gaiaID:gaiaID
                     action:app_group::BOOKMARK_ITEM
                     cancel:NO
                 completion:^{
@@ -737,11 +817,12 @@ const NSUInteger kSearchCharacterLimit = 1000;
                 }];
 }
 
-- (void)handleAddingToReadingList {
+- (void)handleAddingToReadingListWithGaiaID:(NSString*)gaiaID {
   self.shareSheet.dismissedFromSheetAction = YES;
   __weak ExtendedShareViewController* weakSelf = self;
   [self queueActionItemURL:_shareURL
                      title:_shareTitle
+                    gaiaID:gaiaID
                     action:app_group::READING_LIST_ITEM
                     cancel:NO
                 completion:^{

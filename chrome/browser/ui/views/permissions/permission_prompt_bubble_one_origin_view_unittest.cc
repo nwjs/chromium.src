@@ -97,6 +97,7 @@ class TestDelegate : public permissions::PermissionPrompt::Delegate {
   void Deny() override {}
   void Dismiss() override {}
   void Ignore() override {}
+  void SetPromptOptions(PromptOptions prompt_options) override {}
   void FinalizeCurrentRequests() override {}
   void OpenHelpCenterLink(const ui::Event& event) override {}
   void PreIgnoreQuietPrompt() override {}
@@ -137,7 +138,7 @@ class TestDelegate : public permissions::PermissionPrompt::Delegate {
 std::unique_ptr<PermissionPromptBubbleOneOriginView> CreateBubble(
     TestDelegate* delegate) {
   return std::make_unique<PermissionPromptBubbleOneOriginView>(
-      nullptr, delegate->GetWeakPtr(), base::TimeTicks::Now(),
+      nullptr, delegate->GetWeakPtr(),
       PermissionPromptStyle::kBubbleOnly);
 }
 
@@ -251,7 +252,7 @@ class PermissionPromptBubbleOneOriginViewTestMediaPreview
                            std::vector<std::string>{kMicId},
                            std::vector<std::string>{kCameraId});
     permission_prompt_ = std::make_unique<PermissionPromptBubbleOneOriginView>(
-        browser(), test_delegate_->GetWeakPtr(), base::TimeTicks::Now(),
+        browser(), test_delegate_->GetWeakPtr(),
         PermissionPromptStyle::kBubbleOnly);
   }
 

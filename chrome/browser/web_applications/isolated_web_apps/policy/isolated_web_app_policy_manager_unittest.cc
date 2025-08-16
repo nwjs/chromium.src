@@ -37,7 +37,6 @@
 #include "chrome/browser/web_applications/isolated_web_apps/commands/cleanup_orphaned_isolated_web_apps_command.h"
 #include "chrome/browser/web_applications/isolated_web_apps/commands/install_isolated_web_app_command.h"
 #include "chrome/browser/web_applications/isolated_web_apps/isolated_web_app_install_source.h"
-#include "chrome/browser/web_applications/isolated_web_apps/isolated_web_app_storage_location.h"
 #include "chrome/browser/web_applications/isolated_web_apps/isolated_web_app_update_discovery_task.h"
 #include "chrome/browser/web_applications/isolated_web_apps/isolated_web_app_update_manager.h"
 #include "chrome/browser/web_applications/isolated_web_apps/isolated_web_app_url_info.h"
@@ -73,6 +72,7 @@
 #include "components/webapps/isolated_web_apps/features.h"
 #include "components/webapps/isolated_web_apps/iwa_key_distribution_info_provider.h"
 #include "components/webapps/isolated_web_apps/proto/key_distribution.pb.h"
+#include "components/webapps/isolated_web_apps/types/storage_location.h"
 #include "content/public/common/content_features.h"
 #include "services/network/public/mojom/url_response_head.mojom.h"
 #include "services/network/test/test_utils.h"
@@ -127,8 +127,8 @@ class IsolatedWebAppPolicyManagerTestBase : public IsolatedWebAppTest {
         is_mgs_session_install_enabled_(is_mgs_session_install_enabled),
         is_user_session_(is_user_session) {
 #if BUILDFLAG(IS_CHROMEOS)
-    if (is_mgs_session_install_enabled_) {
-      scoped_feature_list_.InitAndEnableFeature(
+    if (!is_mgs_session_install_enabled_) {
+      scoped_feature_list_.InitAndDisableFeature(
           features::kIsolatedWebAppManagedGuestSessionInstall);
     }
 #endif  // BUILDFLAG(IS_CHROMEOS)
@@ -310,6 +310,8 @@ TEST_F(IsolatedWebAppPolicyManagerTest,
     EXPECT_THAT(
         web_app->GetSources(),
         Eq(WebAppManagementTypes({WebAppManagement::Type::kIwaUserInstalled})));
+    EXPECT_FALSE(provider().registrar_unsafe().AppMatches(
+        url_info.app_id(), WebAppFilter::PolicyInstalledIsolatedWebApp()));
   }
 
   WebAppTestUninstallObserver uninstall_observer(profile());
@@ -332,6 +334,8 @@ TEST_F(IsolatedWebAppPolicyManagerTest,
   ASSERT_THAT(web_app, NotNull());
   EXPECT_THAT(web_app->GetSources(),
               Eq(WebAppManagementTypes({WebAppManagement::Type::kIwaPolicy})));
+  EXPECT_TRUE(provider().registrar_unsafe().AppMatches(
+      url_info.app_id(), WebAppFilter::PolicyInstalledIsolatedWebApp()));
 }
 
 TEST_F(IsolatedWebAppPolicyManagerTest,

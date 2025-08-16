@@ -40,7 +40,6 @@
 #include "chrome/browser/download/download_dir_util.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/pref_names.h"
-#include "chrome/test/base/scoped_testing_local_state.h"
 #include "chrome/test/base/testing_browser_process.h"
 #include "chrome/test/base/testing_profile.h"
 #include "chrome/test/base/testing_profile_manager.h"
@@ -1552,12 +1551,12 @@ class VolumeManagerLocalUserFilesTest : public VolumeManagerArcTest {
   void TearDown() override { VolumeManagerArcTest::TearDown(); }
 
   void SetLocalUserFilesPolicy(bool allowed) {
-    testing_profile_manager_->local_state()->Get()->SetBoolean(
+    TestingBrowserProcess::GetGlobal()->local_state()->SetBoolean(
         prefs::kLocalUserFilesAllowed, allowed);
   }
 
   void SetLocalUserFilesMigrationPolicy(const std::string& destination) {
-    testing_profile_manager_->local_state()->Get()->SetString(
+    TestingBrowserProcess::GetGlobal()->local_state()->SetString(
         prefs::kLocalUserFilesMigrationDestination, destination);
     volume_manager()->OnMigrationSucceededForTesting();
   }

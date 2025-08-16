@@ -12,6 +12,7 @@ import static org.junit.Assert.assertTrue;
 import static org.chromium.base.ThreadUtils.runOnUiThreadBlocking;
 import static org.chromium.ui.base.DeviceFormFactor.PHONE;
 
+import androidx.core.util.Pair;
 import androidx.test.filters.LargeTest;
 import androidx.test.filters.MediumTest;
 import androidx.test.platform.app.InstrumentationRegistry;
@@ -27,9 +28,13 @@ import org.chromium.base.test.util.Batch;
 import org.chromium.base.test.util.CallbackHelper;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.CriteriaHelper;
+import org.chromium.base.test.util.Features.DisableFeatures;
+import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.base.test.util.RequiresRestart;
 import org.chromium.base.test.util.Restriction;
+import org.chromium.base.test.util.UserActionTester;
 import org.chromium.chrome.browser.ChromeTabbedActivity;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.history.BrowsingHistoryBridge;
 import org.chromium.chrome.browser.history.HistoryItem;
@@ -40,14 +45,21 @@ import org.chromium.chrome.test.R;
 import org.chromium.chrome.test.transit.AutoResetCtaTransitTestRule;
 import org.chromium.chrome.test.transit.ChromeTransitTestRules;
 import org.chromium.chrome.test.transit.Journeys;
+import org.chromium.chrome.test.transit.hub.NewTabGroupDialogFacility;
 import org.chromium.chrome.test.transit.hub.RegularTabSwitcherStation;
+import org.chromium.chrome.test.transit.hub.TabGroupDialogFacility;
+import org.chromium.chrome.test.transit.hub.TabSwitcherListEditorFacility;
 import org.chromium.chrome.test.transit.hub.TabSwitcherSearchStation;
 import org.chromium.chrome.test.transit.hub.TabSwitcherSearchStation.SuggestionFacility;
+import org.chromium.chrome.test.transit.ntp.RegularNewTabPageStation;
 import org.chromium.chrome.test.transit.page.WebPageStation;
+import org.chromium.chrome.test.transit.testhtmls.NavigatePageStations;
 import org.chromium.chrome.test.util.BookmarkTestUtil;
 import org.chromium.chrome.test.util.MenuUtils;
+import org.chromium.components.omnibox.OmniboxFeatureList;
 import org.chromium.net.test.EmbeddedTestServer;
 import org.chromium.ui.base.DeviceFormFactor;
+import org.chromium.ui.base.PageTransition;
 
 import java.util.List;
 import java.util.concurrent.TimeoutException;
@@ -55,6 +67,8 @@ import java.util.concurrent.TimeoutException;
 /** Tests for search in the tab switcher. */
 @RunWith(ChromeJUnit4ClassRunner.class)
 @CommandLineFlags.Add({ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE})
+// TODO(crbug.com/419289558): Re-enable color surface feature flags.
+@DisableFeatures({ChromeFeatureList.ANDROID_THEME_MODULE})
 @Batch(Batch.PER_CLASS)
 public class TabSwitcherSearchTest {
     private static final int SERVER_PORT = 13245;
@@ -68,6 +82,7 @@ public class TabSwitcherSearchTest {
 
     private EmbeddedTestServer mTestServer;
     private WebPageStation mPage;
+    private UserActionTester mUserActionTester;
 
     @Before
     public void setUp() {
@@ -75,6 +90,7 @@ public class TabSwitcherSearchTest {
                 TabSwitcherSearchTestUtils.setServerPortAndGetTestServer(
                         mCtaTestRule.getActivityTestRule(), SERVER_PORT);
         mPage = mCtaTestRule.startOnBlankPage();
+        mUserActionTester = new UserActionTester();
 
         ChromeTabbedActivity cta = mCtaTestRule.getActivity();
         CriteriaHelper.pollUiThread(cta.getTabModelSelector()::isTabStateInitialized);
@@ -327,6 +343,148 @@ public class TabSwitcherSearchTest {
                         /* index= */ 1, /* title= */ "foobar", /* text= */ null);
         mPage = suggestion.openPage();
         assertFalse(mPage.isIncognito());
+    }
+
+    @Test
+    @MediumTest
+    @EnableFeatures({OmniboxFeatureList.ANDROID_HUB_SEARCH_TAB_GROUPS})
+    public void testTypedSuggestions_OpenTabGroupSearchSuggestion() {
+        String tabGroupTitle = "Test";
+        Tab firstTab = mPage.loadedTabElement.get();
+        int firstTabId = firstTab.getId();
+        mCtaTestRule.loadUrlInTab(
+                mCtaTestRule.getTestServer().getURL(NavigatePageStations.PATH_ONE),
+                PageTransition.TYPED | PageTransition.FROM_ADDRESS_BAR,
+                firstTab);
+        RegularNewTabPageStation secondPage = mPage.openNewTabFast();
+        Tab secondTab = secondPage.loadedTabElement.get();
+        int secondTabId = secondTab.getId();
+        mCtaTestRule.loadUrlInTab(
+                mCtaTestRule.getTestServer().getURL(NavigatePageStations.PATH_ONE),
+                PageTransition.TYPED | PageTransition.FROM_ADDRESS_BAR,
+                secondTab);
+        RegularTabSwitcherStation tabSwitcher = secondPage.openRegularTabSwitcher();
+        TabSwitcherListEditorFacility<RegularTabSwitcherStation> editor =
+                tabSwitcher.openAppMenu().clickSelectTabs();
+        editor = editor.addTabToSelection(0, firstTabId);
+        editor = editor.addTabToSelection(1, secondTabId);
+        NewTabGroupDialogFacility<RegularTabSwitcherStation> dialog =
+                editor.openAppMenuWithEditor().groupTabs();
+        dialog = dialog.inputName(tabGroupTitle);
+        dialog.pressDone();
+
+        TabSwitcherSearchStation tabSwitcherSearchStation = tabSwitcher.openTabSwitcherSearch();
+        tabSwitcherSearchStation.typeInOmnibox("test");
+        SuggestionFacility suggestion =
+                tabSwitcherSearchStation.findSuggestion(
+                        /* index= */ 1,
+                        /* title= */ "   Test",
+                        /* text= */ "127.0.0.1:13245/chrome/test/data/android/navigate/one.html,"
+                                + " 127.0.0.1:13245/chrome/test/data/android/navigate/one.html");
+        Pair<RegularTabSwitcherStation, TabGroupDialogFacility> pair =
+                suggestion.openTabGroup(
+                        mCtaTestRule.getActivity(),
+                        List.of(firstTabId, secondTabId),
+                        tabGroupTitle);
+        assertEquals(tabGroupTitle, pair.second.getTitle());
+        assertEquals(
+                1,
+                mUserActionTester.getActionCount("TabGroups.HubSearchTabGroupSuggestionClicked"));
+    }
+
+    @Test
+    @MediumTest
+    @EnableFeatures({OmniboxFeatureList.ANDROID_HUB_SEARCH_TAB_GROUPS})
+    public void testTypedSuggestions_OpenTabGroupSearchSuggestionByURLMatch() {
+        String tabGroupTitle = "Test";
+        Tab firstTab = mPage.loadedTabElement.get();
+        int firstTabId = firstTab.getId();
+        mCtaTestRule.loadUrlInTab(
+                mCtaTestRule.getTestServer().getURL(NavigatePageStations.PATH_ONE),
+                PageTransition.TYPED | PageTransition.FROM_ADDRESS_BAR,
+                firstTab);
+        RegularNewTabPageStation secondPage = mPage.openNewTabFast();
+        Tab secondTab = secondPage.loadedTabElement.get();
+        int secondTabId = secondTab.getId();
+        mCtaTestRule.loadUrlInTab(
+                mCtaTestRule.getTestServer().getURL(NavigatePageStations.PATH_ONE),
+                PageTransition.TYPED | PageTransition.FROM_ADDRESS_BAR,
+                secondTab);
+        RegularTabSwitcherStation tabSwitcher = secondPage.openRegularTabSwitcher();
+        TabSwitcherListEditorFacility<RegularTabSwitcherStation> editor =
+                tabSwitcher.openAppMenu().clickSelectTabs();
+        editor = editor.addTabToSelection(0, firstTabId);
+        editor = editor.addTabToSelection(1, secondTabId);
+        NewTabGroupDialogFacility<RegularTabSwitcherStation> dialog =
+                editor.openAppMenuWithEditor().groupTabs();
+        dialog = dialog.inputName(tabGroupTitle);
+        dialog.pressDone();
+
+        TabSwitcherSearchStation tabSwitcherSearchStation = tabSwitcher.openTabSwitcherSearch();
+        tabSwitcherSearchStation.typeInOmnibox("navigate");
+        SuggestionFacility suggestion =
+                tabSwitcherSearchStation.findSuggestion(
+                        /* index= */ 1,
+                        /* title= */ "   Test",
+                        /* text= */ "127.0.0.1:13245/chrome/test/data/android/navigate/one.html,"
+                                + " 127.0.0.1:13245/chrome/test/data/android/navigate/one.html");
+        Pair<RegularTabSwitcherStation, TabGroupDialogFacility> pair =
+                suggestion.openTabGroup(
+                        mCtaTestRule.getActivity(),
+                        List.of(firstTabId, secondTabId),
+                        tabGroupTitle);
+        assertEquals(tabGroupTitle, pair.second.getTitle());
+        assertEquals(
+                1,
+                mUserActionTester.getActionCount("TabGroups.HubSearchTabGroupSuggestionClicked"));
+    }
+
+    @Test
+    @MediumTest
+    @EnableFeatures({OmniboxFeatureList.ANDROID_HUB_SEARCH_TAB_GROUPS})
+    public void testTypedSuggestionsFromTabGroupsPane_OpenTabGroupSearchSuggestion() {
+        String tabGroupTitle = "Test";
+        Tab firstTab = mPage.loadedTabElement.get();
+        int firstTabId = firstTab.getId();
+        mCtaTestRule.loadUrlInTab(
+                mCtaTestRule.getTestServer().getURL(NavigatePageStations.PATH_ONE),
+                PageTransition.TYPED | PageTransition.FROM_ADDRESS_BAR,
+                firstTab);
+        RegularNewTabPageStation secondPage = mPage.openNewTabFast();
+        Tab secondTab = secondPage.loadedTabElement.get();
+        int secondTabId = secondTab.getId();
+        mCtaTestRule.loadUrlInTab(
+                mCtaTestRule.getTestServer().getURL(NavigatePageStations.PATH_ONE),
+                PageTransition.TYPED | PageTransition.FROM_ADDRESS_BAR,
+                secondTab);
+        RegularTabSwitcherStation tabSwitcher = secondPage.openRegularTabSwitcher();
+        TabSwitcherListEditorFacility<RegularTabSwitcherStation> editor =
+                tabSwitcher.openAppMenu().clickSelectTabs();
+        editor = editor.addTabToSelection(0, firstTabId);
+        editor = editor.addTabToSelection(1, secondTabId);
+        NewTabGroupDialogFacility<RegularTabSwitcherStation> dialog =
+                editor.openAppMenuWithEditor().groupTabs();
+        dialog = dialog.inputName(tabGroupTitle);
+        dialog.pressDone();
+
+        TabSwitcherSearchStation tabSwitcherSearchStation =
+                tabSwitcher.selectTabGroupsPane().openTabGroupsPaneSearch();
+        tabSwitcherSearchStation.typeInOmnibox("test");
+        SuggestionFacility suggestion =
+                tabSwitcherSearchStation.findSuggestion(
+                        /* index= */ 1,
+                        /* title= */ "   Test",
+                        /* text= */ "127.0.0.1:13245/chrome/test/data/android/navigate/one.html,"
+                                + " 127.0.0.1:13245/chrome/test/data/android/navigate/one.html");
+        Pair<RegularTabSwitcherStation, TabGroupDialogFacility> pair =
+                suggestion.openTabGroup(
+                        mCtaTestRule.getActivity(),
+                        List.of(firstTabId, secondTabId),
+                        tabGroupTitle);
+        assertEquals(tabGroupTitle, pair.second.getTitle());
+        assertEquals(
+                1,
+                mUserActionTester.getActionCount("TabGroups.HubSearchTabGroupSuggestionClicked"));
     }
 
     @Test

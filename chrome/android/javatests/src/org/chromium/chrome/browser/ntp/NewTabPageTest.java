@@ -202,7 +202,7 @@ public class NewTabPageTest {
         mSuggestionsDeps.getFactory().mostVisitedSites = mMostVisitedSites;
 
         mActivityTestRule.loadUrl(UrlConstants.NTP_URL);
-        mTab = mActivityTestRule.getActivity().getActivityTab();
+        mTab = mActivityTestRule.getActivityTab();
         NewTabPageTestUtils.waitForNtpLoaded(mTab);
 
         Assert.assertTrue(mTab.getNativePage() instanceof NewTabPage);
@@ -499,86 +499,6 @@ public class NewTabPageTest {
                                 .onTemplateURLServiceChangedForTesting();
                         Assert.assertEquals(View.VISIBLE, logoView.getVisibility());
                     }
-                });
-    }
-
-    /**
-     * Verifies that the placeholder is only shown when there are no tile suggestions and the search
-     * provider has no logo.
-     */
-    @Test
-    @SmallTest
-    @Feature({"NewTabPage", "FeedNewTabPage"})
-    public void testPlaceholder() {
-        when(mTemplateUrlService.doesDefaultSearchEngineHaveLogo()).thenReturn(true);
-
-        final NewTabPageLayout ntpLayout = mNtp.getNewTabPageLayout();
-        final View logoView = ntpLayout.findViewById(R.id.search_provider_logo);
-        final View searchBoxView = ntpLayout.findViewById(R.id.search_box);
-
-        // Initially, the logo is visible, the search box is visible, there is one tile suggestion,
-        // and the placeholder has not been inflated yet.
-        Assert.assertEquals(View.VISIBLE, logoView.getVisibility());
-        Assert.assertEquals(View.VISIBLE, searchBoxView.getVisibility());
-        Assert.assertEquals(8, mMvTilesLayout.getTileCount());
-        Assert.assertNull(mNtp.getView().findViewById(R.id.tile_grid_placeholder));
-
-        // When the search provider has no logo and there are no tile suggestions, the placeholder
-        // is shown.
-        ThreadUtils.runOnUiThreadBlocking(
-                () -> {
-                    when(mTemplateUrlService.doesDefaultSearchEngineHaveLogo()).thenReturn(false);
-                    when(mTemplateUrlService.isDefaultSearchEngineGoogle()).thenReturn(true);
-                    ntpLayout.setSearchProviderInfo(/* hasLogo= */ false, /* isGoogle= */ true);
-                    // Mock to notify the template URL service observer.
-                    ntpLayout
-                            .getLogoCoordinatorForTesting()
-                            .onTemplateURLServiceChangedForTesting();
-
-                    Assert.assertEquals(View.GONE, logoView.getVisibility());
-                    Assert.assertEquals(View.GONE, searchBoxView.getVisibility());
-
-                    mMostVisitedSites.setTileSuggestions(new String[] {});
-                    ntpLayout.onSwitchToForeground(); // Force tile refresh.
-                    // Mock to notify the template URL service observer.
-                    ntpLayout
-                            .getMostVisitedTilesCoordinatorForTesting()
-                            .onTemplateURLServiceChangedForTesting();
-                });
-        CriteriaHelper.pollUiThread(
-                () -> {
-                    Criteria.checkThat(
-                            "The tile grid was not updated.", mMvTilesLayout.getTileCount(), is(0));
-                });
-        Assert.assertNotNull(mNtp.getView().findViewById(R.id.tile_grid_placeholder));
-        Assert.assertEquals(
-                View.VISIBLE,
-                mNtp.getView().findViewById(R.id.tile_grid_placeholder).getVisibility());
-
-        // Once the search provider has a logo again, the logo and search box are shown again and
-        // the placeholder is hidden.
-        ThreadUtils.runOnUiThreadBlocking(
-                () -> {
-                    when(mTemplateUrlService.doesDefaultSearchEngineHaveLogo()).thenReturn(true);
-                    when(mTemplateUrlService.isDefaultSearchEngineGoogle()).thenReturn(true);
-                    ntpLayout.setSearchProviderInfo(/* hasLogo= */ true, /* isGoogle= */ true);
-                    // Mock to notify the template URL service observer.
-                    ntpLayout
-                            .getLogoCoordinatorForTesting()
-                            .onTemplateURLServiceChangedForTesting();
-
-                    Assert.assertEquals(View.VISIBLE, logoView.getVisibility());
-                    Assert.assertEquals(View.VISIBLE, searchBoxView.getVisibility());
-
-                    // Mock to notify the template URL service observer.
-                    ntpLayout
-                            .getMostVisitedTilesCoordinatorForTesting()
-                            .onTemplateURLServiceChangedForTesting();
-                    Assert.assertEquals(
-                            View.GONE,
-                            mNtp.getView()
-                                    .findViewById(R.id.tile_grid_placeholder)
-                                    .getVisibility());
                 });
     }
 
@@ -935,11 +855,11 @@ public class NewTabPageTest {
         int expectedTitleTopMargin =
                 res.getDimensionPixelSize(R.dimen.tile_view_title_margin_top_modern);
         TileView suggestionsTileElement = mvTilesLayout.getTileAt(0);
+        View tileTextContainer = suggestionsTileElement.findViewById(R.id.tile_text_container);
         Assert.assertEquals(
-                "The top margin of the tile element's title is wrong.",
+                "The top margin of the tile element's title container is wrong.",
                 expectedTitleTopMargin,
-                ((MarginLayoutParams) suggestionsTileElement.getTitleView().getLayoutParams())
-                        .topMargin);
+                ((MarginLayoutParams) tileTextContainer.getLayoutParams()).topMargin);
     }
 
     /**

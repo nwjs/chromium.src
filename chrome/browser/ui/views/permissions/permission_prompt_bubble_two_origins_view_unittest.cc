@@ -67,6 +67,7 @@ class TestDelegateTwoOrigins : public permissions::PermissionPrompt::Delegate {
   void Deny() override {}
   void Dismiss() override {}
   void Ignore() override {}
+  void SetPromptOptions(PromptOptions prompt_options) override {}
   void FinalizeCurrentRequests() override {}
   void OpenHelpCenterLink(const ui::Event& event) override {}
   void PreIgnoreQuietPrompt() override {}
@@ -117,8 +118,7 @@ class PermissionPromptBubbleTwoOriginsViewTest : public ChromeViewsTestBase {
   std::unique_ptr<PermissionPromptBubbleBaseView> CreateBubble(
       TestDelegateTwoOrigins* delegate) {
     return std::make_unique<PermissionPromptBubbleTwoOriginsView>(
-        browser(), delegate->GetWeakPtr(), base::TimeTicks::Now(),
-        PermissionPromptStyle::kBubbleOnly);
+        browser(), delegate->GetWeakPtr(), PermissionPromptStyle::kBubbleOnly);
   }
 
  private:

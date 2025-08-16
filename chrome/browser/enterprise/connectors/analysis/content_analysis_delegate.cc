@@ -52,6 +52,7 @@
 #include "components/enterprise/connectors/core/analysis_settings.h"
 #include "components/enterprise/connectors/core/common.h"
 #include "components/enterprise/connectors/core/features.h"
+#include "components/enterprise/connectors/core/reporting_constants.h"
 #include "components/enterprise/connectors/core/reporting_utils.h"
 #include "components/guest_view/browser/guest_view_base.h"
 #include "components/policy/core/common/chrome_schema.h"
@@ -78,9 +79,6 @@ using safe_browsing::BinaryUploadService;
 namespace enterprise_connectors {
 
 namespace {
-
-// URL chain limit for nested iFrames.
-constexpr int kMaxFrameUrls = 10;
 
 // Global pointer of factory function (RepeatingCallback) used to create
 // instances of ContentAnalysisDelegate in tests.  !is_null() only in tests.
@@ -120,7 +118,7 @@ void OnContentAnalysisComplete(
 
 void OnPathsExpanded(
     base::WeakPtr<content::WebContents> web_contents,
-    safe_browsing::DeepScanAccessPoint access_point,
+    DeepScanAccessPoint access_point,
     ContentAnalysisDelegate::Data data,
     std::unique_ptr<FilesScanData> files_scan_data,
     ContentAnalysisDelegate::ForFilesCompletionCallback callback) {
@@ -137,39 +135,6 @@ void OnPathsExpanded(
       base::BindOnce(&OnContentAnalysisComplete, std::move(files_scan_data),
                      std::move(callback)),
       access_point);
-}
-
-// Returns the list of URLs from the current frame all the way to the outermost
-// frame URL. Above the `kMaxFrameUrls` limit, we skip the rest of the chain and
-// take the outermost URL for performance considerations.
-google::protobuf::RepeatedPtrField<std::string> CollectFrameUrls(
-    content::WebContents* web_contents) {
-  google::protobuf::RepeatedPtrField<std::string> frame_urls;
-
-  if (!web_contents) {
-    return frame_urls;
-  }
-
-  content::RenderFrameHost* current_frame = web_contents->GetFocusedFrame();
-
-  // Traverse upwards and add URLs to the chain.
-  while (current_frame && frame_urls.size() < kMaxFrameUrls - 1) {
-    *frame_urls.Add() = current_frame->GetLastCommittedURL().spec();
-
-    content::RenderFrameHost* parent = current_frame->GetParent();
-    if (!parent) {
-      // Already at outermost frame.
-      return frame_urls;
-    }
-    current_frame = parent;
-  }
-
-  // If we hit the limit, collect the top frame instead.
-  if (frame_urls.size() == kMaxFrameUrls - 1 && current_frame) {
-    current_frame = current_frame->GetOutermostMainFrame();
-    *frame_urls.Add() = current_frame->GetLastCommittedURL().spec();
-  }
-  return frame_urls;
 }
 
 }  // namespace
@@ -258,7 +223,7 @@ void ContentAnalysisDelegate::Cancel(bool warning) {
   // Don't report this upload as cancelled if the user didn't bypass the
   // warning.
   if (!warning) {
-    RecordDeepScanMetrics(
+    safe_browsing::RecordDeepScanMetrics(
         data_.settings.cloud_or_local_settings.is_cloud_analysis(),
         access_point_, base::TimeTicks::Now() - upload_start_time_, 0,
         "CancelledByUser", false);
@@ -335,18 +300,18 @@ bool ContentAnalysisDelegate::BypassRequiresJustification() const {
 std::u16string ContentAnalysisDelegate::GetBypassJustificationLabel() const {
   int id;
   switch (access_point_) {
-    case safe_browsing::DeepScanAccessPoint::UPLOAD:
-    case safe_browsing::DeepScanAccessPoint::DRAG_AND_DROP:
-    case safe_browsing::DeepScanAccessPoint::FILE_TRANSFER:
+    case DeepScanAccessPoint::UPLOAD:
+    case DeepScanAccessPoint::DRAG_AND_DROP:
+    case DeepScanAccessPoint::FILE_TRANSFER:
       id = IDS_DEEP_SCANNING_DIALOG_UPLOAD_BYPASS_JUSTIFICATION_LABEL;
       break;
-    case safe_browsing::DeepScanAccessPoint::DOWNLOAD:
+    case DeepScanAccessPoint::DOWNLOAD:
       id = IDS_DEEP_SCANNING_DIALOG_DOWNLOAD_BYPASS_JUSTIFICATION_LABEL;
       break;
-    case safe_browsing::DeepScanAccessPoint::PASTE:
+    case DeepScanAccessPoint::PASTE:
       id = IDS_DEEP_SCANNING_DIALOG_PASTE_BYPASS_JUSTIFICATION_LABEL;
       break;
-    case safe_browsing::DeepScanAccessPoint::PRINT:
+    case DeepScanAccessPoint::PRINT:
       id = IDS_DEEP_SCANNING_DIALOG_PRINT_BYPASS_JUSTIFICATION_LABEL;
       break;
   }
@@ -389,7 +354,7 @@ void ContentAnalysisDelegate::CreateForWebContents(
     content::WebContents* web_contents,
     Data data,
     CompletionCallback callback,
-    safe_browsing::DeepScanAccessPoint access_point) {
+    DeepScanAccessPoint access_point) {
   Factory* testing_factory = GetFactoryStorage();
   bool wait_for_verdict =
       data.settings.block_until_verdict == BlockUntilVerdict::kBlock;
@@ -484,7 +449,7 @@ void ContentAnalysisDelegate::CreateForFilesInWebContents(
     content::WebContents* web_contents,
     Data data,
     ForFilesCompletionCallback callback,
-    safe_browsing::DeepScanAccessPoint access_point) {
+    DeepScanAccessPoint access_point) {
   DCHECK(data.text.empty());
   DCHECK(data.image.empty());
   DCHECK(!data.page.IsValid());
@@ -533,23 +498,17 @@ ContentAnalysisDelegate::ContentAnalysisDelegate(
     content::WebContents* web_contents,
     Data data,
     CompletionCallback callback,
-    safe_browsing::DeepScanAccessPoint access_point)
+    DeepScanAccessPoint access_point)
     : data_(std::move(data)),
       tab_id_(sessions::SessionTabHelper::IdForTab(web_contents)),
       callback_(std::move(callback)),
-      access_point_(access_point) {
-  DCHECK(web_contents);
+      access_point_(access_point),
+      web_contents_(web_contents->GetWeakPtr()) {
+  CHECK(web_contents);
   profile_ = Profile::FromBrowserContext(web_contents->GetBrowserContext());
   url_ = web_contents->GetLastCommittedURL();
   if (base::FeatureList::IsEnabled(kEnterpriseIframeDlpRulesSupport)) {
-    frame_url_chain_ = CollectFrameUrls(web_contents);
-    base::UmaHistogramCustomCounts(
-        base::JoinString(
-            {"Enterprise.IframeDlpRulesSupport",
-             safe_browsing::DeepScanAccessPointToString(access_point_),
-             "UrlChainSize"},
-            "."),
-        frame_url_chain_.size(), 1, kMaxFrameUrls, 10);
+    frame_url_chain_ = CollectFrameUrls(web_contents, access_point_);
   }
   title_ = base::UTF16ToUTF8(web_contents->GetTitle());
   user_action_id_ = base::HexEncode(base::RandBytesAsVector(128));
@@ -983,13 +942,13 @@ std::string ContentAnalysisDelegate::GetContentTransferMethod() const {
 
     case enterprise_connectors::ContentAnalysisRequest::CLIPBOARD_PASTE:
       if (!data_.paths.empty()) {
-        return "CONTENT_TRANSFER_METHOD_FILE_PASTE";
+        return kContentTransferMethodFilePaste;
       }
       break;
     case enterprise_connectors::ContentAnalysisRequest::DRAG_AND_DROP:
-      return "CONTENT_TRANSFER_METHOD_DRAG_AND_DROP";
+      return kContentTransferMethodDragAndDrop;
     case enterprise_connectors::ContentAnalysisRequest::FILE_PICKER_DIALOG:
-      return "CONTENT_TRANSFER_METHOD_FILE_PICKER";
+      return kContentTransferMethodFilePicker;
   }
 
   return "";
@@ -1045,8 +1004,8 @@ std::string ContentAnalysisDelegate::email() const {
   return GetProfileEmail(profile_);
 }
 
-std::string ContentAnalysisDelegate::url() const {
-  return url_.spec();
+const GURL& ContentAnalysisDelegate::url() const {
+  return url_;
 }
 
 const GURL& ContentAnalysisDelegate::tab_url() const {
@@ -1069,6 +1028,10 @@ ContentAnalysisDelegate::referrer_chain() const {
 google::protobuf::RepeatedPtrField<std::string>
 ContentAnalysisDelegate::frame_url_chain() const {
   return frame_url_chain_;
+}
+
+content::WebContents* ContentAnalysisDelegate::web_contents() const {
+  return web_contents_.get();
 }
 
 }  // namespace enterprise_connectors

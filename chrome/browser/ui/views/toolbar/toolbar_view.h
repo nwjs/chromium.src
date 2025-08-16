@@ -16,7 +16,6 @@
 #include "chrome/browser/ui/tabs/tab_strip_model_observer.h"
 #include "chrome/browser/ui/toolbar/app_menu_icon_controller.h"
 #include "chrome/browser/ui/toolbar/back_forward_menu_model.h"
-#include "chrome/browser/ui/toolbar/chrome_labs/chrome_labs_model.h"
 #include "chrome/browser/ui/views/frame/browser_root_view.h"
 #include "chrome/browser/ui/views/frame/toolbar_button_provider.h"
 #include "chrome/browser/ui/views/intent_picker_bubble_view.h"
@@ -61,14 +60,6 @@ class AvatarToolbarButtonBrowserTest;
 class ToolbarController;
 class OverflowButton;
 class PerformanceInterventionButton;
-
-namespace media_router {
-class CastToolbarButton;
-}
-
-namespace page_actions {
-class PageActionView;
-}  // namespace page_actions
 
 namespace views {
 class FlexLayout;
@@ -155,9 +146,6 @@ class ToolbarView : public views::AccessiblePaneView,
   // Chrome Labs button is migrated to PinnedActionToolbarButton.
   // TODO(b/353385180): Remove once Chrome Labs button migration is complete.
   ChromeLabsButton* chrome_labs_button() const { return chrome_labs_button_; }
-  ChromeLabsModel* chrome_labs_model() const {
-    return chrome_labs_model_.get();
-  }
   ExtensionsToolbarContainer* extensions_container() const {
     return extensions_container_;
   }
@@ -255,8 +243,7 @@ class ToolbarView : public views::AccessiblePaneView,
   gfx::Size GetToolbarButtonSize() const override;
   views::View* GetDefaultExtensionDialogAnchorView() override;
   PageActionIconView* GetPageActionIconView(PageActionIconType type) override;
-  page_actions::PageActionView* GetPageActionView(
-      actions::ActionId action_id) override;
+  IconLabelBubbleView* GetPageActionView(actions::ActionId action_id) override;
   AppMenuButton* GetAppMenuButton() override;
   gfx::Rect GetFindBarBoundingBox(int contents_bottom) override;
   void FocusToolbar() override;
@@ -316,7 +303,6 @@ class ToolbarView : public views::AccessiblePaneView,
   raw_ptr<BatterySaverButton> battery_saver_button_ = nullptr;
   raw_ptr<PerformanceInterventionButton> performance_intervention_button_ =
       nullptr;
-  raw_ptr<media_router::CastToolbarButton> cast_ = nullptr;
   raw_ptr<PinnedToolbarActionsContainer> pinned_toolbar_actions_container_ =
       nullptr;
   raw_ptr<AvatarToolbarButton> avatar_ = nullptr;
@@ -332,7 +318,6 @@ class ToolbarView : public views::AccessiblePaneView,
 
   AppMenuIconController app_menu_icon_controller_;
 
-  std::unique_ptr<ChromeLabsModel> chrome_labs_model_;
   std::unique_ptr<ExtensionsToolbarCoordinator> extensions_toolbar_coordinator_;
 
   BooleanPrefMember show_forward_button_;

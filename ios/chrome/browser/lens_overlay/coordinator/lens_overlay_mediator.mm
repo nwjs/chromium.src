@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/40285824): Remove this and convert code to safer constructs.
+#pragma allow_unsafe_buffers
+#endif
+
 #import "ios/chrome/browser/lens_overlay/coordinator/lens_overlay_mediator.h"
 
 #import <memory>
@@ -316,7 +321,7 @@ typedef NS_ENUM(NSUInteger, LensOverlayFilterState) {
 
 - (void)lensOverlay:(id<ChromeLensOverlay>)lensOverlay
     didRequestToOpenURL:(GURL)URL {
-  [self.resultConsumer loadResultsURL:URL];
+  [self.resultConsumer loadResultsURL:URL httpHeaders:nil];
 }
 
 - (void)lensOverlayDidOpenOverlayMenu:(id<ChromeLensOverlay>)lensOverlay {
@@ -336,7 +341,8 @@ typedef NS_ENUM(NSUInteger, LensOverlayFilterState) {
   _currentLensResult = result;
   _thumbnailRemoved = NO;
   // Load the URL, it will start the result UI.
-  [self.resultConsumer loadResultsURL:result.searchResultURL];
+  [self.resultConsumer loadResultsURL:result.searchResultURL
+                          httpHeaders:result.resultsHttpHeaders];
   [self updateForLensResult:result];
 }
 
@@ -356,7 +362,7 @@ typedef NS_ENUM(NSUInteger, LensOverlayFilterState) {
         setThumbnailImage:_currentLensResult.selectionPreviewImage];
   }
   [self updateOmniboxText:omniboxText];
-  [self.resultConsumer loadResultsURL:URL];
+  [self.resultConsumer loadResultsURL:URL httpHeaders:nil];
 }
 
 - (void)onBackNavigationAvailabilityMaybeChanged:(BOOL)canGoBack {

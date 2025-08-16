@@ -28,6 +28,7 @@ class ColorSpace;
 }  // namespace gfx
 
 namespace gpu {
+class DawnContextProvider;
 class DXGISharedHandleManager;
 class SharedImageBacking;
 struct Mailbox;
@@ -52,7 +53,9 @@ class GPU_GLES2_EXPORT D3DImageBackingFactory
                                         const GpuPreferences& gpu_preferences);
 
   // Returns true if DXGI swap chain shared images for overlays are supported.
-  static bool IsSwapChainSupported(const GpuPreferences& gpu_preferences);
+  static bool IsSwapChainSupported(
+      const GpuPreferences& gpu_preferences,
+      DawnContextProvider* dawn_context_provider = nullptr);
 
   // Clears the current back buffer to |color| on the immediate context.
   static bool ClearBackBufferToColor(IDXGISwapChain1* swap_chain,
@@ -139,6 +142,13 @@ class GPU_GLES2_EXPORT D3DImageBackingFactory
       SkAlphaType alpha_type,
       SharedImageUsageSet usage,
       std::string debug_label);
+
+  bool CreateSwapChainInternal(
+      Microsoft::WRL::ComPtr<IDXGISwapChain1>& swap_chain,
+      Microsoft::WRL::ComPtr<ID3D11Texture2D>& back_buffer_texture,
+      Microsoft::WRL::ComPtr<ID3D11Texture2D>& front_buffer_texture,
+      viz::SharedImageFormat format,
+      const gfx::Size& size);
 
   bool SupportsBGRA8UnormStorage();
 

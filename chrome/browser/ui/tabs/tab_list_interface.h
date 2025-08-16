@@ -14,8 +14,8 @@
 #include "components/tabs/public/tab_interface.h"
 #include "url/gurl.h"
 
-// TODO(crbug.com/415323446): Move this file somewhere that is shared with
-// desktop and give it an appropriate namespace.
+class BrowserWindowInterface;
+class TabListInterfaceObserver;
 
 // Interface for supporting a basic set of tab operations on Android and
 // Desktop.
@@ -27,54 +27,83 @@ class TabListInterface {
   TabListInterface(const TabListInterface& other) = delete;
   void operator=(const TabListInterface& other) = delete;
 
+  // Returns the TabListInterface associated with the given `browser`.
+  static TabListInterface* From(BrowserWindowInterface* browser);
+
+  // Adds / removes observers from this tab list.
+  virtual void AddTabListInterfaceObserver(
+      TabListInterfaceObserver* observer) = 0;
+  virtual void RemoveTabListInterfaceObserver(
+      TabListInterfaceObserver* observer) = 0;
+
+  // Returns the count of tabs within the tab list.
+  virtual int GetTabCount() const = 0;
+
+  // Returns the index of the currently-active tab. Note that this is different
+  // from the selected tab (of which there may be multiple).
+  virtual int GetActiveIndex() const = 0;
+
+  // Returns the `TabInterface` for the currently-active tab.
+  virtual tabs::TabInterface* GetActiveTab() = 0;
+
   // Opens a new tab to the given `url`, inserting it at `index` in the tab
   // strip. `index` may be ignored by the implementation if necessary.
   virtual void OpenTab(const GURL& url, int index) = 0;
 
-  // Attempts to discard the renderer for the tab at the given `index` from
-  // memory. An out-of- bounds `index` is ignored.
+  // Attempts to discard the renderer for the `tab` from memory.
   //
   // For details refer to:
   // docs/website/site/chromium-os/chromiumos-design-docs/tab-discarding-and-reloading/index.md
-  virtual void DiscardTab(int index) = 0;
+  virtual void DiscardTab(tabs::TabHandle tab) = 0;
 
-  // Duplicates the tab at the given `index` to the next adjacent index. An
-  // out-of-bounds `index` is ignored.
-  virtual void DuplicateTab(int index) = 0;
+  // Duplicates the `tab` to the next adjacent index.
+  virtual void DuplicateTab(tabs::TabHandle tab) = 0;
 
   // Returns the `TabInterface` for the tab at a given `index`. May be `nullptr`
   // if the index is out-of-bounds.
   virtual tabs::TabInterface* GetTab(int index) = 0;
 
-  // Highlights / selects the tabs at the given `indices`. Any out-of-bounds
-  // index values are ignored.
-  virtual void HighlightTabs(std::set<int> indices) = 0;
+  // Returns the index of the given `tab`, if it exists in the tab strip.
+  // Otherwise, returns -1.
+  virtual int GetIndexOfTab(tabs::TabHandle tab) = 0;
 
-  // Moves the tab at `from_index` to `to_index`. The nearest valid index will
-  // be used.
-  virtual void MoveTab(int from_index, int to_index) = 0;
+  // Highlights a set of tabs, adding them to the multi-selection set and
+  // activating one of them. This is an additive operation; it does not clear
+  // other currently selected tabs. The `tab_to_activate` becomes the active
+  // tab. The `tab_to_activate` must be present in `tabs`.
+  virtual void HighlightTabs(tabs::TabHandle tab_to_activate,
+                             const std::set<tabs::TabHandle>& tabs) = 0;
 
-  // Closes the tab at `index`. An out-of-bounds `index` is ignored.
-  virtual void CloseTab(int index) = 0;
+  // Moves the `tab` to `index`. The nearest valid index will be used.
+  virtual void MoveTab(tabs::TabHandle tab, int index) = 0;
+
+  // Closes the `tab`.
+  virtual void CloseTab(tabs::TabHandle tab) = 0;
 
   // Returns an in-order list of all tabs in the tab strip.
   virtual std::vector<tabs::TabInterface*> GetAllTabs() = 0;
 
-  // Pins the tab at `index`. Pinning a pinned tab has no effect. This may
-  // result in moving the tab if necessary.
-  virtual void PinTab(int index) = 0;
+  // Pins the `tab`. Pinning a pinned tab has no effect. This may result in
+  // moving the tab if necessary.
+  virtual void PinTab(tabs::TabHandle tab) = 0;
 
-  // Unpins the tab at `index`. Unpinning an unpinned tab has no effect. This
-  // may result in moving the tab if necessary.
-  virtual void UnpinTab(int index) = 0;
+  // Unpins the `tab`. Unpinning an unpinned tab has no effect. This may result
+  // in moving the tab if necessary.
+  virtual void UnpinTab(tabs::TabHandle tab) = 0;
 
-  // Creates a new tab group with the tabs at the given `indices`. Tabs will be
+  // Adds `tabs` to the `group_id` if provided or creates a new tab group.
+  // Returns the tab group ID of the created or added to group. Tabs will be
   // moved as necessary to make the group contiguous. Pinned tabs will no longer
-  // be pinned, tabs that were in other groups will be removed from those
-  // groups. Will return nullopt if all indices are invalid or groups are not
-  // supported.
-  virtual std::optional<tab_groups::TabGroupId> CreateGroup(
-      std::set<int> indices) = 0;
+  // be pinned, and tabs that were in other groups will be removed from those
+  // groups. Will no-op and return nullopt if the provided `group_id` is not an
+  // existing tab group.
+  virtual std::optional<tab_groups::TabGroupId> AddTabsToGroup(
+      std::optional<tab_groups::TabGroupId> group_id,
+      const std::set<tabs::TabHandle>& tabs) = 0;
+
+  // Ungroups all `tabs`. Tabs will be moved to an index adjacent to the group
+  // they were in.
+  virtual void Ungroup(const std::set<tabs::TabHandle>& tabs) = 0;
 
   // Moves the tab group to `index`. The nearest valid index will be used.
   virtual void MoveGroupTo(tab_groups::TabGroupId group_id, int index) = 0;

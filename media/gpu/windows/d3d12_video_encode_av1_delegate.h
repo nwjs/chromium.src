@@ -38,17 +38,23 @@ class MEDIA_GPU_EXPORT D3D12VideoEncodeAV1Delegate
   EncoderStatus::Or<BitstreamBufferMetadata> EncodeImpl(
       ID3D12Resource* input_frame,
       UINT input_frame_subresource,
-      const VideoEncoder::EncodeOptions& options) override;
+      const VideoEncoder::EncodeOptions& options,
+      const gfx::ColorSpace& input_color_space) override;
 
   bool SupportsRateControlReconfiguration() const override;
 
   bool UpdateRateControl(const Bitrate& bitrate, uint32_t framerate) override;
+
+  bool ReportsAverageQp() const override;
 
  private:
   friend class D3D12VideoEncodeAV1DelegateTest;
 
   EncoderStatus InitializeVideoEncoder(
       const VideoEncodeAccelerator::Config& config) override;
+
+  EncoderStatus::Or<size_t> GetEncodedBitstreamWrittenBytesCount(
+      const ScopedD3D12ResourceMap& metadata) override;
 
   EncoderStatus::Or<size_t> ReadbackBitstream(
       base::span<uint8_t> bitstream_buffer) override;
@@ -68,6 +74,8 @@ class MEDIA_GPU_EXPORT D3D12VideoEncodeAV1Delegate
       const D3D12_VIDEO_ENCODER_AV1_RESTORATION_CONFIG& restoration_config,
       AV1BitstreamBuilder::FrameHeader& frame_header);
 
+  uint32_t max_num_ref_frames_ = 0;
+
   D3D12_VIDEO_ENCODER_ENCODEFRAME_INPUT_ARGUMENTS input_arguments_{};
 
   // input_arguments_.SequenceControlDesc.CodecGopSequence
@@ -78,9 +86,6 @@ class MEDIA_GPU_EXPORT D3D12VideoEncodeAV1Delegate
 
   // Bitrate controller for CBR encoding.
   std::unique_ptr<aom::AV1RateControlRTC> software_brc_;
-
-  // TODO: move out of av1 delegate.
-  D3D12_VIDEO_ENCODER_RATE_CONTROL_CQP cqp_pramas_;
 
   // Bitrate allocation in bps.
   VideoBitrateAllocation bitrate_allocation_{Bitrate::Mode::kConstant};

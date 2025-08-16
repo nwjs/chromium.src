@@ -25,4 +25,20 @@ const std::u16string GetPageContextShouldDetachScript() {
   return kShouldDetachPageContextScript;
 }
 
+id<BWGGatewayProtocol> CreateBWGGateway() {
+  return nil;
+}
+
+void CheckGeminiEligibility(AuthenticationService* auth_service,
+                            BWGEligibilityCallback completion) {}
+
+void ResetGemini() {}
+
+void UpdatePageAttachmentState(
+    BWGPageContextAttachmentState bwg_attachment_state) {}
+
+bool IsProtectedUrl(std::string url) {
+  return false;
+}
+
 }  // namespace ios::provider

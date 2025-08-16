@@ -104,6 +104,8 @@ std::string_view ConvertIconToPrintableString(Suggestion::Icon icon) {
       return "kOfferTag";
     case Suggestion::Icon::kPenSpark:
       return "kPenSpark";
+    case Suggestion::Icon::kPersonCheck:
+      return "kPersonCheck";
     case Suggestion::Icon::kQuestionMark:
       return "kQuestionMark";
     case Suggestion::Icon::kRecoveryPassword:
@@ -154,6 +156,8 @@ std::string_view ConvertIconToPrintableString(Suggestion::Icon icon) {
       return "kBnpl";
     case Suggestion::Icon::kSaveAndFill:
       return "kSaveAndFill";
+    case Suggestion::Icon::kAndroidMessages:
+      return "kAndroidMessages";
   }
   NOTREACHED();
 }
@@ -172,6 +176,14 @@ Suggestion::PasswordSuggestionDetails::PasswordSuggestionDetails(
       signon_realm(signon_realm),
       display_signon_realm(display_signon_realm),
       is_cross_domain(is_cross_domain) {}
+
+Suggestion::PasswordSuggestionDetails::PasswordSuggestionDetails(
+    std::u16string_view username,
+    std::u16string_view password,
+    std::u16string_view backup_password)
+    : username(username),
+      password(password),
+      backup_password(backup_password) {}
 
 Suggestion::PasswordSuggestionDetails::PasswordSuggestionDetails(
     const PasswordSuggestionDetails&) = default;
@@ -277,6 +289,27 @@ Suggestion::IdentityCredentialPayload::operator=(IdentityCredentialPayload&&) =
 
 Suggestion::IdentityCredentialPayload::~IdentityCredentialPayload() = default;
 
+Suggestion::OneTimePasswordPayload::OneTimePasswordPayload() = default;
+Suggestion::OneTimePasswordPayload::OneTimePasswordPayload(
+    std::map<FieldGlobalId, std::u16string> filling_data)
+    : filling_data(std::move(filling_data)) {}
+
+Suggestion::OneTimePasswordPayload::OneTimePasswordPayload(
+    const OneTimePasswordPayload&) = default;
+
+Suggestion::OneTimePasswordPayload::OneTimePasswordPayload(
+    OneTimePasswordPayload&&) = default;
+
+Suggestion::OneTimePasswordPayload&
+Suggestion::OneTimePasswordPayload::operator=(const OneTimePasswordPayload&) =
+    default;
+
+Suggestion::OneTimePasswordPayload&
+Suggestion::OneTimePasswordPayload::operator=(OneTimePasswordPayload&&) =
+    default;
+
+Suggestion::OneTimePasswordPayload::~OneTimePasswordPayload() = default;
+
 Suggestion::PaymentsPayload::PaymentsPayload() = default;
 
 Suggestion::PaymentsPayload::PaymentsPayload(
@@ -341,11 +374,6 @@ Suggestion::Text& Suggestion::Text::operator=(const Text& other) = default;
 Suggestion::Text& Suggestion::Text::operator=(Text&& other) = default;
 
 Suggestion::Text::~Text() = default;
-
-Suggestion::Suggestion() = default;
-
-Suggestion::Suggestion(std::u16string main_text)
-    : main_text(std::move(main_text), Text::IsPrimary(true)) {}
 
 Suggestion::Suggestion(SuggestionType type) : type(type) {}
 

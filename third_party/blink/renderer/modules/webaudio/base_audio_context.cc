@@ -187,16 +187,15 @@ void BaseAudioContext::Dispose() {
 }
 
 void BaseAudioContext::ContextLifecycleStateChanged(
-    mojom::FrameLifecycleState state) {
+    mojom::blink::FrameLifecycleState state) {
   // Don't need to do anything for an offline context.
   if (!HasRealtimeConstraint()) {
     return;
   }
 
-  if (state == mojom::FrameLifecycleState::kRunning) {
+  if (state == mojom::blink::FrameLifecycleState::kRunning) {
     destination()->GetAudioDestinationHandler().Resume();
-  } else if (state == mojom::FrameLifecycleState::kFrozen ||
-             state == mojom::FrameLifecycleState::kFrozenAutoResumeMedia) {
+  } else if (state == mojom::blink::FrameLifecycleState::kFrozen) {
     destination()->GetAudioDestinationHandler().Pause();
   }
 }
@@ -646,11 +645,6 @@ void BaseAudioContext::SetContextState(V8AudioContextState::Enum new_state) {
 
   // The closed AudioContext does not accept any state change.
   if (control_thread_state_ == V8AudioContextState::Enum::kClosed) {
-    return;
-  }
-
-  if (!RuntimeEnabledFeatures::AudioContextInterruptedStateEnabled() &&
-      new_state == V8AudioContextState::Enum::kInterrupted) {
     return;
   }
 

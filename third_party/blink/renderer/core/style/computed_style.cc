@@ -257,7 +257,7 @@ static bool PseudoElementStylesEqual(const ComputedStyle& old_style,
     }
     // Highlight pseudo styles are stored in StyleHighlightData, and compared
     // like any other inherited field, yielding Difference::kInherited.
-    if (UsesHighlightPseudoInheritance(pseudo_id)) {
+    if (IsHighlightPseudoElement(pseudo_id)) {
       continue;
     }
     const ComputedStyle* new_pseudo_style =
@@ -764,7 +764,7 @@ StyleDifference ComputedStyle::VisualInvalidationDiff(
   StyleDifference diff;
   uint64_t field_diff = FieldInvalidationDiff(*this, other);
 
-  if ((field_diff & kReshape) || ShouldWrapLine() != other.ShouldWrapLine()) {
+  if (DiffNeedsReshape(other, field_diff)) {
     diff.SetNeedsReshape();
     diff.SetNeedsFullLayout();
     diff.SetNeedsNormalPaintInvalidation();
@@ -820,6 +820,9 @@ StyleDifference ComputedStyle::VisualInvalidationDiff(
   }
   if (field_diff & kBorderRadius) {
     diff.SetBorderRadiusChanged();
+  }
+  if (field_diff & kBorderShape) {
+    diff.SetBorderShapeChanged();
   }
   if (field_diff & kClip) {
     bool has_clip = HasOutOfFlowPosition() && !HasAutoClip();
@@ -915,6 +918,25 @@ StyleDifference ComputedStyle::VisualInvalidationDiff(
   return diff;
 }
 
+bool ComputedStyle::DiffNeedsReshape(const ComputedStyle& other,
+                                     uint64_t field_diff) const {
+  if (field_diff & kReshape) {
+    return true;
+  }
+
+  if (ShouldWrapLine() != other.ShouldWrapLine()) {
+    return true;
+  }
+
+  if (field_diff & kBorderWidth) {
+    if (Display() == EDisplay::kInline && HasBorder() != other.HasBorder()) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 bool ComputedStyle::DiffNeedsFullLayoutAndPaintInvalidation(
     const ComputedStyle& other,
     uint64_t field_diff) const {
@@ -972,7 +994,8 @@ bool ComputedStyle::DiffNeedsFullLayout(const Document& document,
     if (HasStroke() != other.HasStroke()) {
       return true;
     }
-    if (HasDashArray() != other.HasDashArray()) {
+    if (static_cast<bool>(StrokeDashArray()) !=
+        static_cast<bool>(other.StrokeDashArray())) {
       return true;
     }
   }
@@ -2249,6 +2272,35 @@ const StyleNonInheritedVariables* ComputedStyle::NonInheritedVariables() const {
   return NonInheritedVariablesInternal().Get();
 }
 
+// static
+const ComputedGridTrackList& ComputedStyle::ComputedGridTemplate(
+    const Member<ComputedGridTrackList>& track_list,
+    const bool use_masonry_default) {
+  if (track_list) {
+    return *track_list;
+  }
+  // If `track_list` is null, that means it is the initial value. The default
+  // value for 'grid-template-*' in masonry layout is 'repeat(auto-fill,
+  // auto)'.
+  //
+  // TODO(almaher): Update this depending on the resolution to
+  // https://github.com/w3c/csswg-drafts/issues/10869.
+  if (use_masonry_default) {
+    DEFINE_STATIC_LOCAL(
+        Persistent<ComputedGridTrackList>, auto_fill_auto_list,
+        (MakeGarbageCollected<ComputedGridTrackList>(
+            ComputedGridTrackList(GridTrackList(GridTrackSize(Length::Auto()),
+                                                GridTrackRepeater::kAutoFill),
+                                  AutoRepeatType::kAutoFill))));
+    return *auto_fill_auto_list;
+  }
+
+  DEFINE_STATIC_LOCAL(
+      Persistent<ComputedGridTrackList>, default_track_list,
+      (MakeGarbageCollected<ComputedGridTrackList>(ComputedGridTrackList())));
+  return *default_track_list;
+}
+
 bool ComputedStyle::HasPropertyDependingOnCurrentColor() const {
   for (CSSPropertyID property_id : kCSSIncludesCurrentColorProperties) {
     auto& property = CSSProperty::Get(property_id);
@@ -2772,17 +2824,18 @@ bool ComputedStyle::MarkerShouldBeInside(
       ListStylePosition() == EListStylePosition::kInside) {
     return true;
   }
-  // Force the marker of <li> elements with no <ol> or <ul> ancestor to have
-  // an inside position.
-  // TODO(crbug.com/41241289): This quirk predates WebKit, it was added to match
-  // the behavior of the Internet Explorer from that time. However, Microsoft
-  // ended up removing it (before switching to Blink), and Firefox never had it,
-  // so it may be possible to get rid of it.
-  if (IsA<HTMLLIElement>(parent) && !IsInsideListElement() &&
-      PseudoElementLayoutObjectIsNeeded(kPseudoIdMarker, marker_style,
-                                        &parent)) {
-    parent.GetDocument().CountUse(WebFeature::kInsideListMarkerPositionQuirk);
-    return true;
+  if (!RuntimeEnabledFeatures::ListStylePositionQuirkStandardEnabled()) {
+    // Force the marker of <li> elements with no <ol> or <ul> ancestor to have
+    // an inside position.
+    // TODO(crbug.com/41241289): This quirk predates WebKit, it was added to
+    // match the behavior of the Internet Explorer from that time. However,
+    // Microsoft ended up removing it (before switching to Blink), and Firefox
+    // never had it, so it may be possible to get rid of it.
+    if (IsA<HTMLLIElement>(parent) && !IsInsideListElement() &&
+        PseudoElementLayoutObjectIsNeeded(kPseudoIdMarker, marker_style,
+                                          &parent)) {
+      return true;
+    }
   }
   return false;
 }
@@ -2988,6 +3041,8 @@ const ComputedStyle* ComputedStyleBuilder::CloneStyle() const {
   ResetAccess();
   has_own_inherited_variables_ = false;
   has_own_non_inherited_variables_ = false;
+  has_own_animations_ = false;
+  has_own_transitions_ = false;
   return MakeGarbageCollected<ComputedStyle>(ComputedStyle::BuilderPassKey(),
                                              *this);
 }

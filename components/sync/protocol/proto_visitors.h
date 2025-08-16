@@ -53,6 +53,7 @@
 #include "components/sync/protocol/search_engine_specifics.pb.h"
 #include "components/sync/protocol/send_tab_to_self_specifics.pb.h"
 #include "components/sync/protocol/session_specifics.pb.h"
+#include "components/sync/protocol/shared_comment_specifics.pb.h"
 #include "components/sync/protocol/shared_tab_group_data_specifics.pb.h"
 #include "components/sync/protocol/sharing_message_specifics.pb.h"
 #include "components/sync/protocol/sync.pb.h"
@@ -251,6 +252,8 @@ VISIT_PROTO_FIELDS(const sync_pb::AutofillProfileSpecifics& proto) {
   VISIT(address_home_city);
   VISIT(address_home_state);
   VISIT(address_home_zip);
+  VISIT(address_home_zip_prefix);
+  VISIT(address_home_zip_suffix);
   VISIT(address_home_country);
   VISIT(address_home_landmark);
   VISIT(address_home_overflow);
@@ -275,6 +278,8 @@ VISIT_PROTO_FIELDS(const sync_pb::AutofillProfileSpecifics& proto) {
   VISIT_ENUM(address_home_city_status);
   VISIT_ENUM(address_home_state_status);
   VISIT_ENUM(address_home_zip_status);
+  VISIT_ENUM(address_home_zip_prefix_status);
+  VISIT_ENUM(address_home_zip_suffix_status);
   VISIT_ENUM(address_home_country_status);
   VISIT_ENUM(address_home_landmark_status);
   VISIT_ENUM(address_home_overflow_status);
@@ -427,6 +432,8 @@ VISIT_PROTO_FIELDS(const sync_pb::ContactInfoSpecifics& proto) {
   VISIT(address_city);
   VISIT(address_state);
   VISIT(address_zip);
+  VISIT(address_zip_prefix);
+  VISIT(address_zip_suffix);
   VISIT(address_country);
   VISIT(address_street_address);
   VISIT(address_sorting_code);
@@ -721,7 +728,7 @@ VISIT_PROTO_FIELDS(
 }
 
 VISIT_PROTO_FIELDS(const sync_pb::EntitySpecifics& proto) {
-  static_assert(55 == GetNumDataTypes(),
+  static_assert(56 == GetNumDataTypes(),
                 "When adding a new protocol type, you will likely need to add "
                 "it here as well.");
   VISIT(encrypted);
@@ -767,6 +774,7 @@ VISIT_PROTO_FIELDS(const sync_pb::EntitySpecifics& proto) {
   VISIT(security_event);
   VISIT(send_tab_to_self);
   VISIT(session);
+  VISIT(shared_comment);
   VISIT(shared_tab_group_account_data);
   VISIT(shared_tab_group_data);
   VISIT(sharing_message);
@@ -1799,6 +1807,7 @@ VISIT_PROTO_FIELDS(const sync_pb::WalletMaskedCreditCard& proto) {
   VISIT(product_terms_url);
   VISIT_ENUM(card_info_retrieval_enrollment_state);
   VISIT_ENUM(card_benefit_source);
+  VISIT_ENUM(card_creation_source);
 }
 
 VISIT_PROTO_FIELDS(const sync_pb::WalletMetadataSpecifics& proto) {
@@ -1880,6 +1889,7 @@ VISIT_PROTO_FIELDS(const sync_pb::WebAppSpecifics& proto) {
   VISIT(user_launch_ordinal);
   VISIT(relative_manifest_id);
   VISIT_ENUM(user_display_mode_cros);
+  VISIT_REP(trusted_icons);
 }
 
 VISIT_PROTO_FIELDS(const sync_pb::WifiConfigurationSpecifics::
@@ -2031,6 +2041,58 @@ VISIT_PROTO_FIELDS(const sync_pb::SharedTabGroupAccountDataSpecifics& proto) {
   VISIT(shared_tab_details);
   VISIT(shared_tab_group_details);
   VISIT(update_time_windows_epoch_micros);
+}
+
+VISIT_PROTO_FIELDS(
+    const sync_pb::CommentData::Attribution::CommentTarget::FragmentLink&
+        proto) {
+  VISIT(fragment);
+  VISIT(text_preview);
+}
+
+VISIT_PROTO_FIELDS(
+    const sync_pb::CommentData::Attribution::CommentTarget& proto) {
+  VISIT(shared_url_context_uuid);
+  VISIT(link_fragment);
+}
+
+VISIT_PROTO_FIELDS(const sync_pb::CommentData::Attribution::InReplyTo& proto) {
+  VISIT(parent_id);
+}
+
+VISIT_PROTO_FIELDS(const sync_pb::CommentData::Attribution& proto) {
+  VISIT(top_level);
+  VISIT(parent);
+}
+
+VISIT_PROTO_FIELDS(const sync_pb::CommentData::OrderKey& proto) {
+  VISIT(device_guid);
+  VISIT(local_sequence);
+}
+
+VISIT_PROTO_FIELDS(const sync_pb::CommentData& proto) {
+  VISIT(text);
+  VISIT(attribution);
+  VISIT(order_key);
+}
+
+VISIT_PROTO_FIELDS(const sync_pb::SharedUrlContext::UrlRepresentation& proto) {
+  VISIT_ENUM(source);
+  VISIT(value);
+  VISIT(version);
+}
+
+VISIT_PROTO_FIELDS(const sync_pb::SharedUrlContext& proto) {
+  VISIT_REP(representations);
+  VISIT(title);
+}
+
+VISIT_PROTO_FIELDS(const sync_pb::SharedCommentSpecifics& proto) {
+  VISIT(uuid);
+  VISIT(context_id);
+  VISIT(proto_version);
+  VISIT(comment);
+  VISIT(shared_url_context);
 }
 
 }  // namespace syncer

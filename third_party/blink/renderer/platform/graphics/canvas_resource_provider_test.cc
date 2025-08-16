@@ -10,6 +10,7 @@
 #include "cc/test/paint_image_matchers.h"
 #include "cc/test/skia_common.h"
 #include "components/viz/common/resources/release_callback.h"
+#include "components/viz/common/resources/transferable_resource.h"
 #include "components/viz/test/test_context_provider.h"
 #include "components/viz/test/test_gles2_interface.h"
 #include "components/viz/test/test_raster_interface.h"
@@ -17,6 +18,7 @@
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/platform/scheduler/test/renderer_scheduler_test_support.h"
+#include "third_party/blink/renderer/platform/graphics/canvas_resource.h"
 #include "third_party/blink/renderer/platform/graphics/gpu/shared_gpu_context.h"
 #include "third_party/blink/renderer/platform/graphics/skia/skia_utils.h"
 #include "third_party/blink/renderer/platform/graphics/static_bitmap_image.h"
@@ -165,6 +167,10 @@ TEST_F(CanvasResourceProviderTest,
 }
 
 TEST_F(CanvasResourceProviderTest, CanvasResourceProviderAcceleratedOverlay) {
+#if BUILDFLAG(IS_WIN)
+  base::test::ScopedFeatureList feature_list{kUseCRPSIForLowLatencyOnWindows};
+#endif
+
   const gfx::Size kSize(10, 10);
   const SkImageInfo kInfo =
       SkImageInfo::MakeN32Premul(10, 10, SkColorSpace::MakeSRGB());
@@ -185,13 +191,16 @@ TEST_F(CanvasResourceProviderTest, CanvasResourceProviderAcceleratedOverlay) {
   EXPECT_TRUE(provider->SupportsDirectCompositing());
   EXPECT_TRUE(provider->IsSingleBuffered());
   // As it is an CanvasResourceProviderSharedImage and an accelerated canvas, it
-  // will internally force it to RGBA8, or BGRA8 on MacOS
+  // will internally force it to RGBA8 on MacOS, or otherwise RGBA8 if not on
+  // Windows
 #if BUILDFLAG(IS_MAC)
   EXPECT_TRUE(provider->GetSkImageInfo() ==
               kInfo.makeColorType(kBGRA_8888_SkColorType));
-#else
+#elif !BUILDFLAG(IS_WIN)
   EXPECT_TRUE(provider->GetSkImageInfo() ==
               kInfo.makeColorType(kRGBA_8888_SkColorType));
+#else
+  EXPECT_TRUE(provider->GetSkImageInfo() == kInfo);
 #endif
 }
 
@@ -597,6 +606,10 @@ TEST_F(CanvasResourceProviderTest,
 
 TEST_F(CanvasResourceProviderTest,
        CanvasResourceProviderDirect2DGpuMemoryBuffer) {
+#if BUILDFLAG(IS_WIN)
+  base::test::ScopedFeatureList feature_list{kUseCRPSIForLowLatencyOnWindows};
+#endif
+
   const gfx::Size kSize(10, 10);
   const SkImageInfo kInfo =
       SkImageInfo::MakeN32Premul(10, 10, SkColorSpace::MakeSRGB());
@@ -617,13 +630,16 @@ TEST_F(CanvasResourceProviderTest,
   EXPECT_TRUE(provider->SupportsDirectCompositing());
   EXPECT_TRUE(provider->IsSingleBuffered());
   // As it is an CanvasResourceProviderSharedImage and an accelerated canvas, it
-  // will internally force it to RGBA8, or BGRA8 on MacOS
+  // will internally force it to RGBA8 on MacOS, or otherwise RGBA8 if not on
+  // Windows
 #if BUILDFLAG(IS_MAC)
   EXPECT_TRUE(provider->GetSkImageInfo() ==
               kInfo.makeColorType(kBGRA_8888_SkColorType));
-#else
+#elif !BUILDFLAG(IS_WIN)
   EXPECT_TRUE(provider->GetSkImageInfo() ==
               kInfo.makeColorType(kRGBA_8888_SkColorType));
+#else
+  EXPECT_TRUE(provider->GetSkImageInfo() == kInfo);
 #endif
 }
 
@@ -688,26 +704,6 @@ TEST_F(CanvasResourceProviderTest, DimensionsExceedMaxTextureSize_SwapChain) {
       context_provider_wrapper_);
 
   // The CanvasResourceProvider for SwapChain should not be created or valid
-  // if the texture size is greater than the maximum value
-  EXPECT_TRUE(!provider || !provider->IsValid());
-}
-
-TEST_F(CanvasResourceProviderTest, DimensionsExceedMaxTextureSize_PassThrough) {
-  auto provider = CanvasResourceProvider::CreatePassThroughProvider(
-      gfx::Size(kMaxTextureSize - 1, kMaxTextureSize), GetN32FormatForCanvas(),
-      kPremul_SkAlphaType, gfx::ColorSpace::CreateSRGB(),
-      context_provider_wrapper_);
-  EXPECT_TRUE(provider->SupportsDirectCompositing());
-  provider = CanvasResourceProvider::CreatePassThroughProvider(
-      gfx::Size(kMaxTextureSize, kMaxTextureSize), GetN32FormatForCanvas(),
-      kPremul_SkAlphaType, gfx::ColorSpace::CreateSRGB(),
-      context_provider_wrapper_);
-  EXPECT_TRUE(provider->SupportsDirectCompositing());
-  provider = CanvasResourceProvider::CreatePassThroughProvider(
-      gfx::Size(kMaxTextureSize + 1, kMaxTextureSize), GetN32FormatForCanvas(),
-      kPremul_SkAlphaType, gfx::ColorSpace::CreateSRGB(),
-      context_provider_wrapper_);
-  // The CanvasResourceProvider for PassThrough should not be created or valid
   // if the texture size is greater than the maximum value
   EXPECT_TRUE(!provider || !provider->IsValid());
 }

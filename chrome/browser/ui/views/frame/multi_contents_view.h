@@ -11,6 +11,7 @@
 #include "base/callback_list.h"
 #include "base/functional/callback_forward.h"
 #include "base/memory/raw_ptr.h"
+#include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/frame/contents_container_view.h"
 #include "ui/base/interaction/element_identifier.h"
 #include "ui/base/metadata/metadata_header_macros.h"
@@ -65,6 +66,8 @@ class MultiContentsView : public views::View,
   MultiContentsView& operator=(const MultiContentsView&) = delete;
   ~MultiContentsView() override;
 
+  ContentsContainerView* GetActiveContentsContainerView();
+
   // Returns the currently active ContentsWebView.
   ContentsWebView* GetActiveContentsView();
 
@@ -74,20 +77,25 @@ class MultiContentsView : public views::View,
   // Returns true if more than one WebContents is displayed.
   bool IsInSplitView() const;
 
+  // Show the split view without set any WebContents and update the size of
+  // contents views based on `ratio`, this is used to prepare the layout and
+  // prevent a re-layout of WebContents.
+  void ShowSplitView(double ratio);
+
+  // Preserves the active WebContents and hides the second ContentsContainerView
+  // and resize handle.
+  void CloseSplitView();
+
   // Assigns the given |web_contents| to the ContentsContainerView's
   // ContentsWebView at |index| in contents_container_views_. |index| must be
   // either 0 or 1 as we currently only support two contents. If |index| is 1
   // and we are not currently in a split view, displays the split views.
   void SetWebContentsAtIndex(content::WebContents* web_contents, int index);
 
-  // Preserves the active WebContents and hides the second ContentsContainerView
-  // and resize handle.
-  void CloseSplitView();
-
   // Sets the index of the active contents view within contents_views_.
   void SetActiveIndex(int index);
 
-  // Updates the the size of the contents views based on |ratio|.
+  // Updates the size of the contents views based on |ratio|.
   void UpdateSplitRatio(double ratio);
 
   // Sets whether a scrim should show over the inactive contents view.
@@ -101,12 +109,25 @@ class MultiContentsView : public views::View,
   // If in a split view, swaps the order of the two contents views.
   void OnSwap();
 
+  // If the split view is being resized.
+  bool IsSplitResizing() const {
+    return initial_start_width_on_resize_.has_value();
+  }
+
+  // Returns the minimum width for a single view within the `MultiContentsView`.
+  // Returns 0 if not in a split view.
+  int GetMinViewWidth() const;
+
   // views::ResizeAreaDelegate:
   void OnResize(int resize_amount, bool done_resizing) override;
 
   // views::View:
   void OnPaint(gfx::Canvas* canvas) override;
   void OnThemeChanged() override;
+
+  std::vector<ContentsContainerView*> contents_container_views() {
+    return contents_container_views_;
+  }
 
   MultiContentsViewDropTargetController& drop_target_controller() {
     return *drop_target_controller_;
@@ -117,6 +138,8 @@ class MultiContentsView : public views::View,
   }
 
   gfx::Insets& end_contents_view_inset() { return end_contents_view_inset_; }
+
+  bool is_drag_and_drop_enabled() const { return is_drag_and_drop_enabled_; }
 
   void set_min_contents_width_for_testing(int width) {
     min_contents_width_for_testing_ = std::make_optional(width);
@@ -149,6 +172,7 @@ class MultiContentsView : public views::View,
   int GetInactiveIndex();
 
   void OnWebContentsFocused(views::WebView*);
+  void OnNtpFooterFocused(views::WebView*);
 
   ViewWidths GetViewWidths(gfx::Rect available_space) const;
 
@@ -158,6 +182,9 @@ class MultiContentsView : public views::View,
   ViewWidths ClampToMinWidth(ViewWidths widths) const;
 
   void UpdateContentsBorderAndOverlay();
+
+  double CalculateRatioWithSnapPoints(double end_width,
+                                      double total_width) const;
 
   raw_ptr<BrowserView> browser_view_;
   std::unique_ptr<MultiContentsViewDelegate> delegate_;
@@ -170,6 +197,10 @@ class MultiContentsView : public views::View,
   // is focused.
   std::vector<base::CallbackListSubscription>
       web_contents_focused_subscriptions_;
+
+  // Holds subscriptions for when the attached web contents to NtpFooterView
+  // is focused.
+  std::vector<base::CallbackListSubscription> ntp_footer_focused_subscriptions_;
 
   // The handle responsible for resizing the two contents views as relative to
   // each other.
@@ -201,7 +232,16 @@ class MultiContentsView : public views::View,
 
   bool show_inactive_scrim_ = false;
 
+  // This is needed because drag and drop is broken on Wayland. Once that is
+  // resolved, this variable should be deleted.
+  // TODO(crbug.com/425715421): Fix drag and drop on Wayland.
+  bool is_drag_and_drop_enabled_ = true;
+
   std::optional<int> min_contents_width_for_testing_ = std::nullopt;
+
+  // Width ratios that a split view will snap to when resize is within a
+  // snap distance (kSideBySideSnapDistance).
+  std::vector<double> snap_points_ = {0.5};
 };
 
 #endif  // CHROME_BROWSER_UI_VIEWS_FRAME_MULTI_CONTENTS_VIEW_H_

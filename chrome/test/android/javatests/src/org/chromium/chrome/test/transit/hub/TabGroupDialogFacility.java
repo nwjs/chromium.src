@@ -29,6 +29,7 @@ import org.chromium.chrome.test.R;
 import org.chromium.chrome.test.transit.ChromeActivityTabModelBoundStation;
 import org.chromium.chrome.test.transit.ntp.IncognitoNewTabPageStation;
 import org.chromium.chrome.test.transit.ntp.RegularNewTabPageStation;
+import org.chromium.chrome.test.transit.page.CtaPageStation;
 import org.chromium.chrome.test.transit.tabmodel.TabGroupUtil;
 import org.chromium.components.tab_groups.TabGroupColorId;
 
@@ -38,8 +39,8 @@ import java.util.List;
  * Dialog that appears when a tab group is clicked on in the Tab Switcher or when the tab group
  * snackbar is expanded.
  *
- * @param <HostStationT> the station where the Tab Group Dialog is opened from. Should be
- *     TabSwitcherStation or PageStation.
+ * @param <HostStationT> the station where the Tab Group Dialog is opened from. Should be {@link
+ *     TabSwitcherStation} or {@link CtaPageStation}.
  */
 public class TabGroupDialogFacility<
                 HostStationT extends ChromeActivityTabModelBoundStation<ChromeTabbedActivity>>
@@ -102,10 +103,17 @@ public class TabGroupDialogFacility<
         if (ChromeFeatureList.isEnabled(ChromeFeatureList.DATA_SHARING)
                 || ChromeFeatureList.isEnabled(ChromeFeatureList.DATA_SHARING_JOIN_ONLY)) {
             // TODO(ckitagawa): Add handling for an already shared group.
-            if (isAllowedToShare()) {
-                shareButtonElement =
-                        declareView(toolbarElement.descendant(withId(R.id.share_button)));
-            }
+
+            // Make this a delayed element check to ensure the tab model is available on check.
+            declareElementFactory(
+                    mHostStation.tabModelElement,
+                    delayedElements -> {
+                        if (isAllowedToShare()) {
+                            shareButtonElement =
+                                    delayedElements.declareView(
+                                            toolbarElement.descendant(withId(R.id.share_button)));
+                        }
+                    });
 
             // Data sharing layout causes the menu button to be hidden due to the rounded corner.
             listMenuButtonElement =
@@ -131,38 +139,53 @@ public class TabGroupDialogFacility<
 
     /** Input a new group name. */
     public TabGroupDialogFacility<HostStationT> inputName(String newTabGroupName) {
-        return mHostStation.swapFacilitySync(
-                this,
-                new TabGroupDialogFacility<>(mTabIdsInGroup, newTabGroupName, mSelectedColor),
-                titleInputElement.getPerformTrigger(replaceText(newTabGroupName)));
+        return titleInputElement
+                .performViewActionTo(replaceText(newTabGroupName))
+                .exitFacilityAnd()
+                .enterFacility(
+                        new TabGroupDialogFacility<>(
+                                mTabIdsInGroup, newTabGroupName, mSelectedColor));
     }
 
     /** Create a new tab and transition to the associated RegularNewTabPageStation. */
     public RegularNewTabPageStation openNewRegularTab() {
         assert !mHostStation.isIncognito();
 
-        RegularNewTabPageStation page =
-                RegularNewTabPageStation.newBuilder()
-                        .withIsOpeningTabs(1)
-                        .withIsSelectingTabs(1)
-                        .build();
-        return mHostStation.travelToSync(page, newTabButtonElement.getClickTrigger());
+        return newTabButtonElement
+                .clickTo()
+                .arriveAt(RegularNewTabPageStation.newBuilder().initOpeningNewTab().build());
     }
 
     /** Create a new incognito tab and transition to the associated IncognitoNewTabPageStation. */
     public IncognitoNewTabPageStation openNewIncognitoTab() {
         assert mHostStation.isIncognito();
 
-        IncognitoNewTabPageStation page =
-                IncognitoNewTabPageStation.newBuilder()
-                        .withIsOpeningTabs(1)
-                        .withIsSelectingTabs(1)
-                        .build();
-        return mHostStation.travelToSync(page, newTabButtonElement.getClickTrigger());
+        return newTabButtonElement
+                .clickTo()
+                .arriveAt(IncognitoNewTabPageStation.newBuilder().initOpeningNewTab().build());
     }
 
     /** Press back to exit the facility. */
     public void pressBackArrowToExit() {
-        mHostStation.exitFacilitySync(this, backButtonElement.getClickTrigger());
+        backButtonElement.clickTo().exitFacility();
+    }
+
+    /**
+     * Clicks the color icon to open the color picker palette.
+     *
+     * @return The newly opened {@link TabGroupColorPickerFacility}.
+     */
+    public TabGroupColorPickerFacility<HostStationT> openColorPicker() {
+        return colorIconElement.clickTo().enterFacility(new TabGroupColorPickerFacility<>(this));
+    }
+
+    /** Returns {@link List<Integer>} containing the tab ids in the group. */
+    public List<Integer> getTabIdsInGroup() {
+        return mTabIdsInGroup;
+    }
+
+    /** Returns {@link String} containing the title of the group. */
+    public String getTitle() {
+        return mTitle;
     }
 }

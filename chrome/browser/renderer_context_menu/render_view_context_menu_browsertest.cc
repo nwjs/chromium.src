@@ -38,6 +38,7 @@
 #include "chrome/browser/pdf/pdf_extension_test_base.h"
 #include "chrome/browser/pdf/pdf_extension_test_util.h"
 #include "chrome/browser/pdf/test_pdf_viewer_stream_manager.h"
+#include "chrome/browser/preloading/scoped_prewarm_feature_list.h"
 #include "chrome/browser/profiles/profile_attributes_entry.h"
 #include "chrome/browser/profiles/profile_attributes_storage.h"
 #include "chrome/browser/profiles/profile_manager.h"
@@ -53,12 +54,12 @@
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_finder.h"
-#include "chrome/browser/ui/browser_user_data.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/exclusive_access/exclusive_access_manager.h"
 #include "chrome/browser/ui/startup/startup_types.h"
 #include "chrome/browser/ui/tabs/public/tab_features.h"
+#include "chrome/browser/ui/tabs/split_tab_metrics.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/toasts/toast_controller.h"
 #include "chrome/browser/ui/toasts/toast_features.h"
@@ -476,6 +477,10 @@ class ContextMenuBrowserTest
   }
 
  private:
+  // TODO(https://crbug.com/423465927): Explore a better approach to make the
+  // existing tests run with the prewarm feature enabled.
+  test::ScopedPrewarmFeatureList prewarm_feature_list_{
+      test::ScopedPrewarmFeatureList::PrewarmState::kDisabled};
   base::test::ScopedFeatureList scoped_feature_list_;
 };
 
@@ -2541,7 +2546,6 @@ class LensBrowserBaseTest : public InProcessBrowserTest {
       std::string image_path,
       int event_flags,
       ContextMenuNotificationObserver::MenuShownCallback callback) {
-    ASSERT_TRUE(embedded_test_server()->Start());
     GURL image_url(embedded_test_server()->GetURL(image_path));
     GURL page("data:text/html,<img src='" + image_url.spec() + "'>");
     ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), page));
@@ -2639,7 +2643,8 @@ class LensOverlayBrowserTest : public LensBrowserBaseTest {
   void SetUp() override {
     base::test::ScopedFeatureList feature_list;
     feature_list.InitWithFeatures(
-        {lens::features::kLensOverlay},
+        {lens::features::kLensOverlay,
+         lens::features::kLensOverlayTextSelectionContextMenuEntrypoint},
         {lens::features::kLensOverlayKeyboardSelection});
 
     // This does not use LensBrowserBaseTest::SetUp because that
@@ -2667,11 +2672,30 @@ class LensOverlayBrowserTest : public LensBrowserBaseTest {
   void OpenContextMenuAndSelectRegionSearchEntrypoint(
       int event_flags,
       ContextMenuNotificationObserver::MenuShownCallback callback) {
-    // |menu_observer_| will cause the search lens for image menu item to be
+    // `menu_observer_` will cause the search lens for image menu item to be
     // clicked.
     menu_observer_ = std::make_unique<ContextMenuNotificationObserver>(
         IDC_CONTENT_CONTEXT_LENS_REGION_SEARCH, event_flags,
         std::move(callback));
+    RightClickToOpenContextMenu();
+  }
+
+  void OpenContextMenuAndSelectSelectAll(
+      int event_flags,
+      ContextMenuNotificationObserver::MenuShownCallback callback) {
+    // `menu_observer_` will cause the select all menu item to be clicked.
+    menu_observer_ = std::make_unique<ContextMenuNotificationObserver>(
+        IDC_CONTENT_CONTEXT_SELECTALL, event_flags, std::move(callback));
+    RightClickToOpenContextMenu();
+  }
+
+  void OpenContextMenuAndSelectSearchWebFor(
+      int event_flags,
+      ContextMenuNotificationObserver::MenuShownCallback callback) {
+    // `menu_observer_` will cause the search web for text menu item to be
+    // clicked.
+    menu_observer_ = std::make_unique<ContextMenuNotificationObserver>(
+        IDC_CONTENT_CONTEXT_SEARCHWEBFOR, event_flags, std::move(callback));
     RightClickToOpenContextMenu();
   }
 };
@@ -2693,6 +2717,35 @@ IN_PROC_BROWSER_TEST_F(LensOverlayBrowserTest,
   // state.
   ASSERT_TRUE(base::test::RunUntil([&]() {
     return controller->state() == LensOverlayController::State::kOverlay;
+  }));
+}
+
+IN_PROC_BROWSER_TEST_F(LensOverlayBrowserTest,
+                       SearchForTextContextMenuOpensLensOverlay) {
+  GURL page("data:text/html,text");
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), page));
+
+  // State should start in off.
+  auto* controller = browser()
+                         ->tab_strip_model()
+                         ->GetActiveTab()
+                         ->GetTabFeatures()
+                         ->lens_overlay_controller();
+  ASSERT_EQ(controller->state(), LensOverlayController::State::kOff);
+
+  OpenContextMenuAndSelectSelectAll(
+      ui::EF_MOUSE_BUTTON,
+      // Callback that will be called after the context menu item is clicked.
+      base::BindLambdaForTesting([&](RenderViewContextMenu* menu) {
+        OpenContextMenuAndSelectSearchWebFor(ui::EF_MOUSE_BUTTON,
+                                             base::NullCallback());
+      }));
+
+  // Clicking the search for text entrypoint should eventually result in CSB
+  // state.
+  ASSERT_TRUE(base::test::RunUntil([&]() {
+    return controller->state() ==
+           LensOverlayController::State::kLivePageAndResults;
   }));
 }
 
@@ -3562,7 +3615,8 @@ IN_PROC_BROWSER_TEST_P(ContextMenuBrowserTest, OpenLinkInExistingSplitTab) {
   const GURL test_url("http://www.example.com/");
   TabStripModel* const tab_strip_model = browser()->tab_strip_model();
   ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), test_url));
-  chrome::NewSplitTab(browser());
+  chrome::NewSplitTab(browser(),
+                      split_tabs::SplitTabCreatedSource::kLinkContextMenu);
   tab_strip_model->ActivateTabAt(0);
   ASSERT_NE(tab_strip_model->GetWebContentsAt(1)->GetURL(), test_url);
 

@@ -31,8 +31,8 @@ import org.chromium.base.supplier.ObservableSupplier;
 import org.chromium.build.annotations.Initializer;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
+import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider;
 import org.chromium.chrome.browser.browser_controls.BrowserStateBrowserControlsVisibilityDelegate;
-import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.layouts.LayoutStateProvider;
 import org.chromium.chrome.browser.omnibox.LocationBar;
 import org.chromium.chrome.browser.omnibox.LocationBarCoordinator;
@@ -41,6 +41,7 @@ import org.chromium.chrome.browser.omnibox.OmniboxFocusReason;
 import org.chromium.chrome.browser.omnibox.UrlBarData;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.tab.Tab;
+import org.chromium.chrome.browser.tabmodel.IncognitoStateProvider;
 import org.chromium.chrome.browser.theme.ThemeColorProvider;
 import org.chromium.chrome.browser.theme.ThemeColorProvider.ThemeColorObserver;
 import org.chromium.chrome.browser.theme.ThemeColorProvider.TintObserver;
@@ -50,6 +51,7 @@ import org.chromium.chrome.browser.toolbar.ToolbarDataProvider;
 import org.chromium.chrome.browser.toolbar.ToolbarProgressBar;
 import org.chromium.chrome.browser.toolbar.ToolbarTabController;
 import org.chromium.chrome.browser.toolbar.back_button.BackButtonCoordinator;
+import org.chromium.chrome.browser.toolbar.extensions.ExtensionToolbarCoordinator;
 import org.chromium.chrome.browser.toolbar.menu_button.MenuButtonCoordinator;
 import org.chromium.chrome.browser.toolbar.optional_button.ButtonData;
 import org.chromium.chrome.browser.toolbar.reload_button.ReloadButtonCoordinator;
@@ -91,6 +93,7 @@ public abstract class ToolbarLayout extends FrameLayout
     private boolean mFindInPageToolbarShowing;
 
     protected ThemeColorProvider mThemeColorProvider;
+    protected IncognitoStateProvider mIncognitoStateProvider;
     private MenuButtonCoordinator mMenuButtonCoordinator;
     private @Nullable AppMenuButtonHelper mAppMenuButtonHelper;
 
@@ -101,6 +104,7 @@ public abstract class ToolbarLayout extends FrameLayout
     private @Nullable BrowserStateBrowserControlsVisibilityDelegate
             mBrowserControlsVisibilityDelegate;
     private int mShowBrowserControlsToken = TokenHolder.INVALID_TOKEN;
+    protected BrowserControlsStateProvider mBrowserControlsStateProvider;
 
     private @Nullable TabStripTransitionCoordinator mTabStripTransitionCoordinator;
     private int mTabStripTransitionToken = TokenHolder.INVALID_TOKEN;
@@ -133,6 +137,11 @@ public abstract class ToolbarLayout extends FrameLayout
      * @param trackerSupplier Provides a {@link Tracker} when available.
      * @param homeButtonDisplay The {@link HomeButtonDisplay} to manage the display and behavior of
      *     home button(s). Should be null on custom tabs.
+     * @param extensionToolbarCoordinator Provides an {@link ExtensionToolbarCoordinator} for
+     *     interacting with extension-related toolbar UI.
+     * @param normalThemeColorProvider The {@link ThemeColorProvider} for normal mode.
+     * @param incognitoStateProvider The {@link IncognitoStateProvider} for observering incognito
+     *     state.
      */
     @CallSuper
     @Initializer
@@ -147,12 +156,18 @@ public abstract class ToolbarLayout extends FrameLayout
             ToolbarProgressBar progressBar,
             @Nullable ReloadButtonCoordinator reloadButtonCoordinator,
             @Nullable BackButtonCoordinator backButtonCoordinator,
-            @Nullable HomeButtonDisplay homeButtonDisplay) {
+            @Nullable HomeButtonDisplay homeButtonDisplay,
+            @Nullable ExtensionToolbarCoordinator extensionToolbarCoordinator,
+            ThemeColorProvider themeColorProvider,
+            IncognitoStateProvider incognitoStateProvider) {
         mToolbarDataProvider = toolbarDataProvider;
         mToolbarTabController = tabController;
         mMenuButtonCoordinator = menuButtonCoordinator;
         mTabSwitcherButtonCoordinator = tabSwitcherButtonCoordinator;
         mProgressBar = progressBar;
+
+        setThemeColorProvider(themeColorProvider);
+        setIncognitoStateProvider(incognitoStateProvider);
     }
 
     /**
@@ -216,6 +231,15 @@ public abstract class ToolbarLayout extends FrameLayout
         mThemeColorProvider = themeColorProvider;
         mThemeColorProvider.addTintObserver(this);
         mThemeColorProvider.addThemeColorObserver(this);
+    }
+
+    /**
+     * @param incognitoStateProvider The {@link IncognitoStateProvider} for observing incognito
+     *     state.
+     */
+    @Initializer
+    void setIncognitoStateProvider(IncognitoStateProvider incognitoStateProvider) {
+        mIncognitoStateProvider = incognitoStateProvider;
     }
 
     /**
@@ -723,27 +747,22 @@ public abstract class ToolbarLayout extends FrameLayout
     protected boolean forward(int metaState, String reportingTagPrefix) {
         maybeUnfocusUrlBar();
         if (mToolbarTabController == null) return false;
-        if (ChromeFeatureList.isEnabled(ChromeFeatureList.ANDROID_META_CLICK_HISTORY_NAVIGATION)) {
-            boolean hasControl = (metaState & KeyEvent.META_CTRL_ON) != 0;
-            boolean hasShift = (metaState & KeyEvent.META_SHIFT_ON) != 0;
-            if (hasControl && hasShift) {
-                // Holding ALT is allowed as well (reference desktop behavior).
+        boolean hasControl = (metaState & KeyEvent.META_CTRL_ON) != 0;
+        boolean hasShift = (metaState & KeyEvent.META_SHIFT_ON) != 0;
+        if (hasControl && hasShift) {
+            // Holding ALT is allowed as well (reference desktop behavior).
 
-                // Note on recording user actions: "forward" is recorded regardless of whether it
-                // was successful. See
-                // https://source.chromium.org/chromium/chromium/src/+/main:chrome/browser/ui/android/toolbar/java/src/org/chromium/chrome/browser/toolbar/top/ToolbarTablet.java;l=196;drc=14aab80e079b7db3e85a8302da6d660bafeddfbc
-                RecordUserAction.record(reportingTagPrefix + "InNewForegroundTab");
-                return mToolbarTabController.forwardInNewTab(/* foregroundNewTab= */ true);
-            } else if (hasControl) {
-                RecordUserAction.record(reportingTagPrefix + "InNewBackgroundTab");
-                return mToolbarTabController.forwardInNewTab(/* foregroundNewTab= */ false);
-            } else if (hasShift) {
-                RecordUserAction.record(reportingTagPrefix + "InNewForegroundWindow");
-                return mToolbarTabController.forwardInNewWindow();
-            } else {
-                RecordUserAction.record(reportingTagPrefix);
-                return mToolbarTabController.forward();
-            }
+            // Note on recording user actions: "forward" is recorded regardless of whether it
+            // was successful. See
+            // https://source.chromium.org/chromium/chromium/src/+/main:chrome/browser/ui/android/toolbar/java/src/org/chromium/chrome/browser/toolbar/top/ToolbarTablet.java;l=196;drc=14aab80e079b7db3e85a8302da6d660bafeddfbc
+            RecordUserAction.record(reportingTagPrefix + "InNewForegroundTab");
+            return mToolbarTabController.forwardInNewTab(/* foregroundNewTab= */ true);
+        } else if (hasControl) {
+            RecordUserAction.record(reportingTagPrefix + "InNewBackgroundTab");
+            return mToolbarTabController.forwardInNewTab(/* foregroundNewTab= */ false);
+        } else if (hasShift) {
+            RecordUserAction.record(reportingTagPrefix + "InNewForegroundWindow");
+            return mToolbarTabController.forwardInNewWindow();
         } else {
             RecordUserAction.record(reportingTagPrefix);
             return mToolbarTabController.forward();
@@ -817,6 +836,16 @@ public abstract class ToolbarLayout extends FrameLayout
     public void setBrowserControlsVisibilityDelegate(
             BrowserStateBrowserControlsVisibilityDelegate controlsVisibilityDelegate) {
         mBrowserControlsVisibilityDelegate = controlsVisibilityDelegate;
+    }
+
+    /**
+     * Sets the {@link android.provider.Browser} instance the toolbar should use to query the state
+     * of browser controls.
+     */
+    @Initializer
+    public void setBrowserControlsStateProvider(
+            BrowserControlsStateProvider browserControlsStateProvider) {
+        mBrowserControlsStateProvider = browserControlsStateProvider;
     }
 
     // TODO(crbug.com/41484813): Rework the API if this method is called by multiple clients.
@@ -900,4 +929,13 @@ public abstract class ToolbarLayout extends FrameLayout
 
     /** Requests keyboard focus on the toolbar row. */
     public abstract void requestKeyboardFocus();
+
+    /**
+     * Called when the top padding should be updated for the Toolbar layout.
+     *
+     * @param newTopPadding The new top padding to add on the toolbar layout. When system's Status
+     *     bar is hidden, the new top padding equals the height of the Status bar, otherwise, it is
+     *     0.
+     */
+    public void onToEdgeChange(int newTopPadding) {}
 }

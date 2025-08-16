@@ -98,7 +98,6 @@
 #include "content/web_test/common/web_test_constants.h"
 #include "content/web_test/common/web_test_string_util.h"
 #include "content/web_test/common/web_test_switches.h"
-#include "ipc/ipc_channel_proxy.h"
 #include "mojo/public/cpp/bindings/sync_call_restrictions.h"
 #include "net/cookies/cookie_util.h"
 #include "services/device/public/cpp/compute_pressure/buildflags.h"
@@ -1085,17 +1084,6 @@ void WebTestControlHost::RequestPointerLock(WebContents* web_contents) {
           : blink::mojom::PointerLockResult::kPermissionDenied);
 
   next_pointer_lock_action_ = NextPointerLockAction::kWillSucceed;
-}
-
-void WebTestControlHost::PluginCrashed(const base::FilePath& plugin_path,
-                                       base::ProcessId plugin_pid) {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  printer_->AddErrorMessage(
-      base::StringPrintf("#CRASHED - plugin (pid %" CrPRIdPid ")", plugin_pid));
-  base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
-      FROM_HERE,
-      base::BindOnce(base::IgnoreResult(&WebTestControlHost::DiscardMainWindow),
-                     weak_factory_.GetWeakPtr()));
 }
 
 void WebTestControlHost::TitleWasSet(NavigationEntry* entry) {

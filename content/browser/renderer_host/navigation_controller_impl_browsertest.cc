@@ -27,6 +27,7 @@
 #include "base/test/gtest_util.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/threading/thread_restrictions.h"
+#include "base/values.h"
 #include "build/build_config.h"
 #include "content/browser/child_process_security_policy_impl.h"
 #include "content/browser/process_lock.h"
@@ -59,6 +60,7 @@
 #include "content/public/browser/web_contents_observer.h"
 #include "content/public/common/bindings_policy.h"
 #include "content/public/common/content_client.h"
+#include "content/public/common/content_switches.h"
 #include "content/public/common/isolated_world_ids.h"
 #include "content/public/common/url_constants.h"
 #include "content/public/test/back_forward_cache_util.h"
@@ -3289,7 +3291,7 @@ IN_PROC_BROWSER_TEST_P(NavigationControllerBrowserTest,
     EXPECT_NE(previous_entry, controller.GetLastCommittedEntry());
 
     // We lost the history.state value from before the failed navigation.
-    EXPECT_EQ(nullptr, EvalJs(root, "history.state"));
+    EXPECT_EQ(base::Value(), EvalJs(root, "history.state"));
     previous_entry = controller.GetLastCommittedEntry();
   }
 
@@ -3642,7 +3644,7 @@ IN_PROC_BROWSER_TEST_P(NavigationControllerBrowserTest,
     EXPECT_EQ(1, controller.GetEntryCount());
 
     // We lost the history.state value from before the failed navigation.
-    EXPECT_EQ(nullptr, EvalJs(root, "history.state"));
+    EXPECT_EQ(base::Value(), EvalJs(root, "history.state"));
     previous_entry = controller.GetLastCommittedEntry();
   }
 
@@ -12731,7 +12733,7 @@ IN_PROC_BROWSER_TEST_P(NavigationControllerBrowserTest,
               controller.GetEntryAtIndex(1)->GetFrameEntry(root));
 
     // The main frame's history.state is reset
-    EXPECT_EQ(nullptr, EvalJs(root, "history.state"));
+    EXPECT_EQ(base::Value(), EvalJs(root, "history.state"));
 
     // The root FrameNavigationEntry and NavigationEntry are both reused. This
     // means the previous pushState FrameNavigationEntry is shared with the
@@ -12763,7 +12765,7 @@ IN_PROC_BROWSER_TEST_P(NavigationControllerBrowserTest,
     // TODO(crbug.com/40188865): We should probably restore "foo" here,
     // as location.replace() shouldn't affect entries other than the one it
     // replaced.
-    EXPECT_EQ(nullptr, EvalJs(root, "history.state"));
+    EXPECT_EQ(base::Value(), EvalJs(root, "history.state"));
 
     // The root FrameNavigationEntry is reused since it is shared with the
     // traversed NavigationEntry.
@@ -12791,7 +12793,7 @@ IN_PROC_BROWSER_TEST_P(NavigationControllerBrowserTest,
     EXPECT_TRUE(capturer.is_same_document());
 
     // The main frame's history.state stays as null.
-    EXPECT_EQ(nullptr, EvalJs(root, "history.state"));
+    EXPECT_EQ(base::Value(), EvalJs(root, "history.state"));
 
     // The root FrameNavigationEntry and NavigationEntry are not reused.
     EXPECT_NE(
@@ -12893,7 +12895,7 @@ IN_PROC_BROWSER_TEST_P(NavigationControllerBrowserTest,
     EXPECT_EQ(2, controller.GetCurrentEntryIndex());
 
     // The main frame's history.state is reset
-    EXPECT_EQ(nullptr, EvalJs(root, "history.state"));
+    EXPECT_EQ(base::Value(), EvalJs(root, "history.state"));
 
     // The root FrameNavigationEntry and NavigationEntry are not reused.
     EXPECT_NE(
@@ -19557,7 +19559,7 @@ IN_PROC_BROWSER_TEST_P(NavigationControllerBrowserTest,
     // TODO(http://crbug.com/1188956): Ensure error page isolation correctly
     // maintains history.state as well.
     if (SiteIsolationPolicy::IsErrorPageIsolationEnabled(false)) {
-      EXPECT_EQ(nullptr, EvalJs(child, "history.state"));
+      EXPECT_EQ(base::Value(), EvalJs(child, "history.state"));
     } else {
       EXPECT_EQ("foo", EvalJs(child, "history.state"));
     }
@@ -19712,7 +19714,7 @@ IN_PROC_BROWSER_TEST_P(NavigationControllerBrowserTest,
   EXPECT_EQ(5, controller.GetEntryCount());
   EXPECT_EQ(4, controller.GetCurrentEntryIndex());
   EXPECT_EQ("a", EvalJs(ftn_a, "window.state"));
-  EXPECT_EQ(nullptr, EvalJs(ftn_b, "window.state"));
+  EXPECT_EQ(base::Value(), EvalJs(ftn_b, "window.state"));
 }
 
 // Verify that if a history navigation only affects a subframe that was
@@ -21236,7 +21238,7 @@ IN_PROC_BROWSER_TEST_P(NavigationControllerBrowserTest,
     EXPECT_EQ(other_url, child->current_url());
   }
   // Check that the history.state is not retained after the navigation.
-  EXPECT_EQ(nullptr, EvalJs(child, "history.state"));
+  EXPECT_EQ(base::Value(), EvalJs(child, "history.state"));
 
   // Do a replaceState on the main frame to set the history.state to "bar".
   ReplaceState(root, "bar");
@@ -21250,7 +21252,7 @@ IN_PROC_BROWSER_TEST_P(NavigationControllerBrowserTest,
   // Navigate the main frame to a different URL.
   ASSERT_TRUE(NavigateToURL(shell(), other_url));
   // Check that the history.state is not retained after the navigation.
-  EXPECT_EQ(nullptr, EvalJs(root, "history.state"));
+  EXPECT_EQ(base::Value(), EvalJs(root, "history.state"));
 }
 
 IN_PROC_BROWSER_TEST_P(NavigationControllerBrowserTest,
@@ -21591,16 +21593,21 @@ IN_PROC_BROWSER_TEST_P(NavigationControllerBrowserTestNoServer,
   // and gets deferred by RendererCancellationThrottle after that. Wait for the
   // first NavigationThrottle deferral.
   base::RunLoop run_loop;
-  NavigationThrottleRunner* throttle_runner =
-      request->GetNavigationThrottleRunnerForTesting();
-  throttle_runner->set_first_deferral_callback_for_testing(
-      run_loop.QuitClosure());
+  request->GetNavigationThrottleRegistryForTesting()
+      ->SetFirstDeferralCallbackForTesting(run_loop.QuitClosure());
   run_loop.Run();
 
   // Check that the deferral is caused by RendererCancellationThrottle.
   EXPECT_TRUE(request->IsDeferredForTesting());
+  ASSERT_EQ(request->GetNavigationThrottleRegistryForTesting()
+                ->GetDeferringThrottles()
+                .size(),
+            1u);
   EXPECT_STREQ("RendererCancellationThrottle",
-               throttle_runner->GetDeferringThrottle()->GetNameForLogging());
+               (*request->GetNavigationThrottleRegistryForTesting()
+                     ->GetDeferringThrottles()
+                     .begin())
+                   ->GetNameForLogging());
   EXPECT_EQ(request->state(), NavigationRequest::WILL_PROCESS_RESPONSE);
 
   // Unblock the JS task in the renderer by sending the response for the sync
@@ -21660,16 +21667,21 @@ IN_PROC_BROWSER_TEST_P(NavigationControllerBrowserTestNoServer,
   // and gets deferred by RendererCancellationThrottle after that. Wait for the
   // first NavigationThrottle deferral.
   base::RunLoop run_loop;
-  NavigationThrottleRunner* throttle_runner =
-      request->GetNavigationThrottleRunnerForTesting();
-  throttle_runner->set_first_deferral_callback_for_testing(
-      run_loop.QuitClosure());
+  request->GetNavigationThrottleRegistryForTesting()
+      ->SetFirstDeferralCallbackForTesting(run_loop.QuitClosure());
   run_loop.Run();
 
   // Check that the deferral is caused by RendererCancellationThrottle.
   EXPECT_TRUE(request->IsDeferredForTesting());
+  ASSERT_EQ(request->GetNavigationThrottleRegistryForTesting()
+                ->GetDeferringThrottles()
+                .size(),
+            1u);
   EXPECT_STREQ("RendererCancellationThrottle",
-               throttle_runner->GetDeferringThrottle()->GetNameForLogging());
+               (*request->GetNavigationThrottleRegistryForTesting()
+                     ->GetDeferringThrottles()
+                     .begin())
+                   ->GetNameForLogging());
   EXPECT_EQ(request->state(), NavigationRequest::WILL_PROCESS_RESPONSE);
 
   // Kill the renderer process that started the navigation.
@@ -21738,16 +21750,21 @@ IN_PROC_BROWSER_TEST_P(
   // and gets deferred by RendererCancellationThrottle after that. Wait for the
   // first NavigationThrottle deferral.
   base::RunLoop run_loop;
-  NavigationThrottleRunner* throttle_runner =
-      request->GetNavigationThrottleRunnerForTesting();
-  throttle_runner->set_first_deferral_callback_for_testing(
-      run_loop.QuitClosure());
+  request->GetNavigationThrottleRegistryForTesting()
+      ->SetFirstDeferralCallbackForTesting(run_loop.QuitClosure());
   run_loop.Run();
 
   // Check that the deferral is caused by RendererCancellationThrottle.
   EXPECT_TRUE(request->IsDeferredForTesting());
+  ASSERT_EQ(request->GetNavigationThrottleRegistryForTesting()
+                ->GetDeferringThrottles()
+                .size(),
+            1u);
   EXPECT_STREQ("RendererCancellationThrottle",
-               throttle_runner->GetDeferringThrottle()->GetNameForLogging());
+               (*request->GetNavigationThrottleRegistryForTesting()
+                     ->GetDeferringThrottles()
+                     .begin())
+                   ->GetNameForLogging());
   EXPECT_EQ(request->state(), NavigationRequest::WILL_PROCESS_RESPONSE);
 
   // Verify that we will be notified about the unresponsive renderer.
@@ -22572,7 +22589,7 @@ IN_PROC_BROWSER_TEST_P(NavigationControllerBrowserTest,
   // navigation to `url_b2` after the `url_b1` navigation is in the
   // "pending commit" stage, so that both navigations can exist at the same
   // time (the previous NavigationRequest had already been moved to the
-  //"pending commit" speculative RFH, and they both use the same speculative
+  // "pending commit" speculative RFH, and they both use the same speculative
   // RFH).
   TestNavigationManager b1_nav(shell()->web_contents(), url_b1);
   TestNavigationManager b2_nav(shell()->web_contents(), url_b2);
@@ -23264,6 +23281,164 @@ IN_PROC_BROWSER_TEST_P(NavigationControllerBrowserTest,
   }
 }
 
+// See also tests `IframeNavigateFrameToErrorPage` below and
+// `FencedFrameRootNavigateFrameToErrorPage` in
+// `FencedFrameParameterizedBrowserTest`.
+IN_PROC_BROWSER_TEST_P(NavigationControllerBrowserTest,
+                       NavigateMainFrameToErrorPage) {
+  GURL main_url(embedded_test_server()->GetURL(
+      "/navigation_controller/simple_page_1.html"));
+  EXPECT_TRUE(NavigateToURL(shell(), main_url));
+
+  NavigationControllerImpl& controller = static_cast<NavigationControllerImpl&>(
+      shell()->web_contents()->GetController());
+  FrameTreeNode* root = static_cast<WebContentsImpl*>(shell()->web_contents())
+                            ->GetPrimaryFrameTree()
+                            .root();
+
+  EXPECT_EQ(1, controller.GetEntryCount());
+  NavigationEntryImpl* entry = controller.GetLastCommittedEntry();
+  EXPECT_EQ(main_url, entry->GetURL());
+  int starting_entry_id = entry->GetUniqueID();
+
+  // Navigate the main frame to the error page.
+  // Note: the custom error page HTML is loaded with this URL, but the URL
+  // actually points to a normal page, not an error page.
+  GURL error_url(embedded_test_server()->GetURL(
+      "/navigation_controller/simple_page_2.html"));
+  {
+    FrameNavigateParamsCapturer capturer(root);
+    controller.NavigateFrameToErrorPage(
+        root->current_frame_host(), error_url,
+        "<html><body><p>kaboom</p></body></html>");
+    capturer.Wait();
+    ASSERT_TRUE(capturer.is_error_page());
+  }
+
+  // There should still be only 1 entry, but the entry has changed.
+  EXPECT_EQ(controller.GetEntryCount(), 1);
+  EXPECT_EQ(root->current_frame_host()->GetLastCommittedURL(), error_url);
+  EXPECT_TRUE(root->current_frame_host()->IsErrorDocument());
+  EXPECT_NE(controller.GetLastCommittedEntry()->GetUniqueID(),
+            starting_entry_id);
+
+  // Make sure the main frame is on the error page.
+  EXPECT_EQ(EvalJs(root, "document.getElementsByTagName('p')[0].textContent"),
+            "kaboom");
+  EXPECT_EQ(controller.GetLastCommittedEntry()->GetURL(), error_url);
+
+  // Reload the main frame.
+  {
+    FrameNavigateParamsCapturer capturer(root);
+    EXPECT_TRUE(ExecJs(root, "location.reload();"));
+    capturer.Wait();
+    ASSERT_FALSE(capturer.is_error_page());
+  }
+
+  // We've reloaded the URL specified when loading the error page, but we're
+  // loading the real document at that URL instead of an error document.
+  EXPECT_EQ(controller.GetEntryCount(), 1);
+  EXPECT_EQ(controller.GetLastCommittedEntry()->GetURL(), error_url);
+  EXPECT_EQ(root->current_frame_host()->GetLastCommittedURL(), error_url);
+  EXPECT_FALSE(root->current_frame_host()->IsErrorDocument());
+  EXPECT_EQ(EvalJs(root->current_frame_host(),
+                   "document.getElementsByTagName('p')[0].textContent"),
+            "Simple page 2.\n\n\n");
+}
+
+// This test is similar to the
+// `FencedFrameParameterizedBrowserTest.FencedFrameRootNavigateFrameToErrorPage`
+// test. However, iframe does not have its own NavigationController while fenced
+// frame does.
+IN_PROC_BROWSER_TEST_P(NavigationControllerBrowserTest,
+                       IframeNavigateFrameToErrorPage) {
+  GURL main_url(
+      embedded_test_server()->GetURL("a.test",
+                                     "/cross_site_iframe_factory.html?a.test("
+                                     "a.test)"));
+  EXPECT_TRUE(NavigateToURL(shell(), main_url));
+
+  FrameTreeNode* root = static_cast<WebContentsImpl*>(shell()->web_contents())
+                            ->GetPrimaryFrameTree()
+                            .root();
+  EXPECT_EQ(root->child_count(), 1U);
+
+  FrameTreeNode* iframe_node = root->child_at(0);
+  EXPECT_EQ(iframe_node->navigator().controller().GetEntryCount(), 1);
+
+  int starting_entry_id = iframe_node->navigator()
+                              .controller()
+                              .GetLastCommittedEntry()
+                              ->GetUniqueID();
+
+  // Navigate the iframe to an error page. The navigation type is
+  // `NAVIGATION_TYPE_AUTO_SUBFRAME`, so the frame tree NavigationController
+  // will not create a new navigation entry.
+  // Note: the custom error page HTML is loaded with this URL, but the URL
+  // actually points to a normal page, not an error page.
+  GURL iframe_error_url(embedded_test_server()->GetURL(
+      "c.test", "/navigation_controller/simple_page_2.html"));
+  TestFrameNavigationObserver error_observer(iframe_node->current_frame_host());
+  iframe_node->navigator().controller().NavigateFrameToErrorPage(
+      iframe_node->current_frame_host(), iframe_error_url,
+      "<html><body><p>kaboom</p></body></html>");
+  error_observer.Wait();
+
+  EXPECT_EQ(iframe_node->navigator().controller().GetEntryCount(), 1);
+  EXPECT_EQ(iframe_node->current_frame_host()->GetLastCommittedURL(),
+            iframe_error_url);
+  EXPECT_TRUE(iframe_node->current_frame_host()->IsErrorDocument());
+
+  // To be extra sure we're on the error page, grab the HTML content we expect.
+  EXPECT_EQ(
+      EvalJs(iframe_node, "document.getElementsByTagName('p')[0].textContent"),
+      "kaboom");
+
+  // The navigation entry ID does not change after iframe error page navigation.
+  int error_entry_id = iframe_node->navigator()
+                           .controller()
+                           .GetLastCommittedEntry()
+                           ->GetUniqueID();
+  EXPECT_EQ(error_entry_id, starting_entry_id);
+
+  // The frame tree NavigationController should still have the main frame URL in
+  // its last committed entry.
+  EXPECT_EQ(
+      iframe_node->navigator().controller().GetLastCommittedEntry()->GetURL(),
+      main_url);
+
+  // We can't go back or forward in the iframe.
+  EXPECT_FALSE(iframe_node->navigator().controller().CanGoBack());
+  EXPECT_FALSE(iframe_node->navigator().controller().CanGoForward());
+
+  // When we perform a reload, the last navigation entry from the main frame
+  // navigation controller should be used.
+  TestFrameNavigationObserver reload_observer(iframe_node);
+  EXPECT_TRUE(ExecJs(iframe_node, "location.reload();"));
+  reload_observer.Wait();
+  EXPECT_EQ(iframe_node->navigator().controller().GetEntryCount(), 1);
+  EXPECT_EQ(iframe_node->navigator()
+                .controller()
+                .GetLastCommittedEntry()
+                ->GetUniqueID(),
+            error_entry_id);
+
+  // We've reloaded the URL specified when loading the error page, but we're
+  // loading the real document at that URL instead of an error document.
+  EXPECT_EQ(iframe_node->current_frame_host()->GetLastCommittedURL(),
+            iframe_error_url);
+  EXPECT_FALSE(iframe_node->current_frame_host()->IsErrorDocument());
+  EXPECT_EQ(EvalJs(iframe_node->current_frame_host(),
+                   "document.getElementsByTagName('p')[0].textContent"),
+            "Simple page 2.\n\n\n");
+
+  // The frame tree NavigationController should still have the main frame URL in
+  // its last committed entry after reload.
+  EXPECT_EQ(
+      iframe_node->navigator().controller().GetLastCommittedEntry()->GetURL(),
+      main_url);
+}
+
 // Test the active document count per NetworkIsolationKey with some navigation
 // cases.
 IN_PROC_BROWSER_TEST_P(NavigationControllerBrowserTest,
@@ -23358,6 +23533,15 @@ class IgnoreDuplicateNavsBrowserTest
     } else {
       feature_list_.InitAndDisableFeature(features::kIgnoreDuplicateNavs);
     }
+  }
+
+  void SetUpInProcessBrowserTestFixture() override {
+    NavigationControllerBrowserTestBase::SetUpInProcessBrowserTestFixture();
+    // By default, IgnoreDuplicateNavs is disabled in tests to prevent
+    // navigations from being unintentionally ignored. This test requires the
+    // feature, so remove the switch.
+    base::CommandLine::ForCurrentProcess()->RemoveSwitch(
+        switches::kDisableIgnoreDuplicateNavsForTesting);
   }
 
   // Provides meaningful param names instead of /0, /1, ...

@@ -349,7 +349,7 @@ void BtmRedirectContext::HandleUncommitted(
                 handler_, issue_handler_, are_3pcs_generally_enabled_callback_,
                 initial_url_, GetRedirectChainLength());
             // Copy the URL of `client_redirect` before moving it.
-            UrlAndSourceId final_url = client_redirect->redirecting_url;
+            UrlAndSourceId final_url = client_redirect->redirector;
             temp_context.AppendClientRedirect(std::move(client_redirect));
             temp_context.AppendServerRedirects(std::move(server_redirects));
             temp_context.ReportIssue(final_url.url);
@@ -428,7 +428,7 @@ bool AddLateCookieAccess(const GURL& url,
   const size_t lookback = std::min(kMaxLookback, redirects.size());
   for (size_t i = 1; i <= lookback; i++) {
     const size_t offset = redirects.size() - i;
-    if (redirects[offset]->redirecting_url.url == url) {
+    if (redirects[offset]->redirector.url == url) {
       redirects[offset]->access_type |= ToBtmDataAccessType(op);
 
       // This cookie access might indicate a stateful bounce and ideally we'd
@@ -551,10 +551,10 @@ void Populate3PcExceptions(BrowserContext* browser_context,
   for (BtmRedirectInfoPtr& redirect : redirects) {
     redirect->has_3pc_exception =
         browser_client->IsFullCookieAccessAllowed(browser_context, web_contents,
-                                                  redirect->redirecting_url.url,
+                                                  redirect->redirector.url,
                                                   initial_url_key, overrides) ||
         browser_client->IsFullCookieAccessAllowed(browser_context, web_contents,
-                                                  redirect->redirecting_url.url,
+                                                  redirect->redirector.url,
                                                   final_url_key, overrides);
   }
 }
@@ -1048,8 +1048,17 @@ void BtmBounceDetector::DidFinishNavigation(
 
   std::vector<BtmRedirectInfoPtr> redirects;
   std::vector<BtmDataAccessType> access_types;
-  server_state->filter.Filter(navigation_handle->GetRedirectChain(),
-                              access_types);
+
+  // Cookie accesses can race each other causing order of navigations to not
+  // match the order of cookie accesses. When this happens Filter() will return
+  // false and assume all kUnknown accesses.
+  //
+  // TODO: crbug.com/407710083 - `CHECK` the result of `filter_.Filter` once
+  // the race is fixed.
+  const bool were_all_accesses_matched = server_state->filter.Filter(
+      navigation_handle->GetRedirectChain(), access_types);
+  base::UmaHistogramBoolean("Privacy.DIPS.BtmBounceDetector.AllAccessesMatched",
+                            were_all_accesses_matched);
 
   // The length of the redirect chain should be equal to the number of server
   // redirects observed by the `DidRedirectNavigation` handler (plus one

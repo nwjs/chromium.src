@@ -155,6 +155,14 @@ source_set("wayland") {
     "host/wayland_surface.h",
     "host/wayland_syncobj_timeline.cc",
     "host/wayland_syncobj_timeline.h",
+    "host/wayland_tablet.cc",
+    "host/wayland_tablet.h",
+    "host/wayland_tablet_manager.cc",
+    "host/wayland_tablet_manager.h",
+    "host/wayland_tablet_seat.cc",
+    "host/wayland_tablet_seat.h",
+    "host/wayland_tablet_tool.cc",
+    "host/wayland_tablet_tool.h",
     "host/wayland_toplevel_window.cc",
     "host/wayland_toplevel_window.h",
     "host/wayland_touch.cc",
@@ -290,8 +298,8 @@ source_set("wayland") {
     "//ui/base/wayland:wayland_client_input_types",
     "//ui/base/wayland:wayland_display_util",
     "//ui/display",
+    "//ui/display/util",
     "//ui/display/util:gpu_info_util",
-    "//ui/display/util:util",
     "//ui/events",
     "//ui/events:dom_keycode_converter",
     "//ui/events/devices",
@@ -364,6 +372,10 @@ source_set("wayland") {
     ":wayland_proxy",
     "//ui/events/platform/wayland:wayland_event_watcher",
   ]
+
+  # TODO(crbug.com/40031409): Fix code that adds exit-time destructors and
+  # enable the diagnostic by removing this line.
+  configs += [ "//build/config/compiler:no_exit_time_destructors" ]
 }
 
 source_set("test_support") {
@@ -487,7 +499,7 @@ source_set("test_support") {
 
   deps = [
     ":wayland",
-    "//base:base",
+    "//base",
     "//ui/base/wayland:color_manager_util",
     "//ui/base/wayland:wayland_display_util",
     "//ui/ozone:platform",
@@ -515,7 +527,7 @@ source_set("test_support") {
     "//third_party/wayland-protocols:xdg_shell_protocol",
     "//third_party/wayland-protocols:xdg_toplevel_icon_protocol",
     "//ui/display:test_support",
-    "//ui/gfx/geometry:geometry",
+    "//ui/gfx/geometry",
   ]
 }
 
@@ -621,7 +633,7 @@ fuzzer_test("wayland_buffer_fuzzer") {
     "//mojo/core/embedder",
     "//mojo/public/cpp/system",
     "//ui/gfx:test_support",
-    "//ui/platform_window:platform_window",
+    "//ui/platform_window",
   ]
 }
 

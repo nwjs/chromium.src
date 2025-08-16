@@ -134,7 +134,8 @@ public class FullscreenTestUtils {
                 TaskTraits.UI_DEFAULT,
                 () -> {
                     if (state) {
-                        delegate.enterFullscreenModeForTab(prefersNavigationBar, prefersStatusBar);
+                        delegate.enterFullscreenModeForTab(
+                                0, prefersNavigationBar, prefersStatusBar);
                     } else {
                         delegate.exitFullscreenModeForTab();
                     }
@@ -176,6 +177,14 @@ public class FullscreenTestUtils {
                 CriteriaHelper.DEFAULT_POLLING_INTERVAL);
     }
 
+    public static void waitForPictureInPicture(
+            final boolean isInPictureInPicture, final Activity activity) {
+        CriteriaHelper.pollUiThread(
+                () -> isPictureInPictureMode(isInPictureInPicture, activity),
+                6000L,
+                CriteriaHelper.DEFAULT_POLLING_INTERVAL);
+    }
+
     /**
      * Waits for the specified {@link Tab} to enter fullscreen. mode
      *
@@ -206,6 +215,11 @@ public class FullscreenTestUtils {
         WindowInsetsCompat windowInsets =
                 WindowInsetsCompat.toWindowInsetsCompat(view.getRootWindowInsets(), view);
         return !windowInsets.isVisible(WindowInsetsCompat.Type.navigationBars()) == state;
+    }
+
+    private static boolean isPictureInPictureMode(
+            final boolean isInPictureInPictureMode, final Activity activity) {
+        return activity.isInPictureInPictureMode() == isInPictureInPictureMode;
     }
 
     private static boolean isFullscreenFlagSet(

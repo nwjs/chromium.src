@@ -7,11 +7,6 @@
 namespace prefs {
 
 #if BUILDFLAG(IS_CHROMEOS)
-// A boolean pref - should unauthenticated user should be logged out
-// automatically. Default value is false.
-const char kForceLogoutUnauthenticatedUserEnabled[] =
-    "profile.force_logout_unauthenticated_user_enabled";
-
 // An integer property indicating the state of account id migration from
 // email to gaia id for the the profile.  See account_tracker_service.h
 // for possible values.
@@ -74,12 +69,6 @@ const char kGoogleServicesLastSyncingUsername[] =
 // signed-in users, no matter whether they were syncing or not.
 const char kGoogleServicesLastSignedInUsername[] =
     "google.services.last_signed_in_username";
-
-// Holds a copy of what `kGoogleServicesLastSyncingGaiaId` contained before it
-// was updated to contain the latest value, which happens when the Sync consent
-// is granted.
-const char kGoogleServicesSecondLastSyncingGaiaId[] =
-    "google.services.second_last_gaia_id";
 
 // Device id scoped to single signin. This device id will be regenerated if user
 // signs out and signs back in. When refresh token is requested for this user it

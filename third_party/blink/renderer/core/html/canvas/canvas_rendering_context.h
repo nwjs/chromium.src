@@ -181,7 +181,6 @@ class CORE_EXPORT CanvasRenderingContext
 
   virtual scoped_refptr<StaticBitmapImage> GetImage(FlushReason) = 0;
   virtual bool IsComposited() const = 0;
-  virtual bool IsAccelerated() const = 0;
 
   // Called when the entire tab is backgrounded or unbackgrounded.
   // The page's visibility status can be queried at any time via
@@ -200,6 +199,7 @@ class CORE_EXPORT CanvasRenderingContext
     NOTREACHED();
   }
   virtual bool IsPaintable() const = 0;
+  virtual bool IsHibernating() const { return false; }
   void DidDraw(CanvasPerformanceMonitor::DrawType draw_type) {
     const CanvasRenderingContextHost* const host = Host();
     return DidDraw(host ? SkIRect::MakeWH(host->width(), host->height())
@@ -207,11 +207,6 @@ class CORE_EXPORT CanvasRenderingContext
                    draw_type);
   }
   void DidDraw(const SkIRect& dirty_rect, CanvasPerformanceMonitor::DrawType);
-
-  virtual std::unique_ptr<CanvasResourceProvider>
-  CreateCanvasResourceProvider() {
-    NOTREACHED();
-  }
 
   // Returns a StaticBitmapImage containing the current content, or nullptr if
   // it was not possible to obtain that content.
@@ -222,8 +217,6 @@ class CORE_EXPORT CanvasRenderingContext
   // WebGL-specific methods
   virtual void ClearMarkedCanvasDirty() {}
   virtual scoped_refptr<CanvasResource> PaintRenderingResultsToResource(
-      bool was_dirty,
-      bool has_dispatcher,
       SourceDrawingBuffer source_buffer,
       FlushReason reason) {
     NOTREACHED();
@@ -267,9 +260,10 @@ class CORE_EXPORT CanvasRenderingContext
   virtual void LoseContext(LostContextMode) {}
   virtual void SendContextLostEventIfNeeded() {}
 
-  // This method gets called at the end of script tasks that modified
-  // the contents of the canvas (called didDraw). It marks the completion
+  // These methods get called at the end of script tasks that modified
+  // the contents of the canvas (called didDraw). They mark the completion
   // of a presentable frame.
+  virtual void PreFinalizeFrame() {}
   virtual void FinalizeFrame(FlushReason) {}
 
   // Thread::TaskObserver implementation
@@ -285,11 +279,26 @@ class CORE_EXPORT CanvasRenderingContext
   virtual void LangAttributeChanged() {}
   virtual String GetIdFromControl(const Element* element) { return String(); }
   virtual int LayerCount() const { return 0; }
+  virtual bool IsCanvas2DResourceProviderValid() { NOTREACHED(); }
+  virtual CanvasResourceProvider* GetOrCreateCanvas2DResourceProvider() {
+    NOTREACHED();
+  }
+  // If the ResourceProvider currently exists, replaces it with a newly-created
+  // CanvasResourceProvider.
+  virtual void DropAndRecreateExistingCanvas2DResourceProvider() {
+    NOTREACHED();
+  }
+  virtual CanvasResourceProvider* GetResourceProviderForCanvas2D() const {
+    NOTREACHED();
+  }
+  virtual const std::optional<cc::PaintRecord>& GetLastRecordingForCanvas2D() {
+    return empty_recording_;
+  }
+  virtual bool Is2DCanvasAccelerated() const { NOTREACHED(); }
 
   virtual void setFontForTesting(const String&) { NOTREACHED(); }
 
   // WebGL-specific interface
-  virtual bool UsingSwapChain() const { return false; }
   virtual void MarkLayerComposited() { NOTREACHED(); }
   virtual scoped_refptr<StaticBitmapImage>
   GetRGBAUnacceleratedStaticBitmapImage(SourceDrawingBuffer source_buffer) {
@@ -363,6 +372,8 @@ class CORE_EXPORT CanvasRenderingContext
       VectorOf<ElementHitTestRegion>& result,
       const String& func_name,
       ExceptionState& exception_state);
+
+  std::optional<cc::PaintRecord> empty_recording_;
 
  private:
   Member<CanvasRenderingContextHost> host_;

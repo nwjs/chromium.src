@@ -29,6 +29,7 @@ import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.drawable.Drawable;
 
+import androidx.annotation.Nullable;
 import androidx.annotation.Px;
 import androidx.appcompat.content.res.AppCompatResources;
 
@@ -85,7 +86,6 @@ class TouchToFillMediator {
     private @Px int mDesiredIconSize;
     private List<WebauthnCredential> mWebAuthnCredentials;
     private List<Credential> mCredentials;
-    private boolean mManagePasskeysHidesPasswords;
     private BottomSheetFocusHelper mBottomSheetFocusHelper;
     private ImageFetcher mImageFetcher;
 
@@ -114,11 +114,8 @@ class TouchToFillMediator {
             List<Credential> credentials,
             boolean showMorePasskeys,
             boolean triggerSubmission,
-            boolean managePasskeysHidesPasswords,
             boolean showHybridPasskeyOption) {
         assert credentials != null;
-
-        mManagePasskeysHidesPasswords = managePasskeysHidesPasswords;
 
         ListModel<ListItem> sheetItems = mModel.get(SHEET_ITEMS);
         sheetItems.clear();
@@ -286,7 +283,7 @@ class TouchToFillMediator {
             return mContext.getString(R.string.manage_passwords);
         }
 
-        if (credentials.size() > 0 && !mManagePasskeysHidesPasswords) {
+        if (credentials.size() > 0) {
             return mContext.getString(R.string.manage_passwords_and_passkeys);
         }
 
@@ -478,7 +475,7 @@ class TouchToFillMediator {
             }
         }
 
-        private void onImageFetched(Bitmap image) {
+        private void onImageFetched(@Nullable Bitmap image) {
             if (image != null) {
                 mAvatarImages.add(image);
             }

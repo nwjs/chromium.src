@@ -70,18 +70,15 @@ IN_PROC_BROWSER_TEST_F(SettingsTest, A11yPage) {
 }
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC)
 
-// Copied from Polymer 2 test:
-// Times out on debug builders because the Settings page can take several
-// seconds to load in a Release build and several times that in a Debug build.
-// See https://crbug.com/558434.
-#if !defined(NDEBUG)
-#define MAYBE_AdvancedPage DISABLED_AdvancedPage
-#else
-#define MAYBE_AdvancedPage AdvancedPage
-#endif
-IN_PROC_BROWSER_TEST_F(SettingsTest, MAYBE_AdvancedPage) {
-  RunTest("settings/advanced_page_test.js", "mocha.run()");
+#if !BUILDFLAG(IS_CHROMEOS)
+IN_PROC_BROWSER_TEST_F(SettingsTest, AccountPage) {
+  RunTest("settings/account_page_test.js", "mocha.run()");
 }
+
+IN_PROC_BROWSER_TEST_F(SettingsTest, GoogleServicesPage) {
+  RunTest("settings/google_services_page_test.js", "mocha.run()");
+}
+#endif
 
 IN_PROC_BROWSER_TEST_F(SettingsTest, AntiAbusePage) {
   RunTest("settings/anti_abuse_page_test.js", "mocha.run()");
@@ -89,6 +86,10 @@ IN_PROC_BROWSER_TEST_F(SettingsTest, AntiAbusePage) {
 
 IN_PROC_BROWSER_TEST_F(SettingsTest, AppearanceFontsPage) {
   RunTest("settings/appearance_fonts_page_test.js", "mocha.run()");
+}
+
+IN_PROC_BROWSER_TEST_F(SettingsTest, AppearancePageIndex) {
+  RunTest("settings/appearance_page_index_test.js", "mocha.run()");
 }
 
 #if !BUILDFLAG(IS_CHROMEOS)
@@ -101,6 +102,10 @@ IN_PROC_BROWSER_TEST_F(SettingsTest, AppearancePage) {
 IN_PROC_BROWSER_TEST_F(SettingsTest, AutofillAddressValidation) {
   RunTest("settings/autofill_section_address_validation_test.js",
           "mocha.run()");
+}
+
+IN_PROC_BROWSER_TEST_F(SettingsTest, AutofillPageIndex) {
+  RunTest("settings/autofill_page_index_test.js", "mocha.run()");
 }
 
 // TODO(crbug.com/40258836): Clean up this test after Password Manager redesign
@@ -191,6 +196,10 @@ IN_PROC_BROWSER_TEST_F(SettingsTest, EditDictionaryPage) {
 }
 #endif
 
+IN_PROC_BROWSER_TEST_F(SettingsTest, AiPageIndex) {
+  RunTest("settings/ai_page_index_test.js", "mocha.run()");
+}
+
 IN_PROC_BROWSER_TEST_F(SettingsTest, AiPage) {
   RunTest("settings/ai_page_test.js", "runMochaSuite('AiPage')");
 }
@@ -243,10 +252,6 @@ IN_PROC_BROWSER_TEST_F(SettingsTest, HelpPage) {
   RunTest("settings/help_page_test.js", "mocha.run()");
 }
 
-IN_PROC_BROWSER_TEST_F(SettingsTest, IdleLoad) {
-  RunTest("settings/idle_load_test.js", "mocha.run()");
-}
-
 IN_PROC_BROWSER_TEST_F(SettingsTest, IncognitoTrackingProtectionsPageTest) {
   RunTest("settings/incognito_tracking_protections_page_test.js",
           "runMochaSuite('IncognitoTrackingProtectionsPageTest')");
@@ -276,6 +281,10 @@ IN_PROC_BROWSER_TEST_F(SettingsTest, LiveTranslateSection) {
 // Flaky everywhere crbug.com/1197768
 IN_PROC_BROWSER_TEST_F(SettingsTest, DISABLED_MainPage) {
   RunTest("settings/settings_main_test.js", "mocha.run()");
+}
+
+IN_PROC_BROWSER_TEST_F(SettingsTest, SettingsMain) {
+  RunTest("settings/settings_main_plugins_test.js", "mocha.run()");
 }
 
 #if BUILDFLAG(GOOGLE_CHROME_BRANDING) && !BUILDFLAG(IS_CHROMEOS)
@@ -320,8 +329,16 @@ IN_PROC_BROWSER_TEST_F(SettingsTest, PaymentsSectionPaymentsList) {
   RunTest("settings/payments_section_payments_list_test.js", "mocha.run()");
 }
 
+IN_PROC_BROWSER_TEST_F(SettingsTest, PerformancePageIndex) {
+  RunTest("settings/performance_page_index_test.js", "mocha.run()");
+}
+
 IN_PROC_BROWSER_TEST_F(SettingsTest, PeoplePage) {
   RunTest("settings/people_page_test.js", "mocha.run()");
+}
+
+IN_PROC_BROWSER_TEST_F(SettingsTest, PeoplePageIndex) {
+  RunTest("settings/people_page_index_test.js", "mocha.run()");
 }
 
 #if BUILDFLAG(IS_CHROMEOS)
@@ -340,6 +357,10 @@ IN_PROC_BROWSER_TEST_F(SettingsTest, PeoplePageSyncControls) {
   RunTest("settings/people_page_sync_controls_test.js", "mocha.run()");
 }
 
+IN_PROC_BROWSER_TEST_F(SettingsTest, PrivacyPageIndex) {
+  RunTest("settings/privacy_page_index_test.js", "mocha.run()");
+}
+
 IN_PROC_BROWSER_TEST_F(SettingsTest, Prefs) {
   RunTest("settings/settings_prefs_test.js", "mocha.run()");
 }
@@ -349,13 +370,18 @@ IN_PROC_BROWSER_TEST_F(SettingsTest, PrefUtils) {
 }
 
 #if BUILDFLAG(ENABLE_GLIC)
-IN_PROC_BROWSER_TEST_F(SettingsTest, GlicSettingsPage) {
+IN_PROC_BROWSER_TEST_F(SettingsTest, GlicPage) {
   RunTest("settings/glic_page_test.js", "runMochaSuite('GlicPage Default')");
 }
 
-class SettingsGlicPageLearnMoreTest : public SettingsBrowserTest {
+IN_PROC_BROWSER_TEST_F(SettingsTest, GlicSubpage) {
+  RunTest("settings/glic_subpage_test.js",
+          "runMochaSuite('GlicSubpage Default')");
+}
+
+class SettingsGlicSubpageLearnMoreTest : public SettingsBrowserTest {
  public:
-  SettingsGlicPageLearnMoreTest() {
+  SettingsGlicSubpageLearnMoreTest() {
     scoped_feature_list_.InitWithFeaturesAndParameters(
         {{features::kGlicLearnMoreURLConfig,
           {
@@ -368,10 +394,10 @@ class SettingsGlicPageLearnMoreTest : public SettingsBrowserTest {
   base::test::ScopedFeatureList scoped_feature_list_;
 };
 
-IN_PROC_BROWSER_TEST_F(SettingsGlicPageLearnMoreTest,
+IN_PROC_BROWSER_TEST_F(SettingsGlicSubpageLearnMoreTest,
                        GlicSettingsLearnMoreEnabled) {
-  RunTest("settings/glic_page_test.js",
-          "runMochaSuite('GlicPage LearnMoreEnabled')");
+  RunTest("settings/glic_subpage_test.js",
+          "runMochaSuite('GlicSubpage LearnMoreEnabled')");
 }
 
 class SettingsGlicPageHeaderLearnMoreTest : public SettingsBrowserTest {
@@ -390,14 +416,15 @@ class SettingsGlicPageHeaderLearnMoreTest : public SettingsBrowserTest {
 };
 
 IN_PROC_BROWSER_TEST_F(SettingsGlicPageHeaderLearnMoreTest,
-                       GlicSettingsHeaderLearnMoreEnabled) {
+                       HeaderLearnMoreEnabled) {
   RunTest("settings/glic_page_test.js",
           "runMochaSuite('GlicPage HeaderLearnMoreEnabled')");
 }
 
-class SettingsGlicPageLauncherToggleLearnMoreTest : public SettingsBrowserTest {
+class SettingsGlicSubpageLauncherToggleLearnMoreTest
+    : public SettingsBrowserTest {
  public:
-  SettingsGlicPageLauncherToggleLearnMoreTest() {
+  SettingsGlicSubpageLauncherToggleLearnMoreTest() {
     scoped_feature_list_.InitWithFeaturesAndParameters(
         {{features::kGlicLearnMoreURLConfig,
           {
@@ -411,15 +438,16 @@ class SettingsGlicPageLauncherToggleLearnMoreTest : public SettingsBrowserTest {
   base::test::ScopedFeatureList scoped_feature_list_;
 };
 
-IN_PROC_BROWSER_TEST_F(SettingsGlicPageLauncherToggleLearnMoreTest,
+IN_PROC_BROWSER_TEST_F(SettingsGlicSubpageLauncherToggleLearnMoreTest,
                        GlicSettingsLauncherToggleLearnMoreEnabled) {
-  RunTest("settings/glic_page_test.js",
-          "runMochaSuite('GlicPage LauncherToggleLearnMoreEnabled')");
+  RunTest("settings/glic_subpage_test.js",
+          "runMochaSuite('GlicSubpage LauncherToggleLearnMoreEnabled')");
 }
 
-class SettingsGlicPageLocationToggleLearnMoreTest : public SettingsBrowserTest {
+class SettingsGlicSubpageLocationToggleLearnMoreTest
+    : public SettingsBrowserTest {
  public:
-  SettingsGlicPageLocationToggleLearnMoreTest() {
+  SettingsGlicSubpageLocationToggleLearnMoreTest() {
     scoped_feature_list_.InitWithFeaturesAndParameters(
         {{features::kGlicLearnMoreURLConfig,
           {
@@ -433,16 +461,16 @@ class SettingsGlicPageLocationToggleLearnMoreTest : public SettingsBrowserTest {
   base::test::ScopedFeatureList scoped_feature_list_;
 };
 
-IN_PROC_BROWSER_TEST_F(SettingsGlicPageLocationToggleLearnMoreTest,
+IN_PROC_BROWSER_TEST_F(SettingsGlicSubpageLocationToggleLearnMoreTest,
                        GlicSettingsLocationToggleLearnMoreEnabled) {
-  RunTest("settings/glic_page_test.js",
-          "runMochaSuite('GlicPage LocationToggleLearnMoreEnabled')");
+  RunTest("settings/glic_subpage_test.js",
+          "runMochaSuite('GlicSubpage LocationToggleLearnMoreEnabled')");
 }
 
-class SettingsGlicPageTabAccessToggleLearnMoreTest
+class SettingsGlicSubageTabAccessToggleLearnMoreTest
     : public SettingsBrowserTest {
  public:
-  SettingsGlicPageTabAccessToggleLearnMoreTest() {
+  SettingsGlicSubageTabAccessToggleLearnMoreTest() {
     scoped_feature_list_.InitWithFeaturesAndParameters(
         {{features::kGlicLearnMoreURLConfig,
           {
@@ -456,15 +484,15 @@ class SettingsGlicPageTabAccessToggleLearnMoreTest
   base::test::ScopedFeatureList scoped_feature_list_;
 };
 
-IN_PROC_BROWSER_TEST_F(SettingsGlicPageTabAccessToggleLearnMoreTest,
+IN_PROC_BROWSER_TEST_F(SettingsGlicSubageTabAccessToggleLearnMoreTest,
                        GlicSettingsTabAccessToggleLearnMoreEnabled) {
-  RunTest("settings/glic_page_test.js",
-          "runMochaSuite('GlicPage TabAccessToggleLearnMoreEnabled')");
+  RunTest("settings/glic_subpage_test.js",
+          "runMochaSuite('GlicSubpage TabAccessToggleLearnMoreEnabled')");
 }
 
-class SettingsGlicPageClosedCaptionsToggleTest : public SettingsBrowserTest {
+class SettingsGlicSubageClosedCaptionsToggleTest : public SettingsBrowserTest {
  public:
-  SettingsGlicPageClosedCaptionsToggleTest() {
+  SettingsGlicSubageClosedCaptionsToggleTest() {
     scoped_feature_list_.InitWithFeatures({features::kGlicClosedCaptioning},
                                           /*disabled_features=*/{});
   }
@@ -473,15 +501,15 @@ class SettingsGlicPageClosedCaptionsToggleTest : public SettingsBrowserTest {
   base::test::ScopedFeatureList scoped_feature_list_;
 };
 
-IN_PROC_BROWSER_TEST_F(SettingsGlicPageClosedCaptionsToggleTest,
-                       SettingsGlicPageClosedCaptionsToggleEnabled) {
-  RunTest("settings/glic_page_test.js",
-          "runMochaSuite('GlicPage ClosedCaptionsToggleEnabled')");
+IN_PROC_BROWSER_TEST_F(SettingsGlicSubageClosedCaptionsToggleTest,
+                       SettingsGlicSubageClosedCaptionsToggleEnabled) {
+  RunTest("settings/glic_subpage_test.js",
+          "runMochaSuite('GlicSubpage ClosedCaptionsToggleEnabled')");
 }
 
-class SettingsGlicPageDataProtectionTest : public SettingsBrowserTest {
+class SettingsGlicSubageDataProtectionTest : public SettingsBrowserTest {
  public:
-  SettingsGlicPageDataProtectionTest() {
+  SettingsGlicSubageDataProtectionTest() {
     scoped_feature_list_.InitWithFeaturesAndParameters(
         {{features::kGlicUserStatusCheck, {}},
          {features::kGlicLearnMoreURLConfig,
@@ -498,15 +526,15 @@ class SettingsGlicPageDataProtectionTest : public SettingsBrowserTest {
   base::test::ScopedFeatureList scoped_feature_list_;
 };
 
-IN_PROC_BROWSER_TEST_F(SettingsGlicPageDataProtectionTest, Strings) {
-  RunTest("settings/glic_page_test.js",
-          "runMochaSuite('GlicPage DataProtection_UserStatusCheckEnabled')");
+IN_PROC_BROWSER_TEST_F(SettingsGlicSubageDataProtectionTest, Strings) {
+  RunTest("settings/glic_subpage_test.js",
+          "runMochaSuite('GlicSubpage DataProtection_UserStatusCheckEnabled')");
 }
 
-class SettingsGlicPageDataProtectionTest_UserStatusCheckDisabled
+class SettingsGlicSubageDataProtectionTest_UserStatusCheckDisabled
     : public SettingsBrowserTest {
  public:
-  SettingsGlicPageDataProtectionTest_UserStatusCheckDisabled() {
+  SettingsGlicSubageDataProtectionTest_UserStatusCheckDisabled() {
     scoped_feature_list_.InitWithFeaturesAndParameters(
         {{features::kGlicLearnMoreURLConfig,
           {
@@ -523,10 +551,11 @@ class SettingsGlicPageDataProtectionTest_UserStatusCheckDisabled
 };
 
 IN_PROC_BROWSER_TEST_F(
-    SettingsGlicPageDataProtectionTest_UserStatusCheckDisabled,
+    SettingsGlicSubageDataProtectionTest_UserStatusCheckDisabled,
     Strings) {
-  RunTest("settings/glic_page_test.js",
-          "runMochaSuite('GlicPage DataProtection_UserStatusCheckDisabled')");
+  RunTest(
+      "settings/glic_subpage_test.js",
+      "runMochaSuite('GlicSubpage DataProtection_UserStatusCheckDisabled')");
 }
 #endif
 
@@ -544,6 +573,14 @@ IN_PROC_BROWSER_TEST_F(PeoplePageSyncPageTest, SyncSettings) {
 }
 #endif
 
+#if !BUILDFLAG(IS_CHROMEOS)
+IN_PROC_BROWSER_TEST_F(PeoplePageSyncPageTest,
+                       SyncSettingsWithReplaceSyncPromosWithSignInPromos) {
+  RunTest("settings/people_page_sync_page_test.js",
+          "runMochaSuite('SyncSettingsWithReplaceSyncPromosWithSignInPromos')");
+}
+#endif
+
 IN_PROC_BROWSER_TEST_F(PeoplePageSyncPageTest, EEAChoiceCountry) {
   RunTest("settings/people_page_sync_page_test.js",
           "runMochaSuite('EEAChoiceCountry')");
@@ -553,10 +590,6 @@ IN_PROC_BROWSER_TEST_F(PeoplePageSyncPageTest, EEAChoiceCountry) {
 IN_PROC_BROWSER_TEST_F(PeoplePageSyncPageTest, LinkedServicesDisabled) {
   RunTest("settings/people_page_sync_page_test.js",
           "runMochaSuite('LinkedServicesDisabled')");
-}
-
-IN_PROC_BROWSER_TEST_F(SettingsTest, PerformanceMenu) {
-  RunTest("settings/settings_performance_menu_test.js", "mocha.run()");
 }
 
 IN_PROC_BROWSER_TEST_F(SettingsTest, ProtocolHandlers) {
@@ -589,12 +622,20 @@ IN_PROC_BROWSER_TEST_F(SettingsTest, Search) {
   RunTest("settings/search_settings_test.js", "mocha.run()");
 }
 
+IN_PROC_BROWSER_TEST_F(SettingsTest, SearchableViewContainerMixin) {
+  RunTest("settings/searchable_view_container_mixin_test.js", "mocha.run()");
+}
+
 IN_PROC_BROWSER_TEST_F(SettingsTest, SearchEngineEntry) {
   RunTest("settings/search_engine_entry_test.js", "mocha.run()");
 }
 
 IN_PROC_BROWSER_TEST_F(SettingsTest, SearchEngines) {
   RunTest("settings/search_engines_page_test.js", "mocha.run()");
+}
+
+IN_PROC_BROWSER_TEST_F(SettingsTest, SearchPageIndex) {
+  RunTest("settings/search_page_index_test.js", "mocha.run()");
 }
 
 IN_PROC_BROWSER_TEST_F(SettingsTest, SearchPage) {
@@ -688,6 +729,10 @@ IN_PROC_BROWSER_TEST_F(SettingsTest, SmartCardReadersPage) {
 
 IN_PROC_BROWSER_TEST_F(SettingsTest, SpeedPage) {
   RunTest("settings/speed_page_test.js", "mocha.run()");
+}
+
+IN_PROC_BROWSER_TEST_F(SettingsTest, OnStartupPage) {
+  RunTest("settings/on_startup_page_test.js", "mocha.run()");
 }
 
 IN_PROC_BROWSER_TEST_F(SettingsTest, StartupUrlsPage) {
@@ -792,21 +837,9 @@ IN_PROC_BROWSER_TEST_F(SettingsAllSitesTest, WithoutRelatedWebsiteSetsData) {
           "runMochaSuite('WithoutRelatedWebsiteSetsData')");
 }
 
-// TODO(crbug.com/40823128): Flaky on all platforms.
-IN_PROC_BROWSER_TEST_F(SettingsTest, DISABLED_BasicPage) {
-  RunTest("settings/basic_page_test.js", "runMochaSuite('BasicPage')");
-}
-
 IN_PROC_BROWSER_TEST_F(SettingsTest, PrivacyGuidePromo) {
-  RunTest("settings/basic_page_test.js", "runMochaSuite('PrivacyGuidePromo')");
-}
-
-IN_PROC_BROWSER_TEST_F(SettingsTest, Performance) {
-  RunTest("settings/basic_page_test.js", "runMochaSuite('Performance')");
-}
-
-IN_PROC_BROWSER_TEST_F(SettingsTest, AiSections) {
-  RunTest("settings/basic_page_test.js", "runMochaSuite('AiSections')");
+  RunTest("settings/privacy_guide_promo_test.js",
+          "runMochaSuite('PrivacyGuidePromo')");
 }
 
 using SettingsClearBrowsingDataTest = SettingsBrowserTest;
@@ -839,9 +872,16 @@ IN_PROC_BROWSER_TEST_F(SettingsClearBrowsingDataTest,
 }
 
 class SettingsClearBrowsingDataV2Test : public SettingsBrowserTest {
+ protected:
+  SettingsClearBrowsingDataV2Test() {
+    scoped_feature_list_.InitWithFeatures(
+        {browsing_data::features::kDbdRevampDesktop,
+         browsing_data::features::kBrowsingHistoryActorIntegrationM1},
+        /*disabled_features=*/{});
+  }
+
  private:
-  base::test::ScopedFeatureList scoped_feature_list_{
-      browsing_data::features::kDbdRevampDesktop};
+  base::test::ScopedFeatureList scoped_feature_list_;
 };
 
 #if !BUILDFLAG(IS_CHROMEOS)

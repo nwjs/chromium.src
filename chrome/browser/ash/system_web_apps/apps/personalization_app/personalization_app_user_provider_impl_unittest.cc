@@ -311,7 +311,6 @@ class PersonalizationAppUserProviderImplTest : public testing::Test {
   }
 
  private:
-  ScopedTestingLocalState local_state_{TestingBrowserProcess::GetGlobal()};
   base::test::ScopedFeatureList scoped_feature_list_;
   content::BrowserTaskEnvironment task_environment_;
   FakeVideoCaptureService fake_video_capture_service_;

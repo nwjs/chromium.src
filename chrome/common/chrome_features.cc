@@ -11,7 +11,6 @@
 #include "build/branding_buildflags.h"
 #include "build/build_config.h"
 #include "chrome/common/chrome_switches.h"
-#include "ppapi/buildflags/buildflags.h"
 
 namespace features {
 
@@ -123,6 +122,11 @@ const base::FeatureParam<std::string> kBoardingPassDetectorUrlParam(
 #if BUILDFLAG(IS_CHROMEOS)
 // Enable Borealis on Chrome OS.
 BASE_FEATURE(kBorealis, "Borealis", base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Enable Borealis MOTD on Chrome OS.
+BASE_FEATURE(kShowBorealisMotd,
+             "ShowBorealisMotd",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 #endif
 
 #if BUILDFLAG(CHROME_ROOT_STORE_CERT_MANAGEMENT_UI)
@@ -226,6 +230,18 @@ BASE_FEATURE(kChromeStructuredMetrics,
              "ChromeStructuredMetrics",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
+// Enables new fallback behaviour for Chrome profile creation controlled by
+// a command line flag when Chrome is launched with profile-email switch.
+BASE_FEATURE(kCreateProfileIfNoneExists,
+             "CreateProfileIfNoneExists",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// When enabled, allows parsing of `tab_group_color_palette` theme key, else
+// ignores it.
+BASE_FEATURE(kCustomizeTabGroupColorPalette,
+             "CustomizeTabGroupColorPalette",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // Moves the Extensions "puzzle piece" icon from the title bar into the app menu
 // for web app windows.
 BASE_FEATURE(kDesktopPWAsElidedExtensionsMenu,
@@ -281,6 +297,13 @@ BASE_FEATURE(kEnableExclusiveAccessManager,
              base::FEATURE_DISABLED_BY_DEFAULT);
 #endif
 
+// Enables Fullscreen to Screen on Android platform
+#if BUILDFLAG(IS_ANDROID)
+BASE_FEATURE(kEnableFullscreenToAnyScreenAndroid,
+             "EnableFullscreenToAnyScreenAndroid",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+#endif
+
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 // Controls whether Chrome Apps are supported. See https://crbug.com/1221251.
 // If the feature is disabled, Chrome Apps continue to work. If enabled, Chrome
@@ -329,6 +352,36 @@ BASE_FEATURE(kGeoLanguage, "GeoLanguage", base::FEATURE_DISABLED_BY_DEFAULT);
 // Controls whether the actor component of Glic is enabled.
 BASE_FEATURE(kGlicActor, "GlicActor", base::FEATURE_ENABLED_BY_DEFAULT);
 
+// Controls whether the Actor UI components are enabled.
+BASE_FEATURE(kGlicActorUi, "GlicActorUi", base::FEATURE_ENABLED_BY_DEFAULT);
+
+const char kGlicActorUiTaskIconName[] = "glic-actor-ui-task-icon";
+const char kGlicActorUiOverlayName[] = "glic-actor-ui-overlay";
+const char kGlicActorUiOverlayMagicCursorName[] =
+    "glic-actor-ui-overlay-magic-cursor";
+const char kGlicActorUiToastName[] = "glic-actor-ui-toast";
+const char kGlicActorUiHandoffButtonName[] = "glic-actor-ui-handoff-button";
+const char kGlicActorUiTabIndicatorName[] = "glic-actor-ui-tab-indicator";
+
+// Controls whether the task icon in the actor ui is enabled.
+const base::FeatureParam<bool> kGlicActorUiTaskIcon{
+    &kGlicActorUi, kGlicActorUiTaskIconName, true};
+// Controls whether the Actor Overlay in the actor ui is enabled.
+const base::FeatureParam<bool> kGlicActorUiOverlay{
+    &kGlicActorUi, kGlicActorUiOverlayName, false};
+// Controls whether the Magic Cursor in the Actor Overlay is enabled.
+const base::FeatureParam<bool> kGlicActorUiOverlayMagicCursor{
+    &kGlicActorUi, kGlicActorUiOverlayMagicCursorName, false};
+// Controls whether the toast in the actor ui is enabled.
+const base::FeatureParam<bool> kGlicActorUiToast{&kGlicActorUi,
+                                                 kGlicActorUiToastName, true};
+// Controls whether the handoff button in the actor ui is enabled.
+const base::FeatureParam<bool> kGlicActorUiHandoffButton{
+    &kGlicActorUi, kGlicActorUiHandoffButtonName, false};
+// Controls whether the tab indicator in the actor ui is enabled.
+const base::FeatureParam<bool> kGlicActorUiTabIndicator{
+    &kGlicActorUi, kGlicActorUiTabIndicatorName, true};
+
 // Controls renderer tool observation timeout when waiting on local
 // (non-network) work.
 const base::FeatureParam<base::TimeDelta> kGlicActorPageStabilityLocalTimeout{
@@ -337,6 +390,26 @@ const base::FeatureParam<base::TimeDelta> kGlicActorPageStabilityLocalTimeout{
 // The overall observation timeout when waiting on a renderer tool to complete.
 const base::FeatureParam<base::TimeDelta> kGlicActorPageStabilityTimeout{
     &kGlicActor, "glic-actor-page-stability-timeout", base::Seconds(10)};
+
+// An artificial delay before signalling the tools that the page has become
+// stable.
+const base::FeatureParam<base::TimeDelta>
+    kGlicActorPageStabilityInvokeCallbackDelay{
+        &kGlicActor, "glic-actor-page-stability-invoke-callback-delay",
+        base::Milliseconds(0)};
+
+// Controls whether typing happens incrementally.
+BASE_FEATURE(kGlicActorIncrementalTyping,
+             "GlicActorIncrementalTyping",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+const base::FeatureParam<base::TimeDelta> kGlicActorKeyDownDuration{
+    &kGlicActorIncrementalTyping,
+    "glic-actor-incremental-typing-key-down-duration", base::Milliseconds(5)};
+
+const base::FeatureParam<base::TimeDelta> kGlicActorKeyUpDuration{
+    &kGlicActorIncrementalTyping,
+    "glic-actor-incremental-typing-key-up-duration", base::Milliseconds(5)};
 
 #if BUILDFLAG(ENABLE_GLIC)
 // Controls whether the Glic feature is enabled.
@@ -394,17 +467,9 @@ const base::FeatureParam<int> kGlicScreenshotEncodeQuality{
 const base::FeatureParam<std::string> kGlicDefaultHotkey{
     &kGlic, "glic-default-hotkey", ""};
 
-BASE_FEATURE(kGlicURLConfig,
-             "GlicURLConfig",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kGlicURLConfig, "GlicURLConfig", base::FEATURE_ENABLED_BY_DEFAULT);
 const base::FeatureParam<std::string> kGlicGuestURL{
-    &kGlicURLConfig, "glic-guest-url",
-#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
-    "https://gemini.google.com/glic"
-#else
-    ""
-#endif
-};
+    &kGlicURLConfig, "glic-guest-url", "https://gemini.google.com/glic"};
 
 BASE_FEATURE_PARAM(std::string,
                    kGlicUserStatusUrl,
@@ -465,21 +530,16 @@ BASE_FEATURE_PARAM(base::TimeDelta,
 
 BASE_FEATURE(kGlicFreURLConfig,
              "GlicFreURLConfig",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE_PARAM(std::string,
                    kGlicFreURL,
                    &kGlicFreURLConfig,
                    "glic-fre-url",
-#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
-                   "https://gemini.google.com/glic/intro?"
-#else
-                   ""
-#endif
-);
+                   "https://gemini.google.com/glic/intro?");
 
 BASE_FEATURE(kGlicLearnMoreURLConfig,
              "GlicLearnMoreURLConfig",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE_PARAM(std::string,
                    kGlicShortcutsLearnMoreURL,
                    &kGlicLearnMoreURLConfig,
@@ -511,15 +571,26 @@ BASE_FEATURE_PARAM(std::string,
                    &kGlicLearnMoreURLConfig,
                    "glic-settings-page-learn-more-url",
                    "");
+BASE_FEATURE_PARAM(std::string,
+                   kGlicExtensionsManagementUrl,
+                   &kGlicLearnMoreURLConfig,
+                   "glic-extensions-management-url",
+#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
+                   "https://gemini.google.com/apps"
+#else
+                   ""
+#endif
+);
 
-BASE_FEATURE(kGlicCSPConfig,
-             "GlicCSPConfig",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kGlicCSPConfig, "GlicCSPConfig", base::FEATURE_ENABLED_BY_DEFAULT);
 // TODO(crbug.com/378951332): Set appropriate default.
 const base::FeatureParam<std::string> kGlicAllowedOriginsOverride{
     &kGlicCSPConfig, "glic-allowed-origins-override",
     // Space-delimited set of allowed origins.
-    "https://*.google.com"};
+    "https://gemini.google.com https://gemini-autopush.corp.google.com "
+    "https://gemini-preprod.corp.google.com "
+    "https://gemini-staging.corp.google.com https://gemini-dev.corp.google.com "
+    "https://www.google.com"};
 
 // Enable/disable Glic web client responsiveness check feature.
 BASE_FEATURE(kGlicClientResponsivenessCheck,
@@ -542,6 +613,12 @@ const base::FeatureParam<int> kGlicClientResponsivenessCheckTimeoutMs{
 const base::FeatureParam<int> kGlicClientUnresponsiveUiMaxTimeMs{
     &kGlicClientResponsivenessCheck, "glic-client-unresponsive-ui-max-time-ms",
     5000};
+// When true, the responsiveness check will be ignored when the debugger is
+// attached to the webview.
+const base::FeatureParam<bool>
+    kGlicClientResponsivenessCheckIgnoreWhenDebuggerAttached{
+        &kGlicClientResponsivenessCheck,
+        "glic-client-responsiveness-check-ignore-when-debugger-attached", true};
 
 BASE_FEATURE(kGlicUseShaderCache,
              "GlicUseShaderCache",
@@ -549,26 +626,30 @@ BASE_FEATURE(kGlicUseShaderCache,
 
 BASE_FEATURE(kGlicKeyboardShortcutNewBadge,
              "GlicKeyboardShortcutNewBadge",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kGlicAppMenuNewBadge,
              "GlicAppMenuNewBadge",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kGlicDebugWebview,
              "GlicDebugWebview",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kGlicScrollTo, "GlicScrollTo", base::FEATURE_DISABLED_BY_DEFAULT);
-// Controls whether we enforce that documentId (a currently optional parameter)
-// is set (and fail the request if it's not).
-const base::FeatureParam<bool> kGlicScrollToEnforceDocumentId{
-    &kGlicScrollTo, "glic-scroll-to-enforce-document-id", false};
 
-// Controls whether the web client should resize itself to fit the window.
-BASE_FEATURE(kGlicSizingFitWindow,
-             "GlicSizingFitWindow",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+// Controls whether we enforce that documentId (an optional parameter) is set
+// when trying to scroll all documents except PDFs (and fail the request if
+// it's not set).
+const base::FeatureParam<bool> kGlicScrollToEnforceDocumentId{
+    &kGlicScrollTo, "glic-scroll-to-enforce-document-id", true};
+// Expand the scrollTo capability to PDF documents.
+const base::FeatureParam<bool> kGlicScrollToPDF{&kGlicScrollTo,
+                                                "glic-scroll-to-pdf", false};
+// Controls whether we enforce that url (an optional parameter) is set when
+// trying to scroll a PDF document (and fail the request if it's not set).
+const base::FeatureParam<bool> kGlicScrollToEnforceURLForPDF{
+    &kGlicScrollTo, "glic-scroll-to-enforce-url-for-pdf", true};
 
 BASE_FEATURE(kGlicWarming, "GlicWarming", base::FEATURE_DISABLED_BY_DEFAULT);
 
@@ -579,7 +660,7 @@ BASE_FEATURE(kGlicDisableWarming,
 // Controls the amount of time from the GlicButtonController scheduling
 // preload to the start of preloading (if preloading is possible).
 const base::FeatureParam<int> kGlicWarmingDelayMs{
-    &kGlicWarming, "glic-warming-delay-ms", 30 * 1000};
+    &kGlicWarming, "glic-warming-delay-ms", 20 * 1000};
 
 // Adds noise to the warming delay. The effective delay is increased by a
 // random positive number of milliseconds between 0 and kGlicWarmingJitterMs.
@@ -606,7 +687,7 @@ BASE_FEATURE(kGlicUserStatusCheck,
 
 BASE_FEATURE(kGlicClosedCaptioning,
              "GlicClosedCaptioning",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kGlicUnloadOnClose,
              "GlicUnloadOnClose",
@@ -614,10 +695,6 @@ BASE_FEATURE(kGlicUnloadOnClose,
 
 BASE_FEATURE(kGlicApiActivationGating,
              "GlicApiActivationGating",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-BASE_FEATURE(kGlicGetUserProfileInfoApiActivationGating,
-             "GlicGetUserProfileInfoApiActivationGating",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 // When enabled, don't try to update the views background color based on the
@@ -641,15 +718,20 @@ BASE_FEATURE(kGlicPanelSetPositionOnDrag,
 BASE_FEATURE(kGlicPanelResetOnSessionTimeout,
              "GlicPanelResetOnSessionTimeout",
              base::FEATURE_DISABLED_BY_DEFAULT);
-const base::FeatureParam<int> kGlicPanelResetOnSessionTimeoutDelayH{
+const base::FeatureParam<double> kGlicPanelResetOnSessionTimeoutDelayH{
     &kGlicPanelResetOnSessionTimeout,
-    "glic-panel-reset-session-timeout-delay-h", 24};
+    "glic-panel-reset-session-timeout-delay-h", 0};
+BASE_FEATURE(kGlicPanelResetSizeAndLocationOnOpen,
+             "GlicPanelResetSizeAndLocationOnOpen",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kGlicRecordActorJournal,
+             "GlicRecordActorJournal",
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kGlicWebClientUnresponsiveMetrics,
              "GlicWebClientUnresponsiveMetrics",
              base::FEATURE_ENABLED_BY_DEFAULT);
-
-BASE_FEATURE(kGlicTabGlow, "GlicTabGlow", base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kGlicParameterizedShader,
              "GlicParameterizedShader",
@@ -669,6 +751,18 @@ const base::FeatureParam<int> kGlicTabFocusDataMaxDebounces{
     &kGlicTabFocusDataDedupDebounce, "glic-tab-focus-data-max-debounces", 5};
 
 BASE_FEATURE(kGlicAssetsV2, "GlicAssetsV2", base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kGlicFaviconDataUrls,
+             "GlicFaviconDataUrls",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kGlicExtensions,
+             "GlicExtensions",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kGlicMultitabUnderlines,
+             "GlicMultitabUnderlines",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(ENABLE_GLIC)
 
 // Force Privacy Guide to be available even if it would be unavailable
@@ -1018,13 +1112,13 @@ BASE_FEATURE(kIsolatedWebAppUnmanagedInstall,
 // Enables users to install isolated web apps in managed guest sessions.
 BASE_FEATURE(kIsolatedWebAppManagedGuestSessionInstall,
              "IsolatedWebAppManagedGuestSessionInstall",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables bundle cache for isolated web apps in kiosk and managed guest
 // session.
 BASE_FEATURE(kIsolatedWebAppBundleCache,
              "IsolatedWebAppBundleCache",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
 // When enabled, allows other features to use the k-Anonymity Service.
@@ -1681,7 +1775,7 @@ const base::FeatureParam<base::TimeDelta>
 // Safety features, using HaTS.
 BASE_FEATURE(kTrustSafetySentimentSurveyV2,
              "TrustSafetySentimentSurveyV2",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 // The minimum and maximum time after a user has interacted with a Trust and
 // Safety feature that they are eligible to be surveyed.
 const base::FeatureParam<base::TimeDelta>
@@ -1708,23 +1802,24 @@ const base::FeatureParam<base::TimeDelta>
 // TODO(crbug.com/40245476): Calculate initial probabilities and remove 0.0
 const base::FeatureParam<double>
     kTrustSafetySentimentSurveyV2BrowsingDataProbability{
-        &kTrustSafetySentimentSurveyV2, "browsing-data-probability", 0.0};
+        &kTrustSafetySentimentSurveyV2, "browsing-data-probability", 0.006};
 const base::FeatureParam<double>
     kTrustSafetySentimentSurveyV2ControlGroupProbability{
-        &kTrustSafetySentimentSurveyV2, "control-group-probability", 0.0};
+        &kTrustSafetySentimentSurveyV2, "control-group-probability", 0.000025};
 const base::FeatureParam<double>
     kTrustSafetySentimentSurveyV2DownloadWarningUIProbability{
-        &kTrustSafetySentimentSurveyV2, "download-warning-ui-probability", 0.0};
+        &kTrustSafetySentimentSurveyV2, "download-warning-ui-probability",
+        0.05213384};
 const base::FeatureParam<double>
     kTrustSafetySentimentSurveyV2PasswordCheckProbability{
-        &kTrustSafetySentimentSurveyV2, "password-check-probability", 0.0};
+        &kTrustSafetySentimentSurveyV2, "password-check-probability", 0.195};
 const base::FeatureParam<double>
     kTrustSafetySentimentSurveyV2PasswordProtectionUIProbability{
         &kTrustSafetySentimentSurveyV2, "password-protection-ui-probability",
-        0.0};
+        0.5};
 const base::FeatureParam<double>
     kTrustSafetySentimentSurveyV2SafetyCheckProbability{
-        &kTrustSafetySentimentSurveyV2, "safety-check-probability", 0.0};
+        &kTrustSafetySentimentSurveyV2, "safety-check-probability", 0.12121};
 const base::FeatureParam<double>
     kTrustSafetySentimentSurveyV2SafetyHubNotificationProbability{
         &kTrustSafetySentimentSurveyV2, "safety-hub-notification-probability",
@@ -1735,35 +1830,41 @@ const base::FeatureParam<double>
         0.0};
 const base::FeatureParam<double>
     kTrustSafetySentimentSurveyV2TrustedSurfaceProbability{
-        &kTrustSafetySentimentSurveyV2, "trusted-surface-probability", 0.0};
+        &kTrustSafetySentimentSurveyV2, "trusted-surface-probability",
+        0.012685};
 const base::FeatureParam<double>
     kTrustSafetySentimentSurveyV2PrivacyGuideProbability{
-        &kTrustSafetySentimentSurveyV2, "privacy-guide-probability", 0.0};
+        &kTrustSafetySentimentSurveyV2, "privacy-guide-probability", 0.5};
 const base::FeatureParam<double>
     kTrustSafetySentimentSurveyV2SafeBrowsingInterstitialProbability{
         &kTrustSafetySentimentSurveyV2,
-        "safe-browsing-interstitial-probability", 0.0};
+        "safe-browsing-interstitial-probability", 0.18932671};
 // The HaTS trigger IDs, which determine which survey is delivered from the HaTS
 // backend.
 const base::FeatureParam<std::string>
     kTrustSafetySentimentSurveyV2BrowsingDataTriggerId{
-        &kTrustSafetySentimentSurveyV2, "browsing-data-trigger-id", ""};
+        &kTrustSafetySentimentSurveyV2, "browsing-data-trigger-id",
+        "1iSgej9Tq0ugnJ3q1cK0QwXZ12oo"};
 const base::FeatureParam<std::string>
     kTrustSafetySentimentSurveyV2ControlGroupTriggerId{
-        &kTrustSafetySentimentSurveyV2, "control-group-trigger-id", ""};
+        &kTrustSafetySentimentSurveyV2, "control-group-trigger-id",
+        "CXMbsBddw0ugnJ3q1cK0QJM1Hu8m"};
 const base::FeatureParam<std::string>
     kTrustSafetySentimentSurveyV2DownloadWarningUITriggerId{
-        &kTrustSafetySentimentSurveyV2, "download-warning-ui-trigger-id", ""};
+        &kTrustSafetySentimentSurveyV2, "download-warning-ui-trigger-id",
+        "7SS4sg4oR0ugnJ3q1cK0TNvCvd8U"};
 const base::FeatureParam<std::string>
     kTrustSafetySentimentSurveyV2PasswordCheckTriggerId{
-        &kTrustSafetySentimentSurveyV2, "password-check-trigger-id", ""};
+        &kTrustSafetySentimentSurveyV2, "password-check-trigger-id",
+        "Xd54YDVNJ0ugnJ3q1cK0UYBRruNH"};
 const base::FeatureParam<std::string>
     kTrustSafetySentimentSurveyV2PasswordProtectionUITriggerId{
         &kTrustSafetySentimentSurveyV2, "password-protection-ui-trigger-id",
-        ""};
+        "bQBRghu5w0ugnJ3q1cK0RrqdqVRP"};
 const base::FeatureParam<std::string>
     kTrustSafetySentimentSurveyV2SafetyCheckTriggerId{
-        &kTrustSafetySentimentSurveyV2, "safety-check-trigger-id", ""};
+        &kTrustSafetySentimentSurveyV2, "safety-check-trigger-id",
+        "YSDfPVMnX0ugnJ3q1cK0RxEhwkay"};
 const base::FeatureParam<std::string>
     kTrustSafetySentimentSurveyV2SafetyHubInteractionTriggerId{
         &kTrustSafetySentimentSurveyV2, "safety-hub-interaction-trigger-id",
@@ -1774,14 +1875,16 @@ const base::FeatureParam<std::string>
         ""};
 const base::FeatureParam<std::string>
     kTrustSafetySentimentSurveyV2TrustedSurfaceTriggerId{
-        &kTrustSafetySentimentSurveyV2, "trusted-surface-trigger-id", ""};
+        &kTrustSafetySentimentSurveyV2, "trusted-surface-trigger-id",
+        "CMniDmzgE0ugnJ3q1cK0U6PaEn1f"};
 const base::FeatureParam<std::string>
     kTrustSafetySentimentSurveyV2PrivacyGuideTriggerId{
-        &kTrustSafetySentimentSurveyV2, "privacy-guide-trigger-id", ""};
+        &kTrustSafetySentimentSurveyV2, "privacy-guide-trigger-id",
+        "tqR1rjeDu0ugnJ3q1cK0P9yJEq7Z"};
 const base::FeatureParam<std::string>
     kTrustSafetySentimentSurveyV2SafeBrowsingInterstitialTriggerId{
         &kTrustSafetySentimentSurveyV2, "safe-browsing-interstitial-trigger-id",
-        ""};
+        "Z9pSWP53n0ugnJ3q1cK0Y6YkGRpU"};
 // The time the user must have the Trusted Surface bubble open to be considered.
 // Alternatively the user can interact with the bubble, in which case this time
 // is irrelevant.
@@ -1801,11 +1904,19 @@ BASE_FEATURE(kUseChromiumUpdater,
 BASE_FEATURE(kWebAppManifestIconUpdating,
              "WebAppManifestIconUpdating",
              base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kWebAppUsePrimaryIcon,
+             "WebAppUsePrimaryIcon",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 #endif  // !BUILDFLAG(IS_ANDROID)
 
 BASE_FEATURE(kWebAppManifestPolicyAppIdentityUpdate,
              "WebAppManifestPolicyAppIdentityUpdate",
              base::FEATURE_ENABLED_BY_DEFAULT);
+
+#if !BUILDFLAG(IS_ANDROID)
+BASE_FEATURE(kWebium, "Webium", base::FEATURE_DISABLED_BY_DEFAULT);
+#endif  // !BUILDFLAG(IS_ANDROID)
 
 // Restricts the WebUI scripts able to use the generated code cache according to
 // embedder-specified heuristics.
@@ -1865,5 +1976,11 @@ BASE_FEATURE(kClassManagementEnabledMetricsProvider,
 BASE_FEATURE(kDisableShortcutsEnableDiy,
              "DisableShortcutsEnableDiy",
              base::FEATURE_ENABLED_BY_DEFAULT);
+
+// A feature to enabled updating policy and default management installed PWAs to
+// happen silently without prompting an updating dialog.
+BASE_FEATURE(kSilentPolicyAndDefaultAppUpdating,
+             "SilentPolicyAndDefaultAppUpdating",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 }  // namespace features

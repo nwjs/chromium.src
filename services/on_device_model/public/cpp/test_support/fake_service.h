@@ -45,6 +45,9 @@ struct FakeOnDeviceServiceSettings final {
   // The delay before running the GetDevicePerformanceInfo() response callback.
   base::TimeDelta estimated_performance_delay;
 
+  mojom::PerformanceClass performance_class =
+      mojom::PerformanceClass::kVeryHigh;
+
   // If non-empty, used as the output from Execute().
   std::vector<std::string> model_execute_result;
 
@@ -80,29 +83,36 @@ class FakeOnDeviceSession final : public mojom::Session {
 
   void Generate(
       mojom::GenerateOptionsPtr input,
-      mojo::PendingRemote<mojom::StreamingResponder> response) override;
+      mojo::PendingRemote<mojom::StreamingResponder> responder) override;
 
   void GetSizeInTokens(mojom::InputPtr input,
                        GetSizeInTokensCallback callback) override;
 
   void Score(const std::string& text, ScoreCallback callback) override;
-
   void GetProbabilitiesBlocking(
       const std::string& text,
       GetProbabilitiesBlockingCallback callback) override;
-
   void Clone(
       mojo::PendingReceiver<on_device_model::mojom::Session> session) override;
-
   void SetPriority(mojom::Priority priority) override;
+  void AsrStream(
+      on_device_model::mojom::AsrStreamOptionsPtr options,
+      mojo::PendingReceiver<on_device_model::mojom::AsrStreamInput> stream,
+      mojo::PendingRemote<on_device_model::mojom::AsrStreamResponder> responder)
+      override;
 
  private:
   void GenerateImpl(mojom::GenerateOptionsPtr options,
-                    mojo::PendingRemote<mojom::StreamingResponder> response);
+                    mojo::PendingRemote<mojom::StreamingResponder> responder);
   void AppendImpl(mojom::AppendOptionsPtr options,
                   mojo::Remote<mojom::ContextClient> client);
   void CloneImpl(
       mojo::PendingReceiver<on_device_model::mojom::Session> session);
+  void AsrStreamImpl(
+      on_device_model::mojom::AsrStreamOptionsPtr options,
+      mojo::PendingReceiver<on_device_model::mojom::AsrStreamInput> stream,
+      mojo::PendingRemote<on_device_model::mojom::AsrStreamResponder>
+          responder);
 
   raw_ptr<FakeOnDeviceServiceSettings> settings_;
   std::string adaptation_model_weight_;
@@ -125,11 +135,14 @@ class FakeOnDeviceModel : public mojom::OnDeviceModel {
     std::string base_weight = "";
     std::string adaptation_model_weight = "";
     std::string cache_weight = "";
+    std::string encoder_cache_weight = "";
+    std::string adapter_cache_weight = "";
     std::vector<uint32_t> adaptation_ranks;
   };
   explicit FakeOnDeviceModel(FakeOnDeviceServiceSettings* settings,
                              Data&& data,
-                             ml::ModelPerformanceHint performance_hint);
+                             ml::ModelPerformanceHint performance_hint,
+                             ml::ModelBackendType backend_type);
   ~FakeOnDeviceModel() override;
 
   // mojom::OnDeviceModel:
@@ -156,10 +169,13 @@ class FakeOnDeviceModel : public mojom::OnDeviceModel {
     return performance_hint_;
   }
 
+  ml::ModelBackendType backend_type() const { return backend_type_; }
+
  private:
   raw_ptr<FakeOnDeviceServiceSettings> settings_;
   Data data_;
   ml::ModelPerformanceHint performance_hint_;
+  ml::ModelBackendType backend_type_;
 
   mojo::UniqueReceiverSet<mojom::Session> receivers_;
   mojo::UniqueReceiverSet<mojom::OnDeviceModel> model_adaptation_receivers_;

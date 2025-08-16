@@ -31,6 +31,7 @@ import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Build.VERSION_CODES;
 import android.view.View;
+import android.view.ViewGroup;
 
 import androidx.annotation.ColorInt;
 import androidx.appcompat.content.res.AppCompatResources;
@@ -106,13 +107,6 @@ import org.chromium.ui.test.util.ViewUtils;
 @ParameterAnnotations.UseRunnerDelegate(ChromeJUnit4RunnerDelegate.class)
 @CommandLineFlags.Add({ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE})
 @Restriction(DeviceFormFactor.PHONE)
-// TODO(crbug.com/419289558): Re-enable color surface feature flags
-@DisableFeatures({
-    ChromeFeatureList.ANDROID_SURFACE_COLOR_UPDATE,
-    ChromeFeatureList.GRID_TAB_SWITCHER_SURFACE_COLOR_UPDATE,
-    ChromeFeatureList.GRID_TAB_SWITCHER_UPDATE,
-    ChromeFeatureList.ANDROID_THEME_MODULE
-})
 public class ToolbarPhoneTest {
     @Rule public final MockitoRule mMockitoRule = MockitoJUnit.rule();
 
@@ -293,6 +287,9 @@ public class ToolbarPhoneTest {
 
     @Test
     @MediumTest
+    @DisableFeatures({
+        ChromeFeatureList.ANDROID_SURFACE_COLOR_UPDATE,
+    })
     public void testToolbarColorSameAsSuggestionColorWhenFocus_activeColorOmnibox() {
         LocationBarCoordinator locationBarCoordinator =
                 (LocationBarCoordinator) mToolbar.getLocationBar();
@@ -341,6 +338,58 @@ public class ToolbarPhoneTest {
                                             BrandedColorScheme.APP_DEFAULT)));
                 });
         verify(mLocationbarBackgroundDrawable, atLeastOnce()).setTint(anyInt());
+        verify(mLocationbarBackgroundDrawable, atLeastOnce()).setCornerRadius(nonFocusedRadius);
+    }
+
+    @Test
+    @MediumTest
+    @EnableFeatures({
+        ChromeFeatureList.ANDROID_SURFACE_COLOR_UPDATE,
+    })
+    public void
+            testToolbarColorSameAsSuggestionColorWhenFocus_activeColorOmnibox_androidSurfaceColorUpdateEnabled() {
+        LocationBarCoordinator locationBarCoordinator =
+                (LocationBarCoordinator) mToolbar.getLocationBar();
+        ColorDrawable toolbarBackgroundDrawable = mToolbar.getBackgroundDrawable();
+        mToolbar.setLocationBarBackgroundDrawableForTesting(mLocationbarBackgroundDrawable);
+        int nonFocusedRadius =
+                mActivityTestRule
+                        .getActivity()
+                        .getResources()
+                        .getDimensionPixelSize(R.dimen.modern_toolbar_background_corner_radius);
+        int focusedRadius =
+                mActivityTestRule
+                        .getActivity()
+                        .getResources()
+                        .getDimensionPixelSize(R.dimen.omnibox_suggestion_bg_round_corner_radius);
+
+        // Focus on the Omnibox
+        mOmnibox.requestFocus();
+        CriteriaHelper.pollUiThread(
+                () -> {
+                    Criteria.checkThat(
+                            toolbarBackgroundDrawable.getColor(),
+                            Matchers.is(
+                                    OmniboxResourceProvider.getSuggestionsDropdownBackgroundColor(
+                                            mToolbar.getContext(),
+                                            BrandedColorScheme.APP_DEFAULT)));
+                });
+        verify(mLocationbarBackgroundDrawable, atLeastOnce()).setCornerRadius(focusedRadius);
+
+        // Clear focus on the Omnibox
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    locationBarCoordinator.getPhoneCoordinator().getViewForDrawing().clearFocus();
+                });
+        CriteriaHelper.pollUiThread(
+                () -> {
+                    Criteria.checkThat(
+                            toolbarBackgroundDrawable.getColor(),
+                            Matchers.not(
+                                    OmniboxResourceProvider.getSuggestionsDropdownBackgroundColor(
+                                            mToolbar.getContext(),
+                                            BrandedColorScheme.APP_DEFAULT)));
+                });
         verify(mLocationbarBackgroundDrawable, atLeastOnce()).setCornerRadius(nonFocusedRadius);
     }
 
@@ -490,7 +539,7 @@ public class ToolbarPhoneTest {
 
         // Load the new tab page.
         mActivityTestRule.loadUrl(UrlConstants.NTP_URL);
-        Tab tab = mActivityTestRule.getActivity().getActivityTab();
+        Tab tab = mActivityTestRule.getActivityTab();
         NewTabPageTestUtils.waitForNtpLoaded(tab);
         assertEquals(true, mToolbar.isLocationBarShownInNtp());
         assertEquals(homeSurfaceToolbarBackgroundColor, toolbarBackgroundDrawable.getColor());
@@ -520,7 +569,7 @@ public class ToolbarPhoneTest {
 
         // Load the new tab page.
         mActivityTestRule.loadUrl(UrlConstants.NTP_URL);
-        Tab tab = mActivityTestRule.getActivity().getActivityTab();
+        Tab tab = mActivityTestRule.getActivityTab();
         NewTabPageTestUtils.waitForNtpLoaded(tab);
         assertEquals(true, mToolbar.isLocationBarShownInNtp());
         ThreadUtils.runOnUiThreadBlocking(
@@ -543,7 +592,45 @@ public class ToolbarPhoneTest {
 
     @Test
     @MediumTest
+    @DisableFeatures({
+        OmniboxFeatureList.OMNIBOX_MOBILE_PARITY_UPDATE_V2,
+        ChromeFeatureList.ANDROID_SURFACE_COLOR_UPDATE,
+    })
     @DisableIf.Build(sdk_equals = VERSION_CODES.TIRAMISU, message = "crbug.com/339034032")
+    public void testToolbarBackgroundChangedWhenSearchEngineHasNoLogo_ParityUpdateV2Disabled() {
+        when(mTemplateUrlService.doesDefaultSearchEngineHaveLogo()).thenReturn(false);
+
+        ColorDrawable toolbarBackgroundDrawable = mToolbar.getBackgroundDrawable();
+        @ColorInt
+        int homeSurfaceToolbarBackgroundColor =
+                ContextCompat.getColor(
+                        mToolbar.getContext(), R.color.home_surface_background_color);
+
+        assertEquals(false, mToolbar.isLocationBarShownInGeneralNtp());
+        assertNotEquals(homeSurfaceToolbarBackgroundColor, toolbarBackgroundDrawable.getColor());
+
+        // Load the new tab page.
+        mActivityTestRule.loadUrl(UrlConstants.NTP_URL);
+        Tab tab = mActivityTestRule.getActivityTab();
+        NewTabPageTestUtils.waitForNtpLoaded(tab);
+        assertEquals(true, mToolbar.isLocationBarShownInGeneralNtp());
+        assertEquals(homeSurfaceToolbarBackgroundColor, toolbarBackgroundDrawable.getColor());
+
+        // Focus the Omnibox.
+        mOmnibox.requestFocus();
+        assertNotEquals(homeSurfaceToolbarBackgroundColor, toolbarBackgroundDrawable.getColor());
+    }
+
+    @Test
+    @MediumTest
+    @DisableIf.Build(sdk_equals = VERSION_CODES.TIRAMISU, message = "crbug.com/339034032")
+    @DisableFeatures({
+        ChromeFeatureList.ANDROID_SURFACE_COLOR_UPDATE,
+    })
+    @EnableFeatures({
+        OmniboxFeatureList.OMNIBOX_MOBILE_PARITY_UPDATE,
+        OmniboxFeatureList.OMNIBOX_MOBILE_PARITY_UPDATE_V2
+    })
     public void testToolbarBackgroundChangedWhenSearchEngineHasNoLogo() {
         when(mTemplateUrlService.doesDefaultSearchEngineHaveLogo()).thenReturn(false);
 
@@ -558,10 +645,44 @@ public class ToolbarPhoneTest {
 
         // Load the new tab page.
         mActivityTestRule.loadUrl(UrlConstants.NTP_URL);
-        Tab tab = mActivityTestRule.getActivity().getActivityTab();
+        Tab tab = mActivityTestRule.getActivityTab();
         NewTabPageTestUtils.waitForNtpLoaded(tab);
+        ViewGroup fakeSearchBox = mActivityTestRule.getActivity().findViewById(R.id.search_box);
         assertEquals(true, mToolbar.isLocationBarShownInGeneralNtp());
+        assertEquals(View.VISIBLE, fakeSearchBox.getVisibility());
+
+        // Focus the Omnibox.
+        mOmnibox.requestFocus();
+        assertNotEquals(homeSurfaceToolbarBackgroundColor, toolbarBackgroundDrawable.getColor());
+    }
+
+    @Test
+    @MediumTest
+    @DisableIf.Build(sdk_equals = VERSION_CODES.TIRAMISU, message = "crbug.com/339034032")
+    @EnableFeatures({
+        ChromeFeatureList.ANDROID_SURFACE_COLOR_UPDATE,
+        OmniboxFeatureList.OMNIBOX_MOBILE_PARITY_UPDATE,
+        OmniboxFeatureList.OMNIBOX_MOBILE_PARITY_UPDATE_V2
+    })
+    public void testToolbarBackgroundChangedWhenSearchEngineHasNoLogo_AndroidSurfaceColorEnabled() {
+        when(mTemplateUrlService.doesDefaultSearchEngineHaveLogo()).thenReturn(false);
+
+        ColorDrawable toolbarBackgroundDrawable = mToolbar.getBackgroundDrawable();
+        @ColorInt
+        int homeSurfaceToolbarBackgroundColor =
+                ContextCompat.getColor(
+                        mToolbar.getContext(), R.color.home_surface_background_color);
+
+        assertEquals(false, mToolbar.isLocationBarShownInGeneralNtp());
         assertEquals(homeSurfaceToolbarBackgroundColor, toolbarBackgroundDrawable.getColor());
+
+        // Load the new tab page.
+        mActivityTestRule.loadUrl(UrlConstants.NTP_URL);
+        Tab tab = mActivityTestRule.getActivityTab();
+        NewTabPageTestUtils.waitForNtpLoaded(tab);
+        ViewGroup fakeSearchBox = mActivityTestRule.getActivity().findViewById(R.id.search_box);
+        assertEquals(true, mToolbar.isLocationBarShownInGeneralNtp());
+        assertEquals(View.VISIBLE, fakeSearchBox.getVisibility());
 
         // Focus the Omnibox.
         mOmnibox.requestFocus();
@@ -574,7 +695,7 @@ public class ToolbarPhoneTest {
     public void testFocusAnimation_optionalButtonRestored() {
         mToolbar.setOptionalButtonCoordinatorForTesting(mOptionalButtonCoordinator);
         mActivityTestRule.loadUrl(UrlConstants.NTP_URL);
-        Tab tab = mActivityTestRule.getActivity().getActivityTab();
+        Tab tab = mActivityTestRule.getActivityTab();
         NewTabPageTestUtils.waitForNtpLoaded(tab);
         assertEquals(true, mToolbar.isLocationBarShownInNtp());
 
@@ -615,7 +736,7 @@ public class ToolbarPhoneTest {
                 });
 
         mActivityTestRule.loadUrl(UrlConstants.NTP_URL);
-        Tab tab = mActivityTestRule.getActivity().getActivityTab();
+        Tab tab = mActivityTestRule.getActivityTab();
         NewTabPageTestUtils.waitForNtpLoaded(tab);
         assertEquals(true, mToolbar.isLocationBarShownInNtp());
 
@@ -692,7 +813,7 @@ public class ToolbarPhoneTest {
     public void testNtpAnimation_onGTSExit() {
         // Load NTP
         mActivityTestRule.loadUrl(UrlConstants.NTP_URL);
-        Tab tab = mActivityTestRule.getActivity().getActivityTab();
+        Tab tab = mActivityTestRule.getActivityTab();
         NewTabPageTestUtils.waitForNtpLoaded(tab);
         // Location bar alpha is 0 when NTP is shown.
         assertEquals(0f, mToolbar.getLocationBar().getContainerView().getAlpha(), EPSILON);

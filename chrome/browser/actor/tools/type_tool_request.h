@@ -12,6 +12,7 @@
 #include "chrome/common/actor.mojom-forward.h"
 
 namespace actor {
+class ToolRequestVisitorFunctor;
 
 class TypeToolRequest : public PageToolRequest {
  public:
@@ -27,11 +28,13 @@ class TypeToolRequest : public PageToolRequest {
   };
 
   TypeToolRequest(tabs::TabHandle tab_handle,
-                  const Target& target,
+                  const PageTarget& target,
                   std::string_view text,
                   bool follow_by_enter,
                   Mode mode);
   ~TypeToolRequest() override;
+
+  void Apply(ToolRequestVisitorFunctor& f) const override;
 
   // ToolRequest
   std::string JournalEvent() const override;

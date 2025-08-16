@@ -24,6 +24,7 @@
 #include "base/memory/memory_pressure_monitor.h"
 #include "base/memory/ptr_util.h"
 #include "base/metrics/field_trial.h"
+#include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/metrics/user_metrics.h"
 #include "base/no_destructor.h"
@@ -118,6 +119,7 @@
 #include "content/public/browser/render_process_host.h"
 #include "content/public/browser/service_process_host.h"
 #include "content/public/browser/site_isolation_policy.h"
+#include "content/public/common/buildflags.h"
 #include "content/public/common/content_client.h"
 #include "content/public/common/content_features.h"
 #include "content/public/common/content_switches.h"
@@ -142,7 +144,6 @@
 #include "net/log/net_log.h"
 #include "net/socket/client_socket_factory.h"
 #include "net/ssl/ssl_config_service.h"
-#include "ppapi/buildflags/buildflags.h"
 #include "services/audio/service.h"
 #include "services/data_decoder/public/cpp/service_provider.h"
 #include "services/data_decoder/public/mojom/data_decoder_service.mojom.h"
@@ -671,7 +672,8 @@ void BrowserMainLoop::PostCreateMainMessageLoop() {
     TRACE_EVENT0("startup", "BrowserMainLoop::Subsystem:PowerMonitor");
     if (auto* power_monitor = base::PowerMonitor::GetInstance();
         !power_monitor->IsInitialized()) {
-      power_monitor->Initialize(MakePowerMonitorDeviceSource());
+      power_monitor->Initialize(MakePowerMonitorDeviceSource(),
+                                /*emit_global_event=*/true);
     }
   }
   {
@@ -855,6 +857,11 @@ int BrowserMainLoop::PreCreateThreads() {
   // happen.
   SiteIsolationPolicy::ApplyGlobalIsolatedOrigins();
 
+  // Record whether the current site isolation configuration is "Site Per
+  // Process" or a stricter mode, such as "Strict Origin Isolation."
+  base::UmaHistogramBoolean("SiteIsolation.IsSitePerProcessOrStricter",
+                            SiteIsolationPolicy::IsSitePerProcessOrStricter());
+
   // Generate the browser process salt. This is then accessible by calls to
   // GetPseudonymizationSalt in the browser process. This generation is only
   // needed in the browser process, because for other processes it is
@@ -876,10 +883,10 @@ void BrowserMainLoop::CreateStartupTasks() {
 
   startup_task_runner_ = std::make_unique<StartupTaskRunner>(
       base::BindOnce(&BrowserStartupComplete),
-      GetUIThreadTaskRunner({BrowserTaskType::kDefault}));
+      GetUIThreadTaskRunner({BrowserTaskType::kStartup}));
 #else
   startup_task_runner_ = std::make_unique<StartupTaskRunner>(
-      base::OnceCallback<void(int)>(),
+      base::OnceCallback<void(int, base::TimeDelta)>(),
       base::SingleThreadTaskRunner::GetCurrentDefault());
 #endif
   StartupTask pre_create_threads = base::BindOnce(

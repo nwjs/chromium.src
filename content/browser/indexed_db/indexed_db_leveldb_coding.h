@@ -14,7 +14,6 @@
 #include <utility>
 #include <vector>
 
-#include "components/services/storage/indexed_db/locks/partitioned_lock_id.h"
 #include "content/common/content_export.h"
 #include "third_party/blink/public/common/indexeddb/indexeddb_key.h"
 #include "third_party/blink/public/common/indexeddb/indexeddb_key_path.h"
@@ -27,20 +26,20 @@ namespace content::indexed_db {
 // 3 - Adds metadata needed for blob support.
 // 4 - Adds size & last_modified to 'file' blob_info encodings.
 // 5 - One time verification that blob files exist on disk.
-const constexpr int64_t kLatestKnownSchemaVersion = 5;
+inline constexpr int64_t kLatestKnownSchemaVersion = 5;
 // Migration from version 2 to 3 occurred in 2014, and migration to version 4
 // began in early 2020, so we currently continue to support schema that are as
 // old as 2014.
-const constexpr int64_t kEarliestSupportedSchemaVersion = 3;
+inline constexpr int64_t kEarliestSupportedSchemaVersion = 3;
 
-CONTENT_EXPORT extern const unsigned char kMinimumIndexId;
+inline constexpr unsigned char kMinimumIndexId = 30;
 
 CONTENT_EXPORT std::string MaxIDBKey();
 CONTENT_EXPORT std::string MinIDBKey();
 
 // DatabaseId, BlobNumber
-typedef std::pair<int64_t, int64_t> BlobJournalEntryType;
-typedef std::vector<BlobJournalEntryType> BlobJournalType;
+using BlobJournalEntryType = std::pair<int64_t, int64_t>;
+using BlobJournalType = std::vector<BlobJournalEntryType>;
 
 CONTENT_EXPORT void EncodeByte(unsigned char value, std::string* into);
 CONTENT_EXPORT void EncodeBool(bool value, std::string* into);
@@ -133,19 +132,6 @@ CONTENT_EXPORT int CompareIndexKeys(std::string_view a, std::string_view b);
 
 // Logging support.
 std::string IndexedDBKeyToDebugString(std::string_view key);
-
-// TODO(estade): these lock id factories have nothing to do with level db
-// coding and don't belong in this file.
-
-// We can't use the database ID for the database lock because we need to hold
-// this lock before we start reading/writing the database metadata, at which
-// point we don't yet know the ID, but do know the name (which is unique
-// anyway).
-CONTENT_EXPORT PartitionedLockId
-GetDatabaseLockId(std::u16string database_name);
-// Note: this one is only to be used by the LevelDB backing store.
-CONTENT_EXPORT PartitionedLockId GetObjectStoreLockId(int64_t database_id,
-                                                      int64_t object_store_id);
 
 // TODO(dmurph): Modify all decoding methods to return something more sensible,
 // as it is not obvious that they modify the input slice to remove the decoded

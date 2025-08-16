@@ -64,8 +64,6 @@ namespace media {
 
 namespace {
 
-constexpr int64_t kInvalidPTSMarker = static_cast<int64_t>(0x8000000000000000);
-
 void SetAVStreamDiscard(AVStream* stream, AVDiscard discard) {
   DCHECK(stream);
   stream->discard = discard;
@@ -280,19 +278,12 @@ FFmpegDemuxerStream::FFmpegDemuxerStream(
     : demuxer_(demuxer),
       task_runner_(base::SequencedTaskRunner::GetCurrentDefault()),
       stream_(stream),
-      start_time_(kNoTimestamp),
+      stream_start_time_(
+          ConvertStreamTimestamp(stream->time_base, stream->start_time)),
       audio_config_(audio_config.release()),
       video_config_(video_config.release()),
       media_log_(media_log),
-      end_of_stream_(false),
-      last_packet_timestamp_(kNoTimestamp),
-      last_packet_duration_(kNoTimestamp),
-      is_enabled_(true),
-      waiting_for_keyframe_(false),
-      aborted_(false),
-      fixup_negative_timestamps_(false),
-      fixup_chained_ogg_(false),
-      num_discarded_packet_warnings_(0),
+      duration_(ConvertStreamTimestamp(stream->time_base, stream->duration)),
       last_packet_pos_(AV_NOPTS_VALUE),
       last_packet_dts_(AV_NOPTS_VALUE) {
   DCHECK(demuxer_);
@@ -314,9 +305,6 @@ FFmpegDemuxerStream::FFmpegDemuxerStream(
     default:
       NOTREACHED();
   }
-
-  // Calculate the duration.
-  duration_ = ConvertStreamTimestamp(stream->time_base, stream->duration);
 
   if (is_encrypted) {
     AVDictionaryEntry* key =
@@ -565,7 +553,7 @@ void FFmpegDemuxerStream::EnqueuePacket(ScopedAVPacket packet) {
   // don't want to overwrite any existing discard padding since the discard
   // padding may refer to frames beyond this packet.
   if (packet->flags & AV_PKT_FLAG_DISCARD &&
-      buffer->discard_padding() == DecoderBuffer::DiscardPadding()) {
+      !buffer->discard_padding().has_value()) {
     buffer->set_discard_padding(
         std::make_pair(kInfiniteDuration, base::TimeDelta()));
   }
@@ -575,7 +563,10 @@ void FFmpegDemuxerStream::EnqueuePacket(ScopedAVPacket packet) {
     // discarded after decoding.
     if (buffer->timestamp().is_negative()) {
       // Discard padding may also remove samples after zero.
-      auto fixed_ts = buffer->discard_padding().first + buffer->timestamp();
+      auto discard_padding = buffer->discard_padding();
+      auto fixed_ts = (discard_padding.has_value() ? discard_padding->first
+                                                   : base::TimeDelta()) +
+                      buffer->timestamp();
 
       // Allow for rounding error in the discard padding calculations.
       if (fixed_ts == base::Microseconds(-1)) {
@@ -604,20 +595,27 @@ void FFmpegDemuxerStream::EnqueuePacket(ScopedAVPacket packet) {
         buffer->duration() != kNoTimestamp &&
         !audio_decoder_config().codec_delay()) {
       if ((stream_timestamp + buffer->duration()).is_negative()) {
-        DCHECK_EQ(buffer->discard_padding().second, base::TimeDelta());
+        auto discard_padding = buffer->discard_padding();
+        DCHECK(!discard_padding.has_value() ||
+               discard_padding->second == base::TimeDelta());
 
         // Discard the entire packet if it's entirely before zero, but don't
         // override the discard padding if it refers to frames beyond this
         // packet.
-        if (buffer->discard_padding().first <= buffer->duration()) {
+        if (!discard_padding.has_value() ||
+            discard_padding->first <= buffer->duration()) {
           buffer->set_discard_padding(
               std::make_pair(kInfiniteDuration, base::TimeDelta()));
         }
       } else {
         // Only discard part of the frame if it overlaps zero.
+        auto discard_padding = buffer->discard_padding();
         buffer->set_discard_padding(std::make_pair(
-            std::max(-stream_timestamp, buffer->discard_padding().first),
-            buffer->discard_padding().second));
+            std::max(-stream_timestamp, discard_padding.has_value()
+                                            ? discard_padding->first
+                                            : base::TimeDelta()),
+            discard_padding.has_value() ? discard_padding->second
+                                        : base::TimeDelta()));
       }
     }
   }
@@ -668,7 +666,11 @@ void FFmpegDemuxerStream::EnqueuePacket(ScopedAVPacket packet) {
     return;
   }
 
-  const auto [start_padding, end_padding] = buffer->discard_padding();
+  auto discard_padding = buffer->discard_padding();
+  auto start_padding =
+      discard_padding.has_value() ? discard_padding->first : base::TimeDelta();
+  auto end_padding =
+      discard_padding.has_value() ? discard_padding->second : base::TimeDelta();
 
   // Save the timestamp of the first non-discarded frame, to calculate duration
   // below. Only the first buffer should have discard padding.
@@ -1575,13 +1577,7 @@ void FFmpegDemuxer::OnFindStreamInfoDone(int result) {
     if (codec_type == AVMEDIA_TYPE_AUDIO && start_time.is_negative() &&
         is_opus_or_vorbis) {
       needs_negative_timestamp_fixup = true;
-
-      // Fixup the seeking information to avoid selecting the audio stream
-      // simply because it has a lower starting time.
-      start_time = base::TimeDelta();
     }
-
-    streams_[i]->set_start_time(start_time);
   }
 
   if (media_tracks->tracks().empty()) {
@@ -1722,10 +1718,12 @@ FFmpegDemuxerStream* FFmpegDemuxer::FindStreamWithLowestStartTimestamp(
   for (const auto& stream : streams_) {
     if (!stream || stream->IsEnabled() != enabled)
       continue;
-    if (av_stream_get_first_dts(stream->av_stream()) == kInvalidPTSMarker)
+    if (stream->stream_start_time() == kNoTimestamp) {
       continue;
+    }
     if (!lowest_start_time_stream ||
-        stream->start_time() < lowest_start_time_stream->start_time()) {
+        stream->stream_start_time() <
+            lowest_start_time_stream->stream_start_time()) {
       lowest_start_time_stream = stream.get();
     }
   }
@@ -1737,20 +1735,21 @@ FFmpegDemuxerStream* FFmpegDemuxer::FindPreferredStreamForSeeking(
   // If we have a selected/enabled video stream and its start time is lower
   // than the |seek_time| or unknown, then always prefer it for seeking.
   for (const auto& stream : streams_) {
-    if (!stream)
+    if (!stream) {
       continue;
-
-    if (stream->type() != DemuxerStream::VIDEO)
+    }
+    if (stream->type() != DemuxerStream::VIDEO) {
       continue;
-
-    if (av_stream_get_first_dts(stream->av_stream()) == kInvalidPTSMarker)
+    }
+    if (stream->stream_start_time() == kNoTimestamp) {
       continue;
-
-    if (!stream->IsEnabled())
+    }
+    if (!stream->IsEnabled()) {
       continue;
-
-    if (stream->start_time() <= seek_time)
+    }
+    if (stream->stream_start_time() <= seek_time) {
       return stream.get();
+    }
   }
 
   // If video stream is not present or |seek_time| is lower than the video start
@@ -1758,7 +1757,7 @@ FFmpegDemuxerStream* FFmpegDemuxer::FindPreferredStreamForSeeking(
   FFmpegDemuxerStream* lowest_start_time_enabled_stream =
       FindStreamWithLowestStartTimestamp(true);
   if (lowest_start_time_enabled_stream &&
-      lowest_start_time_enabled_stream->start_time() <= seek_time) {
+      lowest_start_time_enabled_stream->stream_start_time() <= seek_time) {
     return lowest_start_time_enabled_stream;
   }
 
@@ -1767,7 +1766,7 @@ FFmpegDemuxerStream* FFmpegDemuxer::FindPreferredStreamForSeeking(
   FFmpegDemuxerStream* lowest_start_time_disabled_stream =
       FindStreamWithLowestStartTimestamp(false);
   if (lowest_start_time_disabled_stream &&
-      lowest_start_time_disabled_stream->start_time() <= seek_time) {
+      lowest_start_time_disabled_stream->stream_start_time() <= seek_time) {
     return lowest_start_time_disabled_stream;
   }
 

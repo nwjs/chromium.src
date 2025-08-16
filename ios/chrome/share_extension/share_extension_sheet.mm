@@ -9,10 +9,13 @@
 #import "base/apple/bundle_locations.h"
 #import "base/check.h"
 #import "build/branding_buildflags.h"
+#import "ios/chrome/common/app_group/app_group_constants.h"
 #import "ios/chrome/common/app_group/app_group_utils.h"
 #import "ios/chrome/common/ui/colors/semantic_color_names.h"
 #import "ios/chrome/common/ui/elements/branded_navigation_item_title_view.h"
 #import "ios/chrome/common/ui/util/constraints_ui_util.h"
+#import "ios/chrome/share_extension/account_picker_delegate.h"
+#import "ios/chrome/share_extension/account_picker_table.h"
 #import "ios/chrome/share_extension/share_extension_delegate.h"
 
 namespace {
@@ -32,7 +35,6 @@ CGFloat const kURLStackSpacing = 2;
 // The horizontal spacing between image preview and the URL stack.
 CGFloat const kInnerViewSpacing = 16;
 
-CGFloat const kDismissButtonSize = 28;
 CGFloat const kSharedImageHeight = 181;
 
 // Custom radius for the half sheet presentation.
@@ -55,7 +57,9 @@ CGFloat const kAvatarImageDimension = 30.0;
 
 }  // namespace
 
-@interface ShareExtensionSheet () <UITableViewDataSource, UITableViewDelegate>
+@interface ShareExtensionSheet () <AccountPickerDelegate,
+                                   UITableViewDataSource,
+                                   UITableViewDelegate>
 @end
 
 @implementation ShareExtensionSheet {
@@ -63,6 +67,9 @@ CGFloat const kAvatarImageDimension = 30.0;
   NSString* _secondaryString;
   NSString* _appName;
   SharedItemType _sharedItemType;
+  NSArray<AccountInfo*>* _accounts;
+  UISheetPresentationControllerDetent* _customDetent;
+  UITableView* _accountTableView;
 }
 
 - (instancetype)init {
@@ -91,7 +98,6 @@ CGFloat const kAvatarImageDimension = 30.0;
   self.titleView = [self configureSheetTitleView];
 
   self.dismissBarButtonSystemItem = UIBarButtonSystemItemClose;
-  self.customDismissBarButtonImage = [self configureDismissButtonIcon];
 
   if (app_group::MultiProfileShareExtensionEnabled()) {
     self.mainBackgroundColor = [UIColor colorNamed:kSecondaryBackgroundColor];
@@ -123,6 +129,10 @@ CGFloat const kAvatarImageDimension = 30.0;
   }
 }
 
+- (void)setAccounts:(NSArray<AccountInfo*>*)accounts {
+  _accounts = [accounts copy];
+}
+
 #pragma mark - UITableViewDataSource
 
 - (NSInteger)tableView:(UITableView*)tableView
@@ -145,8 +155,25 @@ CGFloat const kAvatarImageDimension = 30.0;
 
 - (void)tableView:(UITableView*)tableView
     didSelectRowAtIndexPath:(NSIndexPath*)indexPath {
-  // TODO(crbug.com/425589952): Handle account selection and push the accounts
-  // VC.
+  AccountPickerTable* accountPickerView =
+      [[AccountPickerTable alloc] initWithAccounts:_accounts
+                                   selectedAccount:self.selectedAccountInfo];
+  accountPickerView.customDetent = _customDetent;
+  accountPickerView.delegate = self;
+  UINavigationController* presentingNavController =
+      [[UINavigationController alloc]
+          initWithRootViewController:accountPickerView];
+  [self presentViewController:presentingNavController
+                     animated:YES
+                   completion:nil];
+}
+
+#pragma mark - AccountPickerDelegate
+
+- (void)didSelectAccountInTable:(AccountPickerTable*)table
+                selectedAccount:(AccountInfo*)selectedAccount {
+  _selectedAccountInfo = selectedAccount;
+  [_accountTableView reloadData];
 }
 
 #pragma mark - Public
@@ -251,9 +278,10 @@ CGFloat const kAvatarImageDimension = 30.0;
   CHECK(self.selectedAccountInfo);
 
   UIListContentConfiguration* content = cell.defaultContentConfiguration;
-  if ([self.selectedAccountInfo.gaiaID isEqual:@"Default"]) {
-    // TODO(crbug.com/425571657): Add strings translation.
-    content.text = @"Signed out";
+  if ([self.selectedAccountInfo.gaiaID isEqual:app_group::kNoAccount]) {
+    content.text = NSLocalizedString(
+        @"IDS_IOS_SIGNED_OUT_USER_TITLE_SHARE_EXTENSION",
+        @"The title of the item representing a signed out user.");
     content.image = [[UIImage systemImageNamed:@"person.crop.circle"]
         imageWithTintColor:[UIColor colorNamed:kGrey400Color]
              renderingMode:UIImageRenderingModeAlwaysOriginal];
@@ -292,11 +320,10 @@ CGFloat const kAvatarImageDimension = 30.0;
       id<UISheetPresentationControllerDetentResolutionContext> context) {
     return bottomSheetHeight;
   };
-  UISheetPresentationControllerDetent* customDetent =
-      [UISheetPresentationControllerDetent
-          customDetentWithIdentifier:kCustomMinimizedDetentIdentifier
-                            resolver:resolver];
-  presentationController.detents = @[ customDetent ];
+  _customDetent = [UISheetPresentationControllerDetent
+      customDetentWithIdentifier:kCustomMinimizedDetentIdentifier
+                        resolver:resolver];
+  presentationController.detents = @[ _customDetent ];
   presentationController.selectedDetentIdentifier =
       kCustomMinimizedDetentIdentifier;
 }
@@ -352,7 +379,7 @@ CGFloat const kAvatarImageDimension = 30.0;
   CHECK(innerView);
   [mainView addSubview:innerView];
 
-  mainView.backgroundColor = [UIColor colorNamed:kTertiaryBackgroundColor];
+  mainView.backgroundColor = [UIColor colorNamed:kGrey100Color];
   mainView.layer.cornerRadius = kMainViewCornerRadius;
 
   innerView.translatesAutoresizingMaskIntoConstraints = NO;
@@ -373,13 +400,12 @@ CGFloat const kAvatarImageDimension = 30.0;
 
 - (UIStackView*)createUnderTitleViewWithMIM {
   UIView* mainView = [self configureMainView];
-  mainView.backgroundColor =
-      [UIColor colorNamed:kUpdatedTertiaryBackgroundColor];
+  mainView.backgroundColor = [UIColor colorNamed:kTertiaryBackgroundColor];
   mainView.layer.cornerRadius = kMIMViewCornerRadius;
 
-  UITableView* accountTableView = [self createSelectedAccountTableView];
+  _accountTableView = [self createSelectedAccountTableView];
   UIStackView* underTitleView = [[UIStackView alloc]
-      initWithArrangedSubviews:@[ mainView, accountTableView ]];
+      initWithArrangedSubviews:@[ mainView, _accountTableView ]];
   underTitleView.axis = UILayoutConstraintAxisVertical;
   underTitleView.spacing = kMIMStackSpacing;
 
@@ -533,25 +559,6 @@ CGFloat const kAvatarImageDimension = 30.0;
   URLStackView.translatesAutoresizingMaskIntoConstraints = NO;
 
   return URLStackView;
-}
-
-- (UIImage*)configureDismissButtonIcon {
-  UIImageSymbolConfiguration* colorConfig =
-      [UIImageSymbolConfiguration configurationWithPaletteColors:@[
-        [UIColor colorNamed:kTextTertiaryColor],
-        [UIColor colorNamed:kGrey200Color]
-      ]];
-
-  UIImageSymbolConfiguration* dismissButtonConfiguration =
-      [UIImageSymbolConfiguration
-          configurationWithPointSize:kDismissButtonSize
-                              weight:UIImageSymbolWeightMedium
-                               scale:UIImageSymbolScaleMedium];
-  dismissButtonConfiguration = [dismissButtonConfiguration
-      configurationByApplyingConfiguration:colorConfig];
-
-  return [UIImage systemImageNamed:@"xmark.circle.fill"
-                 withConfiguration:dismissButtonConfiguration];
 }
 
 @end

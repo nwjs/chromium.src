@@ -43,6 +43,9 @@ namespace policy_prefs {
 extern const char kAzureActiveDirectoryManagement[];
 extern const char kEnterpriseMDMManagementWindows[];
 #endif
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
+extern const char kProtectedContentIdentifiersAllowed[];
+#endif
 extern const char kCloudManagementEnrollmentMandatory[];
 extern const char kDlpClipboardCheckSizeLimit[];
 extern const char kDlpReportingEnabled[];
@@ -78,6 +81,7 @@ extern const char kIncognitoModeAvailability[];
 extern const char kStandardizedBrowserZoomEnabled[];
 extern const char kPolicyTestPageEnabled[];
 extern const char kHasDismissedPolicyPagePromotionBanner[];
+extern const char kHasDismissedManagementPagePromotionBanner[];
 extern const char kAllowBackForwardCacheForCacheControlNoStorePageEnabled[];
 extern const char kLocalTestPoliciesForNextStartup[];
 extern const char kCSSCustomStateDeprecatedSyntaxEnabled[];

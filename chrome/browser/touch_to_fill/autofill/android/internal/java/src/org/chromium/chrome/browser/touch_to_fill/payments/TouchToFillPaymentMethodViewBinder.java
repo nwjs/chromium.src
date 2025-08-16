@@ -4,6 +4,7 @@
 
 package org.chromium.chrome.browser.touch_to_fill.payments;
 
+import static org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaymentMethodProperties.BACK_PRESS_HANDLER;
 import static org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaymentMethodProperties.ButtonProperties.ON_CLICK_ACTION;
 import static org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaymentMethodProperties.ButtonProperties.TEXT_ID;
 import static org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaymentMethodProperties.CURRENT_SCREEN;
@@ -17,6 +18,7 @@ import static org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaym
 import static org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaymentMethodProperties.CreditCardSuggestionProperties.ON_CREDIT_CARD_CLICK_ACTION;
 import static org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaymentMethodProperties.CreditCardSuggestionProperties.SECOND_LINE_LABEL;
 import static org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaymentMethodProperties.DISMISS_HANDLER;
+import static org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaymentMethodProperties.FOCUSED_VIEW_ID_FOR_ACCESSIBILITY;
 import static org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaymentMethodProperties.FooterProperties.OPEN_MANAGEMENT_UI_CALLBACK;
 import static org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaymentMethodProperties.FooterProperties.OPEN_MANAGEMENT_UI_TITLE_ID;
 import static org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaymentMethodProperties.FooterProperties.SCAN_CREDIT_CARD_CALLBACK;
@@ -31,6 +33,10 @@ import static org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaym
 import static org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaymentMethodProperties.LoyaltyCardProperties.LOYALTY_CARD_NUMBER;
 import static org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaymentMethodProperties.LoyaltyCardProperties.MERCHANT_NAME;
 import static org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaymentMethodProperties.LoyaltyCardProperties.ON_LOYALTY_CARD_CLICK_ACTION;
+import static org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaymentMethodProperties.SHEET_CLOSED_DESCRIPTION_ID;
+import static org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaymentMethodProperties.SHEET_CONTENT_DESCRIPTION_ID;
+import static org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaymentMethodProperties.SHEET_FULL_HEIGHT_DESCRIPTION_ID;
+import static org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaymentMethodProperties.SHEET_HALF_HEIGHT_DESCRIPTION_ID;
 import static org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaymentMethodProperties.SHEET_ITEMS;
 import static org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaymentMethodProperties.TermsLabelProperties.CARD_BENEFITS_TERMS_AVAILABLE;
 import static org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaymentMethodProperties.VISIBLE;
@@ -104,6 +110,8 @@ class TouchToFillPaymentMethodViewBinder {
             PropertyModel model, TouchToFillPaymentMethodView view, PropertyKey propertyKey) {
         if (propertyKey == DISMISS_HANDLER) {
             view.setDismissHandler(model.get(DISMISS_HANDLER));
+        } else if (propertyKey == BACK_PRESS_HANDLER) {
+            view.setBackPressHandler(model.get(BACK_PRESS_HANDLER));
         } else if (propertyKey == VISIBLE) {
             boolean visibilityChangeSuccessful = view.setVisible(model.get(VISIBLE));
             if (!visibilityChangeSuccessful && model.get(VISIBLE)) {
@@ -112,11 +120,28 @@ class TouchToFillPaymentMethodViewBinder {
                 view.destroy();
             }
         } else if (propertyKey == SHEET_ITEMS) {
-            // SHEET_ITEMS and CURRENT_SCREEN properties are always updated together.
+            // SHEET_ITEMS, CURRENT_SCREEN and FOCUSED_VIEW_ID_FOR_ACCESSIBILITY properties are
+            // always updated together.
             view.setCurrentScreen(model.get(CURRENT_SCREEN));
-            TouchToFillPaymentMethodCoordinator.setUpCardItems(model, view);
-        } else if (propertyKey == CURRENT_SCREEN) {
+            TouchToFillPaymentMethodCoordinator.setUpSheetItems(model, view);
+            view.updateScreenHeight();
+            // Screen readers can automatically determine the initially focused field. Modify the
+            // initially focused field only if the screen was changed (i.e. after the user
+            // interaction).
+            if (model.get(FOCUSED_VIEW_ID_FOR_ACCESSIBILITY) != 0) {
+                view.setFocusedViewIdForAccessibility(model.get(FOCUSED_VIEW_ID_FOR_ACCESSIBILITY));
+            }
+        } else if (propertyKey == CURRENT_SCREEN
+                || propertyKey == FOCUSED_VIEW_ID_FOR_ACCESSIBILITY) {
             // Intentionally ignored.
+        } else if (propertyKey == SHEET_CONTENT_DESCRIPTION_ID) {
+            view.setSheetContentDescriptionId(model.get(SHEET_CONTENT_DESCRIPTION_ID));
+        } else if (propertyKey == SHEET_HALF_HEIGHT_DESCRIPTION_ID) {
+            view.setSheetHalfHeigthDescriptionId(model.get(SHEET_HALF_HEIGHT_DESCRIPTION_ID));
+        } else if (propertyKey == SHEET_FULL_HEIGHT_DESCRIPTION_ID) {
+            view.setSheetFullHeightDescriptionId(model.get(SHEET_FULL_HEIGHT_DESCRIPTION_ID));
+        } else if (propertyKey == SHEET_CLOSED_DESCRIPTION_ID) {
+            view.setSheetClosedDescriptionId(model.get(SHEET_CLOSED_DESCRIPTION_ID));
         } else {
             assert false : "Unhandled update to property:" + propertyKey;
         }

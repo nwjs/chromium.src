@@ -362,12 +362,6 @@ class AudioManagerAndroid {
         return mCommunicationDeviceSelector.getDevices();
     }
 
-    /** Gets whether Bluetooth SCO is currently enabled. */
-    @CalledByNative
-    private boolean isBluetoothScoOn() {
-        return mCommunicationDeviceSelector.isBluetoothScoOn();
-    }
-
     /** Requests for Bluetooth SCO to be enabled or disabled. This request may fail. */
     @CalledByNative
     private void maybeSetBluetoothScoState(boolean state) {
@@ -565,10 +559,7 @@ class AudioManagerAndroid {
                         int volume = mAudioManager.getStreamVolume(AudioManager.STREAM_VOICE_CALL);
                         if (DEBUG) logd("AudioManagerAndroidJni.get().setMute: " + (volume == 0));
                         AudioManagerAndroidJni.get()
-                                .setMute(
-                                        mNativeAudioManagerAndroid,
-                                        AudioManagerAndroid.this,
-                                        (volume == 0));
+                                .setMute(mNativeAudioManagerAndroid, (volume == 0));
                     }
                 };
 
@@ -745,6 +736,6 @@ class AudioManagerAndroid {
 
     @NativeMethods
     interface Natives {
-        void setMute(long nativeAudioManagerAndroid, AudioManagerAndroid caller, boolean muted);
+        void setMute(long nativeAudioManagerAndroid, boolean muted);
     }
 }

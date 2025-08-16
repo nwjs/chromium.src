@@ -54,11 +54,11 @@ gpu::raster::RasterInterface* GetSharedGpuRasterInterface() {
 
 }  // namespace
 
-namespace WTF {
+namespace blink {
 
 template <>
-struct CrossThreadCopier<blink::VideoFrameLayout>
-    : public CrossThreadCopierPassThrough<blink::VideoFrameLayout> {
+struct CrossThreadCopier<VideoFrameLayout>
+    : public CrossThreadCopierPassThrough<VideoFrameLayout> {
   STATIC_ONLY(CrossThreadCopier);
 };
 
@@ -68,15 +68,10 @@ struct CrossThreadCopier<base::span<uint8_t>>
   STATIC_ONLY(CrossThreadCopier);
 };
 
-}  // namespace WTF
-
-namespace blink {
-
 // This is a part of BackgroundReadback that lives and dies on the worker's
 // thread and does all the actual work of creating GPU context and calling
 // sync readback functions.
-class SyncReadbackThread
-    : public WTF::ThreadSafeRefCounted<SyncReadbackThread> {
+class SyncReadbackThread : public ThreadSafeRefCounted<SyncReadbackThread> {
  public:
   SyncReadbackThread();
   scoped_refptr<media::VideoFrame> ReadbackToFrame(

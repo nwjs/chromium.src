@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/351564777): Remove this and convert code to safer constructs.
+#pragma allow_unsafe_buffers
+#endif
+
 #include "gpu/command_buffer/client/test_shared_image_interface.h"
 
 #include <GLES2/gl2.h>
@@ -24,6 +29,10 @@
 #include "ui/gfx/buffer_format_util.h"
 #include "ui/gfx/gpu_fence.h"
 #include "ui/gfx/gpu_memory_buffer_handle.h"
+
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
+#include <fcntl.h>
+#endif
 
 #if BUILDFLAG(IS_FUCHSIA)
 #include "base/fuchsia/fuchsia_logging.h"
@@ -53,7 +62,6 @@ gfx::GpuMemoryBufferHandle CreateGMBHandle(
     const gfx::BufferFormat& buffer_format,
     const gfx::Size& size,
     gfx::BufferUsage buffer_usage) {
-  static int last_handle_id = 0;
   size_t buffer_size = 0u;
   CHECK(
       gfx::BufferSizeForBufferFormatChecked(size, buffer_format, &buffer_size));
@@ -62,7 +70,6 @@ gfx::GpuMemoryBufferHandle CreateGMBHandle(
   CHECK(shared_memory_region.IsValid());
 
   gfx::GpuMemoryBufferHandle handle(std::move(shared_memory_region));
-  handle.id = gfx::GpuMemoryBufferId(last_handle_id++);
   handle.offset = 0;
   handle.stride = static_cast<uint32_t>(
       gfx::RowSizeForBufferFormat(size.width(), buffer_format, 0));
@@ -146,6 +153,27 @@ TestSharedImageInterface::TestSharedImageInterface() {
 
 TestSharedImageInterface::~TestSharedImageInterface() = default;
 
+// static
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
+gfx::GpuMemoryBufferHandle TestSharedImageInterface::CreatePixmapHandle(
+    const gfx::Size& size,
+    gfx::BufferFormat format) {
+  gfx::NativePixmapHandle native_pixmap_handle;
+  for (size_t i = 0; i < gfx::NumberOfPlanesForLinearBufferFormat(format);
+       i++) {
+    size_t height_in_pixels;
+    CHECK(gfx::PlaneHeightForBufferFormatChecked(size.height(), format, i,
+                                                 &height_in_pixels));
+    size_t stride = gfx::RowSizeForBufferFormat(size.width(), format, i);
+    native_pixmap_handle.planes.emplace_back(
+        stride, 0, height_in_pixels * stride,
+        base::ScopedFD(open("/dev/zero", O_RDWR)));
+  }
+
+  return gfx::GpuMemoryBufferHandle(std::move(native_pixmap_handle));
+}
+#endif
+
 scoped_refptr<ClientSharedImage> TestSharedImageInterface::CreateSharedImage(
     const SharedImageInfo& si_info,
     SurfaceHandle surface_handle,
@@ -192,34 +220,27 @@ scoped_refptr<ClientSharedImage> TestSharedImageInterface::CreateSharedImage(
   shared_images_.insert(mailbox);
   most_recent_size_ = si_info.meta.size;
 
-  auto buffer_format =
-      viz::SharedImageFormatToBufferFormatRestrictedUtils::ToBufferFormat(
-          si_info.meta.format);
-  if (test_gmb_manager_) {
-    auto gpu_memory_buffer = test_gmb_manager_->CreateGpuMemoryBuffer(
-        si_info.meta.size, buffer_format, buffer_usage, surface_handle,
-        nullptr);
-
-    // Since the |gpu_memory_buffer| here is always a shared memory, clear the
-    // external sampler prefs if it is already set by client.
-    // https://issues.chromium.org/339546249.
-    SharedImageInfo si_info_copy = si_info;
-    if (si_info_copy.meta.format.PrefersExternalSampler()) {
-      si_info_copy.meta.format.ClearPrefersExternalSampler();
-    }
-    return ClientSharedImage::CreateForTesting(
-        mailbox, si_info_copy.meta, sync_token, std::move(gpu_memory_buffer),
-        buffer_usage, holder_);
+  // Copy which can be modified.
+  SharedImageInfo si_info_copy = si_info;
+  // Set CPU read/write usage based on buffer usage.
+  si_info_copy.meta.usage |= GetCpuSIUsage(buffer_usage);
+  if (use_test_gmb_) {
+    auto client_si = ClientSharedImage::CreateForTesting(
+        mailbox, si_info_copy.meta, sync_token, buffer_usage, holder_);
+    most_recent_mappable_shared_image_ = client_si.get();
+    return client_si;
   }
 
-  auto gmb_handle =
-      CreateGMBHandle(buffer_format, si_info.meta.size, buffer_usage);
+  auto gmb_handle = CreateGMBHandle(
+      viz::SharedImageFormatToBufferFormatRestrictedUtils::ToBufferFormat(
+          si_info.meta.format),
+      si_info_copy.meta.size, buffer_usage);
 
-  return base::MakeRefCounted<ClientSharedImage>(
-      mailbox, si_info, sync_token,
-      GpuMemoryBufferHandleInfo(std::move(gmb_handle), si_info.meta.format,
-                                si_info.meta.size, buffer_usage),
-      holder_);
+  auto client_si = base::MakeRefCounted<ClientSharedImage>(
+      mailbox, si_info_copy, sync_token,
+      GpuMemoryBufferHandleInfo(std::move(gmb_handle), buffer_usage), holder_);
+  most_recent_mappable_shared_image_ = client_si.get();
+  return client_si;
 }
 
 scoped_refptr<ClientSharedImage>
@@ -234,30 +255,18 @@ TestSharedImageInterface::CreateSharedImage(
   shared_images_.insert(mailbox);
   most_recent_size_ = si_info.meta.size;
 
-  auto buffer_format =
-      viz::SharedImageFormatToBufferFormatRestrictedUtils::ToBufferFormat(
-          si_info.meta.format);
-  if (test_gmb_manager_) {
-    auto gpu_memory_buffer = test_gmb_manager_->CreateGpuMemoryBuffer(
-        si_info.meta.size, buffer_format, buffer_usage, surface_handle,
-        nullptr);
-
-    // Since the |gpu_memory_buffer| here is always a shared memory, clear the
-    // external sampler prefs if it is already set by client.
-    // https://issues.chromium.org/339546249.
-    SharedImageInfo si_info_copy = si_info;
-    if (si_info_copy.meta.format.PrefersExternalSampler()) {
-      si_info_copy.meta.format.ClearPrefersExternalSampler();
-    }
+  // Copy which can be modified.
+  SharedImageInfo si_info_copy = si_info;
+  // Set CPU read/write usage based on buffer usage.
+  si_info_copy.meta.usage |= GetCpuSIUsage(buffer_usage);
+  if (use_test_gmb_) {
     return ClientSharedImage::CreateForTesting(
-        mailbox, si_info_copy.meta, sync_token, std::move(gpu_memory_buffer),
-        buffer_usage, holder_);
+        mailbox, si_info_copy.meta, sync_token, buffer_usage, holder_);
   }
 
   return base::MakeRefCounted<ClientSharedImage>(
-      mailbox, si_info, sync_token,
-      GpuMemoryBufferHandleInfo(std::move(buffer_handle), si_info.meta.format,
-                                si_info.meta.size, buffer_usage),
+      mailbox, si_info_copy, sync_token,
+      GpuMemoryBufferHandleInfo(std::move(buffer_handle), buffer_usage),
       holder_);
 }
 
@@ -342,6 +351,11 @@ void TestSharedImageInterface::DestroySharedImage(
     const SyncToken& sync_token,
     const Mailbox& mailbox) {
   base::AutoLock locked(lock_);
+  if (most_recent_mappable_shared_image_ &&
+      mailbox == most_recent_mappable_shared_image_->mailbox()) {
+    most_recent_mappable_shared_image_ = nullptr;
+  }
+
   shared_images_.erase(mailbox);
   most_recent_destroy_token_ = sync_token;
 
@@ -427,22 +441,12 @@ void TestSharedImageInterface::WaitSyncToken(const SyncToken& sync_token) {
 }
 
 scoped_refptr<ClientSharedImage>
-TestSharedImageInterface::CreateSharedImageWithMapCallbackController(
+TestSharedImageInterface::CreateSharedImageWithAsyncMapControl(
     const SharedImageInfo& si_info,
     gfx::BufferUsage buffer_usage,
     bool premapped,
-    FakeGpuMemoryBuffer::MapCallbackController* controller) {
-  CHECK(controller);
-
-  // Create a FakeGpuMemoryBuffer.
-  auto buffer_format =
-      viz::SharedImageFormatToBufferFormatRestrictedUtils::ToBufferFormat(
-          si_info.meta.format);
-  auto fake_gmb = std::make_unique<FakeGpuMemoryBuffer>(
-      si_info.meta.size, buffer_format, premapped, controller);
-
+    const ClientSharedImage::AsyncMapInvokedCallback& callback) {
   Mailbox mailbox;
-  // Create a ClientSharedImage with a FakeGpuMemoryBuffer.
   {
     base::AutoLock locked(lock_);
     mailbox = Mailbox::Generate();
@@ -450,7 +454,7 @@ TestSharedImageInterface::CreateSharedImageWithMapCallbackController(
   }
 
   auto image = ClientSharedImage::CreateForTesting(
-      mailbox, si_info.meta, GenUnverifiedSyncToken(), std::move(fake_gmb),
+      mailbox, si_info.meta, GenUnverifiedSyncToken(), premapped, callback,
       buffer_usage, holder_);
   return image;
 }

@@ -26,18 +26,11 @@ class HTMLFormElement;
 class QualifiedName;
 class CustomElementDefinition;
 class CustomElementReaction;
-class CustomElementRegistry;
 
 class CORE_EXPORT CustomElement {
   STATIC_ONLY(CustomElement);
 
  public:
-  // Retrieves the CustomElementRegistry for Element, if any. This
-  // may be a different object for a given element over its lifetime
-  // as it moves between documents.
-  static CustomElementRegistry* Registry(const Element&);
-  static CustomElementRegistry* Registry(const TreeScope&);
-
   static CustomElementDefinition* DefinitionForElement(const Element*);
 
   static void AddEmbedderCustomElementName(const AtomicString& name);
@@ -67,7 +60,7 @@ class CORE_EXPORT CustomElement {
         return false;
       }
       // name does not contain any ASCII upper alphas
-      if (!WTF::VisitCharacters(name.GetString(), [](auto characters) {
+      if (!VisitCharacters(name.GetString(), [](auto characters) {
             for (size_t i = 0; i < characters.size(); i++) {
               if (IsASCIIUpper(characters[i])) {
                 return false;
@@ -119,7 +112,8 @@ class CORE_EXPORT CustomElement {
       Document&,
       const QualifiedName&,
       const CreateElementFlags,
-      const AtomicString& is_value);
+      const AtomicString& is_value,
+      CustomElementRegistry* registry);
   static HTMLElement* CreateFailedElement(Document&, const QualifiedName&);
 
   static void Enqueue(Element&, CustomElementReaction&);
@@ -165,7 +159,8 @@ class CORE_EXPORT CustomElement {
       Document&,
       const QualifiedName&,
       const CreateElementFlags,
-      const AtomicString& is_value);
+      const AtomicString& is_value,
+      CustomElementRegistry* registry);
 };
 
 }  // namespace blink

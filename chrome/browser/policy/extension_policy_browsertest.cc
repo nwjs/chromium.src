@@ -398,10 +398,10 @@ class ExtensionPolicyTest : public ExtensionPolicyTestBase {
  private:
 #if BUILDFLAG(ENABLE_EXTENSIONS)
   web_app::OsIntegrationManager::ScopedSuppressForTesting os_hooks_suppress_;
+#endif  // BUILDFLAG(ENABLE_EXTENSIONS)
 
   // TODO(https://crbug.com/40804030): Remove this when updated to use MV3.
   extensions::ScopedTestMV2Enabler mv2_enabler_;
-#endif  // BUILDFLAG(ENABLE_EXTENSIONS)
 };
 
 }  // namespace
@@ -1561,7 +1561,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionPolicyTest,
         kGoodCrxId, kResourcePath,
         extensions::TestContentVerifyJobObserver::Result::FAILURE);
 
-    GURL resource_url = extension->ResolveExtensionURL("script1.js");
+    GURL resource_url = extension->GetResourceURL("script1.js");
     FetchSubresource(chrome_test_utils::GetActiveWebContents(this),
                      resource_url);
 
@@ -1642,7 +1642,7 @@ IN_PROC_BROWSER_TEST_F(
         kGoodCrxId, kResourcePath,
         extensions::TestContentVerifyJobObserver::Result::FAILURE);
 
-    GURL resource_url = extension->ResolveExtensionURL("script1.js");
+    GURL resource_url = extension->GetResourceURL("script1.js");
     FetchSubresource(chrome_test_utils::GetActiveWebContents(this),
                      resource_url);
 
@@ -1717,7 +1717,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionPolicyTest,
         kGoodCrxId, kResourcePath,
         extensions::TestContentVerifyJobObserver::Result::FAILURE);
 
-    GURL resource_url = extension->ResolveExtensionURL("script1.js");
+    GURL resource_url = extension->GetResourceURL("script1.js");
     FetchSubresource(chrome_test_utils::GetActiveWebContents(this),
                      resource_url);
 

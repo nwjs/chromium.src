@@ -38,7 +38,6 @@ class Journal {
     PendingAsyncEntry(base::PassKey<Journal>,
                       base::SafeRef<Journal> journal,
                       TaskId task_id,
-                      uint64_t trace_id,
                       std::string_view event_name);
     ~PendingAsyncEntry();
 
@@ -47,12 +46,15 @@ class Journal {
     // been called.
     void EndEntry(std::string_view details);
 
+    // Logs an instant event within the scope of this async entry.
+    void Log(std::string_view event_name);
+    void Log(std::string_view event_name, std::string_view details);
+
    private:
     base::PassKey<Journal> pass_key_;
     bool terminated_ = false;
     base::SafeRef<Journal> journal_;
     TaskId task_id_;
-    uint64_t trace_id_;
     std::string event_name_;
   };
 
@@ -68,7 +70,6 @@ class Journal {
 
   void AddEndEvent(base::PassKey<Journal>,
                    TaskId task_id,
-                   uint64_t trace_id,
                    const std::string& event_name,
                    std::string_view details);
 
@@ -79,7 +80,6 @@ class Journal {
   mojo::AssociatedRemote<mojom::JournalClient> client_;
   std::vector<mojom::JournalEntryPtr> log_buffer_;
   base::TimeTicks last_log_buffer_send_;
-  uint64_t current_id_;
 
   base::WeakPtrFactory<Journal> weak_factory_{this};
 };

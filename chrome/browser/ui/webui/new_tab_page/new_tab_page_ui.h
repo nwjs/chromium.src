@@ -18,6 +18,9 @@
 #include "chrome/browser/new_tab_page/modules/v2/calendar/google_calendar.mojom.h"
 #include "chrome/browser/new_tab_page/modules/v2/calendar/outlook_calendar.mojom.h"
 #include "chrome/browser/new_tab_page/modules/v2/most_relevant_tab_resumption/most_relevant_tab_resumption.mojom.h"
+#include "chrome/browser/new_tab_page/modules/v2/tab_groups/tab_groups.mojom.h"
+#include "chrome/browser/ui/webui/new_tab_page/ntp_promo/ntp_promo.mojom.h"
+#include "chrome/browser/ui/webui/new_tab_page/ntp_promo/ntp_promo_handler.h"
 #include "components/user_education/webui/help_bubble_handler.h"
 #include "ui/webui/resources/cr_components/help_bubble/help_bubble.mojom.h"
 #include "ui/webui/resources/js/browser_command/browser_command.mojom.h"
@@ -30,9 +33,9 @@
 #include "chrome/browser/themes/theme_service.h"
 #include "chrome/browser/themes/theme_service_observer.h"
 #include "chrome/browser/ui/webui/customize_buttons/customize_buttons.mojom.h"
-#include "chrome/browser/ui/webui/new_tab_page/composebox/composebox.mojom.h"
 #include "chrome/browser/ui/webui/new_tab_page/new_tab_page.mojom.h"
 #include "chrome/common/webui_url_constants.h"
+#include "components/omnibox/browser/searchbox.mojom-forward.h"
 #include "components/page_image_service/mojom/page_image_service.mojom.h"
 #include "components/prefs/pref_change_registrar.h"
 #include "content/public/browser/web_contents_observer.h"
@@ -46,8 +49,8 @@
 #include "ui/native_theme/native_theme_observer.h"
 #include "ui/webui/mojo_web_ui_controller.h"
 #include "ui/webui/resources/cr_components/color_change_listener/color_change_listener.mojom.h"
+#include "ui/webui/resources/cr_components/composebox/composebox.mojom.h"
 #include "ui/webui/resources/cr_components/most_visited/most_visited.mojom.h"
-#include "ui/webui/resources/cr_components/searchbox/searchbox.mojom-forward.h"
 
 namespace base {
 class RefCountedMemory;
@@ -67,6 +70,7 @@ class ColorChangeHandler;
 }  // namespace ui
 
 class BrowserCommandHandler;
+class ComposeboxHandler;
 class CustomizeButtonsHandler;
 class DriveSuggestionHandler;
 #if !defined(OFFICIAL_BUILD)
@@ -85,6 +89,7 @@ class PrefRegistrySimple;
 class PrefService;
 class Profile;
 class RealboxHandler;
+class TabGroupsPageHandler;
 class NewTabPageUI;
 
 class NewTabPageUIConfig : public content::DefaultWebUIConfig<NewTabPageUI> {
@@ -107,6 +112,7 @@ class NewTabPageUI
       public composebox::mojom::PageHandlerFactory,
       public browser_command::mojom::CommandHandlerFactory,
       public help_bubble::mojom::HelpBubbleHandlerFactory,
+      public ntp_promo::mojom::NtpPromoHandlerFactory,
       public NtpCustomBackgroundServiceObserver,
       content::WebContentsObserver {
  public:
@@ -211,6 +217,9 @@ class NewTabPageUI
       mojo::PendingReceiver<foo::mojom::FooHandler> pending_receiver);
 #endif
 
+  void BindInterface(mojo::PendingReceiver<ntp::tab_groups::mojom::PageHandler>
+                         pending_page_handler);
+
   void BindInterface(mojo::PendingReceiver<
                      ntp::most_relevant_tab_resumption::mojom::PageHandler>
                          pending_page_handler);
@@ -221,6 +230,10 @@ class NewTabPageUI
 
   void BindInterface(
       mojo::PendingReceiver<help_bubble::mojom::HelpBubbleHandlerFactory>
+          pending_receiver);
+
+  void BindInterface(
+      mojo::PendingReceiver<ntp_promo::mojom::NtpPromoHandlerFactory>
           pending_receiver);
 
   void ConnectToParentDocument(
@@ -259,12 +272,21 @@ class NewTabPageUI
   void CreatePageHandler(
       mojo::PendingRemote<composebox::mojom::Page> pending_page,
       mojo::PendingReceiver<composebox::mojom::PageHandler>
-          pending_page_handler) override;
+          pending_page_handler,
+      mojo::PendingRemote<searchbox::mojom::Page> pending_searchbox_page,
+      mojo::PendingReceiver<searchbox::mojom::PageHandler>
+          pending_searchbox_handler) override;
 
   // help_bubble::mojom::HelpBubbleHandlerFactory:
   void CreateHelpBubbleHandler(
       mojo::PendingRemote<help_bubble::mojom::HelpBubbleClient> client,
       mojo::PendingReceiver<help_bubble::mojom::HelpBubbleHandler> handler)
+      override;
+
+  // ntp_promo::mojom::NtpPromoHandlerFactory:
+  void CreateNtpPromoHandler(
+      mojo::PendingRemote<ntp_promo::mojom::NtpPromoClient> client,
+      mojo::PendingReceiver<ntp_promo::mojom::NtpPromoHandler> handler)
       override;
 
   // NtpCustomBackgroundServiceObserver:
@@ -286,6 +308,9 @@ class NewTabPageUI
   // Called when the NTP (re)loads. Sets mutable load time data.
   void OnLoad();
 
+  // The counter for NewTabPage.Count UMA metrics.
+  static int instance_count_;
+
   std::unique_ptr<NewTabPageHandler> page_handler_;
   mojo::Receiver<new_tab_page::mojom::PageHandlerFactory>
       page_factory_receiver_;
@@ -296,7 +321,7 @@ class NewTabPageUI
   std::unique_ptr<MostVisitedHandler> most_visited_page_handler_;
   mojo::Receiver<most_visited::mojom::MostVisitedPageHandlerFactory>
       most_visited_page_factory_receiver_;
-  std::unique_ptr<composebox::mojom::PageHandler> composebox_handler_;
+  std::unique_ptr<ComposeboxHandler> composebox_handler_;
   mojo::Receiver<composebox::mojom::PageHandlerFactory>
       composebox_page_factory_receiver_;
   std::unique_ptr<BrowserCommandHandler> promo_browser_command_handler_;
@@ -306,6 +331,9 @@ class NewTabPageUI
   std::unique_ptr<user_education::HelpBubbleHandler> help_bubble_handler_;
   mojo::Receiver<help_bubble::mojom::HelpBubbleHandlerFactory>
       help_bubble_handler_factory_receiver_{this};
+  std::unique_ptr<NtpPromoHandler> ntp_promo_handler_;
+  mojo::Receiver<ntp_promo::mojom::NtpPromoHandlerFactory>
+      ntp_promo_handler_factory_receiver_{this};
 #if !defined(OFFICIAL_BUILD)
   std::unique_ptr<FooHandler> foo_handler_;
 #endif
@@ -330,6 +358,7 @@ class NewTabPageUI
   std::unique_ptr<MicrosoftAuthPageHandler> microsoft_auth_handler_;
   std::unique_ptr<MicrosoftFilesPageHandler> microsoft_files_handler_;
   std::unique_ptr<OutlookCalendarPageHandler> outlook_calendar_handler_;
+  std::unique_ptr<TabGroupsPageHandler> tab_groups_handler_;
   PrefChangeRegistrar pref_change_registrar_;
 
   base::WeakPtrFactory<NewTabPageUI> weak_ptr_factory_{this};

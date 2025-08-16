@@ -36,6 +36,7 @@
 #include "base/metrics/histogram_macros.h"
 #include "base/no_destructor.h"
 #include "base/notreached.h"
+#include "base/numerics/byte_conversions.h"
 #include "base/stl_util.h"
 #include "base/strings/strcat.h"
 #include "base/strings/string_util.h"
@@ -119,11 +120,6 @@ class AutoDidCommitTransaction {
 };
 
 namespace {
-// Threshold for the tombstones which were encountered during the
-// lifetime of the cursor. Crossing it will cause scheduling of the
-// `LevelDBCleanupScheduler`.
-constexpr int kCursorTombstoneThreshold = 1000;
-
 std::string ComputeOriginIdentifier(
     const storage::BucketLocator& bucket_locator) {
   return storage::GetIdentifierFromOrigin(bucket_locator.storage_key.origin()) +
@@ -1086,9 +1082,9 @@ Status ReadObjectStores(
       }
     }
 
-    blink::IndexedDBObjectStoreMetadata metadata(object_store_name,
-                                                 object_store_id, key_path,
-                                                 auto_increment, max_index_id);
+    blink::IndexedDBObjectStoreMetadata metadata(
+        object_store_name, object_store_id, key_path, auto_increment);
+    metadata.max_index_id = max_index_id;
     s = ReadIndexes(db, database_id, object_store_id, &metadata.indexes);
     if (!s.ok()) {
       break;
@@ -1171,7 +1167,7 @@ Status BackingStore::Initialize(bool clean_active_journal) {
     // leftover from a partially-purged previous generation of data.
     if (!in_memory() && !base::DeletePathRecursively(blob_path_)) {
       INTERNAL_WRITE_ERROR(SET_UP_METADATA);
-      return Status::IOError();
+      return Status::IOError("Failed to remove blob directory.");
     }
   } else {
     if (db_schema_version > kLatestKnownSchemaVersion ||
@@ -1244,6 +1240,12 @@ Status BackingStore::Initialize(bool clean_active_journal) {
     }
   }
   return s;
+}
+
+bool BackingStore::CanOpportunisticallyClose() const {
+  // For LevelDB, the logic here is implemented at the BucketContext level, so
+  // just return true here.
+  return true;
 }
 
 void BackingStore::TearDown(base::WaitableEvent* signal_on_destruction) {
@@ -1891,7 +1893,7 @@ Status BackingStore::Transaction::CreateObjectStore(
   metadata.id = object_store_id;
   metadata.key_path = std::move(key_path);
   metadata.auto_increment = auto_increment;
-  metadata.max_index_id = blink::IndexedDBObjectStoreMetadata::kMinimumIndexId;
+  metadata.max_index_id = kMinimumIndexId;
   database_->metadata().object_stores[object_store_id] = std::move(metadata);
 
   DCHECK_LT(database_->metadata().max_object_store_id, object_store_id);
@@ -2693,12 +2695,12 @@ Status BackingStore::CleanUpBlobJournalEntries(
     DCHECK(KeyPrefix::IsValidDatabaseId(database_id));
     if (blob_number == DatabaseMetaDataKey::kAllBlobsNumber) {
       if (!RemoveBlobDirectory(database_id)) {
-        return Status::IOError();
+        return Status::IOError("Failed to remove blob directory.");
       }
     } else {
       DCHECK(DatabaseMetaDataKey::IsValidBlobNumber(blob_number));
       if (!RemoveBlobFile(database_id, blob_number)) {
-        return Status::IOError();
+        return Status::IOError("Failed to remove blob file.");
       }
     }
   }
@@ -2982,6 +2984,13 @@ StatusOr<IndexedDBKey> BackingStore::Transaction::GetFirstPrimaryKeyForIndexKey(
   return base::unexpected(InvalidDBKeyStatus());
 }
 
+StatusOr<bool> BackingStore::DatabaseExists(std::u16string_view database_name) {
+  return GetDatabaseNames().transform(
+      [&](const std::vector<std::u16string>& names) {
+        return base::Contains(names, database_name);
+      });
+}
+
 StatusOr<std::vector<std::u16string>> BackingStore::GetDatabaseNames() {
   ASSIGN_OR_RETURN(
       std::vector<blink::mojom::IDBNameAndVersionPtr> names_and_versions,
@@ -3122,16 +3131,18 @@ Status BackingStore::ReadMetadataForDatabaseName(
   return ReadObjectStores(db_.get(), *metadata.id, &metadata.object_stores);
 }
 
-BackingStore::Cursor::Cursor(
-    const BackingStore::Cursor* other,
-    std::unique_ptr<TransactionalLevelDBIterator> iterator)
-    : transaction_(other->transaction_),
-      database_id_(other->database_id_),
-      cursor_options_(other->cursor_options_),
-      iterator_(std::move(iterator)),
-      current_key_(other->current_key_.Clone()) {
-  DCHECK(transaction_);
-  DCHECK(iterator_);
+void BackingStore::Cursor::SavePosition() {
+  saved_members_ = {CloneIterator(this), current_key_.Clone()};
+}
+
+bool BackingStore::Cursor::TryResetToLastSavedPosition() {
+  if (!saved_members_) {
+    return false;
+  }
+  std::tie(iterator_, current_key_) = *std::move(saved_members_);
+  saved_members_.reset();
+  // `CloneIterator()` may have returned nullptr.
+  return iterator_ != nullptr;
 }
 
 BackingStore::Cursor::Cursor(base::WeakPtr<Transaction> transaction,
@@ -3144,7 +3155,7 @@ BackingStore::Cursor::Cursor(base::WeakPtr<Transaction> transaction,
 }
 
 BackingStore::Cursor::~Cursor() {
-  if (tombstones_count_ > kCursorTombstoneThreshold) {
+  if (tombstones_count_ > LevelDBCleanupScheduler::kTombstoneThreshold) {
     transaction_->SetTombstoneThresholdExceeded(true);
   }
 }
@@ -3490,15 +3501,6 @@ class ObjectStoreKeyCursorImpl : public BackingStore::Cursor {
   ObjectStoreKeyCursorImpl(const ObjectStoreKeyCursorImpl&) = delete;
   ObjectStoreKeyCursorImpl& operator=(const ObjectStoreKeyCursorImpl&) = delete;
 
-  std::unique_ptr<indexed_db::BackingStore::Cursor> Clone() const override {
-    auto iter = CloneIterator(this);
-    if (!iter) {
-      return nullptr;
-    }
-    return base::WrapUnique(
-        new ObjectStoreKeyCursorImpl(this, std::move(iter)));
-  }
-
   // BackingStore::Cursor
   IndexedDBValue& GetValue() override { NOTREACHED(); }
   bool LoadCurrentRow(Status* s) override;
@@ -3512,12 +3514,6 @@ class ObjectStoreKeyCursorImpl : public BackingStore::Cursor {
                         const IndexedDBKey& primary_key) override {
     NOTREACHED();
   }
-
- private:
-  explicit ObjectStoreKeyCursorImpl(
-      const ObjectStoreKeyCursorImpl* other,
-      std::unique_ptr<TransactionalLevelDBIterator> iterator)
-      : BackingStore::Cursor(other, std::move(iterator)) {}
 };
 
 BackingStore::Cursor::CursorOptions::CursorOptions() = default;
@@ -3565,15 +3561,13 @@ class ObjectStoreCursorImpl : public BackingStore::Cursor {
   ~ObjectStoreCursorImpl() override = default;
 
   // BackingStore::Cursor:
-
-  std::unique_ptr<indexed_db::BackingStore::Cursor> Clone() const override {
-    auto iter = CloneIterator(this);
-    if (!iter) {
-      return nullptr;
+  bool TryResetToLastSavedPosition() override {
+    if (!BackingStore::Cursor::TryResetToLastSavedPosition()) {
+      return false;
     }
-    return base::WrapUnique(new ObjectStoreCursorImpl(this, std::move(iter)));
+    current_value_ = {};
+    return true;
   }
-
   IndexedDBValue& GetValue() override { return current_value_; }
   bool LoadCurrentRow(Status* s) override;
 
@@ -3588,11 +3582,6 @@ class ObjectStoreCursorImpl : public BackingStore::Cursor {
   }
 
  private:
-  explicit ObjectStoreCursorImpl(
-      const ObjectStoreCursorImpl* other,
-      std::unique_ptr<TransactionalLevelDBIterator> iterator)
-      : BackingStore::Cursor(other, std::move(iterator)) {}
-
   IndexedDBValue current_value_;
 };
 
@@ -3641,15 +3630,20 @@ class IndexKeyCursorImpl : public BackingStore::Cursor {
 
   ~IndexKeyCursorImpl() override = default;
 
-  std::unique_ptr<indexed_db::BackingStore::Cursor> Clone() const override {
-    auto iter = CloneIterator(this);
-    if (!iter) {
-      return nullptr;
-    }
-    return base::WrapUnique(new IndexKeyCursorImpl(this, std::move(iter)));
-  }
-
   // BackingStore::Cursor
+  void SavePosition() override {
+    BackingStore::Cursor::SavePosition();
+    saved_primary_key_ = primary_key_.Clone();
+  }
+  bool TryResetToLastSavedPosition() override {
+    if (!BackingStore::Cursor::TryResetToLastSavedPosition()) {
+      return false;
+    }
+    CHECK(saved_primary_key_);
+    primary_key_ = *std::move(saved_primary_key_);
+    saved_primary_key_.reset();
+    return true;
+  }
   IndexedDBValue& GetValue() override { NOTREACHED(); }
   const IndexedDBKey& GetPrimaryKey() const override { return primary_key_; }
   bool LoadCurrentRow(Status* s) override;
@@ -3668,13 +3662,8 @@ class IndexKeyCursorImpl : public BackingStore::Cursor {
   }
 
  private:
-  explicit IndexKeyCursorImpl(
-      const IndexKeyCursorImpl* other,
-      std::unique_ptr<TransactionalLevelDBIterator> iterator)
-      : BackingStore::Cursor(other, std::move(iterator)),
-        primary_key_(other->primary_key_.Clone()) {}
-
   IndexedDBKey primary_key_;
+  std::optional<IndexedDBKey> saved_primary_key_;
 };
 
 bool IndexKeyCursorImpl::LoadCurrentRow(Status* s) {
@@ -3756,15 +3745,22 @@ class IndexCursorImpl : public BackingStore::Cursor {
 
   ~IndexCursorImpl() override = default;
 
-  std::unique_ptr<indexed_db::BackingStore::Cursor> Clone() const override {
-    auto iter = CloneIterator(this);
-    if (!iter) {
-      return nullptr;
-    }
-    return base::WrapUnique(new IndexCursorImpl(this, std::move(iter)));
-  }
-
   // BackingStore::Cursor
+  void SavePosition() override {
+    BackingStore::Cursor::SavePosition();
+    saved_members_ = {primary_key_.Clone(), current_value_.Clone(),
+                      primary_leveldb_key_};
+  }
+  bool TryResetToLastSavedPosition() override {
+    if (!BackingStore::Cursor::TryResetToLastSavedPosition()) {
+      return false;
+    }
+    CHECK(saved_members_);
+    std::tie(primary_key_, current_value_, primary_leveldb_key_) =
+        *std::move(saved_members_);
+    saved_members_.reset();
+    return true;
+  }
   IndexedDBValue& GetValue() override { return current_value_; }
   const IndexedDBKey& GetPrimaryKey() const override { return primary_key_; }
   bool LoadCurrentRow(Status* s) override;
@@ -3783,16 +3779,12 @@ class IndexCursorImpl : public BackingStore::Cursor {
   }
 
  private:
-  IndexCursorImpl(const IndexCursorImpl* other,
-                  std::unique_ptr<TransactionalLevelDBIterator> iterator)
-      : BackingStore::Cursor(other, std::move(iterator)),
-        primary_key_(other->primary_key_.Clone()),
-        current_value_(other->current_value_.Clone()),
-        primary_leveldb_key_(other->primary_leveldb_key_) {}
-
   IndexedDBKey primary_key_;
   IndexedDBValue current_value_;
   std::string primary_leveldb_key_;
+
+  std::optional<std::tuple<IndexedDBKey, IndexedDBValue, std::string>>
+      saved_members_;
 };
 
 bool IndexCursorImpl::LoadCurrentRow(Status* s) {
@@ -4000,9 +3992,16 @@ BackingStore::Database::Database(BackingStore& backing_store,
       metadata_(std::move(metadata)) {}
 BackingStore::Database::~Database() = default;
 
-PartitionedLockId BackingStore::Database::GetLockId(
+std::string BackingStore::Database::GetObjectStoreLockIdKey(
     int64_t object_store_id) const {
-  return GetObjectStoreLockId(*metadata_.id, object_store_id);
+  // These keys used to attempt to be bytewise-comparable, which is why
+  // it uses big-endian encoding here. There was a goal to match the
+  // existing leveldb key scheme used by IndexedDB. This is no longer a goal.
+  std::array<uint8_t, 16u> chars;
+  auto [db, obj] = base::span(chars).split_at<8u>();
+  db.copy_from(base::U64ToBigEndian(static_cast<uint64_t>(*metadata_.id)));
+  obj.copy_from(base::U64ToBigEndian(static_cast<uint64_t>(object_store_id)));
+  return std::string(chars.begin(), chars.end());
 }
 
 const blink::IndexedDBDatabaseMetadata& BackingStore::Database::GetMetadata() {
@@ -4044,8 +4043,8 @@ void BackingStore::Transaction::Begin(std::vector<PartitionedLock> locks) {
   // During a VersionChange txn, and only a VersionChange txn, the database
   // metadata may change. VersionChange transactions also hold exclusive locks
   // over the whole database (not just a subset of object stores). So if and
-  // when `this` is rolled back, the db's metadata will be reset to the state it
-  // was in before `this` started.
+  // when `this` is rolled back, the db's metadata will be reset to the state
+  // it was in before `this` started.
   if (mode_ == blink::mojom::IDBTransactionMode::VersionChange) {
     metadata_before_transaction_.emplace(database_->metadata());
   }

@@ -310,7 +310,7 @@ base::Value::Dict GetGpuInfo() {
 
 #if BUILDFLAG(ENABLE_VULKAN)
   if (gpu_info.vulkan_info) {
-    auto blob = gpu_info.vulkan_info->Serialize();
+    auto blob = gpu_info.SerializeVulkanInfo();
     info.Set("vulkanInfo", base::Base64Encode(blob));
   }
 #endif
@@ -821,6 +821,12 @@ base::Value::Dict GpuMessageHandler::GetClientInfo() {
                          os_version.minor, os_version.build, os_version.patch,
                          kernel32_version.major, kernel32_version.minor,
                          kernel32_version.build, kernel32_version.patch));
+#elif BUILDFLAG(IS_ANDROID)
+  dict.Set("operating_system",
+           base::StringPrintf("%s %s %s", base::SysInfo::OperatingSystemName(),
+                              base::SysInfo::OperatingSystemVersion(),
+                              base::SysInfo::GetAndroidBuildID()));
+
 #else
   dict.Set("operating_system", base::SysInfo::OperatingSystemName() + " " +
                                    base::SysInfo::OperatingSystemVersion());

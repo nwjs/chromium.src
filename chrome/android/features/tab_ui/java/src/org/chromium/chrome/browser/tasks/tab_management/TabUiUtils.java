@@ -51,6 +51,7 @@ import org.chromium.components.signin.identitymanager.IdentityManager;
 import org.chromium.components.tab_group_sync.EitherId.EitherGroupId;
 import org.chromium.components.tab_group_sync.LocalTabGroupId;
 import org.chromium.components.tab_group_sync.SavedTabGroup;
+import org.chromium.components.tab_group_sync.SavedTabGroupTab;
 import org.chromium.components.tab_group_sync.TabGroupSyncService;
 import org.chromium.components.tab_groups.TabGroupColorId;
 import org.chromium.ui.modaldialog.ModalDialogManager;
@@ -139,22 +140,22 @@ public class TabUiUtils {
         if (!filter.tabGroupExists(tabGroupId)) return;
 
         filter.getTabUngrouper()
-                .ungroupTabs(tabGroupId, /* trailing= */ true, /* allowDialog= */ true);
+                .ungroupTabGroup(tabGroupId, /* trailing= */ false, /* allowDialog= */ true);
     }
 
     /**
      * Update the tab group color.
      *
      * @param filter The {@link TabGroupModelFilter} to act on.
-     * @param rootId The root id of the interacting tab group.
+     * @param tabGroupId The group id of the interacting tab group.
      * @param newGroupColor The new group color being assigned to the tab group.
      * @return Whether the tab group color is updated.
      */
     public static boolean updateTabGroupColor(
-            TabGroupModelFilter filter, int rootId, @TabGroupColorId int newGroupColor) {
-        int curGroupColor = filter.getTabGroupColor(rootId);
+            TabGroupModelFilter filter, Token tabGroupId, @TabGroupColorId int newGroupColor) {
+        int curGroupColor = filter.getTabGroupColor(tabGroupId);
         if (curGroupColor != newGroupColor) {
-            filter.setTabGroupColor(rootId, newGroupColor);
+            filter.setTabGroupColor(tabGroupId, newGroupColor);
             return true;
         }
         return false;
@@ -164,16 +165,16 @@ public class TabUiUtils {
      * Update the tab group title.
      *
      * @param filter The {@link TabGroupModelFilter} to act on.
-     * @param rootId The root id of the interacting tab group.
+     * @param tabGroupId The group id of the interacting tab group.
      * @param newGroupTitle The new group title being assigned to the tab group.
      * @return Whether the tab group title is updated.
      */
     public static boolean updateTabGroupTitle(
-            TabGroupModelFilter filter, int rootId, String newGroupTitle) {
+            TabGroupModelFilter filter, Token tabGroupId, String newGroupTitle) {
         assert newGroupTitle != null && !newGroupTitle.isEmpty();
-        String curGroupTitle = filter.getTabGroupTitle(rootId);
+        String curGroupTitle = filter.getTabGroupTitle(tabGroupId);
         if (!newGroupTitle.equals(curGroupTitle)) {
-            filter.setTabGroupTitle(rootId, newGroupTitle);
+            filter.setTabGroupTitle(tabGroupId, newGroupTitle);
             return true;
         }
         return false;
@@ -272,7 +273,7 @@ public class TabUiUtils {
      * @return Whether to show Tab Group Sync IPH.
      */
     public static boolean shouldShowIphForSync(
-            TabGroupSyncService tabGroupSyncService, Token tabGroupId) {
+            @Nullable TabGroupSyncService tabGroupSyncService, @Nullable Token tabGroupId) {
         if (tabGroupSyncService == null || tabGroupId == null) return false;
 
         @Nullable SavedTabGroup savedTabGroup =
@@ -476,5 +477,20 @@ public class TabUiUtils {
     public static boolean isDataSharingFunctionalityEnabled() {
         return ChromeFeatureList.isEnabled(ChromeFeatureList.DATA_SHARING)
                 || ChromeFeatureList.isEnabled(ChromeFeatureList.DATA_SHARING_JOIN_ONLY);
+    }
+
+    /**
+     * Returns the last updated timestamp for the {@link SavedTabGroup}, determined from the last
+     * updated time on each {@link SavedTabGroupTab} within the group.
+     *
+     * @param savedTabGroup The saved tab group to retrieve the last updated timestamp for.
+     */
+    public static long getGroupLastUpdatedTimestamp(SavedTabGroup savedTabGroup) {
+        long timestamp = 0;
+        for (SavedTabGroupTab savedTab : savedTabGroup.savedTabs) {
+            // TODO(crbug.com/432292097): Use navigation time from native when available.
+            timestamp = Math.max(timestamp, savedTab.updateTimeMs);
+        }
+        return timestamp;
     }
 }

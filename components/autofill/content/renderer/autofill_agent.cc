@@ -268,8 +268,9 @@ bool ShowPredictions(const WebDocument& document,
                                       : "SERVER_RESPONSE_PENDING",
         "\nheuristic type: ",
         field.heuristic_type,
-        (!field.autofill_ai_type.empty() ? "\nautofill ai type: " : ""),
-        (!field.autofill_ai_type.empty() ? field.autofill_ai_type : ""),
+        (!field.attribute_types.empty() ? "\nautofill ai attribute types: "
+                                        : ""),
+        (!field.attribute_types.empty() ? field.attribute_types : ""),
         (!field.format_string.empty() ? "\nformat string: " : ""),
         (!field.format_string.empty() ? field.format_string : ""),
         "\nlabel: ",
@@ -286,6 +287,8 @@ bool ShowPredictions(const WebDocument& document,
         field.host_form_signature,
         "\nalternative form signature: ",
         form.alternative_signature,
+        "\nstructural form signature: ",
+        form.structural_form_signature,
         "\nform name: ",
         base::UTF16ToUTF8(form.data.name_attribute()),
         "\nform id: ",
@@ -348,6 +351,8 @@ bool ShowPredictions(const WebDocument& document,
           option_labels,
           "\noption values: ",
           option_values,
+          "\nax node id: ",
+          base::NumberToString(field_data.form_control_ax_id()),
       });
     }
 
@@ -386,6 +391,8 @@ bool ShowPredictions(const WebDocument& document,
   return true;
 }
 
+// TODO(crbug.com/402071086): Remove when AutofillIgnoreCheckableElements is
+// removed.
 bool IsCheckableElement(const WebFormControlElement& element) {
   using enum blink::mojom::FormControlType;
   return element && (element.FormControlTypeForAutofill() == kInputCheckbox ||
@@ -1497,7 +1504,13 @@ void AutofillAgent::ShowSuggestions(
   if (!element.IsEnabled() || element.IsReadOnly()) {
     return;
   }
-  if (!element.SuggestedValue().IsEmpty()) {
+  // Proactive password recovery can be triggered on forms that have just been
+  // re-rendered and autofilled because it happens after a failed login
+  // attempt. In this case the autofilled username/password fields will have
+  // suggested value set.
+  if (!element.SuggestedValue().IsEmpty() &&
+      trigger_source !=
+          AutofillSuggestionTriggerSource::kProactivePasswordRecovery) {
     return;
   }
   if (!form_util::IsTextAreaElementOrTextInput(element)) {
@@ -1787,6 +1800,12 @@ void AutofillAgent::HidePopup() {
     return;
   }
 
+  // The browser code also calls `ClearPreviewedForm` on hiding the popup.
+  // However, there can be instances in which the render frame is already
+  // switched out by the time this call happens. If that render frame is later
+  // retrieved from BFCache, the preview is still active. Clearing preview here
+  // prevents that.
+  ClearPreviewedForm();
   if (auto* autofill_driver = unsafe_autofill_driver()) {
     autofill_driver->HidePopup();
   }

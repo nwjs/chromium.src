@@ -13,7 +13,6 @@
 #include "base/test/scoped_feature_list.h"
 #include "base/time/time.h"
 #include "png.h"
-#include "skia/buildflags.h"
 #include "skia/rusty_png_feature.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/renderer/platform/graphics/color_behavior.h"
@@ -759,12 +758,13 @@ TEST_P(AnimatedPNGTests, IdatSizeMismatch) {
   decoder->SetData(modified_data.get(), true);
 
   if (skia::IsRustyPngEnabled()) {
-    // `SkiaImageDecoderBase` doesn't report an overall failure, unless *all*
-    // frames fail.  If some animated frames have an error, then other animated
-    // frames may continue to work.  This is by design - see
-    // https://crbug.com/371592786#comment3.
-    EXPECT_FALSE(decoder->Failed());
-    EXPECT_EQ(decoder->FrameCount(), 4u);
+    // We expect lower layers (either Skia or `png` crate) to report a hard
+    // error when `fcTL` chunk applies to `IDAT` chunk and has dimensions that
+    // don't match the `IHDR` chunk.  We don't fall back to the static image
+    // (like the legacy, `libpng`-based decoder does) to avoid the risk of using
+    // different dimensions at different layers of the stack (as happened in
+    // https://crbug.com/428205250).
+    EXPECT_TRUE(decoder->Failed());
   } else {
     ExpectStatic(decoder.get());
   }
@@ -1759,10 +1759,17 @@ TEST_P(PNGTests, VerifyFrameCompleteBehavior) {
 }
 
 TEST_P(PNGTests, sizeMayOverflow) {
-  auto decoder =
-      CreatePNGDecoderWithPngData("/images/resources/crbug702934.png");
-  EXPECT_FALSE(decoder->IsSizeAvailable());
-  EXPECT_TRUE(decoder->Failed());
+  const char* kTests[] = {
+      "/images/resources/crbug702934.png",
+      "/images/resources/crbug432516335-big-height.png",
+      "/images/resources/crbug432516335-i32-overflow.png",
+  };
+  for (const char* test : kTests) {
+    SCOPED_TRACE(testing::Message() << "Testing: " << test);
+    auto decoder = CreatePNGDecoderWithPngData(test);
+    EXPECT_FALSE(decoder->IsSizeAvailable());
+    EXPECT_TRUE(decoder->Failed());
+  }
 }
 
 TEST_P(PNGTests, truncated) {
@@ -1808,7 +1815,8 @@ TEST_P(PNGTests, cicp) {
   ASSERT_TRUE(transform);  // Guaranteed by `HasEmbeddedColorProfile`.
   const skcms_ICCProfile* png_profile = transform->SrcProfile();
   ASSERT_TRUE(png_profile);
-  EXPECT_TRUE(skcms_TransferFunction_isPQish(&png_profile->trc[0].parametric));
+  EXPECT_TRUE(skcms_TransferFunction_isPQ(&png_profile->trc[0].parametric) ||
+              skcms_TransferFunction_isPQish(&png_profile->trc[0].parametric));
 }
 
 TEST_P(PNGTests, IgnoringColorProfile) {
@@ -1998,7 +2006,6 @@ TEST_P(PNGTests, RecoveringToReadFirstFrameAfterSecondFrameFailure) {
   }
 }
 
-#if BUILDFLAG(SKIA_BUILD_RUST_PNG)
 INSTANTIATE_TEST_SUITE_P(RustEnabled,
                          AnimatedPNGTests,
                          ::testing::Values(RustFeatureState::kRustEnabled));
@@ -2008,7 +2015,6 @@ INSTANTIATE_TEST_SUITE_P(RustEnabled,
 INSTANTIATE_TEST_SUITE_P(RustEnabled,
                          StaticPNGTests,
                          ::testing::Values(RustFeatureState::kRustEnabled));
-#endif
 
 INSTANTIATE_TEST_SUITE_P(RustDisabled,
                          AnimatedPNGTests,

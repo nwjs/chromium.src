@@ -82,7 +82,6 @@
 #include "content/public/renderer/render_frame_observer.h"
 #include "content/public/renderer/render_frame_visitor.h"
 #include "content/public/renderer/render_thread.h"
-#include "content/public/renderer/renderer_ppapi_host.h"
 #include "content/public/renderer/window_features_converter.h"
 #include "content/renderer/accessibility/ax_tree_snapshotter_impl.h"
 #include "content/renderer/accessibility/render_accessibility_impl.h"
@@ -115,7 +114,7 @@
 #include "content/renderer/web_ui_extension_data.h"
 #include "content/renderer/worker/dedicated_worker_host_factory_client.h"
 #include "crypto/sha2.h"
-#include "ipc/ipc_message.h"
+#include "ipc/constants.mojom.h"
 #include "media/mojo/mojom/audio_processing.mojom.h"
 #include "mojo/public/cpp/bindings/associated_remote.h"
 #include "mojo/public/cpp/bindings/pending_associated_receiver.h"
@@ -130,7 +129,6 @@
 #include "net/base/registry_controlled_domains/registry_controlled_domain.h"
 #include "net/http/http_request_headers.h"
 #include "net/http/http_util.h"
-#include "ppapi/buildflags/buildflags.h"
 #include "services/metrics/public/cpp/ukm_source_id.h"
 #include "services/network/public/cpp/content_decoding_interceptor.h"
 #include "services/network/public/cpp/features.h"
@@ -249,14 +247,6 @@
 #include "v8/include/v8-local-handle.h"
 #include "v8/include/v8-microtask-queue.h"
 
-#if BUILDFLAG(ENABLE_PPAPI)
-#include "content/renderer/pepper/pepper_browser_connection.h"
-#include "content/renderer/pepper/pepper_plugin_instance_impl.h"
-#include "content/renderer/pepper/pepper_plugin_registry.h"
-#include "content/renderer/pepper/pepper_webplugin_impl.h"
-#include "content/renderer/pepper/plugin_module.h"
-#endif
-
 #if BUILDFLAG(IS_ANDROID)
 #include <cpu-features.h>
 
@@ -314,6 +304,12 @@ namespace content {
 
 namespace {
 
+// Feature to combine the UpdateState IPC that's sent during commit time with
+// the DidCommit* IPCs. See: http://crbug.com/424829233
+BASE_FEATURE(kReducePageStateIpcs,
+             "ReducePageStateIpcs",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
 const int kExtraCharsBeforeAndAfterSelection = 100;
 const size_t kMaxURLLogChars = 1024;
 const char kCommitRenderFrame[] = "Navigation.CommitRenderFrame";
@@ -329,12 +325,6 @@ const char kCommitRenderFrame[] = "Navigation.CommitRenderFrame";
 constexpr base::TimeDelta kDelaySecondsForContentStateSyncHidden =
     base::Seconds(5);
 constexpr base::TimeDelta kDelaySecondsForContentStateSync = base::Seconds(1);
-
-#if BUILDFLAG(CONTENT_ENABLE_LEGACY_IPC)
-using RoutingIDFrameMap = absl::flat_hash_map<int, RenderFrameImpl*>;
-static base::LazyInstance<RoutingIDFrameMap>::DestructorAtExit
-    g_routing_id_frame_map = LAZY_INSTANCE_INITIALIZER;
-#endif
 
 using FrameMap = absl::flat_hash_map<blink::WebFrame*, RenderFrameImpl*>;
 base::LazyInstance<FrameMap>::DestructorAtExit g_frame_map =
@@ -1564,7 +1554,7 @@ RenderFrameImpl* RenderFrameImpl::Create(
         associated_interface_provider,
     const base::UnguessableToken& devtools_frame_token,
     bool is_for_nested_main_frame) {
-  DCHECK(routing_id != MSG_ROUTING_NONE);
+  DCHECK(routing_id != IPC::mojom::kRoutingIdNone);
   CreateParams params(agent_scheduling_group, frame_token, routing_id,
                       std::move(frame_receiver),
                       std::move(associated_interface_provider),
@@ -1575,22 +1565,6 @@ RenderFrameImpl* RenderFrameImpl::Create(
   else
     return new RenderFrameImpl(std::move(params));
 }
-
-#if BUILDFLAG(CONTENT_ENABLE_LEGACY_IPC)
-// static
-RenderFrame* RenderFrame::FromRoutingID(int routing_id) {
-  return RenderFrameImpl::FromRoutingID(routing_id);
-}
-
-// static
-RenderFrameImpl* RenderFrameImpl::FromRoutingID(int routing_id) {
-  DCHECK(RenderThread::IsMainThread());
-  auto iter = g_routing_id_frame_map.Get().find(routing_id);
-  if (iter != g_routing_id_frame_map.Get().end())
-    return iter->second;
-  return nullptr;
-}
-#endif
 
 // static
 RenderFrameImpl* RenderFrameImpl::CreateMainFrame(
@@ -1604,7 +1578,7 @@ RenderFrameImpl* RenderFrameImpl::CreateMainFrame(
     mojom::CreateLocalMainFrameParamsPtr params,
     const blink::WebURL& base_url) {
   // A main frame RenderFrame must have a RenderWidget.
-  DCHECK_NE(MSG_ROUTING_NONE, params->widget_params->routing_id);
+  DCHECK_NE(IPC::mojom::kRoutingIdNone, params->widget_params->routing_id);
 
   RenderFrameImpl* render_frame = RenderFrameImpl::Create(
       agent_scheduling_group, params->frame_token, params->routing_id,
@@ -1836,7 +1810,7 @@ void RenderFrameImpl::CreateFrame(
     // Main frames are always local roots, so they should always have a
     // |widget_params| (and it always comes with a routing id).
     DCHECK(widget_params);
-    DCHECK_NE(widget_params->routing_id, MSG_ROUTING_NONE);
+    DCHECK_NE(widget_params->routing_id, IPC::mojom::kRoutingIdNone);
 
     render_frame->MaybeInitializeWidget(std::move(widget_params));
 
@@ -1844,7 +1818,7 @@ void RenderFrameImpl::CreateFrame(
     // because this frame is provisional and not attached to the Page yet. We
     // will tell WebViewImpl about it once it is swapped in.
   } else if (widget_params) {
-    DCHECK(widget_params->routing_id != MSG_ROUTING_NONE);
+    DCHECK(widget_params->routing_id != IPC::mojom::kRoutingIdNone);
 
     // This frame is a child local root, so we require a separate RenderWidget
     // for it from any other frames in the frame tree. Each local root defines
@@ -1940,9 +1914,6 @@ RenderFrameImpl::RenderFrameImpl(CreateParams params)
       unique_name_helper_(&unique_name_frame_adapter_),
       in_frame_tree_(false),
       frame_token_(params.frame_token),
-#if BUILDFLAG(CONTENT_ENABLE_LEGACY_IPC)
-      routing_id_(params.routing_id),
-#endif
       process_label_id_(
           tracing::TrackNameRecorder::GetInstance()->GetNewProcessLabelId()),
       selection_text_offset_(0),
@@ -1951,9 +1922,6 @@ RenderFrameImpl::RenderFrameImpl(CreateParams params)
           std::make_unique<RenderAccessibilityManager>(this)),
       weak_wrapper_resource_load_info_notifier_(
           std::make_unique<blink::WeakWrapperResourceLoadInfoNotifier>(this)),
-#if BUILDFLAG(ENABLE_PPAPI)
-      focused_pepper_plugin_(nullptr),
-#endif
       navigation_client_impl_(nullptr),
       media_factory_(
           this,
@@ -1981,12 +1949,6 @@ RenderFrameImpl::RenderFrameImpl(CreateParams params)
 
   // Must call after binding our own remote interfaces.
   media_factory_.SetupMojo();
-
-#if BUILDFLAG(CONTENT_ENABLE_LEGACY_IPC)
-  std::pair<RoutingIDFrameMap::iterator, bool> result =
-      g_routing_id_frame_map.Get().insert(std::make_pair(routing_id_, this));
-  CHECK(result.second) << "Inserting a duplicate item.";
-#endif
 }
 
 mojom::FrameHost* RenderFrameImpl::GetFrameHost() {
@@ -2010,15 +1972,7 @@ RenderFrameImpl::~RenderFrameImpl() {
 
   tracing::TrackNameRecorder::GetInstance()->RemoveProcessLabel(
       process_label_id_);
-#if BUILDFLAG(CONTENT_ENABLE_LEGACY_IPC)
-  g_routing_id_frame_map.Get().erase(routing_id_);
-#endif
-  agent_scheduling_group_->RemoveFrameRoute(frame_token_
-#if BUILDFLAG(CONTENT_ENABLE_LEGACY_IPC)
-                                            ,
-                                            routing_id_
-#endif
-  );
+  agent_scheduling_group_->RemoveFrameRoute(frame_token_);
 }
 
 void RenderFrameImpl::Initialize(blink::WebFrame* parent) {
@@ -2029,10 +1983,6 @@ void RenderFrameImpl::Initialize(blink::WebFrame* parent) {
 
   TRACE_EVENT1("navigation,rail", "RenderFrameImpl::Initialize", "frame_token",
                frame_token_);
-
-#if BUILDFLAG(ENABLE_PPAPI)
-  new PepperBrowserConnection(this);
-#endif
 
   RegisterMojoInterfaces();
 
@@ -2058,9 +2008,6 @@ void RenderFrameImpl::Initialize(blink::WebFrame* parent) {
       GetTaskRunner(blink::TaskType::kInternalNavigationAssociated));
   agent_scheduling_group_->AddFrameRoute(
       frame_token_,
-#if BUILDFLAG(CONTENT_ENABLE_LEGACY_IPC)
-      routing_id_,
-#endif
       this, GetTaskRunner(blink::TaskType::kInternalNavigationAssociated));
 }
 
@@ -2081,77 +2028,11 @@ blink::WebFrameWidget* RenderFrameImpl::GetLocalRootWebFrameWidget() {
   return frame_->LocalRoot()->FrameWidget();
 }
 
-#if BUILDFLAG(ENABLE_PPAPI)
-void RenderFrameImpl::PepperPluginCreated(RendererPpapiHost* host) {
-  for (auto& observer : observers_)
-    observer.DidCreatePepperPlugin(host);
-}
-
-void RenderFrameImpl::PepperTextInputTypeChanged(
-    PepperPluginInstanceImpl* instance) {
-  if (instance != focused_pepper_plugin_)
-    return;
-
-  GetLocalRootWebFrameWidget()->UpdateTextInputState();
-}
-
-void RenderFrameImpl::PepperCaretPositionChanged(
-    PepperPluginInstanceImpl* instance) {
-  if (instance != focused_pepper_plugin_)
-    return;
-  GetLocalRootWebFrameWidget()->UpdateSelectionBounds();
-}
-
-void RenderFrameImpl::PepperCancelComposition(
-    PepperPluginInstanceImpl* instance) {
-  if (instance != focused_pepper_plugin_)
-    return;
-  GetLocalRootWebFrameWidget()->CancelCompositionForPepper();
-}
-
-void RenderFrameImpl::PepperSelectionChanged(
-    PepperPluginInstanceImpl* instance) {
-  if (instance != focused_pepper_plugin_)
-    return;
-
-  // We have no reason to believe the locally cached last synced selection is
-  // invalid so we do not need to force the update if it matches our last synced
-  // value.
-  SyncSelectionIfRequired(blink::SyncCondition::kNotForced);
-}
-
-#endif  // BUILDFLAG(ENABLE_PPAPI)
-
 void RenderFrameImpl::ScriptedPrint() {
   bool user_initiated = GetLocalRootWebFrameWidget()->HandlingInputEvent();
   for (auto& observer : observers_)
     observer.ScriptedPrint(user_initiated);
 }
-
-#if BUILDFLAG(CONTENT_ENABLE_LEGACY_IPC)
-bool RenderFrameImpl::Send(IPC::Message* message) {
-  return agent_scheduling_group_->Send(message);
-}
-
-bool RenderFrameImpl::OnMessageReceived(const IPC::Message& msg) {
-  // We may get here while detaching, when the WebFrame has been deleted.  Do
-  // not process any messages in this state.
-  if (!frame_)
-    return false;
-
-  DCHECK(!frame_->GetDocument().IsNull());
-
-  GetContentClient()->SetActiveURL(
-      frame_->GetDocument().Url(),
-      frame_->Top()->GetSecurityOrigin().ToString().Utf8());
-
-  for (auto& observer : observers_) {
-    if (observer.OnMessageReceived(msg))
-      return true;
-  }
-  return false;
-}
-#endif
 
 void RenderFrameImpl::OnAssociatedInterfaceRequest(
     const std::string& interface_name,
@@ -2166,17 +2047,16 @@ void RenderFrameImpl::OnAssociatedInterfaceRequest(
   }
 }
 
-void RenderFrameImpl::SetUpSharedMemoryForUkms(
-    base::ReadOnlySharedMemoryRegion smoothness_memory,
+void RenderFrameImpl::SetUpSharedMemoryForDroppedFrames(
     base::ReadOnlySharedMemoryRegion dropped_frames_memory) {
   TRACE_EVENT_WITH_FLOW0("navigation",
-                         "RenderFrameImpl::SetUpSharedMemoryForUkms",
+                         "RenderFrameImpl::SetUpSharedMemoryForDroppedFrames",
                          TRACE_ID_LOCAL(this),
                          TRACE_EVENT_FLAG_FLOW_IN | TRACE_EVENT_FLAG_FLOW_OUT);
-  DCHECK(smoothness_memory.IsValid() && dropped_frames_memory.IsValid());
+  DCHECK(dropped_frames_memory.IsValid());
   for (auto& observer : observers_) {
-    DCHECK(smoothness_memory.IsValid() && dropped_frames_memory.IsValid());
-    if (observer.SetUpUkmReporting(smoothness_memory, dropped_frames_memory)) {
+    DCHECK(dropped_frames_memory.IsValid());
+    if (observer.SetUpDroppedFramesReporting(dropped_frames_memory)) {
       break;
     }
   }
@@ -2405,20 +2285,6 @@ void RenderFrameImpl::DidMeaningfulLayout(
     observer.DidMeaningfulLayout(layout_type);
 }
 
-void RenderFrameImpl::DidCommitAndDrawCompositorFrame() {
-#if BUILDFLAG(ENABLE_PPAPI)
-  // Notify all instances that we painted. The same caveats apply as for
-  // ViewFlushedPaint regarding instances closing themselves, so we take
-  // similar precautions.
-  PepperPluginSet plugins = active_pepper_instances_;
-  for (PepperPluginInstanceImpl* plugin : plugins) {
-    if (base::Contains(active_pepper_instances_, plugin)) {
-      plugin->ViewInitiatedPaint();
-    }
-  }
-#endif
-}
-
 RenderFrame* RenderFrameImpl::GetMainRenderFrame() {
   WebFrame* main_frame = GetWebView()->MainFrame();
   DCHECK(main_frame);
@@ -2435,12 +2301,6 @@ std::unique_ptr<AXTreeSnapshotter> RenderFrameImpl::CreateAXTreeSnapshotter(
     ui::AXMode ax_mode) {
   return std::make_unique<AXTreeSnapshotterImpl>(this, ax_mode);
 }
-
-#if BUILDFLAG(CONTENT_ENABLE_LEGACY_IPC)
-int RenderFrameImpl::GetRoutingID() {
-  return routing_id_;
-}
-#endif
 
 blink::WebLocalFrame* RenderFrameImpl::GetWebFrame() {
   DCHECK(frame_);
@@ -2475,31 +2335,6 @@ const blink::RendererPreferences& RenderFrameImpl::GetRendererPreferences()
 
 void RenderFrameImpl::ShowVirtualKeyboard() {
   GetLocalRootWebFrameWidget()->ShowVirtualKeyboard();
-}
-
-blink::WebPlugin* RenderFrameImpl::CreatePlugin(
-    const WebPluginInfo& info,
-    const blink::WebPluginParams& params) {
-#if BUILDFLAG(ENABLE_PPAPI)
-  std::optional<url::Origin> origin_lock;
-  if (GetContentClient()->renderer()->IsOriginIsolatedPepperPlugin(info.path)) {
-    origin_lock = url::Origin::Create(GURL(params.url));
-  }
-
-  bool pepper_plugin_was_registered = false;
-  scoped_refptr<PluginModule> pepper_module(PluginModule::Create(
-      this, info, origin_lock, &pepper_plugin_was_registered,
-      GetTaskRunner(blink::TaskType::kNetworking)));
-  if (pepper_plugin_was_registered) {
-    if (pepper_module.get()) {
-      return new PepperWebPluginImpl(pepper_module.get(), params, this);
-    }
-  }
-#if BUILDFLAG(IS_CHROMEOS)
-  LOG(WARNING) << "Pepper module/plugin creation failed.";
-#endif
-#endif  // BUILDFLAG(ENABLE_PPAPI)
-  return nullptr;
 }
 
 void RenderFrameImpl::ExecuteJavaScript(const std::u16string& javascript) {
@@ -3147,6 +2982,7 @@ void RenderFrameImpl::CommitFailedNavigation(
     std::unique_ptr<blink::PendingURLLoaderFactoryBundle>
         subresource_loader_factories,
     const blink::DocumentToken& document_token,
+    const base::UnguessableToken& devtools_navigation_token,
     blink::mojom::PolicyContainerPtr policy_container,
     mojom::AlternativeErrorPageOverrideInfoPtr alternative_error_page_info,
     mojom::NavigationClient::CommitFailedNavigationCallback callback) {
@@ -3210,8 +3046,7 @@ void RenderFrameImpl::CommitFailedNavigation(
   commit_params->content_settings =
       blink::CreateDefaultRendererContentSettings();
   auto navigation_params = std::make_unique<WebNavigationParams>(
-      document_token,
-      /*devtools_navigation_token=*/base::UnguessableToken::Create(),
+      document_token, devtools_navigation_token,
       /*base_auction_nonce=*/base::Uuid::GenerateRandomV4());
   FillNavigationParamsRequest(*common_params, *commit_params,
                               navigation_params.get());
@@ -3571,22 +3406,7 @@ blink::WebPlugin* RenderFrameImpl::CreatePlugin(
                                                            &plugin)) {
     return plugin;
   }
-
-#if BUILDFLAG(ENABLE_PPAPI)
-  WebPluginInfo info;
-  std::string mime_type;
-  bool found = false;
-  GetPepperHost()->GetPluginInfo(params.url, params.mime_type.Utf8(), &found,
-                                 &info, &mime_type);
-  if (!found)
-    return nullptr;
-
-  WebPluginParams params_to_use = params;
-  params_to_use.mime_type = WebString::FromUTF8(mime_type);
-  return CreatePlugin(info, params_to_use);
-#else
   return nullptr;
-#endif  // BUILDFLAG(ENABLE_PPAPI)
 }
 
 std::unique_ptr<blink::WebMediaPlayer> RenderFrameImpl::CreateMediaPlayer(
@@ -3792,7 +3612,7 @@ blink::WebLocalFrame* RenderFrameImpl::CreateChildFrame(
     ukm::SourceId document_ukm_source_id,
     FinishChildFrameCreationFn finish_creation) {
   // Tracing analysis uses this to find main frames when this value is
-  // MSG_ROUTING_NONE, and build the frame tree otherwise.
+  // IPC::mojom::kRoutingIdNone, and build the frame tree otherwise.
   CreateChildFrameTraceEvent trace_event(frame_token_);
 
   // Allocate child routing ID. This is a synchronous call.
@@ -4809,18 +4629,28 @@ void RenderFrameImpl::DidObserveSubresourceLoad(
     observer.DidObserveSubresourceLoad(subresource_load_metrics);
 }
 
+void RenderFrameImpl::SetNewFeatureUsageCallback(
+    NewFeatureUsageCallback callback) {
+  new_feature_usage_callback_ = std::move(callback);
+}
+
 void RenderFrameImpl::DidObserveNewFeatureUsage(
     const blink::UseCounterFeature& feature) {
   TRACE_EVENT_WITH_FLOW0("navigation",
                          "RenderFrameImpl::DidObserveNewFeatureUsage",
                          TRACE_ID_LOCAL(this),
                          TRACE_EVENT_FLAG_FLOW_IN | TRACE_EVENT_FLAG_FLOW_OUT);
-  for (auto& observer : observers_)
-    observer.DidObserveNewFeatureUsage(feature);
+  if (new_feature_usage_callback_) {
+    new_feature_usage_callback_.Run(feature);
+  } else {
+    for (auto& observer : observers_) {
+      observer.DidObserveNewFeatureUsage(feature);
+    }
+  }
 }
 
 void RenderFrameImpl::DidObserveSoftNavigation(
-    blink::SoftNavigationMetrics metrics) {
+    blink::SoftNavigationMetricsForReporting metrics) {
   for (auto& observer : observers_) {
     observer.DidObserveSoftNavigation(metrics);
   }
@@ -4989,24 +4819,12 @@ void RenderFrameImpl::WasHidden() {
   frame_->WasHidden();
   for (auto& observer : observers_)
     observer.WasHidden();
-
-#if BUILDFLAG(ENABLE_PPAPI)
-  for (PepperPluginInstanceImpl* plugin : active_pepper_instances_) {
-    plugin->PageVisibilityChanged(false);
-  }
-#endif  // BUILDFLAG(ENABLE_PPAPI)
 }
 
 void RenderFrameImpl::WasShown() {
   frame_->WasShown();
   for (auto& observer : observers_)
     observer.WasShown();
-
-#if BUILDFLAG(ENABLE_PPAPI)
-  for (PepperPluginInstanceImpl* plugin : active_pepper_instances_) {
-    plugin->PageVisibilityChanged(true);
-  }
-#endif  // BUILDFLAG(ENABLE_PPAPI)
 }
 
 void RenderFrameImpl::OnFrameVisibilityChanged(
@@ -5052,7 +4870,8 @@ RenderFrameImpl::MakeDidCommitProvisionalLoadParams(
     ui::PageTransition transition,
     const network::ParsedPermissionsPolicy& permissions_policy_header,
     const blink::DocumentPolicyFeatureState& document_policy_header,
-    const std::optional<base::UnguessableToken>& embedding_token) {
+    const std::optional<base::UnguessableToken>& embedding_token,
+    std::optional<blink::PageState> previous_page_state) {
   WebDocumentLoader* document_loader = frame_->GetDocumentLoader();
   const WebURLResponse& response = document_loader->GetWebResponse();
 
@@ -5130,10 +4949,21 @@ RenderFrameImpl::MakeDidCommitProvisionalLoadParams(
     params->url = GURL(kBlockedURL);
   }
 
+  // When `blink::features::kVisitedLinksOnErrorNavigation` is enabled, visits
+  // to reachable URLs that have a 404 status code qualify for history updates.
+  // Otherwise, we shouldn't update history for 404s.
+  bool does_status_code_qualify_for_history =
+      base::FeatureList::IsEnabled(
+          blink::features::kVisitedLinksOnErrorNavigation) ||
+      response.HttpStatusCode() != 404;
   // TODO(crbug.com/40161149): Reconsider how we calculate
   // should_update_history.
-  params->should_update_history =
-      !document_loader->HasUnreachableURL() && response.HttpStatusCode() != 404;
+  params->should_update_history = !document_loader->HasUnreachableURL() &&
+                                  does_status_code_qualify_for_history;
+
+  if (previous_page_state.has_value()) {
+    params->previous_page_state = previous_page_state;
+  }
 
   // Make navigation state a part of the DidCommitProvisionalLoad message so
   // that committed entry has it at all times.  Send a single HistoryItem for
@@ -5300,9 +5130,11 @@ void RenderFrameImpl::UpdateStateForCommit(
       DocumentState::FromDocumentLoader(frame_->GetDocumentLoader());
   NavigationState* navigation_state = document_state->navigation_state();
 
-  // We need to update the last committed session history entry with state for
-  // the previous page. Do this before updating the current history item.
-  SendUpdateState();
+  if (!base::FeatureList::IsEnabled(kReducePageStateIpcs)) {
+    // We need to update the last committed session history entry with state for
+    // the previous page. Do this before updating the current history item.
+    SendUpdateState();
+  }
 
   UpdateNavigationHistory(commit_type);
 
@@ -5344,6 +5176,15 @@ void RenderFrameImpl::DidCommitNavigationInternal(
     mojom::DidCommitSameDocumentNavigationParamsPtr same_document_params,
     const std::optional<base::UnguessableToken>& embedding_token) {
   DCHECK(!(same_document_params && interface_params));
+
+  // The pre-navigation page state needs to be saved before
+  // UpdateStateForCommit() since that call will update the current history
+  // item.
+  std::optional<blink::PageState> previous_page_state = std::nullopt;
+  if (base::FeatureList::IsEnabled(kReducePageStateIpcs) &&
+      !GetWebFrame()->GetCurrentHistoryItem().IsNull()) {
+    previous_page_state = GetWebFrame()->CurrentHistoryItemToPageState();
+  }
   UpdateStateForCommit(commit_type, transition);
 
   if (GetBlinkPreferences().renderer_wide_named_frame_lookup)
@@ -5351,7 +5192,7 @@ void RenderFrameImpl::DidCommitNavigationInternal(
 
   auto params = MakeDidCommitProvisionalLoadParams(
       commit_type, transition, permissions_policy_header,
-      document_policy_header, embedding_token);
+      document_policy_header, embedding_token, previous_page_state);
   NavigationState* navigation_state =
       DocumentState::FromDocumentLoader(frame_->GetDocumentLoader())
           ->navigation_state();
@@ -5393,7 +5234,8 @@ void RenderFrameImpl::DidCommitNavigationInternal(
   RendererNavigationMetricsManager::Instance().ProcessNavigationCommit(
       navigation_state->commit_params().navigation_metrics_token,
       navigation_state->common_params().url,
-      navigation_state->common_params().actual_navigation_start);
+      navigation_state->common_params().actual_navigation_start,
+      navigation_state->commit_params().commit_sent, IsMainFrame());
   // Add any new code above the ProcessNavigationCommit call.
 }
 
@@ -6170,13 +6012,6 @@ void RenderFrameImpl::SyncSelectionIfRequired(blink::SyncCondition force_sync) {
   std::u16string text;
   size_t offset;
   gfx::Range range;
-#if BUILDFLAG(ENABLE_PPAPI)
-  if (focused_pepper_plugin_) {
-    focused_pepper_plugin_->GetSurroundingText(&text, &range);
-    offset = 0;  // Pepper API does not support offset reporting.
-    // TODO(kinaba): cut as needed.
-  } else
-#endif
   {
     WebInputMethodController* controller = frame_->GetInputMethodController();
     WebRange selection = controller->GetSelectionOffsets();
@@ -6801,45 +6636,6 @@ bool RenderFrameImpl::IsAccessibilityEnabled() const {
       ui::AXMode::kWebContents);
 }
 
-#if BUILDFLAG(ENABLE_PPAPI)
-
-mojom::PepperHost* RenderFrameImpl::GetPepperHost() {
-  if (!pepper_host_remote_.is_bound())
-    GetRemoteAssociatedInterfaces()->GetInterface(&pepper_host_remote_);
-  return pepper_host_remote_.get();
-}
-
-void RenderFrameImpl::PepperInstanceCreated(
-    PepperPluginInstanceImpl* instance,
-    mojo::PendingAssociatedRemote<mojom::PepperPluginInstance> mojo_instance,
-    mojo::PendingAssociatedReceiver<mojom::PepperPluginInstanceHost>
-        mojo_host) {
-  active_pepper_instances_.insert(instance);
-  GetPepperHost()->InstanceCreated(
-      instance->pp_instance(), std::move(mojo_instance), std::move(mojo_host));
-}
-
-void RenderFrameImpl::PepperInstanceDeleted(
-    PepperPluginInstanceImpl* instance) {
-  active_pepper_instances_.erase(instance);
-
-  if (focused_pepper_plugin_ == instance)
-    PepperFocusChanged(instance, false);
-}
-
-void RenderFrameImpl::PepperFocusChanged(PepperPluginInstanceImpl* instance,
-                                         bool focused) {
-  if (focused)
-    focused_pepper_plugin_ = instance;
-  else if (focused_pepper_plugin_ == instance)
-    focused_pepper_plugin_ = nullptr;
-
-  GetLocalRootWebFrameWidget()->UpdateTextInputState();
-  GetLocalRootWebFrameWidget()->UpdateSelectionBounds();
-}
-
-#endif  // BUILDFLAG(ENABLE_PPAPI)
-
 std::unique_ptr<blink::WebSocketHandshakeThrottle>
 RenderFrameImpl::CreateWebSocketHandshakeThrottle() {
   // Lazily create the provider.
@@ -6855,16 +6651,6 @@ RenderFrameImpl::CreateWebSocketHandshakeThrottle() {
   return websocket_handshake_throttle_provider_->CreateThrottle(
       frame_->GetLocalFrameToken(),
       GetTaskRunner(blink::TaskType::kInternalDefault));
-}
-
-bool RenderFrameImpl::GetCaretBoundsFromFocusedPlugin(gfx::Rect& rect) {
-#if BUILDFLAG(ENABLE_PPAPI)
-  if (focused_pepper_plugin_) {
-    rect = focused_pepper_plugin_->GetCaretBounds();
-    return true;
-  }
-#endif
-  return false;
 }
 
 void RenderFrameImpl::AddMessageToConsoleImpl(
@@ -7096,8 +6882,8 @@ WebView* RenderFrameImpl::CreateNewWindow(
     return nullptr;
 
   DCHECK(reply);
-  DCHECK_NE(MSG_ROUTING_NONE, reply->main_frame_route_id);
-  DCHECK_NE(MSG_ROUTING_NONE, reply->widget_routing_id);
+  DCHECK_NE(IPC::mojom::kRoutingIdNone, reply->main_frame_route_id);
+  DCHECK_NE(IPC::mojom::kRoutingIdNone, reply->widget_routing_id);
 
   // While this view may be a background extension page, it can spawn a visible
   // render view. So we just assume that the new one is not another background

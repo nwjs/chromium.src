@@ -110,6 +110,7 @@
 #include "chrome/browser/tpcd/support/top_level_trial_service_factory.h"
 #include "chrome/browser/tpcd/support/tpcd_support_service_factory.h"
 #include "chrome/browser/transition_manager/full_browser_transition_manager.h"
+#include "chrome/browser/ui/signin/dice_migration_service.h"
 #include "chrome/browser/ui/startup/startup_browser_creator.h"
 #include "chrome/browser/ui/webui/prefs_internals_source.h"
 #include "chrome/browser/updates/announcement_notification/announcement_notification_service.h"
@@ -159,6 +160,7 @@
 #include "components/safe_search_api/safe_search_util.h"
 #include "components/security_interstitials/content/stateful_ssl_host_state_delegate.h"
 #include "components/signin/public/base/signin_pref_names.h"
+#include "components/signin/public/base/signin_switches.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
 #include "components/site_isolation/site_isolation_policy.h"
 #include "components/spellcheck/spellcheck_buildflags.h"
@@ -173,19 +175,19 @@
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/dom_storage_context.h"
-#include "content/public/browser/federated_identity_api_permission_context_delegate.h"
-#include "content/public/browser/federated_identity_auto_reauthn_permission_context_delegate.h"
 #include "content/public/browser/network_service_instance.h"
 #include "content/public/browser/permission_controller.h"
 #include "content/public/browser/render_process_host.h"
 #include "content/public/browser/storage_partition.h"
 #include "content/public/browser/url_data_source.h"
+#include "content/public/browser/webid/federated_identity_api_permission_context_delegate.h"
+#include "content/public/browser/webid/federated_identity_auto_reauthn_permission_context_delegate.h"
+#include "content/public/common/buildflags.h"
 #include "content/public/common/content_constants.h"
 #include "extensions/buildflags/buildflags.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
 #include "mojo/public/cpp/bindings/self_owned_receiver.h"
 #include "pdf/buildflags.h"
-#include "ppapi/buildflags/buildflags.h"
 #include "printing/buildflags/buildflags.h"
 #include "services/data_decoder/public/cpp/data_decoder.h"
 #include "services/preferences/public/mojom/preferences.mojom.h"
@@ -1142,6 +1144,14 @@ void ProfileImpl::OnLocaleReady(CreateMode create_mode) {
 #if BUILDFLAG(IS_CHROMEOS)
   arc::ArcServiceLauncher::Get()->MaybeSetProfile(this);
 #endif
+
+#if BUILDFLAG(ENABLE_DICE_SUPPORT)
+  // Revert the DICe migration as early as possible to avoid user-visible theme
+  // changes upon startup.
+  if (base::FeatureList::IsEnabled(switches::kRollbackDiceMigration)) {
+    DiceMigrationService::RevertDiceMigration(GetPrefs());
+  }
+#endif  // BUILDFLAG(ENABLE_DICE_SUPPORT)
 
   FullBrowserTransitionManager::Get()->OnProfileCreated(this);
 

@@ -172,8 +172,9 @@ class PredictionModelStoreBrowserTestBase : public InProcessBrowserTest {
   }
 
   base::FilePath GetModelStoreBaseDir() {
-    return ChromePredictionModelStore::GetInstance()
-        ->GetBaseStoreDirForTesting();
+    return optimization_guide::OptimizationGuideGlobalState::CreateOrGet()
+        ->prediction_model_store()
+        .GetBaseStoreDirForTesting();
   }
 
   size_t ComputeModelsInStore() {

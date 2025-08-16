@@ -20,9 +20,6 @@
 
 // https://html.spec.whatwg.org/multipage/iframe-embed-object.html#htmliframeelement
 
-// The `HTMLString` references below are from Trusted Types:
-// https://github.com/w3c/trusted-types/, which is still WIP.
-// https://crbug.com/739170.
 [
     Exposed=Window,
     HTMLConstructor
@@ -31,7 +28,7 @@
     [CEReactions, Reflect] attribute boolean nwfaketop;
     [CEReactions, Reflect, Custom=Setter] attribute [LegacyNullToEmptyString] DOMString nwUserAgent;
     [CEReactions, Reflect, URL] attribute USVString src;
-    [CEReactions, Reflect] attribute HTMLString srcdoc;
+    [CEReactions, RaisesException=Setter] attribute (DOMString or TrustedHTML) srcdoc;
     [CEReactions, Reflect] attribute DOMString name;
     [PutForwards=value] readonly attribute DOMTokenList sandbox;
     // Note: The seamless attribute was once supported, but was removed.

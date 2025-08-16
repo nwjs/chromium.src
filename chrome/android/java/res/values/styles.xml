@@ -146,7 +146,7 @@ found in the LICENSE file.
         TODO(crbug.com/41374924): Remove textAppearance when all TextViews have text style
         explicitly specified. -->
     <style name="Base.Theme.Chromium.DialogWhenLarge"
-        parent="Theme.BrowserUI.DialogWhenLarge.DayNight">
+        parent="Theme.BrowserUI.DayNight.DialogWhenLarge">
         <item name="android:windowBackground">@drawable/bg_white_dialog</item>
         <item name="android:textAppearance">@style/TextAppearance.TextMedium.Primary</item>
         <item name="android:textColorLink">@macro/default_text_color_link</item>
@@ -457,11 +457,8 @@ found in the LICENSE file.
 
     <!-- Context menu -->
     <style name="ContextMenuItemText">
-        <item name="android:background">?attr/selectableItemBackground</item>
-        <item name="android:minHeight">@dimen/min_touch_target_size</item>
-        <item name="android:paddingStart">@dimen/context_menu_list_lateral_padding</item>
-        <item name="android:paddingEnd">@dimen/context_menu_list_lateral_padding</item>
         <item name="android:gravity">center_vertical</item>
+        <item name="android:minHeight">@dimen/min_touch_target_size</item>
         <item name="android:textAlignment">viewStart</item>
         <item name="android:textAppearance">@style/TextAppearance.TextLarge.Primary</item>
     </style>
@@ -471,13 +468,15 @@ found in the LICENSE file.
         <item name="iconWidth">@dimen/context_menu_chip_icon_size</item>
         <item name="iconHeight">@dimen/context_menu_chip_icon_size</item>
         <item name="chipColor">@color/menu_item_bg_color</item>
+        <item name="chipStartPadding">@dimen/chip_view_extended_start_padding</item>
         <item name="solidColorChip">true</item>
         <item name="allowMultipleLines">true</item>
-        <item name="extendLateralPadding">true</item>
         <item name="textAlignStart">true</item>
         <item name="verticalInset">@dimen/context_menu_chip_vertical_inset</item>
         <item name="endIconWidth">@dimen/context_menu_chip_icon_size</item>
         <item name="endIconHeight">@dimen/context_menu_chip_icon_size</item>
+        <item name="endIconMarginStart">@dimen/chip_end_icon_extended_margin_start</item>
+        <item name="endIconMarginEnd">@dimen/chip_end_icon_extended_margin_end</item>
     </style>
 
     <!-- Scrolling -->

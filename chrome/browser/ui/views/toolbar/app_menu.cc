@@ -59,6 +59,7 @@
 #include "chrome/browser/upgrade_detector/upgrade_detector.h"
 #include "chrome/grit/generated_resources.h"
 #include "chrome/grit/theme_resources.h"
+#include "components/prefs/pref_service.h"
 #include "components/saved_tab_groups/public/features.h"
 #include "components/signin/public/base/signin_pref_names.h"
 #include "components/signin/public/identity_manager/account_info.h"
@@ -440,6 +441,13 @@ void AddSignedInChipToProfileMenuItem(
   item->AddChildView(std::move(profile_chip));
   item->AddChildView(std::move(profile_chip_edge_spacing_view));
   item->SetHighlightWhenSelectedWithChildViews(true);
+  // MenuItemView only delegates accessible names when its title is empty with a
+  // single container view. The Profile MenuItemView has a title and multiple
+  // views. As a result, the accessible name must be manually computed to
+  // account for the profile chip.
+  item->GetViewAccessibility().SetName(
+      views::MenuItemView::GetAccessibleNameForMenuItem(
+          item->title(), GetSigninStatusChipString(profile), false));
 }
 
 // AppMenuView is a view that can contain label buttons.
@@ -1531,6 +1539,10 @@ void AppMenu::PopulateMenu(MenuItemView* parent, MenuModel* model) {
           item->SetHighlightWhenSelectedWithChildViews(true);
           item->SetTriggerActionWithNonIconChildViews(true);
         }
+        break;
+      }
+      case IDC_WEB_APP_UPGRADE_DIALOG: {
+        add_menu_row_background(12, ui::kColorAppMenuUpgradeRowBackground);
         break;
       }
       case IDC_SET_BROWSER_AS_DEFAULT: {

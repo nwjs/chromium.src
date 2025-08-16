@@ -31,6 +31,7 @@
 #include "components/permissions/permission_request_manager.h"
 #include "components/permissions/permission_uma_util.h"
 #include "components/permissions/permission_util.h"
+#include "components/permissions/resolvers/content_setting_permission_resolver.h"
 #include "components/permissions/test/mock_permission_prompt_factory.h"
 #include "components/permissions/test/test_permissions_client.h"
 #include "components/ukm/content/source_url_recorder.h"
@@ -220,7 +221,6 @@ class PermissionContextBaseTests : public content::RenderViewHostTestHarness {
       case CONTENT_SETTING_ASK:
         return PermissionStatus::ASK;
       case CONTENT_SETTING_SESSION_ONLY:
-      case CONTENT_SETTING_DETECT_IMPORTANT_CONTENT:
       case CONTENT_SETTING_NUM_SETTINGS:
         NOTREACHED();
     }
@@ -261,8 +261,11 @@ class PermissionContextBaseTests : public content::RenderViewHostTestHarness {
         &PermissionContextBaseTests::RespondToPermission,
         base::Unretained(this), &permission_context, id, url, decision));
     permission_context.RequestPermission(
-        std::make_unique<PermissionRequestData>(&permission_context, id,
-                                                /*user_gesture=*/true, url),
+        std::make_unique<PermissionRequestData>(
+            std::make_unique<ContentSettingPermissionResolver>(
+                content_settings_type),
+            id,
+            /*user_gesture=*/true, url),
         base::BindOnce(&TestPermissionContext::TrackPermissionDecision,
                        base::Unretained(&permission_context)));
     ASSERT_EQ(1u, permission_context.permission_statuses().size());
@@ -365,8 +368,11 @@ class PermissionContextBaseTests : public content::RenderViewHostTestHarness {
                          CONTENT_SETTING_ASK));
 
       permission_context.RequestPermission(
-          std::make_unique<PermissionRequestData>(&permission_context, id,
-                                                  /*user_gesture=*/true, url),
+          std::make_unique<PermissionRequestData>(
+              std::make_unique<ContentSettingPermissionResolver>(
+                  content_settings_type),
+              id,
+              /*user_gesture=*/true, url),
           base::BindOnce(&TestPermissionContext::TrackPermissionDecision,
                          base::Unretained(&permission_context)));
       histograms.ExpectTotalCount(
@@ -425,8 +431,11 @@ class PermissionContextBaseTests : public content::RenderViewHostTestHarness {
                        CONTENT_SETTING_ASK));
 
     permission_context.RequestPermission(
-        std::make_unique<PermissionRequestData>(&permission_context, id,
-                                                /*user_gesture=*/true, url),
+        std::make_unique<PermissionRequestData>(
+            std::make_unique<ContentSettingPermissionResolver>(
+                content_settings_type),
+            id,
+            /*user_gesture=*/true, url),
         base::BindOnce(&TestPermissionContext::TrackPermissionDecision,
                        base::Unretained(&permission_context)));
 
@@ -474,8 +483,11 @@ class PermissionContextBaseTests : public content::RenderViewHostTestHarness {
                          base::Unretained(this), &permission_context, id, url,
                          CONTENT_SETTING_ASK));
       permission_context.RequestPermission(
-          std::make_unique<PermissionRequestData>(&permission_context, id,
-                                                  /*user_gesture=*/true, url),
+          std::make_unique<PermissionRequestData>(
+              std::make_unique<ContentSettingPermissionResolver>(
+                  ContentSettingsType::MIDI_SYSEX),
+              id,
+              /*user_gesture=*/true, url),
           base::BindOnce(&TestPermissionContext::TrackPermissionDecision,
                          base::Unretained(&permission_context)));
 
@@ -549,8 +561,11 @@ class PermissionContextBaseTests : public content::RenderViewHostTestHarness {
                          base::Unretained(this), &permission_context, id, url,
                          CONTENT_SETTING_ASK));
       permission_context.RequestPermission(
-          std::make_unique<PermissionRequestData>(&permission_context, id,
-                                                  /*user_gesture=*/true, url),
+          std::make_unique<PermissionRequestData>(
+              std::make_unique<ContentSettingPermissionResolver>(
+                  ContentSettingsType::MIDI_SYSEX),
+              id,
+              /*user_gesture=*/true, url),
           base::BindOnce(&TestPermissionContext::TrackPermissionDecision,
                          base::Unretained(&permission_context)));
 
@@ -615,8 +630,11 @@ class PermissionContextBaseTests : public content::RenderViewHostTestHarness {
         web_contents()->GetPrimaryMainFrame()->GetGlobalId(),
         PermissionRequestID::RequestLocalId());
     permission_context.RequestPermission(
-        std::make_unique<PermissionRequestData>(&permission_context, id,
-                                                /*user_gesture=*/true, url),
+        std::make_unique<PermissionRequestData>(
+            std::make_unique<ContentSettingPermissionResolver>(
+                content_settings_type),
+            id,
+            /*user_gesture=*/true, url),
         base::BindOnce(&TestPermissionContext::TrackPermissionDecision,
                        base::Unretained(&permission_context)));
 
@@ -646,8 +664,11 @@ class PermissionContextBaseTests : public content::RenderViewHostTestHarness {
                        CONTENT_SETTING_ALLOW));
 
     permission_context.RequestPermission(
-        std::make_unique<PermissionRequestData>(&permission_context, id,
-                                                /*user_gesture=*/true, url),
+        std::make_unique<PermissionRequestData>(
+            std::make_unique<ContentSettingPermissionResolver>(
+                content_settings_type),
+            id,
+            /*user_gesture=*/true, url),
         base::BindOnce(&TestPermissionContext::TrackPermissionDecision,
                        base::Unretained(&permission_context)));
 
@@ -730,8 +751,11 @@ class PermissionContextBaseTests : public content::RenderViewHostTestHarness {
 
     // Request a permission without setting the callback to DecidePermission.
     permission_context.RequestPermission(
-        std::make_unique<PermissionRequestData>(&permission_context, id1,
-                                                /*user_gesture=*/true, url),
+        std::make_unique<PermissionRequestData>(
+            std::make_unique<ContentSettingPermissionResolver>(
+                ContentSettingsType::GEOLOCATION),
+            id1,
+            /*user_gesture=*/true, url),
         base::BindOnce(&TestPermissionContext::TrackPermissionDecision,
                        base::Unretained(&permission_context)));
 
@@ -742,8 +766,11 @@ class PermissionContextBaseTests : public content::RenderViewHostTestHarness {
         &PermissionContextBaseTests::RespondToPermission,
         base::Unretained(this), &permission_context, id1, url, response));
     permission_context.RequestPermission(
-        std::make_unique<PermissionRequestData>(&permission_context, id2,
-                                                /*user_gesture=*/true, url),
+        std::make_unique<PermissionRequestData>(
+            std::make_unique<ContentSettingPermissionResolver>(
+                ContentSettingsType::GEOLOCATION),
+            id2,
+            /*user_gesture=*/true, url),
         base::BindOnce(&TestPermissionContext::TrackPermissionDecision,
                        base::Unretained(&permission_context)));
 

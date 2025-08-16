@@ -117,7 +117,7 @@ void MarkupFormatter::AppendCharactersReplacingEntities(
       {'\r', carriage_return_reference, kEntityCarriageReturn},
   };
 
-  WTF::VisitCharacters(source, [&](auto chars) {
+  VisitCharacters(source, [&](auto chars) {
     AppendCharactersReplacingEntitiesInternal(result, source, chars,
                                               kEntityMaps, entity_mask);
   });
@@ -174,9 +174,7 @@ void MarkupFormatter::AppendStartMarkup(StringBuilder& result,
       NOTREACHED();
     case Node::kCdataSectionNode: {
       auto& cdata = To<CDATASection>(node);
-      if (RuntimeEnabledFeatures::
-              SerializeCdataAsTextInHTMLDocumentsEnabled() &&
-          SerializeAsHTML()) {
+      if (SerializeAsHTML()) {
         AppendText(result, cdata);
       } else {
         AppendCDATASection(result, cdata.data());

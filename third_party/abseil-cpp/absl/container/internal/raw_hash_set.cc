@@ -45,15 +45,9 @@ constexpr ctrl_t ZeroCtrlT() { return static_cast<ctrl_t>(0); }
 // uninitialized because reading this memory is a bug.
 ABSL_DLL ctrl_t kDefaultIterControl;
 
-// We need one full byte followed by a sentinel byte for iterator::operator++ to
-// work. We have a full group after kSentinel to be safe (in case operator++ is
-// changed to read a full group).
-ABSL_CONST_INIT ABSL_DLL const ctrl_t kSooControl[17] = {
-    ZeroCtrlT(),    ctrl_t::kSentinel, ZeroCtrlT(),    ctrl_t::kEmpty,
-    ctrl_t::kEmpty, ctrl_t::kEmpty,    ctrl_t::kEmpty, ctrl_t::kEmpty,
-    ctrl_t::kEmpty, ctrl_t::kEmpty,    ctrl_t::kEmpty, ctrl_t::kEmpty,
-    ctrl_t::kEmpty, ctrl_t::kEmpty,    ctrl_t::kEmpty, ctrl_t::kEmpty,
-    ctrl_t::kEmpty};
+// We need one full byte followed by a sentinel byte for iterator::operator++.
+ABSL_CONST_INIT ABSL_DLL const ctrl_t kSooControl[2] = {ZeroCtrlT(),
+                                                        ctrl_t::kSentinel};
 
 namespace {
 
@@ -170,6 +164,18 @@ FindInfo find_first_non_full_from_h1(const ctrl_t* ctrl, size_t h1,
   }
 }
 
+// Probes an array of control bits using a probe sequence derived from `hash`,
+// and returns the offset corresponding to the first deleted or empty slot.
+//
+// Behavior when the entire table is full is undefined.
+//
+// NOTE: this function must work with tables having both empty and deleted
+// slots in the same group. Such tables appear during `erase()`.
+FindInfo find_first_non_full(const CommonFields& common, size_t hash) {
+  return find_first_non_full_from_h1(common.control(), H1(hash),
+                                     common.capacity());
+}
+
 // Whether a table fits in half a group. A half-group table fits entirely into a
 // probing group, i.e., has a capacity < `Group::kWidth`.
 //
@@ -244,11 +250,6 @@ void ConvertDeletedToEmptyAndFullToDeleted(ctrl_t* ctrl, size_t capacity) {
   // Copy the cloned ctrl bytes.
   std::memcpy(ctrl + capacity + 1, ctrl, NumClonedBytes());
   ctrl[capacity] = ctrl_t::kSentinel;
-}
-
-FindInfo find_first_non_full(const CommonFields& common, size_t hash) {
-  return find_first_non_full_from_h1(common.control(), H1(hash),
-                                     common.capacity());
 }
 
 void IterateOverFullSlots(const CommonFields& c, size_t slot_size,
@@ -514,15 +515,22 @@ ABSL_ATTRIBUTE_ALWAYS_INLINE inline void InitializeThreeElementsControlBytes(
 
 }  // namespace
 
-void EraseMetaOnly(CommonFields& c, const ctrl_t* ctrl, size_t slot_size) {
+void EraseMetaOnlySmall(CommonFields& c, bool soo_enabled, size_t slot_size) {
+  ABSL_SWISSTABLE_ASSERT(c.is_small());
+  if (soo_enabled) {
+    c.set_empty_soo();
+    return;
+  }
+  c.decrement_size();
+  c.infoz().RecordErase();
+  SanitizerPoisonMemoryRegion(c.slot_array(), slot_size);
+}
+
+void EraseMetaOnlyLarge(CommonFields& c, const ctrl_t* ctrl, size_t slot_size) {
+  ABSL_SWISSTABLE_ASSERT(!c.is_small());
   ABSL_SWISSTABLE_ASSERT(IsFull(*ctrl) && "erasing a dangling iterator");
   c.decrement_size();
   c.infoz().RecordErase();
-
-  if (c.is_small()) {
-    SanitizerPoisonMemoryRegion(c.slot_array(), slot_size);
-    return;
-  }
 
   size_t index = static_cast<size_t>(ctrl - c.control());
 

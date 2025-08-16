@@ -8,9 +8,8 @@
 #include "third_party/blink/renderer/core/dom/container_node.h"
 #include "third_party/blink/renderer/core/dom/node.h"
 #include "third_party/blink/renderer/core/frame/local_dom_window.h"
-#include "third_party/blink/renderer/core/paint/timing/image_paint_timing_detector.h"
 #include "third_party/blink/renderer/core/paint/timing/largest_contentful_paint_calculator.h"
-#include "third_party/blink/renderer/core/paint/timing/text_paint_timing_detector.h"
+#include "third_party/blink/renderer/core/paint/timing/paint_timing_record.h"
 #include "third_party/blink/renderer/core/timing/dom_window_performance.h"
 
 namespace blink {
@@ -71,40 +70,18 @@ bool SoftNavigationContext::IsNeededForTiming(Node* node) {
   return false;
 }
 
-bool SoftNavigationContext::AddPaintedArea(TextRecord* text_record) {
-  Node* node = text_record->node_;
-  const gfx::RectF& rect = text_record->root_visual_rect_;
-  bool is_attributable = AddPaintedAreaInternal(node, rect);
-  if (is_attributable) {
-    if (!largest_text_ ||
-        largest_text_->recorded_size < text_record->recorded_size) {
-      largest_text_ = text_record;
-    }
-  }
-  return is_attributable;
-}
-
-bool SoftNavigationContext::AddPaintedArea(ImageRecord* image_record) {
-  Node* node = Node::FromDomNodeId(image_record->node_id);
-  const gfx::RectF& rect = image_record->root_visual_rect;
-  bool is_attributable = AddPaintedAreaInternal(node, rect);
-  if (is_attributable) {
-    if (!largest_image_ ||
-        largest_image_->recorded_size < image_record->recorded_size) {
-      largest_image_ = image_record;
-    }
-  }
-  return is_attributable;
-}
-
-bool SoftNavigationContext::AddPaintedAreaInternal(Node* node,
-                                                   const gfx::RectF& rect) {
+bool SoftNavigationContext::AddPaintedArea(PaintTimingRecord* record) {
   // Stop recording paints once we have next input/scroll.
   if (!first_input_or_scroll_time_.is_null()) {
     return false;
   }
 
+  const gfx::RectF& rect = record->RootVisualRect();
   uint64_t painted_area = rect.size().GetArea();
+
+  Node* node = record->GetNode();
+  // Node should not be null if we've painted it.
+  CHECK(node);
 
   if (paint_attribution_mode_ !=
       features::SoftNavigationHeuristicsMode::kPrePaintBasedAttribution) {
@@ -127,6 +104,27 @@ bool SoftNavigationContext::AddPaintedAreaInternal(Node* node,
       rect.x(), "rect_y", rect.y(), "rect_width", rect.width(), "rect_height",
       rect.height(), "paintedAreaThisAnimationFrame",
       painted_area_ - painted_area_last_animation_frame_);
+
+  // TODO(crbug.com/434159332): This doesn't currently match hard-FCP semantics
+  // because we aren't notified about images paints until they are "sufficiently
+  // loaded", which is needed for LCP/ICP.
+  if (!first_image_or_text_) {
+    first_image_or_text_ = record;
+  }
+
+  if (record->IsImageRecord()) {
+    if (!largest_image_ ||
+        largest_image_->RecordedSize() < record->RecordedSize()) {
+      largest_image_ = To<ImageRecord>(record);
+    }
+  } else {
+    CHECK(record->IsTextRecord());
+    if (!largest_text_ ||
+        largest_text_->RecordedSize() < record->RecordedSize()) {
+      largest_text_ = To<TextRecord>(record);
+    }
+  }
+
   return true;
 }
 
@@ -216,9 +214,10 @@ void SoftNavigationContext::UpdateWebExposedLargestContentfulPaintIfNeeded() {
 }
 
 bool SoftNavigationContext::TryUpdateLcpCandidate() {
-  // After we are ready to start measuring LCP (`HasNavigationId()`) and
-  // before we want to stop (input or scroll), we update LCP candidate.
-  if (!HasNavigationId() || !first_input_or_scroll_time_.is_null()) {
+  // After we are ready to start measuring LCP (after the soft nav entry was
+  // emitted) and before we want to stop (input or scroll), we update LCP
+  // candidate.
+  if (!was_emitted_ || !first_input_or_scroll_time_.is_null()) {
     return false;
   }
 
@@ -230,17 +229,17 @@ bool SoftNavigationContext::TryUpdateLcpCandidate() {
   // TODO(crbug.com/425989954): Guard on paint_time, because although this
   // TryUpdateLcpCandidate gets called after presentation feedback, it might not
   // be the right presentation time for this specific text/image record.
-  if (largest_text_ && !largest_text_->paint_time.is_null()) {
+  if (largest_text_ && largest_text_->HasPaintTime()) {
     latest_lcp_details_for_ukm_changed =
         latest_lcp_details_for_ukm_changed ||
         lcp_calculator_->NotifyMetricsIfLargestTextPaintChanged(
-            largest_text_->paint_time, largest_text_->recorded_size);
+            largest_text_->PaintTime(), largest_text_->RecordedSize());
   }
-  if (largest_image_ && !largest_image_->paint_time.is_null()) {
+  if (largest_image_ && largest_image_->HasPaintTime()) {
     latest_lcp_details_for_ukm_changed =
         latest_lcp_details_for_ukm_changed ||
         lcp_calculator_->NotifyMetricsIfLargestImagePaintChanged(
-            largest_image_->paint_time, largest_image_->recorded_size,
+            largest_image_->PaintTime(), largest_image_->RecordedSize(),
             largest_image_, largest_image_->EntropyForLCP(),
             largest_image_->RequestPriority());
   }
@@ -257,12 +256,12 @@ void SoftNavigationContext::WriteIntoTrace(
   perfetto::TracedDictionary dict = std::move(context).WriteDictionary();
 
   dict.Add("softNavContextId", context_id_);
-  dict.Add("navigationId", navigation_id_);
+  dict.Add("performanceTimelineNavigationId", navigation_id_);
   dict.Add("initialURL", initial_url_);
   dict.Add("mostRecentURL", most_recent_url_);
 
   dict.Add("interactionTimestamp", user_interaction_timestamp_);
-  dict.Add("firstContentfulPaint", first_contentful_paint_);
+  dict.Add("firstContentfulPaint", FirstContentfulPaint());
 
   dict.Add("domModifications", num_modified_dom_nodes_);
   dict.Add("paintedArea", painted_area_);
@@ -276,6 +275,7 @@ void SoftNavigationContext::Trace(Visitor* visitor) const {
   visitor->Trace(lcp_calculator_);
   visitor->Trace(largest_text_);
   visitor->Trace(largest_image_);
+  visitor->Trace(first_image_or_text_);
 }
 
 }  // namespace blink

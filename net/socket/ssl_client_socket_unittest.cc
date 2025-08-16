@@ -36,7 +36,6 @@
 #include "base/time/time.h"
 #include "base/values.h"
 #include "build/build_config.h"
-#include "crypto/rsa_private_key.h"
 #include "net/base/address_list.h"
 #include "net/base/completion_once_callback.h"
 #include "net/base/features.h"
@@ -2309,22 +2308,21 @@ TEST_F(SSLClientSocketTest, PrematureApplicationData) {
   ASSERT_TRUE(
       StartEmbeddedTestServer(EmbeddedTestServer::CERT_OK, SSLServerConfig()));
 
-  static const unsigned char application_data[] = {
-      0x17, 0x03, 0x01, 0x00, 0x4a, 0x02, 0x00, 0x00, 0x46, 0x03, 0x01, 0x4b,
-      0xc2, 0xf8, 0xb2, 0xc1, 0x56, 0x42, 0xb9, 0x57, 0x7f, 0xde, 0x87, 0x46,
-      0xf7, 0xa3, 0x52, 0x42, 0x21, 0xf0, 0x13, 0x1c, 0x9c, 0x83, 0x88, 0xd6,
-      0x93, 0x0c, 0xf6, 0x36, 0x30, 0x05, 0x7e, 0x20, 0xb5, 0xb5, 0x73, 0x36,
-      0x53, 0x83, 0x0a, 0xfc, 0x17, 0x63, 0xbf, 0xa0, 0xe4, 0x42, 0x90, 0x0d,
-      0x2f, 0x18, 0x6d, 0x20, 0xd8, 0x36, 0x3f, 0xfc, 0xe6, 0x01, 0xfa, 0x0f,
-      0xa5, 0x75, 0x7f, 0x09, 0x00, 0x04, 0x00, 0x16, 0x03, 0x01, 0x11, 0x57,
-      0x0b, 0x00, 0x11, 0x53, 0x00, 0x11, 0x50, 0x00, 0x06, 0x22, 0x30, 0x82,
-      0x06, 0x1e, 0x30, 0x82, 0x05, 0x06, 0xa0, 0x03, 0x02, 0x01, 0x02, 0x02,
-      0x0a};
+  static const uint8_t application_data[] = {
+      0x17, 0x03, 0x01, 0x00, 0x4a, 0x02, 0x00, 0x00, 0x46, 0x03, 0x01,
+      0x4b, 0xc2, 0xf8, 0xb2, 0xc1, 0x56, 0x42, 0xb9, 0x57, 0x7f, 0xde,
+      0x87, 0x46, 0xf7, 0xa3, 0x52, 0x42, 0x21, 0xf0, 0x13, 0x1c, 0x9c,
+      0x83, 0x88, 0xd6, 0x93, 0x0c, 0xf6, 0x36, 0x30, 0x05, 0x7e, 0x20,
+      0xb5, 0xb5, 0x73, 0x36, 0x53, 0x83, 0x0a, 0xfc, 0x17, 0x63, 0xbf,
+      0xa0, 0xe4, 0x42, 0x90, 0x0d, 0x2f, 0x18, 0x6d, 0x20, 0xd8, 0x36,
+      0x3f, 0xfc, 0xe6, 0x01, 0xfa, 0x0f, 0xa5, 0x75, 0x7f, 0x09, 0x00,
+      0x04, 0x00, 0x16, 0x03, 0x01, 0x11, 0x57, 0x0b, 0x00, 0x11, 0x53,
+      0x00, 0x11, 0x50, 0x00, 0x06, 0x22, 0x30, 0x82, 0x06, 0x1e, 0x30,
+      0x82, 0x05, 0x06, 0xa0, 0x03, 0x02, 0x01, 0x02, 0x02, 0x0a};
 
   // All reads and writes complete synchronously (async=false).
   MockRead data_reads[] = {
-      MockRead(SYNCHRONOUS, reinterpret_cast<const char*>(application_data),
-               std::size(application_data)),
+      MockRead(SYNCHRONOUS, base::span(application_data)),
       MockRead(SYNCHRONOUS, OK),
   };
 
@@ -4524,10 +4522,10 @@ TEST_F(SSLClientSocketTest, ClientCertSignatureAlgorithm) {
 }
 #endif  // BUILDFLAG(ENABLE_CLIENT_CERTIFICATES)
 
-HashValueVector MakeHashValueVector(uint8_t value) {
-  HashValueVector out;
-  HashValue hash(HASH_VALUE_SHA256);
-  std::ranges::fill(hash.span(), value);
+std::vector<SHA256HashValue> MakeHashValueVector(uint8_t tag) {
+  SHA256HashValue hash;
+  std::ranges::fill(hash, tag);
+  std::vector<SHA256HashValue> out;
   out.push_back(hash);
   return out;
 }
@@ -5535,11 +5533,8 @@ TEST_P(SSLClientSocketReadTest, IdleAfterRead) {
   bssl::UniquePtr<EVP_PKEY> pkey =
       key_util::LoadEVP_PKEYFromPEM(certs_dir.AppendASCII("ok_cert.pem"));
   ASSERT_TRUE(pkey);
-  std::unique_ptr<crypto::RSAPrivateKey> key =
-      crypto::RSAPrivateKey::CreateFromKey(pkey.get());
-  ASSERT_TRUE(key);
   std::unique_ptr<SSLServerContext> server_context =
-      CreateSSLServerContext(cert.get(), *key.get(), GetServerConfig());
+      CreateSSLServerContext(cert.get(), pkey.get(), GetServerConfig());
 
   // Complete the SSL handshake on both sides.
   std::unique_ptr<SSLClientSocket> client(CreateSSLClientSocket(
@@ -5622,17 +5617,11 @@ TEST_F(SSLClientSocketTest, SSLOverSSLBadCertificate) {
   ASSERT_THAT(client_callback.GetResult(client_rv), IsOk());
 
   // Set up a pair of SSL servers.
-  std::unique_ptr<crypto::RSAPrivateKey> ok_key =
-      crypto::RSAPrivateKey::CreateFromKey(ok_pkey.get());
-  ASSERT_TRUE(ok_key);
   std::unique_ptr<SSLServerContext> ok_server_context =
-      CreateSSLServerContext(ok_cert.get(), *ok_key.get(), SSLServerConfig());
+      CreateSSLServerContext(ok_cert.get(), ok_pkey.get(), SSLServerConfig());
 
-  std::unique_ptr<crypto::RSAPrivateKey> expired_key =
-      crypto::RSAPrivateKey::CreateFromKey(expired_pkey.get());
-  ASSERT_TRUE(expired_key);
   std::unique_ptr<SSLServerContext> expired_server_context =
-      CreateSSLServerContext(expired_cert.get(), *expired_key.get(),
+      CreateSSLServerContext(expired_cert.get(), expired_pkey.get(),
                              SSLServerConfig());
 
   // Complete the proxy SSL handshake with ok_cert.pem. This should succeed.

@@ -7,6 +7,7 @@
 #include <memory>
 #include <utility>
 
+#include "base/feature_list.h"
 #include "base/functional/callback_forward.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
@@ -64,6 +65,12 @@ struct PendingPaintTimingRecord {
   HashSet<PaintEvent> paint_events;
   base::TimeTicks rendering_update_end_time;
 };
+
+// When enabled, `PaintTiming::MarkPaintTimingInternal()` is only called from
+// `PaintTiming::NotifyPaintFinished()`.
+BASE_FEATURE(kMarkPaintTimingInternalOnlyOnFinish,
+             "MarkPaintTimingInternalOnlyOnFinish",
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 }  // namespace
 
@@ -232,7 +239,10 @@ void PaintTiming::NotifyPaint(bool is_first_paint,
 
   if (is_first_paint)
     GetFrame()->OnFirstPaint(text_painted, image_painted);
-  MarkPaintTimingInternal();
+
+  if (!base::FeatureList::IsEnabled(kMarkPaintTimingInternalOnlyOnFinish)) {
+    MarkPaintTimingInternal();
+  }
 }
 
 // https://w3c.github.io/paint-timing/#mark-paint-timing
@@ -263,11 +273,6 @@ void PaintTiming::MarkPaintTimingInternal() {
   auto add_image_lcp_entries =
       detector->GetImagePaintTimingDetector().TakePaintTimingCallback();
 
-  OptionalPaintTimingCallback soft_nav_entries;
-  if (soft_navigation_heuristics) {
-    soft_nav_entries = soft_navigation_heuristics->TakePaintTimingCallback();
-  }
-
   // 7. Let reportedPaints be the document’s set of previously reported paints.
   PendingPaintTimingRecord paint_timing_record{
       .paint_events = pending_paint_events_,
@@ -290,7 +295,7 @@ void PaintTiming::MarkPaintTimingInternal() {
 
   if (paint_timing_record.paint_events.empty() && !frame_timing_info &&
       !add_painted_images_element_timing_entries && !add_painted_text_entries &&
-      !add_image_lcp_entries && !soft_nav_entries) {
+      !add_image_lcp_entries) {
     return;
   }
 
@@ -303,12 +308,14 @@ void PaintTiming::MarkPaintTimingInternal() {
              OptionalPaintTimingCallback image_lcp_callback,
              OptionalPaintTimingCallback painted_images_callback,
              OptionalPaintTimingCallback painted_text_callback,
-             OptionalPaintTimingCallback soft_navs_callback,
              PaintTimingDetector* paint_timing_detector,
              SoftNavigationHeuristics* soft_navigation_heuristics,
              const base::TimeTicks& raw_presentation_timestamp,
              const DOMPaintTimingInfo& paint_timing_info) {
-            if (!performance) {
+            // If the frame was detached between scheduling the coarsening task
+            // and running it, do nothing. This matches the non-coarsening case,
+            // which already checks detach via `GetPerformanceInstance()`.
+            if (!performance || !performance->GetExecutionContext()) {
               return;
             }
 
@@ -347,10 +354,6 @@ void PaintTiming::MarkPaintTimingInternal() {
               std::move(painted_text_callback.value())
                   .Run(raw_presentation_timestamp, paint_timing_info);
             }
-            if (soft_navs_callback) {
-              std::move(soft_navs_callback.value())
-                  .Run(raw_presentation_timestamp, paint_timing_info);
-            }
 
             if (paint_timing_detector && may_have_lcp) {
               paint_timing_detector->UpdateLcpCandidate();
@@ -372,8 +375,7 @@ void PaintTiming::MarkPaintTimingInternal() {
           paint_timing_record, WrapPersistent(frame_timing_info),
           std::move(add_image_lcp_entries),
           std::move(add_painted_images_element_timing_entries),
-          std::move(add_painted_text_entries), std::move(soft_nav_entries),
-          WrapWeakPersistent(detector),
+          std::move(add_painted_text_entries), WrapWeakPersistent(detector),
           WrapWeakPersistent(soft_navigation_heuristics));
 
   // 11. If the user-agent does not support implementation-defined presentation
@@ -419,9 +421,7 @@ void PaintTiming::MarkPaintTimingInternal() {
 
         // 12.3.1 Coarsen paintTimingInfo’s implementation-defined presentation
         // time to the next multiple of 4 milliseconds, or coarser.
-        bool coarsen =
-            RuntimeEnabledFeatures::ExposeCoarsenedRenderTimeEnabled() &&
-            !performance->CrossOriginIsolatedCapability();
+        bool coarsen = !performance->CrossOriginIsolatedCapability();
         if (coarsen) {
           paint_timing_info.presentation_time =
               (frame_timing_details.presentation_feedback.timestamp -
@@ -430,10 +430,10 @@ void PaintTiming::MarkPaintTimingInternal() {
                   .InMillisecondsF();
         }
 
-        auto flush =
-            BindOnce(std::move(flush_paint_timings),
-                     frame_timing_details.presentation_feedback.timestamp,
-                     paint_timing_info);
+        auto flush = blink::BindOnce(
+            std::move(flush_paint_timings),
+            frame_timing_details.presentation_feedback.timestamp,
+            paint_timing_info);
 
         if (coarsen) {
           // 12.3.2 Wait until the current high resolution time is

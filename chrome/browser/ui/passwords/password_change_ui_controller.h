@@ -19,6 +19,29 @@ namespace ui {
 class DialogModel;
 }  // namespace ui
 
+// Possible actions that the user can take in dialogs displayed by this
+// controller. These values are persisted to logs. Entries should not be
+// renumbered and numeric values should never be reused.
+// LINT.IfChange(PasswordChangeDialogAction)
+enum class PasswordChangeDialogAction {
+  kCancelButtonClicked = 0,
+  kAcceptButtonClicked = 1,
+  kLinkClicked = 2,
+  kMaxValue = kLinkClicked,
+};
+// LINT.ThenChange(/tools/metrics/histograms/metadata/password/enums.xml:PasswordChangeDialogAction)
+
+// Events happening for toasts displayed by this controller. These values are
+// persisted to logs. Entries should not be renumbered and numeric values should
+// never be reused.
+// LINT.IfChange(PasswordChangeToastEvent)
+enum class PasswordChangeToastEvent {
+  kShown = 0,
+  kCanceled = 1,
+  kMaxValue = kCanceled,
+};
+// LINT.ThenChange(/tools/metrics/histograms/metadata/password/enums.xml:PasswordChangeToastEvent)
+
 // Responsible for creating and displaying appropriate views based on the
 // current state of the password change flow.
 class PasswordChangeUIController {
@@ -33,6 +56,7 @@ class PasswordChangeUIController {
 #if defined(UNIT_TEST)
   const views::Widget* dialog_widget() const { return dialog_widget_.get(); }
   PasswordChangeToast* toast_view() const { return toast_view_; }
+  void CallOnDialogCanceledForTesting() { OnDialogCanceled(); }
 #endif
 
  private:
@@ -42,12 +66,13 @@ class PasswordChangeUIController {
 
   void ShowToast(PasswordChangeToast::ToastOptions options);
   void ShowDialog(std::unique_ptr<ui::DialogModel> dialog_model);
-  void ShowNothingChangedToast();
 
+  void OnToastCanceled();
+  void OnDialogCanceled();
   void OpenPasswordChangeTab();
   void StartPasswordChangeFlow();
+  void OnPrivacyNoticeAccepted();
   void ShowPasswordDetails();
-  void CancelPasswordChange();
   void NavigateToPasswordChangeSettings();
 
   // Closes the dialog or widget and logs the `reason`.

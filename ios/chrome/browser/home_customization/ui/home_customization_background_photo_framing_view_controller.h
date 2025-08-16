@@ -7,18 +7,20 @@
 
 #import <UIKit/UIKit.h>
 
-@protocol LogoVendor;
+#import "base/values.h"
+#import "ios/chrome/browser/home_customization/model/home_customization_background_photo_framing_mediator.h"
+
+@protocol HomeCustomizationBackgroundPhotoFramingMutator;
 @class HomeCustomizationImageFramingViewController;
+@class SearchEngineLogoMediator;
 
 // Protocol for handling framing results.
 @protocol HomeCustomizationImageFramingViewControllerDelegate <NSObject>
-// Called when the user finishes framing with a resulting image.
-- (void)imageFramingViewController:
-            (HomeCustomizationImageFramingViewController*)controller
-                didFinishWithImage:(UIImage*)framedImage;
-
 // Called when the user cancels the framing operation.
 - (void)imageFramingViewControllerDidCancel:
+    (HomeCustomizationImageFramingViewController*)controller;
+// Alerts the delegate that the framing operation succeeded.
+- (void)imageFramingViewControllerDidSucceed:
     (HomeCustomizationImageFramingViewController*)controller;
 @end
 
@@ -29,11 +31,14 @@
 @property(nonatomic, weak)
     id<HomeCustomizationImageFramingViewControllerDelegate>
         delegate;
+@property(nonatomic, weak) id<HomeCustomizationBackgroundPhotoFramingMutator>
+    mutator;
 
 // Initialize with an image to frame and a logo vendor for displaying the Google
 // logo.
 - (instancetype)initWithImage:(UIImage*)image
-                   logoVendor:(id<LogoVendor>)logoVendor
+     searchEngineLogoMediator:
+         (SearchEngineLogoMediator*)searchEngineLogoMediator
     NS_DESIGNATED_INITIALIZER;
 
 // Unavailable initializers.

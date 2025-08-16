@@ -143,7 +143,6 @@
 #import "ios/chrome/browser/shared/public/commands/price_tracked_items_commands.h"
 #import "ios/chrome/browser/shared/public/commands/search_image_with_lens_command.h"
 #import "ios/chrome/browser/shared/public/commands/settings_commands.h"
-#import "ios/chrome/browser/shared/public/commands/show_signin_command.h"
 #import "ios/chrome/browser/shared/public/commands/snackbar_commands.h"
 #import "ios/chrome/browser/shared/public/commands/whats_new_commands.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
@@ -153,7 +152,6 @@
 #import "ios/chrome/browser/signin/model/chrome_account_manager_service.h"
 #import "ios/chrome/browser/signin/model/chrome_account_manager_service_factory.h"
 #import "ios/chrome/browser/signin/model/identity_manager_factory.h"
-#import "ios/chrome/browser/sync/model/sync_service_factory.h"
 #import "ios/chrome/browser/tips_manager/model/tips_manager_ios_factory.h"
 #import "ios/chrome/browser/url_loading/model/url_loading_browser_agent.h"
 #import "ios/chrome/browser/url_loading/model/url_loading_params.h"
@@ -305,11 +303,6 @@ using segmentation_platform::TipIdentifier;
       [[ContentSuggestionsMetricsRecorder alloc]
           initWithLocalState:GetApplicationContext()->GetLocalState()];
 
-  syncer::SyncService* syncService = SyncServiceFactory::GetForProfile(profile);
-
-  AuthenticationService* authenticationService =
-      AuthenticationServiceFactory::GetForProfile(profile);
-
   signin::IdentityManager* identityManager =
       IdentityManagerFactory::GetForProfile(profile);
 
@@ -347,7 +340,7 @@ using segmentation_platform::TipIdentifier;
       initWithReadingListModel:readingListModel
       featureEngagementTracker:feature_engagement::TrackerFactory::
                                    GetForProfile(profile)
-                   authService:authenticationService];
+               identityManager:identityManager];
   _shortcutsMediator.contentSuggestionsMetricsRecorder =
       self.contentSuggestionsMetricsRecorder;
   _shortcutsMediator.NTPActionsDelegate = self.NTPActionsDelegate;
@@ -383,7 +376,7 @@ using segmentation_platform::TipIdentifier;
 
     [moduleMediators addObject:_tabResumptionMediator];
   }
-  if (IsPriceTrackingPromoCardEnabled(shoppingService, authenticationService,
+  if (IsPriceTrackingPromoCardEnabled(shoppingService, self.authService,
                                       prefs)) {
     _priceTrackingPromoMediator = [[PriceTrackingPromoMediator alloc]
         initWithShoppingService:commerce::ShoppingServiceFactory::GetForProfile(
@@ -489,13 +482,11 @@ using segmentation_platform::TipIdentifier;
                                  defaultSearchURLTemplate->prepopulate_id() ==
                                      TemplateURLPrepopulateData::google.id;
     _setUpListMediator = [[SetUpListMediator alloc]
-                   initWithPrefService:prefs
-                           syncService:syncService
-                       identityManager:identityManager
-                 authenticationService:authenticationService
-                            sceneState:self.browser->GetSceneState()
-                 isDefaultSearchEngine:isDefaultSearchEngine
-                  priceTrackingEnabled:IsPriceTrackingEnabled(self.profile)];
+          initWithPrefService:prefs
+        authenticationService:self.authService
+                   sceneState:self.browser->GetSceneState()
+        isDefaultSearchEngine:isDefaultSearchEngine
+         priceTrackingEnabled:IsPriceTrackingEnabled(self.profile)];
     _setUpListMediator.commandHandler = self;
     _setUpListMediator.contentSuggestionsMetricsRecorder =
         self.contentSuggestionsMetricsRecorder;
@@ -598,13 +589,18 @@ using segmentation_platform::TipIdentifier;
       dismissViewControllerAnimated:NO
                          completion:nil];
   NSArray<SetUpListItemViewData*>* items = [self.setUpListMediator allItems];
+
   _setUpListShowMoreViewController =
       [[SetUpListShowMoreViewController alloc] initWithItems:items
                                                  tapDelegate:self];
-  _setUpListShowMoreViewController.modalPresentationStyle =
-      UIModalPresentationPageSheet;
+
+  UINavigationController* navController = [[UINavigationController alloc]
+      initWithRootViewController:_setUpListShowMoreViewController];
+  navController.modalPresentationStyle = UIModalPresentationPageSheet;
+
   UISheetPresentationController* presentationController =
-      _setUpListShowMoreViewController.sheetPresentationController;
+      navController.sheetPresentationController;
+
   presentationController.prefersEdgeAttachedInCompactHeight = YES;
   presentationController.widthFollowsPreferredContentSizeWhenEdgeAttached = YES;
   presentationController.detents = @[
@@ -616,10 +612,10 @@ using segmentation_platform::TipIdentifier;
         UISheetPresentationControllerDetentIdentifierLarge;
   }
   presentationController.preferredCornerRadius = 16;
-  [_magicStackCollectionView
-      presentViewController:_setUpListShowMoreViewController
-                   animated:YES
-                 completion:nil];
+
+  [_magicStackCollectionView presentViewController:navController
+                                          animated:YES
+                                        completion:nil];
 }
 
 #pragma mark - ContentSuggestionsViewControllerAudience
@@ -826,7 +822,6 @@ using segmentation_platform::TipIdentifier;
     case ContentSuggestionsModuleType::kSafetyCheck:
       [_safetyCheckMediator disableModule];
       break;
-    case ContentSuggestionsModuleType::kSetUpListSync:
     case ContentSuggestionsModuleType::kSetUpListDefaultBrowser:
     case ContentSuggestionsModuleType::kSetUpListAutofill:
     case ContentSuggestionsModuleType::kSetUpListNotifications:
@@ -925,7 +920,6 @@ using segmentation_platform::TipIdentifier;
       return NotificationOptInAccessPoint::kSafetyCheck;
     case ContentSuggestionsModuleType::kSendTabPromo:
       return NotificationOptInAccessPoint::kSendTabMagicStackPromo;
-    case ContentSuggestionsModuleType::kSetUpListSync:
     case ContentSuggestionsModuleType::kSetUpListDefaultBrowser:
     case ContentSuggestionsModuleType::kSetUpListAutofill:
     case ContentSuggestionsModuleType::kSetUpListNotifications:
@@ -1136,9 +1130,6 @@ using segmentation_platform::TipIdentifier;
 // Displays the UI for the given SetUpListItemType.
 - (void)showUIForSelectedSetUpListItem:(SetUpListItemType)type {
   switch (type) {
-    case SetUpListItemType::kSignInSync:
-      [self showSignIn];
-      break;
     case SetUpListItemType::kDefaultBrowser:
       [self showDefaultBrowserPromo];
       break;
@@ -1175,46 +1166,10 @@ using segmentation_platform::TipIdentifier;
   [_defaultBrowserPromoCoordinator start];
 }
 
-// Shows the SigninSync UI with the SetUpList access point.
-- (void)showSignIn {
-  __weak __typeof(self) weakSelf = self;
-  SigninCoordinatorCompletionCallback completion =
-      ^(SigninCoordinatorResult result, id<SystemIdentity> completionIdentity) {
-        [weakSelf signinCoordinatiorCompletionWithResult:result];
-      };
-  // If there are 0 identities, kInstantSignin requires less taps.
-  AuthenticationOperation operation =
-      [self hasIdentitiesOnDevice] ? AuthenticationOperation::kSigninOnly
-                                   : AuthenticationOperation::kInstantSignin;
-  ShowSigninCommand* command = [[ShowSigninCommand alloc]
-      initWithOperation:operation
-               identity:nil
-            accessPoint:signin_metrics::AccessPoint::kSetUpList
-            promoAction:signin_metrics::PromoAction::
-                            PROMO_ACTION_NO_SIGNIN_PROMO
-             completion:completion];
-  _signinCoordinator =
-      [SigninCoordinator signinCoordinatorWithCommand:command
-                                              browser:self.browser
-                                   baseViewController:self.viewController];
-  [_signinCoordinator start];
-}
-
 // Stops the SigninCoordinator.
 - (void)stopSigninCoordinator {
   [_signinCoordinator stop];
   _signinCoordinator = nil;
-}
-
-// Callback for the SigninCoordinator.
-- (void)signinCoordinatiorCompletionWithResult:(SigninCoordinatorResult)result {
-  [self stopSigninCoordinator];
-  if (result == SigninCoordinatorResultSuccess ||
-      result == SigninCoordinatorResultCanceledByUser) {
-    PrefService* localState = GetApplicationContext()->GetLocalState();
-    set_up_list_prefs::MarkItemComplete(localState,
-                                        SetUpListItemType::kSignInSync);
-  }
 }
 
 // Shows the Credential Provider Promo using the SetUpList trigger.
@@ -1363,12 +1318,6 @@ using segmentation_platform::TipIdentifier;
 }
 
 #pragma mark - Helpers
-
-- (bool)hasIdentitiesOnDevice {
-  return !IdentityManagerFactory::GetForProfile(self.profile)
-              ->GetAccountsOnDevice()
-              .empty();
-}
 
 - (void)showMagicStackRecentTabs {
   CommandDispatcher* dispatcher = self.browser->GetCommandDispatcher();

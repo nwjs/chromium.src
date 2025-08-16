@@ -125,7 +125,8 @@ void AsanPoisonString(const String& string) {
   if (string.Impl()->IsAtomic())
     return;
 
-  ASAN_POISON_MEMORY_REGION(string.Bytes(), string.CharactersSizeInBytes());
+  ASAN_POISON_MEMORY_REGION(string.RawByteSpan().data(),
+                            string.CharactersSizeInBytes());
 #endif  // defined(ADDRESS_SANITIZER)
 }
 
@@ -134,7 +135,8 @@ void AsanUnpoisonString(const String& string) {
   if (string.IsNull())
     return;
 
-  ASAN_UNPOISON_MEMORY_REGION(string.Bytes(), string.CharactersSizeInBytes());
+  ASAN_UNPOISON_MEMORY_REGION(string.RawByteSpan().data(),
+                              string.CharactersSizeInBytes());
 #endif  // defined(ADDRESS_SANITIZER)
 }
 
@@ -147,7 +149,7 @@ class NullableCharBuffer final {
 
   explicit NullableCharBuffer(size_t size) {
     data_ = reinterpret_cast<char*>(
-        WTF::Partitions::BufferPartition()
+        Partitions::BufferPartition()
             ->AllocInline<partition_alloc::AllocFlags::kReturnNull>(
                 size, "NullableCharBuffer"));
     size_ = size;
@@ -158,7 +160,7 @@ class NullableCharBuffer final {
 
   ~NullableCharBuffer() {
     if (data_)
-      WTF::Partitions::BufferPartition()->Free(data_);
+      Partitions::BufferPartition()->Free(data_);
   }
 
   // May return nullptr.
@@ -1078,7 +1080,7 @@ void ParkableString::OnMemoryDump(WebProcessMemoryDump* pmd,
 
   const char* parent_allocation =
       may_be_parked() ? ParkableStringManager::kAllocatorDumpName
-                      : WTF::Partitions::kAllocatedObjectPoolName;
+                      : Partitions::kAllocatedObjectPoolName;
   pmd->AddSuballocation(dump->Guid(), parent_allocation);
 }
 

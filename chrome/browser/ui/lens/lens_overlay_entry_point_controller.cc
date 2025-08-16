@@ -4,6 +4,7 @@
 
 #include "chrome/browser/ui/lens/lens_overlay_entry_point_controller.h"
 
+#include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/system/sys_info.h"
 #include "chrome/browser/command_updater.h"
@@ -32,6 +33,7 @@
 #include "components/lens/lens_features.h"
 #include "components/lens/lens_overlay_permission_utils.h"
 #include "components/omnibox/browser/omnibox_prefs.h"
+#include "components/omnibox/common/omnibox_features.h"
 #include "components/tabs/public/tab_interface.h"
 #include "content/public/browser/navigation_entry.h"
 
@@ -135,22 +137,12 @@ bool LensOverlayEntryPointController::IsEnabled() const {
 
   const PrefService* pref_service =
       browser_window_interface_->GetProfile()->GetPrefs();
-  // Lens Overlay is disabled via the legacy enterprise policy.
-  lens::prefs::LensOverlaySettingsPolicyValue old_policy_value =
+  // Lens Overlay is disabled via the enterprise policy.
+  lens::prefs::LensOverlaySettingsPolicyValue policy_value =
       static_cast<lens::prefs::LensOverlaySettingsPolicyValue>(
           pref_service->GetInteger(lens::prefs::kLensOverlaySettings));
-  if (old_policy_value ==
-      lens::prefs::LensOverlaySettingsPolicyValue::kDisabled) {
-    return false;
-  }
-
-  // Lens Overlay is disabled via the GenAI enterprise policy.
-  lens::prefs::GenAiLensOverlaySettingsPolicyValue policy_value =
-      static_cast<lens::prefs::GenAiLensOverlaySettingsPolicyValue>(
-          pref_service->GetInteger(lens::prefs::kGenAiLensOverlaySettings));
   if (policy_value ==
-      lens::prefs::GenAiLensOverlaySettingsPolicyValue::kDisabled) {
-    // Disabled via the enterprise policy.
+      lens::prefs::LensOverlaySettingsPolicyValue::kDisabled) {
     return false;
   }
 
@@ -167,7 +159,8 @@ bool LensOverlayEntryPointController::IsEnabled() const {
 }
 
 bool LensOverlayEntryPointController::AreVisible() const {
-  return IsEnabled() && !IsOverlayActive();
+  return IsEnabled() && !IsOverlayActive() &&
+         !base::FeatureList::IsEnabled(omnibox::kAiModeOmniboxEntryPoint);
 }
 
 void LensOverlayEntryPointController::UpdateEntryPointsState(
@@ -210,7 +203,7 @@ void LensOverlayEntryPointController::InvokeAction(
     tabs::TabInterface* active_tab,
     const actions::ActionInvocationContext& context) {
   LensSearchController* search_controller =
-      active_tab->GetTabFeatures()->lens_search_controller();
+      LensSearchController::From(active_tab);
   LensOverlayController* overlay_controller =
       active_tab->GetTabFeatures()->lens_overlay_controller();
 
@@ -236,8 +229,8 @@ void LensOverlayEntryPointController::InvokeAction(
           lens::AmbientSearchEntryPoint::LENS_OVERLAY_LOCATION_BAR);
       search_controller->OpenLensOverlay(
           lens::LensOverlayInvocationSource::kOmnibox);
-      active_tab->GetBrowserWindowInterface()
-          ->GetUserEducationInterface()
+      BrowserUserEducationInterface::From(
+          active_tab->GetBrowserWindowInterface())
           ->NotifyNewBadgeFeatureUsed(lens::features::kLensOverlay);
     }
     return;

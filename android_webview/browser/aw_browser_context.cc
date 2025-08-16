@@ -118,12 +118,14 @@ bool IgnoreOriginSecurityCheck(const GURL& url) {
 void MigrateProfileData(base::FilePath cache_path,
                         base::FilePath context_storage_path) {
   TRACE_EVENT0("startup", "MigrateProfileData");
+  bool migration_happened = false;
   FilePath old_cache_path;
   base::PathService::Get(base::DIR_CACHE, &old_cache_path);
   old_cache_path = old_cache_path.DirName().Append(
       FILE_PATH_LITERAL("org.chromium.android_webview"));
 
   if (base::PathExists(old_cache_path)) {
+    migration_happened = true;
     bool success = base::CreateDirectory(cache_path);
     if (success)
       success &= base::Move(old_cache_path, cache_path);
@@ -138,9 +140,11 @@ void MigrateProfileData(base::FilePath cache_path,
   }
 
   auto migrate_context_storage_data = [&old_context_storage_path,
-                                       &context_storage_path](auto& suffix) {
+                                       &context_storage_path,
+                                       &migration_happened](auto& suffix) {
     FilePath old_file = old_context_storage_path.Append(suffix);
     if (base::PathExists(old_file)) {
+      migration_happened = true;
       FilePath new_file = context_storage_path.Append(suffix);
 
       if (base::PathExists(new_file)) {
@@ -170,6 +174,10 @@ void MigrateProfileData(base::FilePath cache_path,
   migrate_context_storage_data("VideoDecodeStats");
   migrate_context_storage_data("shared_proto_db");
   migrate_context_storage_data("webrtc_event_logs");
+
+  base::UmaHistogramBoolean(
+      "Android.WebView.AwBrowserContext.ProfileDataMigrationHappened",
+      migration_happened);
 }
 
 base::FilePath BuildCachePath(const base::FilePath& relative_path) {
@@ -222,6 +230,7 @@ AwBrowserContext::AwBrowserContext(std::string name,
 
   EnsureResourceContextInitialized();
   prefetch_manager_ = std::make_unique<AwPrefetchManager>(this);
+  preconnector_ = std::make_unique<AwPreconnector>(this);
 
   // This should be initialized as soon as possible when creating the profile,
   // in order to load the database from disk.
@@ -651,7 +660,8 @@ AwBrowserContext::GetJavaBrowserContext() {
     obj_ = Java_AwBrowserContext_create(
         env, reinterpret_cast<intptr_t>(this), name_, relative_path_.value(),
         GetCookieManager()->GetJavaCookieManager(),
-        prefetch_manager_->GetJavaPrefetchManager(), IsDefaultBrowserContext());
+        prefetch_manager_->GetJavaPrefetchManager(),
+        preconnector_->GetJavaAwPreconnector(), IsDefaultBrowserContext());
   }
   return base::android::ScopedJavaLocalRef<jobject>(obj_);
 }

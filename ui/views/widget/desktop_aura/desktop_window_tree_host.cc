@@ -17,6 +17,11 @@
 
 namespace views {
 
+DesktopWindowTreeHost::WindowTreeHosts
+DesktopWindowTreeHost::GetOwnedWindowTreeHosts() {
+  return WindowTreeHosts();
+}
+
 bool DesktopWindowTreeHost::IsMoveLoopSupported() const {
   return true;
 }

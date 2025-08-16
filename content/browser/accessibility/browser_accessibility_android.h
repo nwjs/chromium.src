@@ -84,8 +84,9 @@ class CONTENT_EXPORT BrowserAccessibilityAndroid
   // focusable or clickable aren't interesting.
   bool IsInterestingOnAndroid() const;
 
-  // Is a heading whose only child is a link.
-  bool IsHeadingLink() const;
+  // If it's a heading whose only child is a link, or a heading that is inside
+  // a link, returns the link node if it exists; otherwise nullptr.
+  BrowserAccessibilityAndroid* GetHeadingLinkOrLinkHeading() const;
 
   // If this node is interesting (IsInterestingOnAndroid() returns true),
   // returns |this|. If not, it recursively checks all of the
@@ -269,6 +270,10 @@ class CONTENT_EXPORT BrowserAccessibilityAndroid
   // manager to the web_contents_accessibility_android JNI.
   std::u16string GenerateAccessibilityNodeInfoString() const;
 
+  // Used to determine paint order to see in what order nodes are drawn.
+  // Used by Android XR.
+  int GetPaintOrder() const;
+
  protected:
   BrowserAccessibilityAndroid(ui::BrowserAccessibilityManager* manager,
                               ui::AXNode* node);
@@ -320,10 +325,8 @@ class CONTENT_EXPORT BrowserAccessibilityAndroid
                                            std::optional<size_t> min_length,
                                            AXStyleData* style_data) const;
 
-  std::u16string cached_text_;
   std::u16string old_value_;
   std::u16string new_value_;
-  int32_t unique_id_;
 };
 
 }  // namespace content

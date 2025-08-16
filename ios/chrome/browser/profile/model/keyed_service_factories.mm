@@ -84,7 +84,7 @@
 #import "ios/chrome/browser/metrics/model/google_groups_manager_factory.h"
 #import "ios/chrome/browser/metrics/model/ios_profile_session_durations_service_factory.h"
 #import "ios/chrome/browser/mini_map/model/mini_map_service_factory.h"
-#import "ios/chrome/browser/omnibox/model/placeholder_service_factory.h"
+#import "ios/chrome/browser/omnibox/model/placeholder_service/placeholder_service_factory.h"
 #import "ios/chrome/browser/optimization_guide/model/optimization_guide_service_factory.h"
 #import "ios/chrome/browser/page_content_annotations/model/page_content_annotations_service_factory.h"
 #import "ios/chrome/browser/page_image/model/page_image_service_factory.h"
@@ -108,6 +108,7 @@
 #import "ios/chrome/browser/power_bookmarks/model/power_bookmark_service_factory.h"
 #import "ios/chrome/browser/prerender/model/prerender_service_factory.h"
 #import "ios/chrome/browser/price_insights/model/price_insights_model_factory.h"
+#import "ios/chrome/browser/privacy_sandbox/tracking_protection_settings_factory.h"
 #import "ios/chrome/browser/promos_manager/model/promos_manager_factory.h"
 #import "ios/chrome/browser/push_notification/model/provisional_push_notification_service_factory.h"
 #import "ios/chrome/browser/push_notification/model/push_notification_profile_service_factory.h"
@@ -127,6 +128,7 @@
 #import "ios/chrome/browser/saved_tab_groups/model/tab_group_service_factory.h"
 #import "ios/chrome/browser/saved_tab_groups/model/tab_group_sync_service_factory.h"
 #import "ios/chrome/browser/screen_time/model/screen_time_buildflags.h"
+#import "ios/chrome/browser/script_blocking/model/script_blocking_rule_applier_service_factory.h"
 #import "ios/chrome/browser/search_engines/model/search_engine_choice_service_factory.h"
 #import "ios/chrome/browser/search_engines/model/template_url_fetcher_factory.h"
 #import "ios/chrome/browser/search_engines/model/template_url_prepopulate_data_resolver_factory.h"
@@ -342,6 +344,7 @@ void EnsureProfileKeyedServiceFactoriesBuilt() {
   SafeBrowsingHelperFactory::GetInstance();
   SafeBrowsingMetricsCollectorFactory::GetInstance();
   SamplePanelModelFactory::GetInstance();
+  ScriptBlockingRuleApplierServiceFactory::GetInstance();
   SendTabToSelfSyncServiceFactory::GetInstance();
   SessionRestorationServiceFactory::GetInstance();
   SessionSyncServiceFactory::GetInstance();
@@ -362,6 +365,7 @@ void EnsureProfileKeyedServiceFactoriesBuilt() {
   TextToSpeechPlaybackControllerFactory::GetInstance();
   TipsManagerIOSFactory::GetInstance();
   LanguageDetectionModelServiceFactory::GetInstance();
+  TrackingProtectionSettingsFactory::GetInstance();
   TrustedVaultClientBackendFactory::GetInstance();
   UnifiedConsentServiceFactory::GetInstance();
   UnitConversionServiceFactory::GetInstance();

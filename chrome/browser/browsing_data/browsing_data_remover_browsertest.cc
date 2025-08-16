@@ -45,7 +45,6 @@
 #include "components/content_settings/core/common/content_settings_utils.h"
 #include "components/history/core/common/pref_names.h"
 #include "components/metrics/content/subprocess_metrics_provider.h"
-#include "components/nacl/common/buildflags.h"
 #include "components/password_manager/core/browser/features/password_features.h"
 #include "components/password_manager/core/browser/features/password_manager_features_util.h"
 #include "components/prefs/pref_service.h"
@@ -542,9 +541,8 @@ IN_PROC_BROWSER_TEST_F(BrowsingDataRemoverBrowserTest, VideoDecodePerfHistory) {
   {
     base::RunLoop run_loop;
     video_decode_perf_history->GetSaveCallback().Run(
-        ukm::kInvalidSourceId, media::learning::FeatureValue(0), kIsTopFrame,
-        prediction_features, prediction_targets, kPlayerId,
-        run_loop.QuitWhenIdleClosure());
+        ukm::kInvalidSourceId, kIsTopFrame, prediction_features,
+        prediction_targets, kPlayerId, run_loop.QuitWhenIdleClosure());
     run_loop.Run();
   }
 
@@ -821,7 +819,6 @@ IN_PROC_BROWSER_TEST_F(BrowsingDataRemoverBrowserTest, HistoryDeletion) {
 IN_PROC_BROWSER_TEST_F(BrowsingDataRemoverBrowserTest,
                        ClearingCookiesAlsoClearsPasswordAccountStorageOptIn) {
   const char kTestEmail[] = "foo@gmail.com";
-  PrefService* prefs = GetProfile()->GetPrefs();
   syncer::SyncService* sync_service =
       SyncServiceFactory::GetForProfile(GetProfile());
   signin::IdentityManager* identity_manager =
@@ -832,23 +829,22 @@ IN_PROC_BROWSER_TEST_F(BrowsingDataRemoverBrowserTest,
   // TODO(crbug.com/375024026): Revisit.
   sync_service->GetUserSettings()->SetSelectedType(
       syncer::UserSelectableType::kPasswords, false);
-  ASSERT_FALSE(password_manager::features_util::IsAccountStorageEnabled(
-      prefs, sync_service));
+  ASSERT_FALSE(
+      password_manager::features_util::IsAccountStorageEnabled(sync_service));
 
   signin::ClearPrimaryAccount(identity_manager);
   RemoveAndWait(chrome_browsing_data_remover::DATA_TYPE_SITE_DATA);
   signin::MakePrimaryAccountAvailable(identity_manager, kTestEmail,
                                       signin::ConsentLevel::kSignin);
 
-  EXPECT_TRUE(password_manager::features_util::IsAccountStorageEnabled(
-      prefs, sync_service));
+  EXPECT_TRUE(
+      password_manager::features_util::IsAccountStorageEnabled(sync_service));
 }
 
 IN_PROC_BROWSER_TEST_F(
     BrowsingDataRemoverBrowserTest,
     ClearingCookiesWithFilterAlsoClearsPasswordAccountStorageSetting) {
   const char kTestEmail[] = "foo@gmail.com";
-  PrefService* prefs = GetProfile()->GetPrefs();
   syncer::SyncService* sync_service =
       SyncServiceFactory::GetForProfile(GetProfile());
   signin::IdentityManager* identity_manager =
@@ -858,8 +854,8 @@ IN_PROC_BROWSER_TEST_F(
 
   sync_service->GetUserSettings()->SetSelectedType(
       syncer::UserSelectableType::kPasswords, false);
-  ASSERT_FALSE(password_manager::features_util::IsAccountStorageEnabled(
-      prefs, sync_service));
+  ASSERT_FALSE(
+      password_manager::features_util::IsAccountStorageEnabled(sync_service));
 
   // Clearing cookies for some random domain should have no effect on the
   // setting.
@@ -874,8 +870,8 @@ IN_PROC_BROWSER_TEST_F(
   }
   signin::MakePrimaryAccountAvailable(identity_manager, kTestEmail,
                                       signin::ConsentLevel::kSignin);
-  EXPECT_FALSE(password_manager::features_util::IsAccountStorageEnabled(
-      prefs, sync_service));
+  EXPECT_FALSE(
+      password_manager::features_util::IsAccountStorageEnabled(sync_service));
 
   // Clearing cookies for google.com should clear the setting.
   signin::ClearPrimaryAccount(identity_manager);
@@ -889,13 +885,12 @@ IN_PROC_BROWSER_TEST_F(
   }
   signin::MakePrimaryAccountAvailable(identity_manager, kTestEmail,
                                       signin::ConsentLevel::kSignin);
-  EXPECT_TRUE(password_manager::features_util::IsAccountStorageEnabled(
-      prefs, sync_service));
+  EXPECT_TRUE(
+      password_manager::features_util::IsAccountStorageEnabled(sync_service));
 }
 
 IN_PROC_BROWSER_TEST_F(BrowsingDataRemoverBrowserTest, ClearSiteData) {
   const char kTestEmail[] = "foo@gmail.com";
-  PrefService* prefs = GetProfile()->GetPrefs();
   syncer::SyncService* sync_service =
       SyncServiceFactory::GetForProfile(GetProfile());
   signin::IdentityManager* identity_manager =
@@ -960,8 +955,8 @@ IN_PROC_BROWSER_TEST_F(BrowsingDataRemoverBrowserTest, ClearSiteData) {
 
     sync_service->GetUserSettings()->SetSelectedType(
         syncer::UserSelectableType::kPasswords, false);
-    ASSERT_FALSE(password_manager::features_util::IsAccountStorageEnabled(
-        prefs, sync_service));
+    ASSERT_FALSE(
+        password_manager::features_util::IsAccountStorageEnabled(sync_service));
     signin::ClearPrimaryAccount(identity_manager);
     ClearSiteDataAndWait(test_case.origin, test_case.cookie_partition_key,
                          test_case.storage_key, {});
@@ -970,10 +965,10 @@ IN_PROC_BROWSER_TEST_F(BrowsingDataRemoverBrowserTest, ClearSiteData) {
 
     if (test_case.expects_keep_optin_pref) {
       EXPECT_FALSE(password_manager::features_util::IsAccountStorageEnabled(
-          prefs, sync_service));
+          sync_service));
     } else {
       EXPECT_TRUE(password_manager::features_util::IsAccountStorageEnabled(
-          prefs, sync_service));
+          sync_service));
     }
   }
 }
@@ -1119,10 +1114,6 @@ const std::vector<std::string_view> kDoesNotSupportOriginFilteringDelegate{
 #if BUILDFLAG(IS_CHROMEOS)
     "TpmAttestationKeys",
 #endif
-#if BUILDFLAG(ENABLE_NACL)
-    "NaclCache",
-    "PnaclCache",
-#endif
 };
 
 // See comment on FullyFilteredDataTypes test for advice when this test fails.
@@ -1163,8 +1154,16 @@ IN_PROC_BROWSER_TEST_P(BrowsingDataRemoverBrowserTestP,
 }
 
 // Regression test for https://crbug.com/1216406.
+// TODO(crbug.com/413259587): Re-enable this test once the flakiness is fixed.
+#if BUILDFLAG(IS_WIN)
+#define MAYBE_BrowserContextDestructionVsCookieRemoval \
+  DISABLED_BrowserContextDestructionVsCookieRemoval
+#else
+#define MAYBE_BrowserContextDestructionVsCookieRemoval \
+  BrowserContextDestructionVsCookieRemoval
+#endif
 IN_PROC_BROWSER_TEST_P(BrowsingDataRemoverBrowserTestP,
-                       BrowserContextDestructionVsCookieRemoval) {
+                       MAYBE_BrowserContextDestructionVsCookieRemoval) {
   // Open an incognito browser.
   UseIncognitoBrowser();
 

@@ -677,7 +677,7 @@ TEST_P(HttpProxyConnectJobTest, ProxyDelegateExtraHeaders) {
       "%s: %s\r\n\r\n",
       kTestHeaderName, proxy_server_uri.c_str());
   MockWrite writes[] = {
-      MockWrite(ASYNC, 0, http1_request.c_str()),
+      MockWrite(ASYNC, 0, http1_request),
   };
 
   const char kResponseHeaderName[] = "bar";
@@ -687,7 +687,7 @@ TEST_P(HttpProxyConnectJobTest, ProxyDelegateExtraHeaders) {
       "%s: %s\r\n\r\n",
       kResponseHeaderName, kResponseHeaderValue);
   MockRead reads[] = {
-      MockRead(ASYNC, 1, http1_response.c_str()),
+      MockRead(ASYNC, 1, http1_response),
   };
 
   const std::string_view kExtraRequestHeaders[] = {
@@ -769,13 +769,13 @@ TEST_P(HttpProxyConnectJobTest, NestedProxyProxyDelegateExtraHeaders) {
       kResponseHeaderName, second_hop_proxy_server_uri.c_str());
 
   MockWrite writes[] = {
-      MockWrite(ASYNC, 0, first_hop_http1_request.c_str()),
-      MockWrite(ASYNC, 2, second_hop_http1_request.c_str()),
+      MockWrite(ASYNC, 0, first_hop_http1_request),
+      MockWrite(ASYNC, 2, second_hop_http1_request),
   };
 
   MockRead reads[] = {
-      MockRead(ASYNC, 1, first_hop_http1_response.c_str()),
-      MockRead(ASYNC, 3, second_hop_http1_response.c_str()),
+      MockRead(ASYNC, 1, first_hop_http1_response),
+      MockRead(ASYNC, 3, second_hop_http1_response),
   };
 
   const std::string_view kFirstHopExtraRequestHeaders[] = {
@@ -898,6 +898,7 @@ TEST_P(HttpProxyConnectJobTest, NeedAuth) {
         // No credentials.
         MockRead(io_mode, 1, "HTTP/1.1 407 Proxy Authentication Required\r\n"),
         MockRead(io_mode, 2,
+
                  "Proxy-Authenticate: Basic realm=\"MyRealm1\"\r\n"),
         MockRead(io_mode, 3, "Content-Length: 10\r\n\r\n"),
         MockRead(io_mode, 4, "0123456789"),
@@ -1299,7 +1300,7 @@ TEST_P(HttpProxyConnectJobTest, SpdySessionKeyDisableSecureDns) {
                          SessionUsage::kProxy, SocketTag(),
                          NetworkAnonymizationKey(), SecureDnsPolicy::kDisable,
                          /*disable_cert_verification_network_fetches=*/true),
-          /* enable_ip_based_pooling = */ false,
+          /* enable_ip_based_pooling_for_h2 = */ false,
           /* is_websocket = */ false, NetLogWithSource()));
   EXPECT_FALSE(
       common_connect_job_params_->spdy_session_pool->FindAvailableSession(
@@ -1308,7 +1309,7 @@ TEST_P(HttpProxyConnectJobTest, SpdySessionKeyDisableSecureDns) {
                          SessionUsage::kProxy, SocketTag(),
                          NetworkAnonymizationKey(), SecureDnsPolicy::kAllow,
                          /*disable_cert_verification_network_fetches=*/true),
-          /* enable_ip_based_pooling = */ false,
+          /* enable_ip_based_pooling_for_h2 = */ false,
           /* is_websocket = */ false, NetLogWithSource()));
 }
 
@@ -1385,7 +1386,7 @@ TEST_P(HttpProxyConnectJobTest, SpdyInadequateTransportSecurity) {
                          SessionUsage::kProxy, SocketTag(),
                          NetworkAnonymizationKey(), SecureDnsPolicy::kDisable,
                          /*disable_cert_verification_network_fetches=*/true),
-          /*enable_ip_based_pooling=*/false,
+          /*enable_ip_based_pooling_for_h2=*/false,
           /*is_websocket=*/false, NetLogWithSource()));
 }
 
@@ -1434,7 +1435,7 @@ TEST_P(HttpProxyConnectJobTest, SpdyValidAlps) {
                          SessionUsage::kProxy, SocketTag(),
                          NetworkAnonymizationKey(), SecureDnsPolicy::kDisable,
                          /*disable_cert_verification_network_fetches=*/true),
-          /*enable_ip_based_pooling=*/false,
+          /*enable_ip_based_pooling_for_h2=*/false,
           /*is_websocket=*/false, NetLogWithSource()));
 }
 
@@ -1471,7 +1472,7 @@ TEST_P(HttpProxyConnectJobTest, SpdyInvalidAlpsCheckEnabled) {
                          SessionUsage::kProxy, SocketTag(),
                          NetworkAnonymizationKey(), SecureDnsPolicy::kDisable,
                          /*disable_cert_verification_network_fetches=*/true),
-          /*enable_ip_based_pooling=*/false,
+          /*enable_ip_based_pooling_for_h2=*/false,
           /*is_websocket=*/false, NetLogWithSource()));
 }
 
@@ -1516,7 +1517,7 @@ TEST_P(HttpProxyConnectJobTest, SpdyInvalidAlpsCheckDisabled) {
                          SessionUsage::kProxy, SocketTag(),
                          NetworkAnonymizationKey(), SecureDnsPolicy::kDisable,
                          /*disable_cert_verification_network_fetches=*/true),
-          /*enable_ip_based_pooling=*/false,
+          /*enable_ip_based_pooling_for_h2=*/false,
           /*is_websocket=*/false, NetLogWithSource()));
 }
 
@@ -1776,7 +1777,7 @@ TEST_P(HttpProxyConnectJobTest, TunnelSetupRedirect) {
                   "User-Agent: test-ua\r\n\r\n"),
     };
     MockRead reads[] = {
-        MockRead(io_mode, 1, kResponseText.c_str()),
+        MockRead(io_mode, 1, kResponseText),
     };
     SpdyTestUtil spdy_util;
     spdy::SpdySerializedFrame req(spdy_util.ConstructSpdyConnect(

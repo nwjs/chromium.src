@@ -9,8 +9,9 @@
 #include <string>
 
 #include "base/functional/callback_forward.h"
-#include "base/memory/safe_ref.h"
+#include "base/memory/raw_ref.h"
 #include "chrome/browser/actor/task_id.h"
+#include "chrome/browser/actor/tools/tool_delegate.h"
 #include "chrome/common/actor.mojom.h"
 #include "url/gurl.h"
 
@@ -20,6 +21,7 @@ class AnnotatedPageContent;
 
 namespace actor {
 
+class ActorTask;
 class AggregatedJournal;
 class ObservationDelayController;
 
@@ -32,7 +34,7 @@ class Tool {
   // eliminate the other redundant definitions.
   using ValidateCallback = base::OnceCallback<void(mojom::ActionResultPtr)>;
   using InvokeCallback = base::OnceCallback<void(mojom::ActionResultPtr)>;
-  Tool(TaskId task_id, AggregatedJournal& journal);
+  Tool(TaskId task_id, ToolDelegate& tool_delegate);
   virtual ~Tool();
 
   // Not copyable or movable.
@@ -76,13 +78,24 @@ class Tool {
   virtual std::unique_ptr<ObservationDelayController> GetObservationDelayer()
       const = 0;
 
+  // Gives the tool an opportunity to update the task's state before being
+  // invoked.
+  virtual void UpdateTaskBeforeInvoke(ActorTask& task,
+                                      InvokeCallback callback) const;
+
+  // Gives the tool an opportunity to update the task's state after being
+  // invoked.
+  virtual void UpdateTaskAfterInvoke(ActorTask& task,
+                                     InvokeCallback callback) const;
+
  protected:
   TaskId task_id() const { return task_id_; }
-  AggregatedJournal& journal() { return *journal_; }
+  AggregatedJournal& journal() { return tool_delegate().GetJournal(); }
+  ToolDelegate& tool_delegate() { return *tool_delegate_; }
 
  private:
   TaskId task_id_;
-  base::SafeRef<AggregatedJournal> journal_;
+  raw_ref<ToolDelegate> tool_delegate_;
 };
 
 }  // namespace actor

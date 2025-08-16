@@ -88,6 +88,28 @@ AtomicString ConsumeVariableName(CSSParserTokenStream& stream) {
   return ident_token.Value().ToAtomicString();
 }
 
+AtomicString ConsumeAndComputeVariableName(CSSParserTokenStream& stream,
+                                           const CSSParserContext& context,
+                                           StyleResolverState& state) {
+  stream.ConsumeWhitespace();
+  if (stream.Peek().GetType() == kIdentToken) {
+    // Note that CSSVariableParser has previously checked that the ident
+    // has a valid form.
+    return stream.ConsumeIncludingWhitespaceRaw().Value().ToAtomicString();
+  }
+  // ident()
+  DCHECK_EQ(stream.Peek().FunctionId(), CSSValueID::kIdent);
+  CSSFunctionValue* ident_function =
+      css_parsing_utils::ConsumeIdentFunction(stream, context);
+  DCHECK(ident_function);
+  AtomicString computed_ident = CSSCustomIdentValue::ComputeIdent(
+      *ident_function, state.CssToLengthConversionData());
+  if (!CSSVariableParser::IsValidVariableName(computed_ident)) {
+    return AtomicString("unknown");
+  }
+  return computed_ident;
+}
+
 bool ConsumeComma(CSSParserTokenStream& stream) {
   if (stream.Peek().GetType() == kCommaToken) {
     stream.ConsumeRaw();
@@ -296,31 +318,6 @@ void StyleCascade::Apply(CascadeFilter filter) {
   }
   if (resolver.RejectedFlags() & CSSProperty::kLegacyOverlapping) {
     state_.SetRejectedLegacyOverlapping();
-  }
-
-  // TOOD(crbug.com/1334570):
-  //
-  // Count applied H1 font-size from html.css UA stylesheet where H1 is inside
-  // a sectioning element matching selectors like:
-  //
-  // :-webkit-any(article,aside,nav,section) h1 { ... }
-  //
-  if (state_.GetElement().HasTagName(html_names::kH1Tag)) {
-    if (CascadePriority* priority =
-            map_.Find(GetCSSPropertyFontSize().GetCSSPropertyName())) {
-      if (priority->GetOrigin() != CascadeOrigin::kUserAgent) {
-        return;
-      }
-      const CSSValue* value = ValueAt(match_result_, priority->GetPosition());
-      if (const auto* numeric = DynamicTo<CSSNumericLiteralValue>(value)) {
-        DCHECK(numeric->GetType() == CSSNumericLiteralValue::UnitType::kEms);
-        if (numeric->DoubleValue() != 2.0) {
-          Deprecation::CountDeprecation(
-              GetDocument().GetExecutionContext(),
-              WebFeature::kH1UserAgentFontSizeInSectionApplied);
-        }
-      }
-    }
   }
 
   ApplyUnresolvedEnv(resolver);
@@ -1489,7 +1486,13 @@ bool StyleCascade::ResolveVarInto(CSSParserTokenStream& stream,
                                   const CSSParserContext& context,
                                   FunctionContext* function_context,
                                   TokenSequence& out) {
-  AtomicString var_name = ConsumeVariableName(stream);
+  AtomicString var_name =
+      ConsumeAndComputeVariableName(stream, context, state_);
+  // Note that `var_name` may be "unknown" when an ident() function
+  // didn't produce a valid variable name. Looking up this custom property
+  // name (which is unreachable for authors, and therefore never set)
+  // automatically gives the correct IACVT/fallback behavior without
+  // any explicit handling.
   DCHECK(stream.AtEnd() || (stream.Peek().GetType() == kCommaToken));
 
   // TODO(crbug.com/416640817): All of this fallback handling can be removed
@@ -1501,15 +1504,9 @@ bool StyleCascade::ResolveVarInto(CSSParserTokenStream& stream,
   // https://drafts.csswg.org/css-variables/#cycles
   TokenSequence fallback;
   bool has_fallback = false;
-  // Note: has_comma may be `true` even for fallbacks which contain
-  // invalid var(). This is needed for syntax validation of fallbacks for
-  // registered custom properties.
-  // TODO(crbug.com/372475301): Remove this, if possible.
-  bool has_comma = false;
   bool fallback_caused_cycle = false;  // For use-counting.
   if (!RuntimeEnabledFeatures::CSSShortCircuitVarAttrEnabled() &&
       ConsumeComma(stream)) {
-    has_comma = true;
     stream.ConsumeWhitespace();
     // Note that we can enter this function while in a cycle.
     bool in_cycle_before = resolver.InCycle();
@@ -1618,18 +1615,6 @@ bool StyleCascade::ResolveVarInto(CSSParserTokenStream& stream,
       // TODO(crbug.com/397690639): Ignore cycles in unused fallbacks.
       CountUse(WebFeature::kCSSVarFallbackCycle);
     }
-    return false;
-  }
-
-  // The fallback must match the syntax of the referenced custom
-  // property, even if the fallback isn't used.
-  //
-  // TODO(crbug.com/372475301): Remove this, if possible.
-  //
-  // https://drafts.css-houdini.org/css-properties-values-api-1/#fallbacks-in-var-references
-  if (!RuntimeEnabledFeatures::CSSTypeAgnosticVarFallbackEnabled() &&
-      has_comma && !ValidateFallback(property, fallback.OriginalText())) {
-    CountUse(WebFeature::kVarFallbackValidation);
     return false;
   }
 

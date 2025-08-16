@@ -216,7 +216,7 @@ ScrollResult ScrollableArea::UserScroll(ui::ScrollGranularity granularity,
   // animation. Delay queuing up this |on_finish| so that it is run when the
   // callback for this scroll animation is run and not when the callback
   // for a previous scroll animation is run.
-  ScrollCallback run_scroll_complete_callbacks(BindOnce(
+  ScrollCallback run_scroll_complete_callbacks(blink::BindOnce(
       [](WeakPersistent<ScrollableArea> area, ScrollCallback callback,
          ScrollCompletionMode mode) {
         if (area) {
@@ -1163,9 +1163,7 @@ void ScrollableArea::OnScrollFinished(bool scroll_did_end) {
         // TODO(https://crbug.com/41406914): This is temporary. Remove once we
         // start to migrate to scroll-promises.
         node->GetDocument().Markers().StartGlicMarkerAnimationIfNeeded();
-        if (RuntimeEnabledFeatures::ScrollEndEventsEnabled()) {
-          node->GetDocument().EnqueueScrollEndEventForNode(node);
-        }
+        node->GetDocument().EnqueueScrollEndEventForNode(node);
       }
     }
     GetLayoutBox()

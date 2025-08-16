@@ -132,6 +132,14 @@ BASE_FEATURE(kSkipExtraBfcacheNavigationRequest,
              "SkipExtraBfcacheNavigationRequest",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+// Enables a CHECK in RendererDidNavigate to ensure that session
+// history navigations commit in the expected SiteInstance when the
+// document sequence number matches. Helps detect navigation process
+// mismatches and potential security issues.
+BASE_FEATURE(kCheckSiteInstanceOnHistoryNavigation,
+             "CheckSiteInstanceOnHistoryNavigation",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
 // Invoked when entries have been pruned, or removed. For example, if the
 // current entries are [google, digg, yahoo], with the current entry google,
 // and the user types in cnet, then digg and yahoo are pruned.
@@ -1771,8 +1779,7 @@ bool NavigationControllerImpl::RendererDidNavigate(
   // after a race with an OOPIF (see https://crbug.com/616820).
   FrameNavigationEntry* frame_entry =
       active_entry->GetFrameEntry(rfh->frame_tree_node());
-  if (base::FeatureList::IsEnabled(
-          features::kCheckSiteInstanceOnHistoryNavigation) &&
+  if (base::FeatureList::IsEnabled(kCheckSiteInstanceOnHistoryNavigation) &&
       frame_entry && frame_entry->site_instance()) {
     int64_t dsn = navigation_request->frame_entry_document_sequence_number();
     if (dsn != -1 && dsn == frame_entry->document_sequence_number()) {
@@ -2753,8 +2760,10 @@ bool NavigationControllerImpl::ValidateDataURLAsString(
   if (!data_url_as_string)
     return false;
 
-  if (data_url_as_string->size() > kMaxLengthOfDataURLString)
+  if (data_url_as_string->size() >
+      kMaxLengthOfDataURLString.InBytesUnsigned()) {
     return false;
+  }
 
   // The number of characters that is enough for validating a data: URI.
   // From the GURL's POV, the only important part here is scheme, it doesn't
@@ -4580,15 +4589,11 @@ NavigationControllerImpl::LoadPostCommitErrorPage(
 }
 
 void NavigationControllerImpl::NavigateFrameToErrorPage(
-    RenderFrameHostImpl* render_frame_host_impl,
+    RenderFrameHost* render_frame_host,
     const GURL& url,
     const std::string& error_page_html) {
-  // For now, this function can only be used for fenced frame roots. In the
-  // future, it will be updated to work for any frame.
-  // TODO(crbug.com/406729265): Implement this method for all types of frames,
-  // including main frames and other subframe types.
-  CHECK(render_frame_host_impl->IsFencedFrameRoot());
-
+  RenderFrameHostImpl* render_frame_host_impl =
+      static_cast<RenderFrameHostImpl*>(render_frame_host);
   std::unique_ptr<NavigationRequest> navigation_request =
       CreateNavigationRequestForErrorPage(render_frame_host_impl, url,
                                           error_page_html,

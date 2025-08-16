@@ -6,6 +6,9 @@
 #define IOS_CHROME_BROWSER_NTP_UI_BUNDLED_NEW_TAB_PAGE_CONSUMER_H_
 
 #import <Foundation/Foundation.h>
+#import <UIKit/UITraitCollection.h>
+
+@class NewTabPageColorPalette;
 
 // Handles updates to the NTP ViewController.
 @protocol NewTabPageConsumer <NSObject>
@@ -21,6 +24,9 @@
 
 // Whether the Magic Stack module is visible on the NTP.
 @property(nonatomic, assign) BOOL magicStackVisible;
+
+// Collection of trait-specific override values for customizing NTP appearance
+@property(nonatomic, readonly) id<UITraitOverrides> traitOverrides;
 
 // Indicates that the omnibox has become the first responder to the keyboard.
 - (void)omniboxDidBecomeFirstResponder;
@@ -55,8 +61,8 @@
 // if nil is passed.
 - (void)setBackgroundImage:(UIImage*)backgroundImage;
 
-// Whether MIA is allowed from a policy perspective.
-- (void)setMIAAllowedByPolicy:(BOOL)policyAllowed;
+// Whether AIM is allowed.
+- (void)setAIMAllowed:(BOOL)allowed;
 
 @end
 

@@ -29,8 +29,8 @@ struct UrlOriginAdapter {
     scoped_refptr<blink::SecurityOrigin> tuple_origin;
     if (tuple.IsValid()) {
       tuple_origin = blink::SecurityOrigin::CreateFromValidTuple(
-          String::FromUTF8(tuple.scheme()), String::FromUTF8(tuple.host()),
-          tuple.port());
+          blink::String::FromUTF8(tuple.scheme()),
+          blink::String::FromUTF8(tuple.host()), tuple.port());
     }
 
     if (nonce_if_opaque) {
@@ -48,12 +48,12 @@ struct UrlOriginAdapter {
 template <>
 struct StructTraits<url::mojom::OriginDataView,
                     scoped_refptr<const ::blink::SecurityOrigin>> {
-  static WTF::String scheme(
+  static blink::String scheme(
       const scoped_refptr<const ::blink::SecurityOrigin>& origin) {
     return UrlOriginAdapter::GetOriginOrPrecursorOriginIfOpaque(origin)
         ->Protocol();
   }
-  static WTF::String host(
+  static blink::String host(
       const scoped_refptr<const ::blink::SecurityOrigin>& origin) {
     return UrlOriginAdapter::GetOriginOrPrecursorOriginIfOpaque(origin)->Host();
   }

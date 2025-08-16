@@ -24,6 +24,7 @@ import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 
+import org.chromium.base.Token;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.chrome.browser.flags.ActivityType;
 import org.chromium.chrome.browser.price_tracking.PriceTrackingFeatures;
@@ -32,8 +33,16 @@ import org.chromium.chrome.browser.tab.MockTab;
 import org.chromium.chrome.browser.tab.TabCreationState;
 import org.chromium.chrome.browser.tab.TabId;
 import org.chromium.chrome.browser.tab.TabLaunchType;
+import org.chromium.chrome.browser.tab_ui.TabContentManager;
+import org.chromium.chrome.browser.tabmodel.NextTabPolicy.NextTabPolicySupplier;
 
-/** Unit tests for {@link TabCollectionTabModelImpl}. */
+import java.util.Collections;
+import java.util.List;
+
+/**
+ * Unit tests for {@link TabCollectionTabModelImpl}. More substantive tests are in {@link
+ * TabCollectionTabModelImplTest}.
+ */
 @RunWith(BaseRobolectricTestRunner.class)
 public class TabCollectionTabModelImplUnitTest {
     private static final long TAB_MODEL_JNI_BRIDGE_PTR = 875943L;
@@ -48,9 +57,12 @@ public class TabCollectionTabModelImplUnitTest {
     @Mock private TabCreator mRegularTabCreator;
     @Mock private TabCreator mIncognitoTabCreator;
     @Mock private TabModelOrderController mOrderController;
+    @Mock private TabContentManager mTabContentManager;
     @Mock private TabModelDelegate mTabModelDelegate;
+    @Mock private NextTabPolicySupplier mNextTabPolicySupplier;
     @Mock private AsyncTabParamsManager mAsyncTabParamsManager;
     @Mock private TabRemover mTabRemover;
+    @Mock private TabUngrouper mTabUngrouper;
     @Mock private TabModelObserver mTabModelObserver;
 
     private TabCollectionTabModelImpl mTabModel;
@@ -68,7 +80,7 @@ public class TabCollectionTabModelImplUnitTest {
 
         TabModelJniBridgeJni.setInstanceForTesting(mTabModelJniBridgeJni);
         when(mTabModelJniBridgeJni.init(
-                        any(),
+                        any(TabModelJniBridge.class),
                         eq(mProfile),
                         eq(ActivityType.TABBED),
                         /* isArchivedTabModel= */ eq(false)))
@@ -86,16 +98,19 @@ public class TabCollectionTabModelImplUnitTest {
                         mRegularTabCreator,
                         mIncognitoTabCreator,
                         mOrderController,
+                        mTabContentManager,
+                        mNextTabPolicySupplier,
                         mTabModelDelegate,
                         mAsyncTabParamsManager,
-                        mTabRemover);
+                        mTabRemover,
+                        mTabUngrouper);
         mTabModel.addObserver(mTabModelObserver);
     }
 
     @After
     public void tearDown() {
         mTabModel.destroy();
-        verify(mTabModelJniBridgeJni).destroy(eq(TAB_MODEL_JNI_BRIDGE_PTR), any());
+        verify(mTabModelJniBridgeJni).destroy(eq(TAB_MODEL_JNI_BRIDGE_PTR));
         verify(mTabCollectionTabModelImplJni).destroy(eq(TAB_COLLECTION_TAB_MODEL_IMPL_PTR));
     }
 
@@ -118,8 +133,7 @@ public class TabCollectionTabModelImplUnitTest {
 
         mTabModel.broadcastSessionRestoreComplete();
 
-        verify(mTabModelJniBridgeJni)
-                .broadcastSessionRestoreComplete(eq(TAB_MODEL_JNI_BRIDGE_PTR), any());
+        verify(mTabModelJniBridgeJni).broadcastSessionRestoreComplete(eq(TAB_MODEL_JNI_BRIDGE_PTR));
     }
 
     @Test
@@ -248,5 +262,61 @@ public class TabCollectionTabModelImplUnitTest {
                 TabList.INVALID_TAB_INDEX,
                 mTabModel.indexOf(MockTab.createAndInitialize(123, mProfile)));
         verify(mTabCollectionTabModelImplJni, never()).getIndexOfTabRecursive(anyLong(), any());
+    }
+
+    @Test
+    public void testIsTabInTabGroup() {
+        MockTab tab = MockTab.createAndInitialize(123, mProfile);
+        tab.setIsInitialized(true);
+        assertFalse(mTabModel.isTabInTabGroup(tab));
+        tab.setTabGroupId(new Token(1L, 2L));
+        assertTrue(mTabModel.isTabInTabGroup(tab));
+    }
+
+    @Test
+    public void testWillMergingCreateNewGroup() {
+        MockTab tab1 = MockTab.createAndInitialize(123, mProfile);
+        MockTab tab2 = MockTab.createAndInitialize(123, mProfile);
+        tab1.setIsInitialized(true);
+        tab2.setIsInitialized(true);
+
+        assertTrue(mTabModel.willMergingCreateNewGroup(List.of(tab1)));
+        assertTrue(mTabModel.willMergingCreateNewGroup(List.of(tab1, tab2)));
+        assertTrue(mTabModel.willMergingCreateNewGroup(List.of(tab2)));
+
+        tab1.setTabGroupId(new Token(1L, 2L));
+        assertFalse(mTabModel.willMergingCreateNewGroup(List.of(tab1)));
+        assertFalse(mTabModel.willMergingCreateNewGroup(List.of(tab1, tab2)));
+        assertTrue(mTabModel.willMergingCreateNewGroup(List.of(tab2)));
+
+        tab2.setTabGroupId(new Token(3L, 4L));
+        assertFalse(mTabModel.willMergingCreateNewGroup(List.of(tab1)));
+        assertFalse(mTabModel.willMergingCreateNewGroup(List.of(tab1, tab2)));
+        assertFalse(mTabModel.willMergingCreateNewGroup(List.of(tab2)));
+
+        tab1.setTabGroupId(null);
+        assertTrue(mTabModel.willMergingCreateNewGroup(List.of(tab1)));
+        assertFalse(mTabModel.willMergingCreateNewGroup(List.of(tab1, tab2)));
+        assertFalse(mTabModel.willMergingCreateNewGroup(List.of(tab2)));
+    }
+
+    @Test
+    public void testGetRelatedTabList_Basic() {
+        int tabId = 123;
+        MockTab tab1 = MockTab.createAndInitialize(tabId, mProfile);
+        tab1.setIsInitialized(true);
+        mTabModel.addTab(
+                tab1,
+                /* index= */ 0,
+                TabLaunchType.FROM_CHROME_UI,
+                TabCreationState.LIVE_IN_FOREGROUND);
+
+        assertEquals(Collections.emptyList(), mTabModel.getRelatedTabList(43789));
+        assertEquals(Collections.singletonList(tab1), mTabModel.getRelatedTabList(tabId));
+    }
+
+    @Test
+    public void testGetTabsInGroup_Null() {
+        assertEquals(Collections.emptyList(), mTabModel.getTabsInGroup(null));
     }
 }

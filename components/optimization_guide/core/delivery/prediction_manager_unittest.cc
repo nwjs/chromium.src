@@ -24,6 +24,8 @@
 #include "base/test/task_environment.h"
 #include "base/time/time.h"
 #include "build/build_config.h"
+#include "components/component_updater/component_updater_service.h"
+#include "components/component_updater/pref_names.h"
 #include "components/optimization_guide/core/delivery/model_util.h"
 #include "components/optimization_guide/core/delivery/optimization_target_model_observer.h"
 #include "components/optimization_guide/core/delivery/prediction_model_download_manager.h"
@@ -137,11 +139,13 @@ class FakeOptimizationTargetModelObserver
 class FakePredictionModelDownloadManager
     : public PredictionModelDownloadManager {
  public:
-  explicit FakePredictionModelDownloadManager(
+  FakePredictionModelDownloadManager(
+      PrefService* local_state,
       GetBaseModelDirForDownloadCallback
           get_base_model_dir_for_download_callback,
       scoped_refptr<base::SequencedTaskRunner> task_runner)
       : PredictionModelDownloadManager(
+            local_state,
             /*download_service=*/nullptr,
             get_base_model_dir_for_download_callback,
             base::BindRepeating(&unzip::LaunchInProcessUnzipper),
@@ -331,18 +335,14 @@ class TestPredictionManager : public PredictionManager {
   TestPredictionManager(
       PredictionModelStore* prediction_model_store,
       scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory,
-      PrefService* pref_service,
-      ComponentUpdatesEnabledProvider component_updates_enabled_provider,
-      bool off_the_record,
+      PrefService* local_state,
       const std::string& application_locale)
       : PredictionManager(
             prediction_model_store,
             url_loader_factory,
-            pref_service,
-            off_the_record,
+            local_state,
             application_locale,
             &optimization_guide_logger_,
-            component_updates_enabled_provider,
             base::BindRepeating(&unzip::LaunchInProcessUnzipper)) {}
 
   ~TestPredictionManager() override = default;
@@ -376,8 +376,9 @@ class PredictionManagerTestBase : public testing::Test {
     ASSERT_TRUE(temp_dir_.CreateUniqueTempDir());
     local_state_prefs_ = std::make_unique<TestingPrefServiceSimple>();
     prefs::RegisterLocalStatePrefs(local_state_prefs_->registry());
-    pref_service_ = std::make_unique<TestingPrefServiceSimple>();
-    prefs::RegisterProfilePrefs(pref_service_->registry());
+    component_updater::RegisterComponentUpdateServicePrefs(
+        local_state_prefs_->registry());
+    SetFetchModelEnabled(true);
 
     url_loader_factory_ =
         base::MakeRefCounted<network::WeakWrapperSharedURLLoaderFactory>(
@@ -395,11 +396,8 @@ class PredictionManagerTestBase : public testing::Test {
     }
 
     prediction_manager_ = std::make_unique<TestPredictionManager>(
-        prediction_model_store_.get(), url_loader_factory_, pref_service_.get(),
-        base::BindRepeating(
-            &PredictionManagerTestBase::AreComponentUpdatesEnabled,
-            base::Unretained(this)),
-        false, kTestLocale);
+        prediction_model_store_.get(), url_loader_factory_,
+        local_state_prefs_.get(), kTestLocale);
     prediction_manager_->GetPredictionModelFetchTimerForTesting()
         ->SetClockForTesting(task_environment_.GetMockClock());
   }
@@ -422,9 +420,9 @@ class PredictionManagerTestBase : public testing::Test {
     return prediction_model_fetcher;
   }
 
-  void SetStoreInitialized(bool load_models = true,
-                           bool have_models_in_store = true) {
+  void SetStoreInitialized() {
     prediction_manager_->MaybeInitializeModelDownloads(
+        local_state_prefs_.get(),
         /*background_download_service=*/nullptr);
     RunUntilIdle();
     // Move clock forward for any short delays added for the fetcher, until the
@@ -445,6 +443,7 @@ class PredictionManagerTestBase : public testing::Test {
   void CreatePredictionModelDownloadManager() {
     prediction_manager()->SetPredictionModelDownloadManagerForTesting(
         std::make_unique<FakePredictionModelDownloadManager>(
+            local_state_prefs_.get(),
             base::BindRepeating(&PredictionManager::GetBaseModelDirForDownload,
                                 base::Unretained(prediction_manager())),
             task_environment()->GetMainThreadTaskRunner()));
@@ -453,14 +452,13 @@ class PredictionManagerTestBase : public testing::Test {
   FakePredictionModelDownloadManager* prediction_model_download_manager()
       const {
     return static_cast<FakePredictionModelDownloadManager*>(
+        local_state_prefs_.get(),
         base::BindRepeating(&PredictionManager::GetBaseModelDirForDownload,
                             base::Unretained(prediction_manager())),
         prediction_manager()->prediction_model_download_manager());
   }
 
   base::FilePath temp_dir() const { return temp_dir_.GetPath(); }
-
-  TestingPrefServiceSimple* pref_service() const { return pref_service_.get(); }
 
   void RunUntilIdle() {
     task_environment_.RunUntilIdle();
@@ -473,98 +471,25 @@ class PredictionManagerTestBase : public testing::Test {
     return prediction_model_store_.get();
   }
 
-  void SetComponentUpdatesPrefEnabled(bool enabled) {
-    component_updates_enabled_ = enabled;
+  void SetFetchModelEnabled(bool should_fetch_model) {
+    local_state_prefs_->SetBoolean(::prefs::kComponentUpdatesEnabled,
+                                   should_fetch_model);
   }
-
-  bool AreComponentUpdatesEnabled() const { return component_updates_enabled_; }
-
- protected:
-  // |feature_list_| needs to be destroyed after |task_environment_|, to avoid
-  // tsan flakes caused by other tasks running while |feature_list_| is
-  // destroyed.
-  base::test::ScopedFeatureList feature_list_;
 
  private:
   base::test::TaskEnvironment task_environment_{
       base::test::TaskEnvironment::MainThreadType::UI,
       base::test::TaskEnvironment::TimeSource::MOCK_TIME};
   base::ScopedTempDir temp_dir_;
-  std::unique_ptr<TestingPrefServiceSimple> pref_service_;
   std::unique_ptr<TestingPrefServiceSimple> local_state_prefs_;
   scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory_;
   network::TestURLLoaderFactory test_url_loader_factory_;
   std::unique_ptr<TestPredictionModelStore> prediction_model_store_;
   std::unique_ptr<TestPredictionManager> prediction_manager_;
-  bool component_updates_enabled_ = true;
 };
-
-class PredictionManagerRemoteFetchingDisabledTest
-    : public PredictionManagerTestBase {
- public:
-  PredictionManagerRemoteFetchingDisabledTest() {
-    // This needs to be done before any tasks are run that might check if a
-    // feature is enabled, to avoid tsan errors.
-    feature_list_.InitWithFeatures(
-        {}, {features::kRemoteOptimizationGuideFetching});
-  }
-};
-
-TEST_F(PredictionManagerRemoteFetchingDisabledTest, RemoteFetchingDisabled) {
-  CreatePredictionManager();
-
-  prediction_manager()->SetPredictionModelFetcherForTesting(
-      BuildTestPredictionModelFetcher(
-          PredictionModelFetcherEndState::kFetchSuccessWithModels));
-
-  FakeOptimizationTargetModelObserver observer;
-  prediction_manager()->AddObserverForOptimizationTargetModel(
-      proto::OPTIMIZATION_TARGET_PAINFUL_PAGE_LOAD, std::nullopt, &observer);
-  SetStoreInitialized();
-
-  EXPECT_FALSE(prediction_model_fetcher()->models_fetched());
-}
-
-class PredictionManagerModelDownloadingDisabledTest
-    : public PredictionManagerTestBase {
- public:
-  PredictionManagerModelDownloadingDisabledTest() {
-    // This needs to be done before any tasks are run that might check if a
-    // feature is enabled, to avoid tsan errors.
-    feature_list_.InitWithFeatures(
-        {}, {features::kOptimizationGuideModelDownloading});
-  }
-};
-
-TEST_F(PredictionManagerModelDownloadingDisabledTest,
-       ModelDownloadingDisabledShouldNotFetch) {
-  CreatePredictionManager();
-
-  prediction_manager()->SetPredictionModelFetcherForTesting(
-      BuildTestPredictionModelFetcher(
-          PredictionModelFetcherEndState::kFetchSuccessWithModels));
-
-  FakeOptimizationTargetModelObserver observer;
-  prediction_manager()->AddObserverForOptimizationTargetModel(
-      proto::OPTIMIZATION_TARGET_PAINFUL_PAGE_LOAD, std::nullopt, &observer);
-  SetStoreInitialized();
-
-  EXPECT_FALSE(prediction_model_fetcher()->models_fetched());
-}
 
 class PredictionManagerTest : public PredictionManagerTestBase {
  public:
-  PredictionManagerTest() {
-    // This needs to be done before any tasks are run that might check if a
-    // feature is enabled, to avoid tsan errors.
-
-    std::vector<base::test::FeatureRef> enabled_features = {
-        features::kRemoteOptimizationGuideFetching,
-        features::kOptimizationGuideModelDownloading,
-    };
-    feature_list_.InitWithFeatures(enabled_features, {});
-  }
-
   proto::PredictionModel CreatePredictionModelForModelStore(
       proto::OptimizationTarget optimization_target) {
     auto base_model_dir = GetBaseModelDir(optimization_target);
@@ -602,8 +527,8 @@ class PredictionManagerTest : public PredictionManagerTestBase {
       variations::VariationsIdsProvider::Mode::kUseSignedInState};
 };
 
-TEST_F(PredictionManagerTest, RemoteFetchingPrefDisabled) {
-  SetComponentUpdatesPrefEnabled(false);
+TEST_F(PredictionManagerTest, FetchModelDisabled) {
+  SetFetchModelEnabled(false);
   CreatePredictionManager();
 
   prediction_manager()->SetPredictionModelFetcherForTesting(
@@ -618,8 +543,8 @@ TEST_F(PredictionManagerTest, RemoteFetchingPrefDisabled) {
   EXPECT_FALSE(prediction_model_fetcher()->models_fetched());
 }
 
-TEST_F(PredictionManagerTest, RemoteFetchingPrefEnabledAndThenDisabled) {
-  SetComponentUpdatesPrefEnabled(true);
+TEST_F(PredictionManagerTest, FetchModelEnabledAndThenDisabled) {
+  SetFetchModelEnabled(true);
   CreatePredictionManager();
   prediction_manager()->SetPredictionModelFetcherForTesting(
       BuildTestPredictionModelFetcher(
@@ -647,7 +572,7 @@ TEST_F(PredictionManagerTest, RemoteFetchingPrefEnabledAndThenDisabled) {
 
   // No fetch should happen with the pref disabled. But model is still
   // delivered.
-  SetComponentUpdatesPrefEnabled(false);
+  SetFetchModelEnabled(false);
   prediction_manager()->RemoveObserverForOptimizationTargetModel(
       proto::OPTIMIZATION_TARGET_PAINFUL_PAGE_LOAD, &observer);
   MoveClockForwardBy(base::Seconds(kUpdateFetchModelAndFeaturesTimeSecs));
@@ -685,8 +610,7 @@ TEST_F(PredictionManagerTest, AddObserverForOptimizationTargetModel) {
   FakeOptimizationTargetModelObserver observer;
   prediction_manager()->AddObserverForOptimizationTargetModel(
       proto::OPTIMIZATION_TARGET_PAINFUL_PAGE_LOAD, model_metadata, &observer);
-  SetStoreInitialized(/* load_models= */ false,
-                      /* have_models_in_store= */ false);
+  SetStoreInitialized();
 
   histogram_tester.ExpectUniqueSample(
       "OptimizationGuide.PredictionManager.ModelAvailableAtRegistration."
@@ -793,44 +717,64 @@ TEST_F(PredictionManagerTest, AddObserverForOptimizationTargetModel) {
 
 TEST_F(PredictionManagerTest,
        AddObserverForOptimizationTargetModelAddAnotherObserverForSameTarget) {
-  // Fails under "threadsafe" mode.
-  GTEST_FLAG_SET(death_test_style, "fast");
-
   CreatePredictionManager();
 
   FakeOptimizationTargetModelObserver observer1;
   prediction_manager()->AddObserverForOptimizationTargetModel(
       proto::OPTIMIZATION_TARGET_PAINFUL_PAGE_LOAD,
       /*model_metadata=*/std::nullopt, &observer1);
-  SetStoreInitialized(/* load_models= */ false,
-                      /* have_models_in_store= */ false);
+  SetStoreInitialized();
 
   // Ensure observer is hooked up.
-  auto base_model_dir =
+  auto base_model_dir1 =
       GetBaseModelDir(proto::OPTIMIZATION_TARGET_PAINFUL_PAGE_LOAD);
-  prediction_manager()->OnModelReady(
-      base_model_dir, CreatePredictionModelForModelStore(
-                          proto::OPTIMIZATION_TARGET_PAINFUL_PAGE_LOAD));
+  auto model1 = CreatePredictionModelForModelStore(
+      proto::OPTIMIZATION_TARGET_PAINFUL_PAGE_LOAD);
+  model1.mutable_model_info()->set_version(1);
+  prediction_manager()->OnModelReady(base_model_dir1, model1);
   RunUntilIdle();
 
-  EXPECT_EQ(base_model_dir.Append(GetBaseFileNameForModels()),
+  EXPECT_EQ(base_model_dir1.Append(GetBaseFileNameForModels()),
             observer1
                 .last_received_model_for_target(
                     proto::OPTIMIZATION_TARGET_PAINFUL_PAGE_LOAD)
                 ->GetModelFilePath());
 
-#if !BUILDFLAG(IS_WIN)
-  // Do not run the DCHECK death test on Windows since there's some weird
-  // behavior there.
-
-  // Now, register a new observer - it should die.
+  // Now, register a new observer. It should get the model.
   FakeOptimizationTargetModelObserver observer2;
-  EXPECT_DCHECK_DEATH(
-      prediction_manager()->AddObserverForOptimizationTargetModel(
-          proto::OPTIMIZATION_TARGET_PAINFUL_PAGE_LOAD,
-          /*model_metadata=*/std::nullopt, &observer2));
+  prediction_manager()->AddObserverForOptimizationTargetModel(
+      proto::OPTIMIZATION_TARGET_PAINFUL_PAGE_LOAD,
+      /*model_metadata=*/std::nullopt, &observer2);
   RunUntilIdle();
-#endif
+  EXPECT_EQ(base_model_dir1.Append(GetBaseFileNameForModels()),
+            observer2
+                .last_received_model_for_target(
+                    proto::OPTIMIZATION_TARGET_PAINFUL_PAGE_LOAD)
+                ->GetModelFilePath());
+
+  // Now send a new model and make sure both get it.
+  auto base_model_dir2 =
+      GetBaseModelDir(proto::OPTIMIZATION_TARGET_PAINFUL_PAGE_LOAD)
+          .AppendASCII("new_model");
+  auto model2 = CreatePredictionModelForModelStore(
+      proto::OPTIMIZATION_TARGET_PAINFUL_PAGE_LOAD);
+  model2.mutable_model_info()->set_version(2);
+  model2.mutable_model()->set_download_url(
+      FilePathToString(base_model_dir2.Append(GetBaseFileNameForModels())));
+
+  prediction_manager()->OnModelReady(base_model_dir2, model2);
+  RunUntilIdle();
+
+  EXPECT_EQ(base_model_dir2.Append(GetBaseFileNameForModels()),
+            observer1
+                .last_received_model_for_target(
+                    proto::OPTIMIZATION_TARGET_PAINFUL_PAGE_LOAD)
+                ->GetModelFilePath());
+  EXPECT_EQ(base_model_dir2.Append(GetBaseFileNameForModels()),
+            observer2
+                .last_received_model_for_target(
+                    proto::OPTIMIZATION_TARGET_PAINFUL_PAGE_LOAD)
+                ->GetModelFilePath());
 }
 
 // See crbug/1227996.
@@ -868,8 +812,7 @@ TEST_F(PredictionManagerTest,
   FakeOptimizationTargetModelObserver observer;
   prediction_manager()->AddObserverForOptimizationTargetModel(
       proto::OPTIMIZATION_TARGET_PAINFUL_PAGE_LOAD, model_metadata, &observer);
-  SetStoreInitialized(/* load_models= */ false,
-                      /* have_models_in_store= */ false);
+  SetStoreInitialized();
 
   // Make sure no models are fetched.
   EXPECT_FALSE(prediction_model_fetcher()->models_fetched());
@@ -917,7 +860,7 @@ TEST_F(PredictionManagerTest,
   base::HistogramTester histogram_tester;
 
   CreatePredictionManager();
-  SetStoreInitialized(/*load_models=*/false, /*have_models_in_store=*/false);
+  SetStoreInitialized();
   FakeOptimizationTargetModelObserver observer;
   prediction_manager()->AddObserverForOptimizationTargetModel(
       proto::OPTIMIZATION_TARGET_MODEL_VALIDATION, std::nullopt, &observer);
@@ -1045,7 +988,7 @@ TEST_F(PredictionManagerTest, DownloadManagerUnavailableShouldNotFetch) {
   prediction_manager()->AddObserverForOptimizationTargetModel(
       proto::OPTIMIZATION_TARGET_PAINFUL_PAGE_LOAD, std::nullopt, &observer);
 
-  SetStoreInitialized(/*load_models=*/true, /*have_models_in_store=*/false);
+  SetStoreInitialized();
   EXPECT_FALSE(prediction_model_fetcher()->models_fetched());
 
   histogram_tester.ExpectUniqueSample(
@@ -1259,8 +1202,7 @@ TEST_F(PredictionManagerTest, ModelRemovedWhenMissingInGetModelsResponse) {
       proto::OPTIMIZATION_TARGET_PAINFUL_PAGE_LOAD, std::nullopt, &observer);
 
   // Load the model and let it be saved in the store.
-  SetStoreInitialized(/* load_models= */ false,
-                      /* have_models_in_store= */ true);
+  SetStoreInitialized();
   EXPECT_TRUE(prediction_model_fetcher()->models_fetched());
   prediction_manager()->OnModelReady(
       GetBaseModelDir(proto::OPTIMIZATION_TARGET_PAINFUL_PAGE_LOAD),

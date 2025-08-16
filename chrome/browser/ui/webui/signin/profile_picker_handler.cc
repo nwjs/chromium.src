@@ -11,7 +11,6 @@
 #include "base/check_deref.h"
 #include "base/check_op.h"
 #include "base/debug/dump_without_crashing.h"
-#include "base/feature_list.h"
 #include "base/files/file_path.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
@@ -54,10 +53,10 @@
 #include "chrome/common/url_constants.h"
 #include "chrome/common/webui_url_constants.h"
 #include "chrome/grit/generated_resources.h"
+#include "components/prefs/pref_service.h"
 #include "components/signin/public/identity_manager/account_info.h"
 #include "components/signin/public/identity_manager/tribool.h"
 #include "components/startup_metric_utils/browser/startup_metric_utils.h"
-#include "components/supervised_user/core/common/features.h"
 #include "content/public/browser/url_data_source.h"
 #include "content/public/browser/web_ui.h"
 #include "third_party/skia/include/core/SkBitmap.h"
@@ -170,9 +169,7 @@ base::Value::Dict CreateProfileEntry(const ProfileAttributesEntry* entry,
   if (entry->GetIsManaged() == signin::Tribool::kTrue) {
     profile_entry.Set("avatarBadge", "cr:domain");
 #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
-  } else if (base::FeatureList::IsEnabled(
-                 supervised_user::kShowKiteForSupervisedUsers) &&
-             entry->IsSupervised()) {
+  } else if (entry->IsSupervised()) {
     profileCardButtonLabel = l10n_util::GetStringFUTF16(
         IDS_PROFILE_PICKER_PROFILE_CARD_LABEL_SUPERVISED, local_profile_name);
     profile_entry.Set("avatarBadge", "cr:kite");
@@ -367,9 +364,7 @@ void ProfilePickerHandler::HandleLaunchSelectedProfile(
   // If a browser window cannot be opened for profile, show an error message or
   // attempt to unlock the profile in the Profile Picker.
   if (entry.IsSigninRequired()) {
-#if BUILDFLAG(ENABLE_DICE_SUPPORT)
     TryLaunchLockedProfile(entry);
-#endif
     return;
   }
 
@@ -418,7 +413,7 @@ void ProfilePickerHandler::TryLaunchLockedProfile(
   if (entry.GetActiveTime().is_null()) {
     // Triggers a fresh sign in via profile picker without existing email
     // address.
-    ProfilePicker::SwitchToDiceSignIn(
+    ProfilePicker::SwitchToSignIn(
         entry.GetPath(), CombineCallbacks<StepSwitchFinishedCallback, bool>(
                              StepSwitchFinishedCallback(base::BindOnce(
                                  &ProfilePickerHandler::OnLoadSigninFinished,
@@ -743,13 +738,12 @@ void ProfilePickerHandler::HandleSelectNewAccount(
   AllowJavascript();
   CHECK_EQ(1U, args.size());
   std::optional<SkColor> profile_color = args[0].GetIfInt();
-#if BUILDFLAG(ENABLE_DICE_SUPPORT)
   if (signin_util::IsForceSigninEnabled()) {
     // Force sign-in policy uses a separate flow that doesn't initialize the
     // profile color. Generate a new profile color here.
     profile_color = GenerateNewProfileColor().color;
   }
-  ProfilePicker::SwitchToDiceSignIn(
+  ProfilePicker::SwitchToSignIn(
       profile_color, CombineCallbacks<StepSwitchFinishedCallback, bool>(
                          StepSwitchFinishedCallback(base::BindOnce(
                              &ProfilePickerHandler::OnLoadSigninFinished,
@@ -758,9 +752,6 @@ void ProfilePickerHandler::HandleSelectNewAccount(
                              &ProfilePickerHandler::OnResetPickerButtons,
                              weak_factory_.GetWeakPtr())))
                          .value());
-#else
-  NOTERACHED();
-#endif
 }
 
 void ProfilePickerHandler::OnLoadSigninFinished(bool success) {

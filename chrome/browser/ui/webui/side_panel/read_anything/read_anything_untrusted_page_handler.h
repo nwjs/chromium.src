@@ -25,6 +25,7 @@
 #include "mojo/public/cpp/bindings/receiver.h"
 #include "mojo/public/cpp/bindings/remote.h"
 #include "ui/accessibility/ax_action_data.h"
+#include "ui/accessibility/ax_action_handler_registry.h"
 #include "ui/accessibility/ax_updates_and_events.h"
 
 #if BUILDFLAG(IS_CHROMEOS)
@@ -120,6 +121,7 @@ class ReadAnythingUntrustedPageHandler :
   void DidUpdateAudioMutingState(bool muted);
   void WebContentsDestroyed();
   void OnActiveAXTreeIDChanged();
+  bool CheckForPdfContentAfterLoad();
 
   // read_anything::mojom::UntrustedPageHandler:
   void OnVoiceChange(const std::string& voice,
@@ -169,7 +171,8 @@ class ReadAnythingUntrustedPageHandler :
  private:
 #if !BUILDFLAG(IS_CHROMEOS)
   // content::UpdateLanguageStatusDelegate:
-  void OnUpdateLanguageStatus(const std::string& lang,
+  void OnUpdateLanguageStatus(content::BrowserContext* browser_context,
+                              const std::string& lang,
                               content::LanguageInstallStatus install_status,
                               const std::string& error) override;
   // extensions::ExtensionRegistryObserver implementation.
@@ -286,6 +289,11 @@ class ReadAnythingUntrustedPageHandler :
   base::ScopedObservation<translate::TranslateDriver,
                           translate::TranslateDriver::LanguageDetectionObserver>
       translate_observation_{this};
+
+  // Timer used for checking for pdf contents after the page has loaded.
+  // Otherwise, it may incorrectly return that the page is not a pdf if
+  // reading mode checks if a page is a pdf immediately after loading.
+  base::OneShotTimer timer_;
 
   base::WeakPtrFactory<ReadAnythingUntrustedPageHandler> weak_factory_{this};
 };

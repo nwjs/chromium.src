@@ -98,7 +98,7 @@ public class BookmarkBarTest {
     public void setUp() {
         mCtaTestRule.startOnBlankPage();
 
-        BookmarkBarUtils.setFeatureAllowedForTesting(true);
+        BookmarkBarUtils.setActivityStateBookmarkBarCompatibleForTesting(true);
         ThreadUtils.runOnUiThreadBlocking(() -> setBookmarkBarSetting(/* enabled= */ true));
         waitForBookmarkBarVisibility(/* visible= */ true);
         BookmarkTestUtil.waitForBookmarkModelLoaded();
@@ -150,7 +150,7 @@ public class BookmarkBarTest {
         waitForBookmarkBarVisibility(/* visible= */ false);
 
         // Case: Toggle w/ feature disallowed.
-        BookmarkBarUtils.setFeatureAllowedForTesting(false);
+        BookmarkBarUtils.setActivityStateBookmarkBarCompatibleForTesting(false);
         ThreadUtils.runOnUiThreadBlocking(() -> activity.onKeyDown(evt.getKeyCode(), evt));
         waitForBookmarkBarVisibility(/* visible= */ false);
     }
@@ -232,12 +232,12 @@ public class BookmarkBarTest {
         waitForBookmarkBarVisibility(/* visible= */ true);
 
         // Case: Configuration changed to disallow feature.
-        BookmarkBarUtils.setFeatureAllowedForTesting(false);
+        BookmarkBarUtils.setActivityStateBookmarkBarCompatibleForTesting(false);
         ThreadUtils.runOnUiThreadBlocking(this::notifyConfigurationChanged);
         waitForBookmarkBarVisibility(/* visible= */ false);
 
         // Case: Configuration changed to allow feature.
-        BookmarkBarUtils.setFeatureAllowedForTesting(true);
+        BookmarkBarUtils.setActivityStateBookmarkBarCompatibleForTesting(true);
         ThreadUtils.runOnUiThreadBlocking(this::notifyConfigurationChanged);
         waitForBookmarkBarVisibility(/* visible= */ true);
     }
@@ -400,8 +400,15 @@ public class BookmarkBarTest {
                         Criteria.checkThat(view.isLaidOut(), is(true));
                         Criteria.checkThat(viewStub, is(nullValue()));
                     } else {
-                        Criteria.checkThat(view, is(nullValue()));
-                        Criteria.checkThat(viewStub, is(notNullValue()));
+                        // When the BookmarkBar is not visible, it can be that it has not been
+                        // constructed a first time, or it was constructed and is now hidden.
+                        if (viewStub == null) {
+                            // A null viewStub should mean the view is non-null but GONE.
+                            Criteria.checkThat(view, is(notNullValue()));
+                            Criteria.checkThat(view.getVisibility(), is(View.GONE));
+                        } else {
+                            Criteria.checkThat(view, is(nullValue()));
+                        }
                     }
                 });
     }

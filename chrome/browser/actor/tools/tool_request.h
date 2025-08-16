@@ -18,8 +18,9 @@
 
 namespace actor {
 
-class AggregatedJournal;
 class Tool;
+class ToolDelegate;
+class ToolRequestVisitorFunctor;
 
 // Base class for all tool requests. For tools scoped to a tab (e.g. History
 // traversal, Navigate) derive from TabToolRequest. For tools operating in a web
@@ -29,15 +30,29 @@ class ToolRequest {
  public:
   ToolRequest();
   virtual ~ToolRequest();
+  ToolRequest(const ToolRequest& other);
+  ToolRequest& operator=(const ToolRequest& other);
+
+  bool IsTabScoped() const;
+
+  // Returns true if this action will add a tab to the set of observed tasks.
+  virtual bool AddsTabToObservationSet() const;
 
   // Returns the URL to record in the journal when recording entries for this
   // request. This may be empty for requests that aren't tied to a frame/tab or
   // if the scoped object no longer exists.
   virtual GURL GetURLForJournal() const;
 
+  // Returns a handle to the tab being targeted by this request. The default
+  // (non-tab, non-page scoped tool requests) returns a null handle.
+  virtual tabs::TabHandle GetTabHandle() const;
+
   // Returns the name to use for the journal when recording entries for this
   // request.
   virtual std::string JournalEvent() const = 0;
+
+  // TODO(bokan): What does this do?
+  virtual void Apply(ToolRequestVisitorFunctor&) const = 0;
 
   struct CreateToolResult {
     CreateToolResult(std::unique_ptr<Tool> tool, mojom::ActionResultPtr result);
@@ -48,25 +63,28 @@ class ToolRequest {
 
   // Instantiates the tool requested by this object.
   virtual CreateToolResult CreateTool(TaskId task_id,
-                                      AggregatedJournal& journal) const = 0;
+                                      ToolDelegate& tool_delegate) const = 0;
 };
 
 // Tool requests targeting a specific, existing tab should inherit from this
 // subclass.
 class TabToolRequest : public ToolRequest {
  public:
-  explicit TabToolRequest(const tabs::TabInterface::Handle tab_handle);
+  explicit TabToolRequest(const tabs::TabHandle tab_handle);
   ~TabToolRequest() override;
+  TabToolRequest(const TabToolRequest& other);
+  TabToolRequest& operator=(const TabToolRequest& other);
 
   // ToolRequest
   GURL GetURLForJournal() const override;
 
-  // Returns a handle to the tab being targeted by this request. This handle
-  // should never be null but it may be for a tab that is no longer available.
-  tabs::TabInterface::Handle GetTabHandle() const;
+  // Returns a handle to the tab being targeted by this request. For tab scoped
+  // requests this handle will never be a null value but it may point to a tab
+  // that is no longer available.
+  tabs::TabHandle GetTabHandle() const override;
 
  private:
-  tabs::TabInterface::Handle tab_handle_;
+  tabs::TabHandle tab_handle_;
 };
 
 }  // namespace actor

@@ -191,6 +191,8 @@ Preload::PrerenderFinalStatus PrerenderFinalStatusToProtocol(
       return Preload::PrerenderFinalStatusEnum::PrerenderFailedDuringPrefetch;
     case PrerenderFinalStatus::kBrowsingDataRemoved:
       return Preload::PrerenderFinalStatusEnum::BrowsingDataRemoved;
+    case PrerenderFinalStatus::kPrerenderHostReused:
+      return Preload::PrerenderFinalStatusEnum::PrerenderHostReused;
   }
 }
 
@@ -514,6 +516,8 @@ void PreloadHandler::SendInitialPreloadEnabledState() {
       config.ShouldHoldback(
           PreloadingType::kPrerender,
           content::content_preloading_predictor::kSpeculationRules));
+  // TODO(https://crbug.com/428500219): Set holdback status for
+  // prerender-until-script.
 }
 
 void PreloadHandler::SendCurrentPreloadStatus() {

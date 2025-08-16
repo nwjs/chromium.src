@@ -4,6 +4,7 @@
 
 package org.chromium.chrome.browser.tasks.tab_management;
 
+import static org.chromium.build.NullUtil.assumeNonNull;
 import static org.chromium.chrome.browser.tasks.tab_management.MessageService.MessageType.ARCHIVED_TABS_MESSAGE;
 import static org.chromium.chrome.browser.tasks.tab_management.MessageService.MessageType.INCOGNITO_REAUTH_PROMO_MESSAGE;
 import static org.chromium.chrome.browser.tasks.tab_management.MessageService.MessageType.IPH;
@@ -15,6 +16,8 @@ import android.content.Context;
 import androidx.annotation.VisibleForTesting;
 
 import org.chromium.base.supplier.Supplier;
+import org.chromium.build.annotations.NullMarked;
+import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.price_tracking.PriceDropNotificationManagerFactory;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.ui.modelutil.PropertyModel;
@@ -30,6 +33,7 @@ import java.util.Map;
  * This is a {@link MessageService.MessageObserver} that creates and owns different {@link
  * PropertyModel} based on the message type.
  */
+@NullMarked
 public class MessageCardProviderMediator implements MessageService.MessageObserver {
     /** A class represents a Message. */
     public static class Message {
@@ -67,6 +71,7 @@ public class MessageCardProviderMediator implements MessageService.MessageObserv
 
             List<Message> messages = mMessageItems.get(key);
 
+            assumeNonNull(messages);
             assert messages.size() > 0;
             mShownMessageItems.put(key, messages.remove(0));
 
@@ -74,16 +79,18 @@ public class MessageCardProviderMediator implements MessageService.MessageObserv
         }
 
         for (Message message : mShownMessageItems.values()) {
-            message.model.set(
+            PropertyModel model = message.model;
+            if (!model.containsKey(MessageCardViewProperties.IS_INCOGNITO)) continue;
+            model.set(
                     MessageCardViewProperties.IS_INCOGNITO,
                     mProfileSupplier.get().isOffTheRecord());
-            message.model.set(TabListModel.CardProperties.CARD_ALPHA, 1F);
+            model.set(TabListModel.CardProperties.CARD_ALPHA, 1F);
         }
 
         return new ArrayList<>(mShownMessageItems.values());
     }
 
-    Message getNextMessageItemForType(@MessageService.MessageType int messageType) {
+    @Nullable Message getNextMessageItemForType(@MessageService.MessageType int messageType) {
         if (!mShownMessageItems.containsKey(messageType)) {
             if (!mMessageItems.containsKey(messageType)) return null;
 
@@ -96,8 +103,12 @@ public class MessageCardProviderMediator implements MessageService.MessageObserv
         }
 
         Message message = mShownMessageItems.get(messageType);
-        message.model.set(
-                MessageCardViewProperties.IS_INCOGNITO, mProfileSupplier.get().isOffTheRecord());
+        PropertyModel model = message.model;
+        if (model.containsKey(MessageCardViewProperties.IS_INCOGNITO)) {
+            model.set(
+                    MessageCardViewProperties.IS_INCOGNITO,
+                    mProfileSupplier.get().isOffTheRecord());
+        }
         return message;
     }
 
@@ -133,9 +144,8 @@ public class MessageCardProviderMediator implements MessageService.MessageObserv
                         this::invalidateShownMessage,
                         (IncognitoReauthPromoMessageService.IncognitoReauthMessageData) data);
             case ARCHIVED_TABS_MESSAGE:
-                assert data instanceof ArchivedTabsMessageService.ArchivedTabsMessageData;
-                return CustomMessageCardViewModel.create(
-                        ((ArchivedTabsMessageService.ArchivedTabsMessageData) data).getProvider());
+                assert data instanceof ArchivedTabsMessageService.ArchivedTabsMessageProvider;
+                return ((ArchivedTabsMessageService.ArchivedTabsMessageProvider) data).model;
             case TAB_GROUP_SUGGESTION_MESSAGE:
                 assert data
                         instanceof TabGroupSuggestionMessageService.TabGroupSuggestionMessageData;

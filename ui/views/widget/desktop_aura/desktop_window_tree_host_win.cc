@@ -150,15 +150,18 @@ aura::Window* DesktopWindowTreeHostWin::GetContentWindowForHWND(HWND hwnd) {
 void DesktopWindowTreeHostWin::StartTouchDrag(gfx::Point screen_point) {
   // Send a mouse down and mouse move before do drag drop runs its own event
   // loop. This is required for ::DoDragDrop to start the drag.
-  ui::SendMouseEvent(screen_point, MOUSEEVENTF_LEFTDOWN);
-  ui::SendMouseEvent(screen_point, MOUSEEVENTF_MOVE);
+  ui::SendMouseEvent(screen_point,
+                     (MOUSEEVENTF_LEFTDOWN | MOUSEEVENTF_VIRTUALDESK));
+  ui::SendMouseEvent(screen_point,
+                     (MOUSEEVENTF_MOVE | MOUSEEVENTF_VIRTUALDESK));
   in_touch_drag_ = true;
 }
 
 void DesktopWindowTreeHostWin::FinishTouchDrag(gfx::Point screen_point) {
   if (in_touch_drag_) {
     in_touch_drag_ = false;
-    ui::SendMouseEvent(screen_point, MOUSEEVENTF_LEFTUP);
+    ui::SendMouseEvent(screen_point,
+                       (MOUSEEVENTF_LEFTUP | MOUSEEVENTF_VIRTUALDESK));
   }
 }
 
@@ -283,6 +286,19 @@ void DesktopWindowTreeHostWin::CloseNow() {
 
 aura::WindowTreeHost* DesktopWindowTreeHostWin::AsWindowTreeHost() {
   return this;
+}
+
+DesktopWindowTreeHost::WindowTreeHosts
+DesktopWindowTreeHostWin::GetOwnedWindowTreeHosts() {
+  WindowTreeHosts window_tree_hosts;
+  std::vector<HWND> owned_hwns = message_handler_->GetOwnedWindows();
+  for (HWND hwnd : owned_hwns) {
+    if (aura::WindowTreeHost* host =
+            aura::WindowTreeHost::GetForAcceleratedWidget(hwnd)) {
+      window_tree_hosts.insert(host);
+    }
+  }
+  return window_tree_hosts;
 }
 
 void DesktopWindowTreeHostWin::Show(ui::mojom::WindowShowState show_state,
@@ -1197,31 +1213,39 @@ void DesktopWindowTreeHostWin::HandleTouchEvent(ui::TouchEvent* event) {
     return;
   }
   if (in_touch_drag_) {
-    POINT event_point;
-    event_point.x = event->location().x();
-    event_point.y = event->location().y();
+    POINT event_point(event->location().x(), event->location().y());
     ::ClientToScreen(GetHWND(), &event_point);
     gfx::Point screen_point(event_point);
     // When dragging, Windows requires that touch pointer events are translated
     // to mouse pointer events. The drag controller (`DesktopDragDropClientWin`)
     // will manage gesture states until a drop happens.
     if (event->type() == ui::EventType::kTouchMoved) {
-      ui::SendMouseEvent(screen_point, MOUSEEVENTF_MOVE);
+      ui::SendMouseEvent(screen_point,
+                         (MOUSEEVENTF_MOVE | MOUSEEVENTF_VIRTUALDESK));
     } else if (event->type() == ui::EventType::kTouchReleased) {
       FinishTouchDrag(screen_point);
     }
     return;
   }
-  // TODO(crbug.com/40312079) Calling ::SetCursorPos for
-  // ui::EventType::kTouchPressed events here would fix web ui tab strip drags
-  // when the cursor is not over the Chrome window - The TODO is to figure out
-  // if that's reasonable, since it would change the cursor pos on every touch
-  // event. Or figure out if there is a less intrusive way of fixing the cursor
-  // position. If we can do that, we can remove the call to ::SetCursorPos in
-  // DesktopDragDropClientWin::StartDragAndDrop. Note that calling SetCursorPos
-  // at the start of StartDragAndDrop breaks touch drag and drop, so it has to
-  // be called some time before we get to StartDragAndDrop.
-
+  if (event->type() == ui::EventType::kTouchPressed) {
+    display::Screen* screen = display::Screen::GetScreen();
+    CHECK(screen);
+    aura::Window* window =
+        screen->GetWindowAtScreenPoint(screen->GetCursorScreenPoint());
+    bool touch_drag_cursor_sync =
+        base::FeatureList::IsEnabled(features::kEnableTouchDragCursorSync);
+    // If a window is not found at the cursor's screen point, then the mouse is
+    // outside of the browser's window and we need to sync the pointer to enable
+    // drag and drop. Setting the cursor to the touch location doesn't move the
+    // mouse pointer. If the user has their mouse outside of the window when
+    // this sync happens, when they move their mouse again it will show up in
+    // it's original location.
+    if (touch_drag_cursor_sync && !window) {
+      POINT event_point(event->location().x(), event->location().y());
+      ::ClientToScreen(GetHWND(), &event_point);
+      ::SetCursorPos(event_point.x, event_point.y);
+    }
+  }
   // Currently we assume the window that has capture gets touch events too.
   aura::WindowTreeHost* host =
       aura::WindowTreeHost::GetForAcceleratedWidget(GetCapture());

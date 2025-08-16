@@ -156,8 +156,8 @@ id<GREYMatcher> DismissWarningButton() {
 // Matcher for the "Dismiss" button of the confirmation dialog found in a
 // compromised password's details page when trying to dismiss the warning.
 id<GREYMatcher> DismissWarningConfirmationDialogButton() {
-  return ButtonWithAccessibilityLabel(
-      l10n_util::GetNSString(IDS_IOS_DISMISS_WARNING_DIALOG_DISMISS_BUTTON));
+  return chrome_test_util::AlertItemWithAccessibilityLabelId(
+      IDS_IOS_DISMISS_WARNING_DIALOG_DISMISS_BUTTON);
 }
 
 // Matcher for the "Restore Warning" button found in a muted compromised
@@ -452,7 +452,7 @@ NSString* LeakedPasswordDescription() {
 
   // Artificially reset the loading state to idle.
   [PasswordSettingsAppInterface
-      setFakeBulkLeakCheckBufferedState:
+      setFakeBulkLeakCheckBufferedStateAndNotifyObservers:
           password_manager::BulkLeakCheckServiceInterface::State::kIdle];
 
   // Wait for Password Checkup to finish loading.
@@ -501,7 +501,11 @@ NSString* LeakedPasswordDescription() {
 
 // Tests that the Password Checkup Homepage header image view is correctly
 // shown/hidden depending on the device's orientation.
+// TODO(crbug.com/435095080): Reenable this test.
 - (void)testPasswordCheckupHomepageDeviceOrientation {
+  if (![ChromeEarlGrey isIPadIdiom]) {
+    EARL_GREY_TEST_DISABLED(@"Failing on iPhone Simulator");
+  }
   if ([ChromeEarlGrey isIPadIdiom]) {
     EARL_GREY_TEST_SKIPPED(@"Landscape orientation doesn't change the look of "
                            @"the Password Checkup Homepage.");

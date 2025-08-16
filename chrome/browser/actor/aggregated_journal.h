@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "base/containers/ring_buffer.h"
+#include "base/containers/span.h"
 #include "base/memory/safe_ref.h"
 #include "base/memory/weak_ptr.h"
 #include "base/observer_list.h"
@@ -33,6 +34,7 @@ class AggregatedJournal {
   struct Entry {
     std::string url;
     std::optional<std::vector<uint8_t>> jpg_screenshot;
+    std::optional<std::vector<uint8_t>> annotated_page_content;
     mojom::JournalEntryPtr data;
 
     Entry(const std::string& location, mojom::JournalEntryPtr data);
@@ -47,7 +49,7 @@ class AggregatedJournal {
     PendingAsyncEntry(base::PassKey<AggregatedJournal>,
                       base::SafeRef<AggregatedJournal> journal,
                       TaskId task_id,
-                      uint64_t trace_id,
+                      mojom::JournalTrack track,
                       std::string_view event_name);
     ~PendingAsyncEntry();
 
@@ -64,7 +66,7 @@ class AggregatedJournal {
     bool terminated_ = false;
     base::SafeRef<AggregatedJournal> journal_;
     TaskId task_id_;
-    uint64_t trace_id_;
+    mojom::JournalTrack track_;
     std::string event_name_;
   };
 
@@ -84,12 +86,14 @@ class AggregatedJournal {
   std::unique_ptr<PendingAsyncEntry> CreatePendingAsyncEntry(
       const GURL& url,
       TaskId task_id,
+      mojom::JournalTrack track,
       std::string_view event_name,
       std::string_view details);
 
   // Log an instant event.
   void Log(const GURL& url,
            TaskId task_id,
+           mojom::JournalTrack track,
            std::string_view event_name,
            std::string_view details);
 
@@ -98,7 +102,12 @@ class AggregatedJournal {
   void LogScreenshot(const GURL& url,
                      TaskId task_id,
                      std::string_view mime_type,
-                     const std::vector<uint8_t>& data);
+                     base::span<const uint8_t> data);
+
+  // Log Annotated Page Content.
+  void LogAnnotatedPageContent(const GURL& url,
+                               TaskId task_id,
+                               base::span<const uint8_t> data);
 
   void EnsureJournalBound(content::RenderFrameHost& rfh);
   void AppendJournalEntries(content::RenderFrameHost* rfh,
@@ -107,14 +116,13 @@ class AggregatedJournal {
   base::SafeRef<AggregatedJournal> GetSafeRef();
   void AddEndEvent(base::PassKey<AggregatedJournal>,
                    TaskId task_id,
-                   uint64_t trace_id,
+                   mojom::JournalTrack track,
                    const std::string& event_name,
                    std::string_view details);
 
  private:
   void AddEntry(std::unique_ptr<Entry>);
 
-  uint64_t next_trace_id_;
   base::ObserverList<Observer> observers_;
   EntryBuffer entries_;
   base::WeakPtrFactory<AggregatedJournal> weak_ptr_factory_{this};

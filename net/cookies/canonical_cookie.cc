@@ -58,6 +58,7 @@
 #include "base/logging.h"
 #include "base/memory/ptr_util.h"
 #include "base/metrics/histogram_functions.h"
+#include "base/metrics/histogram_macros.h"
 #include "base/rand_util.h"
 #include "base/strings/strcat.h"
 #include "base/strings/string_number_conversions.h"
@@ -178,8 +179,8 @@ CanonicalCookie::~CanonicalCookie() = default;
 
 // static
 Time CanonicalCookie::ParseExpiration(const ParsedCookie& pc,
-                                      const Time& current,
-                                      const Time& server_time) {
+                                      Time current,
+                                      Time server_time) {
   // First, try the Max-Age attribute.
   if (pc.MaxAge().has_value()) {
     int64_t max_age = 0;
@@ -266,8 +267,8 @@ Time CanonicalCookie::ParseExpiration(const ParsedCookie& pc,
 
 // static
 base::Time CanonicalCookie::ValidateAndAdjustExpiryDate(
-    const base::Time& expiry_date,
-    const base::Time& creation_date,
+    base::Time expiry_date,
+    base::Time creation_date,
     net::CookieSourceScheme scheme) {
   if (expiry_date.is_null())
     return expiry_date;
@@ -300,7 +301,7 @@ base::Time CanonicalCookie::ValidateAndAdjustExpiryDate(
 std::unique_ptr<CanonicalCookie> CanonicalCookie::Create(
     const GURL& url,
     std::string_view cookie_line,
-    const base::Time& creation_time,
+    base::Time creation_time,
     std::optional<base::Time> server_time,
     std::optional<CookiePartitionKey> cookie_partition_key,
     CookieSourceType source_type,
@@ -415,8 +416,7 @@ std::unique_ptr<CanonicalCookie> CanonicalCookie::Create(
   if (!status->IsInclude())
     return nullptr;
 
-  CookieSameSiteString samesite_string = CookieSameSiteString::kUnspecified;
-  CookieSameSite samesite = parsed_cookie.SameSite(&samesite_string);
+  auto [samesite, samesite_string] = parsed_cookie.SameSite();
 
   // The next two sections set the source_scheme_ and source_port_. Normally
   // these are taken directly from the url's scheme and port but if the url
@@ -643,11 +643,9 @@ std::unique_ptr<CanonicalCookie> CanonicalCookie::CreateSanitizedCookie(
 
   std::string cookie_path = cookie_util::CanonPathWithString(url, path);
   // Canonicalize path again to make sure it escapes characters as needed.
-  url::Component path_component(0, cookie_path.length());
   url::RawCanonOutputT<char> canon_path;
   url::Component canon_path_component;
-  url::CanonicalizePath(cookie_path.data(), path_component, &canon_path,
-                        &canon_path_component);
+  url::CanonicalizePath(cookie_path, &canon_path, &canon_path_component);
   std::string_view encoded_cookie_path = canon_path.view().substr(
       canon_path_component.begin, canon_path_component.len);
 
@@ -667,8 +665,8 @@ std::unique_ptr<CanonicalCookie> CanonicalCookie::CreateSanitizedCookie(
   }
 
   CookiePrefix prefix = cookie_util::GetCookiePrefix(name);
-  if (!cookie_util::IsCookiePrefixValid(prefix, url, secure, domain_attribute,
-                                        cookie_path)) {
+  if (!cookie_util::IsCookiePrefixValid(prefix, url, secure, http_only,
+                                        domain_attribute, cookie_path)) {
     status->AddExclusionReason(
         net::CookieInclusionStatus::ExclusionReason::EXCLUDE_INVALID_PREFIX);
   }
@@ -749,8 +747,8 @@ std::unique_ptr<CanonicalCookie> CanonicalCookie::FromStorage(
     // not have a valid name+value size length
     bool valid_cookie_name_value_pair =
         ParsedCookie::IsValidCookieNameValuePair(cc->Name(), cc->Value());
-    base::UmaHistogramBoolean("Cookie.FromStorageWithValidLength",
-                              valid_cookie_name_value_pair);
+    UMA_HISTOGRAM_BOOLEAN("Cookie.FromStorageWithValidLength",
+                          valid_cookie_name_value_pair);
   } else {
     return nullptr;
   }
@@ -763,10 +761,10 @@ std::unique_ptr<CanonicalCookie> CanonicalCookie::CreateUnsafeCookieForTesting(
     const std::string& value,
     const std::string& domain,
     const std::string& path,
-    const base::Time& creation,
-    const base::Time& expiration,
-    const base::Time& last_access,
-    const base::Time& last_update,
+    base::Time creation,
+    base::Time expiration,
+    base::Time last_access,
+    base::Time last_update,
     bool secure,
     bool httponly,
     CookieSameSite same_site,
@@ -785,7 +783,7 @@ std::unique_ptr<CanonicalCookie> CanonicalCookie::CreateUnsafeCookieForTesting(
 std::unique_ptr<CanonicalCookie> CanonicalCookie::CreateForTesting(
     const GURL& url,
     const std::string& cookie_line,
-    const base::Time& creation_time,
+    base::Time creation_time,
     std::optional<base::Time> server_time,
     std::optional<CookiePartitionKey> cookie_partition_key,
     CookieSourceType source_type,

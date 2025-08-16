@@ -4,6 +4,7 @@
 
 #include "chrome/browser/actor/tools/type_tool_request.h"
 
+#include "chrome/browser/actor/tools/tool_request_visitor_functor.h"
 #include "chrome/common/actor.mojom.h"
 
 namespace actor {
@@ -11,7 +12,7 @@ namespace actor {
 using ::tabs::TabHandle;
 
 TypeToolRequest::TypeToolRequest(TabHandle tab_handle,
-                                 const Target& target,
+                                 const PageTarget& target,
                                  std::string_view text,
                                  bool follow_by_enter,
                                  Mode mode)
@@ -22,14 +23,16 @@ TypeToolRequest::TypeToolRequest(TabHandle tab_handle,
 
 TypeToolRequest::~TypeToolRequest() = default;
 
+void TypeToolRequest::Apply(ToolRequestVisitorFunctor& f) const {
+  f.Apply(*this);
+}
+
 std::string TypeToolRequest::JournalEvent() const {
   return "Type";
 }
 
 mojom::ToolActionPtr TypeToolRequest::ToMojoToolAction() const {
   auto type = mojom::TypeAction::New();
-
-  type->target = PageToolRequest::ToMojoToolTarget(GetTarget());
 
   type->text = text;
   type->follow_by_enter = follow_by_enter;

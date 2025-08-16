@@ -27,6 +27,7 @@
 #include "components/omnibox/browser/omnibox_controller.h"
 #include "components/omnibox/browser/omnibox_edit_model.h"
 #include "components/omnibox/browser/omnibox_field_trial.h"
+#include "components/omnibox/common/omnibox_feature_configs.h"
 #include "components/omnibox/common/omnibox_features.h"
 #include "components/search/search.h"
 #include "components/search_engines/template_url_service.h"
@@ -42,7 +43,7 @@
 
 #endif
 
-#if BUILDFLAG(ENABLE_EXTENSIONS)
+#if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
 // GN doesn't understand conditional includes, so we need nogncheck here.
 #include "extensions/common/constants.h"  // nogncheck
 #endif
@@ -178,7 +179,18 @@ ui::ImageModel OmniboxView::GetIcon(int dip_size,
                 ->GetTemplateURLService()
                 ->GetTemplateURLForKeyword(match.associated_keyword->keyword)
           : nullptr;
-  const gfx::VectorIcon& vector_icon = match.GetVectorIcon(is_bookmarked, turl);
+  OmniboxAction* action = nullptr;
+  if (match.IsToolbelt() && omnibox_feature_configs::Toolbelt::Get()
+                                .use_action_icons_in_location_bar) {
+    OmniboxPopupSelection selection = model()->GetPopupSelection();
+    if (selection.state == OmniboxPopupSelection::FOCUSED_BUTTON_ACTION &&
+        selection.action_index < match.actions.size()) {
+      action = match.actions[selection.action_index].get();
+    }
+  }
+  const gfx::VectorIcon& vector_icon =
+      action ? action->GetVectorIcon()
+             : match.GetVectorIcon(is_bookmarked, turl);
   const auto& color = (match.type == AutocompleteMatchType::HISTORY_CLUSTER ||
                        match.type == AutocompleteMatchType::STARTER_PACK)
                           ? color_bright_vectors
@@ -327,7 +339,7 @@ void OmniboxView::UpdateTextStyle(
       display_text.substr(scheme.begin, scheme.len);
 
   const bool is_extension_url =
-#if BUILDFLAG(ENABLE_EXTENSIONS)
+#if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
       base::EqualsASCII(url_scheme, extensions::kExtensionScheme);
 #else
       false;

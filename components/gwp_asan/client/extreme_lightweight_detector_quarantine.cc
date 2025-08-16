@@ -9,6 +9,16 @@
 
 namespace gwp_asan::internal {
 
+// Making this non-trivial dtor to allow use of `base::NoDestructor`.
+// This explicit dtor is not needed in most build configurations because
+// `raw_ptr<T>` has a non-trivial dtor. However, `raw_ptr<T>` does not guarantee
+// it and we want to avoid the code here getting affected by `raw_ptr<T>`'s
+// internal implementation.
+// TODO(yukishiino): Make this trivially destructible.
+// NOLINTNEXTLINE(modernize-use-equals-default)
+ExtremeLightweightDetectorQuarantineRoot::
+    ~ExtremeLightweightDetectorQuarantineRoot() {}
+
 ExtremeLightweightDetectorQuarantineBranch
 ExtremeLightweightDetectorQuarantineRoot::CreateBranch(
     const ExtremeLightweightDetectorQuarantineBranchConfig& config) {
@@ -78,8 +88,7 @@ void ExtremeLightweightDetectorQuarantineBranch::Purge() {
 
 bool ExtremeLightweightDetectorQuarantineBranch::Quarantine(
     void* object,
-    partition_alloc::internal::SlotSpanMetadata<
-        partition_alloc::internal::MetadataKind::kReadOnly>* slot_span,
+    partition_alloc::internal::SlotSpanMetadata* slot_span,
     uintptr_t slot_start,
     size_t usable_size) {
   DCHECK(usable_size == root_->allocator_root_->GetSlotUsableSize(slot_span));
@@ -166,15 +175,13 @@ ALWAYS_INLINE void ExtremeLightweightDetectorQuarantineBranch::PurgeInternal(
     const auto& to_free = slots_.back();
     size_t to_free_size = to_free.usable_size;
 
-    auto* slot_span = partition_alloc::internal::SlotSpanMetadata<
-        partition_alloc::internal::MetadataKind::kReadOnly>::
-        FromSlotStart(to_free.slot_start);
+    auto* slot_span =
+        partition_alloc::internal::SlotSpanMetadata::FromSlotStart(
+            to_free.slot_start, &root_->allocator_root_.get());
     void* object =
         root_->allocator_root_->SlotStartToObject(to_free.slot_start);
-    DCHECK(slot_span ==
-           partition_alloc::internal::SlotSpanMetadata<
-               partition_alloc::internal::MetadataKind::kReadOnly>::
-               FromObject(object));
+    DCHECK(slot_span == partition_alloc::internal::SlotSpanMetadata::FromObject(
+                            object, &root_->allocator_root_.get()));
 
     DCHECK(to_free.slot_start);
     root_->allocator_root_
@@ -234,14 +241,12 @@ ALWAYS_INLINE void ExtremeLightweightDetectorQuarantineBranch::BatchFree(
   for (size_t i = 0; i < num_of_slots; ++i) {
     const uintptr_t slot_start = to_be_freed[i];
     DCHECK(slot_start);
-    auto* slot_span = partition_alloc::internal::SlotSpanMetadata<
-        partition_alloc::internal::MetadataKind::kReadOnly>::
-        FromSlotStart(slot_start);
+    auto* slot_span =
+        partition_alloc::internal::SlotSpanMetadata::FromSlotStart(
+            slot_start, &root_->allocator_root_.get());
     void* object = root_->allocator_root_->SlotStartToObject(slot_start);
-    DCHECK(slot_span ==
-           partition_alloc::internal::SlotSpanMetadata<
-               partition_alloc::internal::MetadataKind::kReadOnly>::
-               FromObject(object));
+    DCHECK(slot_span == partition_alloc::internal::SlotSpanMetadata::FromObject(
+                            object, &root_->allocator_root_.get()));
     root_->allocator_root_
         ->FreeNoHooksImmediate<partition_alloc::FreeFlags::kNone>(
             object, slot_span, slot_start);

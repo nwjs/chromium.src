@@ -38,6 +38,7 @@ source_set("model") {
     "//ios/chrome/browser/shared/model/web_state_list",
     "//ios/chrome/browser/shared/public/features",
     "//ios/chrome/browser/shared/ui/util",
+    "//ios/chrome/browser/tabs/model:dependency_installer",
     "//ios/third_party/webkit",
     "//ios/web/public",
     "//ui/gfx",
@@ -56,6 +57,9 @@ source_set("model_common") {
     "snapshot_kind.h",
     "snapshot_scale.h",
     "snapshot_scale.mm",
+    "snapshot_types.h",
+    "snapshot_util.h",
+    "snapshot_util.mm",
     "web_state_snapshot_info.h",
     "web_state_snapshot_info.mm",
   ]
@@ -137,6 +141,10 @@ source_set("unit_tests") {
     "//ui/base:test_support",
     "//ui/gfx",
   ]
+
+  # TODO(crbug.com/40031409): Fix code that adds exit-time destructors and
+  # enable the diagnostic by removing this line.
+  configs += [ "//build/config/compiler:no_exit_time_destructors" ]
 }
 
 source_set("eg2_tests") {

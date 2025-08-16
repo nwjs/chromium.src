@@ -25,6 +25,7 @@
 #include "components/metrics/persistent_histograms.h"
 #include "components/variations/feature_overrides.h"
 #include "components/version_info/version_info.h"
+#include "third_party/blink/public/common/features.h"
 
 #if BUILDFLAG(IS_ANDROID)
 #include "base/android/background_thread_pool_field_trial.h"
@@ -107,8 +108,7 @@ void ChromeBrowserFieldTrials::RegisterFeatureOverrides(
   // processing, namely 'ozone-platform-hint', so do it here.
   //
   // TODO(nickdiego): Move it back to
-  // ChromeMainDelegate::PostEarlyInitialization once ozone-platform-hint flag
-  // is dropped.
+  // ChromeMainDelegate::PostEarlyInitialization.
 
   std::unique_ptr<base::Environment> env = base::Environment::Create();
   std::string xdg_session_type =
@@ -118,12 +118,21 @@ void ChromeBrowserFieldTrials::RegisterFeatureOverrides(
     feature_overrides.DisableFeature(features::kEyeDropper);
   }
 #elif BUILDFLAG(IS_ANDROID)  // BUILDFLAG(IS_LINUX)
+  // TODO(crbug.com/422902880): Remove when tablet rollout is complete.
+  feature_overrides.EnableFeature(
+      base::features::kUseSharedRebindServiceConnection);
+  feature_overrides.EnableFeature(features::kGroupRebindingForGroupImportance);
 #if BUILDFLAG(IS_DESKTOP_ANDROID)
   // Nota bene: Anything here is expected to be short-lived, unless deemed too
   // risky to launch to non-desktop platforms. New features being added here
   // should be the exception, and not the norm. Instead, you should place the
   // override in the generic IS_ANDROID block below, guarded by an appropriate
   // runtime check.
+
+  // If enabled, then use desktop page webprefs for Android devices that have
+  // large displays, specifically tablets and desktops.
+  feature_overrides.EnableFeature(
+      blink::features::kAndroidDesktopWebPrefsLargeDisplays);
 
   // If enabled, render processes associated only with tabs in unfocused windows
   // will be downgraded to "vis" priority, rather than remaining at "fg". This
@@ -142,19 +151,21 @@ void ChromeBrowserFieldTrials::RegisterFeatureOverrides(
   feature_overrides.EnableFeature(features::kUserMediaScreenCapturing);
 
   // Enable desktop tab management features.
-  // TODO(crbug.com/422902880): Remove when tablet rollout is complete.
-  feature_overrides.EnableFeature(
-      base::features::kUseSharedRebindServiceConnection);
   // TODO(crbug.com/422902940): Remove when tablet rollout is complete.
   feature_overrides.EnableFeature(
       base::features::kBackgroundNotPerceptibleBinding);
   // TODO(crbug.com/422902625): Remove when rollout is complete to all form
   // factors.
   feature_overrides.EnableFeature(chrome::android::kProcessRankPolicyAndroid);
-  feature_overrides.EnableFeature(features::kGroupRebindingForGroupImportance);
   feature_overrides.EnableFeature(chrome::android::kProtectedTabsAndroid);
   // TODO(crbug.com/422903297): Remove when tablet rollout is complete.
   feature_overrides.EnableFeature(features::kRendererProcessLimitOnAndroid);
+  // Enable V8 optimizations for high-end Android Desktop devices.
+  // TODO(crbug.com/425860368): Remove when the feature is stable.
+  feature_overrides.EnableFeature(features::kV8AndroidDesktopHighEndConfig);
+  // TODO(b/432367402): Use a new Android API to replace this hack with a proper
+  // solution.
+  feature_overrides.EnableFeature(features::kAndroidCaptureKeyEvents);
 #endif  // BUILDFLAG(IS_DESKTOP_ANDROID)
   // Desktop-first features which are past incubation should either end up here,
   // or to a finch trial that enables it for all form factors.

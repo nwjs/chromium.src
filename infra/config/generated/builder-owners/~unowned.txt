@@ -28,7 +28,6 @@ try/linux-libfuzzer-asan-rel
 try/linux-official
 try/linux-rel
 try/linux-rel-compilator
-try/linux-wayland-rel
 try/linux_chromium_asan_rel_ng
 try/linux_chromium_asan_rel_ng-compilator
 try/linux_chromium_compile_dbg_ng

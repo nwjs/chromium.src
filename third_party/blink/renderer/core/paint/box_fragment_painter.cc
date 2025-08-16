@@ -368,39 +368,6 @@ PaintInfo FloatPaintInfo(const PaintInfo& paint_info) {
   return float_paint_info;
 }
 
-// Helper function for painting a child fragment, when there's any likelihood
-// that we need legacy fallback. If it's guaranteed that legacy fallback won't
-// be necessary, on the other hand, there's no need to call this function. In
-// such cases, call sites may just as well invoke BoxFragmentPainter::Paint()
-// on their own.
-void PaintFragment(const PhysicalBoxFragment& fragment,
-                   const PaintInfo& paint_info) {
-  if (fragment.CanTraverse()) {
-    BoxFragmentPainter(fragment).Paint(paint_info);
-    return;
-  }
-
-  if (fragment.IsHiddenForPaint() ||
-      (!fragment.IsFirstForNode() && !CanPaintMultipleFragments(fragment))) {
-    return;
-  }
-
-  // We are about to enter legacy paint code. This means that the node is
-  // monolithic. However, that doesn't necessarily mean that it only has one
-  // fragment. Repeated table headers / footers may cause multiple fragments,
-  // for instance. Set the FragmentData, to use the right paint offset.
-  PaintInfo modified_paint_info(paint_info);
-  modified_paint_info.SetFragmentDataOverride(fragment.GetFragmentData());
-
-  auto* layout_object = fragment.GetLayoutObject();
-  DCHECK(layout_object);
-  if (fragment.IsPaintedAtomically() && layout_object->IsLayoutReplaced()) {
-    ObjectPainter(*layout_object).PaintAllPhasesAtomically(modified_paint_info);
-  } else {
-    layout_object->Paint(modified_paint_info);
-  }
-}
-
 bool ShouldDelegatePaintingToViewTransition(const PhysicalBoxFragment& fragment,
                                             PaintPhase paint_phase) {
   if (!fragment.GetLayoutObject()) {
@@ -465,6 +432,34 @@ InlinePaintContext& BoxFragmentPainter::EnsureInlineContext() {
   if (!inline_context_)
     inline_context_ = &inline_context_storage_.emplace();
   return *inline_context_;
+}
+
+void BoxFragmentPainter::PaintFragment(const PhysicalBoxFragment& fragment,
+                                       const PaintInfo& paint_info) {
+  if (fragment.CanTraverse()) {
+    BoxFragmentPainter(fragment).Paint(paint_info);
+    return;
+  }
+
+  if (fragment.IsHiddenForPaint() ||
+      (!fragment.IsFirstForNode() && !CanPaintMultipleFragments(fragment))) {
+    return;
+  }
+
+  // We are about to enter legacy paint code. This means that the node is
+  // monolithic. However, that doesn't necessarily mean that it only has one
+  // fragment. Repeated table headers / footers may cause multiple fragments,
+  // for instance. Set the FragmentData, to use the right paint offset.
+  PaintInfo modified_paint_info(paint_info);
+  modified_paint_info.SetFragmentDataOverride(fragment.GetFragmentData());
+
+  auto* layout_object = fragment.GetLayoutObject();
+  DCHECK(layout_object);
+  if (fragment.IsPaintedAtomically() && layout_object->IsLayoutReplaced()) {
+    ObjectPainter(*layout_object).PaintAllPhasesAtomically(modified_paint_info);
+  } else {
+    layout_object->Paint(modified_paint_info);
+  }
 }
 
 void BoxFragmentPainter::Paint(const PaintInfo& paint_info) {
@@ -1465,10 +1460,6 @@ void BoxFragmentPainter::PaintGaps(GridTrackSizingDirection track_direction,
     rule_outset = style.RowRuleOutset();
   }
 
-  rule_colors.ExpandValues();
-  rule_styles.ExpandValues();
-  rule_widths.ExpandValues();
-
   // Determines if the `end_index` should advance when determining pairs for gap
   // decorations. For `kSpanningItem` rule break, decorations break only at "T"
   // intersections, so we simply check that the intersection isn't blocked
@@ -1563,6 +1554,13 @@ void BoxFragmentPainter::PaintGaps(GridTrackSizingDirection track_direction,
                                       : gap_geometry.GetBlockGapSize();
 
   const auto gaps = gap_geometry.GetGapIntersections(track_direction);
+  auto width_iterator =
+      GapDataListIterator<int>(rule_widths.GetGapDataList(), gaps.size());
+  auto style_iterator = GapDataListIterator<EBorderStyle>(
+      rule_styles.GetGapDataList(), gaps.size());
+  auto color_iterator = GapDataListIterator<StyleColor>(
+      rule_colors.GetGapDataList(), gaps.size());
+
   for (wtf_size_t gap_index = 0; gap_index < gaps.size(); ++gap_index) {
     LayoutUnit inline_start;
     LayoutUnit inline_size;
@@ -1573,6 +1571,13 @@ void BoxFragmentPainter::PaintGaps(GridTrackSizingDirection track_direction,
     const auto gap = gaps[gap_index];
     CHECK(!gap.empty());
     const auto num_intersections = gap.size();
+
+    StyleColor rule_color = color_iterator.Next();
+    Color resolved_rule_color = style.VisitedDependentGapColor(
+        rule_color, style, /*is_column_rule=*/track_direction == kForColumns);
+    EBorderStyle rule_style =
+        ComputedStyle::CollapsedBorderStyle(style_iterator.Next());
+    LayoutUnit rule_thickness = LayoutUnit(width_iterator.Next());
 
     // Gap decorations are painted relative to (start, end) pairs of gap
     // intersection points in the center of the corresponding gap and parallel
@@ -1613,14 +1618,6 @@ void BoxFragmentPainter::PaintGaps(GridTrackSizingDirection track_direction,
       LayoutUnit decoration_end_offset =
           LayoutUnit(end_width / 2.0f) - end_outset;
 
-      StyleColor rule_color =
-          rule_colors.GetGapDecorationForGapIndex(gap_index, gaps.size());
-      Color resolved_rule_color = style.VisitedDependentGapColor(
-          rule_color, style, /*is_column_rule=*/track_direction == kForColumns);
-      EBorderStyle rule_style = ComputedStyle::CollapsedBorderStyle(
-          rule_styles.GetGapDecorationForGapIndex(gap_index, gaps.size()));
-      LayoutUnit rule_thickness = LayoutUnit(
-          rule_widths.GetGapDecorationForGapIndex(gap_index, gaps.size()));
       if (track_direction == kForColumns) {
         // For columns, paint a vertical strip at the center of the gap.
         const LayoutUnit center = gap[start].inline_offset;
@@ -1778,7 +1775,8 @@ void BoxFragmentPainter::PaintBoxDecorationBackgroundForBlockInInline(
 // is implemented for multi-column.
 void BoxFragmentPainter::PaintColumnRules(const PaintInfo& paint_info,
                                           const PhysicalOffset& paint_offset) {
-  if (box_fragment_.GetGapGeometry()) {
+  if (box_fragment_.GetGapGeometry() ||
+      RuntimeEnabledFeatures::CSSGapDecorationEnabled()) {
     return;
   }
 

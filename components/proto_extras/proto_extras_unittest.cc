@@ -6,25 +6,23 @@
 #include "components/proto_extras/test_proto/test_proto.equal.h"
 #include "components/proto_extras/test_proto/test_proto.ostream.h"
 #include "components/proto_extras/test_proto/test_proto.pb.h"
+#include "components/proto_extras/test_proto/test_proto.test.h"
 #include "components/proto_extras/test_proto/test_proto.to_value.h"
 #include "components/proto_extras/test_proto/test_proto_dependency.pb.h"
 #include "components/proto_extras/test_proto/test_proto_dependency.to_value.h"
 #include "components/proto_extras/test_proto2/test_proto2.equal.h"
 #include "components/proto_extras/test_proto2/test_proto2.ostream.h"
 #include "components/proto_extras/test_proto2/test_proto2.pb.h"
+#include "components/proto_extras/test_proto2/test_proto2.test.h"
 #include "components/proto_extras/test_proto2/test_proto2.to_value.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 namespace proto_extras {
-
-void PrintTo(const TestMessage& msg, std::ostream* os) {
-  *os << msg;
-}
-
 namespace {
 
 TEST(ProtoExtrasToValueTest, BasicField) {
   TestMessage message;
+  EXPECT_THAT(message, EqualsTestMessage(TestMessage()));
   message.set_double_field(1.0);
   message.set_int32_field(2);
   message.mutable_nested_message_field()->set_int32_field(3);
@@ -150,6 +148,27 @@ TEST(ProtoExtrasToValueTest, OneofField) {
 })!"));
 }
 
+TEST(ProtoExtrasToValueTest, MapField) {
+  TestMessage message;
+  (*message.mutable_primitive_map_field())[1] = "hello";
+  DependencyMessage dependency_message;
+  (*message.mutable_message_map_field())["hello"].set_int32_field(4);
+  EXPECT_EQ(Serialize(message), base::test::ParseJson(R"!({
+    "double_field": 0.0,
+    "int32_field": 0,
+    "enum_field": "UNKNOWN",
+    "uint64_field": "0",
+    "primitive_map_field": {
+      "1": "hello"
+    },
+    "message_map_field": {
+      "hello": {
+        "int32_field": 4
+      }
+    }
+  })!"));
+}
+
 TEST(ProtoExtrasToValueTest, UnknownFields) {
   TestMessage message;
   *message.mutable_unknown_fields() = "unknownfielddata";
@@ -258,6 +277,22 @@ TEST(ProtoExtrasProto2ToValueTest, Uint64Field) {
   })!"));
 }
 
+TEST(ProtoExtrasProto2ToValueTest, MapField) {
+  TestMessageProto2 message;
+  message.mutable_primitive_map_field()->insert({1, "hello"});
+  (*message.mutable_message_map_field())["hello"].set_str_field("world");
+  EXPECT_EQ(Serialize(message), base::test::ParseJson(R"!({
+    "primitive_map_field": {
+      "1": "hello"
+    },
+    "message_map_field": {
+      "hello": {
+        "str_field": "world"
+      }
+    }
+  })!"));
+}
+
 TEST(ProtoExtrasProto2StreamTest, Basic) {
   TestMessageProto2 message;
   message.set_maybe_int(1);
@@ -342,6 +377,33 @@ TEST(ProtoExtrasEquality, EnumField) {
   EXPECT_EQ(msg1, msg2);
   msg2.set_enum_field(TestMessage::ENUM_B);
   EXPECT_NE(msg1, msg2);
+}
+
+TEST(ProtoExtrasEquality, MapField) {
+  TestMessage msg1;
+  TestMessage msg2;
+
+  (*msg1.mutable_primitive_map_field())[1] = "hello";
+  EXPECT_NE(msg1, msg2);
+  (*msg2.mutable_primitive_map_field())[1] = "hello";
+  EXPECT_EQ(msg1, msg2);
+  (*msg1.mutable_primitive_map_field())[2] = "world";
+  EXPECT_NE(msg1, msg2);
+  (*msg2.mutable_primitive_map_field())[2] = "world1";
+  EXPECT_NE(msg1, msg2);
+  (*msg2.mutable_primitive_map_field())[2] = "world";
+  EXPECT_EQ(msg1, msg2);
+
+  (*msg1.mutable_message_map_field())["hello"].set_int32_field(1);
+  EXPECT_NE(msg1, msg2);
+  (*msg2.mutable_message_map_field())["hello"].set_int32_field(1);
+  EXPECT_EQ(msg1, msg2);
+  (*msg1.mutable_message_map_field())["hello2"].set_int32_field(2);
+  EXPECT_NE(msg1, msg2);
+  (*msg2.mutable_message_map_field())["hello2"].set_int32_field(1);
+  EXPECT_NE(msg1, msg2);
+  (*msg2.mutable_message_map_field())["hello2"].set_int32_field(2);
+  EXPECT_EQ(msg1, msg2);
 }
 
 TEST(ProtoExtrasProtoEqualityProto2, Basic) {
@@ -508,6 +570,33 @@ TEST(ProtoExtrasProtoEqualityProto2, EnumField) {
   EXPECT_EQ(msg1, msg2);
   msg2.set_inner_enum(TestMessageProto2::INNER_ENUM_OPTION2);
   EXPECT_NE(msg1, msg2);
+}
+
+TEST(ProtoExtrasProtoEqualityProto2, MapField) {
+  TestMessageProto2 msg1;
+  TestMessageProto2 msg2;
+
+  (*msg1.mutable_primitive_map_field())[1] = "hello";
+  EXPECT_NE(msg1, msg2);
+  (*msg2.mutable_primitive_map_field())[1] = "hello";
+  EXPECT_EQ(msg1, msg2);
+  (*msg1.mutable_primitive_map_field())[2] = "world";
+  EXPECT_NE(msg1, msg2);
+  (*msg2.mutable_primitive_map_field())[2] = "world1";
+  EXPECT_NE(msg1, msg2);
+  (*msg2.mutable_primitive_map_field())[2] = "world";
+  EXPECT_EQ(msg1, msg2);
+
+  (*msg1.mutable_message_map_field())["hello"].set_str_field("world");
+  EXPECT_NE(msg1, msg2);
+  (*msg2.mutable_message_map_field())["hello"].set_str_field("world");
+  EXPECT_EQ(msg1, msg2);
+  (*msg1.mutable_message_map_field())["hello2"].set_str_field("world2");
+  EXPECT_NE(msg1, msg2);
+  (*msg2.mutable_message_map_field())["hello2"].set_str_field("world1");
+  EXPECT_NE(msg1, msg2);
+  (*msg2.mutable_message_map_field())["hello2"].set_str_field("world2");
+  EXPECT_EQ(msg1, msg2);
 }
 
 }  // namespace

@@ -24,4 +24,8 @@ void SyncableService::StayStoppedAndMaybeClearData(DataType type) {
   // method for the relevant syncable services.
 }
 
+bool SyncableService::SupportsGetClientTag() const {
+  return true;
+}
+
 }  // namespace syncer

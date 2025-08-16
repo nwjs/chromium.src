@@ -41,7 +41,9 @@ class FrameSinkId;
 class BackToTabLabelButton;
 class CloseImageButton;
 class HangUpButton;
+class OverlayControlsFadeAnimation;
 class OverlayWindowBackToTabButton;
+class OverlayWindowLiveCaptionButton;
 class OverlayWindowLiveCaptionDialog;
 class OverlayWindowMinimizeButton;
 class PictureInPictureTucker;
@@ -77,6 +79,9 @@ class VideoOverlayWindowViews : public content::VideoOverlayWindow,
   // The amount of time to keep the controls hidden after a widget move.
   static constexpr base::TimeDelta kControlHideDelayAfterMove =
       base::Milliseconds(100);
+
+  // The amount of time to display the title and top controls scrim.
+  static constexpr base::TimeDelta kTitleShowDuration = base::Seconds(5);
 
   // VideoOverlayWindow:
   void Close() override;
@@ -125,7 +130,8 @@ class VideoOverlayWindowViews : public content::VideoOverlayWindow,
 
   // views::ViewObserver:
   void OnViewVisibilityChanged(views::View* observed_view,
-                               views::View* starting_view) override;
+                               views::View* starting_view,
+                               bool visible) override;
 
   // PictureInPictureWindow:
   void SetForcedTucking(bool tuck) override;
@@ -152,6 +158,8 @@ class VideoOverlayWindowViews : public content::VideoOverlayWindow,
   content::PictureInPictureWindowController* GetController() const;
   views::View* GetWindowBackgroundView() const;
   views::View* GetControlsContainerView() const;
+  views::View* GetTitleView() const;
+  views::View* GetControlsTopScrimView() const;
 
   gfx::Size& GetNaturalSize();
 
@@ -164,7 +172,9 @@ class VideoOverlayWindowViews : public content::VideoOverlayWindow,
   // Updates the controls view::Views to reflect |is_visible|. If the window is
   // currently in motion, the update is queued until the end of motion. If
   // multiple updates are requested, only the last update will be applied.
-  void UpdateControlsVisibility(bool is_visible);
+  // When `should_animate` is true, there will be fade animation to the new
+  // state.
+  void UpdateControlsVisibility(bool is_visible, bool should_animate = true);
 
   // Gets the bounds of the controls.
   gfx::Rect GetBackToTabControlsBounds();
@@ -201,7 +211,7 @@ class VideoOverlayWindowViews : public content::VideoOverlayWindow,
   global_media_controls::MediaProgressView* progress_view_for_testing() const;
   views::Label* timestamp_for_testing() const;
   views::Label* live_status_for_testing() const;
-  SimpleOverlayWindowImageButton* live_caption_button_for_testing() const;
+  OverlayWindowLiveCaptionButton* live_caption_button_for_testing() const;
   OverlayWindowLiveCaptionDialog* live_caption_dialog_for_testing() const;
   views::ImageView* favicon_view_for_testing() const;
   views::Label* origin_for_testing() const;
@@ -215,8 +225,13 @@ class VideoOverlayWindowViews : public content::VideoOverlayWindow,
   views::View* window_background_view_for_testing() const {
     return window_background_view_;
   }
+  views::View* title_view_for_testing() const;
+  views::View* controls_top_scrim_view_for_testing() const;
+  base::OneShotTimer& initial_title_hide_timer_for_testing();
 
-  void ForceControlsVisibleForTesting(bool visible);
+  void ForceControlsVisibleForTesting(
+      bool controls_visible,
+      std::optional<bool> title_and_scrim_visible = std::nullopt);
   void StopForcingControlsVisibleForTesting();
 
   void set_overlay_view_cb_for_testing(GetOverlayViewCb get_overlay_view_cb) {
@@ -241,11 +256,15 @@ class VideoOverlayWindowViews : public content::VideoOverlayWindow,
 
   void FinishTuckAnimationForTesting();
 
+  bool AreTitleAndScrimVisibleForTesting() const;
+
  protected:
   explicit VideoOverlayWindowViews(
       content::VideoPictureInPictureWindowController* controller);
 
  private:
+  friend class VideoPictureInPictureWindowControllerBrowserTest;
+
   // Return the work area for the nearest display the widget is on.
   gfx::Rect GetWorkAreaForWindow() const;
 
@@ -337,9 +356,29 @@ class VideoOverlayWindowViews : public content::VideoOverlayWindow,
                             base::TimeDelta duration);
 
   void OnLiveCaptionButtonPressed();
+  void SetLiveCaptionDialogVisibility(bool wanted_visibility);
 
   void OnFaviconReceived(const SkBitmap& image);
   void UpdateFavicon(const gfx::ImageSkia& favicon);
+
+  // Called when the timer to initially show the title view fires.
+  void OnInitialTitleTimerFired();
+
+  // Returns true if the title and top scrim are visible.
+  bool AreTitleAndScrimVisible() const;
+
+  bool HasHighMediaEngagement(const url::Origin& origin) const;
+
+  // Returns true if the current Picture-in-Picture window is trusted for media
+  // playback.
+  //
+  // A Picture-in-Picture window is trusted for media playback if all of the
+  // following conditions are met:
+  //    * `MediaSession` exists
+  //    * `MediaSession` routed frame exists
+  //    * The `MediaSession` routed frame is the primary main frame
+  //    * The origin URL has high media engagement or is a file
+  bool IsTrustedForMediaPlayback() const;
 
   // Not owned; |controller_| owns |this|.
   raw_ptr<content::VideoPictureInPictureWindowController> controller_;
@@ -371,13 +410,22 @@ class VideoOverlayWindowViews : public content::VideoOverlayWindow,
   // Automatically hides the controls a few seconds after user tap gesture.
   base::RetainingOneShotTimer hide_controls_timer_;
 
+  // Automatically hides the title view a few seconds after the window is first
+  // shown.
+  base::OneShotTimer initial_title_hide_timer_;
+
   // Used to track movement of the window. The mouse movement and the window
   // movement can cause the overlay to flicker, because mouse movement shows
   // the overlay while the window movement hides the overlay. A timer is used
   // to prevent the rapid changes between states.
   base::RetainingOneShotTimer enable_controls_after_move_timer_;
   bool is_moving_ = false;
-  std::optional<bool> queued_controls_visibility_status_;
+
+  struct VisibilityStatus {
+    bool is_visible;
+    bool should_animate;
+  };
+  std::optional<VisibilityStatus> queued_controls_visibility_status_;
 
   // Timer used to update controls bounds.
   std::unique_ptr<base::OneShotTimer> update_controls_bounds_timer_;
@@ -386,6 +434,11 @@ class VideoOverlayWindowViews : public content::VideoOverlayWindow,
   // and hiding automatically. Only used for testing via
   // ForceControlsVisibleForTesting().
   std::optional<bool> force_controls_visible_;
+
+  // If set, title and scrim will always either be shown or hidden, instead of
+  // showing and hiding automatically. Only used for testing via
+  // ForceControlsVisibleForTesting().
+  std::optional<bool> force_title_and_scrim_visible_;
 
   // Views to be shown. The views are first temporarily owned by view_holder_,
   // then passed to this widget's ContentsView which takes ownership.
@@ -420,9 +473,10 @@ class VideoOverlayWindowViews : public content::VideoOverlayWindow,
   raw_ptr<global_media_controls::MediaProgressView> progress_view_ = nullptr;
   raw_ptr<views::Label> timestamp_ = nullptr;
   raw_ptr<views::Label> live_status_ = nullptr;
-  raw_ptr<SimpleOverlayWindowImageButton> live_caption_button_ = nullptr;
+  raw_ptr<OverlayWindowLiveCaptionButton> live_caption_button_ = nullptr;
   raw_ptr<OverlayWindowLiveCaptionDialog> live_caption_dialog_ = nullptr;
   raw_ptr<AutoPipSettingOverlayView> overlay_view_ = nullptr;
+  raw_ptr<views::View> title_view_ = nullptr;
 
 #if BUILDFLAG(IS_CHROMEOS)
   // Generates a nine patch layer painted with a highlight border for ChromeOS
@@ -478,6 +532,15 @@ class VideoOverlayWindowViews : public content::VideoOverlayWindow,
   // Used to tuck/untuck this widget into the side of the screen.
   std::unique_ptr<PictureInPictureTucker> tucker_;
   bool is_tucking_forced_ = false;
+
+  // Used for when the controls change visibility.
+  std::unique_ptr<OverlayControlsFadeAnimation> fade_animation_;
+
+  // Used for when the title changes visibility. The title and controls top
+  // scrim must be animated together.
+  std::unique_ptr<OverlayControlsFadeAnimation> title_fade_animation_;
+  std::unique_ptr<OverlayControlsFadeAnimation>
+      controls_top_scrim_fade_animation_;
 
   // Callback to get / create an overlay view.  This is a callback to let tests
   // provide alternate implementations.

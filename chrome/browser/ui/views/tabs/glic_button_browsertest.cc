@@ -7,10 +7,9 @@
 #include "base/test/run_until.h"
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/glic/fre/glic_fre_controller.h"
-#include "chrome/browser/glic/glic_keyed_service.h"
-#include "chrome/browser/glic/glic_keyed_service_factory.h"
 #include "chrome/browser/glic/glic_pref_names.h"
-#include "chrome/browser/glic/resources/grit/glic_browser_resources.h"
+#include "chrome/browser/glic/public/glic_keyed_service.h"
+#include "chrome/browser/glic/public/glic_keyed_service_factory.h"
 #include "chrome/browser/glic/test_support/glic_test_util.h"
 #include "chrome/browser/glic/widget/glic_window_controller.h"
 #include "chrome/browser/profiles/profile.h"
@@ -20,7 +19,9 @@
 #include "chrome/browser/ui/views/frame/tab_strip_region_view.h"
 #include "chrome/browser/ui/views/tabs/tab_strip_action_container.h"
 #include "chrome/common/chrome_features.h"
+#include "chrome/grit/branded_strings.h"
 #include "chrome/test/base/in_process_browser_test.h"
+#include "components/prefs/pref_service.h"
 #include "content/public/test/browser_test.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/mojom/menu_source_type.mojom-shared.h"
@@ -121,7 +122,6 @@ IN_PROC_BROWSER_TEST_F(GlicButtonTest, TooltipAndA11yTextWhileGlicFreOpen) {
 }
 
 // Tests using programmatic window activation are flaky on Linux.
-
 // TODO(crbug.com/428742560): De-flake for Linux.
 #if BUILDFLAG(IS_LINUX)
 #define MAYBE_TooltipAndA11yTextWhileGlicWindowOpen \

@@ -125,6 +125,10 @@ HttpAuthManager* PasswordManagerClient::GetHttpAuthManager() {
   return nullptr;
 }
 
+OtpManager* PasswordManagerClient::GetOtpManager() {
+  return nullptr;
+}
+
 autofill::AutofillCrowdsourcingManager*
 PasswordManagerClient::GetAutofillCrowdsourcingManager() {
   return nullptr;
@@ -198,5 +202,10 @@ void PasswordManagerClient::RefreshPasswordManagerSettingsIfNeeded() const {
 
 void PasswordManagerClient::TriggerSignIn(
     signin_metrics::AccessPoint access_point) const {}
+
+UndoPasswordChangeController*
+PasswordManagerClient::GetUndoPasswordChangeController() {
+  return nullptr;
+}
 
 }  // namespace password_manager

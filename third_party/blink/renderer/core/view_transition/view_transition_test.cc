@@ -119,7 +119,7 @@ class ViewTransitionTest : public testing::Test,
   }
 
   void SetHtmlInnerHTML(const String& content) {
-    GetDocument().body()->setInnerHTML(content);
+    GetDocument().body()->SetInnerHTMLWithoutTrustedTypes(content);
     UpdateAllLifecyclePhasesForTest();
   }
 
@@ -149,7 +149,7 @@ class ViewTransitionTest : public testing::Test,
 
   void ValidatePseudoElementTree(
       Element* scope,
-      const Vector<WTF::AtomicString>& view_transition_names,
+      const Vector<AtomicString>& view_transition_names,
       bool has_incoming_image) {
     auto* transition_pseudo = scope->GetPseudoElement(kPseudoIdViewTransition);
     ASSERT_TRUE(transition_pseudo);
@@ -742,7 +742,10 @@ TEST_P(ViewTransitionTest, ScopedPseudoTree) {
       kPseudoIdViewTransition));
 
   UpdateAllLifecyclePhasesForTest();
+  EXPECT_EQ(GetState(transition), State::kPendingDone);
+  test::RunPendingTasks();
   EXPECT_EQ(GetState(transition), State::kFinished);
+  UpdateAllLifecyclePhasesForTest();
 
   EXPECT_FALSE(scope_element->GetPseudoElement(kPseudoIdViewTransition));
 }
@@ -1509,12 +1512,12 @@ TEST_P(ViewTransitionTest, SubframeSnapshotLayer) {
   ASSERT_TRUE(transition);
 
   UpdateAllLifecyclePhasesForTest();
-  auto layer = transition->GetSubframeSnapshotLayer();
+  auto layer = transition->GetScopeSnapshotLayer();
   ASSERT_TRUE(layer);
   EXPECT_TRUE(layer->is_live_content_layer_for_testing());
 
   child_document.GetPage()->GetChromeClient().WillCommitCompositorFrame();
-  auto new_layer = transition->GetSubframeSnapshotLayer();
+  auto new_layer = transition->GetScopeSnapshotLayer();
   ASSERT_TRUE(new_layer);
   EXPECT_NE(layer, new_layer);
   EXPECT_FALSE(new_layer->is_live_content_layer_for_testing());
@@ -1522,7 +1525,8 @@ TEST_P(ViewTransitionTest, SubframeSnapshotLayer) {
 
 TEST_P(ViewTransitionTest, ReplaceDocumentElement) {
   auto* document = &GetDocument();
-  document->documentElement()->setInnerHTML("<body>initial</body>");
+  document->documentElement()->SetInnerHTMLWithoutTrustedTypes(
+      "<body>initial</body>");
   UpdateAllLifecyclePhasesForTest();
 
   ScriptState* script_state = GetScriptState();
@@ -1531,7 +1535,7 @@ TEST_P(ViewTransitionTest, ReplaceDocumentElement) {
   auto lambda = [](const v8::FunctionCallbackInfo<v8::Value>& info) {
     auto* doc = static_cast<Document*>(info.Data().As<v8::External>()->Value());
     auto* new_root = doc->CreateElementForBinding(AtomicString("html"));
-    new_root->setInnerHTML(R"HTML(
+    new_root->SetInnerHTMLWithoutTrustedTypes(R"HTML(
       <body>
         <style>
           ::view-transition-group(*) { animation-duration: 0s; }
@@ -1555,6 +1559,8 @@ TEST_P(ViewTransitionTest, ReplaceDocumentElement) {
 
   UpdateAllLifecyclePhasesForTest();
   UpdateAllLifecyclePhasesForTest();
+  EXPECT_EQ(GetState(transition), State::kPendingDone);
+  test::RunPendingTasks();
   EXPECT_EQ(GetState(transition), State::kFinished);
 
   EXPECT_TRUE(
@@ -1563,7 +1569,8 @@ TEST_P(ViewTransitionTest, ReplaceDocumentElement) {
 
 TEST_P(ViewTransitionTest, ReplaceBody) {
   auto* document = &GetDocument();
-  document->documentElement()->setInnerHTML("<body>initial</body>");
+  document->documentElement()->SetInnerHTMLWithoutTrustedTypes(
+      "<body>initial</body>");
   UpdateAllLifecyclePhasesForTest();
 
   ScriptState* script_state = GetScriptState();
@@ -1571,7 +1578,7 @@ TEST_P(ViewTransitionTest, ReplaceBody) {
 
   auto lambda = [](const v8::FunctionCallbackInfo<v8::Value>& info) {
     auto* doc = static_cast<Document*>(info.Data().As<v8::External>()->Value());
-    doc->documentElement()->setInnerHTML(R"HTML(
+    doc->documentElement()->SetInnerHTMLWithoutTrustedTypes(R"HTML(
       <body>
         <style>
           ::view-transition-group(*) { animation-duration: 0s; }
@@ -1594,6 +1601,8 @@ TEST_P(ViewTransitionTest, ReplaceBody) {
 
   UpdateAllLifecyclePhasesForTest();
   UpdateAllLifecyclePhasesForTest();
+  EXPECT_EQ(GetState(transition), State::kPendingDone);
+  test::RunPendingTasks();
   EXPECT_EQ(GetState(transition), State::kFinished);
 
   EXPECT_FALSE(

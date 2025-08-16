@@ -37,19 +37,29 @@ public class TabProperties {
     @IntDef({
         UiType.TAB,
         UiType.STRIP,
-        UiType.MESSAGE,
-        UiType.LARGE_MESSAGE,
-        UiType.CUSTOM_MESSAGE,
-        UiType.TAB_GROUP
+        UiType.TAB_GROUP,
+        UiType.PRICE_MESSAGE,
+        UiType.INCOGNITO_REAUTH_PROMO_MESSAGE,
+        UiType.ARCHIVED_TABS_IPH_MESSAGE,
+        UiType.ARCHIVED_TABS_MESSAGE,
+        UiType.TAB_GROUP_SUGGESTION_MESSAGE,
+        UiType.IPH_MESSAGE,
+        UiType.COLLABORATION_ACTIVITY_MESSAGE,
     })
     @Retention(RetentionPolicy.SOURCE)
     public @interface UiType {
         int TAB = 0;
         int STRIP = 1;
-        int MESSAGE = 2;
-        int LARGE_MESSAGE = 3;
-        int CUSTOM_MESSAGE = 4;
-        int TAB_GROUP = 5;
+        int TAB_GROUP = 2;
+
+        // Message Cards
+        int PRICE_MESSAGE = 3;
+        int INCOGNITO_REAUTH_PROMO_MESSAGE = 4;
+        int ARCHIVED_TABS_MESSAGE = 5;
+        int ARCHIVED_TABS_IPH_MESSAGE = 6;
+        int TAB_GROUP_SUGGESTION_MESSAGE = 7;
+        int IPH_MESSAGE = 8;
+        int COLLABORATION_ACTIVITY_MESSAGE = 9;
     }
 
     /** IDs for possible tab action states. */
@@ -160,6 +170,9 @@ public class TabProperties {
     public static final WritableObjectPropertyKey<String> TAB_GROUP_SYNC_ID =
             new WritableObjectPropertyKey<>();
 
+    /** The {@link org.chromium.chrome.browser.tab.TabImpl.MediaState} indicator of the tab. */
+    public static final WritableIntPropertyKey MEDIA_INDICATOR = new WritableIntPropertyKey();
+
     private static final PropertyKey[] COMMON_KEYS_TAB_AND_GROUP_GRID =
             new PropertyKey[] {
                 IS_INCOGNITO,
@@ -198,7 +211,8 @@ public class TabProperties {
                         SHOULD_SHOW_PRICE_DROP_TOOLTIP,
                         HAS_NOTIFICATION_BUBBLE,
                         TAB_CARD_LABEL_DATA,
-                        IS_HIGHLIGHTED
+                        IS_HIGHLIGHTED,
+                        MEDIA_INDICATOR
                     },
                     COMMON_KEYS_TAB_AND_GROUP_GRID);
 

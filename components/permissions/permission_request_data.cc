@@ -12,7 +12,7 @@
 namespace permissions {
 
 PermissionRequestData::PermissionRequestData(
-    ContentSettingPermissionContextBase* context,
+    PermissionContextBase* context,
     const PermissionRequestID& id,
     const content::PermissionRequestDescription& request_description,
     const GURL& canonical_requesting_origin,
@@ -36,35 +36,32 @@ PermissionRequestData::PermissionRequestData(
 }
 
 PermissionRequestData::PermissionRequestData(
-    ContentSettingPermissionContextBase* context,
+    std::unique_ptr<permissions::PermissionResolver> resolver,
     const PermissionRequestID& id,
     bool user_gesture,
     const GURL& requesting_origin,
     const GURL& embedding_origin)
-    : request_type(ContentSettingsTypeToRequestTypeIfExists(
-          context->content_settings_type())),
+    : request_type(resolver->GetRequestType()),
+      resolver(std::move(resolver)),
       id(id),
       user_gesture(user_gesture),
       embedded_permission_element_initiated(false),
       requesting_origin(requesting_origin),
-      embedding_origin(embedding_origin) {
-  resolver = context->CreateRequestIndependentPermissionResolver();
-}
+      embedding_origin(embedding_origin) {}
 
 PermissionRequestData::PermissionRequestData(
     std::unique_ptr<permissions::PermissionResolver> resolver,
     bool user_gesture,
     const GURL& requesting_origin,
     const GURL& embedding_origin)
-    : request_type(resolver->GetRequestType()),
-      resolver(std::move(resolver)),
-      id(PermissionRequestID(
-          content::GlobalRenderFrameHostId(0, 0),
-          permissions::PermissionRequestID::RequestLocalId())),
-      user_gesture(user_gesture),
-      embedded_permission_element_initiated(false),
-      requesting_origin(requesting_origin),
-      embedding_origin(embedding_origin) {}
+    : PermissionRequestData(
+          std::move(resolver),
+          PermissionRequestID(
+              content::GlobalRenderFrameHostId(0, 0),
+              permissions::PermissionRequestID::RequestLocalId()),
+          user_gesture,
+          requesting_origin,
+          embedding_origin) {}
 
 PermissionRequestData& PermissionRequestData::operator=(
     PermissionRequestData&&) = default;

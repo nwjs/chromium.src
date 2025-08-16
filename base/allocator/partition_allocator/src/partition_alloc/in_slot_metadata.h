@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/40284755): Remove this and spanify to fix the errors.
+#pragma allow_unsafe_buffers
+#endif
+
 #ifndef PARTITION_ALLOC_IN_SLOT_METADATA_H_
 #define PARTITION_ALLOC_IN_SLOT_METADATA_H_
 
@@ -243,9 +248,8 @@ class PA_COMPONENT_EXPORT(PARTITION_ALLOC) InSlotMetadata {
 
   // Returns true if the allocation should be reclaimed.
   // This function should be called by the allocator during Free().
-  PA_ALWAYS_INLINE bool ReleaseFromAllocator(
-      uintptr_t slot_start,
-      SlotSpanMetadata<MetadataKind::kReadOnly>* slot_span) {
+  PA_ALWAYS_INLINE bool ReleaseFromAllocator(uintptr_t slot_start,
+                                             SlotSpanMetadata* slot_span) {
     CheckCookieIfSupported();
 
     CountType old_count =
@@ -296,9 +300,8 @@ class PA_COMPONENT_EXPORT(PARTITION_ALLOC) InSlotMetadata {
   }
 
   // Assertion to allocation which ought to be alive.
-  PA_ALWAYS_INLINE void EnsureAlive(
-      uintptr_t slot_start,
-      SlotSpanMetadata<MetadataKind::kReadOnly>* slot_span) {
+  PA_ALWAYS_INLINE void EnsureAlive(uintptr_t slot_start,
+                                    SlotSpanMetadata* slot_span) {
     CountType count = count_.load(std::memory_order_relaxed);
     if (!(count & kMemoryHeldByAllocatorBit)) {
       DoubleFreeOrCorruptionDetected(count, slot_start, slot_span);
@@ -448,7 +451,7 @@ class PA_COMPONENT_EXPORT(PARTITION_ALLOC) InSlotMetadata {
   PA_NOINLINE PA_NOT_TAIL_CALLED static void DoubleFreeOrCorruptionDetected(
       CountType count,
       uintptr_t slot_start,
-      SlotSpanMetadata<MetadataKind::kReadOnly>*);
+      SlotSpanMetadata*);
 
   // Note that in free slots, this is overwritten by encoded freelist
   // pointer(s). The way the pointers are encoded on 64-bit little-endian

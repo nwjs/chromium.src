@@ -105,6 +105,7 @@ void CustomElementRegistry::Trace(Visitor* visitor) const {
   visitor->Trace(when_defined_promise_map_);
   visitor->Trace(associated_documents_);
   ScriptWrappable::Trace(visitor);
+  ElementRareDataField::Trace(visitor);
 }
 
 CustomElementDefinition* CustomElementRegistry::define(
@@ -370,7 +371,7 @@ void CustomElementRegistry::CollectCandidates(
     if (!element || !desc.Matches(*element))
       continue;
     if (RuntimeEnabledFeatures::ScopedCustomElementRegistryEnabled()) {
-      if (CustomElement::Registry(*element) != this) {
+      if ((*element).customElementRegistry() != this) {
         // The element has been moved away from the original tree scope and no
         // longer uses this registry.
         continue;

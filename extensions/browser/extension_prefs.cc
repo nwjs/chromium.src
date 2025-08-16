@@ -2266,7 +2266,7 @@ void ExtensionPrefs::RegisterProfilePrefs(
   // defined.
   registry->RegisterIntegerPref(kCorruptedDisableCount.name, 0);
 
-#if BUILDFLAG(ENABLE_SUPERVISED_USERS) && BUILDFLAG(ENABLE_EXTENSIONS_CORE)
+#if BUILDFLAG(ENABLE_SUPERVISED_USERS)
   registry->RegisterBooleanPref(
       prefs::kSupervisedUserExtensionsMayRequestPermissions, false);
   registry->RegisterBooleanPref(prefs::kSkipParentApprovalToInstallExtensions,
@@ -2276,8 +2276,7 @@ void ExtensionPrefs::RegisterProfilePrefs(
       user_prefs::PrefRegistrySyncable::SYNCABLE_PREF);
   registry->RegisterDictionaryPref(
       prefs::kSupervisedUserLocallyParentApprovedExtensions);
-#endif  // #if BUILDFLAG(ENABLE_SUPERVISED_USERS) &&
-        // BUILDFLAG(ENABLE_EXTENSIONS_CORE)
+#endif
 
 #if !BUILDFLAG(IS_MAC)
   registry->RegisterBooleanPref(pref_names::kAppFullscreenAllowed, true);

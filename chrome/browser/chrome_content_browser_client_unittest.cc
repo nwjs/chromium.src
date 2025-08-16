@@ -412,7 +412,7 @@ class ChromeContentBrowserClientWindowKioskTest
   }
 
   void LogIn(std::string_view email, const GaiaId& gaia_id) override {
-    chromeos::SetUpFakeKioskSession(email);
+    chromeos::SetUpFakeChromeAppKioskSession(email);
   }
 };
 
@@ -936,7 +936,7 @@ TEST_F(ChromeContentSettingsRedirectTest, RedirectDebugURL) {
   test_content_browser_client.HandleWebUI(&dest_url, &profile_);
   EXPECT_EQ(chrome::kChromeUIInternalDebugPagesDisabledHost, dest_url.host());
   std::string query_param_name("host=");
-  EXPECT_EQ(query_param_name + chrome::kChromeUILocalStateHost,
+  EXPECT_EQ(query_param_name + chrome::kChromeUILocalStateURL + "/",
             dest_url.query());
 
   // Enable the internal only uis pref.
@@ -1493,14 +1493,17 @@ TEST_F(ChromeContentBrowserClientTest, UseCorrectGeoAPIKey) {
   auto scoped_override =
       google_apis::SetScopedApiKeyCacheForTesting(&api_key_cache);
 
-  // Check that by default Chrome-on-ChromeOS uses shared API key for
+  // Check the legacy behavior that Chrome-on-ChromeOS uses shared API key for
   // geolocation requests.
   ChromeContentBrowserClient client;
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndDisableFeature(
+      ash::features::kCrosSeparateGeoApiKey);
   EXPECT_EQ(client.GetGeolocationApiKey(), google_apis::GetAPIKey());
 
   // Check that when the `kCrosSeparateGeoApiKey` feature is enabled,
   // Chrome-on-ChromeOS uses ChromeOS-specific API key for geolocation.
-  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.Reset();
   scoped_feature_list.InitAndEnableFeature(
       ash::features::kCrosSeparateGeoApiKey);
   EXPECT_EQ(client.GetGeolocationApiKey(),

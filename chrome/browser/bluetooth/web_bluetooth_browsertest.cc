@@ -421,7 +421,7 @@ IN_PROC_BROWSER_TEST_F(WebBluetoothTest, NotificationStartValueChangeRead) {
       return Promise.all([readPromise, notifyPromise]);
     })())");
 
-  const base::Value::List promise_values = js_values.ExtractList();
+  const base::Value::List& promise_values = js_values.ExtractList();
   EXPECT_EQ(2U, promise_values.size());
   EXPECT_EQ(content::ListValueOf(1, 1), js_values);
 }
@@ -540,8 +540,6 @@ IN_PROC_BROWSER_TEST_P(WebBluetoothPermissionsPolicyTest,
       InvokeRequestDevice(web_contents_.get());
   content::EvalJsResult inner_device_id = InvokeGetDevices(
       content::ChildFrameAt(web_contents_->GetPrimaryMainFrame(), 0));
-  ASSERT_TRUE(outer_device_id.value.is_list()) << outer_device_id.value;
-  ASSERT_TRUE(inner_device_id.value.is_list()) << inner_device_id.value;
   EXPECT_EQ(outer_device_id.ExtractList(), inner_device_id.ExtractList());
 
   // If we navigate the main frame to inner.com, it should lose access to the
@@ -572,8 +570,6 @@ IN_PROC_BROWSER_TEST_P(WebBluetoothPermissionsPolicyTest,
   content::EvalJsResult inner_device_id = InvokeRequestDevice(
       content::ChildFrameAt(web_contents_->GetPrimaryMainFrame(), 0));
   content::EvalJsResult outer_device_id = InvokeGetDevices(web_contents_.get());
-  ASSERT_TRUE(outer_device_id.value.is_list()) << outer_device_id.value;
-  ASSERT_TRUE(inner_device_id.value.is_list()) << inner_device_id.value;
   EXPECT_EQ(outer_device_id.ExtractList(), inner_device_id.ExtractList());
 }
 
@@ -1143,7 +1139,8 @@ IN_PROC_BROWSER_TEST_F(
       navigator.bluetooth.requestDevice({
           filters: [{name: 'Test Device', services: ['heart_rate']}]}))",
                       content::EvalJsOptions::EXECUTE_SCRIPT_NO_USER_GESTURE);
-  EXPECT_THAT(result.error, ::testing::HasSubstr(kUserGestureError));
+  EXPECT_THAT(result, content::EvalJsResult::ErrorIs(
+                          ::testing::HasSubstr(kUserGestureError)));
 
   // In the prerendering, the connection of Web Bluetooth is deferred and
   // `observer` doesn't have any update.

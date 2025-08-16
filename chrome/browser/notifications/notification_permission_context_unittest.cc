@@ -227,16 +227,13 @@ TEST_F(NotificationPermissionContextTest, CrossOriginPermissionChecks) {
   // Now block permission for |requesting_origin|.
 
 #if BUILDFLAG(IS_ANDROID)
-  // On Android O+, permission must be reset before it can be blocked. This is
-  // because granting a permission on O+ creates a system-managed notification
-  // channel which determines the value of the content setting, so it is not
-  // allowed to then toggle the value from ALLOW->BLOCK directly. However,
-  // Chrome may reset the permission (which deletes the channel), and *then*
-  // grant/block it (creating a new channel).
-  if (base::android::BuildInfo::GetInstance()->sdk_int() >=
-      base::android::SDK_VERSION_OREO) {
-    context.ResetPermission(requesting_origin, requesting_origin);
-  }
+  // Permission must be reset before it can be blocked. This is because granting
+  // a permission on Android O+ creates a system-managed notification channel
+  // which determines the value of the content setting, so it is not allowed to
+  // then toggle the value from ALLOW->BLOCK directly. However, Chrome may reset
+  // the permission (which deletes the channel), and *then* grant/block it
+  // (creating a new channel).
+  context.ResetPermission(requesting_origin, requesting_origin);
 #endif  // BUILDFLAG(IS_ANDROID)
 
   UpdateContentSetting(&context, requesting_origin, requesting_origin,
@@ -324,7 +321,9 @@ TEST_F(NotificationPermissionContextTest, WebNotificationsTopLevelOriginOnly) {
   auto permission_status = PermissionStatus::ASK;
   context.DecidePermission(
       std::make_unique<permissions::PermissionRequestData>(
-          &context, request_id,
+          std::make_unique<permissions::ContentSettingPermissionResolver>(
+              ContentSettingsType::NOTIFICATIONS),
+          request_id,
           /*user_gesture=*/true, requesting_origin, embedding_origin),
       base::BindOnce(&StorePermissionStatus, &permission_status));
 
@@ -421,8 +420,9 @@ TEST_F(NotificationPermissionContextTest, MAYBE_TestDenyInIncognitoAfterDelay) {
 
   permission_context.RequestPermission(
       std::make_unique<permissions::PermissionRequestData>(
-          &permission_context, id,
-          /*user_gesture=*/true, url),
+          std::make_unique<permissions::ContentSettingPermissionResolver>(
+              ContentSettingsType::NOTIFICATIONS),
+          id, /*user_gesture=*/true, url),
       base::DoNothing());
 
   // Should be blocked after 1-2 seconds, but the timer is reset whenever the
@@ -459,8 +459,9 @@ TEST_F(NotificationPermissionContextTest, MAYBE_TestDenyInIncognitoAfterDelay) {
             permission_context.GetContentSettingFromMap(url, url));
 
   // But 5*500ms > 2 seconds, so it should now be blocked.
-  for (int n = 0; n < 4; n++)
+  for (int n = 0; n < 4; n++) {
     task_runner->FastForwardBy(base::Milliseconds(500));
+  }
 
   EXPECT_EQ(1, permission_context.permission_set_count());
   EXPECT_TRUE(permission_context.last_permission_set_persisted());
@@ -492,12 +493,16 @@ TEST_F(NotificationPermissionContextTest, TestParallelDenyInIncognito) {
 
   permission_context.RequestPermission(
       std::make_unique<permissions::PermissionRequestData>(
-          &permission_context, id1,
+          std::make_unique<permissions::ContentSettingPermissionResolver>(
+              ContentSettingsType::NOTIFICATIONS),
+          id1,
           /*user_gesture=*/true, url),
       base::DoNothing());
   permission_context.RequestPermission(
       std::make_unique<permissions::PermissionRequestData>(
-          &permission_context, id2,
+          std::make_unique<permissions::ContentSettingPermissionResolver>(
+              ContentSettingsType::NOTIFICATIONS),
+          id2,
           /*user_gesture=*/true, url),
       base::DoNothing());
 
@@ -509,8 +514,9 @@ TEST_F(NotificationPermissionContextTest, TestParallelDenyInIncognito) {
   // request is auto-denied.
   for (int n = 0; n < 5; n++) {
     task_runner->FastForwardBy(base::Milliseconds(500));
-    if (permission_context.permission_set_count())
+    if (permission_context.permission_set_count()) {
       break;
+    }
   }
 
   // Only the first permission request receives a response (crbug.com/577336).

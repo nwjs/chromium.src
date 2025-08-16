@@ -53,7 +53,7 @@ class SaveOrUpdateAutofillAiDataControllerImpl
   std::vector<EntityAttributeUpdateDetails> GetUpdatedAttributesDetails()
       const override;
   bool IsSavePrompt() const override;
-  std::pair<int, int> GetTitleImagesResourceId() const override;
+  int GetTitleImagesResourceId() const override;
 
  protected:
   explicit SaveOrUpdateAutofillAiDataControllerImpl(
@@ -68,8 +68,6 @@ class SaveOrUpdateAutofillAiDataControllerImpl
   friend class content::WebContentsUserData<
       SaveOrUpdateAutofillAiDataControllerImpl>;
   friend class SaveOrUpdateAutofillAiDataControllerImplTest;
-
-  void ShowBubble();
 
   // The browser's locale when the object was instantiated.
   const std::string app_locale_;

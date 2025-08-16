@@ -9,6 +9,7 @@
 
 #include <algorithm>
 #include <cstddef>
+#include <functional>
 #include <map>
 #include <memory>
 #include <numeric>
@@ -254,13 +255,11 @@ std::string ConstructAvailableAutocompletion(
   return result.str();
 }
 
-#if !BUILDFLAG(IS_ANDROID)
 // Returns whether this match is provided by an extension in unscoped mode.
 bool IsUnscopedExtensionMatch(const AutocompleteMatch& match) {
   return match.provider && match.provider->type() ==
                                AutocompleteProvider::TYPE_UNSCOPED_EXTENSION;
 }
-#endif  // !BUILDFLAG(IS_ANDROID)
 
 // Returns which rich autocompletion type, if any, had (or would have had for
 // counterfactual variations) an impact; i.e. whether the top scoring rich
@@ -1051,8 +1050,7 @@ void AutocompleteController::SetMatchDestinationURL(
       !encoded_search_terms.empty() &&
       net::HttpUtil::IsValidHeaderValue(encoded_search_terms)) {
     DCHECK(net::HttpUtil::IsValidHeaderName(kOmniboxGeminiHeader));
-    match->extra_headers =
-        base::StrCat({kOmniboxGeminiHeader, ":", encoded_search_terms});
+    match->extra_headers.emplace(kOmniboxGeminiHeader, encoded_search_terms);
   }
 
   auto url = ComputeURLFromSearchTermsArgs(turl, *match->search_terms_args);
@@ -1060,7 +1058,7 @@ void AutocompleteController::SetMatchDestinationURL(
     match->destination_url = std::move(url);
   }
 #if BUILDFLAG(IS_ANDROID)
-  match->UpdateJavaDestinationUrl();
+  match->UpdateJavaNavigationDetails();
 #endif
 }
 
@@ -1620,6 +1618,7 @@ void AutocompleteController::PostProcessMatches() {
   UpdateTailSuggestPrefix(&internal_result_);
   MaybeRemoveCompanyEntityImages(&internal_result_);
   MaybeCleanSuggestionsForKeywordMode(input_, &internal_result_);
+  MaybeCleanIphSuggestions(&internal_result_);
 
   // Notify providers which of their matches were shown. If we end up with more
   // providers to notify, we should add `RegisterDisplayedMatches()` to the
@@ -1705,8 +1704,8 @@ void AutocompleteController::AttachActions() {
             template_url_service_, &keyword_input);
     // Attach the contextual search fulfillment actions in the @page keyword
     // mode.
-    if (keyword_turl->starter_pack_id() ==
-        template_url_starter_pack_data::kPage) {
+    if (keyword_turl && keyword_turl->starter_pack_id() ==
+                            template_url_starter_pack_data::kPage) {
       internal_result_.AttachContextualSearchFulfillmentActionToMatches();
       return;
     }
@@ -1732,7 +1731,12 @@ void AutocompleteController::AttachActions() {
     AttachHistoryClustersActions(provider_client_->GetHistoryClustersService(),
                                  internal_result_);
 #endif
+
+#if BUILDFLAG(IS_IOS) || BUILDFLAG(IS_ANDROID)
+    internal_result_.AttachAimAction(template_url_service_);
+#endif
   }
+
   internal_result_.TrimOmniboxActions(input_.IsZeroSuggest());
 #if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
   internal_result_.SplitActionsToSuggestions();
@@ -1846,7 +1850,6 @@ void AutocompleteController::UpdateKeywordDescriptions(
     AutocompleteResult* result) {
   // No need to update the description on Android since description for plain
   // text match is not allowed.
-#if !BUILDFLAG(IS_ANDROID)
   // The Lens searchbox does not require the search engine name description
   // label since all suggestions will be from a single source.
   // TODO(crbug.com/338094774): Remove this Lens-specific change and implement a
@@ -1855,6 +1858,11 @@ void AutocompleteController::UpdateKeywordDescriptions(
     return;
   }
 
+#if BUILDFLAG(IS_ANDROID)
+  // Do not include search engine name for the DSE.
+  auto* default_engine = template_url_service_->GetDefaultSearchProvider();
+#endif
+
   std::u16string last_keyword;
   bool last_contextual = false;
   for (auto i(result->begin()); i != result->end(); ++i) {
@@ -1862,6 +1870,13 @@ void AutocompleteController::UpdateKeywordDescriptions(
       if (i->HasCustomDescription() || IsUnscopedExtensionMatch(*i)) {
         continue;
       }
+
+#if BUILDFLAG(IS_ANDROID)
+      if (i->keyword == default_engine->keyword()) {
+        continue;
+      }
+#endif
+
       i->description.clear();
       i->description_class.clear();
       DCHECK(!i->keyword.empty());
@@ -1897,7 +1912,6 @@ void AutocompleteController::UpdateKeywordDescriptions(
       last_keyword.clear();
     }
   }
-#endif  // !BUILDFLAG(IS_ANDROID)
 }
 
 void AutocompleteController::UpdateSearchboxStats(AutocompleteResult* result) {
@@ -2075,7 +2089,7 @@ void AutocompleteController::UpdateSearchboxStats(AutocompleteResult* result) {
           match->search_terms_args->searchbox_stats);
 
       if (action_in_suggest != nullptr) {
-        action_in_suggest->action_info.set_action_uri(
+        action_in_suggest->template_action.set_action_uri(
             ComputeURLFromSearchTermsArgs(
                 match->GetTemplateURL(template_url_service_, false),
                 *search_terms_args)
@@ -2737,12 +2751,28 @@ void AutocompleteController::MaybeCleanSuggestionsForKeywordMode(
     result->EraseMatchesWhere([](const AutocompleteMatch& match) {
       // When the input is '@' exactly, keep only the trivial search, starter
       // pack, and featured enterprise suggestions.
-      return match.contents != u"@" && !match.associated_keyword;
+      return match.contents != u"@" && !match.associated_keyword &&
+             !match.IsToolbelt();
     });
-    // Simple sort is needed to restore verbatim '@' search as top/default
-    // match because a different default, e.g. "@hill", might have previously
+    // Sort is needed to restore verbatim '@' search as top/default match
+    // because a different default, e.g. "@hill", might have previously
     // occupied the top spot while '@' was demoted below others.
-    std::sort(result->begin(), result->end(), AutocompleteMatch::MoreRelevant);
+    if (omnibox_feature_configs::Toolbelt::Get().enabled) {
+      // Unlike the `else` below, this `sort()` considers `GetSortingOrder()` to
+      // put toolbelt match last.
+      std::sort(
+          result->begin(), result->end(),
+          [](const AutocompleteMatch& match1, const AutocompleteMatch& match2) {
+            return std::forward_as_tuple(match1.GetSortingOrder(),
+                                         -match1.relevance, match1.contents) <
+                   std::forward_as_tuple(match2.GetSortingOrder(),
+                                         -match2.relevance, match2.contents);
+          });
+    } else {
+      std::sort(result->begin(), result->end(),
+                AutocompleteMatch::MoreRelevant);
+    }
+
     // Put first defaultable match in top position since relevance
     // ranking alone doesn't guarantee it.
     auto default_match = std::find_if(
@@ -2773,5 +2803,17 @@ void AutocompleteController::MaybeCleanSuggestionsForKeywordMode(
         result->match_at(i)->actions.clear();
       }
     }
+  }
+}
+
+void AutocompleteController::MaybeCleanIphSuggestions(
+    AutocompleteResult* result) {
+  bool has_toolbelt = std::ranges::any_of(result->begin(), result->end(),
+                                          &AutocompleteMatch::IsToolbelt);
+  if (has_toolbelt) {
+    result->EraseMatchesWhere([](const auto& match) {
+      return match.IsIphSuggestion() &&
+             match.iph_type != IphType::kHistoryEmbeddingsDisclaimer;
+    });
   }
 }

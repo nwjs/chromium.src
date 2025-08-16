@@ -33,8 +33,8 @@
 // Shows the sign-in fullscreen promo.
 - (void)showSigninPromo;
 
-// Shows BWG promo.
-- (void)showBWGPromo;
+// Shows the Welcome Back promo.
+- (void)showWelcomeBackPromo;
 
 @end
 

@@ -343,20 +343,14 @@ class IOSurfaceImageBackingFactoryDawnTest
     return std::make_pair(std::move(src_rep), std::move(src_scoped_access));
   }
 
-#ifdef WGPU_BREAKING_CHANGE_INSTANCE_FEATURES_LIMITS
-  static constexpr auto kTimedWaitAny = wgpu::InstanceFeatureName::TimedWaitAny;
-  static constexpr wgpu::InstanceDescriptor instance_desc_ = {
-      .requiredFeatureCount = 1,
-      .requiredFeatures = &kTimedWaitAny,
+  static constexpr auto kInstanceFeatures = std::array{
+      wgpu::InstanceFeatureName::MultipleDevicesPerAdapter,
+      wgpu::InstanceFeatureName::TimedWaitAny,
   };
-#else
   static constexpr wgpu::InstanceDescriptor instance_desc_ = {
-      .capabilities =
-          {
-              .timedWaitAnyEnable = true,
-          },
+      .requiredFeatureCount = kInstanceFeatures.size(),
+      .requiredFeatures = kInstanceFeatures.data(),
   };
-#endif
   dawn::native::Instance instance_ = dawn::native::Instance(&instance_desc_);
   wgpu::Adapter adapter_;
 };
@@ -1343,14 +1337,9 @@ class IOSurfaceImageBackingFactoryGMBTest
     SkAlphaType alpha_type = kPremul_SkAlphaType;
     bool override_rgba_to_bgra = get_gr_context_type() == GrContextType::kGL;
 
-    gfx::BufferFormat buffer_format = gpu::ToBufferFormat(format);
-    gfx::GpuMemoryBufferHandle handle;
-    gfx::GpuMemoryBufferId kBufferId(1);
-    handle.type = gfx::IO_SURFACE_BUFFER;
-    handle.id = kBufferId;
-    handle.io_surface = gfx::CreateIOSurface(
-        size, buffer_format, /*should_clear=*/true, override_rgba_to_bgra);
-    DCHECK(handle.io_surface);
+    gfx::GpuMemoryBufferHandle handle(gfx::CreateIOSurface(
+        size, format, /*should_clear=*/true, override_rgba_to_bgra));
+    DCHECK(handle.io_surface());
 
     auto backing = backing_factory_->CreateSharedImage(
         mailbox, format, size, color_space, surface_origin, alpha_type, usage,

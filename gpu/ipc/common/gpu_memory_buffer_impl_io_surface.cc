@@ -11,6 +11,7 @@
 #include "base/logging.h"
 #include "base/memory/ptr_util.h"
 #include "base/notimplemented.h"
+#include "components/viz/common/resources/shared_image_format_utils.h"
 #include "ui/gfx/buffer_format_util.h"
 #include "ui/gfx/mac/io_surface.h"
 
@@ -44,13 +45,11 @@ uint32_t LockFlags(gfx::BufferUsage usage) {
 }  // namespace
 
 GpuMemoryBufferImplIOSurface::GpuMemoryBufferImplIOSurface(
-    gfx::GpuMemoryBufferId id,
     const gfx::Size& size,
     gfx::BufferFormat format,
-    DestructionCallback callback,
     gfx::GpuMemoryBufferHandle handle,
     uint32_t lock_flags)
-    : GpuMemoryBufferImpl(id, size, format, std::move(callback)),
+    : GpuMemoryBufferImpl(size, format),
       handle_(std::move(handle)),
       lock_flags_(lock_flags) {}
 
@@ -58,46 +57,13 @@ GpuMemoryBufferImplIOSurface::~GpuMemoryBufferImplIOSurface() {}
 
 // static
 std::unique_ptr<GpuMemoryBufferImplIOSurface>
-GpuMemoryBufferImplIOSurface::CreateFromHandle(
+GpuMemoryBufferImplIOSurface::CreateFromHandleForTesting(
     const gfx::GpuMemoryBufferHandle& handle,
     const gfx::Size& size,
     gfx::BufferFormat format,
-    gfx::BufferUsage usage,
-    DestructionCallback callback) {
-  // The maximum number of times to dump before throttling (to avoid sending
-  // thousands of crash dumps).
-  constexpr int kMaxCrashDumps = 10;
-  static int dump_counter = kMaxCrashDumps;
-#if BUILDFLAG(IS_IOS)
-  if (!handle.io_surface_shared_memory_region.IsValid()) {
-    LOG(ERROR) << "Invalid shared memory region returned to client.";
-    if (dump_counter) {
-      dump_counter -= 1;
-      base::debug::DumpWithoutCrashing();
-    }
-    return nullptr;
-  }
-#else
-  if (!handle.io_surface) {
-    LOG(ERROR) << "Failed to open IOSurface via mach port returned to client.";
-    if (dump_counter) {
-      dump_counter -= 1;
-      base::debug::DumpWithoutCrashing();
-    }
-    return nullptr;
-  }
-
-  int64_t io_surface_width = IOSurfaceGetWidth(handle.io_surface.get());
-  int64_t io_surface_height = IOSurfaceGetHeight(handle.io_surface.get());
-  if (io_surface_width < size.width() || io_surface_height < size.height()) {
-    DLOG(ERROR) << "IOSurface size does not match handle.";
-    return nullptr;
-  }
-#endif
-
-  return base::WrapUnique(new GpuMemoryBufferImplIOSurface(
-      handle.id, size, format, std::move(callback), handle.Clone(),
-      LockFlags(usage)));
+    gfx::BufferUsage usage) {
+  return CreateFromHandleImpl(std::move(handle), size, format,
+                              LockFlags(usage));
 }
 
 // static
@@ -106,12 +72,62 @@ base::OnceClosure GpuMemoryBufferImplIOSurface::AllocateForTesting(
     gfx::BufferFormat format,
     gfx::BufferUsage usage,
     gfx::GpuMemoryBufferHandle* handle) {
-  gfx::GpuMemoryBufferId kBufferId(1);
-  handle->type = gfx::IO_SURFACE_BUFFER;
-  handle->id = kBufferId;
-  handle->io_surface = gfx::CreateIOSurface(size, format);
-  DCHECK(handle->io_surface);
+  viz::SharedImageFormat si_format = viz::GetSharedImageFormat(format);
+  *handle = gfx::GpuMemoryBufferHandle(gfx::CreateIOSurface(size, si_format));
   return base::DoNothing();
+}
+
+// static
+std::unique_ptr<GpuMemoryBufferImplIOSurface>
+GpuMemoryBufferImplIOSurface::CreateFromHandle(
+    const gfx::GpuMemoryBufferHandle& handle,
+    const gfx::Size& size,
+    gfx::BufferFormat format,
+    bool is_read_only_cpu_usage) {
+  uint32_t lock_flags = is_read_only_cpu_usage ? kIOSurfaceLockReadOnly : 0;
+  return CreateFromHandleImpl(std::move(handle), size, format, lock_flags);
+}
+
+// static
+std::unique_ptr<GpuMemoryBufferImplIOSurface>
+GpuMemoryBufferImplIOSurface::CreateFromHandleImpl(
+    const gfx::GpuMemoryBufferHandle& handle,
+    const gfx::Size& size,
+    gfx::BufferFormat format,
+    int32_t lock_flags) {
+  // The maximum number of times to dump before throttling (to avoid sending
+  // thousands of crash dumps).
+  constexpr int kMaxCrashDumps = 10;
+  static int dump_counter = kMaxCrashDumps;
+#if BUILDFLAG(IS_IOS)
+  if (!handle.io_surface_shared_memory_region().IsValid()) {
+    LOG(ERROR) << "Invalid shared memory region returned to client.";
+    if (dump_counter) {
+      dump_counter -= 1;
+      base::debug::DumpWithoutCrashing();
+    }
+    return nullptr;
+  }
+#else
+  if (!handle.io_surface()) {
+    LOG(ERROR) << "Failed to open IOSurface via mach port returned to client.";
+    if (dump_counter) {
+      dump_counter -= 1;
+      base::debug::DumpWithoutCrashing();
+    }
+    return nullptr;
+  }
+
+  int64_t io_surface_width = IOSurfaceGetWidth(handle.io_surface().get());
+  int64_t io_surface_height = IOSurfaceGetHeight(handle.io_surface().get());
+  if (io_surface_width < size.width() || io_surface_height < size.height()) {
+    DLOG(ERROR) << "IOSurface size does not match handle.";
+    return nullptr;
+  }
+#endif
+
+  return base::WrapUnique(new GpuMemoryBufferImplIOSurface(
+      size, format, handle.Clone(), lock_flags));
 }
 
 bool GpuMemoryBufferImplIOSurface::Map() {
@@ -121,7 +137,7 @@ bool GpuMemoryBufferImplIOSurface::Map() {
 
 #if BUILDFLAG(IS_IOS)
   if (!shared_memory_mapping_.IsValid()) {
-    shared_memory_mapping_ = handle_.io_surface_shared_memory_region.Map();
+    shared_memory_mapping_ = handle_.io_surface_shared_memory_region().Map();
   }
   if (!shared_memory_mapping_.IsValid()) {
     LOG(ERROR) << "Invalid shared memory mapping";
@@ -129,7 +145,7 @@ bool GpuMemoryBufferImplIOSurface::Map() {
   }
 #else
   kern_return_t kr =
-      IOSurfaceLock(handle_.io_surface.get(), lock_flags_, nullptr);
+      IOSurfaceLock(handle_.io_surface().get(), lock_flags_, nullptr);
   DCHECK_EQ(kr, KERN_SUCCESS) << " lock_flags_: " << lock_flags_;
   MACH_LOG_IF(ERROR, kr != KERN_SUCCESS, kr)
       << "GpuMemoryBufferImplIOSurface::Map IOSurfaceLock lock_flags_: "
@@ -140,17 +156,17 @@ bool GpuMemoryBufferImplIOSurface::Map() {
 
 void* GpuMemoryBufferImplIOSurface::memory(size_t plane) {
   AssertMapped();
-  DCHECK_LT(plane, gfx::NumberOfPlanesForLinearBufferFormat(format_));
+  CHECK_LT(plane, gfx::NumberOfPlanesForLinearBufferFormat(format_));
 #if BUILDFLAG(IS_IOS)
   // SAFETY: We trust the GPU process to allocate the IOSurface and initialize
   // the shared memory region from it correctly and we assert that below too.
   CHECK(shared_memory_mapping_.IsValid());
-  CHECK_LT(plane, gfx::GpuMemoryBufferHandle::kMaxIOSurfacePlanes);
-  const size_t plane_offset = handle_.io_surface_plane_offsets[plane];
+  CHECK_LT(plane, gfx::kMaxIOSurfacePlanes);
+  const size_t plane_offset = handle_.io_surface_plane_offset(plane);
   CHECK_LE(plane_offset, shared_memory_mapping_.mapped_size());
   return UNSAFE_BUFFERS(shared_memory_mapping_.data() + plane_offset);
 #else
-  return IOSurfaceGetBaseAddressOfPlane(handle_.io_surface.get(), plane);
+  return IOSurfaceGetBaseAddressOfPlane(handle_.io_surface().get(), plane);
 #endif
 }
 
@@ -161,7 +177,7 @@ void GpuMemoryBufferImplIOSurface::Unmap() {
     return;
 #if !BUILDFLAG(IS_IOS)
   kern_return_t kr =
-      IOSurfaceUnlock(handle_.io_surface.get(), lock_flags_, nullptr);
+      IOSurfaceUnlock(handle_.io_surface().get(), lock_flags_, nullptr);
   DCHECK_EQ(kr, KERN_SUCCESS) << " lock_flags_: " << lock_flags_;
   MACH_LOG_IF(ERROR, kr != KERN_SUCCESS, kr)
       << "GpuMemoryBufferImplIOSurface::Unmap IOSurfaceUnlock lock_flags_: "
@@ -170,24 +186,12 @@ void GpuMemoryBufferImplIOSurface::Unmap() {
 }
 
 int GpuMemoryBufferImplIOSurface::stride(size_t plane) const {
-  DCHECK_LT(plane, gfx::NumberOfPlanesForLinearBufferFormat(format_));
+  CHECK_LT(plane, gfx::NumberOfPlanesForLinearBufferFormat(format_));
 #if BUILDFLAG(IS_IOS)
-  CHECK_LT(plane, gfx::GpuMemoryBufferHandle::kMaxIOSurfacePlanes);
-  return handle_.io_surface_plane_strides[plane];
+  CHECK_LT(plane, gfx::kMaxIOSurfacePlanes);
+  return handle_.io_surface_plane_stride(plane);
 #else
-  return IOSurfaceGetBytesPerRowOfPlane(handle_.io_surface.get(), plane);
-#endif
-}
-
-void GpuMemoryBufferImplIOSurface::SetColorSpace(
-    const gfx::ColorSpace& color_space) {
-  if (color_space == color_space_)
-    return;
-  color_space_ = color_space;
-#if BUILDFLAG(IS_IOS)
-  NOTIMPLEMENTED();
-#else
-  IOSurfaceSetColorSpace(handle_.io_surface.get(), color_space);
+  return IOSurfaceGetBytesPerRowOfPlane(handle_.io_surface().get(), plane);
 #endif
 }
 

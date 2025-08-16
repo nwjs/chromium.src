@@ -24,10 +24,6 @@
 #include "components/variations/seed_response.h"
 #include "components/variations/variations_safe_seed_store.h"
 
-#if BUILDFLAG(IS_CHROMEOS)
-#include "chromeos/ash/components/dbus/featured/featured.pb.h"
-#endif  // BUILDFLAG(IS_CHROMEOS)
-
 class PrefService;
 class PrefRegistrySimple;
 
@@ -209,6 +205,27 @@ class COMPONENT_EXPORT(VARIATIONS) VariationsSeedStore {
   // more efficient to call LoadSeed() prior to calling this method.
   const std::string& GetLatestSerialNumber();
 
+  // Returns the latest country code that was received from the server.
+  std::string GetLatestCountry();
+
+  // Returns the first country code returned by the variations server after the
+  // client upgraded to the version returned by
+  // GetPermanentConsistencyVersion().
+  std::string GetPermanentConsistencyCountry();
+
+  // Gets the version applied to studies with permanent consistency. The version
+  // at the time of storing the permanent consistency country.
+  std::string GetPermanentConsistencyVersion();
+
+  // Sets the country code and version applied to studies with permanent
+  // consistency.
+  void SetPermanentConsistencyCountryAndVersion(std::string_view country,
+                                                std::string_view version);
+
+  // Clears the country code and version applied to studies with permanent
+  // consistency.
+  void ClearPermanentConsistencyCountryAndVersion();
+
   PrefService* local_state() { return local_state_; }
   const PrefService* local_state() const { return local_state_; }
 
@@ -333,18 +350,6 @@ class COMPONENT_EXPORT(VARIATIONS) VariationsSeedStore {
       std::string* seed_data,
       std::string* base64_seed_signature = nullptr);
 
-  // Resolves a |delta_bytes| against the latest seed.
-  // Returns success or an error, populating |seed_bytes| on success.
-  [[nodiscard]] StoreSeedResult ResolveDelta(const std::string& delta_bytes,
-                                             std::string* seed_bytes);
-
-  // Resolves instance manipulations applied to received data.
-  // Returns success or an error, populating |seed_bytes| on success.
-  [[nodiscard]] StoreSeedResult ResolveInstanceManipulations(
-      const std::string& data,
-      const InstanceManipulations& im,
-      std::string* seed_bytes);
-
   // Called on the UI thread after the seed has been processed.
   void OnSeedDataProcessed(
       base::OnceCallback<void(bool, VariationsSeed)> done_callback,
@@ -404,28 +409,6 @@ class COMPONENT_EXPORT(VARIATIONS) VariationsSeedStore {
 
   // Handles reads and writes to seed files.
   std::unique_ptr<SeedReaderWriter> seed_reader_writer_;
-
-#if BUILDFLAG(IS_CHROMEOS)
-  // Gets the combined server and client state used for early boot variations
-  // platform disaster recovery.
-  featured::SeedDetails GetSafeSeedStateForPlatform(
-      const ValidatedSeed& seed,
-      const int seed_milestone,
-      const ClientFilterableState& client_state,
-      const base::Time seed_fetch_time);
-
-  // Retries sending the safe seed to platform. Does not retry after two failed
-  // attempts.
-  void MaybeRetrySendSafeSeed(const featured::SeedDetails& safe_seed,
-                              bool success);
-
-  // Sends the safe seed to the platform.
-  void SendSafeSeedToPlatform(const featured::SeedDetails& safe_seed);
-
-  // A counter that keeps track of how many times the current safe seed is sent
-  // to platform.
-  size_t send_seed_to_platform_attempts_ = 0;
-#endif  // BUILDFLAG(IS_CHROMEOS)
 
   // Note: This should remain the last member so it'll be destroyed and
   // invalidate its weak pointers before any other members are destroyed.

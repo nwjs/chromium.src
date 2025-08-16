@@ -23,6 +23,7 @@ import androidx.annotation.ColorInt;
 import androidx.annotation.VisibleForTesting;
 import androidx.constraintlayout.widget.ConstraintLayout;
 
+import org.chromium.base.Token;
 import org.chromium.base.supplier.Supplier;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider;
@@ -36,7 +37,9 @@ import org.chromium.chrome.browser.tab_ui.TabContentManager;
 import org.chromium.chrome.browser.tab_ui.TabContentManagerThumbnailProvider;
 import org.chromium.chrome.browser.tab_ui.TabThumbnailView;
 import org.chromium.chrome.browser.tab_ui.ThumbnailProvider;
+import org.chromium.chrome.browser.tab_ui.ThumbnailProvider.MultiThumbnailMetadata;
 import org.chromium.chrome.browser.tabmodel.TabGroupModelFilter;
+import org.chromium.chrome.browser.tabmodel.TabGroupTitleUtils;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.tasks.tab_management.MultiThumbnailCardProvider;
 import org.chromium.chrome.browser.tasks.tab_management.TabUiThemeUtil;
@@ -196,7 +199,15 @@ public class StripDragShadowView extends FrameLayout {
 
         mFaviconUpdateTabObserver = getFaviconUpdateTabObserver();
         tab.addObserver(mFaviconUpdateTabObserver);
-        prepareForDrag(mSingleThumbnailCardProvider, tab, sourceWidthPx);
+        prepareForDrag(
+                mSingleThumbnailCardProvider,
+                tab,
+                MultiThumbnailMetadata.createMetadataWithoutUrls(
+                        tab.getId(),
+                        /* isInTabGroup= */ false,
+                        isIncognito,
+                        /* tabGroupColor= */ null),
+                sourceWidthPx);
     }
 
     /**
@@ -214,7 +225,11 @@ public class StripDragShadowView extends FrameLayout {
                         .getTabGroupModelFilter(isIncognito);
 
         // Background color
-        @TabGroupColorId int colorId = modelFilter.getTabGroupColorWithFallback(tab.getRootId());
+        @TabGroupColorId int colorId = TabGroupColorId.GREY;
+        Token tabGroupId = tab.getTabGroupId();
+        if (tabGroupId != null) {
+            colorId = modelFilter.getTabGroupColorWithFallback(tabGroupId);
+        }
         @ColorInt
         int groupColor =
                 TabGroupColorPickerUtils.getTabGroupColorPickerItemColor(
@@ -228,8 +243,8 @@ public class StripDragShadowView extends FrameLayout {
         LayerTitleCache layerTitleCache = mLayerTitleCacheSupplier.get();
         String titleText =
                 layerTitleCache.getUpdatedGroupTitle(
-                        tab.getTabGroupId(),
-                        StripLayoutUtils.getGroupTitleText(context, modelFilter, tab),
+                        tabGroupId,
+                        TabGroupTitleUtils.getDisplayableTitle(context, modelFilter, tabGroupId),
                         isIncognito);
         mTitleView.setText(titleText);
         mTitleView.setTextColor(
@@ -239,10 +254,19 @@ public class StripDragShadowView extends FrameLayout {
         // Clear the tab favicon if needed
         mFaviconView.setImageBitmap(null);
 
-        prepareForDrag(mMultiThumbnailCardProvider, tab, sourceWidthPx);
+        prepareForDrag(
+                mMultiThumbnailCardProvider,
+                tab,
+                MultiThumbnailMetadata.createMetadataWithoutUrls(
+                        tab.getId(), /* isInTabGroup= */ true, isIncognito, colorId),
+                sourceWidthPx);
     }
 
-    private void prepareForDrag(ThumbnailProvider thumbnailProvider, Tab tab, int sourceWidthPx) {
+    private void prepareForDrag(
+            ThumbnailProvider thumbnailProvider,
+            Tab tab,
+            MultiThumbnailMetadata metadata,
+            int sourceWidthPx) {
         mTab = tab;
         mSourceWidthPx = sourceWidthPx;
 
@@ -263,7 +287,7 @@ public class StripDragShadowView extends FrameLayout {
         // Request the thumbnail.
         Size thumbnailSize = TabUtils.deriveThumbnailSize(cardSize, getContext());
         thumbnailProvider.getTabThumbnailWithCallback(
-                tab.getId(),
+                metadata,
                 thumbnailSize,
                 /* isSelected= */ false,
                 result -> {
@@ -276,7 +300,7 @@ public class StripDragShadowView extends FrameLayout {
                     mShadowUpdateHost.requestUpdate();
                 });
         mThumbnailView.updateThumbnailPlaceholder(
-                tab.isIncognitoBranded(), /* isSelected= */ false, /* colorId */ null);
+                tab.isIncognitoBranded(), /* isSelected= */ false, /* colorId= */ null);
     }
 
     /** Clear state on tab drag end. */

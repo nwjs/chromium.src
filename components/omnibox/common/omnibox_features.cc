@@ -44,11 +44,6 @@ BASE_FEATURE(kGroupingFrameworkForNonZPS,
              "OmniboxGroupingFrameworkForNonZPS",
              enable_if(IS_ANDROID));
 
-// Demotes the relevance scores when comparing suggestions based on the
-// suggestion's |AutocompleteMatchType| and the user's |PageClassification|.
-// This feature's main job is to contain the DemoteByType parameter.
-BASE_FEATURE(kOmniboxDemoteByType, "OmniboxDemoteByType", DISABLED);
-
 // Feature used to cap max zero suggestions shown according to the param
 // OmniboxMaxZeroSuggestMatches. If omitted,
 // OmniboxUIExperimentMaxAutocompleteMatches will be used instead. If present,
@@ -138,20 +133,10 @@ BASE_FEATURE(kOnDeviceHeadProviderIncognito,
 BASE_FEATURE(kOnDeviceHeadProviderNonIncognito,
              "OmniboxOnDeviceHeadProviderNonIncognito",
              ENABLED);
-BASE_FEATURE(kOnDeviceHeadProviderKorean,
-             "OmniboxOnDeviceHeadProviderKorean",
-             DISABLED);
 BASE_FEATURE(kOnDeviceTailModel, "OmniboxOnDeviceTailModel", DISABLED);
 BASE_FEATURE(kOnDeviceTailEnableEnglishModel,
              "OmniboxOnDeviceTailEnableEnglishModel",
              ENABLED);
-
-// If enabled, the relevant AutocompleteProviders will store "title" data in
-// AutocompleteMatch::contents and "URL" data in AutocompleteMatch::description
-// for URL-based omnibox suggestions (see crbug.com/1202964 for more details).
-BASE_FEATURE(kStoreTitleInContentsAndUrlInDescription,
-             "OmniboxStoreTitleInContentsAndUrlInDescription",
-             DISABLED);
 
 // Feature used to fetch document suggestions.
 BASE_FEATURE(kDocumentProvider,
@@ -186,11 +171,6 @@ BASE_FEATURE(kDocumentProviderNoSyncRequirement,
              "OmniboxDocumentProviderNoSyncRequirement",
              ENABLED);
 
-// Feature to determine if the HQP should double as a domain provider by
-// suggesting up to the provider limit for each of the user's highly visited
-// domains.
-BASE_FEATURE(kDomainSuggestions, "OmniboxDomainSuggestions", DISABLED);
-
 // If enabled, the omnibox popup is not presented until the mouse button is
 // released.
 BASE_FEATURE(kShowPopupOnMouseReleased,
@@ -219,6 +199,9 @@ BASE_FEATURE(kWebUIOmniboxPopup, "WebUIOmniboxPopup", DISABLED);
 BASE_FEATURE(kOmniboxAssistantVoiceSearch,
              "OmniboxAssistantVoiceSearch",
              DISABLED);
+
+// Whether the AI Mode entrypoint is shown in the Omnibox as a RHS button.
+BASE_FEATURE(kAiModeOmniboxEntryPoint, "AiModeOmniboxEntryPoint", DISABLED);
 
 // Feature used to default typed navigations to use HTTPS instead of HTTP.
 // This only applies to navigations that don't have a scheme such as
@@ -266,13 +249,11 @@ BASE_FEATURE(kMlUrlPiecewiseMappedSearchBlending,
 
 // If enabled, the ML scoring service will make use of an in-memory ML score
 // cache in order to speed up the overall scoring process.
-BASE_FEATURE(kMlUrlScoreCaching,
-             "MlUrlScoreCaching",
-             enable_if(!IS_ANDROID && !IS_IOS));
+BASE_FEATURE(kMlUrlScoreCaching, "MlUrlScoreCaching", enable_if(!IS_ANDROID));
 
 // If enabled, runs the ML scoring model to assign new relevance scores to the
 // URL suggestions and reranks them.
-BASE_FEATURE(kMlUrlScoring, "MlUrlScoring", enable_if(!IS_ANDROID && !IS_IOS));
+BASE_FEATURE(kMlUrlScoring, "MlUrlScoring", enable_if(!IS_ANDROID));
 
 // If enabled, specifies how URL model scores integrate with search traditional
 // scores.
@@ -280,9 +261,7 @@ BASE_FEATURE(kMlUrlSearchBlending, "MlUrlSearchBlending", DISABLED);
 
 // If enabled, creates Omnibox autocomplete URL scoring model. Prerequisite for
 // `kMlUrlScoring` & `kMlUrlSearchBlending`.
-BASE_FEATURE(kUrlScoringModel,
-             "UrlScoringModel",
-             enable_if(!IS_ANDROID && !IS_IOS));
+BASE_FEATURE(kUrlScoringModel, "UrlScoringModel", enable_if(!IS_ANDROID));
 
 BASE_FEATURE(kAnimateSuggestionsListAppearance,
              "AnimateSuggestionsListAppearance",
@@ -302,6 +281,9 @@ BASE_FEATURE(kCategoricalSuggestions, "CategoricalSuggestions", ENABLED);
 BASE_FEATURE(kOmniboxTouchDownTriggerForPrefetch,
              "OmniboxTouchDownTriggerForPrefetch",
              enable_if(IS_ANDROID));
+
+// Enables keyword-based site search functionality on Android devices.
+BASE_FEATURE(kOmniboxSiteSearch, "OmniboxSiteSearch", DISABLED);
 
 // Enables additional site search providers for the Site search Starter Pack.
 BASE_FEATURE(kStarterPackExpansion,
@@ -341,6 +323,13 @@ BASE_FEATURE(kOmniboxMobileParityUpdateV2,
              "OmniboxMobileParityUpdateV2",
              DISABLED);
 
+#if BUILDFLAG(IS_IOS)
+// Updates the search engine logo on NTP. iOS only.
+BASE_FEATURE(kOmniboxMobileParityUpdateV3,
+             "OmniboxMobileParityUpdateV3",
+             DISABLED);
+#endif  // BUILDFLAG(IS_IOS)
+
 // The features below allow tuning number of suggestions offered to users in
 // specific contexts. These features are default enabled and are used to control
 // related fieldtrial parameters.
@@ -365,6 +354,42 @@ BASE_FEATURE(kNumSrpZpsRecentSearches,
 BASE_FEATURE(kNumSrpZpsRelatedSearches,
              "OmniboxNumSrpZpsRelatedSearches",
              ENABLED);
+
+// If enabled, search aggregators defined by the
+// EnterpriseSearchAggregatorSettings policy are saved into prefs and available
+// in the TemplateURLService, so that they can be accessed from the Omnibox and
+// the Settings page.
+BASE_FEATURE(kEnableSearchAggregatorPolicy,
+             "EnableSearchAggregatorPolicy",
+             ENABLED);
+
+// If enabled, site search engines, defined by the `SiteSearchSettings` policy,
+// can be marked as user-overridable by administrators using an
+// `allow_user_override` field. This setting is stored in preferences and
+// determines if the engine can be overridden on the Settings page.
+BASE_FEATURE(kEnableSiteSearchAllowUserOverridePolicy,
+             "EnableSiteSearchAllowUserOverridePolicy",
+             ENABLED);
+
+// Enables preconnecting to omnibox suggestions that are not only Search types.
+BASE_FEATURE(kPreconnectNonSearchOmniboxSuggestions,
+             "PreconnectNonSearchOmniboxSuggestions",
+             DISABLED);
+
+// Enables restricting omnibox focus restoration to only situations that involve
+// "invisible focus".
+BASE_FEATURE(kOmniboxRestoreInvisibleFocusOnly,
+             "OmniboxRestoreInvisibleFocusOnly",
+             DISABLED);
+
+// Enabls adding an aim shortcut in the typed state.
+BASE_FEATURE(kOmniboxAimShortcutTypedState,
+             "OmniboxAimShortcutTypedState",
+             DISABLED);
+
+// When enabled, unblocks omnibox height on small form factor devices, allowing
+// users to type in multiline / longer text.
+BASE_FEATURE(kMultilineEditField, "OmniboxMultilineEditField", DISABLED);
 
 #if BUILDFLAG(IS_ANDROID)
 // Enable the Elegant Text Height attribute on the UrlBar.
@@ -418,39 +443,15 @@ static jlong JNI_OmniboxFeatureMap_GetNativeMap(JNIEnv* env) {
       &kAndroidHubSearchTabGroups,
       &kPostDelayedTaskFocusTab,
       &kOmniboxMobileParityUpdate,
-      &kOmniboxMobileParityUpdateV2};
+      &kOmniboxMobileParityUpdateV2,
+      &kOmniboxSiteSearch,
+      &kOmniboxAimShortcutTypedState,
+      &kMultilineEditField};
   static base::NoDestructor<base::android::FeatureMap> kFeatureMap(
       kFeaturesExposedToJava);
   return reinterpret_cast<jlong>(kFeatureMap.get());
 }
 }  // namespace android
 #endif  // BUILDFLAG(IS_ANDROID)
-
-// If enabled, search aggregators defined by the
-// EnterpriseSearchAggregatorSettings policy are saved into prefs and available
-// in the TemplateURLService, so that they can be accessed from the Omnibox and
-// the Settings page.
-BASE_FEATURE(kEnableSearchAggregatorPolicy,
-             "EnableSearchAggregatorPolicy",
-             ENABLED);
-
-// If enabled, site search engines, defined by the `SiteSearchSettings` policy,
-// can be marked as user-overridable by administrators using an
-// `allow_user_override` field. This setting is stored in preferences and
-// determines if the engine can be overridden on the Settings page.
-BASE_FEATURE(kEnableSiteSearchAllowUserOverridePolicy,
-             "EnableSiteSearchAllowUserOverridePolicy",
-             ENABLED);
-
-// Enables preconnecting to omnibox suggestions that are not only Search types.
-BASE_FEATURE(kPreconnectNonSearchOmniboxSuggestions,
-             "PreconnectNonSearchOmniboxSuggestions",
-             DISABLED);
-
-// Enables restricting omnibox focus restoration to only situations that involve
-// "invisible focus".
-BASE_FEATURE(kOmniboxRestoreInvisibleFocusOnly,
-             "OmniboxRestoreInvisibleFocusOnly",
-             DISABLED);
-
+// Note: no new flags beyond this point.
 }  // namespace omnibox

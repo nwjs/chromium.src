@@ -18,15 +18,18 @@
 #include "chrome/browser/enterprise/data_protection/data_protection_navigation_controller.h"
 #include "chrome/browser/enterprise/watermark/watermark_view.h"
 #include "chrome/browser/policy/dm_token_utils.h"
+#include "chrome/browser/preloading/scoped_prewarm_feature_list.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/safe_browsing/chrome_enterprise_url_lookup_service_factory.h"
 #include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_commands_mac.h"
 #include "chrome/browser/ui/browser_navigator.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/tab_modal_confirm_dialog.h"
 #include "chrome/browser/ui/tab_ui_helper.h"
 #include "chrome/browser/ui/tabs/public/tab_features.h"
+#include "chrome/browser/ui/tabs/split_tab_metrics.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_user_gesture_details.h"
 #include "chrome/browser/ui/test/test_browser_ui.h"
@@ -34,8 +37,10 @@
 #include "chrome/browser/ui/views/bookmarks/bookmark_bar_view.h"
 #include "chrome/browser/ui/views/bookmarks/bookmark_bar_view_observer.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
+#include "chrome/browser/ui/views/frame/contents_container_view.h"
 #include "chrome/browser/ui/views/frame/multi_contents_view.h"
 #include "chrome/browser/ui/views/frame/scrim_view.h"
+#include "chrome/browser/ui/views/frame/top_container_view.h"
 #include "chrome/browser/ui/views/side_panel/side_panel.h"
 #include "chrome/browser/ui/views/side_panel/side_panel_coordinator.h"
 #include "chrome/browser/ui/views/side_panel/side_panel_util.h"
@@ -82,7 +87,11 @@
 
 class BrowserViewTest : public InProcessBrowserTest {
  public:
-  BrowserViewTest() : devtools_(nullptr) {}
+  BrowserViewTest() : devtools_(nullptr) {
+    // TODO(crbug.com/415071842): Re-enable once DevTools is migrated to
+    // ContentsWebView.
+    scoped_feature_list_.InitWithFeatures({}, {features::kSideBySide});
+  }
 
   BrowserViewTest(const BrowserViewTest&) = delete;
   BrowserViewTest& operator=(const BrowserViewTest&) = delete;
@@ -94,6 +103,10 @@ class BrowserViewTest : public InProcessBrowserTest {
 
   views::WebView* devtools_web_view() {
     return browser_view()->GetDevToolsWebViewForTest();
+  }
+
+  ContentsContainerView* contents_container_view() {
+    return browser_view()->GetActiveContentsContainerView();
   }
 
   views::WebView* contents_web_view() {
@@ -121,6 +134,8 @@ class BrowserViewTest : public InProcessBrowserTest {
   }
 
   raw_ptr<DevToolsWindow> devtools_;
+
+  base::test::ScopedFeatureList scoped_feature_list_;
 };
 
 namespace {
@@ -266,7 +281,7 @@ IN_PROC_BROWSER_TEST_F(BrowserViewTest, DevToolsDockedUpdatesBrowserWindow) {
   browser_view()->UpdateDevTools();
   EXPECT_FALSE(devtools_web_view()->web_contents());
   EXPECT_EQ(full_bounds, devtools_web_view()->bounds());
-  EXPECT_EQ(full_bounds, contents_web_view()->bounds());
+  EXPECT_EQ(full_bounds, contents_container_view()->bounds());
 
   // Docked.
   OpenDevToolsWindow(true);
@@ -276,22 +291,22 @@ IN_PROC_BROWSER_TEST_F(BrowserViewTest, DevToolsDockedUpdatesBrowserWindow) {
   SetDevToolsBounds(small_bounds);
   EXPECT_TRUE(devtools_web_view()->web_contents());
   EXPECT_EQ(full_bounds, devtools_web_view()->bounds());
-  EXPECT_EQ(small_bounds, contents_web_view()->bounds());
+  EXPECT_EQ(small_bounds, contents_container_view()->bounds());
 
   browser_view()->UpdateDevTools();
   EXPECT_TRUE(devtools_web_view()->web_contents());
   EXPECT_EQ(full_bounds, devtools_web_view()->bounds());
-  EXPECT_EQ(small_bounds, contents_web_view()->bounds());
+  EXPECT_EQ(small_bounds, contents_container_view()->bounds());
 
   CloseDevToolsWindow();
   EXPECT_FALSE(devtools_web_view()->web_contents());
   EXPECT_EQ(full_bounds, devtools_web_view()->bounds());
-  EXPECT_EQ(full_bounds, contents_web_view()->bounds());
+  EXPECT_EQ(full_bounds, contents_container_view()->bounds());
 
   browser_view()->UpdateDevTools();
   EXPECT_FALSE(devtools_web_view()->web_contents());
   EXPECT_EQ(full_bounds, devtools_web_view()->bounds());
-  EXPECT_EQ(full_bounds, contents_web_view()->bounds());
+  EXPECT_EQ(full_bounds, contents_container_view()->bounds());
 }
 
 // Verifies that page and devtools WebViews are being correctly laid out
@@ -315,22 +330,22 @@ IN_PROC_BROWSER_TEST_F(BrowserViewTest, DevToolsUndockedUpdatesBrowserWindow) {
   SetDevToolsBounds(small_bounds);
   EXPECT_TRUE(devtools_web_view()->web_contents());
   EXPECT_EQ(full_bounds, devtools_web_view()->bounds());
-  EXPECT_EQ(small_bounds, contents_web_view()->bounds());
+  EXPECT_EQ(small_bounds, contents_container_view()->bounds());
 
   browser_view()->UpdateDevTools();
   EXPECT_TRUE(devtools_web_view()->web_contents());
   EXPECT_EQ(full_bounds, devtools_web_view()->bounds());
-  EXPECT_EQ(small_bounds, contents_web_view()->bounds());
+  EXPECT_EQ(small_bounds, contents_container_view()->bounds());
 
   CloseDevToolsWindow();
   EXPECT_FALSE(devtools_web_view()->web_contents());
   EXPECT_EQ(full_bounds, devtools_web_view()->bounds());
-  EXPECT_EQ(full_bounds, contents_web_view()->bounds());
+  EXPECT_EQ(full_bounds, contents_container_view()->bounds());
 
   browser_view()->UpdateDevTools();
   EXPECT_FALSE(devtools_web_view()->web_contents());
   EXPECT_EQ(full_bounds, devtools_web_view()->bounds());
-  EXPECT_EQ(full_bounds, contents_web_view()->bounds());
+  EXPECT_EQ(full_bounds, contents_container_view()->bounds());
 }
 
 void SetDevToolsWindowSizePrefs(Browser* browser,
@@ -685,12 +700,14 @@ IN_PROC_BROWSER_TEST_F(SideBySideBrowserViewTest, SplitViewActiveIndexTest) {
   chrome::AddTabAt(browser(), GURL(), -1, true);
   // Add tabs to splits.
   browser()->tab_strip_model()->ActivateTabAt(0);
-  browser()->tab_strip_model()->AddToNewSplit({1},
-                                              split_tabs::SplitTabVisualData());
+  browser()->tab_strip_model()->AddToNewSplit(
+      {1}, split_tabs::SplitTabVisualData(),
+      split_tabs::SplitTabCreatedSource::kToolbarButton);
 
   browser()->tab_strip_model()->ActivateTabAt(2);
-  browser()->tab_strip_model()->AddToNewSplit({3},
-                                              split_tabs::SplitTabVisualData());
+  browser()->tab_strip_model()->AddToNewSplit(
+      {3}, split_tabs::SplitTabVisualData(),
+      split_tabs::SplitTabCreatedSource::kToolbarButton);
 
   browser()->tab_strip_model()->ActivateTabAt(0);
   EXPECT_TRUE(browser_view()->multi_contents_view());
@@ -708,6 +725,58 @@ IN_PROC_BROWSER_TEST_F(SideBySideBrowserViewTest, SplitViewActiveIndexTest) {
       browser_view()->multi_contents_view()->GetActiveContentsView(),
       browser_view()->multi_contents_view()->end_contents_view_for_testing());
 }
+
+#if BUILDFLAG(IS_MAC)
+class MacSideBySideBrowserViewTest : public InProcessBrowserTest {
+ public:
+  MacSideBySideBrowserViewTest() {
+    scoped_feature_list_.InitWithFeatures({features::kSideBySide}, {});
+  }
+
+  MacSideBySideBrowserViewTest(const MacSideBySideBrowserViewTest&) = delete;
+  MacSideBySideBrowserViewTest& operator=(const MacSideBySideBrowserViewTest&) =
+      delete;
+
+ protected:
+  BrowserView* browser_view() {
+    return BrowserView::GetBrowserViewForBrowser(browser());
+  }
+
+  base::test::ScopedFeatureList scoped_feature_list_;
+};
+
+IN_PROC_BROWSER_TEST_F(MacSideBySideBrowserViewTest,
+                       SplitViewFullscreenLayout) {
+  // Disable always show toolbar in fullscreen
+  chrome::SetAlwaysShowToolbarInFullscreenForTesting(browser(), false);
+
+  // Create tabs and add to split
+  chrome::AddTabAt(browser(), GURL(), -1, true);
+  chrome::AddTabAt(browser(), GURL(), -1, true);
+  browser()->tab_strip_model()->ActivateTabAt(0);
+  browser()->tab_strip_model()->AddToNewSplit(
+      {1}, split_tabs::SplitTabVisualData(),
+      split_tabs::SplitTabCreatedSource::kToolbarButton);
+
+  ASSERT_TRUE(browser()->tab_strip_model()->selection_model().IsSelected(0));
+  ASSERT_TRUE(browser()->tab_strip_model()->selection_model().IsSelected(1));
+
+  TopContainerView* top_container = browser_view()->top_container();
+  views::View* overlay_view = browser_view()->overlay_view();
+
+  // Verify top_container is parented to browser_view before fullscreen
+  EXPECT_EQ(browser_view(), top_container->parent());
+  ui_test_utils::ToggleFullscreenModeAndWait(browser());
+
+  // Verify top_container is parented to overlay after entering fullscreen
+  EXPECT_EQ(overlay_view, top_container->parent());
+
+  browser_view()->ExitFullscreen();
+
+  // Verify top_container is re-parented to browser_view after fullscreen exit
+  EXPECT_EQ(browser_view(), top_container->parent());
+}
+#endif
 
 namespace {
 
@@ -796,6 +865,10 @@ class BrowserViewDataProtectionTest : public InProcessBrowserTest {
   }
 
  private:
+  // TODO(https://crbug.com/423465927): Explore a better approach to make the
+  // existing tests run with the prewarm feature enabled.
+  test::ScopedPrewarmFeatureList scoped_prewarm_feature_list_{
+      test::ScopedPrewarmFeatureList::PrewarmState::kDisabled};
   base::CallbackListSubscription create_services_subscription_;
 };
 

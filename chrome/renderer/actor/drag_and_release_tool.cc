@@ -29,18 +29,27 @@ using ::blink::WebLocalFrame;
 using ::blink::WebMouseEvent;
 using ::blink::mojom::EventType;
 
-DragAndReleaseTool::DragAndReleaseTool(content::RenderFrame& frame,
-                                       Journal::TaskId task_id,
-                                       Journal& journal,
-                                       mojom::DragAndReleaseActionPtr action)
-    : ToolBase(frame, task_id, journal), action_(std::move(action)) {}
+DragAndReleaseTool::DragAndReleaseTool(
+    content::RenderFrame& frame,
+    Journal::TaskId task_id,
+    Journal& journal,
+    mojom::DragAndReleaseActionPtr action,
+    mojom::ToolTargetPtr target,
+    mojom::ObservedToolTargetPtr observed_target)
+    : ToolBase(frame,
+               task_id,
+               journal,
+               std::move(target),
+               std::move(observed_target)),
+      action_(std::move(action)) {}
 
 DragAndReleaseTool::~DragAndReleaseTool() = default;
 
-mojom::ActionResultPtr DragAndReleaseTool::Execute() {
+void DragAndReleaseTool::Execute(ToolFinishedCallback callback) {
   ValidatedResult validated_result = Validate();
   if (!validated_result.has_value()) {
-    return std::move(validated_result.error());
+    std::move(callback).Run(std::move(validated_result.error()));
+    return;
   }
 
   gfx::PointF from_point = validated_result->from;
@@ -51,32 +60,39 @@ mojom::ActionResultPtr DragAndReleaseTool::Execute() {
   // Move and press down the mouse on the from_point.
   if (!InjectMouseEvent(EventType::kMouseMove, from_point,
                         WebMouseEvent::Button::kNoButton)) {
-    return MakeResult(
-        mojom::ActionResultCode::kDragAndReleaseFromMoveSuppressed);
+    std::move(callback).Run(
+        MakeResult(mojom::ActionResultCode::kDragAndReleaseFromMoveSuppressed));
+    return;
   }
 
   if (!InjectMouseEvent(EventType::kMouseDown, from_point,
                         WebMouseEvent::Button::kLeft)) {
-    return MakeResult(mojom::ActionResultCode::kDragAndReleaseDownSuppressed);
+    std::move(callback).Run(
+        MakeResult(mojom::ActionResultCode::kDragAndReleaseDownSuppressed));
+    return;
   }
 
   // Move and release the mouse on the to_point.
   if (!InjectMouseEvent(EventType::kMouseMove, to_point,
                         WebMouseEvent::Button::kLeft)) {
-    return MakeResult(mojom::ActionResultCode::kDragAndReleaseToMoveSuppressed);
+    std::move(callback).Run(
+        MakeResult(mojom::ActionResultCode::kDragAndReleaseToMoveSuppressed));
+    return;
   }
 
   if (!InjectMouseEvent(EventType::kMouseUp, to_point,
                         WebMouseEvent::Button::kLeft)) {
-    return MakeResult(mojom::ActionResultCode::kDragAndReleaseUpSuppressed);
+    std::move(callback).Run(
+        MakeResult(mojom::ActionResultCode::kDragAndReleaseUpSuppressed));
+    return;
   }
 
-  return MakeOkResult();
+  std::move(callback).Run(MakeOkResult());
 }
 
 std::string DragAndReleaseTool::DebugString() const {
   return absl::StrFormat("DragAndReleaseTool[from-%s -> to-%s]",
-                         ToDebugString(action_->from_target),
+                         ToDebugString(target_),
                          ToDebugString(action_->to_target));
 }
 
@@ -84,16 +100,15 @@ DragAndReleaseTool::ValidatedResult DragAndReleaseTool::Validate() const {
   CHECK(frame_->GetWebFrame());
   CHECK(frame_->GetWebFrame()->FrameWidget());
 
-  mojom::ToolTargetPtr& from_target = action_->from_target;
   mojom::ToolTargetPtr& to_target = action_->to_target;
 
-  if (from_target->is_dom_node_id() || to_target->is_dom_node_id()) {
+  if (target_->is_dom_node_id() || to_target->is_dom_node_id()) {
     return base::unexpected(
         MakeResult(mojom::ActionResultCode::kArgumentsInvalid,
                    "DomNodeId target not supported"));
   }
 
-  gfx::PointF from_point = gfx::PointF(from_target->get_coordinate());
+  gfx::PointF from_point = gfx::PointF(target_->get_coordinate());
   gfx::PointF to_point = gfx::PointF(to_target->get_coordinate());
 
   if (!IsPointWithinViewport(from_point, frame_.get())) {

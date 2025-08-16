@@ -13,6 +13,7 @@
 #include "base/check_deref.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
+#include "base/scoped_observation.h"
 #include "base/test/gmock_expected_support.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/test_future.h"
@@ -20,9 +21,11 @@
 #include "chrome/browser/ash/app_mode/isolated_web_app/kiosk_iwa_data.h"
 #include "chrome/browser/ash/app_mode/isolated_web_app/kiosk_iwa_manager.h"
 #include "chrome/browser/ash/app_mode/kiosk_app_launch_error.h"
+#include "chrome/browser/ash/app_mode/kiosk_app_manager_observer.h"
 #include "chrome/browser/ash/app_mode/kiosk_controller.h"
 #include "chrome/browser/ash/app_mode/test/kiosk_mixin.h"
 #include "chrome/browser/ash/app_mode/test/kiosk_test_utils.h"
+#include "chrome/browser/browser_process.h"
 #include "chrome/browser/ui/web_applications/test/isolated_web_app_test_utils.h"
 #include "chrome/browser/web_applications/isolated_web_apps/isolated_web_app_update_apply_task.h"
 #include "chrome/browser/web_applications/isolated_web_apps/isolated_web_app_update_discovery_task.h"
@@ -39,7 +42,8 @@
 #include "components/web_package/signed_web_bundles/signed_web_bundle_id.h"
 #include "components/web_package/test_support/signed_web_bundles/key_pair.h"
 #include "components/webapps/common/web_app_id.h"
-#include "components/webapps/isolated_web_apps/update_channel.h"
+#include "components/webapps/isolated_web_apps/types/update_channel.h"
+#include "content/public/browser/network_service_util.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/test_launcher.h"
 #include "testing/gmock/include/gmock/gmock.h"
@@ -181,10 +185,34 @@ void ExpectAppUpdateDiscovered() {
                           kUpdateFoundAndSavedInDatabase));
 }
 
+void ExpectAppDowngradeDiscovered() {
+  ASSERT_THAT(WaitForTestAppUpdateDiscovery(),
+              ValueIs(web_app::IsolatedWebAppUpdateDiscoveryTask::Success::
+                          kDowngradeVersionFoundAndSavedInDatabase));
+}
+
+void ExpectAppPinnedVersionDiscovered() {
+  ASSERT_THAT(WaitForTestAppUpdateDiscovery(),
+              ValueIs(web_app::IsolatedWebAppUpdateDiscoveryTask::Success::
+                          kPinnedVersionUpdateFoundAndSavedInDatabase));
+}
+
+void ExpectDowngradeNotAllowed() {
+  ASSERT_THAT(WaitForTestAppUpdateDiscovery(),
+              ErrorIs(web_app::IsolatedWebAppUpdateDiscoveryTask::Error::
+                          kDowngradetNotAllowed));
+}
+
 void ExpectNoApplicableVersion() {
   EXPECT_THAT(WaitForTestAppUpdateDiscovery(),
               ErrorIs(web_app::IsolatedWebAppUpdateDiscoveryTask::Error::
                           kUpdateManifestNoApplicableVersion));
+}
+
+void ExpectPinnedVersionNotFoundInUpdateManifest() {
+  EXPECT_THAT(WaitForTestAppUpdateDiscovery(),
+              ErrorIs(web_app::IsolatedWebAppUpdateDiscoveryTask::Error::
+                          kPinnedVersionNotFoundInUpdateManifest));
 }
 
 // Creates a manual launch IWA kiosk with a custom channel.
@@ -216,6 +244,38 @@ KioskMixin::Config CreateManualLaunchConfigWithVersionPinning(
   return kiosk_iwa_config;
 }
 
+// Checks that Kiosk IWA name that is used in the Apps menu is updated.
+// Wraps KioskAppManagerObserver to ignore irrelevant web app updates
+// (e.g. empty 'update' event from initialization or an icon key update).
+class KioskIwaTitleChangeWaiter : public KioskAppManagerObserver {
+ public:
+  explicit KioskIwaTitleChangeWaiter(std::string expected_title)
+      : expected_title_(std::move(expected_title)) {
+    iwa_manager_observation_.Observe(KioskIwaManager::Get());
+  }
+  KioskIwaTitleChangeWaiter(const KioskIwaTitleChangeWaiter&) = delete;
+  KioskIwaTitleChangeWaiter& operator=(const KioskIwaTitleChangeWaiter&) =
+      delete;
+  ~KioskIwaTitleChangeWaiter() override = default;
+
+  // `KioskAppManagerObserver`:
+  void OnKioskAppDataChanged(const std::string& id_of_updated_app) override {
+    if (id_of_updated_app == GetTestWebAppId() &&
+        TheKioskApp().name() == expected_title_) {
+      title_change_future_.SetValue(true);
+    }
+  }
+
+  bool Wait() { return title_change_future_.Take(); }
+
+ private:
+  const std::string expected_title_;
+  base::test::TestFuture<bool> title_change_future_;
+
+  base::ScopedObservation<KioskIwaManager, KioskAppManagerObserver>
+      iwa_manager_observation_{this};
+};
+
 }  // namespace
 
 // Base class for Kiosk IWA version management fixtures.
@@ -231,13 +291,22 @@ class KioskIwaVersionManagementBaseTest
       : feature_list_(ash::features::kIsolatedWebAppKiosk),
         iwa_server_mixin_(&mixin_host_),
         kiosk_mixin_(&mixin_host_,
-                     std::move(config_creator).Run(GetUpdateManifestUrl())) {}
+                     std::move(config_creator).Run(GetUpdateManifestUrl())) {
+    // Prevents a race condition (often in debug builds) where a network service
+    // process is not yet started when kiosk downloads the IWA update manifest.
+    content::ForceInProcessNetworkService();
+  }
 
   ~KioskIwaVersionManagementBaseTest() override = default;
   KioskIwaVersionManagementBaseTest(const KioskIwaVersionManagementBaseTest&) =
       delete;
   KioskIwaVersionManagementBaseTest& operator=(
       const KioskIwaVersionManagementBaseTest&) = delete;
+
+  void SetUpOnMainThread() override {
+    MixinBasedInProcessBrowserTest::SetUpOnMainThread();
+    OverrideCacheDir();
+  }
 
   void AddTestBundle(std::string_view version,
                      std::optional<std::vector<web_app::UpdateChannel>>
@@ -272,9 +341,21 @@ class KioskIwaVersionManagementBaseTest
     return iwa_server_mixin_.GetUpdateManifestUrl(GetTestWebBundleId());
   }
 
+  void OverrideCacheDir() {
+    // `IsolatedWebAppUpdateManager` saves the updated version to cache, if the
+    // cache directory is not set, it will result with a failure.
+    ProfileManager* profile_manager = g_browser_process->profile_manager();
+    ASSERT_TRUE(profile_manager);
+    cache_root_dir_ = profile_manager->user_data_dir();
+    cache_root_dir_override_ = std::make_unique<base::ScopedPathOverride>(
+        ash::DIR_DEVICE_LOCAL_ACCOUNT_IWA_CACHE, cache_root_dir_);
+  }
+
   base::test::ScopedFeatureList feature_list_;
   web_app::IsolatedWebAppUpdateServerMixin iwa_server_mixin_;
   KioskMixin kiosk_mixin_;
+  base::FilePath cache_root_dir_;
+  std::unique_ptr<base::ScopedPathOverride> cache_root_dir_override_;
 };
 
 struct KioskIwaUpdateChannelTestParams {
@@ -493,13 +574,7 @@ IN_PROC_BROWSER_TEST_F(KioskIwaSimpleUpdateTest,
   ExpectTestAppInstalledAtVersion(kAppVersion1);
 }
 
-#if BUILDFLAG(IS_LINUX) && defined(ADDRESS_SANITIZER)
-#define MAYBE_UpdatesToLatestBeforeLaunch DISABLED_UpdatesToLatestBeforeLaunch
-#else
-#define MAYBE_UpdatesToLatestBeforeLaunch UpdatesToLatestBeforeLaunch
-#endif
-IN_PROC_BROWSER_TEST_F(KioskIwaSimpleUpdateTest,
-                       MAYBE_UpdatesToLatestBeforeLaunch) {
+IN_PROC_BROWSER_TEST_F(KioskIwaSimpleUpdateTest, UpdatesToLatestBeforeLaunch) {
   EXPECT_EQ(TheKioskApp().name(), kTestIwaTitle1);
 
   AddTestBundle(kTestIwaTitle2, kVersionString2);
@@ -507,16 +582,14 @@ IN_PROC_BROWSER_TEST_F(KioskIwaSimpleUpdateTest,
 
   // Prevents the app launch to let the update apply.
   auto scoped_launch_blocker = BlockKioskLaunch();
+  KioskIwaTitleChangeWaiter title_change_waiter(kTestIwaTitle2);
   ASSERT_TRUE(LaunchAppManually(TheKioskApp()));
 
   WaitForKioskProfile();
   ExpectTestAppUpdatedToVersion(expected_version);
 
-  scoped_launch_blocker.reset();
-  ASSERT_TRUE(WaitKioskLaunched());
-
   ExpectTestAppInstalledAtVersion(expected_version);
-  EXPECT_EQ(TheKioskApp().name(), kTestIwaTitle2);
+  ASSERT_TRUE(title_change_waiter.Wait());
 }
 
 IN_PROC_BROWSER_TEST_F(KioskIwaSimpleUpdateTest, PRE_UpdatesToLatestAtExit) {
@@ -540,7 +613,12 @@ IN_PROC_BROWSER_TEST_F(KioskIwaSimpleUpdateTest, UpdatesToLatestAtExit) {
 }
 
 struct KioskIwaUpdateChannelChangeTestParams {
-  enum class TestCase { kUpdateApplied, kUpdateSkipped, kUpdateError };
+  enum class TestCase {
+    kUpdateApplied,
+    kUpdateSkipped,
+    kUpdateError,
+    kDowngradeNotAllowed
+  };
 
   TestCase test_case;
   std::string initial_channel_name;
@@ -600,6 +678,10 @@ class KioskIwaUpdateChannelChangeTest
       case KioskIwaUpdateChannelChangeTestParams::TestCase::kUpdateError:
         ExpectNoApplicableVersion();
         break;
+      case KioskIwaUpdateChannelChangeTestParams::TestCase::
+          kDowngradeNotAllowed:
+        ExpectDowngradeNotAllowed();
+        break;
     }
   }
 };
@@ -617,16 +699,13 @@ IN_PROC_BROWSER_TEST_P(KioskIwaUpdateChannelChangeTest, ProcessChannelChange) {
   EXPECT_EQ(GetCurrentKioskIwaData()->update_channel().ToString(),
             GetNewChannelName());
 
-  {
-    // Prevents the app launch to let the app update apply.
-    auto scoped_launch_blocker = BlockKioskLaunch();
-    ASSERT_TRUE(LaunchAppManually(TheKioskApp()));
+  // Prevents the app launch to let the app update apply.
+  auto scoped_launch_blocker = BlockKioskLaunch();
+  ASSERT_TRUE(LaunchAppManually(TheKioskApp()));
 
-    WaitForKioskProfile();
-    CheckUpdateStatusForTestCase();
-  }
+  WaitForKioskProfile();
+  CheckUpdateStatusForTestCase();
 
-  ASSERT_TRUE(WaitKioskLaunched());
   ExpectTestAppInstalledAtVersion(GetExpectedNewVersion());
 }
 
@@ -663,16 +742,17 @@ INSTANTIATE_TEST_SUITE_P(
         // Switching to a channel with an older version skips the update.
         // Switch from "beta" to "default".
         KioskIwaUpdateChannelChangeTestParams{
-            .test_case =
-                KioskIwaUpdateChannelChangeTestParams::TestCase::kUpdateSkipped,
+            .test_case = KioskIwaUpdateChannelChangeTestParams::TestCase::
+                kDowngradeNotAllowed,
             .initial_channel_name = kChannelNameBeta,
             .expected_initial_version = kAppVersion2,
             .new_channel_name = kChannelNameDefault,
             .expected_new_version = kAppVersion2},
-        // Switch from "alpha" to "default".
+        // Switch from "alpha" (at version 3.0.0) to "default" (latest
+        // version: 2.0, downgrade not possible).
         KioskIwaUpdateChannelChangeTestParams{
-            .test_case =
-                KioskIwaUpdateChannelChangeTestParams::TestCase::kUpdateSkipped,
+            .test_case = KioskIwaUpdateChannelChangeTestParams::TestCase::
+                kDowngradeNotAllowed,
             .initial_channel_name = kChannelNameAlpha,
             .expected_initial_version = kAppVersion3,
             .new_channel_name = kChannelNameDefault,
@@ -689,7 +769,14 @@ INSTANTIATE_TEST_SUITE_P(
             .expected_new_version = kAppVersion2}));
 
 struct KioskIwaVersionPinningUpdateTestParams {
-  enum class TestCase { kNoUpdateQueued, kUpdateApplied, kUpdateNotFound };
+  enum class TestCase {
+    kNoUpdateQueued,
+    kUpdateApplied,
+    kUpdateToPinnedVersionApplied,
+    kDowngradeToPinnedVersionApplied,
+    kUpdateNotFound,
+    kPinnedVersionNotFound
+  };
 
   TestCase test_case;
   std::string input_pinned_version;
@@ -746,10 +833,24 @@ class KioskIwaVersionPinningUpdateTest
                   0UL);
         break;
       case KioskIwaVersionPinningUpdateTestParams::TestCase::kUpdateApplied:
+        ExpectAppPinnedVersionDiscovered();
+        ExpectTestAppUpdatedToVersion(GetExpectedVersion());
+        break;
+      case KioskIwaVersionPinningUpdateTestParams::TestCase::
+          kDowngradeToPinnedVersionApplied:
+        ExpectAppDowngradeDiscovered();
+        ExpectTestAppUpdatedToVersion(GetExpectedVersion());
+        break;
+      case KioskIwaVersionPinningUpdateTestParams::TestCase::
+          kUpdateToPinnedVersionApplied:
         ExpectTestAppUpdatedToVersion(GetExpectedVersion());
         break;
       case KioskIwaVersionPinningUpdateTestParams::TestCase::kUpdateNotFound:
         ExpectNoApplicableVersion();
+        break;
+      case KioskIwaVersionPinningUpdateTestParams::TestCase::
+          kPinnedVersionNotFound:
+        ExpectPinnedVersionNotFoundInUpdateManifest();
         break;
     }
   }
@@ -762,16 +863,13 @@ IN_PROC_BROWSER_TEST_P(KioskIwaVersionPinningUpdateTest, PRE_ProcessPinning) {
 }
 
 IN_PROC_BROWSER_TEST_P(KioskIwaVersionPinningUpdateTest, ProcessPinning) {
-  {
-    // Prevents the app launch to let the app update apply.
-    auto scoped_launch_blocker = BlockKioskLaunch();
-    ASSERT_TRUE(LaunchAppManually(TheKioskApp()));
+  // Prevents the app launch to let the app update apply.
+  auto scoped_launch_blocker = BlockKioskLaunch();
+  ASSERT_TRUE(LaunchAppManually(TheKioskApp()));
 
-    WaitForKioskProfile();
-    CheckUpdateStatusForTestCase();
-  }
+  WaitForKioskProfile();
+  CheckUpdateStatusForTestCase();
 
-  ASSERT_TRUE(WaitKioskLaunched());
   ExpectTestAppInstalledAtVersion(GetExpectedVersion());
 }
 
@@ -789,7 +887,7 @@ INSTANTIATE_TEST_SUITE_P(
         // Pinning to the newer version updates the app.
         KioskIwaVersionPinningUpdateTestParams{
             .test_case = KioskIwaVersionPinningUpdateTestParams::TestCase::
-                kUpdateApplied,
+                kUpdateToPinnedVersionApplied,
             .input_pinned_version = kVersionString3,
             .input_allow_downgrades = false,
             .expected_version = kAppVersion3},
@@ -803,14 +901,14 @@ INSTANTIATE_TEST_SUITE_P(
         // Pinning to the older version with allow_downgrades updates the app.
         KioskIwaVersionPinningUpdateTestParams{
             .test_case = KioskIwaVersionPinningUpdateTestParams::TestCase::
-                kUpdateApplied,
+                kDowngradeToPinnedVersionApplied,
             .input_pinned_version = kVersionString1,
             .input_allow_downgrades = true,
             .expected_version = kAppVersion1},
         // Pinning to the unknown version skips the update with an error.
         KioskIwaVersionPinningUpdateTestParams{
             .test_case = KioskIwaVersionPinningUpdateTestParams::TestCase::
-                kUpdateNotFound,
+                kPinnedVersionNotFound,
             .input_pinned_version = kVersionStringUnknown,
             .input_allow_downgrades = true,
             .expected_version = kAppVersion2}));

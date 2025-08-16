@@ -9,6 +9,7 @@
 #include <optional>
 
 #include "base/memory/raw_ptr.h"
+#include "base/scoped_observation.h"
 #include "base/timer/timer.h"
 #include "components/keyed_service/core/keyed_service.h"
 #include "components/supervised_user/core/browser/supervised_user_service_observer.h"
@@ -78,11 +79,18 @@ class SupervisedUserMetricsService : public KeyedService,
 
   // Helper function to check if a new day has arrived.
   void CheckForNewDay();
+  // Returns true if metrics were emitted. Dispatches to one of the below
+  // functions depending on the user type.
+  bool TryEmittingMetricsAndRecordCurrentDay();
+  bool TryEmittingFamilyLinkMetrics();
+  bool TryEmittingSupervisedUserMetrics();
 
-  void EmitMetrics();
-  // Clears cache of last recorded metrics. Subsequent `::EmitMetrics` will emit
-  // all metrics.
+  // Clears cache of last recorded metrics. Subsequent `::TryEmittingMetrics` will emit
+  // all metrics (for eligible users)
   void ClearMetricsCache();
+
+  // Records the current day's metrics, to avoid repetitions.
+  void RecordCurrentDay();
 
   const raw_ptr<PrefService> pref_service_;
   raw_ref<SupervisedUserService> supervised_user_service_;
@@ -96,8 +104,9 @@ class SupervisedUserMetricsService : public KeyedService,
 
   // Cache of last recorded values of SupervisedUserURLFilter to avoid
   // duplicated emissions.
-  std::optional<WebFilterType> last_recorded_web_filter_type_;
+  std::optional<WebFilterType> last_recorded_family_link_web_filter_type_;
   std::optional<SupervisedUserURLFilter::Statistics> last_recorded_statistics_;
+  std::optional<WebFilterType> last_recorded_supervised_user_web_filter_type_;
 
   base::ScopedObservation<SupervisedUserService, SupervisedUserServiceObserver>
       supervised_user_service_observation_{this};

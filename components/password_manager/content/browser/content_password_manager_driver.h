@@ -74,8 +74,11 @@ class ContentPasswordManagerDriver final
   void GeneratedPasswordRejected() override;
   void FocusNextFieldAfterPasswords() override;
   void FillField(
+      autofill::FieldRendererId triggering_field_id,
       const std::u16string& value,
       autofill::AutofillSuggestionTriggerSource suggestion_source) override;
+  void TriggerPasswordRecoverySuggestions(
+      autofill::FieldRendererId field_id) override;
   void FillChangePasswordForm(
       autofill::FieldRendererId password_element_id,
       autofill::FieldRendererId new_password_element_id,
@@ -122,6 +125,7 @@ class ContentPasswordManagerDriver final
   bool CanShowAutofillUi() const override;
   int GetFrameId() const override;
   const GURL& GetLastCommittedURL() const override;
+  const url::Origin& GetLastCommittedOrigin() const override;
   void AnnotateFieldsWithParsingResult(
       const autofill::ParsingResult& parsing_result) override;
   base::WeakPtr<password_manager::PasswordManagerDriver> AsWeakPtr() override;
@@ -146,6 +150,8 @@ class ContentPasswordManagerDriver final
   content::RenderFrameHost* render_frame_host() const {
     return render_frame_host_;
   }
+
+  PasswordManagerClient* client() { return client_; }
 
 #if defined(UNIT_TEST)
   // Exposed to allow browser tests to hook the driver.
@@ -188,8 +194,6 @@ class ContentPasswordManagerDriver final
                              int32_t result) override;
 
  private:
-  void LogFilledFieldType();
-
   const mojo::AssociatedRemote<autofill::mojom::AutofillAgent>&
   GetAutofillAgent();
 
@@ -210,7 +214,6 @@ class ContentPasswordManagerDriver final
   PasswordAutofillManager password_autofill_manager_;
 
   int id_;
-  autofill::FieldRendererId last_triggering_field_id_;
 
   mojo::AssociatedRemote<autofill::mojom::PasswordAutofillAgent>
       password_autofill_agent_;

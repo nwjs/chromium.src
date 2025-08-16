@@ -114,6 +114,7 @@
 #include "components/content_settings/core/browser/content_settings_info.h"
 #include "components/content_settings/core/browser/content_settings_registry.h"
 #include "components/content_settings/core/browser/host_content_settings_map.h"
+#include "components/content_settings/core/browser/permission_settings_registry.h"
 #include "components/content_settings/core/browser/website_settings_info.h"
 #include "components/content_settings/core/browser/website_settings_registry.h"
 #include "components/content_settings/core/common/content_settings.h"
@@ -121,6 +122,7 @@
 #include "components/content_settings/core/common/content_settings_metadata.h"
 #include "components/content_settings/core/common/content_settings_pattern.h"
 #include "components/content_settings/core/common/content_settings_utils.h"
+#include "components/content_settings/core/test/content_settings_test_utils.h"
 #include "components/custom_handlers/protocol_handler.h"
 #include "components/custom_handlers/protocol_handler_registry.h"
 #include "components/custom_handlers/test_protocol_handler_registry_delegate.h"
@@ -140,7 +142,7 @@
 #include "components/password_manager/core/browser/password_store/mock_smart_bubble_stats_store.h"
 #include "components/password_manager/core/browser/password_store/password_store_consumer.h"
 #include "components/password_manager/core/browser/password_store/password_store_interface.h"
-#include "components/payments/content/mock_payment_manifest_web_data_service.h"
+#include "components/payments/content/mock_web_payments_web_data_service.h"
 #include "components/performance_manager/public/user_tuning/prefs.h"
 #include "components/permissions/features.h"
 #include "components/permissions/permission_actions_history.h"
@@ -287,12 +289,6 @@
 #include "net/reporting/reporting_policy.h"
 #include "net/reporting/reporting_service.h"
 #endif  // BUILDFLAG(ENABLE_REPORTING)
-
-#if BUILDFLAG(ENABLE_NACL)
-#include "chrome/browser/nacl_host/nacl_browser_delegate_impl.h"
-#include "components/nacl/browser/nacl_browser.h"
-#include "components/nacl/common/buildflags.h"
-#endif  // BUILDFLAG(ENABLE_NACL)
 
 using base::test::TestFuture;
 using content::BrowsingDataFilterBuilder;
@@ -1125,18 +1121,6 @@ class StrikeDatabaseTester {
 
 }  // namespace autofill
 
-#if BUILDFLAG(ENABLE_NACL)
-class ScopedNaClBrowserDelegate {
- public:
-  ~ScopedNaClBrowserDelegate() { nacl::NaClBrowser::ClearAndDeleteDelegate(); }
-
-  void Init(ProfileManager* profile_manager) {
-    nacl::NaClBrowser::SetDelegate(
-        std::make_unique<NaClBrowserDelegateImpl>(profile_manager));
-  }
-};
-#endif  // BUILDFLAG(ENABLE_NACL)
-
 // Test Class -----------------------------------------------------------------
 
 class ChromeBrowsingDataRemoverDelegateTest : public testing::Test {
@@ -1165,11 +1149,6 @@ class ChromeBrowsingDataRemoverDelegateTest : public testing::Test {
     CHECK(profile_manager_->SetUp(temp_dir_.GetPath()));
     profile_ = profile_manager_->CreateTestingProfile("test_profile",
                                                       GetTestingFactories());
-
-#if BUILDFLAG(ENABLE_NACL)
-    // Clearing Cache will clear PNACL cache, which needs this delegate set.
-    nacl_browser_delegate_.Init(profile_manager_->profile_manager());
-#endif  // BUILDFLAG(ENABLE_NACL)
 
 #if !BUILDFLAG(IS_ANDROID)
     web_app::test::AwaitStartWebAppProviderAndSubsystems(profile_.get());
@@ -1390,9 +1369,6 @@ class ChromeBrowsingDataRemoverDelegateTest : public testing::Test {
   std::unique_ptr<content::BackgroundTracingManager>
       background_tracing_manager_;
 
-#if BUILDFLAG(ENABLE_NACL)
-  ScopedNaClBrowserDelegate nacl_browser_delegate_;
-#endif  // BUILDFLAG(ENABLE_NACL)
   content::BrowserTaskEnvironment task_environment_{
       base::test::TaskEnvironment::TimeSource::MOCK_TIME};
   base::ScopedTempDir temp_dir_;
@@ -1454,21 +1430,13 @@ TEST_F(ChromeBrowsingDataRemoverDelegateTest, RemoveLensOverlayWebUIStorage) {
 
   // Check if the local storage was successfully removed. ClearData only
   // guarantees that tasks to delete data are scheduled when its callback is
-  // invoked. It doesn't guarantee data has actually been cleared. So use
-  // RunUntil to verify data is cleared.
-  EXPECT_TRUE(base::test::RunUntil([&]() {
-    std::vector<blink::mojom::KeyValuePtr> data;
-    base::RunLoop loop;
-    area->GetAll(
-        /*new_observer=*/mojo::NullRemote(),
-        base::BindLambdaForTesting(
-            [&](std::vector<blink::mojom::KeyValuePtr> data_in) {
-              data = std::move(data_in);
-              loop.Quit();
-            }));
-    loop.Run();
-    return data.size() == 0UL;
-  }));
+  // invoked. It doesn't guarantee data has actually been cleared. Use
+  // TestFuture to verify that data is cleared.
+  base::test::TestFuture<std::vector<blink::mojom::KeyValuePtr>> get_all_future;
+  area->GetAll(/*new_observer=*/mojo::NullRemote(),
+               get_all_future.GetCallback());
+  EXPECT_TRUE(get_all_future.Wait());
+  EXPECT_EQ(0UL, get_all_future.Get().size());
 }
 #endif
 
@@ -2208,10 +2176,10 @@ TEST_F(ChromeBrowsingDataRemoverDelegateTest, ClearReadingList) {
   auto* reading_list_model =
       ReadingListModelFactory::GetForBrowserContext(profile);
   WaitForReadingListModelLoaded(reading_list_model);
-  reading_list_model->AddOrReplaceEntry(
-      GURL("http://url.com/"), "entry_title",
-      reading_list::ADDED_VIA_CURRENT_APP,
-      /*estimated_read_time=*/base::TimeDelta());
+  reading_list_model->AddOrReplaceEntry(GURL("http://url.com/"), "entry_title",
+                                        reading_list::ADDED_VIA_CURRENT_APP,
+                                        /*estimated_read_time=*/std::nullopt,
+                                        /*creation_time=*/std::nullopt);
   EXPECT_EQ(1u, reading_list_model->size());
   BlockUntilBrowsingDataRemoved(base::Time(), base::Time::Max(),
                                 constants::DATA_TYPE_READING_LIST, false);
@@ -3487,8 +3455,7 @@ TEST_F(ChromeBrowsingDataRemoverDelegateTest, RemoveTopicSettings) {
   EXPECT_TRUE(privacy_sandbox_settings->IsTopicAllowed(topic_two));
 }
 
-TEST_F(ChromeBrowsingDataRemoverDelegateTest,
-       ClearPermissionPromptCounts) {
+TEST_F(ChromeBrowsingDataRemoverDelegateTest, ClearPermissionPromptCounts) {
   RemovePermissionPromptCountsTest tester(GetProfile());
 
   std::unique_ptr<BrowsingDataFilterBuilder> filter_builder_1(
@@ -3815,8 +3782,6 @@ TEST_F(ChromeBrowsingDataRemoverDelegateTest, AllTypesAreGettingDeleted) {
 
   auto* map = HostContentSettingsMapFactory::GetForProfile(profile);
   auto* registry = content_settings::WebsiteSettingsRegistry::GetInstance();
-  auto* content_setting_registry =
-      content_settings::ContentSettingsRegistry::GetInstance();
 
   auto* history_service =
       HistoryServiceFactory::GetForProfileWithoutCreating(profile);
@@ -3829,10 +3794,6 @@ TEST_F(ChromeBrowsingDataRemoverDelegateTest, AllTypesAreGettingDeleted) {
 
   // List of types that don't have to be deletable.
   static const ContentSettingsType non_deletable_types[] = {
-      // Doesn't allow any values.
-      ContentSettingsType::PROTOCOL_HANDLERS,
-      // Doesn't allow any values.
-      ContentSettingsType::MIXEDSCRIPT,
       // Only policy provider sets exceptions for this type.
       ContentSettingsType::AUTO_SELECT_CERTIFICATE,
 
@@ -3846,27 +3807,16 @@ TEST_F(ChromeBrowsingDataRemoverDelegateTest, AllTypesAreGettingDeleted) {
     if (base::Contains(non_deletable_types, info->type())) {
       continue;
     }
-    base::Value some_value;
-    auto* content_setting = content_setting_registry->Get(info->type());
-    if (content_setting) {
-      // Content Settings only allow integers.
-      if (content_setting->IsSettingValid(CONTENT_SETTING_ALLOW)) {
-        some_value = base::Value(CONTENT_SETTING_ALLOW);
-      } else {
-        ASSERT_TRUE(content_setting->IsSettingValid(CONTENT_SETTING_ASK));
-        some_value = base::Value(CONTENT_SETTING_ASK);
-      }
-      ASSERT_TRUE(content_setting->IsDefaultSettingValid(CONTENT_SETTING_BLOCK))
-          << info->name();
-      // Set default to BLOCK to be able to differentiate an exception from the
-      // default.
-      map->SetDefaultContentSetting(info->type(), CONTENT_SETTING_BLOCK);
-    } else {
-      // Other website settings only allow dictionaries.
-      base::Value::Dict dict;
-      dict.Set("foo", 42);
-      some_value = base::Value(std::move(dict));
+    base::Value some_value =
+        content_settings::TestUtils::GetSomeValue(info->type());
+    if (some_value.is_none()) {
+      // Some settings don't allow any values.
+      continue;
     }
+    base::Value initial_value = map->GetWebsiteSetting(url, url, info->type());
+    ASSERT_EQ(initial_value, info->initial_default_value());
+    ASSERT_NE(some_value, initial_value);
+
     // Create an exception.
     map->SetWebsiteSettingDefaultScope(url, url, info->type(),
                                        some_value.Clone());
@@ -3890,14 +3840,12 @@ TEST_F(ChromeBrowsingDataRemoverDelegateTest, AllTypesAreGettingDeleted) {
       continue;
     }
     base::Value value = map->GetWebsiteSetting(url, url, info->type());
-
-    if (value.is_int()) {
-      EXPECT_EQ(CONTENT_SETTING_BLOCK, value.GetInt())
-          << "Not deleted: " << info->name() << " value: " << value;
-    } else {
-      EXPECT_TRUE(value.is_none())
-          << "Not deleted: " << info->name() << " value: " << value;
+    if (value.is_none()) {
+      continue;
     }
+
+    EXPECT_EQ(info->initial_default_value(), value)
+        << "Not deleted: " << info->name() << " value: " << value;
   }
 }
 
@@ -4086,7 +4034,7 @@ class ChromeBrowsingDataRemoverDelegateWithAccountPasswordsTest
 #endif
     );
     ASSERT_TRUE(password_manager::features_util::IsAccountStorageEnabled(
-        GetProfile()->GetPrefs(), sync_service()));
+        sync_service()));
   }
 };
 
@@ -4261,7 +4209,7 @@ class
  public:
   using MockWrapper = testing::NiceMock<payments::MockWebDataServiceWrapper>;
   using MockService =
-      testing::NiceMock<payments::MockPaymentManifestWebDataService>;
+      testing::NiceMock<payments::MockWebPaymentsWebDataService>;
 
   TestingProfile::TestingFactories GetTestingFactories() override {
     TestingProfile::TestingFactories factories =
@@ -4271,7 +4219,7 @@ class
         base::BindLambdaForTesting([&](content::BrowserContext* context)
                                        -> std::unique_ptr<KeyedService> {
           auto wrapper = std::make_unique<MockWrapper>();
-          ON_CALL(*wrapper, GetPaymentManifestWebData)
+          ON_CALL(*wrapper, GetWebPaymentsWebData)
               .WillByDefault(Return(service_));
           return std::move(wrapper);
         }));

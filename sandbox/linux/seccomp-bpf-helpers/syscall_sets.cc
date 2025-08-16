@@ -625,14 +625,14 @@ bool SyscallSets::IsAllowedGeneralIo(int sysno) {
     case __NR_preadv:
     case __NR_pwrite64:
     case __NR_pwritev:
+    case __NR_splice:
+    case __NR_tee:
+    case __NR_vmsplice:
     case __NR_recvmmsg:  // Could specify source.
 #if defined(__i386__) || defined(__arm__) || \
     (defined(ARCH_CPU_MIPS_FAMILY) && defined(ARCH_CPU_32_BITS))
     case __NR_recvmmsg_time64:  // Could specify source.
 #endif
-    case __NR_splice:
-    case __NR_tee:
-    case __NR_vmsplice:
 // send* syscalls need their flags filtered.
 #if defined(__arm__) || \
     (defined(ARCH_CPU_MIPS_FAMILY) && defined(ARCH_CPU_32_BITS))

@@ -116,12 +116,12 @@ blink::LoadingMode ConvertToBlink(LoadingMode in) {
 }
 
 // ===== Converters for other basic Blink types =====
-String ConvertToBlink(const std::string& in) {
-  return String::FromUTF8(in);
+::blink::String ConvertToBlink(const std::string& in) {
+  return ::blink::String::FromUTF8(in);
 }
 
-String ConvertToBlink(const std::optional<std::string>& in) {
-  return in ? String::FromUTF8(*in) : String();
+::blink::String ConvertToBlink(const std::optional<std::string>& in) {
+  return in ? ::blink::String::FromUTF8(*in) : ::blink::String();
 }
 
 ::blink::KURL ConvertToBlink(const GURL& in) {
@@ -137,9 +137,9 @@ scoped_refptr<const ::blink::SecurityOrigin> ConvertToBlink(
 template <
     typename InElement,
     typename OutElement = decltype(ConvertToBlink(std::declval<InElement>()))>
-Vector<OutElement> ConvertToBlink(const std::vector<InElement>& in) {
-  Vector<OutElement> out;
-  out.reserve(base::checked_cast<wtf_size_t>(in.size()));
+::blink::Vector<OutElement> ConvertToBlink(const std::vector<InElement>& in) {
+  ::blink::Vector<OutElement> out;
+  out.reserve(base::checked_cast<::blink::wtf_size_t>(in.size()));
   for (const auto& element : in) {
     out.push_back(ConvertToBlink(element));
   }
@@ -150,9 +150,9 @@ template <typename InKey,
           typename InValue,
           typename OutKey = decltype(ConvertToBlink(std::declval<InKey>())),
           typename OutValue = decltype(ConvertToBlink(std::declval<InValue>()))>
-HashMap<OutKey, OutValue> ConvertToBlink(
+::blink::HashMap<OutKey, OutValue> ConvertToBlink(
     const base::flat_map<InKey, InValue>& in) {
-  HashMap<OutKey, OutValue> out;
+  ::blink::HashMap<OutKey, OutValue> out;
   for (const auto& element : in) {
     out.insert(ConvertToBlink(element.first), ConvertToBlink(element.second));
   }
@@ -177,23 +177,15 @@ blink::IntegrityPolicy::Source ConvertToBlink(
   return blink::IntegrityPolicy::Source(in);
 }
 
-blink::CSPHashSourcePtr ConvertToBlink(const CSPHashSourcePtr& in) {
-  CHECK(in);
-  Vector<uint8_t> hash_value = ConvertToBlink(in->value);
-
-  return blink::CSPHashSource::New(in->algorithm, std::move(hash_value));
-}
-
 blink::CSPSourceListPtr ConvertToBlink(const CSPSourceListPtr& source_list) {
   CHECK(source_list);
 
+  using ::blink::Vector;
   Vector<blink::CSPSourcePtr> sources = ConvertToBlink(source_list->sources);
-  Vector<String> nonces = ConvertToBlink(source_list->nonces);
-  Vector<blink::CSPHashSourcePtr> hashes = ConvertToBlink(source_list->hashes);
-  Vector<blink::CSPHashSourcePtr> url_hashes =
-      ConvertToBlink(source_list->url_hashes);
-  Vector<blink::CSPHashSourcePtr> eval_hashes =
-      ConvertToBlink(source_list->eval_hashes);
+  Vector<::blink::String> nonces = ConvertToBlink(source_list->nonces);
+  Vector<network::IntegrityMetadata> hashes(source_list->hashes);
+  Vector<network::IntegrityMetadata> url_hashes(source_list->url_hashes);
+  Vector<network::IntegrityMetadata> eval_hashes(source_list->eval_hashes);
 
   return blink::CSPSourceList::New(
       std::move(sources), std::move(nonces), std::move(hashes),
@@ -214,7 +206,7 @@ blink::ContentSecurityPolicyHeaderPtr ConvertToBlink(
 }
 
 blink::IntegrityPolicyPtr ConvertToBlink(const IntegrityPolicyPtr& in) {
-  Vector<blink::IntegrityPolicy::Destination> blocked_destinations =
+  ::blink::Vector<blink::IntegrityPolicy::Destination> blocked_destinations =
       ConvertToBlink(in->blocked_destinations);
   return blink::IntegrityPolicy::New(
       std::move(blocked_destinations), ConvertToBlink(in->sources),
@@ -325,6 +317,14 @@ blink::SRIMessageSignatureError ConvertToBlink(SRIMessageSignatureError in) {
   return in;
 }
 
+std::optional<::blink::Vector<uint8_t>> ConvertToBlink(
+    const std::optional<std::vector<uint8_t>>& in) {
+  if (!in) {
+    return std::nullopt;
+  }
+  return ConvertToBlink<uint8_t, uint8_t>(*in);
+}
+
 blink::SRIMessageSignatureComponentParameterPtr ConvertToBlink(
     const SRIMessageSignatureComponentParameterPtr& in) {
   CHECK(in);
@@ -425,7 +425,7 @@ bool IsWhitespace(UChar chr) {
 // if |matcher| is nullptr, isWhitespace() is used.
 inline bool SkipWhiteSpace(const String& str,
                            unsigned& pos,
-                           WTF::CharacterMatchFunctionPtr matcher = nullptr) {
+                           CharacterMatchFunctionPtr matcher = nullptr) {
   unsigned len = str.length();
 
   if (matcher) {
@@ -503,7 +503,7 @@ bool IsContentDispositionAttachment(const String& content_disposition) {
 
 // https://html.spec.whatwg.org/C/#attr-meta-http-equiv-refresh
 bool ParseHTTPRefresh(const String& refresh,
-                      WTF::CharacterMatchFunctionPtr matcher,
+                      CharacterMatchFunctionPtr matcher,
                       base::TimeDelta& delay,
                       String& url) {
   unsigned len = refresh.length();
@@ -658,7 +658,7 @@ bool IsHTTPTabOrSpace(UChar c) {
 // Note that `mime_type` should already have been stripped of parameters by
 // `ExtractMIMETypeFromMediaType`.
 AtomicString MinimizedMIMEType(const AtomicString& mime_type) {
-  StringUTF8Adaptor mime_utf8(mime_type);
+  StringUtf8Adaptor mime_utf8(mime_type);
 
   if (IsSupportedJavascriptMimeType(mime_utf8.AsStringView())) {
     return AtomicString("text/javascript");
@@ -938,7 +938,7 @@ bool ParseMultipartHeadersFromBody(base::span<const uint8_t> bytes,
   // Copy headers listed in replaceHeaders to the response.
   for (const AtomicString& header : ReplaceHeaders()) {
     std::string value;
-    StringUTF8Adaptor adaptor(header);
+    StringUtf8Adaptor adaptor(header);
     std::string_view header_string_piece(adaptor.AsStringView());
     size_t iterator = 0;
 
@@ -979,7 +979,7 @@ bool ParseMultipartFormHeadersFromBody(base::span<const uint8_t> bytes,
   const AtomicString* const headerNamePointers[] = {
       &http_names::kContentDisposition, &http_names::kContentType};
   for (const AtomicString* headerNamePointer : headerNamePointers) {
-    StringUTF8Adaptor adaptor(*headerNamePointer);
+    StringUtf8Adaptor adaptor(*headerNamePointer);
     size_t iterator = 0;
     std::string_view headerNameStringPiece = adaptor.AsStringView();
     std::string value;
@@ -997,7 +997,7 @@ bool ParseContentRangeHeaderFor206(const String& content_range,
                                    int64_t* last_byte_position,
                                    int64_t* instance_length) {
   return net::HttpUtil::ParseContentRangeHeaderFor206(
-      StringUTF8Adaptor(content_range).AsStringView(), first_byte_position,
+      StringUtf8Adaptor(content_range).AsStringView(), first_byte_position,
       last_byte_position, instance_length);
 }
 

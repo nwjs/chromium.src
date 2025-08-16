@@ -23,13 +23,18 @@
 #include "content/public/browser/global_routing_id.h"
 #include "url/gurl.h"
 
+namespace content {
+class PermissionController;
+}
+
 namespace permissions {
+
 enum class RequestType;
 // Describes the interface a feature making permission requests should
 // implement. A class of this type is registered with the permission request
 // manager to receive updates about the result of the permissions request
 // from the bubble or infobar. It should live until it is unregistered or until
-// RequestFinished is called.
+// its destructor is called.
 // Note that no particular guarantees are made about what exact UI surface
 // is presented to the user. The delegate may be coalesced with other bubble
 // requests, or depending on the situation, not shown at all.
@@ -182,6 +187,9 @@ class PermissionRequest {
   // request types.
   PermissionRequestGestureType GetGestureType() const;
 
+  // Used to store the prompt options for the permission request.
+  void SetPromptOptions(PromptOptions prompt_options);
+
   virtual const std::vector<std::string>& GetRequestedAudioCaptureDeviceIds()
       const;
   virtual const std::vector<std::string>& GetRequestedVideoCaptureDeviceIds()
@@ -191,11 +199,16 @@ class PermissionRequest {
   // this permission request.
   ContentSettingsType GetContentSettingsType() const;
 
+  // Whether the source frame that is the origin of this permission request has
+  // a permission on status change event listener subscribed.
+  bool IsSourceSubscribedToPermissionChangeEvent(
+      content::PermissionController* controller) const;
+
   void set_requesting_frame_id(content::GlobalRenderFrameHostId id) {
     data_->id.set_global_render_frame_host_id(id);
   }
 
-  const content::GlobalRenderFrameHostId& get_requesting_frame_id() {
+  const content::GlobalRenderFrameHostId& get_requesting_frame_id() const {
     return data_->id.global_render_frame_host_id();
   }
 

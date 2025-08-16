@@ -16,6 +16,9 @@
 
 namespace media {
 
+bool SupportsSharedImageEncoding(
+    const gpu::GpuDriverBugWorkarounds& workarounds);
+
 // This class is used to share some common states among multiple instances of
 // MediaFoundationVideoEncodeAccelerator, such as supported profiles, max
 // supported resolutions and framerates, as well as minimum supported resolution
@@ -50,7 +53,6 @@ class MEDIA_GPU_EXPORT MediaFoundationVideoEncoderSharedState {
   virtual ~MediaFoundationVideoEncoderSharedState();
 
   void GetSupportedProfilesInternal();
-  bool SupportsSharedImageEncoding(VideoCodec codec);
 
   gpu::GpuDriverBugWorkarounds workarounds_;
   VideoEncodeAccelerator::SupportedProfiles supported_profiles_;

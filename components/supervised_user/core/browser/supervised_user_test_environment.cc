@@ -13,6 +13,7 @@
 #include "components/prefs/pref_notifier_impl.h"
 #include "components/prefs/pref_service.h"
 #include "components/safe_search_api/fake_url_checker_client.h"
+#include "components/supervised_user/core/browser/supervised_user_content_filters_service.h"
 #include "components/supervised_user/core/browser/supervised_user_metrics_service.h"
 #include "components/supervised_user/core/browser/supervised_user_pref_store.h"
 #include "components/supervised_user/core/browser/supervised_user_url_filter.h"
@@ -38,10 +39,12 @@ namespace {
 class SupervisedUserTestingPrefStore : public TestingPrefStore,
                                        public PrefStore::Observer {
  public:
-  explicit SupervisedUserTestingPrefStore(
-      supervised_user::SupervisedUserSettingsService* settings_service)
-      : pref_store_(
-            base::MakeRefCounted<SupervisedUserPrefStore>(settings_service)) {
+  SupervisedUserTestingPrefStore(
+      SupervisedUserSettingsService* settings_service,
+      SupervisedUserContentFiltersService* content_filters_service)
+      : pref_store_(base::MakeRefCounted<SupervisedUserPrefStore>(
+            settings_service,
+            content_filters_service)) {
     observation_.Observe(pref_store_.get());
   }
 
@@ -87,11 +90,14 @@ void SetManualFilter(std::string_view content_pack_setting,
 
 #if BUILDFLAG(IS_ANDROID)
 std::unique_ptr<ContentFiltersObserverBridge>
-CreateFakeContentFiltersObserverBridge(std::string_view setting_name,
+CreateFakeContentFiltersObserverBridge(InitialSupervisionState initial_state,
+                                       std::string_view setting_name,
                                        base::RepeatingClosure on_enabled,
                                        base::RepeatingClosure on_disabled) {
   return std::make_unique<FakeContentFiltersObserverBridge>(
-      setting_name, on_enabled, on_disabled);
+      setting_name, on_enabled, on_disabled,
+      /*enabled=*/initial_state ==
+          InitialSupervisionState::kSupervisedWithAllContentFilters);
 }
 #endif
 }  // namespace
@@ -109,12 +115,15 @@ SupervisedUserSettingsService* InitializeSettingsServiceForTesting(
       syncer::SUPERVISED_USER_SETTINGS, syncer::SyncDataList(),
       std::unique_ptr<syncer::SyncChangeProcessor>(
           new syncer::FakeSyncChangeProcessor));
+
   return settings_service;
 }
 
 scoped_refptr<TestingPrefStore> CreateTestingPrefStore(
-    SupervisedUserSettingsService* settings_service) {
-  return base::MakeRefCounted<SupervisedUserTestingPrefStore>(settings_service);
+    SupervisedUserSettingsService* settings_service,
+    SupervisedUserContentFiltersService* content_filters_service) {
+  return base::MakeRefCounted<SupervisedUserTestingPrefStore>(
+      settings_service, content_filters_service);
 }
 
 bool SupervisedUserMetricsServiceExtensionDelegateFake::
@@ -147,6 +156,34 @@ SupervisedUserPrefStoreTestEnvironment::
 SupervisedUserPrefStoreTestEnvironment::
     ~SupervisedUserPrefStoreTestEnvironment() = default;
 
+void SupervisedUserPrefStoreTestEnvironment::ConfigureInitialValues(
+    InitialSupervisionState initial_state) {
+  // These initial states indicate that the user is supervised, so the main pref
+  // must be set.
+  switch (initial_state) {
+    case InitialSupervisionState::kFamilyLinkDefault:
+    case InitialSupervisionState::kFamilyLinkTryToBlockMatureSites:
+      EnableParentalControls(*syncable_pref_service_);
+      break;
+    case InitialSupervisionState::kFamilyLinkAllowAllSites:
+      EnableParentalControls(*syncable_pref_service_);
+      settings_service_.SetLocalSetting(supervised_user::kSafeSitesEnabled,
+                                       base::Value(false));
+      break;
+    case InitialSupervisionState::kFamilyLinkCertainSites:
+      EnableParentalControls(*syncable_pref_service_);
+      settings_service_.SetLocalSetting(supervised_user::kSafeSitesEnabled,
+                                       base::Value(false));
+      settings_service_.SetLocalSetting(
+          supervised_user::kContentPackDefaultFilteringBehavior,
+          base::Value(
+              static_cast<int>(supervised_user::FilteringBehavior::kBlock)));
+      break;
+    default:
+      break;
+  }
+}
+
 void SupervisedUserPrefStoreTestEnvironment::Shutdown() {
   settings_service_.Shutdown();
 }
@@ -155,30 +192,42 @@ SupervisedUserSettingsService*
 SupervisedUserPrefStoreTestEnvironment::settings_service() {
   return &settings_service_;
 }
+
+SupervisedUserContentFiltersService*
+SupervisedUserPrefStoreTestEnvironment::content_filters_service() {
+  return &content_filters_service_;
+}
+
 PrefService* SupervisedUserPrefStoreTestEnvironment::pref_service() {
   return syncable_pref_service_.get();
 }
 
-SupervisedUserTestEnvironment::SupervisedUserTestEnvironment()
+SupervisedUserTestEnvironment::SupervisedUserTestEnvironment(
+    InitialSupervisionState initial_state)
     : SupervisedUserTestEnvironment(
-          std::make_unique<MetricsServiceAccessorDelegateMock>()) {}
+          std::make_unique<MetricsServiceAccessorDelegateMock>(),
+          initial_state) {}
 
 SupervisedUserTestEnvironment::SupervisedUserTestEnvironment(
     std::unique_ptr<MetricsServiceAccessorDelegateMock>
-        metrics_service_accessor_delegate) {
+        metrics_service_accessor_delegate,
+    InitialSupervisionState initial_state) {
   std::unique_ptr<safe_search_api::FakeURLCheckerClient> client =
       std::make_unique<safe_search_api::FakeURLCheckerClient>();
   url_checker_client_ = client.get();
+
+  pref_store_environment_.ConfigureInitialValues(initial_state);
 
   service_ = std::make_unique<TestSupervisedUserService>(
       identity_test_env_.identity_manager(),
       test_url_loader_factory_.GetSafeWeakWrapper(),
       *pref_store_environment_.pref_service(),
-      *pref_store_environment_.settings_service(), &sync_service_,
+      *pref_store_environment_.settings_service(),
+      pref_store_environment_.content_filters_service(), &sync_service_,
       std::make_unique<SupervisedUserURLFilter>(
           *pref_store_environment_.pref_service(),
           std::make_unique<FakeURLFilterDelegate>(), std::move(client)),
-      std::make_unique<FakePlatformDelegate>());
+      std::make_unique<FakePlatformDelegate>(), initial_state);
   metrics_service_ = std::make_unique<SupervisedUserMetricsService>(
       pref_store_environment_.pref_service(), *service_.get(),
       std::make_unique<SupervisedUserMetricsServiceExtensionDelegateFake>(),
@@ -272,7 +321,7 @@ void SupervisedUserTestEnvironment::SetManualFilterForUrl(
 SupervisedUserURLFilter* SupervisedUserTestEnvironment::url_filter() const {
   return service()->GetURLFilter();
 }
-SupervisedUserService* SupervisedUserTestEnvironment::service() const {
+TestSupervisedUserService* SupervisedUserTestEnvironment::service() const {
   return service_.get();
 }
 PrefService* SupervisedUserTestEnvironment::pref_service() {
@@ -302,19 +351,31 @@ SupervisedUserTestEnvironment::search_content_filters_observer() {
 FakeContentFiltersObserverBridge::FakeContentFiltersObserverBridge(
     std::string_view setting_name,
     base::RepeatingClosure on_enabled,
-    base::RepeatingClosure on_disabled)
-    : ContentFiltersObserverBridge(setting_name, on_enabled, on_disabled) {}
+    base::RepeatingClosure on_disabled,
+    bool initial_value)
+    : ContentFiltersObserverBridge(setting_name, on_enabled, on_disabled) {
+  initial_value_ = initial_value;
+}
+
 FakeContentFiltersObserverBridge::~FakeContentFiltersObserverBridge() = default;
 
 void FakeContentFiltersObserverBridge::Init() {
-  // Java class would call "onChange" in the constructor with the initial value.
-  OnChange(/*env=*/nullptr, IsEnabled());
+  // Imitates behavior of the real bridge: it always notifies on creation.
+  SetEnabled(initial_value_);
+  OnChange(/*env=*/nullptr, initial_value_);
 }
+
 void FakeContentFiltersObserverBridge::Shutdown() {
   // Do nothing, specifically do not destroy the java bridge from super.
 }
 
 void FakeContentFiltersObserverBridge::SetEnabled(bool enabled) {
+  // Imitates behavior of the real bridge: it does not notify if the value
+  // did not change.
+  if (enabled == IsEnabled()) {
+    return;
+  }
+
   ContentFiltersObserverBridge::SetEnabled(enabled);
   // This is fine: JNIEnv is not used, because OnChange notifies native code.
   OnChange(/*env=*/nullptr, enabled);
@@ -336,20 +397,24 @@ TestSupervisedUserService::TestSupervisedUserService(
     scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory,
     PrefService& user_prefs,
     SupervisedUserSettingsService& settings_service,
+    SupervisedUserContentFiltersService* content_filters_service,
     syncer::SyncService* sync_service,
     std::unique_ptr<SupervisedUserURLFilter> url_filter,
-    std::unique_ptr<SupervisedUserService::PlatformDelegate> platform_delegate)
+    std::unique_ptr<SupervisedUserService::PlatformDelegate> platform_delegate,
+    InitialSupervisionState initial_state)
     : SupervisedUserService(
           identity_manager,
           url_loader_factory,
           user_prefs,
           settings_service,
+          content_filters_service,
           sync_service,
           std::move(url_filter),
           std::move(platform_delegate)
 #if BUILDFLAG(IS_ANDROID)
               ,
-          base::BindRepeating(&CreateFakeContentFiltersObserverBridge)
+          base::BindRepeating(&CreateFakeContentFiltersObserverBridge,
+                              initial_state)
 #endif
       ) {
 }

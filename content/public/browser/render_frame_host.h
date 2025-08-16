@@ -143,8 +143,7 @@ class Page;
 // higher-level dependencies. In short: code that uses RenderFrameHost must be
 // back-forward cache aware, and code that does not use RenderFrameHost should
 // not have to be back-forward cache aware.
-class CONTENT_EXPORT RenderFrameHost : public IPC::Listener,
-                                       public IPC::Sender {
+class CONTENT_EXPORT RenderFrameHost : public IPC::Listener {
   // Do not remove this macro!
   // The macro is maintained by the memory safety team.
   ADVANCED_MEMORY_SAFETY_CHECKS();
@@ -161,7 +160,7 @@ class CONTENT_EXPORT RenderFrameHost : public IPC::Listener,
       const GlobalRenderFrameHostToken& frame_token);
 
   // Globally allows for injecting JavaScript into the main world. This feature
-  // is present only to support Android WebView, WebLayer, Fuchsia web.Contexts,
+  // is present only to support Android WebView, Fuchsia web.Contexts,
   // and CastOS content shell. It must not be used in other configurations.
   static void AllowInjectingJavaScript();
 

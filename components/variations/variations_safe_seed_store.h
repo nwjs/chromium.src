@@ -45,17 +45,13 @@ class VariationsSafeSeedStore {
   virtual std::string GetLocale() const = 0;
   virtual void SetLocale(const std::string& locale) = 0;
 
-  // Getter and setter for the permanent consistency country associated with the
-  // safe seed in the underlying storage.
+  // Getter for the permanent consistency country associated with the safe seed
+  // in the underlying storage.
   virtual std::string GetPermanentConsistencyCountry() const = 0;
-  virtual void SetPermanentConsistencyCountry(
-      const std::string& permanent_consistency_country) = 0;
 
-  // Getter and setter for the session consistency country associated with the
-  // safe seed in the underlying storage.
+  // Getter for the session consistency country associated with the safe seed in
+  // the underlying storage.
   virtual std::string GetSessionConsistencyCountry() const = 0;
-  virtual void SetSessionConsistencyCountry(
-      const std::string& session_consistency_country) = 0;
 
   // Getter and setter for SeedReaderWriter for testing.
   virtual SeedReaderWriter* GetSeedReaderWriterForTesting() = 0;
@@ -64,6 +60,14 @@ class VariationsSafeSeedStore {
 
   // Clear all state in the underlying storage.
   virtual void ClearState() = 0;
+
+  // Reads seed data and returns the result of the load. If a pointer for the
+  // signature is provided, the signature will be read and stored into
+  // |base64_seed_signature|. The value stored into |seed_data| should only be
+  // used if the result is `LoadSeedResult::kSuccess`.
+  // Side-effect: If the read fails, clears the prefs associated with the seed.
+  virtual LoadSeedResult ReadSeedData(std::string* seed_data,
+                                      std::string* base64_seed_signature) = 0;
 };
 
 }  // namespace variations

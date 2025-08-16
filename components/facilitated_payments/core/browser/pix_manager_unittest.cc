@@ -335,27 +335,14 @@ TEST_F(PixManagerTestWithAccountLinkingEnabled, ResettingPreventsPayment) {
       pix_manager_->initiate_payment_request_details_->IsReadyForPixPayment());
 }
 
-TEST_F(PixManagerTestWithAccountLinkingEnabled,
-       CopyTrigger_UrlInAllowlist_LogPixCodeCopied) {
+TEST_F(PixManagerTestWithAccountLinkingEnabled, CopyTrigger_LogPixCodeCopied) {
   base::HistogramTester histogram_tester;
   payments_data_manager_->AddMaskedBankAccountForTest(
       CreatePixBankAccount(/*instrument_id=*/1));
   GURL url("https://example.com/");
-  // Mock allowlist check result.
-  EXPECT_CALL(
-      *optimization_guide_decider_,
-      CanApplyOptimization(
-          testing::Eq(url),
-          testing::Eq(
-              optimization_guide::proto::PIX_MERCHANT_ORIGINS_ALLOWLIST),
-          testing::Matcher<optimization_guide::OptimizationMetadata*>(
-              testing::Eq(nullptr))))
-      .Times(1)
-      .WillOnce(testing::Return(
-          optimization_guide::OptimizationGuideDecision::kTrue));
-
+  url::Origin origin = url::Origin::Create(url);
   pix_manager_->OnPixCodeCopiedToClipboard(
-      url, "00020126370014br.gov.bcb.pix2515www.example.com6304EA3F",
+      url, origin, "00020126370014br.gov.bcb.pix2515www.example.com6304EA3F",
       ukm::UkmRecorder::GetNewSourceID());
 
   histogram_tester.ExpectUniqueSample("FacilitatedPayments.Pix.PixCodeCopied",
@@ -373,6 +360,7 @@ TEST_F(PixManagerTestWithAccountLinkingEnabled,
   payments_data_manager_->AddMaskedBankAccountForTest(
       CreatePixBankAccount(/*instrument_id=*/1));
   GURL url("https://example.com/");
+  url::Origin origin = url::Origin::Create(url);
   // Mock allowlist check result.
   EXPECT_CALL(
       *optimization_guide_decider_,
@@ -389,7 +377,7 @@ TEST_F(PixManagerTestWithAccountLinkingEnabled,
   EXPECT_CALL(GetApiClient(), IsAvailable(testing::_));
 
   pix_manager_->OnPixCodeCopiedToClipboard(
-      url, "00020126370014br.gov.bcb.pix2515www.example.com6304EA3F",
+      url, origin, "00020126370014br.gov.bcb.pix2515www.example.com6304EA3F",
       ukm::UkmRecorder::GetNewSourceID());
 
   // The DataDecoder (utility process) validates the Pix code string
@@ -402,6 +390,7 @@ TEST_F(PixManagerTestWithAccountLinkingEnabled,
   payments_data_manager_->AddMaskedBankAccountForTest(
       CreatePixBankAccount(/*instrument_id=*/1));
   GURL url("https://example.com/");
+  url::Origin origin = url::Origin::Create(url);
   // Mock allowlist check result.
   EXPECT_CALL(
       *optimization_guide_decider_,
@@ -419,11 +408,44 @@ TEST_F(PixManagerTestWithAccountLinkingEnabled,
   EXPECT_CALL(GetApiClient(), IsAvailable(testing::_)).Times(0);
 
   pix_manager_->OnPixCodeCopiedToClipboard(
-      url, "00020126370014br.gov.bcb.pix2515www.example.com6304EA3F",
+      url, origin, "00020126370014br.gov.bcb.pix2515www.example.com6304EA3F",
       ukm::UkmRecorder::GetNewSourceID());
   // The DataDecoder (utility process) validates the Pix code string
   // asynchronously.
   task_environment_.RunUntilIdle();
+}
+
+TEST_F(PixManagerTestWithAccountLinkingEnabled,
+       CopyTrigger_UrlNotInAllowlist_PayflowExitedHistogramLogged) {
+  base::HistogramTester histogram_tester;
+  payments_data_manager_->AddMaskedBankAccountForTest(
+      CreatePixBankAccount(/*instrument_id=*/1));
+  GURL url("https://example.com/");
+  url::Origin origin = url::Origin::Create(url);
+  // Mock allowlist check result.
+  EXPECT_CALL(
+      *optimization_guide_decider_,
+      CanApplyOptimization(
+          testing::Eq(url),
+          testing::Eq(
+              optimization_guide::proto::PIX_MERCHANT_ORIGINS_ALLOWLIST),
+          testing::Matcher<optimization_guide::OptimizationMetadata*>(
+              testing::Eq(nullptr))))
+      .Times(1)
+      .WillOnce(testing::Return(
+          optimization_guide::OptimizationGuideDecision::kFalse));
+
+  pix_manager_->OnPixCodeCopiedToClipboard(
+      url, origin, "00020126370014br.gov.bcb.pix2515www.example.com6304EA3F",
+      ukm::UkmRecorder::GetNewSourceID());
+  // The DataDecoder (utility process) validates the Pix code string
+  // asynchronously.
+  task_environment_.RunUntilIdle();
+
+  histogram_tester.ExpectUniqueSample(
+      "FacilitatedPayments.Pix.PayflowExitedReason",
+      /*sample=*/PixFlowExitedReason::kMerchantNotAllowlisted,
+      /*expected_bucket_count=*/1);
 }
 
 TEST_F(
@@ -434,6 +456,7 @@ TEST_F(
   payments_data_manager_->AddMaskedBankAccountForTest(
       CreatePixBankAccount(/*instrument_id=*/1));
   GURL url("https://example.com/");
+  url::Origin origin = url::Origin::Create(url);
 
   // Verify that the allowlist check never happens.
   EXPECT_CALL(
@@ -449,7 +472,7 @@ TEST_F(
   EXPECT_CALL(GetApiClient(), IsAvailable(testing::_));
 
   pix_manager_->OnPixCodeCopiedToClipboard(
-      url, "00020126370014br.gov.bcb.pix2515www.example.com6304EA3F",
+      url, origin, "00020126370014br.gov.bcb.pix2515www.example.com6304EA3F",
       ukm::UkmRecorder::GetNewSourceID());
   // The DataDecoder (utility process) validates the Pix code string
   // asynchronously.
@@ -461,6 +484,7 @@ TEST_F(PixManagerTestWithAccountLinkingEnabled,
   payments_data_manager_->AddMaskedBankAccountForTest(
       CreatePixBankAccount(/*instrument_id=*/1));
   GURL url("https://example.com/");
+  url::Origin origin = url::Origin::Create(url);
   // Mock allowlist check result.
   EXPECT_CALL(*optimization_guide_decider_,
               CanApplyOptimization(
@@ -476,9 +500,9 @@ TEST_F(PixManagerTestWithAccountLinkingEnabled,
 
   std::string pix_code =
       "00020126370014br.gov.bcb.pix2515www.example.com6304EA3F";
-  pix_manager_->OnPixCodeCopiedToClipboard(url, pix_code,
+  pix_manager_->OnPixCodeCopiedToClipboard(url, origin, pix_code,
                                            ukm::UkmRecorder::GetNewSourceID());
-  pix_manager_->OnPixCodeCopiedToClipboard(url, pix_code,
+  pix_manager_->OnPixCodeCopiedToClipboard(url, origin, pix_code,
                                            ukm::UkmRecorder::GetNewSourceID());
   // The DataDecoder (utility process) validates the Pix code string
   // asynchronously.
@@ -592,7 +616,7 @@ TEST_F(PixManagerTestWithAccountLinkingEnabled,
   autofill::prefs::SetAutofillPaymentMethodsEnabled(pref_service_.get(), false);
 
   EXPECT_CALL(GetApiClient(), IsAvailable(testing::_)).Times(0);
-  EXPECT_CALL(*client_, InitPixAccountLinkingFlow).Times(0);
+  EXPECT_CALL(*client_, InitPixAccountLinkingFlow(testing::_)).Times(0);
 
   pix_manager_->OnPixCodeValidated(/*pix_code=*/std::string(),
                                    base::TimeTicks::Now(),
@@ -628,7 +652,7 @@ TEST_F(PixManagerTestWithAccountLinkingEnabled,
   autofill::prefs::SetFacilitatedPaymentsPix(pref_service_.get(), false);
 
   EXPECT_CALL(GetApiClient(), IsAvailable(testing::_)).Times(0);
-  EXPECT_CALL(*client_, InitPixAccountLinkingFlow).Times(0);
+  EXPECT_CALL(*client_, InitPixAccountLinkingFlow(testing::_)).Times(0);
 
   pix_manager_->OnPixCodeValidated(/*pix_code=*/std::string(),
                                    base::TimeTicks::Now(),
@@ -661,7 +685,7 @@ TEST_F(PixManagerTestWithAccountLinkingEnabled,
   base::HistogramTester histogram_tester;
 
   EXPECT_CALL(GetApiClient(), IsAvailable(testing::_)).Times(0);
-  EXPECT_CALL(*client_, InitPixAccountLinkingFlow);
+  EXPECT_CALL(*client_, InitPixAccountLinkingFlow(testing::_));
 
   pix_manager_->OnPixCodeValidated(/*pix_code=*/std::string(),
                                    base::TimeTicks::Now(),
@@ -692,7 +716,7 @@ TEST_F(
   base::test::ScopedFeatureList feature_list;
   feature_list.InitAndDisableFeature(kEnablePixAccountLinking);
 
-  EXPECT_CALL(*client_, InitPixAccountLinkingFlow).Times(0);
+  EXPECT_CALL(*client_, InitPixAccountLinkingFlow(testing::_)).Times(0);
 
   pix_manager_->OnPixCodeValidated(/*pix_code=*/std::string(),
                                    base::TimeTicks::Now(),
@@ -847,11 +871,12 @@ TEST_F(PixManagerTestWithAccountLinkingEnabled,
 TEST_F(PixManagerTestWithAccountLinkingEnabled,
        LogTransactionResultAndLatency) {
   base::HistogramTester histogram_tester;
+  GURL url("https://example.com/");
+  url::Origin origin = url::Origin::Create(url);
 
   // Simulate Pix code being copied. The transaction latency is computed from
   // this point.
-  pix_manager_->OnPixCodeCopiedToClipboard(GURL("https://example.com/"),
-                                           std::string(),
+  pix_manager_->OnPixCodeCopiedToClipboard(url, origin, std::string(),
                                            ukm::UkmRecorder::GetNewSourceID());
   // Fully mocked time, does not advance by itself.
   FastForwardBy(base::Seconds(2));
@@ -1029,10 +1054,11 @@ TEST_F(PixManagerTestWithAccountLinkingEnabled, DismissPrompt) {
 TEST_F(PixManagerTestWithAccountLinkingEnabled,
        PixFopSelectorShown_HistogramsLogged) {
   base::HistogramTester histogram_tester;
+  GURL url("https://example.com/");
+  url::Origin origin = url::Origin::Create(url);
 
   // Simulate Pix code being copied. The latency is computed from this point.
-  pix_manager_->OnPixCodeCopiedToClipboard(GURL("https://example.com/"),
-                                           std::string(),
+  pix_manager_->OnPixCodeCopiedToClipboard(url, origin, std::string(),
                                            ukm::UkmRecorder::GetNewSourceID());
   // Fully mocked time, does not advance by itself.
   FastForwardBy(base::Seconds(2));

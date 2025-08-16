@@ -93,6 +93,11 @@ TestPaymentsAutofillClient::GetPaymentsNetworkInterface() {
   return payments_network_interface_.get();
 }
 
+MockMultipleRequestPaymentsNetworkInterface*
+TestPaymentsAutofillClient::GetMultipleRequestPaymentsNetworkInterface() {
+  return multiple_request_payments_network_interface_.get();
+}
+
 void TestPaymentsAutofillClient::ShowAutofillProgressDialog(
     AutofillProgressDialogType autofill_progress_dialog_type,
     base::OnceClosure cancel_callback) {
@@ -132,10 +137,18 @@ PaymentsWindowManager* TestPaymentsAutofillClient::GetPaymentsWindowManager() {
 VirtualCardEnrollmentManager*
 TestPaymentsAutofillClient::GetVirtualCardEnrollmentManager() {
   if (!virtual_card_enrollment_manager_) {
+    PaymentsNetworkInterfaceVariation payments_network_interface;
+    if (base::FeatureList::IsEnabled(
+            features::
+                kAutofillEnableMultipleRequestInVirtualCardDownstreamEnrollment)) {
+      payments_network_interface = GetMultipleRequestPaymentsNetworkInterface();
+    } else {
+      payments_network_interface = GetPaymentsNetworkInterface();
+    }
     virtual_card_enrollment_manager_ =
         std::make_unique<VirtualCardEnrollmentManager>(
             &client_->GetPersonalDataManager().payments_data_manager(),
-            GetPaymentsNetworkInterface(), &client_.get());
+            payments_network_interface, &client_.get());
   }
 
   return virtual_card_enrollment_manager_.get();

@@ -2,10 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifdef UNSAFE_BUFFERS_BUILD
-// TODO(crbug.com/40285824): Remove this and convert code to safer constructs.
-#pragma allow_unsafe_buffers
-#endif
 
 #include "chrome/browser/ash/input_method/editor_switch.h"
 
@@ -384,6 +380,10 @@ std::vector<EditorBlockedReason> EditorSwitch::GetBlockedReasons() const {
     blocked_reasons.push_back(EditorBlockedReason::kBlockedBySetting);
   }
 
+  if (!context_->is_selection_valid()) {
+    blocked_reasons.push_back(EditorBlockedReason::kBlockedByInvalidSelection);
+  }
+
   if (!IsTriggerableFromTextLength(context_->selected_text_length())) {
     blocked_reasons.push_back(EditorBlockedReason::kBlockedByTextLength);
   }
@@ -444,6 +444,7 @@ bool EditorSwitch::CanBeTriggered() const {
                  chromeos::editor_menu::EditorEnterprisePolicy::kDisallowed) &&
          // user pref value
          profile_->GetPrefs()->GetBoolean(prefs::kOrcaEnabled) &&
+         context_->is_selection_valid() &&
          context_->selected_text_length() <= kTextLengthMaxLimit &&
          (!base::FeatureList::IsEnabled(features::kOrcaOnlyInEnglishLocales) ||
           IsSystemInEnglishLanguage());

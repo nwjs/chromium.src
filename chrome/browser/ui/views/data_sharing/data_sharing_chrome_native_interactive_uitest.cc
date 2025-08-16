@@ -96,7 +96,7 @@ IN_PROC_BROWSER_TEST_F(DataSharingChromeNativeUiTest, ShowShareBubble) {
         // Directly show share UI to bypass sign in flow.
         data_sharing::RequestInfo request_info(group_id,
                                                data_sharing::FlowType::kShare);
-        DataSharingBubbleController::GetOrCreateForBrowser(browser())->Show(
+        browser()->GetFeatures().data_sharing_bubble_controller()->Show(
             request_info);
       }),
       WaitForShow(kDataSharingBubbleElementId),
@@ -131,7 +131,7 @@ IN_PROC_BROWSER_TEST_F(DataSharingChromeNativeUiTest, ShowManageBubble) {
         // Directly show manage UI to bypass sign in flow.
         data_sharing::RequestInfo request_info(group_id,
                                                data_sharing::FlowType::kManage);
-        DataSharingBubbleController::GetOrCreateForBrowser(browser())->Show(
+        browser()->GetFeatures().data_sharing_bubble_controller()->Show(
             request_info);
       }),
       WaitForShow(kDataSharingBubbleElementId),
@@ -153,7 +153,7 @@ IN_PROC_BROWSER_TEST_F(DataSharingChromeNativeUiTest, ShowJoinBubble) {
             data_sharing::DataSharingUtils::ParseDataSharingUrl(share_link)
                 .value(),
             data_sharing::FlowType::kJoin);
-        DataSharingBubbleController::GetOrCreateForBrowser(browser())->Show(
+        browser()->GetFeatures().data_sharing_bubble_controller()->Show(
             request_info);
       }),
       WaitForShow(kDataSharingBubbleElementId),
@@ -185,8 +185,9 @@ IN_PROC_BROWSER_TEST_F(DataSharingChromeNativeUiTest, GenerateWebUIUrl) {
            fake_collab_id.value() + "&" +
            std::string(data_sharing::kQueryParamTabGroupId) + "=" +
            group_id.ToString() + "&" +
-           std::string(data_sharing::kQueryParamTabGroupTitle) + "=" +
-           fake_tab_group_title);
+           std::string(data_sharing::kQueryParamIsDisabledForPolicy) + "=" +
+           "false" + "&" + std::string(data_sharing::kQueryParamTabGroupTitle) +
+           "=" + fake_tab_group_title);
 
   auto expected_leave_flow_url =
       GURL(std::string(chrome::kChromeUIUntrustedDataSharingURL) + "?" +
@@ -325,7 +326,7 @@ IN_PROC_BROWSER_TEST_F(DataSharingChromeNativeUiTest,
       Do([=, this]() {
         // Ensure action and progress set OnGroupAction
         auto* bubble_controller =
-            DataSharingBubbleController::GetOrCreateForBrowser(browser());
+            browser()->GetFeatures().data_sharing_bubble_controller();
         data_sharing::RequestInfo request_info(group_id,
                                                data_sharing::FlowType::kDelete);
         bubble_controller->Show(request_info);
@@ -344,7 +345,7 @@ IN_PROC_BROWSER_TEST_F(DataSharingChromeNativeUiTest,
       WaitForShow(kDataSharingBubbleElementId), Do([=, this]() {
         // Ensure action and progress reset on dialog close.
         auto* bubble_controller =
-            DataSharingBubbleController::GetOrCreateForBrowser(browser());
+            browser()->GetFeatures().data_sharing_bubble_controller();
         bubble_controller->Close();
         EXPECT_EQ(std::nullopt, bubble_controller->group_action_for_testing());
         EXPECT_EQ(std::nullopt,

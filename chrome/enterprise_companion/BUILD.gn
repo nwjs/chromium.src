@@ -12,6 +12,20 @@ if (is_win) {
   # ICU is needed for proxy URL canonicalization. Proxies are only supported on
   # Windows.
   import("//third_party/icu/config.gni")
+  if (icu_use_data_file) {
+    action("icu_file_checksum_header") {
+      script = "generate_icu_file_checksum_header.py"
+      inputs = [ "$root_build_dir/icudtl.dat" ]
+      outputs = [ "$target_gen_dir/icu_file_checksum.h" ]
+      deps = [ "//third_party/icu:icudata" ]
+      args = [
+        "--icu_file",
+        "icudtl.dat",
+        "--output",
+        rebase_path("$target_gen_dir/icu_file_checksum.h", root_build_dir),
+      ]
+    }
+  }
 }
 
 process_version("version_header") {
@@ -148,15 +162,19 @@ source_set("base") {
     ]
   } else if (is_win) {
     sources += [
+      "icu_util.cc",
+      "icu_util.h",
       "installer_win.cc",
       "ipc_security_win.cc",
     ]
     deps += [
       "//base:i18n",
       "//chrome/installer/util:work_item",
+      "//third_party/boringssl",
     ]
     if (icu_use_data_file) {
       defines = [ "ENTERPRISE_COMPANION_USE_ICU_DATA_FILE" ]
+      deps += [ ":icu_file_checksum_header" ]
     }
   }
 }
@@ -196,7 +214,7 @@ source_set("test_utils") {
     "//base",
     "//base/test:test_support",
     "//build:branding_buildflags",
-    "//chrome/enterprise_companion/device_management_storage:device_management_storage",
+    "//chrome/enterprise_companion/device_management_storage",
     "//testing/gtest",
   ]
   visibility = [
@@ -294,7 +312,7 @@ test("enterprise_companion_integration_tests") {
     "//chrome/updater:constants_test",
     "//chrome/updater:public_sources",
     "//chrome/updater/protos:omaha_proto",
-    "//components/named_mojo_ipc_server:named_mojo_ipc_server",
+    "//components/named_mojo_ipc_server",
     "//components/policy/core/common",
     "//components/policy/core/common:common_constants",
     "//components/policy/core/common:test_support",

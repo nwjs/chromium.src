@@ -16,6 +16,7 @@
 #include "components/permissions/permission_manager.h"
 #include "components/permissions/permission_request_id.h"
 #include "components/permissions/permission_util.h"
+#include "components/permissions/resolvers/content_setting_permission_resolver.h"
 #include "content/public/browser/permission_descriptor_util.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/web_contents.h"
@@ -39,7 +40,7 @@
 // PermissionsPolicy class itself is tested thoroughly in
 // permissions_policy_unittest.cc and in
 // render_frame_host_permissions_policy_unittest.cc. Instead they are meant to
-// ensure that integration with content::ContentSettingPermissionContextBase
+// ensure that integration with content::PermissionContextBase
 // works correctly.
 class PermissionContextBasePermissionsPolicyTest
     : public ChromeRenderViewHostTestHarness {
@@ -110,9 +111,8 @@ class PermissionContextBasePermissionsPolicyTest
     *rfh = navigation->GetFinalRenderFrameHost();
   }
 
-  ContentSetting GetPermissionForFrame(
-      permissions::ContentSettingPermissionContextBase* pcb,
-      content::RenderFrameHost* rfh) {
+  ContentSetting GetPermissionForFrame(permissions::PermissionContextBase* pcb,
+                                       content::RenderFrameHost* rfh) {
     return permissions::PermissionUtil::PermissionStatusToContentSetting(
         pcb->GetPermissionStatus(
                content::PermissionDescriptorUtil::
@@ -126,14 +126,15 @@ class PermissionContextBasePermissionsPolicyTest
   }
 
   PermissionStatus RequestPermissionForFrame(
-      permissions::ContentSettingPermissionContextBase* pcb,
+      permissions::PermissionContextBase* pcb,
       content::RenderFrameHost* rfh) {
     permissions::PermissionRequestID id(
         rfh, permission_request_id_generator_.GenerateNextId());
     pcb->RequestPermission(
         std::make_unique<permissions::PermissionRequestData>(
-            pcb, id,
-            /*user_gesture=*/true, rfh->GetLastCommittedURL()),
+            std::make_unique<permissions::ContentSettingPermissionResolver>(
+                pcb->content_settings_type()),
+            id, /*user_gesture=*/true, rfh->GetLastCommittedURL()),
         base::BindOnce(&PermissionContextBasePermissionsPolicyTest::
                            RequestPermissionForFrameFinished,
                        base::Unretained(this)));

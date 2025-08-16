@@ -26,6 +26,7 @@
 #include "components/sync/model/sync_change.h"
 #include "components/sync/model/syncable_service.h"
 #include "components/sync/protocol/data_type_state_helper.h"
+#include "components/sync/protocol/entity_data.h"
 #include "components/sync/protocol/entity_specifics.pb.h"
 #include "components/sync/protocol/persisted_entity_data.pb.h"
 #include "components/sync/protocol/proto_memory_estimations.h"
@@ -94,7 +95,9 @@ std::optional<ModelError> ParseInMemoryStoreOnBackendSequence(
   for (const DataTypeStore::Record& record : *record_list) {
     sync_pb::PersistedEntityData persisted_entity;
     if (!persisted_entity.ParseFromString(record.value)) {
-      return ModelError(FROM_HERE, "Failed deserializing data.");
+      return ModelError(
+          FROM_HERE,
+          ModelError::Type::kSyncableServiceBasedBridgeFailedToDeserializeData);
     }
 
     in_memory_store->emplace(record.id, std::move(persisted_entity));
@@ -322,14 +325,12 @@ SyncableServiceBasedBridge::GetAllDataForDebugging() {
 
 std::string SyncableServiceBasedBridge::GetClientTag(
     const EntityData& entity_data) const {
-  // Not supported as per SupportsGetClientTag().
-  NOTREACHED();
+  return syncable_service_->GetClientTag(entity_data);
 }
 
 std::string SyncableServiceBasedBridge::GetStorageKey(
     const EntityData& entity_data) const {
-  // Not supported as per SupportsGetStorageKey().
-  NOTREACHED();
+  return syncable_service_->GetClientTag(entity_data);
 }
 
 bool SyncableServiceBasedBridge::IsEntityDataValid(
@@ -340,7 +341,7 @@ bool SyncableServiceBasedBridge::IsEntityDataValid(
 }
 
 bool SyncableServiceBasedBridge::SupportsGetClientTag() const {
-  return false;
+  return syncable_service_->SupportsGetClientTag();
 }
 
 bool SyncableServiceBasedBridge::SupportsGetStorageKey() const {

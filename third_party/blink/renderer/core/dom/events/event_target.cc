@@ -517,7 +517,6 @@ void EventTarget::SetDefaultAddEventListenerOptions(
 
 Observable* EventTarget::when(const AtomicString& event_type,
                               const ObservableEventListenerOptions* options) {
-  DCHECK(RuntimeEnabledFeatures::ObservableAPIEnabled());
   return MakeGarbageCollected<Observable>(
       GetExecutionContext(), MakeGarbageCollected<ObservableSubscribeDelegate>(
                                  this, event_type, options));
@@ -704,7 +703,8 @@ void EventTarget::AddedEventListener(
       UseCounter::Count(*document, WebFeature::kScrollend);
     } else if (event_util::IsSnapEventType(event_type)) {
       UseCounter::Count(*document, WebFeature::kSnapEvent);
-    } else if (RuntimeEnabledFeatures::WindowOnMoveEventEnabled() &&
+    } else if (RuntimeEnabledFeatures::
+                   DesktopPWAsAdditionalWindowingControlsEnabled() &&
                (event_type == event_type_names::kMove)) {
       UseCounter::Count(*document, WebFeature::kMoveEvent);
     }

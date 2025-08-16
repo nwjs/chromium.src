@@ -63,6 +63,7 @@
 #include "ui/gfx/geometry/rect.h"
 #include "ui/gfx/geometry/rect_f.h"
 #include "ui/gfx/geometry/skia_conversions.h"
+#include "ui/gfx/geometry/vector2d_f.h"
 
 namespace chrome_pdf {
 
@@ -97,18 +98,6 @@ ink::StrokeInput::ToolType GetToolTypeFromTouchEvent(
                  blink::WebPointerProperties::PointerType::kPen
              ? ink::StrokeInput::ToolType::kStylus
              : ink::StrokeInput::ToolType::kTouch;
-}
-
-PdfInkModule::StrokeInputPoints GetStrokePointsForTesting(  // IN-TEST
-    const ink::StrokeInputBatch& input_batch) {
-  PdfInkModule::StrokeInputPoints stroke_points;
-  stroke_points.reserve(input_batch.Size());
-  for (size_t i = 0; i < input_batch.Size(); ++i) {
-    ink::StrokeInput stroke_input = input_batch.Get(i);
-    stroke_points.emplace_back(stroke_input.position.x,
-                               stroke_input.position.y);
-  }
-  return stroke_points;
 }
 
 PdfInkBrush CreateDefaultHighlighterBrush() {
@@ -304,10 +293,6 @@ void PdfInkModule::OnGotThumbnail(int page_index, Thumbnail thumbnail) {
       /*is_ink=*/false, thumbnail.TakeData(), thumbnail.image_size()));
 }
 
-PdfInkModule::PageInkStrokeIterator PdfInkModule::GetVisibleStrokesIterator() {
-  return PageInkStrokeIterator(strokes_);
-}
-
 bool PdfInkModule::HandleInputEvent(const blink::WebInputEvent& event) {
   if (mode_ != InkAnnotationMode::kDraw) {
     return false;
@@ -373,59 +358,6 @@ void PdfInkModule::OnGeometryChanged() {
 
 const PdfInkBrush* PdfInkModule::GetPdfInkBrushForTesting() const {
   return is_drawing_stroke() ? &GetDrawingBrush() : nullptr;
-}
-
-PdfInkModule::DocumentStrokeInputPointsMap
-PdfInkModule::GetStrokesInputPositionsForTesting() const {
-  DocumentStrokeInputPointsMap all_strokes_points;
-
-  for (const auto& [page_index, strokes] : strokes_) {
-    for (const auto& stroke : strokes) {
-      all_strokes_points[page_index].push_back(
-          GetStrokePointsForTesting(stroke.stroke.GetInputs()));  // IN-TEST
-    }
-  }
-
-  return all_strokes_points;
-}
-
-PdfInkModule::DocumentStrokeInputPointsMap
-PdfInkModule::GetVisibleStrokesInputPositionsForTesting() const {
-  DocumentStrokeInputPointsMap all_strokes_points;
-
-  for (const auto& [page_index, strokes] : strokes_) {
-    for (const auto& stroke : strokes) {
-      if (!stroke.should_draw) {
-        continue;
-      }
-
-      all_strokes_points[page_index].push_back(
-          GetStrokePointsForTesting(stroke.stroke.GetInputs()));  // IN-TEST
-    }
-  }
-
-  return all_strokes_points;
-}
-
-int PdfInkModule::GetInputOfTypeCountForPageForTesting(
-    int page_index,
-    ink::StrokeInput::ToolType tool_type) const {
-  CHECK_GE(page_index, 0);
-  auto it = strokes_.find(page_index);
-  if (it == strokes_.end()) {
-    return 0;
-  }
-
-  int count = 0;
-  for (const FinishedStrokeState& stroke_state : it->second) {
-    const ink::StrokeInputBatch& input_batch = stroke_state.stroke.GetInputs();
-    for (ink::StrokeInput input : input_batch) {
-      if (input.tool_type == tool_type) {
-        ++count;
-      }
-    }
-  }
-  return count;
 }
 
 bool PdfInkModule::OnMouseDown(const blink::WebMouseEvent& event) {
@@ -639,7 +571,7 @@ bool PdfInkModule::StartStroke(const gfx::PointF& position,
   DrawingStrokeState& state = drawing_stroke_state();
 
   gfx::PointF page_position =
-      ConvertEventPositionToCanonicalPosition(position, page_index);
+      GetEventToCanonicalTransformForPage(page_index).MapPoint(position);
 
   CHECK(!state.start_time.has_value());
   state.start_time = timestamp;
@@ -913,7 +845,7 @@ void PdfInkModule::EraseHelper(const gfx::PointF& position, int page_index) {
   CHECK_GE(page_index, 0);
 
   const gfx::PointF canonical_position =
-      ConvertEventPositionToCanonicalPosition(position, page_index);
+      GetEventToCanonicalTransformForPage(page_index).MapPoint(position);
   const ink::Rect eraser_rect = GetEraserRect(canonical_position);
   ink::Envelope invalidate_envelope;
 
@@ -1102,51 +1034,48 @@ ink::Stroke PdfInkModule::GetHighlightStrokeFromSelectionRect(
     const gfx::Rect& selection_rect) {
   CHECK(is_text_highlighting());
 
-  // The stroke should be drawn along the largest dimension, so have the brush
-  // size equal the smallest dimension.
-  float brush_size = std::min(selection_rect.width(), selection_rect.height()) /
-                     client_->GetZoom();
-
-  // Strokes will be drawn using one or two input points.
-  std::pair<gfx::PointF, gfx::PointF> points =
-      GetPointsForTextSelectionHighlightStroke(selection_rect, brush_size);
+  TextSelectionHighlightStrokeData stroke_data =
+      GetTextSelectionHighlightStrokeData(gfx::RectF(selection_rect));
 
   ink::StrokeInputBatch batch;
-  ink::StrokeInput input =
-      CreateInkStrokeInput(ink::StrokeInput::ToolType::kMouse, points.first,
-                           /*elapsed_time=*/base::TimeDelta());
+  ink::StrokeInput input = CreateInkStrokeInput(
+      ink::StrokeInput::ToolType::kMouse, stroke_data.first_point,
+      /*elapsed_time=*/base::TimeDelta());
   auto result = batch.Append(input);
   CHECK(result.ok()) << result.message();
 
   // Skip the second input point if it matches the first input point.
-  if (points.first != points.second) {
-    input =
-        CreateInkStrokeInput(ink::StrokeInput::ToolType::kMouse, points.second,
-                             /*elapsed_time=*/base::TimeDelta());
+  if (stroke_data.first_point != stroke_data.second_point) {
+    input = CreateInkStrokeInput(ink::StrokeInput::ToolType::kMouse,
+                                 stroke_data.second_point,
+                                 /*elapsed_time=*/base::TimeDelta());
     result = batch.Append(input);
     CHECK(result.ok()) << result.message();
   }
 
   // Make a copy of the ink brush to avoid modifying the drawing highlighter.
   ink::Brush ink_brush = highlighter_brush_.ink_brush();
-  result = ink_brush.SetSize(brush_size);
+  result = ink_brush.SetSize(stroke_data.brush_size);
   CHECK(result.ok()) << result.message();
   return ink::Stroke(ink_brush, batch);
 }
 
-std::pair<gfx::PointF, gfx::PointF>
-PdfInkModule::GetPointsForTextSelectionHighlightStroke(
-    const gfx::Rect& selection_rect,
-    float brush_size) {
-  bool is_vertical_stroke = selection_rect.height() > selection_rect.width();
+PdfInkModule::TextSelectionHighlightStrokeData
+PdfInkModule::GetTextSelectionHighlightStrokeData(
+    const gfx::RectF& selection_rect) {
+  // The stroke should be drawn along the largest dimension, so have the brush
+  // size equal the smallest dimension.
+  float brush_size = std::min(selection_rect.width(), selection_rect.height());
+  bool is_vertical_stroke = brush_size == selection_rect.width();
+  brush_size /= client_->GetZoom();
   PageOrientation orientation = client_->GetOrientation();
 
   // The first input point will always either be the top center of the text
   // characters or the left center of the text characters, depending on the
   // orientation and whether `selection_rect` is longer vertically. The second
   // input point will be on the opposite end of the rect.
-  gfx::Point start;
-  gfx::Point end;
+  gfx::PointF start;
+  gfx::PointF end;
   if (is_vertical_stroke) {
     start = selection_rect.top_center();
     end = selection_rect.bottom_center();
@@ -1163,28 +1092,24 @@ PdfInkModule::GetPointsForTextSelectionHighlightStroke(
     }
   }
 
-  int page_index =
-      client_->PageIndexFromPoint(gfx::PointF(selection_rect.origin()));
+  int page_index = client_->PageIndexFromPoint(selection_rect.origin());
   CHECK_GE(page_index, 0);
-  gfx::PointF start_f =
-      ConvertEventPositionToCanonicalPosition(gfx::PointF(start), page_index);
-  gfx::PointF end_f =
-      ConvertEventPositionToCanonicalPosition(gfx::PointF(end), page_index);
+  gfx::Transform transform = GetEventToCanonicalTransformForPage(page_index);
+  start = transform.MapPoint(start);
+  end = transform.MapPoint(end);
 
   // These points need to be offset to account for brush size. Depending on the
   // direction of the stroke, the points will need to be offset in either the x
   // or y axis. Strokes will always be drawn along the largest dimension of the
   // rectangle.
-  bool should_offset_y =
-      (is_vertical_stroke && (orientation == PageOrientation::kOriginal ||
-                              orientation == PageOrientation::kClockwise180)) ||
-      (!is_vertical_stroke && (orientation == PageOrientation::kClockwise90 ||
-                               orientation == PageOrientation::kClockwise270));
-  float offset = brush_size / 2;
-  start_f.Offset(should_offset_y ? 0 : offset, should_offset_y ? offset : 0);
-  end_f.Offset(should_offset_y ? 0 : -offset, should_offset_y ? -offset : 0);
-
-  return {start_f, end_f};
+  gfx::Vector2dF offset(brush_size / 2, 0);
+  if (is_vertical_stroke != IsTransposedPageOrientation(orientation)) {
+    offset.Transpose();
+  }
+  start += offset;
+  end -= offset;
+  return TextSelectionHighlightStrokeData{
+      .first_point = start, .second_point = end, .brush_size = brush_size};
 }
 
 std::map<int, std::vector<ink::Stroke>>
@@ -1474,16 +1399,13 @@ PdfInkModule::CreateInProgressStrokeSegmentsFromInputs() const {
   return stroke_segments;
 }
 
-gfx::PointF PdfInkModule::ConvertEventPositionToCanonicalPosition(
-    const gfx::PointF& position,
+gfx::Transform PdfInkModule::GetEventToCanonicalTransformForPage(
     int page_index) {
-  // If the page is visible at `position`, then its rect must not be empty.
+  // If the page is visible, then its screen rect must not be empty.
+  // GetEventToCanonicalTransform() will check this.
   auto page_contents_rect = client_->GetPageContentsRect(page_index);
-  CHECK(!page_contents_rect.IsEmpty());
-
-  return EventPositionToCanonicalPosition(position, client_->GetOrientation(),
-                                          page_contents_rect,
-                                          client_->GetZoom());
+  return GetEventToCanonicalTransform(client_->GetOrientation(),
+                                      page_contents_rect, client_->GetZoom());
 }
 
 bool PdfInkModule::RecordStrokePosition(const gfx::PointF& position,
@@ -1492,7 +1414,7 @@ bool PdfInkModule::RecordStrokePosition(const gfx::PointF& position,
   CHECK(is_drawing_stroke());
   DrawingStrokeState& state = drawing_stroke_state();
   gfx::PointF canonical_position =
-      ConvertEventPositionToCanonicalPosition(position, state.page_index);
+      GetEventToCanonicalTransformForPage(state.page_index).MapPoint(position);
   base::TimeDelta time_diff = timestamp - state.start_time.value();
   auto result = state.inputs.back().Append(
       CreateInkStrokeInput(tool_type, canonical_position, time_diff));
@@ -1818,73 +1740,6 @@ InkStrokeId PdfInkModule::StrokeIdGenerator::GetIdAndAdvance() {
 
 void PdfInkModule::StrokeIdGenerator::ResetIdTo(InkStrokeId id) {
   next_stroke_id_ = id;
-}
-
-PdfInkModule::PageInkStrokeIterator::PageInkStrokeIterator(
-    const PdfInkModule::DocumentStrokesMap& strokes)
-    : strokes_(strokes), pages_iterator_(strokes_->cbegin()) {
-  // Set up internal iterators for the first visible stroke, if there is one.
-  AdvanceToNextPageWithVisibleStrokes();
-}
-
-PdfInkModule::PageInkStrokeIterator::~PageInkStrokeIterator() = default;
-
-std::optional<PdfInkModule::PageInkStroke>
-PdfInkModule::PageInkStrokeIterator::GetNextStrokeAndAdvance() {
-  if (pages_iterator_ == strokes_->cend()) {
-    return std::nullopt;
-  }
-
-  // `page_strokes_iterator_` is set up when finding the page, and is updated
-  // after establishing the stroke to return.  So the return value is based
-  // upon the current position of the iterator.  Callers should not get here
-  // if the end of the strokes has been reached for the current page.
-  CHECK(page_strokes_iterator_ != pages_iterator_->second.cend());
-  CHECK(page_strokes_iterator_->should_draw);
-  const ink::Stroke& page_stroke = page_strokes_iterator_->stroke;
-  int page_index = pages_iterator_->first;
-  AdvanceForCurrentPage();
-
-  if (page_strokes_iterator_ == pages_iterator_->second.cend()) {
-    // This was the last stroke for the current page, so advancing requires
-    // moving on to another page and reinitializing `page_strokes_iterator_`.
-    ++pages_iterator_;
-    AdvanceToNextPageWithVisibleStrokes();
-  }
-
-  return PageInkStroke{page_index, raw_ref<const ink::Stroke>(page_stroke)};
-}
-
-void PdfInkModule::PageInkStrokeIterator::
-    AdvanceToNextPageWithVisibleStrokes() {
-  for (; pages_iterator_ != strokes_->cend(); ++pages_iterator_) {
-    // Initialize and scan to the location of the first (if any) visible
-    // stroke for this page.
-    for (page_strokes_iterator_ = pages_iterator_->second.cbegin();
-         page_strokes_iterator_ != pages_iterator_->second.cend();
-         ++page_strokes_iterator_) {
-      if (page_strokes_iterator_->should_draw) {
-        // This page has visible strokes, and `page_strokes_iterator_` has
-        // been initialized to the position of the first visible stroke.
-        return;
-      }
-    }
-  }
-
-  // No pages with visible strokes found.
-}
-
-void PdfInkModule::PageInkStrokeIterator::AdvanceForCurrentPage() {
-  CHECK(pages_iterator_ != strokes_->cend());
-
-  // Advance the iterator to next visible stroke in this page (if any) before
-  // returning.
-  do {
-    ++page_strokes_iterator_;
-    if (page_strokes_iterator_ == pages_iterator_->second.cend()) {
-      break;
-    }
-  } while (!page_strokes_iterator_->should_draw);
 }
 
 }  // namespace chrome_pdf

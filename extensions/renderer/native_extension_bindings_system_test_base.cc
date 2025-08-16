@@ -25,7 +25,10 @@ namespace extensions {
 TestIPCMessageSender::TestIPCMessageSender() = default;
 TestIPCMessageSender::~TestIPCMessageSender() = default;
 void TestIPCMessageSender::SendRequestIPC(ScriptContext* context,
-                                          mojom::RequestParamsPtr params) {
+                                          mojom::RequestParamsPtr params,
+                                          bool sync,
+                                          bool* success, ::base::Value::List* response,
+                                          std::string* error) {
   last_params_ = std::move(params);
 }
 

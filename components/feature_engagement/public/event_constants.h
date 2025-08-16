@@ -293,6 +293,9 @@ extern const char kHomeCustomizationMenuUsed[];
 // The user has tapped on the lens overlay entrypoint.
 extern const char kLensOverlayEntrypointUsed[];
 
+// The user has tapped the Lens button.
+extern const char kIOSLensButtonUsed[];
+
 // The user has scheduled a tab reminder.
 extern const char kIOSTabReminderScheduled[];
 
@@ -337,6 +340,9 @@ extern const char kIOSSafariImportRemindMeLater[];
 
 // Event fired when the First Run Experience (FRE) is completed on iOS.
 extern const char kIOSFirstRunComplete[];
+
+// Event fired after the quiet period following FRE completion has elapsed.
+extern const char kIOSFREBadgeHoldbackPeriodElapsed[];
 
 #endif  // BUILDFLAG(IS_IOS)
 

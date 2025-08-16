@@ -201,7 +201,7 @@ TEST_F(LocalDOMWindowTest, EnforceSandboxFlags) {
     url::ScopedSchemeRegistryForTests scoped_registry;
     url::AddStandardScheme("very-special-scheme", url::SCHEME_WITH_HOST);
 #if DCHECK_IS_ON()
-    WTF::SetIsBeforeThreadCreatedForTest();  // Required for next operation:
+    SetIsBeforeThreadCreatedForTest();  // Required for next operation:
 #endif
     SchemeRegistry::RegisterURLSchemeBypassingSecureContextCheck(
         "very-special-scheme");
@@ -316,20 +316,10 @@ TEST_F(LocalDOMWindowTest, ConsoleMessageCategory) {
   window->AddConsoleMessageImpl(console_message, false);
   auto* message_storage = &GetFrame().GetPage()->GetConsoleMessageStorage();
   EXPECT_EQ(1u, message_storage->size());
-  for (WTF::wtf_size_t i = 0; i < message_storage->size(); ++i) {
+  for (wtf_size_t i = 0; i < message_storage->size(); ++i) {
     EXPECT_EQ(mojom::blink::ConsoleMessageCategory::Cors,
               *message_storage->at(i)->Category());
   }
-}
-TEST_F(LocalDOMWindowTest, NavigationId) {
-  String navigation_id1 = GetFrame().DomWindow()->GetNavigationId();
-  GetFrame().DomWindow()->GenerateNewNavigationId();
-  String navigation_id2 = GetFrame().DomWindow()->GetNavigationId();
-  GetFrame().DomWindow()->GenerateNewNavigationId();
-  String navigation_id3 = GetFrame().DomWindow()->GetNavigationId();
-  EXPECT_NE(navigation_id1, navigation_id2);
-  EXPECT_NE(navigation_id1, navigation_id3);
-  EXPECT_NE(navigation_id2, navigation_id3);
 }
 
 TEST_F(LocalDOMWindowTest, StorageAccessApiStatus) {

@@ -26,6 +26,7 @@
 #import "base/timer/timer.h"
 #import "components/application_locale_storage/application_locale_storage.h"
 #import "components/component_updater/component_updater_service.h"
+#import "components/component_updater/installer_policies/afp_content_rule_list_component_installer.h"
 #import "components/component_updater/installer_policies/autofill_states_component_installer.h"
 #import "components/component_updater/installer_policies/on_device_head_suggest_component_installer.h"
 #import "components/component_updater/installer_policies/optimization_hints_component_installer.h"
@@ -36,6 +37,7 @@
 #import "components/metrics/metrics_service.h"
 #import "components/password_manager/core/common/password_manager_features.h"
 #import "components/password_manager/core/common/passwords_directory_util_ios.h"
+#import "components/policy/core/common/management/management_service.h"
 #import "components/prefs/ios/pref_observer_bridge.h"
 #import "components/prefs/pref_change_registrar.h"
 #import "components/prefs/scoped_user_pref_update.h"
@@ -99,12 +101,14 @@
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_feature.h"
 #import "ios/chrome/browser/omaha/model/omaha_service.h"
 #import "ios/chrome/browser/passwords/model/password_manager_util_ios.h"
+#import "ios/chrome/browser/policy/model/management_service_ios_factory.h"
 #import "ios/chrome/browser/saved_tab_groups/model/tab_group_sync_service_factory.h"
 #import "ios/chrome/browser/screenshot/model/screenshot_metrics_recorder.h"
 #import "ios/chrome/browser/search_engines/model/search_engines_util.h"
 #import "ios/chrome/browser/sessions/model/session_restoration_service.h"
 #import "ios/chrome/browser/sessions/model/session_restoration_service_factory.h"
 #import "ios/chrome/browser/sessions/model/session_util.h"
+#import "ios/chrome/browser/share_extension/model/share_extension_controller.h"
 #import "ios/chrome/browser/shared/coordinator/scene/scene_delegate.h"
 #import "ios/chrome/browser/shared/coordinator/scene/scene_state.h"
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
@@ -223,12 +227,12 @@ NSString* const kAutoDeletionFileRemoval = @"AutoDeletionFileRemoval";
 // Constant for deferred default browser status API check.
 NSString* const kDefaultBrowserStatusCheck = @"DefaultBrowserStatusCheck";
 
-// Constant for enabling widgets for multi-profile.
-NSString* const kWidgetsForMultiprofileKey = @"WidgetsForMultiprofileKey";
-
 // Constant for enabling share extension for multi-profile.
 NSString* const kShareExtensionForMultiprofileKey =
     @"ShareExtensionForMultiprofileKey";
+
+// Constant for enabling  multi-profile.
+NSString* const kMultiprofileKey = @"MultiprofileKey";
 
 // Adapted from chrome/browser/ui/browser_init.cc.
 void RegisterComponentsForUpdate() {
@@ -242,6 +246,7 @@ void RegisterComponentsForUpdate() {
                                   GetApplicationContext()->GetLocalState());
   RegisterOptimizationHintsComponent(cus);
   RegisterPlusAddressBlocklistComponent(cus);
+  RegisterAntiFingerprintingContentRuleListComponent(cus);
 }
 
 // The delay before beginning memory experimentation.
@@ -438,6 +443,9 @@ std::string GetProfileNameForChoice(ProfileChoice choice,
 // Schedules the removal of files that were scheduled for automatic deletion and
 // were downloaded more than 30 days ago.
 - (void)scheduleAutoDeletionFileRemoval;
+// Schedules the processing of the share extension files in
+// `app_group::ShareExtensionItemsFolder()`.
+- (void)scheduleProcessingShareExtensionFiles;
 // Crashes the application if requested.
 - (void)crashIfRequested;
 // Initializes the application to the minimum initialization needed in all
@@ -515,6 +523,21 @@ std::string GetProfileNameForChoice(ProfileChoice choice,
   // run loop (to avoid unloading a profile and destroying all objects in
   // an observer method as this can be dangerous if it destroy the sender).
   base::OneShotTimer _timer;
+
+#if BUILDFLAG(ENABLE_RLZ)
+  // Record whether the RLZTracker has been initialized or not. Calling
+  // any methods of RLZTracker including RLZTracker::CleanupRlz() will
+  // cause the singleton object to be allocated. Creating the singleton
+  // during the application shutdown is problematic (as it will attempt
+  // to create a TaskRunner which is forbidden by this point).
+  //
+  // See https://crbug.com/397149258 for example of failure creating the
+  // singleton during the shutdown creates.
+  BOOL _rlzTrackerInitialized;
+#endif
+
+  // The controller that will process the share extension files.
+  ShareExtensionController* _shareExtensionController;
 }
 
 // Defined by public protocols.
@@ -728,6 +751,9 @@ std::string GetProfileNameForChoice(ProfileChoice choice,
     ProfileController* controller = pair.second;
     [controller applicationWillResignActive:application];
   }
+  if (IsShareExtensionForMultiprofileEnabled()) {
+    [_shareExtensionController applicationWillResignActive];
+  }
 }
 
 - (void)applicationWillTerminate:(UIApplication*)application {
@@ -741,6 +767,9 @@ std::string GetProfileNameForChoice(ProfileChoice choice,
   }
 
   [_appState.appCommandDispatcher prepareForShutdown];
+
+  [_shareExtensionController shutdown];
+  _shareExtensionController = nil;
 
   // Cancel any in-flight distribution notification.
   ios::provider::CancelAppDistributionNotifications();
@@ -821,6 +850,7 @@ std::string GetProfileNameForChoice(ProfileChoice choice,
     // The application has been launched in background and the initialization
     // is not complete.
     [self initializeUIPreSafeMode];
+
     return;
   }
 
@@ -859,6 +889,10 @@ std::string GetProfileNameForChoice(ProfileChoice choice,
 
   // This will be a no-op if upload already started.
   crash_helper::UploadCrashReports();
+
+  if (IsShareExtensionForMultiprofileEnabled()) {
+    [_shareExtensionController applicationDidBecomeActive];
+  }
 }
 
 - (void)application:(UIApplication*)application
@@ -1278,7 +1312,10 @@ std::string GetProfileNameForChoice(ProfileChoice choice,
 #endif  // BUILDFLAG(FAST_APP_TERMINATE_ENABLED)
 
 #if BUILDFLAG(ENABLE_RLZ)
-  rlz::RLZTracker::CleanupRlz();
+  if (_rlzTrackerInitialized) {
+    _rlzTrackerInitialized = NO;
+    rlz::RLZTracker::CleanupRlz();
+  }
 #endif
 
   _chromeMain.reset();
@@ -1450,12 +1487,12 @@ std::string GetProfileNameForChoice(ProfileChoice choice,
           boolForKey:kWidgetKitRefreshFiveMinutes]),
       kFieldTrialVersionKey : @1,
     },
-    kWidgetsForMultiprofileKey : @{
-      kFieldTrialValueKey : @(IsWidgetsForMultiprofileEnabled()),
-      kFieldTrialVersionKey : @1,
-    },
     kShareExtensionForMultiprofileKey : @{
       kFieldTrialValueKey : @(IsShareExtensionForMultiprofileEnabled()),
+      kFieldTrialVersionKey : @1,
+    },
+    kMultiprofileKey : @{
+      kFieldTrialValueKey : @(AreSeparateProfilesForManagedAccountsEnabled()),
       kFieldTrialVersionKey : @1,
     },
   };
@@ -1475,11 +1512,9 @@ std::string GetProfileNameForChoice(ProfileChoice choice,
 }
 
 - (void)logIfEnterpriseManagedDevice {
-  NSString* managedKey = @"com.apple.configuration.managed";
-  BOOL isManagedDevice = [[NSUserDefaults standardUserDefaults]
-                             dictionaryForKey:managedKey] != nil;
-
-  base::UmaHistogramBoolean("EnterpriseCheck.IsManaged2", isManagedDevice);
+  base::UmaHistogramBoolean(
+      "EnterpriseCheck.IsManaged2",
+      policy::ManagementServiceIOSFactory::GetForPlatform()->IsManaged());
 }
 
 - (void)startFreeMemoryMonitoring {
@@ -1509,6 +1544,10 @@ std::string GetProfileNameForChoice(ProfileChoice choice,
 #if BUILDFLAG(IOS_ENABLE_SANDBOX_DUMP)
   [self scheduleDumpDocumentsStatistics];
 #endif  // BUILDFLAG(IOS_ENABLE_SANDBOX_DUMP)
+
+  if (IsShareExtensionForMultiprofileEnabled()) {
+    [self scheduleProcessingShareExtensionFiles];
+  }
 }
 
 - (void)scheduleDeleteTempDownloadsDirectory {
@@ -1582,6 +1621,12 @@ std::string GetProfileNameForChoice(ProfileChoice choice,
 }
 #endif  // BUILDFLAG(IOS_ENABLE_SANDBOX_DUMP)
 
+- (void)scheduleProcessingShareExtensionFiles {
+  CHECK(IsShareExtensionForMultiprofileEnabled());
+  _shareExtensionController = [[ShareExtensionController alloc] init];
+  [_shareExtensionController startFilesProcessing];
+}
+
 - (void)expireFirstUserActionRecorder {
   // Clear out any scheduled calls to this method. For example, the app may have
   // been backgrounded before the `kFirstUserActionTimeout` expired.
@@ -1634,6 +1679,9 @@ std::string GetProfileNameForChoice(ProfileChoice choice,
 // will record the installation event.
 - (void)scheduleRLZInitWithProfile:(ProfileIOS*)profile {
 #if BUILDFLAG(ENABLE_RLZ)
+  CHECK(!_rlzTrackerInitialized, base::NotFatalUntil::M160);
+  _rlzTrackerInitialized = YES;
+
   DCHECK(profile);
   PrefService* prefs = profile->GetPrefs();
 

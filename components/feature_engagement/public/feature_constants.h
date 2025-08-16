@@ -230,6 +230,7 @@ FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHTabGroupShareNoticeFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(
     kIPHTabGroupShareNotificationBubbleOnStripFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHTabGroupShareUpdateFeature);
+FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHTabGroupShareVersionUpdateFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHTabGroupsRemoteGroupFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHTabGroupsSurfaceFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHTabGroupsSurfaceOnHideFeature);
@@ -238,6 +239,7 @@ FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHTabSwitcherAddToGroup);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHTabSwitcherButtonFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHTabSwitcherButtonSwitchIncognitoFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHTranslateMenuButtonFeature);
+FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHTouchToSearchCalloutFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHVideoTutorialNTPChromeIntroFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHVideoTutorialNTPDownloadFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHVideoTutorialNTPSearchFeature);
@@ -328,6 +330,11 @@ FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHiOSLensOverlayEntrypointTipFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHiOSLensOverlayEscapeHatchTipFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHiOSSharedTabGroupForeground);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHiOSDefaultBrowserBannerPromoFeature);
+// A feature flag to enable the Default Browser off-cycle promo and configure
+// its cooldown duration, in days.
+FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHiOSDefaultBrowserOffCyclePromoFeature);
+COMPONENT_EXPORT(FEATURE_ENGAGEMENT_FEATURE_CONSTANTS)
+extern const base::FeatureParam<int> kIPHiOSDefaultBrowserOffCyclePromoCooldown;
 FEATURE_CONSTANTS_DECLARE_FEATURE(
     kIPHiOSReminderNotificationsOverflowMenuBubbleFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(
@@ -338,9 +345,12 @@ FEATURE_CONSTANTS_DECLARE_FEATURE(
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHiOSFeedSwipeStaticFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHiOSFeedSwipeAnimatedFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHiOSWelcomeBackFeature);
-FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHIOSBWGPromoFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHiOSSafariImportFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHIOSPageActionMenu);
+FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHiOSHomepageLensNewBadge);
+FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHiOSHomepageCustomizationNewBadge);
+FEATURE_CONSTANTS_DECLARE_FEATURE(
+    kIPHiOSOneTimeDefaultBrowserNotificationFeature);
 
 // A feature flag to enable and parametrize the sliding window of time for a
 // user's eligibility to be shown a default browser promo. This is not an FET

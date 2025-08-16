@@ -70,7 +70,7 @@ class TabStripLayout: UICollectionViewFlowLayout {
     guard
       let collectionView = collectionView,
       let newTabButton = newTabButton,
-      let newTabButtonSuperView = newTabButton.superview
+      newTabButton.superview != nil
     else { return contentSize }
 
     var offset: CGFloat = 12
@@ -88,7 +88,7 @@ class TabStripLayout: UICollectionViewFlowLayout {
 
     if newTabButtonLeadingConstraint == nil {
       newTabButtonLeadingConstraint = newTabButton.leadingAnchor.constraint(
-        equalTo: newTabButtonSuperView.leadingAnchor,
+        equalTo: collectionView.leadingAnchor,
         constant: updatedConstant)
       newTabButtonLeadingConstraint?.priority = .defaultLow
       newTabButtonLeadingConstraint?.isActive = true
@@ -729,7 +729,11 @@ class TabStripLayout: UICollectionViewFlowLayout {
 
     var itemWidth: CGFloat =
       (collectionViewWidth - itemSpacingSum - groupCellWidthSum) / tabCellCount
-    itemWidth = max(itemWidth, TabStripConstants.TabItem.minWidth)
+
+    let minWidth =
+      collectionView.traitCollection.horizontalSizeClass == .compact
+      ? TabStripConstants.TabItem.minCompactWidth : TabStripConstants.TabItem.minExtendedWidth
+    itemWidth = max(itemWidth, minWidth)
     itemWidth = min(itemWidth, TabStripConstants.TabItem.maxWidth)
 
     tabCellSize = CGSize(width: itemWidth, height: TabStripConstants.TabItem.height)

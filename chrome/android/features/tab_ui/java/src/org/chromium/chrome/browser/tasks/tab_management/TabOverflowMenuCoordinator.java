@@ -4,6 +4,11 @@
 
 package org.chromium.chrome.browser.tasks.tab_management;
 
+import static org.chromium.ui.listmenu.ListMenuItemProperties.CLICK_LISTENER;
+import static org.chromium.ui.listmenu.ListMenuItemProperties.MENU_ITEM_ID;
+import static org.chromium.ui.listmenu.ListMenuUtils.createAdapter;
+import static org.chromium.ui.listmenu.ListMenuUtils.setupCallbacksRecursively;
+
 import android.app.Activity;
 import android.content.ComponentCallbacks;
 import android.content.Context;
@@ -13,6 +18,7 @@ import android.content.res.Resources;
 import android.database.DataSetObserver;
 import android.graphics.Rect;
 import android.graphics.drawable.Drawable;
+import android.view.ContextThemeWrapper;
 import android.view.LayoutInflater;
 import android.view.View;
 
@@ -22,7 +28,6 @@ import androidx.annotation.IdRes;
 import androidx.annotation.LayoutRes;
 import androidx.annotation.StyleRes;
 import androidx.appcompat.content.res.AppCompatResources;
-import androidx.core.content.res.ResourcesCompat;
 
 import org.chromium.base.Callback;
 import org.chromium.base.lifetime.LifetimeAssert;
@@ -39,17 +44,14 @@ import org.chromium.components.collaboration.CollaborationService;
 import org.chromium.components.data_sharing.member_role.MemberRole;
 import org.chromium.components.tab_group_sync.TabGroupSyncService;
 import org.chromium.ui.UiUtils;
-import org.chromium.ui.listmenu.BasicListMenu.ListMenuItemType;
 import org.chromium.ui.listmenu.ListMenuItemAdapter;
-import org.chromium.ui.listmenu.ListMenuItemProperties;
-import org.chromium.ui.listmenu.ListMenuItemViewBinder;
-import org.chromium.ui.listmenu.ListSectionDividerViewBinder;
-import org.chromium.ui.modelutil.LayoutViewBuilder;
 import org.chromium.ui.modelutil.MVCListAdapter.ModelList;
 import org.chromium.ui.widget.AnchoredPopupWindow;
 import org.chromium.ui.widget.AnchoredPopupWindow.HorizontalOrientation;
 import org.chromium.ui.widget.RectProvider;
 import org.chromium.ui.widget.ViewRectProvider;
+
+import java.util.Set;
 
 /**
  * A coordinator for the overflow menu for tabs and tab groups. This applies to both the
@@ -78,12 +80,12 @@ public abstract class TabOverflowMenuCoordinator<T> {
     }
 
     private static class OverflowMenuHolder<T> {
-        private static final int INVALID_ITEM_ID = -1;
         private final Context mContext;
         private final View mContentView;
         private final ComponentCallbacks mComponentCallbacks;
         private final @Nullable LifetimeAssert mLifetimeAssert = LifetimeAssert.create(this);
         private AnchoredPopupWindow mMenuWindow;
+        private boolean mSubmenuNavigationInProgress;
 
         OverflowMenuHolder(
                 RectProvider anchorViewRectProvider,
@@ -100,7 +102,7 @@ public abstract class TabOverflowMenuCoordinator<T> {
                 int popupWidthPx,
                 @Nullable Callback<OverflowMenuHolder<T>> onDismiss,
                 Activity activity) {
-            mContext = activity;
+            mContext = new ContextThemeWrapper(activity, R.style.OverflowMenuThemeOverlay);
             mComponentCallbacks =
                     new ComponentCallbacks() {
                         @Override
@@ -119,35 +121,30 @@ public abstract class TabOverflowMenuCoordinator<T> {
             TouchTrackingListView touchTrackingListView =
                     mContentView.findViewById(R.id.tab_group_action_menu_list);
             ListMenuItemAdapter adapter =
-                    new ListMenuItemAdapter(modelList) {
-                        @Override
-                        public long getItemId(int position) {
-                            ListItem item = (ListItem) getItem(position);
-                            if (getItemViewType(position) == ListMenuItemType.MENU_ITEM) {
-                                return item.model.get(ListMenuItemProperties.MENU_ITEM_ID);
-                            } else {
-                                return INVALID_ITEM_ID;
-                            }
-                        }
-                    };
-            adapter.registerType(
-                    ListMenuItemType.MENU_ITEM,
-                    new LayoutViewBuilder(R.layout.list_menu_item),
-                    ListMenuItemViewBinder::binder);
-            adapter.registerType(
-                    ListMenuItemType.DIVIDER,
-                    new LayoutViewBuilder(R.layout.list_section_divider),
-                    ListSectionDividerViewBinder::bind);
+                    createAdapter(
+                            modelList,
+                            Set.of(),
+                            (model) -> {
+                                // Because ListMenuItemAdapter always uses the delegate if there is
+                                // one, we need to manually call click listeners.
+                                if (model.containsKey(CLICK_LISTENER)
+                                        && model.get(CLICK_LISTENER) != null) {
+                                    // Set mSubmenuNavigationInProgress to prevent the popup from
+                                    // being destroyed. It will be cleaned up in the DataSetObserver
+                                    // below.
+                                    mSubmenuNavigationInProgress = true;
+                                    model.get(CLICK_LISTENER).onClick(mContentView);
+                                    return;
+                                }
+                                onItemClickedCallback.onClick(
+                                        model.get(MENU_ITEM_ID),
+                                        id,
+                                        collaborationId,
+                                        /* listViewTouchTracker= */ touchTrackingListView);
+                                mMenuWindow.dismiss();
+                            });
+            touchTrackingListView.setItemsCanFocus(true);
             touchTrackingListView.setAdapter(adapter);
-            touchTrackingListView.setOnItemClickListener(
-                    (p, v, pos, menuId) -> {
-                        onItemClickedCallback.onClick(
-                                (int) menuId,
-                                id,
-                                collaborationId,
-                                /* listViewTouchTracker= */ touchTrackingListView);
-                        mMenuWindow.dismiss();
-                    });
 
             View decorView = activity.getWindow().getDecorView();
 
@@ -167,7 +164,7 @@ public abstract class TabOverflowMenuCoordinator<T> {
                             .getResources()
                             .getDimensionPixelSize(R.dimen.tab_overflow_menu_elevation));
             // Override animation style or animate from anchor as default.
-            if (animStyle == ResourcesCompat.ID_NULL) {
+            if (animStyle == Resources.ID_NULL) {
                 mMenuWindow.setAnimateFromAnchor(true);
             } else {
                 mMenuWindow.setAnimationStyle(animStyle);
@@ -179,6 +176,10 @@ public abstract class TabOverflowMenuCoordinator<T> {
                     new DataSetObserver() {
                         @Override
                         public void onChanged() {
+                            if (mSubmenuNavigationInProgress) {
+                                mSubmenuNavigationInProgress = false;
+                                return;
+                            }
                             resize();
                         }
                     });
@@ -222,7 +223,7 @@ public abstract class TabOverflowMenuCoordinator<T> {
     protected @Nullable TabGroupSyncService mTabGroupSyncService;
 
     private final @LayoutRes int mMenuLayout;
-    private final Context mContext;
+    private final @Nullable Context mContext;
     private final OnItemClickedCallback<T> mOnItemClickedCallback;
     private @Nullable OverflowMenuHolder<T> mMenuHolder;
 
@@ -240,7 +241,7 @@ public abstract class TabOverflowMenuCoordinator<T> {
             Supplier<TabModel> tabModelSupplier,
             @Nullable TabGroupSyncService tabGroupSyncService,
             CollaborationService collaborationService,
-            Context context) {
+            @Nullable Context context) {
         mMenuLayout = menuLayout;
         mOnItemClickedCallback = onItemClickedCallback;
         mTabModelSupplier = tabModelSupplier;
@@ -385,6 +386,7 @@ public abstract class TabOverflowMenuCoordinator<T> {
             @HorizontalOrientation int horizontalOrientation,
             Activity activity,
             boolean isIncognito) {
+
         assert mMenuHolder == null;
         @Nullable String collaborationId = getCollaborationIdOrNull(id);
         Drawable menuBackground = getMenuBackground(activity, isIncognito);
@@ -397,7 +399,9 @@ public abstract class TabOverflowMenuCoordinator<T> {
         ModelList modelList = new ModelList();
         configureMenuItems(modelList, id);
         // Apply offset from the background.
-        offsetPopupRect(mContext, isIncognito, anchorViewRectProvider.getRect());
+        if (mContext != null) {
+            offsetPopupRect(mContext, isIncognito, anchorViewRectProvider.getRect());
+        }
         mMenuHolder =
                 new OverflowMenuHolder<>(
                         anchorViewRectProvider,
@@ -455,6 +459,7 @@ public abstract class TabOverflowMenuCoordinator<T> {
      * @return The DP measure {@param dimenRes}, converted to px.
      */
     protected int getDimensionPixelSize(@DimenRes int dimenRes) {
+        assert mContext != null : "context needs to be non-null to get pixel size";
         return mContext.getResources().getDimensionPixelSize(dimenRes);
     }
 
@@ -474,6 +479,19 @@ public abstract class TabOverflowMenuCoordinator<T> {
             buildCollaborationMenuItems(
                     modelList, mCollaborationService.getCurrentUserRoleForGroup(collaborationId));
         }
+        // Set up callbacks for submenu navigation
+        setupCallbacksRecursively(
+                /* headerModelList= */ null,
+                modelList,
+                () -> {
+                    if (mMenuHolder != null) {
+                        mMenuHolder.dismiss();
+                    }
+                });
+    }
+
+    public void configureMenuItemsForTesting(ModelList modelList, T id) {
+        configureMenuItems(modelList, id);
     }
 
     public void destroyMenuForTesting() {

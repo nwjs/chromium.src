@@ -11,6 +11,7 @@ import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.not;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
@@ -673,6 +674,23 @@ public class PersonalDataManagerTest {
 
     @Test
     @SmallTest
+    public void testProfileEditorDescription() throws TimeoutException {
+        AutofillProfile profile =
+                AutofillProfile.builder()
+                        .setStreetAddress("123 Main")
+                        .setRegion("California")
+                        .setLocality("Los Angeles")
+                        .setPostalCode("90210")
+                        .setCountryCode("US")
+                        .build();
+
+        String guid = mHelper.setProfile(profile);
+        String profileDescription = mHelper.getProfileDescriptionForEditor(guid);
+        assertEquals("123 Main, Los Angeles", profileDescription);
+    }
+
+    @Test
+    @SmallTest
     @Feature({"Autofill"})
     @DisableFeatures(ChromeFeatureList.AUTOFILL_ENABLE_RANKING_FORMULA_ADDRESS_PROFILES)
     public void testProfilesFrecency() throws TimeoutException {
@@ -727,8 +745,7 @@ public class PersonalDataManagerTest {
         // use date. Because of its very high use count, it is still ranked second.
         mHelper.setProfileUseStatsForTesting(guid3, 100, 20);
 
-        List<AutofillProfile> profiles =
-                mHelper.getProfilesToSuggest(/* includeNameInLabel= */ false);
+        List<AutofillProfile> profiles = mHelper.getProfilesToSuggest();
         assertEquals(3, profiles.size());
         assertTrue("Profile1 should be ranked first", guid1.equals(profiles.get(0).getGUID()));
         assertTrue("Profile3 should be ranked second", guid3.equals(profiles.get(1).getGUID()));
@@ -791,8 +808,7 @@ public class PersonalDataManagerTest {
         // use date. Because of its very far last use date, it's ranked third.
         mHelper.setProfileUseStatsForTesting(guid3, 100, 20);
 
-        List<AutofillProfile> profiles =
-                mHelper.getProfilesToSuggest(/* includeNameInLabel= */ false);
+        List<AutofillProfile> profiles = mHelper.getProfilesToSuggest();
         assertEquals(3, profiles.size());
         assertTrue("Profile2 should be ranked first", guid2.equals(profiles.get(0).getGUID()));
         assertTrue("Profile1 should be ranked second", guid1.equals(profiles.get(1).getGUID()));
@@ -989,27 +1005,12 @@ public class PersonalDataManagerTest {
     @Test
     @SmallTest
     @Feature({"Autofill"})
-    public void testGetProfilesToSuggest_NoName() throws TimeoutException {
+    public void testGetProfilesToSuggest() throws TimeoutException {
         mHelper.setProfile(createTestProfile());
 
-        List<AutofillProfile> profiles =
-                mHelper.getProfilesToSuggest(/* includeNameInLabel= */ false);
+        List<AutofillProfile> profiles = mHelper.getProfilesToSuggest();
         assertEquals(
                 "Acme Inc., 123 Main, Los Angeles, California 90210, United States",
-                profiles.get(0).getLabel());
-    }
-
-    @Test
-    @SmallTest
-    @Feature({"Autofill"})
-    public void testGetProfilesToSuggest_WithName() throws TimeoutException {
-        mHelper.setProfile(createTestProfile());
-
-        List<AutofillProfile> profiles =
-                mHelper.getProfilesToSuggest(/* includeNameInLabel= */ true);
-        assertEquals(
-                "John Major, Acme Inc., 123 Main, Los Angeles, California 90210, "
-                        + "United States",
                 profiles.get(0).getLabel());
     }
 
@@ -1253,5 +1254,35 @@ public class PersonalDataManagerTest {
                                         AutofillTestHelper
                                                 .getPersonalDataManagerForLastUsedProfile()
                                                 .getEwallets()));
+    }
+
+    @Test
+    @SmallTest
+    @Feature({"Autofill"})
+    public void testToggleOptInEmitsMetric() throws TimeoutException {
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    PersonalDataManager pdm =
+                            AutofillTestHelper.getPersonalDataManagerForLastUsedProfile();
+                    assertTrue(pdm.isAutofillProfileEnabled());
+
+                    HistogramWatcher histogramExpectation =
+                            HistogramWatcher.newSingleRecordWatcher(
+                                    PersonalDataManager
+                                            .AUTOFILL_ADDRESS_OPT_IN_CHANGE_HISTOGRAM_NAME,
+                                    PersonalDataManager.AutofillAddressOptInChange.OPT_OUT);
+                    pdm.setAutofillProfileEnabled(false);
+                    assertFalse(pdm.isAutofillProfileEnabled());
+                    histogramExpectation.assertExpected();
+
+                    histogramExpectation =
+                            HistogramWatcher.newSingleRecordWatcher(
+                                    PersonalDataManager
+                                            .AUTOFILL_ADDRESS_OPT_IN_CHANGE_HISTOGRAM_NAME,
+                                    PersonalDataManager.AutofillAddressOptInChange.OPT_IN);
+                    pdm.setAutofillProfileEnabled(true);
+                    assertTrue(pdm.isAutofillProfileEnabled());
+                    histogramExpectation.assertExpected();
+                });
     }
 }

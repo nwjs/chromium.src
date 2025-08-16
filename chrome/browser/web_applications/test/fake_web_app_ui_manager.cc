@@ -160,12 +160,6 @@ void FakeWebAppUiManager::LaunchWebApp(apps::AppLaunchParams params,
   }
 }
 
-void FakeWebAppUiManager::WaitForFirstRunService(
-    Profile& profile,
-    FirstRunServiceCompletedCallback callback) {
-  std::move(callback).Run(/*success=*/true);
-}
-
 #if BUILDFLAG(IS_CHROMEOS)
 void FakeWebAppUiManager::MigrateLauncherState(
     const webapps::AppId& from_app_id,
@@ -223,6 +217,7 @@ void FakeWebAppUiManager::TriggerLaunchDialogForBackgroundInstall(
     const webapps::AppId& app_id,
     Profile* profile,
     const std::string& app_name,
+    const SkBitmap& icon,
     base::OnceCallback<void(bool accepted)> callback) {
   NOTIMPLEMENTED();
 }

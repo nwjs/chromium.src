@@ -9,10 +9,8 @@
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/scoped_observation.h"
-#include "chrome/browser/ash/app_mode/cancellable_job.h"
-#include "chrome/browser/ash/app_mode/kiosk_app.h"
-#include "chrome/browser/ash/app_mode/kiosk_app_launch_error.h"
-#include "chrome/browser/ash/app_mode/load_profile.h"
+#include "chrome/browser/ash/app_mode/kiosk_app_types.h"
+#include "chrome/browser/chromeos/app_mode/kiosk_app_level_logs_manager.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/profiles/profile_manager_observer.h"
@@ -24,8 +22,8 @@ namespace chromeos {
 // KioskApplicationLogCollectionEnabled policy pref.
 class KioskAppLevelLogsManagerWrapper : public ProfileManagerObserver {
  public:
-  KioskAppLevelLogsManagerWrapper();
-  explicit KioskAppLevelLogsManagerWrapper(Profile* profile);
+  explicit KioskAppLevelLogsManagerWrapper(ash::KioskAppId app_id);
+  KioskAppLevelLogsManagerWrapper(Profile* profile, ash::KioskAppId app_id);
 
   KioskAppLevelLogsManagerWrapper(const KioskAppLevelLogsManagerWrapper&) =
       delete;
@@ -48,11 +46,14 @@ class KioskAppLevelLogsManagerWrapper : public ProfileManagerObserver {
 
   void OnPolicyChanged();
 
-  bool log_collection_enabled_ = false;
+  // Handles collection and storage of kiosk app level logs.
+  std::unique_ptr<KioskAppLevelLogsManager> logs_manager_;
 
   // The profile whose kiosk app logs should be collected. It is set by the
   // `OnProfileAdded` method if the profile is not set in the constructor.
   raw_ptr<Profile> profile_ = nullptr;
+
+  const ash::KioskAppId app_id_;
 
   PrefChangeRegistrar pref_change_registrar_;
 

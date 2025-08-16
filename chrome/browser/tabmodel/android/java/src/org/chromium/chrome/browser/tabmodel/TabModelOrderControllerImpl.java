@@ -7,9 +7,11 @@ package org.chromium.chrome.browser.tabmodel;
 import static org.chromium.build.NullUtil.assumeNonNull;
 
 import org.chromium.build.annotations.NullMarked;
+import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabAttributeKeys;
 import org.chromium.chrome.browser.tab.TabAttributes;
+import org.chromium.chrome.browser.tab.TabId;
 import org.chromium.chrome.browser.tab.TabLaunchType;
 
 /**
@@ -31,8 +33,26 @@ class TabModelOrderControllerImpl implements TabModelOrderController {
     @Override
     public int determineInsertionIndex(@TabLaunchType int type, int position, Tab newTab) {
         if (type == TabLaunchType.FROM_BROWSER_ACTIONS || type == TabLaunchType.FROM_RECENT_TABS) {
-            return -1;
+            return TabList.INVALID_TAB_INDEX;
         }
+
+        if (newTab.getIsPinned()) {
+            TabModel tabModel = mTabModelSelector.getCurrentModel();
+            @TabId int parentId = newTab.getParentId();
+            @Nullable Tab parentTab = tabModel.getTabById(parentId);
+            int index = tabModel.indexOf(parentTab);
+
+            if (type == TabLaunchType.FROM_TAB_LIST_INTERFACE
+                    && parentTab != null
+                    && index != TabList.INVALID_TAB_INDEX
+                    && parentTab.getIsPinned()) {
+                return index + 1;
+            }
+
+            // TabModel will handle the index.
+            return TabList.INVALID_TAB_INDEX;
+        }
+
         if (mightBeAdjacent(type)) {
             position = determineInsertionIndexIfMaybeAdjacent(type, newTab);
         }
@@ -154,7 +174,8 @@ class TabModelOrderControllerImpl implements TabModelOrderController {
         // Restore is handling the active index by itself.
         if (type == TabLaunchType.FROM_RESTORE
                 || type == TabLaunchType.FROM_BROWSER_ACTIONS
-                || type == TabLaunchType.FROM_RESTORE_TABS_UI) {
+                || type == TabLaunchType.FROM_RESTORE_TABS_UI
+                || type == TabLaunchType.FROM_TAB_LIST_INTERFACE) {
             return false;
         }
         return (type != TabLaunchType.FROM_LONGPRESS_BACKGROUND

@@ -281,23 +281,23 @@ TEST_F(ExtensionHooksDelegateTest, GetURL) {
   };
 
   get_url("''", extension()->url());
-  get_url("'foo'", extension()->ResolveExtensionURL("foo"));
-  get_url("'/foo'", extension()->ResolveExtensionURL("foo"));
+  get_url("'foo'", extension()->GetResourceURL("foo"));
+  get_url("'/foo'", extension()->GetResourceURL("foo"));
   get_url("'https://www.google.com'",
           GURL(extension()->url().spec() + "https://www.google.com"));
 }
 
-class ExtensionHooksDelegateMV3Test : public ExtensionHooksDelegateTest {
+class ExtensionHooksDelegateModernTest : public ExtensionHooksDelegateTest {
  public:
-  ExtensionHooksDelegateMV3Test() = default;
-  ~ExtensionHooksDelegateMV3Test() override = default;
+  ExtensionHooksDelegateModernTest() = default;
+  ~ExtensionHooksDelegateModernTest() override = default;
 
   scoped_refptr<const Extension> BuildExtension() override {
-    return ExtensionBuilder("foo").SetManifestVersion(3).Build();
+    return ExtensionBuilder("foo").Build();
   }
 };
 
-TEST_F(ExtensionHooksDelegateMV3Test, AliasesArentAvailableInMV3) {
+TEST_F(ExtensionHooksDelegateModernTest, AliasesArentAvailable) {
   v8::HandleScope handle_scope(isolate());
   v8::Local<v8::Context> context = MainContext();
 

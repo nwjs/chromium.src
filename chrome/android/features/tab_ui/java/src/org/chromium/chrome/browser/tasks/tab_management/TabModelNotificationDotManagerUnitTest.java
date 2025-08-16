@@ -105,13 +105,13 @@ public class TabModelNotificationDotManagerUnitTest {
         when(mTabGroupModelFilterProvider.getTabGroupModelFilter(false))
                 .thenReturn(mTabGroupModelFilter);
         when(mTabGroupModelFilter.getTabModel()).thenReturn(mTabModel);
-        when(mTabGroupModelFilter.getTabGroupIdFromRootId(ROOT_ID)).thenReturn(TAB_GROUP_ID);
-        when(mTabGroupModelFilter.getRootIdFromTabGroupId(TAB_GROUP_ID)).thenReturn(ROOT_ID);
         when(mTabGroupModelFilter.getTabCountForGroup(TAB_GROUP_ID)).thenReturn(TAB_COUNT);
-        when(mTabGroupModelFilter.getTabGroupTitle(ROOT_ID)).thenReturn(TITLE);
+        when(mTabGroupModelFilter.getTabGroupTitle(TAB_GROUP_ID)).thenReturn(TITLE);
+        when(mTabGroupModelFilter.tabGroupExists(TAB_GROUP_ID)).thenReturn(true);
         when(mTabModel.getProfile()).thenReturn(mProfile);
         when(mTabModel.getTabById(EXISTING_TAB_ID)).thenReturn(mTab);
         when(mTab.getRootId()).thenReturn(ROOT_ID);
+        when(mTab.getTabGroupId()).thenReturn(TAB_GROUP_ID);
 
         Context context = ApplicationProvider.getApplicationContext();
         mTabModelNotificationDotManager = new TabModelNotificationDotManager(context);
@@ -229,7 +229,10 @@ public class TabModelNotificationDotManagerUnitTest {
         initializeBothBackends();
         createDirtyTabMessageForIds(List.of(EXISTING_TAB_ID));
 
-        mTabGroupModelFilterObserverCaptor.getValue().didMergeTabToGroup(mTab);
+        when(mTab.getTabGroupId()).thenReturn(null);
+        mTabGroupModelFilterObserverCaptor
+                .getValue()
+                .didMergeTabToGroup(mTab, /* isDestinationTab= */ false);
         verifyHidden();
     }
 
@@ -238,6 +241,7 @@ public class TabModelNotificationDotManagerUnitTest {
         initializeBothBackends();
         createDirtyTabMessageForIds(List.of(EXISTING_TAB_ID));
 
+        when(mTab.getTabGroupId()).thenReturn(null);
         mTabModelObserverCaptor
                 .getValue()
                 .didAddTab(
@@ -281,7 +285,7 @@ public class TabModelNotificationDotManagerUnitTest {
 
     @Test
     public void testFallbackTitle() {
-        when(mTabGroupModelFilter.getTabGroupTitle(ROOT_ID)).thenReturn(null);
+        when(mTabGroupModelFilter.getTabGroupTitle(TAB_GROUP_ID)).thenReturn(null);
         initializeBothBackends();
         createDirtyTabMessageForIds(List.of(EXISTING_TAB_ID));
 

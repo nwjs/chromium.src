@@ -2,17 +2,13 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifdef UNSAFE_BUFFERS_BUILD
-// TODO(crbug.com/351564777): Remove this and convert code to safer constructs.
-#pragma allow_unsafe_buffers
-#endif
-
 #include "cc/metrics/frame_sequence_tracker.h"
 
 #include <string>
 #include <utility>
 #include <vector>
 
+#include "base/compiler_specific.h"
 #include "base/functional/bind.h"
 #include "base/memory/raw_ptr.h"
 #include "base/test/bind.h"
@@ -32,7 +28,7 @@ namespace {
 
 const char* ParseNumber(const char* str, uint64_t* retvalue) {
   uint64_t number = 0;
-  for (; *str >= '0' && *str <= '9'; ++str) {
+  for (; *str >= '0' && *str <= '9'; UNSAFE_TODO(++str)) {
     number *= 10;
     number += *str - '0';
   }
@@ -134,7 +130,7 @@ class FrameSequenceTrackerTest : public testing::Test,
     const uint64_t source_id = 1;
     viz::BeginFrameArgs last_activated_main_args;
     while (*str) {
-      const char command = *str++;
+      const char command = *UNSAFE_TODO(str++);
       uint64_t sequence = 0, dummy = 0, last_activated_main = 0;
       switch (command) {
         case 'b':
@@ -146,27 +142,27 @@ class FrameSequenceTrackerTest : public testing::Test,
         case 's':
         case 'r':
           ASSERT_EQ(*str, '(') << command;
-          str = ParseNumber(++str, &sequence);
+          str = ParseNumber(UNSAFE_TODO(++str), &sequence);
           ASSERT_EQ(*str, ')');
-          ++str;
+          UNSAFE_TODO(++str);
           break;
 
         case 'N':
           ASSERT_EQ(*str, '(');
-          str = ParseNumber(++str, &dummy);
+          str = ParseNumber(UNSAFE_TODO(++str), &dummy);
           ASSERT_EQ(*str, ',');
-          str = ParseNumber(++str, &sequence);
+          str = ParseNumber(UNSAFE_TODO(++str), &sequence);
           ASSERT_EQ(*str, ')');
-          ++str;
+          UNSAFE_TODO(++str);
           break;
 
         case 'e':
           ASSERT_EQ(*str, '(');
-          str = ParseNumber(++str, &sequence);
+          str = ParseNumber(UNSAFE_TODO(++str), &sequence);
           ASSERT_EQ(*str, ',');
-          str = ParseNumber(++str, &last_activated_main);
+          str = ParseNumber(UNSAFE_TODO(++str), &last_activated_main);
           ASSERT_EQ(*str, ')');
-          ++str;
+          UNSAFE_TODO(++str);
           break;
 
         case 'R':
@@ -920,15 +916,17 @@ TEST_F(FrameSequenceTrackerTest,
   compositor_frame_reporting_controller_->SetFrameSequenceTrackerCollection(
       &collection_);
   auto frame0_args = CreateBeginFrameArgs(source, ++sequence);
-  compositor_frame_reporting_controller_->WillBeginImplFrame(frame0_args);
+  compositor_frame_reporting_controller_->WillBeginImplFrame(
+      frame0_args, /*will_throttle_main=*/false);
   compositor_frame_reporting_controller_->OnFinishImplFrame(
-      frame0_args.frame_id);
+      frame0_args.frame_id, /*not_waiting_for_main=*/false);
 
   // Starting frame 5 will trigger the callback expectation.
   auto frame5_args =
       CreateBeginFrameArgs(source, sequence + kNumFramesSkipped,
                            base::TimeTicks::Now() /*+ base::Seconds(5)*/);
-  compositor_frame_reporting_controller_->WillBeginImplFrame(frame5_args);
+  compositor_frame_reporting_controller_->WillBeginImplFrame(
+      frame5_args, /*will_throttle_main=*/false);
   // Clear the expectation before simulating finishing the frame.
   testing::Mock::VerifyAndClearExpectations(&sorter_);
   compositor_frame_reporting_controller_->WillBeginMainFrame(frame5_args);
@@ -941,7 +939,7 @@ TEST_F(FrameSequenceTrackerTest,
   compositor_frame_reporting_controller_->DidSubmitCompositorFrame(
       submit_info, frame5_args.frame_id, frame5_args.frame_id);
   compositor_frame_reporting_controller_->OnFinishImplFrame(
-      frame5_args.frame_id);
+      frame5_args.frame_id, /*not_waiting_for_main=*/false);
   viz::FrameTimingDetails ftd;
   compositor_frame_reporting_controller_->DidPresentCompositorFrame(
       submit_info.frame_token, ftd);

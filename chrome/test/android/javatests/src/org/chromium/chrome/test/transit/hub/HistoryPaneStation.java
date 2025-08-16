@@ -19,7 +19,7 @@ import org.chromium.base.test.transit.ViewElement;
 import org.chromium.chrome.browser.history.HistoryItemView;
 import org.chromium.chrome.browser.hub.PaneId;
 import org.chromium.chrome.test.R;
-import org.chromium.chrome.test.transit.page.PageStation;
+import org.chromium.chrome.test.transit.page.CtaPageStation;
 import org.chromium.chrome.test.transit.page.WebPageStation;
 
 /** The History pane station. */
@@ -39,7 +39,7 @@ public class HistoryPaneStation extends HubBaseStation {
 
     /** Expect history entries to be displayed in the history pane. */
     public HistoryWithEntriesFacility expectEntries() {
-        return enterFacilitySync(new HistoryWithEntriesFacility(), /* trigger= */ null);
+        return noopTo().enterFacility(new HistoryWithEntriesFacility());
     }
 
     /** Expect no history to be displayed in the history pane. */
@@ -49,11 +49,11 @@ public class HistoryPaneStation extends HubBaseStation {
         emptyHistory.declareView(
                 withText("You can see the pages you’ve visited or delete them from your history"));
         emptyHistory.declareNoView(withId(R.id.history_page_recycler_view));
-        enterFacilitySync(emptyHistory, /* trigger= */ null);
+        noopTo().enterFacility(emptyHistory);
     }
 
     /** Non-empty state of the history pane. */
-    public class HistoryWithEntriesFacility extends Facility<HistoryPaneStation> {
+    public static class HistoryWithEntriesFacility extends Facility<HistoryPaneStation> {
         public final ViewElement<View> recyclerViewElement;
         public final ViewElement<View> searchButtonElement;
 
@@ -64,8 +64,7 @@ public class HistoryPaneStation extends HubBaseStation {
 
         /** Expect an entry to be displayed in the history pane. */
         public HistoryEntryFacility expectEntry(String text) {
-            return mHostStation.enterFacilitySync(
-                    new HistoryEntryFacility(this, text), /* trigger= */ null);
+            return noopTo().enterFacility(new HistoryEntryFacility(this, text));
         }
 
         /** Expect an entry to be not displayed in the history pane. */
@@ -75,13 +74,12 @@ public class HistoryPaneStation extends HubBaseStation {
 
         /** Open the history search. */
         public HistorySearchFacility openSearch() {
-            return enterFacilitySync(
-                    new HistorySearchFacility(), searchButtonElement.getClickTrigger());
+            return searchButtonElement.clickTo().enterFacility(new HistorySearchFacility());
         }
     }
 
     /** One history entry in the history pane. */
-    public class HistoryEntryFacility extends Facility<HistoryPaneStation> {
+    public static class HistoryEntryFacility extends Facility<HistoryPaneStation> {
         public final ViewElement<HistoryItemView> itemElement;
         public final ViewElement<View> titleElement;
         public final ViewElement<View> iconElement;
@@ -101,13 +99,14 @@ public class HistoryPaneStation extends HubBaseStation {
         }
 
         /** Select the entry to open. */
-        public WebPageStation selectToOpenWebPage(PageStation previousPage, String url) {
-            return travelToSync(
-                    WebPageStation.newBuilder()
-                            .initFrom(previousPage)
-                            .withExpectedUrlSubstring(url)
-                            .build(),
-                    itemElement.getClickTrigger());
+        public WebPageStation selectToOpenWebPage(CtaPageStation previousPage, String url) {
+            return itemElement
+                    .clickTo()
+                    .arriveAt(
+                            WebPageStation.newBuilder()
+                                    .initFrom(previousPage)
+                                    .withExpectedUrlSubstring(url)
+                                    .build());
         }
     }
 
@@ -120,7 +119,7 @@ public class HistoryPaneStation extends HubBaseStation {
         }
 
         public void typeSearchTerm(String text) {
-            editTextElement.getTypeTextTrigger(text).triggerTransition();
+            editTextElement.typeTextTo(text).executeTriggerWithoutTransition();
         }
     }
 }

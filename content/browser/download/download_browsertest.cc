@@ -56,6 +56,7 @@
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/download_request_utils.h"
+#include "content/public/common/buildflags.h"
 #include "content/public/common/content_client.h"
 #include "content/public/common/content_features.h"
 #include "content/public/common/content_paths.h"
@@ -91,7 +92,6 @@
 #include "net/test/embedded_test_server/http_request.h"
 #include "net/test/embedded_test_server/http_response.h"
 #include "net/traffic_annotation/network_traffic_annotation_test_helper.h"
-#include "ppapi/buildflags/buildflags.h"
 #include "services/network/public/cpp/content_decoding_interceptor.h"
 #include "services/network/public/cpp/features.h"
 #include "testing/gmock/include/gmock/gmock.h"
@@ -1844,7 +1844,7 @@ IN_PROC_BROWSER_TEST_F(DownloadContentTest, DownloadOctetStream) {
   plugin_info.name = kTestPluginName;
   plugin_info.mime_types.push_back(
       WebPluginMimeType(kTestMimeType, kTestFileType, ""));
-  plugin_info.type = WebPluginInfo::PLUGIN_TYPE_PEPPER_IN_PROCESS;
+  plugin_info.type = WebPluginInfo::PLUGIN_TYPE_BROWSER_INTERNAL_PLUGIN;
   PluginServiceImpl::GetInstance()->RegisterInternalPlugin(plugin_info, false);
 
   // The following is served with a Content-Type of application/octet-stream.
@@ -1871,7 +1871,7 @@ IN_PROC_BROWSER_TEST_F(DownloadContentTest,
   plugin_info.name = kTestPluginName;
   plugin_info.mime_types.push_back(
       WebPluginMimeType(kTestMimeType, kTestFileType, ""));
-  plugin_info.type = WebPluginInfo::PLUGIN_TYPE_PEPPER_IN_PROCESS;
+  plugin_info.type = WebPluginInfo::PLUGIN_TYPE_BROWSER_INTERNAL_PLUGIN;
   PluginServiceImpl::GetInstance()->RegisterInternalPlugin(plugin_info, false);
 
   // The following is served with a Content-Type of application/octet-stream.
@@ -1897,7 +1897,7 @@ IN_PROC_BROWSER_TEST_F(DownloadContentTest,
   plugin_info.name = kTestPluginName;
   plugin_info.mime_types.push_back(
       WebPluginMimeType(kTestMimeType, kTestFileType, ""));
-  plugin_info.type = WebPluginInfo::PLUGIN_TYPE_PEPPER_IN_PROCESS;
+  plugin_info.type = WebPluginInfo::PLUGIN_TYPE_BROWSER_INTERNAL_PLUGIN;
   PluginServiceImpl::GetInstance()->RegisterInternalPlugin(plugin_info, false);
 
   // The following is served with a Content-Type of application/octet-stream.
@@ -1924,7 +1924,7 @@ IN_PROC_BROWSER_TEST_F(DownloadContentTest,
   plugin_info.name = kTestPluginName;
   plugin_info.mime_types.push_back(
       WebPluginMimeType(kTestMimeType, kTestFileType, ""));
-  plugin_info.type = WebPluginInfo::PLUGIN_TYPE_PEPPER_IN_PROCESS;
+  plugin_info.type = WebPluginInfo::PLUGIN_TYPE_BROWSER_INTERNAL_PLUGIN;
   PluginServiceImpl::GetInstance()->RegisterInternalPlugin(plugin_info, false);
 
   // The following is served with a Content-Type of application/octet-stream.

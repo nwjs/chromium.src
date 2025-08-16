@@ -7,7 +7,6 @@
 
 #include <memory>
 #include <optional>
-#include <tuple>
 
 #include "base/containers/flat_set.h"
 #include "base/containers/lru_cache.h"
@@ -506,6 +505,14 @@ class CONTENT_EXPORT ServiceWorkerRegistry {
   void StartRemoteCall(std::unique_ptr<InflightCall> call);
   void FinishRemoteCall(const InflightCall* call);
 
+  void ClearAllInternalCache();
+  void ClearInternalCacheForStorageKey(const blink::StorageKey& storage_key);
+
+  storage::ServiceWorkerStorage::StorageSharedBuffer& storage_shared_buffer() {
+    // storage_shared_buffer_  always exists.
+    return *storage_shared_buffer_;
+  }
+
   // A helper function to call a mojo remote call that will automatically be
   // reissued if the mojo::Remote becomes disconnected. To allow the call to be
   // dispatched multiple times, all arguments must be either be:
@@ -542,6 +549,7 @@ class CONTENT_EXPORT ServiceWorkerRegistry {
 
   // This is a direct communication channel between this ServiceWorkerRegistry
   // in the UI thread and the ServiceWorkerStorage in the thread pool.
+  // This must not be null.
   scoped_refptr<storage::ServiceWorkerStorage::StorageSharedBuffer>
       storage_shared_buffer_;
 
@@ -581,8 +589,9 @@ class CONTENT_EXPORT ServiceWorkerRegistry {
   base::LRUCache<blink::StorageKey, std::set<GURL>> registration_scope_cache_;
 
   // Live registration's `registration_id` cache to skip calling
-  // FindRegistrationForClientUrl mojo function (https://crbug.com/1446216).
-  base::LRUCache<std::tuple<GURL, blink::StorageKey>, int64_t>
+  // FindRegistrationForClientUrl mojo function (https://crbug.com/1446216). The
+  // key is a pair of {registration_scope, storage_key}.
+  base::LRUCache<std::pair<GURL, blink::StorageKey>, int64_t>
       registration_id_cache_;
 
   enum class ConnectionState {

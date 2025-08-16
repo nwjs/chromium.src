@@ -31,6 +31,7 @@
 #import "ios/chrome/browser/default_promo/ui_bundled/post_default_abandonment/features.h"
 #import "ios/chrome/browser/default_promo/ui_bundled/post_default_abandonment/post_default_abandonment_promo_provider.h"
 #import "ios/chrome/browser/default_promo/ui_bundled/post_restore/post_restore_default_browser_promo_provider.h"
+#import "ios/chrome/browser/default_promo/ui_bundled/promo_handler/default_browser_off_cycle_promo_display_handler.h"
 #import "ios/chrome/browser/default_promo/ui_bundled/promo_handler/default_browser_promo_display_handler.h"
 #import "ios/chrome/browser/default_promo/ui_bundled/promo_handler/default_browser_remind_me_later_promo_display_handler.h"
 #import "ios/chrome/browser/default_promo/ui_bundled/stay_safe_default_browser_promo_view_provider.h"
@@ -38,8 +39,6 @@
 #import "ios/chrome/browser/feature_engagement/model/tracker_factory.h"
 #import "ios/chrome/browser/first_run/ui_bundled/features.h"
 #import "ios/chrome/browser/first_run/ui_bundled/welcome_back/ui/welcome_back_display_handler.h"
-#import "ios/chrome/browser/intelligence/bwg/ui/bwg_promo_display_handler.h"
-#import "ios/chrome/browser/intelligence/features/features.h"
 #import "ios/chrome/browser/passwords/model/features.h"
 #import "ios/chrome/browser/post_restore_signin/ui_bundled/post_restore_signin_provider.h"
 #import "ios/chrome/browser/promos_manager/model/features.h"
@@ -628,6 +627,10 @@
       [[DefaultBrowserPromoDisplayHandler alloc] init];
   _displayHandlerPromos[promos_manager::Promo::DefaultBrowserRemindMeLater] =
       [[DefaultBrowserRemindMeLaterPromoDisplayHandler alloc] init];
+  if (IsDefaultBrowserOffCyclePromoEnabled()) {
+    _displayHandlerPromos[promos_manager::Promo::DefaultBrowserOffCycle] =
+        [[DefaultBrowserOffCyclePromoDisplayHandler alloc] init];
+  }
 
   // Sign-in fullscreen promo handler.
   if (IsFullscreenSigninPromoManagerMigrationEnabled()) {
@@ -641,18 +644,8 @@
         [[WelcomeBackDisplayHandler alloc] init];
   }
 
-  // BWG promo handler.
-  if (IsPageActionMenuEnabled()) {
-    PrefService* prefService = self.profile->GetPrefs();
-    BOOL manualPromoShown = prefService->GetBoolean(prefs::kIOSBWGManualPromo);
-    if (!manualPromoShown) {
-      _displayHandlerPromos[promos_manager::Promo::BWGPromo] =
-          [[BWGPromoDisplayHandler alloc] init];
-    }
-  }
-
   // Safari Import remind me later handler.
-  if (base::FeatureList::IsEnabled(kImportPasswordsFromSafari)) {
+  if (ShouldShowSafariImportWorkflow()) {
     _displayHandlerPromos[promos_manager::Promo::SafariImportRemindMeLater] =
         [[SafariDataImportReminderPromoDisplayHandler alloc]
             initWithApplicationCommandsHandler:_applicationCommandHandler

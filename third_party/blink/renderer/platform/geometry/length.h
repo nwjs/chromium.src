@@ -35,11 +35,8 @@
 #include "third_party/blink/renderer/platform/geometry/layout_unit.h"
 #include "third_party/blink/renderer/platform/platform_export.h"
 #include "third_party/blink/renderer/platform/wtf/allocator/allocator.h"
+#include "third_party/blink/renderer/platform/wtf/forward.h"
 #include "third_party/blink/renderer/platform/wtf/math_extras.h"
-
-namespace WTF {
-class String;
-}  // namespace WTF
 
 namespace blink {
 
@@ -428,5 +425,7 @@ class PLATFORM_EXPORT Length {
 PLATFORM_EXPORT std::ostream& operator<<(std::ostream&, const Length&);
 
 }  // namespace blink
+
+WTF_ALLOW_CLEAR_UNUSED_SLOTS_WITH_MEM_FUNCTIONS(blink::Length)
 
 #endif  // THIRD_PARTY_BLINK_RENDERER_PLATFORM_GEOMETRY_LENGTH_H_

@@ -6,6 +6,7 @@
 
 #include <vector>
 
+#include "base/feature_list.h"
 #include "base/strings/strcat.h"
 #include "base/strings/to_string.h"
 #include "base/test/scoped_feature_list.h"
@@ -31,6 +32,7 @@
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/mojom/preloading/anchor_element_interaction_host.mojom.h"
+#include "third_party/blink/public/mojom/speculation_rules/speculation_rules.mojom-data-view.h"
 #include "third_party/blink/public/mojom/speculation_rules/speculation_rules.mojom-shared.h"
 
 namespace content {
@@ -227,6 +229,9 @@ TEST_F(PreloadingDeciderTest, DefaultEagernessCandidatesStartOnStandby) {
       PreloadingDecider::GetOrCreateForCurrentDocument(&GetPrimaryMainFrame());
   ASSERT_TRUE(preloading_decider != nullptr);
 
+  const bool use_eager_heurisctics =
+      base::FeatureList::IsEnabled(blink::features::kPreloadingEagerHeuristics);
+
   // Create list of SpeculationCandidatePtrs.
   std::vector<std::tuple<bool, GURL, blink::mojom::SpeculationAction,
                          blink::mojom::SpeculationEagerness>>
@@ -236,7 +241,10 @@ TEST_F(PreloadingDeciderTest, DefaultEagernessCandidatesStartOnStandby) {
                  {true, GetCrossOriginUrl("/candidate2.html"),
                   blink::mojom::SpeculationAction::kPrefetch,
                   blink::mojom::SpeculationEagerness::kModerate},
-                 {false, GetCrossOriginUrl("/candidate3.html"),
+                 {use_eager_heurisctics, GetCrossOriginUrl("/candidate3.html"),
+                  blink::mojom::SpeculationAction::kPrefetch,
+                  blink::mojom::SpeculationEagerness::kEager},
+                 {false, GetCrossOriginUrl("/candidate4.html"),
                   blink::mojom::SpeculationAction::kPrefetch,
                   blink::mojom::SpeculationEagerness::kImmediate},
                  {true, GetCrossOriginUrl("/candidate1.html"),
@@ -245,7 +253,10 @@ TEST_F(PreloadingDeciderTest, DefaultEagernessCandidatesStartOnStandby) {
                  {true, GetCrossOriginUrl("/candidate2.html"),
                   blink::mojom::SpeculationAction::kPrerender,
                   blink::mojom::SpeculationEagerness::kModerate},
-                 {false, GetCrossOriginUrl("/candidate3.html"),
+                 {use_eager_heurisctics, GetCrossOriginUrl("/candidate3.html"),
+                  blink::mojom::SpeculationAction::kPrerender,
+                  blink::mojom::SpeculationEagerness::kEager},
+                 {false, GetCrossOriginUrl("/candidate4.html"),
                   blink::mojom::SpeculationAction::kPrerender,
                   blink::mojom::SpeculationEagerness::kImmediate}};
   std::vector<blink::mojom::SpeculationCandidatePtr> candidates;
@@ -266,7 +277,22 @@ TEST_F(PreloadingDeciderTest, DefaultEagernessCandidatesStartOnStandby) {
 class PreloadingDeciderPointerEventHeuristicsTest
     : public PreloadingDeciderTest,
       public ::testing::WithParamInterface<
-          std::tuple<EventType, blink::mojom::SpeculationEagerness>> {};
+          std::tuple<EventType, blink::mojom::SpeculationEagerness>> {
+ public:
+  void SetUp() override {
+    feature_list_.InitAndEnableFeature(
+        blink::features::kPreloadingEagerHeuristics);
+    PreloadingDeciderTest::SetUp();
+  }
+
+  void TearDown() override {
+    PreloadingDeciderTest::TearDown();
+    feature_list_.Reset();
+  }
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
+};
 
 TEST_P(PreloadingDeciderPointerEventHeuristicsTest,
        PrefetchOnPointerEventHeuristics) {
@@ -291,7 +317,8 @@ TEST_P(PreloadingDeciderPointerEventHeuristicsTest,
         break;
       case EventType::kPointerHover:
         preloading_decider->OnPointerHover(
-            url, blink::mojom::AnchorElementPointerData::New(false, 0.0, 0.0));
+            url, blink::mojom::AnchorElementPointerData::New(false, 0.0, 0.0),
+            eagerness);
         break;
     }
   };
@@ -399,7 +426,8 @@ TEST_P(PreloadingDeciderPointerEventHeuristicsTest,
         break;
       case EventType::kPointerHover:
         preloading_decider->OnPointerHover(
-            url, blink::mojom::AnchorElementPointerData::New(false, 0.0, 0.0));
+            url, blink::mojom::AnchorElementPointerData::New(false, 0.0, 0.0),
+            eagerness);
         break;
     }
   };
@@ -498,7 +526,8 @@ INSTANTIATE_TEST_SUITE_P(
     PreloadingDeciderPointerEventHeuristicsTest,
     testing::Combine(
         testing::Values(EventType::kPointerDown, EventType::kPointerHover),
-        testing::Values(blink::mojom::SpeculationEagerness::kModerate,
+        testing::Values(blink::mojom::SpeculationEagerness::kEager,
+                        blink::mojom::SpeculationEagerness::kModerate,
                         blink::mojom::SpeculationEagerness::kConservative)));
 
 TEST_F(PreloadingDeciderTest, UmaRecallStats) {
@@ -588,15 +617,17 @@ TEST_F(PreloadingDeciderTest,
   candidates.push_back(candidate_1.Clone());
   candidates.push_back(candidate_2.Clone());
 
-  // Add conservative and moderate  preload candidate and preload on
+  // Add conservative and moderate preload candidate and preload on
   // pointer-hover.
   preloading_decider->UpdateSpeculationCandidates(candidates);
   const auto& prefetches = GetPrefetchService()->prefetches_;
   preloading_decider->OnPointerHover(
-      url, blink::mojom::AnchorElementPointerData::New(
-               /*is_mouse_pointer=*/true,
-               /*mouse_velocity=*/75.0,
-               /*mouse_acceleration=*/0.0));
+      url,
+      blink::mojom::AnchorElementPointerData::New(
+          /*is_mouse_pointer=*/true,
+          /*mouse_velocity=*/75.0,
+          /*mouse_acceleration=*/0.0),
+      blink::mojom::SpeculationEagerness::kModerate);
 
   EXPECT_TRUE(prefetches[0]->HasSpeculationRulesTags());
   EXPECT_EQ(prefetches[0]->GetSpeculationRulesTagsHeaderString().value(),
@@ -676,6 +707,7 @@ class PreloadingDeciderWithParameterizedSpeculationActionTest
       case blink::mojom::SpeculationAction::kPrefetch:
         return GetPrefetchService()->prefetches_.size();
       case blink::mojom::SpeculationAction::kPrefetchWithSubresources:
+      case blink::mojom::SpeculationAction::kPrerenderUntilScript:
         NOTREACHED();
       case blink::mojom::SpeculationAction::kPrerender:
         return GetPrerenderer()->prerenders_.size();
@@ -688,6 +720,7 @@ class PreloadingDeciderWithParameterizedSpeculationActionTest
         GetPrefetchService()->EvictPrefetch(index);
         break;
       case blink::mojom::SpeculationAction::kPrefetchWithSubresources:
+      case blink::mojom::SpeculationAction::kPrerenderUntilScript:
         NOTREACHED();
       case blink::mojom::SpeculationAction::kPrerender:
         GetPrerenderer()->OnCancel(index);
@@ -709,6 +742,7 @@ INSTANTIATE_TEST_SUITE_P(
         case blink::mojom::SpeculationAction::kPrefetch:
           return "kPrefetch";
         case blink::mojom::SpeculationAction::kPrefetchWithSubresources:
+        case blink::mojom::SpeculationAction::kPrerenderUntilScript:
           NOTREACHED();
         case blink::mojom::SpeculationAction::kPrerender:
           return "kPrerender";
@@ -747,6 +781,7 @@ TEST_P(PreloadingDeciderWithParameterizedSpeculationActionTest,
             ->GetPrefetchType()
             .GetEagerness();
       case blink::mojom::SpeculationAction::kPrefetchWithSubresources:
+      case blink::mojom::SpeculationAction::kPrerenderUntilScript:
         NOTREACHED();
       case blink::mojom::SpeculationAction::kPrerender:
         const auto& [_, eagerness] = GetPrerenderer()->prerenders_[0];
@@ -953,17 +988,21 @@ TEST_F(PreloadingDeciderTest,
 
   GURL url1{"https://www.example.com"};
   preloading_decider->OnPointerHover(
-      url1, blink::mojom::AnchorElementPointerData::New(
-                /*is_mouse_pointer=*/true,
-                /*mouse_velocity=*/50.0,
-                /*mouse_acceleration=*/0.0));
+      url1,
+      blink::mojom::AnchorElementPointerData::New(
+          /*is_mouse_pointer=*/true,
+          /*mouse_velocity=*/50.0,
+          /*mouse_acceleration=*/0.0),
+      /*is_eager=*/blink::mojom::SpeculationEagerness::kModerate);
 
   GURL url2{"https://www.google.com"};
   preloading_decider->OnPointerHover(
-      url2, blink::mojom::AnchorElementPointerData::New(
-                /*is_mouse_pointer=*/true,
-                /*mouse_velocity=*/75.0,
-                /*mouse_acceleration=*/0.0));
+      url2,
+      blink::mojom::AnchorElementPointerData::New(
+          /*is_mouse_pointer=*/true,
+          /*mouse_velocity=*/75.0,
+          /*mouse_acceleration=*/0.0),
+      /*is_eager=*/blink::mojom::SpeculationEagerness::kModerate);
 
   // Navigate to `url2`.
   NavigationSimulator::NavigateAndCommitFromBrowser(web_contents(), url2);
@@ -1158,7 +1197,8 @@ TEST_P(PreloadingDeciderMLModelTest, UseHoverHeuristicWhenNoMLModelPresent) {
   // The page has never received a prediction from the ML model, so we fallback
   // to the decisions of the hover heuristic.
   preloading_decider->OnPointerHover(
-      url, blink::mojom::AnchorElementPointerData::New(true, 0.0, 0.0));
+      url, blink::mojom::AnchorElementPointerData::New(true, 0.0, 0.0),
+      blink::mojom::SpeculationEagerness::kModerate);
   EXPECT_EQ(1u, prefetches.size());
 }
 
@@ -1316,7 +1356,8 @@ TEST_F(PreloadingDeciderMLModelActiveTest, ModelSupersedesHoverHeuristic) {
   // The model has indicated that the candidate is not worth prefetching, so we
   // should not prefetch based on the hover heuristic either.
   preloading_decider->OnPointerHover(
-      url, blink::mojom::AnchorElementPointerData::New(true, 0.0, 0.0));
+      url, blink::mojom::AnchorElementPointerData::New(true, 0.0, 0.0),
+      blink::mojom::SpeculationEagerness::kModerate);
   EXPECT_TRUE(prefetches.empty());
   // But once we have a stronger signal like pointer down, we should prefetch.
   preloading_decider->OnPointerDown(url);
@@ -1324,4 +1365,103 @@ TEST_F(PreloadingDeciderMLModelActiveTest, ModelSupersedesHoverHeuristic) {
 }
 
 }  // namespace
+
+TEST_F(PreloadingDeciderTest, SpeculationRulesTagsMergingForNVSMatch) {
+  auto* preloading_decider =
+      PreloadingDecider::GetOrCreateForCurrentDocument(&GetPrimaryMainFrame());
+  ASSERT_TRUE(preloading_decider);
+
+  const GURL kPreloadingUrl1("https://example.com/page.html?id=1");
+  const GURL kPreloadingUrl2("https://example.com/page.html?id=2");
+  const GURL kActivationUrl("https://example.com/page.html?id=3");
+
+  auto make_nvs_candidate = [&](const GURL& url, const std::string& tag) {
+    auto candidate =
+        MakeCandidate(url, blink::mojom::SpeculationAction::kPrefetch,
+                      blink::mojom::SpeculationEagerness::kConservative);
+    candidate->no_vary_search_hint = network::mojom::NoVarySearch::New(
+        network::mojom::SearchParamsVariance::NewNoVaryParams({"id"}),
+        /*vary_on_key_order=*/true);
+    candidate->tags = {tag};
+    return candidate;
+  };
+
+  std::vector<blink::mojom::SpeculationCandidatePtr> candidates;
+  candidates.push_back(make_nvs_candidate(kPreloadingUrl1, "tag1"));
+  candidates.push_back(make_nvs_candidate(kPreloadingUrl2, "tag2"));
+
+  preloading_decider->UpdateSpeculationCandidates(candidates);
+
+  // Both candidates should be on standby.
+  EXPECT_TRUE(preloading_decider->IsOnStandByForTesting(
+      kPreloadingUrl1, blink::mojom::SpeculationAction::kPrefetch));
+  EXPECT_TRUE(preloading_decider->IsOnStandByForTesting(
+      kPreloadingUrl2, blink::mojom::SpeculationAction::kPrefetch));
+
+  // Now, check if tags are merged correctly for a matching URL.
+  const PreloadingDecider::SpeculationCandidateKey lookup_key{
+      kActivationUrl, blink::mojom::SpeculationAction::kPrefetch};
+  const PreloadingPredictor predictor =
+      preloading_predictor::kUrlPointerDownOnAnchor;
+
+  auto merged_tags =
+      preloading_decider->GetMergedSpeculationTagsFromSuitableCandidates(
+          lookup_key, predictor, PreloadingConfidence{100},
+          /*eagerness_to_exclude=*/{});
+
+  // The merged tags should contain tags from both NVS-matched candidates.
+  EXPECT_EQ(merged_tags.size(), 2u);
+  EXPECT_TRUE(base::Contains(merged_tags, "tag1"));
+  EXPECT_TRUE(base::Contains(merged_tags, "tag2"));
+}
+
+TEST_F(PreloadingDeciderTest,
+       SpeculationRulesTagsMergingForNVSMatchWithNullTags) {
+  auto* preloading_decider =
+      PreloadingDecider::GetOrCreateForCurrentDocument(&GetPrimaryMainFrame());
+  ASSERT_TRUE(preloading_decider);
+
+  const GURL kPreloadingUrl1("https://example.com/page.html?id=1");
+  const GURL kPreloadingUrl2("https://example.com/page.html?id=2");
+  const GURL kActivationUrl("https://example.com/page.html?id=3");
+
+  auto make_nvs_candidate_no_tags = [&](const GURL& url) {
+    auto candidate =
+        MakeCandidate(url, blink::mojom::SpeculationAction::kPrefetch,
+                      blink::mojom::SpeculationEagerness::kConservative);
+    candidate->no_vary_search_hint = network::mojom::NoVarySearch::New(
+        network::mojom::SearchParamsVariance::NewNoVaryParams({"id"}),
+        /*vary_on_key_order=*/true);
+    // No tags specified - candidates->tags remains default ({std::nullopt})
+    return candidate;
+  };
+
+  std::vector<blink::mojom::SpeculationCandidatePtr> candidates;
+  candidates.push_back(make_nvs_candidate_no_tags(kPreloadingUrl1));
+  candidates.push_back(make_nvs_candidate_no_tags(kPreloadingUrl2));
+
+  preloading_decider->UpdateSpeculationCandidates(candidates);
+
+  // Both candidates should be on standby.
+  EXPECT_TRUE(preloading_decider->IsOnStandByForTesting(
+      kPreloadingUrl1, blink::mojom::SpeculationAction::kPrefetch));
+  EXPECT_TRUE(preloading_decider->IsOnStandByForTesting(
+      kPreloadingUrl2, blink::mojom::SpeculationAction::kPrefetch));
+
+  // Check if tags are merged correctly for a matching URL when no tags exist.
+  const PreloadingDecider::SpeculationCandidateKey lookup_key{
+      kActivationUrl, blink::mojom::SpeculationAction::kPrefetch};
+  const PreloadingPredictor predictor =
+      preloading_predictor::kUrlPointerDownOnAnchor;
+
+  auto merged_tags =
+      preloading_decider->GetMergedSpeculationTagsFromSuitableCandidates(
+          lookup_key, predictor, PreloadingConfidence{100},
+          /*eagerness_to_exclude=*/{});
+
+  // The merged tags should contain a single std::nullopt since no candidates
+  // have tags.
+  EXPECT_EQ(merged_tags.size(), 1u);
+  EXPECT_TRUE(base::Contains(merged_tags, std::optional<std::string>{}));
+}
 }  // namespace content

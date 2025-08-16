@@ -137,8 +137,8 @@ WebThemeEngine* Platform::ThemeEngine() {
 
 void Platform::InitializeBlink() {
   DCHECK(!did_initialize_blink_);
-  WTF::Partitions::Initialize();
-  WTF::Initialize();
+  Partitions::Initialize();
+  InitializeWtf();
   Length::Initialize();
   ProcessHeap::Init();
   ThreadState::AttachMainThread();
@@ -209,7 +209,7 @@ void Platform::InitializeMainThreadCommon(
   // This relies on being called prior to
   // PartitionAllocSupport::ReconfigureAfterTaskRunnerInit, which would start
   // memory reclaimer with a regular task runner. The first one prevails.
-  WTF::Partitions::StartMemoryReclaimer(
+  Partitions::StartMemoryReclaimer(
       base::MakeRefCounted<IdleDelayedTaskHelper>());
 }
 
@@ -224,13 +224,13 @@ void Platform::CreateMainThreadForTesting() {
 }
 
 void Platform::SetMainThreadTaskRunnerForTesting() {
-  DCHECK(WTF::IsMainThread());
+  DCHECK(IsMainThread());
   DCHECK(Thread::MainThread()->IsSimpleMainThread());
   scheduler::SetMainThreadTaskRunnerForTesting();
 }
 
 void Platform::UnsetMainThreadTaskRunnerForTesting() {
-  DCHECK(WTF::IsMainThread());
+  DCHECK(IsMainThread());
   DCHECK(Thread::MainThread()->IsSimpleMainThread());
   scheduler::UnsetMainThreadTaskRunnerForTesting();
 }

@@ -4,12 +4,15 @@
 
 package org.chromium.chrome.browser.tasks.tab_management;
 
+import static org.chromium.build.NullUtil.assumeNonNull;
+
 import android.content.Context;
 
 import org.chromium.base.Callback;
 import org.chromium.base.CallbackUtils;
 import org.chromium.base.supplier.ObservableSupplier;
 import org.chromium.build.annotations.NullMarked;
+import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabId;
 import org.chromium.chrome.browser.tab_ui.TabSwitcherGroupSuggestionService.SuggestionLifecycleObserver;
@@ -21,6 +24,7 @@ import org.chromium.chrome.browser.tasks.tab_management.MessageCardView.ReviewAc
 import org.chromium.chrome.browser.tasks.tab_management.TabSwitcherMessageManager.MessageUpdateObserver;
 import org.chromium.chrome.tab_ui.R;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -30,6 +34,22 @@ import java.util.List;
 @NullMarked
 public class TabGroupSuggestionMessageService extends MessageService
         implements MessageUpdateObserver {
+    /** Callback to start the merge animation which runs upon accepting a suggestion. */
+    @FunctionalInterface
+    public interface StartMergeAnimation {
+        /**
+         * Starts the merge animation.
+         *
+         * @param targetTabId The tab that will serve as the destination for the other tabs.
+         * @param tabIdsToShift The tab IDs for the tabs that will merge into the target tab.
+         * @param onAnimationEnd Executed after the animation has finished.
+         */
+        void start(
+                @TabId int targetTabId,
+                List<@TabId Integer> tabIdsToShift,
+                Runnable onAnimationEnd);
+    }
+
     /** This is the data type that this MessageService is serving to its Observer. */
     public static class TabGroupSuggestionMessageData implements MessageData {
         private final int mNumTabs;
@@ -81,9 +101,11 @@ public class TabGroupSuggestionMessageService extends MessageService
     }
 
     private final Context mContext;
-    private final ObservableSupplier<TabGroupModelFilter> mCurrentTabGroupModelFilterSupplier;
+    private final ObservableSupplier<@Nullable TabGroupModelFilter>
+            mCurrentTabGroupModelFilterSupplier;
 
     private final Callback<@TabId Integer> mAddOnMessageAfterTabCallback;
+    private final StartMergeAnimation mStartMergeAnimation;
     private boolean mMessageCurrentlyShown;
 
     /**
@@ -91,15 +113,18 @@ public class TabGroupSuggestionMessageService extends MessageService
      * @param currentTabGroupModelFilterSupplier The supplier for the current {@link
      *     TabGroupModelFilter}.
      * @param onMessageAfterTabCallback A callback to be called to add a message after a tab.
+     * @param startMergeAnimation A callback used to start the merge animation.
      */
     public TabGroupSuggestionMessageService(
             Context context,
-            ObservableSupplier<TabGroupModelFilter> currentTabGroupModelFilterSupplier,
-            Callback<@TabId Integer> onMessageAfterTabCallback) {
+            ObservableSupplier<@Nullable TabGroupModelFilter> currentTabGroupModelFilterSupplier,
+            Callback<@TabId Integer> onMessageAfterTabCallback,
+            StartMergeAnimation startMergeAnimation) {
         super(MessageType.TAB_GROUP_SUGGESTION_MESSAGE);
         mContext = context;
         mCurrentTabGroupModelFilterSupplier = currentTabGroupModelFilterSupplier;
         mAddOnMessageAfterTabCallback = onMessageAfterTabCallback;
+        mStartMergeAnimation = startMergeAnimation;
     }
 
     /**
@@ -131,10 +156,7 @@ public class TabGroupSuggestionMessageService extends MessageService
                 new TabGroupSuggestionMessageData(
                         tabIdsSortedByIndex.size(),
                         mContext,
-                        () ->
-                                groupTabs(
-                                        tabIdsSortedByIndex,
-                                        responseListener::onSuggestionAccepted),
+                        () -> onAcceptMessage(tabIdsSortedByIndex, responseListener),
                         ignored -> dismissMessage(responseListener::onSuggestionDismissed));
         sendAvailabilityNotification(data);
         mMessageCurrentlyShown = true;
@@ -143,11 +165,27 @@ public class TabGroupSuggestionMessageService extends MessageService
         mAddOnMessageAfterTabCallback.onResult(lastTabId);
     }
 
+    private void onAcceptMessage(
+            List<@TabId Integer> tabIdsSortedByIndex,
+            SuggestionLifecycleObserver responseListener) {
+        Runnable onAnimationEnd =
+                () -> groupTabs(tabIdsSortedByIndex, responseListener::onSuggestionAccepted);
+
+        int numTabs = tabIdsSortedByIndex.size();
+        List<@TabId Integer> shiftedTabIds = new ArrayList<>(numTabs);
+        shiftedTabIds.addAll(tabIdsSortedByIndex.subList(1, numTabs));
+
+        if (numTabs > 1) {
+            mStartMergeAnimation.start(tabIdsSortedByIndex.get(0), shiftedTabIds, onAnimationEnd);
+        }
+    }
+
     private void groupTabs(List<@TabId Integer> tabIds, Runnable onAcceptMessageListener) {
         assert !tabIds.isEmpty();
 
         onAcceptMessageListener.run();
         TabGroupModelFilter tabGroupModelFilter = mCurrentTabGroupModelFilterSupplier.get();
+        assumeNonNull(tabGroupModelFilter);
         TabModel tabModel = tabGroupModelFilter.getTabModel();
         List<Tab> tabs = TabModelUtils.getTabsById(tabIds, tabModel, false);
 

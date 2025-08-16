@@ -4,7 +4,9 @@
 
 package org.chromium.chrome.browser.tabmodel;
 
+import org.chromium.base.Holder;
 import org.chromium.build.annotations.NullMarked;
+import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.flags.ActivityType;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.profiles.Profile;
@@ -44,9 +46,12 @@ public class TabModelHolderFactory {
                     regularTabCreator,
                     incognitoTabCreator,
                     orderController,
+                    tabContentManager,
+                    nextTabPolicySupplier,
                     modelDelegate,
                     asyncTabParamsManager,
-                    tabRemover);
+                    tabRemover,
+                    tabUngrouperFactory);
         }
         return createLegacyTabModelHolder(
                 profile,
@@ -91,7 +96,8 @@ public class TabModelHolderFactory {
                     asyncTabParamsManager,
                     activityType,
                     modelDelegate,
-                    tabRemover);
+                    tabRemover,
+                    tabUngrouperFactory);
         }
         return createLegacyIncognitoTabModelHolder(
                 profileProvider,
@@ -120,9 +126,15 @@ public class TabModelHolderFactory {
             TabCreator regularTabCreator,
             TabCreator incognitoTabCreator,
             TabModelOrderController orderController,
+            TabContentManager tabContentManager,
+            NextTabPolicySupplier nextTabPolicySupplier,
             TabModelDelegate modelDelegate,
             AsyncTabParamsManager asyncTabParamsManager,
-            TabRemover tabRemover) {
+            TabRemover tabRemover,
+            TabUngrouperFactory tabUngrouperFactory) {
+        Holder<@Nullable TabGroupModelFilter> filterHolder = new Holder<>(null);
+        TabUngrouper tabUngrouper =
+                tabUngrouperFactory.create(/* isIncognitoBranded= */ false, filterHolder);
         TabCollectionTabModelImpl regularTabModel =
                 new TabCollectionTabModelImpl(
                         profile,
@@ -131,9 +143,13 @@ public class TabModelHolderFactory {
                         regularTabCreator,
                         incognitoTabCreator,
                         orderController,
+                        tabContentManager,
+                        nextTabPolicySupplier,
                         modelDelegate,
                         asyncTabParamsManager,
-                        tabRemover);
+                        tabRemover,
+                        tabUngrouper);
+        filterHolder.value = regularTabModel;
 
         return new TabModelHolder(regularTabModel, regularTabModel);
     }
@@ -148,7 +164,8 @@ public class TabModelHolderFactory {
             AsyncTabParamsManager asyncTabParamsManager,
             @ActivityType int activityType,
             TabModelDelegate modelDelegate,
-            TabRemover tabRemover) {
+            TabRemover tabRemover,
+            TabUngrouperFactory tabUngrouperFactory) {
         IncognitoTabModelImplCreator incognitoCreator =
                 new IncognitoTabModelImplCreator(
                         profileProvider,
@@ -160,7 +177,8 @@ public class TabModelHolderFactory {
                         asyncTabParamsManager,
                         activityType,
                         modelDelegate,
-                        tabRemover);
+                        tabRemover,
+                        tabUngrouperFactory);
         IncognitoTabModelImpl incognitoTabModel = new IncognitoTabModelImpl(incognitoCreator);
 
         return new IncognitoTabModelHolder(
@@ -224,7 +242,8 @@ public class TabModelHolderFactory {
                         asyncTabParamsManager,
                         activityType,
                         modelDelegate,
-                        tabRemover);
+                        tabRemover,
+                        tabUngrouperFactory);
         IncognitoTabModelImpl incognitoTabModel = new IncognitoTabModelImpl(incognitoCreator);
 
         return new IncognitoTabModelHolder(
@@ -235,11 +254,10 @@ public class TabModelHolderFactory {
     private static TabGroupModelFilterInternal createLegacyTabGroupModelFilterInternal(
             TabModelInternal tabModel, TabUngrouperFactory tabUngrouperFactory) {
         boolean isIncognitoBranded = tabModel.isIncognitoBranded();
-        TabGroupModelFilter[] filterHolder = new TabGroupModelFilter[1];
-        TabUngrouper tabUngrouper =
-                tabUngrouperFactory.create(isIncognitoBranded, () -> filterHolder[0]);
+        Holder<@Nullable TabGroupModelFilter> filterHolder = new Holder<>(null);
+        TabUngrouper tabUngrouper = tabUngrouperFactory.create(isIncognitoBranded, filterHolder);
         TabGroupModelFilterInternal filter = new TabGroupModelFilterImpl(tabModel, tabUngrouper);
-        filterHolder[0] = filter;
+        filterHolder.value = filter;
         return filter;
     }
 

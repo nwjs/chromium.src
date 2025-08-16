@@ -981,6 +981,15 @@ TEST_F(InlineLayoutAlgorithmTest, TextBoxTrimConstraintSpaceNone) {
 
 #undef MAYBE_VerticalAlignBottomReplaced
 
+// crbug.com/430665516
+TEST_F(InlineLayoutAlgorithmTest, FitTextDivisionByZero) {
+  SetBodyInnerHTML(R"HTML(
+<div style="text-grow: per-line scale;"><span style="display:inline-block;">
+A</span></div>)HTML");
+
+  // This test passes if no crashes.
+}
+
 // crbug.com/341126037
 TEST_F(InlineLayoutAlgorithmTest, BoxFragmentInRubyCrash) {
   SetBodyInnerHTML(R"HTML(
@@ -996,6 +1005,24 @@ foo
 <input></ruby>)HTML");
   // We had a crash in a case that the first base item in a kOpenRubyColumn
   // InlineItemResult creates a BoxFragment
+
+  // This test passes if no crashes.
+}
+
+TEST_F(InlineLayoutAlgorithmTest, BidiControlsInLineClampedLines) {
+  if (!RuntimeEnabledFeatures::CSSLineClampLineBreakingEllipsisEnabled()) {
+    return;
+  }
+  SetBodyInnerHTML(R"HTML(
+<div style="line-clamp: 1; font: monospace; width: 7ch;">
+    <bdi>Line 1
+    L</bdi>ine 2
+</div>
+)HTML");
+
+  // There was a crash in the case where a line-breaking ellipsis is followed in
+  // the clamped lines by bidi controls (such as closing a <bdi>) which could
+  // fit in the ellipsis line if it didn't have the ellipsis.
 
   // This test passes if no crashes.
 }

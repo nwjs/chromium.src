@@ -36,7 +36,7 @@
 #include "components/webauthn/core/browser/passkey_model_utils.h"
 #include "components/webauthn/core/browser/passkey_sync_bridge.h"
 #include "content/public/test/browser_test.h"
-#include "crypto/ec_private_key.h"
+#include "crypto/keypair.h"
 #include "testing/gmock/include/gmock/gmock.h"
 
 namespace {
@@ -93,11 +93,9 @@ bool PublicKeyForPasskeyEquals(
   sync_pb::WebauthnCredentialSpecifics_Encrypted encrypted_data;
   CHECK(webauthn::passkey_model_utils::DecryptWebauthnCredentialSpecificsData(
       trusted_vault_key, passkey, &encrypted_data));
-  auto ec_key = crypto::ECPrivateKey::CreateFromPrivateKeyInfo(
+  auto ec_key = crypto::keypair::PrivateKey::FromPrivateKeyInfo(
       base::as_byte_span(encrypted_data.private_key()));
-  CHECK(ec_key);
-  std::vector<uint8_t> ec_key_pub;
-  CHECK(ec_key->ExportPublicKey(&ec_key_pub));
+  std::vector<uint8_t> ec_key_pub = ec_key->ToSubjectPublicKeyInfo();
   return std::ranges::equal(ec_key_pub, expected_spki);
 }
 
@@ -761,6 +759,41 @@ IN_PROC_BROWSER_TEST_F(SingleClientWebAuthnCredentialsSyncTest, UpdatePasskey) {
   EXPECT_EQ(GetModel().GetAllPasskeys().at(0).user_name(), kUsername2);
   EXPECT_EQ(GetModel().GetAllPasskeys().at(0).user_display_name(),
             kDisplayName2);
+}
+
+// Verifies that UpdatePasskeyEncryptedBlob propagates new blob to the server
+// and the local model.
+IN_PROC_BROWSER_TEST_F(SingleClientWebAuthnCredentialsSyncTest,
+                       UpdatePasskeyEncryptedBlob) {
+  ASSERT_TRUE(SetupSync());
+
+  // Add an initial passkey.
+  sync_pb::WebauthnCredentialSpecifics passkey = NewPasskey();
+  GetModel().AddNewPasskeyForTesting(passkey);
+  ASSERT_TRUE(ServerPasskeysMatchChecker(
+                  UnorderedElementsAre(EntityHasSyncId(passkey.sync_id())))
+                  .Wait());
+
+  // Create a new “encrypted” blob with 32 random bytes.
+  std::string new_encrypted_blob(32, '\0');
+  base::RandBytes(base::as_writable_bytes(base::span(new_encrypted_blob)));
+
+  // Perform the update and wait for the model-observer notification.
+  PasskeyChangeObservationChecker change_checker(
+      kSingleProfile,
+      {{webauthn::PasskeyModelChange::ChangeType::UPDATE, passkey.sync_id()}});
+  EXPECT_TRUE(GetModel().UpdatePasskeyEncryptedBlob(passkey.credential_id(),
+                                                    new_encrypted_blob));
+  EXPECT_TRUE(change_checker.Wait());
+
+  // Local model should now contain the new blob.
+  EXPECT_EQ(GetModel().GetAllPasskeys().at(0).encrypted(), new_encrypted_blob);
+
+  EXPECT_TRUE(ServerPasskeysMatchChecker(
+                  UnorderedElementsAre(testing::AllOf(
+                      EntityHasSyncId(passkey.sync_id()),
+                      syncer::EntityHasEncryptedBlob(new_encrypted_blob))))
+                  .Wait());
 }
 
 // Tests that attempting to update a non existing passkey returns false.

@@ -78,6 +78,7 @@ config("tflite_flags") {
     "-Wno-shadow",
     "-Wno-deprecated-anon-enum-enum-conversion",
     "-Wno-unused-function",
+    "-Wno-unreachable-code-return",
 
     # TODO(crbug.com/1147556): Try to clean/remove no-sign-compare if possible.
     "-Wno-sign-compare",
@@ -248,6 +249,31 @@ tflite_static_library("tflite_builtin_op_resolver") {
   conditional_deps = [ ":tflite" ]
 }
 
+flatbuffer("mutable_schema_tflite_path") {
+  sources = [ "src/tensorflow/compiler/mlir/lite/schema/schema.fbs" ]
+  flatc_out_dir = "src/tensorflow/lite/schema/mutable"
+  args = [ "--gen-object-api" ]
+  mutable = true
+}
+
+# TFLite's model_serialize.cc expects the mutable schema to be in two different
+# places in the source tree. :/
+copy("mutable_schema_compiler_path") {
+  sources = [
+    "$target_gen_dir/src/tensorflow/lite/schema/mutable/schema_generated.h",
+  ]
+  outputs =
+      [ "$target_gen_dir/src/tensorflow/compiler/mlir/lite/schema/mutable" ]
+  deps = [ ":mutable_schema_tflite_path" ]
+}
+
+source_set("mutable_schema") {
+  public_deps = [
+    ":mutable_schema_compiler_path",
+    ":mutable_schema_tflite_path",
+  ]
+}
+
 source_set("tflite_public_headers") {
   public = [
     "src/tensorflow/compiler/mlir/lite/schema/schema_generated.h",
@@ -378,7 +404,6 @@ source_set("tflite_kernel_internals") {
     "src/tensorflow/lite/kernels/internal/optimized/4bit/fully_connected_reference.cc",
     "src/tensorflow/lite/kernels/internal/optimized/4bit/fully_connected_reference.h",
     "src/tensorflow/lite/kernels/internal/optimized/4bit/fully_connected_reference_impl.h",
-    "src/tensorflow/lite/kernels/internal/optimized/batch_matmul.h",
     "src/tensorflow/lite/kernels/internal/optimized/cpu_check.cc",
     "src/tensorflow/lite/kernels/internal/optimized/cpu_check.h",
     "src/tensorflow/lite/kernels/internal/optimized/depthwiseconv_3x3_filter_common.h",
@@ -1263,10 +1288,14 @@ tflite_static_library("tflite") {
     sources += [
       "src/tensorflow/lite/delegates/xnnpack/file_util.cc",
       "src/tensorflow/lite/delegates/xnnpack/file_util.h",
+      "src/tensorflow/lite/delegates/xnnpack/mmap_handle.cc",
+      "src/tensorflow/lite/delegates/xnnpack/mmap_handle.h",
       "src/tensorflow/lite/delegates/xnnpack/quantization_util.cc",
       "src/tensorflow/lite/delegates/xnnpack/quantization_util.h",
       "src/tensorflow/lite/delegates/xnnpack/weight_cache.cc",
       "src/tensorflow/lite/delegates/xnnpack/weight_cache.h",
+      "src/tensorflow/lite/delegates/xnnpack/windows_util.cc",
+      "src/tensorflow/lite/delegates/xnnpack/windows_util.h",
       "src/tensorflow/lite/delegates/xnnpack/xnnpack_delegate.cc",
       "src/tensorflow/lite/delegates/xnnpack/xnnpack_delegate.h",
     ]
@@ -1345,6 +1374,7 @@ tflite_static_library("tflite") {
   }
 
   public_deps = [
+    ":mutable_schema",
     ":tflite_compiler_utils",
     ":tflite_kernel_common_headers",
     ":tflite_kernel_internals",
@@ -1405,8 +1435,8 @@ executable("tflite_benchmark") {
     "src/tensorflow/lite/tools/utils.h",
   ]
   deps = [
-    ":tflite_builtin_op_resolver_standalone",
-    ":tflite_standalone",
+    ":tflite",
+    ":tflite_builtin_op_resolver",
     ":tflite_tools_proto",
     "//third_party/abseil-cpp:absl",
     "//third_party/ruy",

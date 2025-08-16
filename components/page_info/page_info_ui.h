@@ -83,14 +83,12 @@ class PageInfoUI {
     bool is_managed = false;
   };
 
-  // `CookiesNewInfo` contains information about the sites that are allowed
+  // `CookiesInfo` contains information about the sites that are allowed
   // to access cookies and rws cookies info for new UI.
-  // TODO(crbug.com/40854087):  Change the name to "CookieInfo" after finishing
-  // cookies subpage implementation
-  struct CookiesNewInfo {
-    CookiesNewInfo();
-    CookiesNewInfo(CookiesNewInfo&&);
-    ~CookiesNewInfo();
+  struct CookiesInfo {
+    CookiesInfo();
+    CookiesInfo(CookiesInfo&&);
+    ~CookiesInfo();
 
     // The number of sites allowed to access cookies.
     int allowed_sites_count = -1;
@@ -263,9 +261,6 @@ class PageInfoUI {
   // Returns the identity icon ID for the given identity |status|.
   static int GetIdentityIconID(PageInfo::SiteIdentityStatus status);
 
-  // Returns the connection icon ID for the given connection |status|.
-  static int GetConnectionIconID(PageInfo::SiteConnectionStatus status);
-
   // Returns the identity icon color ID for the given identity |status|.
   static int GetIdentityIconColorID(PageInfo::SiteIdentityStatus status);
 
@@ -280,7 +275,7 @@ class PageInfoUI {
   CreateSafetyTipSecurityDescription(const security_state::SafetyTipInfo& info);
 
   // Sets cookie information.
-  virtual void SetCookieInfo(const CookiesNewInfo& cookie_info) {}
+  virtual void SetCookieInfo(const CookiesInfo& cookie_info) {}
 
   // Sets permission information.
   virtual void SetPermissionInfo(const PermissionInfoList& permission_info_list,

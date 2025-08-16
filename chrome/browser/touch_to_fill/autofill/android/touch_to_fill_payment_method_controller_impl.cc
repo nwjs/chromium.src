@@ -14,6 +14,7 @@
 #include "chrome/browser/touch_to_fill/autofill/android/touch_to_fill_payment_method_view.h"
 #include "components/autofill/content/browser/content_autofill_client.h"
 #include "components/autofill/content/browser/content_autofill_driver.h"
+#include "components/autofill/core/browser/data_model/valuables/android/loyalty_card_android.h"
 #include "components/autofill/core/browser/data_model/valuables/loyalty_card.h"
 #include "components/autofill/core/browser/foundations/autofill_manager.h"
 #include "components/autofill/core/browser/foundations/browser_autofill_manager.h"
@@ -49,8 +50,7 @@ TouchToFillPaymentMethodControllerImpl::TouchToFillPaymentMethodControllerImpl(
                                  FieldGlobalId field,
                                  const FormData& form_data) {
             return GetDelegate(manager) &&
-                   GetDelegate(manager)->IntendsToShowTouchToFill(form, field,
-                                                                  form_data);
+                   GetDelegate(manager)->IntendsToShowTouchToFill(form, field);
           }),
           base::Seconds(1)) {
   driver_factory_observation_.Observe(
@@ -200,20 +200,18 @@ void TouchToFillPaymentMethodControllerImpl::ShowPaymentMethodSettings(
 
 void TouchToFillPaymentMethodControllerImpl::CreditCardSuggestionSelected(
     JNIEnv* env,
-    const base::android::JavaParamRef<jstring>& unique_id,
+    const std::string& unique_id,
     bool is_virtual) {
   if (delegate_) {
-    delegate_->CreditCardSuggestionSelected(
-        base::android::ConvertJavaStringToUTF8(env, unique_id), is_virtual);
+    delegate_->CreditCardSuggestionSelected(unique_id, is_virtual);
   }
 }
 
 void TouchToFillPaymentMethodControllerImpl::LocalIbanSuggestionSelected(
     JNIEnv* env,
-    const base::android::JavaParamRef<jstring>& guid) {
+    const std::string& guid) {
   if (delegate_) {
-    delegate_->IbanSuggestionSelected(
-        Iban::Guid((*env).GetStringUTFChars(guid, nullptr)));
+    delegate_->IbanSuggestionSelected(Iban::Guid(guid));
   }
 }
 
@@ -227,9 +225,9 @@ void TouchToFillPaymentMethodControllerImpl::ServerIbanSuggestionSelected(
 
 void TouchToFillPaymentMethodControllerImpl::LoyaltyCardSuggestionSelected(
     JNIEnv* env,
-    const std::string& loyalty_card_number) {
+    const LoyaltyCard& loyalty_card) {
   if (delegate_) {
-    delegate_->LoyaltyCardSuggestionSelected(loyalty_card_number);
+    delegate_->LoyaltyCardSuggestionSelected(loyalty_card);
   }
 }
 

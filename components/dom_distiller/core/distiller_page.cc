@@ -15,6 +15,7 @@
 #include "base/json/json_writer.h"
 #include "base/location.h"
 #include "base/logging.h"
+#include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/strings/string_util.h"
 #include "base/strings/to_string.h"
@@ -62,30 +63,42 @@ bool ReadabilityDistillerResultToDomDistillerResult(
 
   const base::DictValue* dict_value = value.GetIfDict();
 
-  if (dict_value->contains("title")) {
-    result->set_title(dict_value->Find("title")->GetString());
+  if (auto* title = dict_value->FindString("title")) {
+    result->set_title(*title);
   }
-  if (dict_value->contains("content")) {
+  if (auto* content = dict_value->FindString("content")) {
     auto* distilled_content = new proto::DistilledContent();
-    distilled_content->set_html(dict_value->Find("content")->GetString());
+    distilled_content->set_html(*content);
     result->set_allocated_distilled_content(std::move(distilled_content));
   }
 
-  if (dict_value->contains("dir")) {
-    result->set_text_direction(dict_value->Find("content")->GetString());
+  if (auto* dir = dict_value->FindString("dir")) {
+    result->set_text_direction(*dir);
   } else {
     result->set_text_direction("auto");
   }
 
-  if (dict_value->contains("textContent")) {
+  if (auto* text_content = dict_value->FindString("textContent")) {
     auto* statistics_info = new proto::StatisticsInfo();
-    std::string text_content = dict_value->Find("textContent")->GetString();
-    statistics_info->set_word_count(CountWords(text_content));
+    statistics_info->set_word_count(CountWords(*text_content));
     result->set_allocated_statistics_info(statistics_info);
   }
 
   return true;
 }
+
+// This enum is used to record histograms for OnDistillationDone results.
+// These values are persisted to logs. Entries should not be renumbered and
+// numeric values should never be reused.
+
+// LINT.IfChange(DistillationParseResult)
+enum class DistillationParseResult {
+  kSuccess = 0,
+  kParseFailure = 1,
+  kNoData = 2,
+  kMaxValue = kNoData,
+};
+// LINT.ThenChange(//tools/metrics/histograms/metadata/accessibility/enums.xml:DistillationParseResult)
 
 }  // namespace
 
@@ -107,9 +120,17 @@ void DistillerPage::DistillPage(
   ready_ = false;
   distiller_page_callback_ = std::move(callback);
 
-  DistillPageImpl(gurl, ShouldUseReadabilityDistiller()
-                            ? GetReadabilityDistillerScript()
-                            : GetDistillerScriptWithOptions(options));
+  std::string script;
+  switch (GetDistillerType()) {
+    case DistillerType::kReadability:
+      script = GetReadabilityDistillerScript();
+      break;
+    case DistillerType::kDOMDistiller:
+      script = GetDistillerScriptWithOptions(options);
+      break;
+  }
+
+  DistillPageImpl(gurl, script);
 }
 
 void DistillerPage::OnDistillationDone(const GURL& page_url,
@@ -120,19 +141,33 @@ void DistillerPage::OnDistillationDone(const GURL& page_url,
   std::unique_ptr<dom_distiller::proto::DomDistillerResult> distiller_result(
       new dom_distiller::proto::DomDistillerResult());
   bool found_content;
+  DistillationParseResult result;
+
   if (value->is_none()) {
     found_content = false;
+    result = DistillationParseResult::kNoData;
   } else {
-    found_content =
-        ShouldUseReadabilityDistiller()
-            ? ReadabilityDistillerResultToDomDistillerResult(
-                  *value, distiller_result.get())
-            : dom_distiller::proto::json::DomDistillerResult::ReadFromValue(
-                  *value, distiller_result.get());
-    if (!found_content) {
+    switch (GetDistillerType()) {
+      case DistillerType::kReadability:
+        found_content = ReadabilityDistillerResultToDomDistillerResult(
+            *value, distiller_result.get());
+        break;
+      case DistillerType::kDOMDistiller:
+        found_content =
+            dom_distiller::proto::json::DomDistillerResult::ReadFromValue(
+                *value, distiller_result.get());
+    }
+
+    if (found_content) {
+      result = DistillationParseResult::kSuccess;
+    } else {
       DVLOG(1) << "Unable to parse DomDistillerResult.";
+      result = DistillationParseResult::kParseFailure;
     }
   }
+
+  // Record result for page distillation
+  base::UmaHistogramEnumeration("DomDistiller.Distillation.Result", result);
 
   base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
       FROM_HERE, base::BindOnce(std::move(distiller_page_callback_),

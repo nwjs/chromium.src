@@ -719,8 +719,8 @@ void AuditsIssue::ReportPartitioningBlobURLIssue(
 void AuditsIssue::ReportPropertyRuleIssue(
     Document* document,
     const KURL& url,
-    WTF::OrdinalNumber line,
-    WTF::OrdinalNumber column,
+    OrdinalNumber line,
+    OrdinalNumber column,
     protocol::Audits::PropertyRuleIssueReason reason,
     const String& propertyValue) {
   if (!document || !document->GetExecutionContext()) {
@@ -753,11 +753,10 @@ void AuditsIssue::ReportPropertyRuleIssue(
       AuditsIssue(std::move(issue)));
 }
 
-void AuditsIssue::ReportStylesheetLoadingLateImportIssue(
-    Document* document,
-    const KURL& url,
-    WTF::OrdinalNumber line,
-    WTF::OrdinalNumber column) {
+void AuditsIssue::ReportStylesheetLoadingLateImportIssue(Document* document,
+                                                         const KURL& url,
+                                                         OrdinalNumber line,
+                                                         OrdinalNumber column) {
   if (!document || !document->GetExecutionContext()) {
     return;
   }
@@ -791,8 +790,8 @@ void AuditsIssue::ReportStylesheetLoadingRequestFailedIssue(
     const KURL& url,
     const String& request_id,
     const KURL& initiator_url,
-    WTF::OrdinalNumber initiator_line,
-    WTF::OrdinalNumber initiator_column,
+    OrdinalNumber initiator_line,
+    OrdinalNumber initiator_column,
     const String& failureMessage) {
   if (!document || !document->GetExecutionContext()) {
     return;
@@ -833,26 +832,29 @@ void AuditsIssue::ReportStylesheetLoadingRequestFailedIssue(
 
 namespace {
 
-protocol::Audits::SelectElementAccessibilityIssueReason
-SelectElementAccessibilityIssueReasonToProtocol(
-    SelectElementAccessibilityIssueReason reason) {
+protocol::Audits::ElementAccessibilityIssueReason
+ElementAccessibilityIssueReasonToProtocol(
+    ElementAccessibilityIssueReason reason) {
   switch (reason) {
-    case SelectElementAccessibilityIssueReason::kDisallowedSelectChild:
-      return protocol::Audits::SelectElementAccessibilityIssueReasonEnum::
+    case ElementAccessibilityIssueReason::kDisallowedSelectChild:
+      return protocol::Audits::ElementAccessibilityIssueReasonEnum::
           DisallowedSelectChild;
-    case SelectElementAccessibilityIssueReason::kDisallowedOptGroupChild:
-      return protocol::Audits::SelectElementAccessibilityIssueReasonEnum::
+    case ElementAccessibilityIssueReason::kDisallowedOptGroupChild:
+      return protocol::Audits::ElementAccessibilityIssueReasonEnum::
           DisallowedOptGroupChild;
-    case SelectElementAccessibilityIssueReason::kNonPhrasingContentOptionChild:
-      return protocol::Audits::SelectElementAccessibilityIssueReasonEnum::
+    case ElementAccessibilityIssueReason::kNonPhrasingContentOptionChild:
+      return protocol::Audits::ElementAccessibilityIssueReasonEnum::
           NonPhrasingContentOptionChild;
-    case SelectElementAccessibilityIssueReason::kInteractiveContentOptionChild:
-      return protocol::Audits::SelectElementAccessibilityIssueReasonEnum::
+    case ElementAccessibilityIssueReason::kInteractiveContentOptionChild:
+      return protocol::Audits::ElementAccessibilityIssueReasonEnum::
           InteractiveContentOptionChild;
-    case SelectElementAccessibilityIssueReason::kInteractiveContentLegendChild:
-      return protocol::Audits::SelectElementAccessibilityIssueReasonEnum::
+    case ElementAccessibilityIssueReason::kInteractiveContentLegendChild:
+      return protocol::Audits::ElementAccessibilityIssueReasonEnum::
           InteractiveContentLegendChild;
-    case SelectElementAccessibilityIssueReason::kValidChild:
+    case ElementAccessibilityIssueReason::kInteractiveContentSummaryDescendant:
+      return protocol::Audits::ElementAccessibilityIssueReasonEnum::
+          InteractiveContentSummaryDescendant;
+    case ElementAccessibilityIssueReason::kValidChild:
       NOTREACHED();
   }
 }
@@ -860,31 +862,31 @@ SelectElementAccessibilityIssueReasonToProtocol(
 }  // namespace
 
 // static
-void AuditsIssue::ReportSelectElementAccessibilityIssue(
+void AuditsIssue::ReportElementAccessibilityIssue(
     Document* document,
     DOMNodeId node_id,
-    SelectElementAccessibilityIssueReason issue_reason,
+    ElementAccessibilityIssueReason issue_reason,
     bool has_disallowed_attributes) {
-  CHECK(HTMLSelectElement::CustomizableSelectEnabled(document));
-  CHECK(RuntimeEnabledFeatures::
-            CustomizableSelectElementAccessibilityIssuesEnabled());
+  if (!document->GetExecutionContext()) {
+    return;
+  }
 
   auto select_accessibility_issue_details =
-      protocol::Audits::SelectElementAccessibilityIssueDetails::create()
+      protocol::Audits::ElementAccessibilityIssueDetails::create()
           .setNodeId(node_id)
-          .setSelectElementAccessibilityIssueReason(
-              SelectElementAccessibilityIssueReasonToProtocol(issue_reason))
+          .setElementAccessibilityIssueReason(
+              ElementAccessibilityIssueReasonToProtocol(issue_reason))
           .setHasDisallowedAttributes(has_disallowed_attributes)
           .build();
 
   auto details = protocol::Audits::InspectorIssueDetails::create()
-                     .setSelectElementAccessibilityIssueDetails(
+                     .setElementAccessibilityIssueDetails(
                          std::move(select_accessibility_issue_details))
                      .build();
 
   auto issue = protocol::Audits::InspectorIssue::create()
                    .setCode(protocol::Audits::InspectorIssueCodeEnum::
-                                SelectElementAccessibilityIssue)
+                                ElementAccessibilityIssue)
                    .setDetails(std::move(details))
                    .build();
 

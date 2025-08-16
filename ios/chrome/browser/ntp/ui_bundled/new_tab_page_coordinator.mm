@@ -18,6 +18,7 @@
 #import "components/feed/core/v2/public/common_enums.h"
 #import "components/feed/core/v2/public/ios/pref_names.h"
 #import "components/feed/feed_feature_list.h"
+#import "components/image_fetcher/ios/ios_image_data_fetcher_wrapper.h"
 #import "components/omnibox/common/omnibox_features.h"
 #import "components/policy/policy_constants.h"
 #import "components/pref_registry/pref_registry_syncable.h"
@@ -31,6 +32,7 @@
 #import "ios/chrome/app/profile/profile_init_stage.h"
 #import "ios/chrome/app/profile/profile_state.h"
 #import "ios/chrome/app/profile/profile_state_observer.h"
+#import "ios/chrome/browser/aim/prototype/coordinator/aim_prototype_coordinator.h"
 #import "ios/chrome/browser/authentication/ui_bundled/account_menu/account_menu_constants.h"
 #import "ios/chrome/browser/authentication/ui_bundled/account_menu/account_menu_coordinator.h"
 #import "ios/chrome/browser/authentication/ui_bundled/account_menu/account_menu_coordinator_delegate.h"
@@ -53,12 +55,15 @@
 #import "ios/chrome/browser/follow/model/follow_browser_agent.h"
 #import "ios/chrome/browser/follow/model/followed_web_site.h"
 #import "ios/chrome/browser/follow/model/followed_web_site_state.h"
+#import "ios/chrome/browser/google/model/google_logo_service_factory.h"
 #import "ios/chrome/browser/home_customization/coordinator/home_customization_coordinator.h"
 #import "ios/chrome/browser/home_customization/coordinator/home_customization_delegate.h"
 #import "ios/chrome/browser/home_customization/utils/home_customization_constants.h"
 #import "ios/chrome/browser/lens/ui_bundled/lens_entrypoint.h"
 #import "ios/chrome/browser/ntp/model/new_tab_page_state.h"
 #import "ios/chrome/browser/ntp/model/new_tab_page_tab_helper.h"
+#import "ios/chrome/browser/ntp/model/new_tab_page_util.h"
+#import "ios/chrome/browser/ntp/search_engine_logo/mediator/search_engine_logo_mediator.h"
 #import "ios/chrome/browser/ntp/shared/metrics/feed_metrics_constants.h"
 #import "ios/chrome/browser/ntp/shared/metrics/feed_metrics_recorder.h"
 #import "ios/chrome/browser/ntp/shared/metrics/home_metrics.h"
@@ -73,7 +78,6 @@
 #import "ios/chrome/browser/ntp/ui_bundled/feed_wrapper_view_controller.h"
 #import "ios/chrome/browser/ntp/ui_bundled/home_start_data_source.h"
 #import "ios/chrome/browser/ntp/ui_bundled/incognito/incognito_view_controller.h"
-#import "ios/chrome/browser/ntp/ui_bundled/logo_vendor.h"
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_actions_delegate.h"
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_component_factory_protocol.h"
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_constants.h"
@@ -89,8 +93,8 @@
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_shortcuts_handler.h"
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_utils.h"
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_view_controller.h"
-#import "ios/chrome/browser/omnibox/model/placeholder_service.h"
-#import "ios/chrome/browser/omnibox/model/placeholder_service_factory.h"
+#import "ios/chrome/browser/omnibox/model/placeholder_service/placeholder_service.h"
+#import "ios/chrome/browser/omnibox/model/placeholder_service/placeholder_service_factory.h"
 #import "ios/chrome/browser/overscroll_actions/ui_bundled/overscroll_actions_controller.h"
 #import "ios/chrome/browser/search_engines/model/template_url_service_factory.h"
 #import "ios/chrome/browser/shared/coordinator/layout_guide/layout_guide_util.h"
@@ -137,14 +141,15 @@
 #import "ios/chrome/common/ui/util/constraints_ui_util.h"
 #import "ios/chrome/grit/ios_branded_strings.h"
 #import "ios/chrome/grit/ios_strings.h"
-#import "ios/public/provider/chrome/browser/ui_utils/ui_utils_api.h"
 #import "ios/web/public/navigation/navigation_context.h"
 #import "ios/web/public/navigation/navigation_item.h"
 #import "ios/web/public/navigation/navigation_manager.h"
 #import "ios/web/public/web_state_observer_bridge.h"
+#import "services/network/public/cpp/shared_url_loader_factory.h"
 #import "ui/base/l10n/l10n_util_mac.h"
 
 @interface NewTabPageCoordinator () <AccountMenuCoordinatorDelegate,
+                                     AIMPrototypeCoordinatorDelegate,
                                      AuthenticationServiceObserving,
                                      ContentSuggestionsDelegate,
                                      DiscoverFeedObserverBridgeDelegate,
@@ -268,12 +273,11 @@
 // Recorder for new tab page metrics.
 @property(nonatomic, strong) NewTabPageMetricsRecorder* NTPMetricsRecorder;
 
-// Logo vendor to display the doodle on the NTP.
-@property(nonatomic, strong) id<LogoVendor> logoVendor;
-
 @end
 
 @implementation NewTabPageCoordinator {
+  // Coordinator for the AIM prototype.
+  AIMPrototypeCoordinator* _aimPrototypeCoordinator;
   // Coordinator in charge of handling sharing use cases.
   SharingCoordinator* _sharingCoordinator;
   // Coordinator for presenting the Home customization menu.
@@ -284,8 +288,10 @@
   BOOL _fakeboxTapped;
   // The account menu coordinator.
   AccountMenuCoordinator* _accountMenuCoordinator;
-  // The sign in and history sync coordinator displayed on top of the NTP.
+  // The sign in coordinator displayed on top of the NTP.
   SigninCoordinator* _signinCoordinator;
+  // Logo mediator to display the doodle on the NTP.
+  SearchEngineLogoMediator* _searchEngineLogoMediator;
 }
 
 // Synthesize NewTabPageConfiguring properties.
@@ -318,7 +324,7 @@
 
   self.webState = self.browser->GetWebStateList()->GetActiveWebState();
   DCHECK(self.webState);
-  DCHECK(NewTabPageTabHelper::FromWebState(self.webState)->IsActive());
+  DCHECK(IsVisibleURLNewTabPage(self.webState));
 
   // Start observing SceneState changes.
   SceneState* sceneState = self.browser->GetSceneState();
@@ -374,6 +380,12 @@
   [self configureNTPViewController];
   [self configureTabGroupIndicator];
 
+  if (IsNTPBackgroundCustomizationEnabled()) {
+    // Ensure the initial background is applied after all components have been
+    // set up.
+    [self.NTPMediator updateBackground];
+  }
+
   self.started = YES;
 }
 
@@ -381,6 +393,8 @@
   if (!self.started) {
     return;
   }
+
+  [self stopAimPrototypeCoordinator];
 
   _webState = nullptr;
 
@@ -397,6 +411,9 @@
   // browsers!
 
   [sceneState.profileState removeObserver:self];
+
+  [_searchEngineLogoMediator disconnect];
+  _searchEngineLogoMediator = nil;
 
   [_tabGroupIndicatorCoordinator stop];
   _tabGroupIndicatorCoordinator = nil;
@@ -459,9 +476,7 @@
 - (void)stopIfNeeded {
   WebStateList* webStateList = self.browser->GetWebStateList();
   for (int i = 0; i < webStateList->count(); i++) {
-    NewTabPageTabHelper* iterNtpHelper =
-        NewTabPageTabHelper::FromWebState(webStateList->GetWebStateAt(i));
-    if (iterNtpHelper->IsActive()) {
+    if (IsVisibleURLNewTabPage(webStateList->GetWebStateAt(i))) {
       return;
     }
   }
@@ -470,12 +485,7 @@
 }
 
 - (BOOL)isNTPActiveForCurrentWebState {
-  if (!self.webState) {
-    return NO;
-  }
-  NewTabPageTabHelper* NTPHelper =
-      NewTabPageTabHelper::FromWebState(self.webState);
-  return NTPHelper && NTPHelper->IsActive();
+  return IsVisibleURLNewTabPage(self.webState);
 }
 
 - (BOOL)isScrolledToTop {
@@ -652,14 +662,33 @@
 // Creates all the NTP components.
 - (void)initializeNTPComponents {
   Browser* browser = self.browser;
+  ProfileIOS* profile = browser->GetProfile();
+  web::WebState* webState = browser->GetWebStateList()->GetActiveWebState();
+  TemplateURLService* templateURLService =
+      ios::TemplateURLServiceFactory::GetForProfile(profile);
+  GoogleLogoService* logoService =
+      GoogleLogoServiceFactory::GetForProfile(profile);
+  UrlLoadingBrowserAgent* URLLoadingBrowserAgent =
+      UrlLoadingBrowserAgent::FromBrowser(browser);
+  scoped_refptr<network::SharedURLLoaderFactory> sharedURLLoaderFactory =
+      profile->GetSharedURLLoaderFactory();
+  BOOL offTheRecord = profile->IsOffTheRecord();
+  _searchEngineLogoMediator =
+      [[SearchEngineLogoMediator alloc] initWithWebState:webState
+                                      templateURLService:templateURLService
+                                             logoService:logoService
+                                  URLLoadingBrowserAgent:URLLoadingBrowserAgent
+                                  sharedURLLoaderFactory:sharedURLLoaderFactory
+                                            offTheRecord:offTheRecord];
   id<NewTabPageComponentFactoryProtocol> componentFactory =
       self.componentFactory;
-  self.logoVendor = ios::provider::CreateLogoVendor(browser, self.webState);
   self.NTPViewController = [componentFactory NTPViewController];
-  self.headerViewController = [componentFactory headerViewController];
+  self.headerViewController =
+      [componentFactory headerViewControllerForProfile:self.profile];
   self.NTPMediator =
       [componentFactory NTPMediatorForBrowser:browser
                      identityDiscImageUpdater:self.headerViewController];
+  self.NTPViewController.mutator = self.NTPMediator;
   self.contentSuggestionsCoordinator =
       [componentFactory contentSuggestionsCoordinatorForBrowser:browser];
   self.feedMetricsRecorder =
@@ -737,7 +766,8 @@
   headerViewController.toolbarDelegate = self.toolbarDelegate;
   headerViewController.baseViewController = self.baseViewController;
   headerViewController.NTPMetricsRecorder = self.NTPMetricsRecorder;
-  [headerViewController setLogoVendor:self.logoVendor];
+  headerViewController.mutator = self.NTPMediator;
+  [headerViewController setSearchEngineLogoMediator:_searchEngineLogoMediator];
 }
 
 // Configures `self.contentSuggestionsCoordinator`.
@@ -811,7 +841,6 @@
   self.NTPViewController.feedMetricsRecorder = self.feedMetricsRecorder;
   self.NTPViewController.helpHandler =
       HandlerForProtocol(self.browser->GetCommandDispatcher(), HelpCommands);
-  self.NTPViewController.mutator = self.NTPMediator;
 }
 
 // Configures the `_tabGroupIndicatorCoordinator` and sets the
@@ -936,24 +965,30 @@
     return;
   }
 
-  PrefService* localState = GetApplicationContext()->GetLocalState();
-  if (localState->GetInteger(
-          prefs::kNTPHomeCustomizationNewBadgeImpressionCount) <=
-      kCustomizationNewBadgeMaxImpressionCount) {
-    base::RecordAction(
-        base::UserMetricsAction(kNTPCustomizationNewBadgeTappedAction));
-    // Set the new badge impression count to `INT_MAX` to ensure it isn't shown
-    // again, even if we increase the max impression count.
-    localState->SetInteger(prefs::kNTPHomeCustomizationNewBadgeImpressionCount,
-                           INT_MAX);
-
-    [self.headerViewController hideBadgeOnCustomizationMenu];
-  }
+  // Hide the 'new' badge for the current session after being tapped.
+  [self.headerViewController hideBadgeOnCustomizationMenu];
 
   [self.NTPMetricsRecorder recordHomeCustomizationMenuOpenedFromEntrypoint:
                                HomeCustomizationEntrypoint::kMain];
 
   [self openCustomizationMenuAtPage:CustomizationMenuPage::kMain animated:YES];
+}
+
+#pragma mark - SigninPromoViewMediatorDelegate
+
+- (void)showSigninWithCommand:(ShowSigninCommand*)command {
+  if (_signinCoordinator) {
+    SigninCoordinatorCompletionCallback completion = command.completion;
+    if (completion) {
+      completion(SigninCoordinatorResultInterrupted, nil);
+    }
+    return;
+  }
+  _signinCoordinator =
+      [SigninCoordinator signinCoordinatorWithCommand:command
+                                              browser:self.browser
+                                   baseViewController:self.baseViewController];
+  [_signinCoordinator start];
 }
 
 #pragma mark - DiscoverFeedVisibilityObserver
@@ -1286,20 +1321,7 @@
 }
 
 - (BOOL)isSignInAllowed {
-  AuthenticationService::ServiceStatus statusService =
-      self.authService->GetServiceStatus();
-  switch (statusService) {
-    case AuthenticationService::ServiceStatus::SigninDisabledByPolicy:
-    case AuthenticationService::ServiceStatus::SigninDisabledByInternal:
-    case AuthenticationService::ServiceStatus::SigninDisabledByUser: {
-      return NO;
-    }
-    case AuthenticationService::ServiceStatus::SigninForcedByPolicy:
-    case AuthenticationService::ServiceStatus::SigninAllowed: {
-      break;
-    }
-  }
-  return YES;
+  return self.authService->SigninEnabled();
 }
 
 #pragma mark - NewTabPageFollowDelegate
@@ -1521,18 +1543,12 @@
 #pragma mark - AuthenticationServiceObserving
 
 - (void)onServiceStatusChanged {
-  switch (self.authService->GetServiceStatus()) {
-    case AuthenticationService::ServiceStatus::SigninForcedByPolicy:
-    case AuthenticationService::ServiceStatus::SigninAllowed:
-      break;
-    case AuthenticationService::ServiceStatus::SigninDisabledByUser:
-    case AuthenticationService::ServiceStatus::SigninDisabledByPolicy:
-    case AuthenticationService::ServiceStatus::SigninDisabledByInternal:
-      // If sign-in becomes disabled, the sign-in promo must be disabled too.
-      // TODO(crbug.com/40280872): The sign-in promo should just be hidden
-      // instead of resetting the hierarchy.
-      [self handleChangeInModules];
-      [self setContentOffsetToTop];
+  if (!self.authService->SigninEnabled()) {
+    // If sign-in becomes disabled, the sign-in promo must be disabled too.
+    // TODO(crbug.com/40280872): The sign-in promo should just be hidden
+    // instead of resetting the hierarchy.
+    [self handleChangeInModules];
+    [self setContentOffsetToTop];
   }
 }
 
@@ -1571,7 +1587,32 @@
   [self stopAccountMenuCoordinator];
 }
 
+#pragma mark - AIMPrototypeCoordinatorDelegate
+
+- (void)aimPrototypeCoordinatorDidFinish:(AIMPrototypeCoordinator*)coordinator {
+  [self stopAimPrototypeCoordinator];
+}
+
 #pragma mark - Private
+
+- (void)startAimPrototypeCoordinator {
+  if (_aimPrototypeCoordinator) {
+    return;
+  }
+  _aimPrototypeCoordinator = [[AIMPrototypeCoordinator alloc]
+      initWithBaseViewController:self.baseViewController
+                         browser:self.browser];
+  _aimPrototypeCoordinator.delegate = self;
+  [_aimPrototypeCoordinator start];
+}
+
+- (void)stopAimPrototypeCoordinator {
+  if (!_aimPrototypeCoordinator) {
+    return;
+  }
+  [_aimPrototypeCoordinator stop];
+  _aimPrototypeCoordinator = nil;
+}
 
 - (void)stopSharingCoordinator {
   [_sharingCoordinator stop];
@@ -1604,12 +1645,6 @@
   return !IdentityManagerFactory::GetForProfile(self.profile)
               ->GetAccountsOnDevice()
               .empty();
-}
-
-// Update the state, to take into account that the account menu coordinator is
-// stopped.
-- (void)showAccountMenuDidFinish {
-  [self stopAccountMenuCoordinator];
 }
 
 // Update the state, to take into account that the signin coordinator
@@ -1729,7 +1764,7 @@
 
   _webState = webState;
   self.contentSuggestionsCoordinator.webState = _webState;
-  [self.logoVendor setWebState:_webState];
+  [_searchEngineLogoMediator setWebState:_webState];
 }
 
 // Called when the NTP changes visibility, either when the user navigates to
@@ -1925,6 +1960,8 @@
 
 - (void)openLensViewFinder {
   [self.NTPMetricsRecorder recordLensTapped];
+  feature_engagement::TrackerFactory::GetForProfile(self.profile)
+      ->NotifyEvent(feature_engagement::events::kIOSLensButtonUsed);
   TriggerHapticFeedbackForSelectionChange();
   OpenLensInputSelectionCommand* command = [[OpenLensInputSelectionCommand
       alloc]
@@ -1938,6 +1975,10 @@
 }
 
 - (void)openMIA {
+  if (base::FeatureList::IsEnabled(kAIMPrototype)) {
+    [self startAimPrototypeCoordinator];
+    return;
+  }
   [self.NTPMetricsRecorder recordMIATapped];
   OpenNewTabCommand* command = [OpenNewTabCommand
       commandWithURLFromChrome:GetUrlForAim(

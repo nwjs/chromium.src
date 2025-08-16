@@ -85,6 +85,7 @@
 #include "components/os_crypt/async/browser/key_provider.h"
 #include "components/os_crypt/sync/os_crypt_mocker.h"
 #include "components/password_manager/core/browser/password_manager_switches.h"
+#include "components/prefs/pref_service.h"
 #include "content/public/browser/browser_main_parts.h"
 #include "content/public/browser/devtools_agent_host.h"
 #include "content/public/common/content_paths.h"
@@ -495,6 +496,10 @@ void InProcessBrowserTest::SetUp() {
   // Disable the notification delay timer used to prevent non system
   // notifications from showing up right after login.
   ash::ShellTestApi::SetUseLoginNotificationDelayForTest(false);
+
+  // On CrOS, we need to use ash::Shell to get all root windows.
+  views::test::WidgetTest::SetRootWindowProvider(
+      base::BindRepeating(&ash::Shell::GetAllRootWindows));
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
   // Redirect the default download directory to a temporary directory.
@@ -558,6 +563,7 @@ void InProcessBrowserTest::TearDown() {
 #if BUILDFLAG(IS_CHROMEOS)
   ash::device_sync::DeviceSyncImpl::Factory::SetCustomFactory(nullptr);
   launch_browser_for_testing_ = nullptr;
+  views::test::WidgetTest::SetRootWindowProvider(base::NullCallback());
 #endif
 }
 

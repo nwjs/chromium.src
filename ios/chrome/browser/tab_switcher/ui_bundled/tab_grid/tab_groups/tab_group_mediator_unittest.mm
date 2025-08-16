@@ -31,7 +31,6 @@
 #import "ios/chrome/browser/shared/model/web_state_list/tab_group.h"
 #import "ios/chrome/browser/shared/model/web_state_list/test/web_state_list_builder_from_description.h"
 #import "ios/chrome/browser/shared/model/web_state_list/web_state_list.h"
-#import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/snapshots/model/snapshot_browser_agent.h"
 #import "ios/chrome/browser/tab_switcher/ui_bundled/tab_collection_drag_drop_metrics.h"
 #import "ios/chrome/browser/tab_switcher/ui_bundled/tab_grid/grid/grid_mediator_test.h"
@@ -82,12 +81,12 @@ class TabGroupMediatorTest : public GridMediatorTestClass {
  public:
   void SetUp() override {
     scoped_feature_list_.InitWithFeatures(
-        {kTabGroupSync, data_sharing::features::kDataSharingFeature}, {});
+        {data_sharing::features::kDataSharingFeature}, {});
 
     GridMediatorTestClass::SetUp();
 
     WebStateList* web_state_list = browser_->GetWebStateList();
-    CloseAllWebStates(*web_state_list, WebStateList::CLOSE_NO_FLAGS);
+    CloseAllWebStates(*web_state_list, WebStateList::ClosingReason::kDefault);
     builder_ =
         std::make_unique<WebStateListBuilderFromDescription>(web_state_list);
     ASSERT_TRUE(builder_->BuildWebStateListFromDescription(
@@ -325,8 +324,8 @@ TEST_F(TabGroupMediatorTest, CreateAnotherGroupAndCloseTabs) {
   EXPECT_EQ("| f [ 1 a* b c ] [ _ d e ]",
             builder_->GetWebStateListDescription());
 
-  web_state_list->CloseWebStateAt(4, WebStateList::CLOSE_USER_ACTION);
-  web_state_list->CloseWebStateAt(4, WebStateList::CLOSE_USER_ACTION);
+  web_state_list->CloseWebStateAt(4, WebStateList::ClosingReason::kUserAction);
+  web_state_list->CloseWebStateAt(4, WebStateList::ClosingReason::kUserAction);
   EXPECT_EQ("| f [ 1 a* b c ]", builder_->GetWebStateListDescription());
 }
 

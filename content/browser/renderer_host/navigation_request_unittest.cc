@@ -14,6 +14,7 @@
 #include "base/strings/string_number_conversions.h"
 #include "base/test/scoped_feature_list.h"
 #include "build/build_config.h"
+#include "content/browser/renderer_host/navigation_throttle_runner.h"
 #include "content/public/browser/navigation_throttle.h"
 #include "content/public/browser/origin_trials_controller_delegate.h"
 #include "content/public/browser/ssl_status.h"
@@ -624,9 +625,11 @@ TEST_F(NavigationRequestTest, WillFailRequestCanAccessRenderFrameHost) {
       NavigationRequest::WILL_FAIL_REQUEST,
       NavigationRequest::From(navigation->GetNavigationHandle())->state());
   EXPECT_TRUE(navigation->GetNavigationHandle()->GetRenderFrameHost());
-  NavigationRequest::From(navigation->GetNavigationHandle())
-      ->GetNavigationThrottleRunnerForTesting()
-      ->CallResumeForTesting();
+  auto* registry = NavigationRequest::From(navigation->GetNavigationHandle())
+                       ->GetNavigationThrottleRegistryForTesting();
+  ASSERT_EQ(1u, registry->GetDeferringThrottles().size());
+  registry->ResumeProcessingNavigationEvent(
+      *registry->GetDeferringThrottles().cbegin());
   EXPECT_TRUE(navigation->GetNavigationHandle()->GetRenderFrameHost());
 
   SetBrowserClientForTesting(old_browser_client);
@@ -1315,8 +1318,8 @@ class ResponseBodyNavigationThrottle : public NavigationThrottle {
   void OnResponseBodyReady(const std::string& response_body) {
     std::move(callback_).Run(response_body);
     NavigationRequest::From(navigation_handle())
-        ->GetNavigationThrottleRunnerForTesting()
-        ->CallResumeForTesting();
+        ->GetNavigationThrottleRegistryForTesting()
+        ->ResumeProcessingNavigationEvent(this);
   }
 
   ResponseBodyCallback callback_;

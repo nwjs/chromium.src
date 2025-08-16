@@ -1726,12 +1726,12 @@ const ui::CocoaActionList& GetCocoaActionListForTesting() {
                "role=", ui::ToString([self internalRole]));
 
   if (![self instanceActive]) {
-    DCHECK(false) << "Stale object in tree, no AXPlatformNode.";
+    DUMP_WILL_BE_NOTREACHED() << "Stale object in tree, no AXPlatformNode.";
     return @[];
   }
 
   if (!_node->GetDelegate()) {
-    DCHECK(false) << "Stale object in tree, no delegate.";
+    DUMP_WILL_BE_NOTREACHED() << "Stale object in tree, no delegate.";
     return @[];
   }
 

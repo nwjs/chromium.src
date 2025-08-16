@@ -44,7 +44,6 @@
 #include "build/build_config.h"
 #include "cc/test/test_ukm_recorder_factory.h"
 #include "cc/trees/layer_tree_host.h"
-#include "gin/handle.h"
 #include "gin/object_template_builder.h"
 #include "gin/wrappable.h"
 #include "mojo/public/cpp/bindings/pending_associated_receiver.h"
@@ -1617,7 +1616,7 @@ TEST_F(WebViewTest, FinishCompositionDoesNotRevealSelection) {
   // Scroll the input field out of the viewport.
   Element* element = static_cast<Element*>(
       web_view->MainFrameImpl()->GetDocument().GetElementById("btn"));
-  element->scrollIntoView();
+  element->scrollIntoViewForTesting();
   float offset_height = web_view->MainFrameImpl()->GetScrollOffset().y();
   EXPECT_EQ(0, web_view->MainFrameImpl()->GetScrollOffset().x());
   EXPECT_LT(0, offset_height);
@@ -3298,6 +3297,7 @@ TEST_P(WebViewTestTouchDragEndContextMenu, ContextMenuOnLinkAndImageLongPress) {
 
 TEST_F(WebViewTest, ContextMenuAndDragOnImageLongPress) {
   ScopedTouchDragOnShortPressForTest touch_drag_on_short_press(true);
+  ScopedTouchDragAndDropForTest touch_drag_and_drop(true);
   RegisterMockedHttpURLLoad("long_press_links_and_images.html");
 
   url_test_helpers::RegisterMockedURLLoad(
@@ -3325,6 +3325,7 @@ TEST_F(WebViewTest, ContextMenuAndDragOnImageLongPress) {
 }
 
 TEST_F(WebViewTest, ContextMenuAndDragOnLinkLongPress) {
+  ScopedTouchDragAndDropForTest touch_drag_and_drop(true);
   ScopedTouchDragOnShortPressForTest touch_drag_on_short_press(true);
 
   RegisterMockedHttpURLLoad("long_press_links_and_images.html");

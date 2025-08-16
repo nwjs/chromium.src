@@ -272,12 +272,12 @@ chromium-metrics-reviews@google.com.
 
 <enum name="OsDefaultsChoiceDialogStatus">
   <int value="0" label="Unknown: Dialog dismissed or abandoned before showing"/>
-  <int value="1" label="Pending"/>
+  <int value="1" label="Pending (Deprecated 06/2025)"/>
   <int value="2" label="ChoiceLaunch"/>
   <int value="3" label="ChoiceConfirmation"/>
 </enum>
 
-<!-- LINT.ThenChange() -->
+<!-- LINT.ThenChange(/chrome/browser/search_engines/android/java/src/org/chromium/chrome/browser/search_engines/choice_screen/ChoiceDialogMediator.java:DialogType) -->
 
 <!-- LINT.IfChange(OsDefaultsChoiceDialogSuppressionStatus) -->
 
@@ -469,6 +469,7 @@ chromium-metrics-reviews@google.com.
   <int value="5" label="Device restore (iOS only)"/>
   <int value="6" label="Invalid choice metadata: Other"/>
   <int value="7" label="Missing default search engine"/>
+  <int value="8" label="Choice remade after import"/>
 </enum>
 
 <!-- LINT.IfChange(SearchPolicyConflictType) -->
@@ -517,9 +518,13 @@ chromium-metrics-reviews@google.com.
 <!-- LINT.IfChange(UnknownCountryIdStored) -->
 
 <enum name="UnknownCountryIdStored">
-  <int value="0" label="Valid country stored"/>
-  <int value="1" label="Clearing feature disabled"/>
-  <int value="2" label="Cleared pref due to invalid country ID"/>
+  <int value="0" label="Valid country stored in the static pref"/>
+  <int value="1" label="Clearing feature disabled (Deprecated 07/2025)"/>
+  <int value="2" label="Cleared static pref due to invalid country ID"/>
+  <int value="3" label="Valid country stored in the dynamic pref"/>
+  <int value="4"
+      label="Cleared dynamic pref due to invalid country ID and fallen back
+             to the static pref"/>
 </enum>
 
 <!-- LINT.ThenChange(/components/regional_capabilities/regional_capabilities_service.cc:UnknownCountryIdStored) -->

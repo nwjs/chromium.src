@@ -33,7 +33,6 @@
 #include "crypto/hash.h"
 #include "gpu/command_buffer/client/client_shared_image.h"
 #include "gpu/command_buffer/common/mailbox_holder.h"
-#include "gpu/ipc/common/vulkan_ycbcr_info.h"
 #include "media/base/video_frame_layout.h"
 #include "media/base/video_frame_metadata.h"
 #include "media/base/video_types.h"
@@ -46,9 +45,17 @@
 #include "base/files/scoped_file.h"
 #endif  // BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
 
+#if BUILDFLAG(IS_ANDROID)
+#include "gpu/vulkan/vulkan_ycbcr_info.h"
+#endif
+
 namespace gfx {
-class GpuMemoryBuffer;
 struct GpuMemoryBufferHandle;
+class ClientNativePixmapFactory;
+}
+
+namespace gpu {
+class LegacyGpuMemoryBufferForVideo;
 }
 
 namespace media {
@@ -95,12 +102,9 @@ class MEDIA_EXPORT VideoFrame : public base::RefCountedThreadSafe<VideoFrame> {
     STORAGE_MAX = STORAGE_GPU_MEMORY_BUFFER,
   };
 
-  // CB to be called on the mailbox backing this frame and its GpuMemoryBuffers
-  // (if they exist) when the frame is destroyed.
+  // CB to be called on the mailbox backing this frame when the frame is
+  // destroyed.
   using ReleaseMailboxCB = base::OnceCallback<void(const gpu::SyncToken&)>;
-  using ReleaseMailboxAndGpuMemoryBufferCB =
-      base::OnceCallback<void(const gpu::SyncToken&,
-                              std::unique_ptr<gfx::GpuMemoryBuffer>)>;
 
   // Interface representing client operations on a SyncToken, i.e. insert one in
   // the GPU Command Buffer and wait for it.
@@ -124,27 +128,19 @@ class MEDIA_EXPORT VideoFrame : public base::RefCountedThreadSafe<VideoFrame> {
   // ClientSharedImage::ScopedMapping object.
   class MEDIA_EXPORT ScopedMapping {
    public:
-    ~ScopedMapping();
+    virtual ~ScopedMapping() = default;
 
     // Returns a pointer to the beginning of the plane.
-    uint8_t* Memory(uint32_t plane_index);
+    virtual uint8_t* Memory(uint32_t plane_index) = 0;
+
+    // Returns a span pointing to the plane's memory.
+    virtual base::span<uint8_t> GetMemoryAsSpan(uint32_t plane_index) = 0;
 
     // Returns plane stride.
-    size_t Stride(uint32_t plane_index);
+    virtual size_t Stride(uint32_t plane_index) = 0;
 
     // Returns the size of the buffer.
-    gfx::Size Size();
-
-   private:
-    friend class VideoFrame;
-
-    ScopedMapping(
-        gfx::GpuMemoryBuffer* gpu_memory_buffer,
-        std::unique_ptr<gpu::ClientSharedImage::ScopedMapping> scoped_mapping);
-
-    // RAW_PTR_EXCLUSION: Performance reasons (based on analysis of MotionMark).
-    RAW_PTR_EXCLUSION gfx::GpuMemoryBuffer* gpu_memory_buffer_ = nullptr;
-    std::unique_ptr<gpu::ClientSharedImage::ScopedMapping> scoped_mapping_;
+    virtual gfx::Size Size() = 0;
   };
 
   enum class FrameControlType {
@@ -263,7 +259,7 @@ class MEDIA_EXPORT VideoFrame : public base::RefCountedThreadSafe<VideoFrame> {
   static scoped_refptr<VideoFrame> WrapMappableSharedImage(
       scoped_refptr<gpu::ClientSharedImage> shared_image,
       gpu::SyncToken sync_token,
-      ReleaseMailboxAndGpuMemoryBufferCB mailbox_holder_and_gmb_release_cb,
+      ReleaseMailboxCB mailbox_holder_release_cb,
       const gfx::Rect& visible_rect,
       const gfx::Size& natural_size,
       base::TimeDelta timestamp);
@@ -297,19 +293,6 @@ class MEDIA_EXPORT VideoFrame : public base::RefCountedThreadSafe<VideoFrame> {
 
   // Wraps external YUV data of the given parameters with a VideoFrame.
   // The returned VideoFrame does not own the data passed in.
-  static scoped_refptr<VideoFrame> WrapExternalYuvData(
-      VideoPixelFormat format,
-      const gfx::Size& coded_size,
-      const gfx::Rect& visible_rect,
-      const gfx::Size& natural_size,
-      size_t y_stride,
-      size_t u_stride,
-      size_t v_stride,
-      const uint8_t* y_data,
-      const uint8_t* u_data,
-      const uint8_t* v_data,
-      base::TimeDelta timestamp);
-
   static scoped_refptr<VideoFrame> WrapExternalYuvData(
       VideoPixelFormat format,
       const gfx::Size& coded_size,
@@ -373,32 +356,19 @@ class MEDIA_EXPORT VideoFrame : public base::RefCountedThreadSafe<VideoFrame> {
       base::span<const uint8_t> uv_data,
       base::TimeDelta timestamp);
 
-  // Wraps |gpu_memory_buffer|. This will transfer ownership of
-  // |gpu_memory_buffer| to the returned VideoFrame.
-  // For use in contexts where the GPUMemoryBuffer has no SharedImage
-  // associated with it.
-  // NOTE: Clients who want to set a callback on the VideoFrame being destroyed
-  // should call SetReleaseMailboxCB() after creating the
-  // VideoFrame via this entrypoint.
-  static scoped_refptr<VideoFrame> WrapExternalGpuMemoryBuffer(
+#if BUILDFLAG(IS_CHROMEOS)
+  // Wraps |handle|. For use in contexts where the GPUMemoryBufferHandle has no
+  // SharedImage associated with it.
+  static scoped_refptr<VideoFrame> WrapExternalGpuMemoryBufferHandle(
       const gfx::Rect& visible_rect,
       const gfx::Size& natural_size,
-      std::unique_ptr<gfx::GpuMemoryBuffer> gpu_memory_buffer,
+      gfx::ClientNativePixmapFactory* client_native_pixmap_factory,
+      gfx::GpuMemoryBufferHandle handle,
+      const gfx::Size& coded_size,
+      gfx::BufferFormat format,
+      gfx::BufferUsage usage,
       base::TimeDelta timestamp);
-
-  // Wraps |gpu_memory_buffer| along with the shared image created from
-  // |gpu_memory_buffer|. This will transfer ownership of |gpu_memory_buffer|
-  // to the returned VideoFrame. |mailbox_holder_and_gmb_release_cb| will be
-  // called with a sync token and with |gpu_memory_buffer| as arguments when the
-  // VideoFrame is to be destroyed.
-  static scoped_refptr<VideoFrame> WrapExternalGpuMemoryBuffer(
-      const gfx::Rect& visible_rect,
-      const gfx::Size& natural_size,
-      std::unique_ptr<gfx::GpuMemoryBuffer> gpu_memory_buffer,
-      scoped_refptr<gpu::ClientSharedImage> shared_image,
-      const gpu::SyncToken& sync_token,
-      ReleaseMailboxAndGpuMemoryBufferCB mailbox_holder_and_gmb_release_cb,
-      base::TimeDelta timestamp);
+#endif
 
 #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
   // Wraps provided dmabufs
@@ -571,10 +541,6 @@ class MEDIA_EXPORT VideoFrame : public base::RefCountedThreadSafe<VideoFrame> {
   // memory which allows for hardware acceleration.
   bool HasNativeGpuMemoryBuffer() const;
 
-  // Gets the GpuMemoryBuffer backing the VideoFrame. Meant to be only used by
-  // the tests until they are converted to use MappableSI.
-  gfx::GpuMemoryBuffer* GetGpuMemoryBufferForTesting() const;
-
   // Gets the ScopedMapping object which clients can use to access the CPU
   // visible memory and other metadata for the gpu buffer backing this
   // VideoFrame(via GpuMemoryBuffer or MappableSI).
@@ -688,11 +654,21 @@ class MEDIA_EXPORT VideoFrame : public base::RefCountedThreadSafe<VideoFrame> {
     return const_cast<uint8_t*>(data(plane));
   }
 
-  bool is_mappable_si_enabled() const { return is_mappable_si_enabled_; }
+  bool is_mappable_si_enabled() const {
+    return wrapped_frame_ ? wrapped_frame_->is_mappable_si_enabled()
+                          : is_mappable_si_enabled_;
+  }
 
+#if BUILDFLAG(IS_ANDROID)
   const std::optional<gpu::VulkanYCbCrInfo>& ycbcr_info() const {
     return wrapped_frame_ ? wrapped_frame_->ycbcr_info() : ycbcr_info_;
   }
+
+  // Provide the sampler conversion information for the frame.
+  void set_ycbcr_info(const std::optional<gpu::VulkanYCbCrInfo>& ycbcr_info) {
+    ycbcr_info_ = ycbcr_info;
+  }
+#endif
 
   // Returns pointer to the data in the visible region of the frame, for
   // IsMappable() storage types. The returned pointer is offset into the
@@ -795,11 +771,6 @@ class MEDIA_EXPORT VideoFrame : public base::RefCountedThreadSafe<VideoFrame> {
   // Returns the number of bits per channel.
   size_t BitDepth() const;
 
-  // Provide the sampler conversion information for the frame.
-  void set_ycbcr_info(const std::optional<gpu::VulkanYCbCrInfo>& ycbcr_info) {
-    ycbcr_info_ = ycbcr_info;
-  }
-
   // Tests can use this method to mark a VF as non-texturable. This is required
   // when tests creates a VF with a mappable shared image but does not want to
   // render it. In those cases only looking for ::HasSharedImage() does not
@@ -848,25 +819,25 @@ class MEDIA_EXPORT VideoFrame : public base::RefCountedThreadSafe<VideoFrame> {
       const gfx::Size& natural_size,
       base::TimeDelta timestamp);
 
-  // This method is used by ::WrapExternalGpuMemoryBuffer() as well as future
-  // apis added for MappableSI. ::WrapExternalGpuMemoryBuffer() can just pass
-  // |shared_image| param as nullptr here whereas MappableSharedImage apis will
-  // pass |gpu_memory_buffer| as nullptr. There are additional checks inside to
-  // ensure the correctness.
-  static scoped_refptr<VideoFrame>
-  CreateFrameForGpuMemoryBufferOrMappableSIInternal(
+  static scoped_refptr<VideoFrame> CreateFrameForMappableSIInternal(
       const gfx::Rect& visible_rect,
       const gfx::Size& natural_size,
-      std::unique_ptr<gfx::GpuMemoryBuffer> gpu_memory_buffer,
       scoped_refptr<gpu::ClientSharedImage> shared_image,
-      const bool enable_mappable_si,
-      ReleaseMailboxAndGpuMemoryBufferCB mailbox_holder_and_gmb_release_cb,
+      ReleaseMailboxCB mailbox_holder_release_cb,
+      base::TimeDelta timestamp);
+
+#if BUILDFLAG(IS_CHROMEOS)
+  static scoped_refptr<VideoFrame> CreateFrameForGpuMemoryBufferInternal(
+      const gfx::Rect& visible_rect,
+      const gfx::Size& natural_size,
+      std::unique_ptr<gpu::LegacyGpuMemoryBufferForVideo> gpu_memory_buffer,
       base::TimeDelta timestamp);
 
   void MakeScopedMappingForGpuMemoryBuffer(
       base::OnceCallback<void(std::unique_ptr<VideoFrame::ScopedMapping>)>
           result_cb,
       bool success) const;
+#endif
   void WrapScopedSharedImageMapping(
       base::OnceCallback<void(std::unique_ptr<VideoFrame::ScopedMapping>)>
           result_cb,
@@ -932,7 +903,7 @@ class MEDIA_EXPORT VideoFrame : public base::RefCountedThreadSafe<VideoFrame> {
 
   // Sync token associated with the `shared_image_`.
   gpu::SyncToken acquire_sync_token_;
-  ReleaseMailboxAndGpuMemoryBufferCB mailbox_holder_and_gmb_release_cb_;
+  ReleaseMailboxCB mailbox_holder_release_cb_;
 
   // Native texture shared image that is only set when the VideoFrame is
   // created via VideoFrame::WrapSharedImage().
@@ -947,8 +918,10 @@ class MEDIA_EXPORT VideoFrame : public base::RefCountedThreadSafe<VideoFrame> {
   base::ReadOnlySharedMemoryRegion owned_shm_region_;
   base::ReadOnlySharedMemoryMapping owned_shm_mapping_;
 
+#if BUILDFLAG(IS_CHROMEOS)
   // GPU memory buffer, if this frame is STORAGE_GPU_MEMORY_BUFFER.
-  std::unique_ptr<gfx::GpuMemoryBuffer> gpu_memory_buffer_;
+  std::unique_ptr<gpu::LegacyGpuMemoryBufferForVideo> gpu_memory_buffer_;
+#endif
 
   // This field will be set by clients when using MappableSI instead of
   // GpuMemoryBuffers. Clients will set this flag while creating a VideoFrame.
@@ -978,8 +951,10 @@ class MEDIA_EXPORT VideoFrame : public base::RefCountedThreadSafe<VideoFrame> {
   gfx::ColorSpace color_space_;
   std::optional<gfx::HDRMetadata> hdr_metadata_;
 
+#if BUILDFLAG(IS_ANDROID)
   // Sampler conversion information which is used in vulkan context for android.
   std::optional<gpu::VulkanYCbCrInfo> ycbcr_info_;
+#endif
 
   // Allocation which makes up |data_| planes for self-allocated frames.
   std::unique_ptr<uint8_t, base::UncheckedFreeDeleter> private_data_;

@@ -45,6 +45,7 @@
 #import "ios/chrome/browser/shared/model/profile/features.h"
 #import "ios/chrome/browser/shared/model/profile/profile_attributes_storage_ios.h"
 #import "ios/chrome/browser/shared/model/profile/profile_ios.h"
+#import "ios/chrome/browser/shared/model/profile/profile_ios_util.h"
 #import "ios/chrome/browser/shared/model/profile/profile_manager_ios.h"
 #import "ios/chrome/browser/shared/public/commands/command_dispatcher.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
@@ -131,11 +132,8 @@ bool IsStrictSubset(NSArray<NSString*>* recorded_gaia_ids,
 // Returns true if profile separation is enabled and the current profile is not
 // the personal one (a managed profile).
 bool ShouldSwitchProfileAtSignout(AuthenticationService* authentication_service,
-                                  const std::string& profile_name) {
-  ProfileManagerIOS* profile_manager =
-      GetApplicationContext()->GetProfileManager();
-  bool is_work_profile = profile_manager->GetProfileAttributesStorage()
-                             ->GetPersonalProfileName() != profile_name;
+                                  ProfileIOS* profile) {
+  bool is_work_profile = !IsPersonalProfile(profile);
   return AreSeparateProfilesForManagedAccountsEnabled() &&
          authentication_service->HasPrimaryIdentityManaged(
              signin::ConsentLevel::kSignin) &&
@@ -144,30 +142,15 @@ bool ShouldSwitchProfileAtSignout(AuthenticationService* authentication_service,
 
 // Post an asynchronous request to switch to `profile`, running `continuation`
 // when the change completes.
-void SwitchToProfile(Browser* browser,
+void SwitchToProfile(SceneState* scene_state,
                      const std::string& profile_name,
                      ChangeProfileReason reason,
                      ChangeProfileContinuation continuation) {
-  __weak SceneState* weak_scene_state = browser->GetSceneState();
+  __weak SceneState* weak_scene_state = scene_state;
   base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
       FROM_HERE,
       base::BindOnce(&SwitchToProfileSynchronously, profile_name,
                      weak_scene_state, reason, std::move(continuation)));
-}
-
-// Post an asynchronous request to switch from a managed profile to the
-// personal profile, running `continuation` when the change completes.
-void SwitchToPersonalProfile(Browser* browser,
-                             ChangeProfileReason reason,
-                             ChangeProfileContinuation continuation) {
-  ProfileManagerIOS* profile_manager =
-      GetApplicationContext()->GetProfileManager();
-  std::string personal_profile_name =
-      profile_manager->GetProfileAttributesStorage()->GetPersonalProfileName();
-  CHECK(profile_manager->HasProfileWithName(personal_profile_name));
-
-  SwitchToProfile(browser, personal_profile_name, reason,
-                  std::move(continuation));
 }
 
 syncer::DataTypeSet DataCountsMapToDataTypeSet(
@@ -222,14 +205,8 @@ bool ShouldPresentUserSigninUpgrade(ProfileIOS* profile,
   // Sign-in can be disabled by policy or through user Settings.
   AuthenticationService* authentication_service =
       AuthenticationServiceFactory::GetForProfile(profile);
-  switch (authentication_service->GetServiceStatus()) {
-    case AuthenticationService::ServiceStatus::SigninDisabledByUser:
-    case AuthenticationService::ServiceStatus::SigninDisabledByInternal:
-    case AuthenticationService::ServiceStatus::SigninDisabledByPolicy:
-      return false;
-    case AuthenticationService::ServiceStatus::SigninForcedByPolicy:
-    case AuthenticationService::ServiceStatus::SigninAllowed:
-      break;
+  if (!authentication_service->SigninEnabled()) {
+    return false;
   }
 
   AuthenticationService* auth_service =
@@ -495,8 +472,7 @@ void ProfileSignoutRequest::Run(Browser* browser) && {
         std::move(continuation), std::move(postSignoutContinuation));
   }
 
-  if (!ShouldSwitchProfileAtSignout(authentication_service,
-                                    profile->GetProfileName())) {
+  if (!ShouldSwitchProfileAtSignout(authentication_service, profile)) {
     std::move(prepare_callback_).Run(/*will_change_profile=*/false);
     std::move(continuation).Run(scene_state, base::DoNothing());
     return;
@@ -510,7 +486,8 @@ void ProfileSignoutRequest::Run(Browser* browser) && {
   }
 
   std::move(prepare_callback_).Run(/*will_change_profile=*/true);
-  SwitchToPersonalProfile(browser, ChangeProfileReason::kManagedAccountSignOut,
+  SwitchToPersonalProfile(scene_state,
+                          ChangeProfileReason::kManagedAccountSignOut,
                           std::move(continuation));
 }
 
@@ -521,8 +498,7 @@ void MultiProfileSignOutForProfile(
   // Simply sign out if no profile switching is needed.
   AuthenticationService* authentication_service =
       AuthenticationServiceFactory::GetForProfile(profile);
-  if (!ShouldSwitchProfileAtSignout(authentication_service,
-                                    profile->GetProfileName())) {
+  if (!ShouldSwitchProfileAtSignout(authentication_service, profile)) {
     authentication_service->SignOut(
         signout_source,
         base::CallbackToBlock(std::move(signout_completion_closure)));
@@ -549,7 +525,7 @@ void MultiProfileSignOutForProfile(
             signout_source, /*force_snackbar_over_toolbar=*/false,
             /*should_record_metrics=*/false, /*snackbar_message =*/nil,
             base::IgnoreArgs<SceneState*>(barrier));
-    SwitchToPersonalProfile(browser,
+    SwitchToPersonalProfile(browser->GetSceneState(),
                             ChangeProfileReason::kManagedAccountSignOut,
                             std::move(continuation));
   }
@@ -573,6 +549,38 @@ void FetchUnsyncedDataForSignOutOrProfileSwitching(
   sync_service->GetTypesWithUnsyncedData(
       kDataTypesToQuery,
       base::BindOnce(&DataCountsMapToDataTypeSet).Then(std::move(callback)));
+}
+
+// Post an asynchronous request to switch from a managed profile to the
+// personal profile, running `continuation` when the change completes.
+void SwitchToPersonalProfile(SceneState* scene_state,
+                             ChangeProfileReason reason,
+                             ChangeProfileContinuation continuation) {
+  ProfileManagerIOS* profile_manager =
+      GetApplicationContext()->GetProfileManager();
+  std::string personal_profile_name =
+      profile_manager->GetProfileAttributesStorage()->GetPersonalProfileName();
+  CHECK(profile_manager->HasProfileWithName(personal_profile_name));
+
+  SwitchToProfile(scene_state, personal_profile_name, reason,
+                  std::move(continuation));
+}
+
+bool DifferentUserIsSignedInInAnotherScene(SceneState* scene_state) {
+  ProfileIOS* profile = scene_state.profileState.profile;
+  AppState* app_state = scene_state.profileState.appState;
+  for (ProfileState* profile_state in app_state.profileStates) {
+    if (profile == profile_state.profile) {
+      continue;
+    }
+
+    auto* identity_manager =
+        IdentityManagerFactory::GetForProfile(profile_state.profile);
+    if (identity_manager->HasPrimaryAccount(signin::ConsentLevel::kSignin)) {
+      return true;
+    }
+  }
+  return false;
 }
 
 }  // namespace signin

@@ -1094,23 +1094,28 @@ bool DawnSharedContext::OnMemoryDump(
 
 std::unique_ptr<DawnContextProvider> DawnContextProvider::Create(
     const GpuPreferences& gpu_preferences,
-    ValidateAdapterFn validate_adapter_fn,
-    const GpuDriverBugWorkarounds& gpu_driver_workarounds) {
+    const GpuFeatureInfo& gpu_feature_info,
+    ValidateAdapterFn validate_adapter_fn) {
   return DawnContextProvider::CreateWithBackend(
       GetDefaultBackendType(), DefaultForceFallbackAdapter(), gpu_preferences,
-      validate_adapter_fn, gpu_driver_workarounds);
+      gpu_feature_info, validate_adapter_fn);
 }
 
 std::unique_ptr<DawnContextProvider> DawnContextProvider::CreateWithBackend(
     wgpu::BackendType backend_type,
     bool force_fallback_adapter,
     const GpuPreferences& gpu_preferences,
-    ValidateAdapterFn validate_adapter_fn,
-    const GpuDriverBugWorkarounds& gpu_driver_workarounds) {
-  auto dawn_shared_context = base::MakeRefCounted<DawnSharedContext>(
-      features::IsGraphiteContextThreadSafe());
+    const GpuFeatureInfo& gpu_feature_info,
+    ValidateAdapterFn validate_adapter_fn) {
+  bool use_thread_safe_graphite_context =
+      features::IsDrDcEnabled(gpu_feature_info) &&
+      features::IsGraphiteContextThreadSafe();
+  auto dawn_shared_context =
+      base::MakeRefCounted<DawnSharedContext>(use_thread_safe_graphite_context);
+  GpuDriverBugWorkarounds workarounds(
+      gpu_feature_info.enabled_gpu_driver_bug_workarounds);
   if (!dawn_shared_context->Initialize(backend_type, force_fallback_adapter,
-                                       gpu_preferences, gpu_driver_workarounds,
+                                       gpu_preferences, workarounds,
                                        validate_adapter_fn)) {
     return nullptr;
   }

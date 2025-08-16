@@ -149,9 +149,6 @@ class ChromeLabsCoordinatorTest : public TestWithBrowserView {
         ->GetMenuItemContainerForTesting();
   }
 
-  ChromeLabsModel* chrome_labs_model() {
-    return browser_view()->toolbar()->chrome_labs_model();
-  }
 
   ChromeLabsItemView* first_lab_item() {
     views::View* menu_items = chrome_labs_menu_item_container();
@@ -281,8 +278,9 @@ class ChromeLabsViewControllerTest : public TestWithBrowserView {
   }
 
   void TearDown() override {
+    bubble_view_ = nullptr;
+    bubble_widget_.ExtractAsDangling()->CloseNow();
     about_flags::GetCurrentFlagsState()->Reset();
-    bubble_widget_->CloseWithReason(views::Widget::ClosedReason::kUnspecified);
     TestWithBrowserView::TearDown();
   }
 
@@ -296,9 +294,6 @@ class ChromeLabsViewControllerTest : public TestWithBrowserView {
     return chrome_labs_bubble()->GetMenuItemContainerForTesting();
   }
 
-  ChromeLabsModel* chrome_labs_model() {
-    return browser_view()->toolbar()->chrome_labs_model();
-  }
 
   flags_ui::FlagsState* flags_state() {
     return about_flags::GetCurrentFlagsState();
@@ -351,8 +346,8 @@ class ChromeLabsViewControllerTest : public TestWithBrowserView {
   std::unique_ptr<ChromeLabsViewController> CreateViewController() {
     std::unique_ptr<ChromeLabsViewController> view_controller =
         std::make_unique<ChromeLabsViewController>(
-            chrome_labs_model(), chrome_labs_bubble(),
-            browser_view()->browser(), flags_state(), flags_storage_.get());
+            chrome_labs_bubble(), browser_view()->browser(), flags_state(),
+            flags_storage_.get());
     return view_controller;
   }
 
@@ -362,8 +357,8 @@ class ChromeLabsViewControllerTest : public TestWithBrowserView {
 
  protected:
   ScopedChromeLabsModelDataForTesting scoped_chrome_labs_model_data_;
-  raw_ptr<ChromeLabsBubbleView, DanglingUntriaged> bubble_view_;
-  raw_ptr<views::Widget, DanglingUntriaged> bubble_widget_;
+  raw_ptr<ChromeLabsBubbleView> bubble_view_;
+  raw_ptr<views::Widget> bubble_widget_;
 
  private:
 #if BUILDFLAG(GOOGLE_CHROME_BRANDING)
@@ -594,8 +589,7 @@ TEST_F(ChromeLabsViewControllerTest, CleanUpNewBadgePrefsTest) {
 
   scoped_chrome_labs_model_data_.SetModelDataForTesting(test_experiments);
 
-  UpdateChromeLabsNewBadgePrefs(browser_view()->browser()->profile(),
-                                chrome_labs_model());
+  UpdateChromeLabsNewBadgePrefs(browser_view()->browser()->profile());
   EXPECT_FALSE(new_badge_prefs.contains(kFirstTestFeatureId));
   EXPECT_FALSE(new_badge_prefs.contains(kTestFeatureWithVariationId));
 }

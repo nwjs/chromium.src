@@ -18,15 +18,20 @@
 #include "base/strings/utf_string_conversions.h"
 #include "base/time/time.h"
 #include "base/timer/timer.h"
+#include "base/uuid.h"
 #include "base/version_info/version_info.h"
+#include "chrome/browser/actor/actor_keyed_service.h"
+#include "chrome/browser/actor/actor_task.h"
+#include "chrome/browser/actor/aggregated_journal.h"
+#include "chrome/browser/actor/aggregated_journal_in_memory_serializer.h"
 #include "chrome/browser/actor/task_id.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/contextual_cueing/contextual_cueing_features.h"
 #include "chrome/browser/enterprise/browser_management/management_service_factory.h"
+#include "chrome/browser/feedback/feedback_uploader_chrome.h"
+#include "chrome/browser/feedback/feedback_uploader_factory_chrome.h"
 #include "chrome/browser/glic/glic_enabling.h"
 #include "chrome/browser/glic/glic_hotkey.h"
-#include "chrome/browser/glic/glic_keyed_service.h"
-#include "chrome/browser/glic/glic_keyed_service_factory.h"
 #include "chrome/browser/glic/glic_metrics.h"
 #include "chrome/browser/glic/glic_pref_names.h"
 #include "chrome/browser/glic/glic_profile_manager.h"
@@ -40,6 +45,9 @@
 #include "chrome/browser/glic/host/glic_synthetic_trial_manager.h"
 #include "chrome/browser/glic/host/glic_web_client_access.h"
 #include "chrome/browser/glic/host/host.h"
+#include "chrome/browser/glic/media/glic_media_link_helper.h"
+#include "chrome/browser/glic/public/glic_keyed_service.h"
+#include "chrome/browser/glic/public/glic_keyed_service_factory.h"
 #include "chrome/browser/glic/widget/browser_conditions.h"
 #include "chrome/browser/glic/widget/glic_window_controller.h"
 #include "chrome/browser/global_features.h"
@@ -48,17 +56,27 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_attributes_storage.h"
 #include "chrome/browser/profiles/profile_manager.h"
+#include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_list.h"
 #include "chrome/common/chrome_features.h"
 #include "components/content_settings/core/common/content_settings_types.h"
+#include "components/feedback/content/content_tracing_manager.h"
+#include "components/feedback/feedback_constants.h"
+#include "components/feedback/feedback_data.h"
+#include "components/feedback/feedback_uploader.h"
 #include "components/metrics/metrics_service.h"
+#include "components/optimization_guide/core/model_quality/model_quality_util.h"
 #include "components/prefs/pref_service.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
+#include "content/public/browser/devtools_agent_host.h"
 #include "content/public/browser/web_contents.h"
 #include "extensions/browser/guest_view/web_view/web_view_guest.h"
+#include "media/base/media_switches.h"
 #include "mojo/public/cpp/bindings/callback_helpers.h"
 #include "mojo/public/cpp/bindings/message.h"
+#include "pdf/buildflags.h"
+#include "third_party/abseil-cpp/absl/container/flat_hash_map.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "ui/gfx/geometry/mojom/geometry.mojom.h"
 #include "ui/gfx/geometry/size.h"
@@ -289,11 +307,134 @@ class DebouncerDeduper {
   glic::mojom::FocusedTabDataPtr next_data_candidate_;
 };
 
-mojom::WebClientSizingMode GetWebClientSizingMode() {
-  return base::FeatureList::IsEnabled(features::kGlicSizingFitWindow)
-             ? glic::mojom::WebClientSizingMode::kFitWindow
-             : glic::mojom::WebClientSizingMode::kNatural;
-}
+// Class that encapsulates interacting with the actor journal.
+class JournalHandler {
+ public:
+  explicit JournalHandler(Profile* profile)
+      : actor_keyed_service_(actor::ActorKeyedService::Get(profile)) {}
+
+  void LogBeginAsyncEvent(uint64_t event_async_id,
+                          int32_t task_id,
+                          const std::string& event,
+                          const std::string& details) {
+    // If there is a matching ID make sure it terminates before the new event is
+    // created.
+    auto it = active_journal_events_.find(event_async_id);
+    if (it != active_journal_events_.end()) {
+      active_journal_events_.erase(it);
+    }
+
+    active_journal_events_[event_async_id] =
+        actor_keyed_service_->GetJournal().CreatePendingAsyncEntry(
+            /*url=*/GURL::EmptyGURL(), actor::TaskId(task_id),
+            actor::mojom::JournalTrack::kFrontEnd, event, details);
+  }
+
+  void LogEndAsyncEvent(uint64_t event_async_id, const std::string& details) {
+    auto it = active_journal_events_.find(event_async_id);
+    if (it != active_journal_events_.end()) {
+      it->second->EndEntry(details);
+      active_journal_events_.erase(it);
+    }
+  }
+
+  void LogInstantEvent(int32_t task_id,
+                       const std::string& event,
+                       const std::string& details) {
+    actor_keyed_service_->GetJournal().Log(
+        /*url=*/GURL::EmptyGURL(), actor::TaskId(task_id),
+        actor::mojom::JournalTrack::kFrontEnd, event, details);
+  }
+
+  void Clear() {
+    if (journal_serializer_) {
+      journal_serializer_->Clear();
+    }
+  }
+
+  void Snapshot(
+      bool clear_journal,
+      glic::mojom::WebClientHandler::JournalSnapshotCallback callback) {
+    if (!journal_serializer_) {
+      std::move(callback).Run(glic::mojom::Journal::New());
+      return;
+    }
+    std::move(callback).Run(
+        glic::mojom::Journal::New(journal_serializer_->Snapshot()));
+    if (clear_journal) {
+      journal_serializer_->Clear();
+    }
+  }
+
+  std::vector<uint8_t> GetSnapshot(bool clear_journal) {
+    std::vector<uint8_t> result_buffer;
+    if (journal_serializer_) {
+      result_buffer = journal_serializer_->Snapshot();
+      if (clear_journal) {
+        journal_serializer_->Clear();
+      }
+    }
+    return result_buffer;
+  }
+
+  void Start(uint64_t max_bytes, bool capture_screenshots) {
+    journal_serializer_ =
+        std::make_unique<actor::AggregatedJournalInMemorySerializer>(
+            actor_keyed_service_->GetJournal(), max_bytes);
+    journal_serializer_->Init();
+  }
+
+  void Stop() { journal_serializer_.reset(); }
+
+  void RecordFeedback(bool positive, const std::string& reason) {
+    if (base::FeatureList::IsEnabled(features::kGlicRecordActorJournal) &&
+        !positive) {
+      SendResponseFeedback(reason);
+    }
+  }
+
+ private:
+  void SendResponseFeedback(const std::string& reason) {
+    base::WeakPtr<feedback::FeedbackUploader> uploader =
+        feedback::FeedbackUploaderFactoryChrome::GetForBrowserContext(
+            actor_keyed_service_->GetProfile())
+            ->AsWeakPtr();
+    scoped_refptr<::feedback::FeedbackData> feedback_data =
+        base::MakeRefCounted<feedback::FeedbackData>(
+            std::move(uploader), ContentTracingManager::Get());
+    auto journal = GetSnapshot(false);
+
+    // TODO(b/430054430): Fetch and include system data to the feedback.
+    feedback_data->set_description(
+        reason + " - " + base::Uuid::GenerateRandomV4().AsLowercaseString());
+    feedback_data->set_product_id(feedback::kGeminiWebProductId);
+    feedback_data->set_category_tag(
+        std::string(feedback::kGeminiWebJournalCategoryTag));
+    feedback_data->set_is_offensive_or_unsafe(false);
+    feedback_data->AddFile("actor-journal", journal);
+
+    signin::IdentityManager* identity_manager =
+        IdentityManagerFactory::GetForProfile(
+            actor_keyed_service_->GetProfile());
+    if (identity_manager &&
+        identity_manager->HasPrimaryAccount(signin::ConsentLevel::kSignin)) {
+      feedback_data->set_user_email(
+          identity_manager->GetPrimaryAccountInfo(signin::ConsentLevel::kSignin)
+              .email);
+    }
+
+    feedback_data->CompressSystemInfo();
+    feedback_data->OnFeedbackPageDataComplete();
+  }
+
+  absl::flat_hash_map<
+      uint64_t,
+      std::unique_ptr<actor::AggregatedJournal::PendingAsyncEntry>>
+      active_journal_events_;
+  std::unique_ptr<actor::AggregatedJournalInMemorySerializer>
+      journal_serializer_;
+  raw_ptr<actor::ActorKeyedService> actor_keyed_service_;
+};
 
 }  // namespace
 
@@ -324,7 +465,8 @@ class GlicWebClientHandler : public glic::mojom::WebClientHandler,
         browser_is_open_calculator_(profile_, this),
         receiver_(this, std::move(receiver)),
         annotation_manager_(
-            std::make_unique<GlicAnnotationManager>(glic_service_)) {
+            std::make_unique<GlicAnnotationManager>(glic_service_)),
+        journal_handler_(profile_) {
     active_state_calculator_.AddObserver(this);
   }
 
@@ -394,12 +536,26 @@ class GlicWebClientHandler : public glic::mojom::WebClientHandler,
             base::BindRepeating(&GlicWebClientHandler::OnFocusedTabDataChanged,
                                 base::Unretained(this)));
 
+    focused_browser_changed_subscription_ =
+        glic_sharing_manager_->AddFocusedBrowserChangedCallback(
+            base::BindRepeating(&GlicWebClientHandler::OnFocusedBrowserChanged,
+                                base::Unretained(this)));
+
     browser_attach_observation_ = ObserveBrowserForAttachment(profile_, this);
 
     system_permission_settings_observation_ =
         system_permission_settings::Observe(base::BindRepeating(
             &GlicWebClientHandler::OnOsPermissionSettingChanged,
             base::Unretained(this)));
+
+    if (base::FeatureList::IsEnabled(features::kGlicActor)) {
+      if (auto* actor_service = actor::ActorKeyedService::Get(profile_)) {
+        actor_task_state_changed_subscription_ =
+            actor_service->AddTaskStateChangedCallback(base::BindRepeating(
+                &GlicWebClientHandler::NotifyActorTaskStateChanged,
+                base::Unretained(this)));
+      }
+    }
 
     auto state = glic::mojom::WebClientInitialState::New();
     state->chrome_version = version_info::GetVersion();
@@ -435,9 +591,9 @@ class GlicWebClientHandler : public glic::mojom::WebClientHandler,
       }
     }
 
-    state->sizing_mode = GetWebClientSizingMode();
-
     state->browser_is_open = browser_is_open_calculator_.IsOpen();
+    browser_active_ = glic_sharing_manager_->GetFocusedBrowser();
+    state->browser_is_active = browser_active_;
 
     state->always_detached_mode = GlicWindowController::AlwaysDetached();
 
@@ -445,8 +601,8 @@ class GlicWebClientHandler : public glic::mojom::WebClientHandler,
         base::FeatureList::IsEnabled(features::kGlicActor);
     state->enable_scroll_to =
         base::FeatureList::IsEnabled(features::kGlicScrollTo);
-    state->enable_zero_state_suggestions = base::FeatureList::IsEnabled(
-        contextual_cueing::kGlicZeroStateSuggestions);
+    state->enable_zero_state_suggestions =
+        contextual_cueing::IsZeroStateSuggestionsEnabled();
 
     local_state_pref_change_registrar_.Init(g_browser_process->local_state());
     local_state_pref_change_registrar_.Add(
@@ -463,6 +619,18 @@ class GlicWebClientHandler : public glic::mojom::WebClientHandler,
         features::kGlicUserStatusRefreshApi.Get();
     state->enable_multi_tab =
         base::FeatureList::IsEnabled(glic::mojom::features::kGlicMultiTab);
+    state->enable_get_context_actor = base::FeatureList::IsEnabled(
+        glic::mojom::features::kGlicActorTabContext);
+#if BUILDFLAG(ENABLE_PDF)
+    if (features::kGlicScrollToPDF.Get()) {
+      state->host_capabilities.push_back(mojom::HostCapability::kScrollToPdf);
+    }
+#endif
+    if (base::FeatureList::IsEnabled(
+            features::kGlicPanelResetSizeAndLocationOnOpen)) {
+      state->host_capabilities.push_back(
+          mojom::HostCapability::kResetSizeAndLocationOnOpen);
+    }
 
     std::move(callback).Run(std::move(state));
   }
@@ -488,6 +656,20 @@ class GlicWebClientHandler : public glic::mojom::WebClientHandler,
     }
   }
 
+  void GetZeroStateSuggestionsAndSubscribe(
+      bool has_active_subscription,
+      mojom::ZeroStateSuggestionsOptionsPtr options,
+      GetZeroStateSuggestionsAndSubscribeCallback callback) override {
+    if (ShouldDoApiActivationGating()) {
+      std::move(callback).Run(nullptr);
+      return;
+    }
+
+    glic_service_->zero_state_suggestions_manager().ObserveZeroStateSuggestions(
+        has_active_subscription, options->is_first_run,
+        options->supported_tools, std::move(callback));
+  }
+
   void CreateTab(const ::GURL& url,
                  bool open_in_background,
                  const std::optional<int32_t> window_id,
@@ -495,6 +677,18 @@ class GlicWebClientHandler : public glic::mojom::WebClientHandler,
     if (ShouldDoApiActivationGating()) {
       std::move(callback).Run(nullptr);
       return;
+    }
+    if (base::FeatureList::IsEnabled(media::kMediaLinkHelpers)) {
+      if (auto* tab = glic_sharing_manager_->GetFocusedTabData().focus()) {
+        const bool replaced =
+            GlicMediaLinkHelper(tab->GetContents()).MaybeReplaceNavigation(url);
+        base::UmaHistogramBoolean("Glic.MaybeReplaceNavigation.Result",
+                                  replaced);
+        if (replaced) {
+          std::move(callback).Run(nullptr);
+          return;
+        }
+      }
     }
     glic_service_->CreateTab(url, open_in_background, window_id,
                              std::move(callback));
@@ -556,9 +750,22 @@ class GlicWebClientHandler : public glic::mojom::WebClientHandler,
     glic_service_->ResizePanel(size, duration, std::move(callback));
   }
 
+  void GetModelQualityClientId(
+      GetModelQualityClientIdCallback callback) override {
+    auto* local_state = g_browser_process->local_state();
+    std::string client_id = optimization_guide::
+        GetOrCreateGlicModelQualityClientId(local_state);
+    std::move(callback).Run(std::move(client_id));
+  }
+
   void GetContextFromFocusedTab(
       glic::mojom::GetTabContextOptionsPtr options,
       GetContextFromFocusedTabCallback callback) override {
+    if (ShouldDoApiActivationGating()) {
+      std::move(callback).Run(mojom::GetContextResult::NewErrorReason(
+          "permission denied: window not showing"));
+      return;
+    }
     auto* tab = glic_sharing_manager_->GetFocusedTabData().focus();
     auto tab_handle = tab ? tab->GetHandle() : tabs::TabHandle::Null();
     glic_sharing_manager_->GetContextFromTab(tab_handle, *options,
@@ -568,9 +775,22 @@ class GlicWebClientHandler : public glic::mojom::WebClientHandler,
   void GetContextFromTab(int32_t tab_id,
                          glic::mojom::GetTabContextOptionsPtr options,
                          GetContextFromTabCallback callback) override {
-    // Activation gating is handled in this function.
+    if (ShouldDoApiActivationGating()) {
+      std::move(callback).Run(mojom::GetContextResult::NewErrorReason(
+          "permission denied: window not showing"));
+      return;
+    }
+    // Extra activation gating is done in this function.
     glic_sharing_manager_->GetContextFromTab(tabs::TabHandle(tab_id), *options,
                                              std::move(callback));
+  }
+
+  void GetContextForActorFromTab(
+      int32_t tab_id,
+      glic::mojom::GetTabContextOptionsPtr options,
+      GetContextForActorFromTabCallback callback) override {
+    glic_sharing_manager_->GetContextForActorFromTab(
+        tabs::TabHandle(tab_id), *options, std::move(callback));
   }
 
   void SetMaximumNumberOfPinnedTabs(
@@ -595,10 +815,6 @@ class GlicWebClientHandler : public glic::mojom::WebClientHandler,
 
   void UnpinTabs(const std::vector<int32_t>& tab_ids,
                  UnpinTabsCallback callback) override {
-    if (ShouldDoApiActivationGating()) {
-      std::move(callback).Run(false);
-      return;
-    }
     std::vector<tabs::TabHandle> tab_handles;
     for (auto tab_id : tab_ids) {
       tab_handles.push_back(tabs::TabHandle(tab_id));
@@ -613,15 +829,13 @@ class GlicWebClientHandler : public glic::mojom::WebClientHandler,
     glic_sharing_manager_->UnpinAllTabs();
   }
 
-  void ActInFocusedTab(const std::vector<uint8_t>& action_proto,
-                       glic::mojom::GetTabContextOptionsPtr options,
-                       ActInFocusedTabCallback callback) override {
-    if (!base::FeatureList::IsEnabled(features::kGlicActor)) {
-      receiver_.ReportBadMessage(
-          "ActInFocusedTab cannot be called without GlicActor enabled.");
-      return;
-    }
-    glic_service_->ActInFocusedTab(action_proto, *options, std::move(callback));
+  void CreateTask(CreateTaskCallback callback) override {
+    glic_service_->CreateTask(std::move(callback));
+  }
+
+  void PerformActions(const std::vector<uint8_t>& actions_proto,
+                      PerformActionsCallback callback) override {
+    glic_service_->PerformActions(actions_proto, std::move(callback));
   }
 
   void StopActorTask(int32_t task_id) override {
@@ -774,13 +988,6 @@ class GlicWebClientHandler : public glic::mojom::WebClientHandler,
   }
 
   void GetUserProfileInfo(GetUserProfileInfoCallback callback) override {
-    if (ShouldDoGetUserProfileInfoApiActivationGating()) {
-      on_get_user_profile_info_activation_callbacks_.push_back(
-          base::BindOnce(&GlicWebClientHandler::GetUserProfileInfo,
-                         base::Unretained(this), std::move(callback)));
-      return;
-    }
-
     ProfileAttributesEntry* entry =
         g_browser_process->profile_manager()
             ->GetProfileAttributesStorage()
@@ -812,18 +1019,63 @@ class GlicWebClientHandler : public glic::mojom::WebClientHandler,
     glic_service_->GetAuthController().ForceSyncCookies(std::move(callback));
   }
 
-  void OnUserInputSubmitted(glic::mojom::WebClientMode mode) override {
-    glic_service_->OnUserInputSubmitted(mode);
+  void LogBeginAsyncEvent(uint64_t event_async_id,
+                          int32_t task_id,
+                          const std::string& event,
+                          const std::string& details) override {
+    journal_handler_.LogBeginAsyncEvent(event_async_id, task_id, event,
+                                        details);
   }
 
-  void OnRequestStarted() override { glic_service_->OnRequestStarted(); }
+  void LogEndAsyncEvent(uint64_t event_async_id,
+                        const std::string& details) override {
+    journal_handler_.LogEndAsyncEvent(event_async_id, details);
+  }
 
-  void OnResponseStarted() override { glic_service_->OnResponseStarted(); }
+  void LogInstantEvent(int32_t task_id,
+                       const std::string& event,
+                       const std::string& details) override {
+    journal_handler_.LogInstantEvent(task_id, event, details);
+  }
 
-  void OnResponseStopped() override { glic_service_->OnResponseStopped(); }
+  void JournalClear() override { journal_handler_.Clear(); }
+
+  void JournalSnapshot(bool clear_journal,
+                       JournalSnapshotCallback callback) override {
+    journal_handler_.Snapshot(clear_journal, std::move(callback));
+  }
+
+  void JournalStart(uint64_t max_bytes, bool capture_screenshots) override {
+    journal_handler_.Start(max_bytes, capture_screenshots);
+  }
+
+  void JournalStop() override { journal_handler_.Stop(); }
+
+  void JournalRecordFeedback(bool positive,
+                             const std::string& reason) override {
+    journal_handler_.RecordFeedback(positive, reason);
+  }
+
+  void OnUserInputSubmitted(glic::mojom::WebClientMode mode) override {
+    glic_service_->OnUserInputSubmitted(mode);
+    glic_service_->metrics()->OnUserInputSubmitted(mode);
+  }
+
+  void OnResponseStarted() override {
+    glic_service_->metrics()->OnResponseStarted();
+  }
+
+  void OnResponseStopped() override {
+    glic_service_->metrics()->OnResponseStopped();
+  }
 
   void OnSessionTerminated() override {
     glic_service_->metrics()->OnSessionTerminated();
+  }
+
+  void OnTurnCompleted(glic::mojom::WebClientModel model,
+                       base::TimeDelta duration) override {
+    glic_service_->metrics()->OnTurnCompleted(model, duration);
   }
 
   void OnResponseRated(bool positive) override {
@@ -893,6 +1145,20 @@ class GlicWebClientHandler : public glic::mojom::WebClientHandler,
         ContentSettingsType::MEDIASTREAM_MIC));
   }
 
+  void SubscribeToPinCandidates(
+      mojom::GetPinCandidatesOptionsPtr options,
+      mojo::PendingRemote<mojom::PinCandidatesObserver> observer) override {
+    if (ShouldDoApiActivationGating()) {
+      return;
+    }
+    glic_sharing_manager_->SubscribeToPinCandidates(std::move(options),
+                                                    std::move(observer));
+  }
+
+  void OnViewChanged(mojom::ViewChangedNotificationPtr notification) override {
+    NOTIMPLEMENTED() << " current view: " << notification->current_view;
+  }
+
   // GlicWindowController::StateObserver implementation.
   void PanelStateChanged(const glic::mojom::PanelState& panel_state,
                          Browser* attached_browser) override {
@@ -923,6 +1189,10 @@ class GlicWebClientHandler : public glic::mojom::WebClientHandler,
     web_client_->NotifyManualResizeChanged(resizing);
   }
 
+  void RequestViewChange(mojom::ViewChangeRequestPtr request) override {
+    web_client_->RequestViewChange(std::move(request));
+  }
+
   // BrowserAttachmentObserver implementation.
   void CanAttachToBrowserChanged(bool can_attach) override {
     web_client_->NotifyPanelCanAttachChange(can_attach);
@@ -937,18 +1207,8 @@ class GlicWebClientHandler : public glic::mojom::WebClientHandler,
       return;
     }
 
-    if (base::FeatureList::IsEnabled(
-            features::kGlicGetUserProfileInfoApiActivationGating)) {
-      auto to_remove =
-          std::move(on_get_user_profile_info_activation_callbacks_);
-      on_get_user_profile_info_activation_callbacks_.clear();
-      for (auto& cb : to_remove) {
-        std::move(cb).Run();
-      }
-    }
-
-    CHECK(on_get_user_profile_info_activation_callbacks_.empty());
-
+    // The panel is active. If applicable, send out any cached or delayed
+    // updates to the web client.
     if (base::FeatureList::IsEnabled(features::kGlicApiActivationGating) &&
         web_client_) {
       if (base::FeatureList::IsEnabled(glic::mojom::features::kGlicMultiTab)) {
@@ -956,8 +1216,8 @@ class GlicWebClientHandler : public glic::mojom::WebClientHandler,
       }
       if (cached_focused_tab_data_) {
         MaybeNotifyFocusedTabChanged(std::move(cached_focused_tab_data_));
+        cached_focused_tab_data_ = nullptr;
       }
-      cached_focused_tab_data_ = nullptr;
     }
   }
 
@@ -971,8 +1231,7 @@ class GlicWebClientHandler : public glic::mojom::WebClientHandler,
   void GetZeroStateSuggestionsForFocusedTab(
       std::optional<bool> is_fre,
       GetZeroStateSuggestionsForFocusedTabCallback callback) override {
-    if (!base::FeatureList::IsEnabled(
-            contextual_cueing::kGlicZeroStateSuggestions)) {
+    if (!contextual_cueing::IsZeroStateSuggestionsEnabled()) {
       receiver_.ReportBadMessage(
           "Client should not call "
           "GetZeroStateSuggestionsForFocusedTab "
@@ -1013,6 +1272,19 @@ class GlicWebClientHandler : public glic::mojom::WebClientHandler,
     glic_service_->enabling().UpdateUserStatusWithThrottling();
   }
 
+  void IsDebuggerAttached(IsDebuggerAttachedCallback callback) override {
+    content::RenderFrameHost* guest_main_frame =
+        page_handler_->GetGuestMainFrame();
+    if (!guest_main_frame) {
+      std::move(callback).Run(false);
+      return;
+    }
+    content::WebContents* guest_web_contents =
+        content::WebContents::FromRenderFrameHost(guest_main_frame);
+    std::move(callback).Run(
+        content::DevToolsAgentHost::IsDebuggerAttached(guest_web_contents));
+  }
+
   void OnOsPermissionSettingChanged(ContentSettingsType content_type,
                                     bool is_blocked) {
     // Ignore other content types.
@@ -1044,6 +1316,19 @@ class GlicWebClientHandler : public glic::mojom::WebClientHandler,
     web_client_->NotifyPinnedTabDataChanged(tab_data->Clone());
   }
 
+  void NotifyZeroStateSuggestionsChanged(
+      glic::mojom::ZeroStateSuggestionsV2Ptr suggestions,
+      mojom::ZeroStateSuggestionsOptionsPtr options) {
+    if (ShouldDoApiActivationGating()) {
+      // The zero state suggestions will get updated if needed. No need to cache
+      // here.
+      return;
+    }
+
+    web_client_->NotifyZeroStateSuggestionsChanged(std::move(suggestions),
+                                                   std::move(options));
+  }
+
  private:
   void Uninstall() {
     SetAudioDucking(false, base::DoNothing());
@@ -1058,6 +1343,7 @@ class GlicWebClientHandler : public glic::mojom::WebClientHandler,
     pinned_tabs_changed_subscription_ = {};
     pinned_tab_data_changed_subscription_ = {};
     browser_attach_observation_.reset();
+    glic_service_->zero_state_suggestions_manager().Reset();
   }
 
   void WebClientDisconnected() { Uninstall(); }
@@ -1106,14 +1392,17 @@ class GlicWebClientHandler : public glic::mojom::WebClientHandler,
         glic::mojom::FocusedTabData::NewFocusedTab(tab_data->Clone()));
   }
 
-  bool ShouldDoApiActivationGating() const {
-    return base::FeatureList::IsEnabled(features::kGlicApiActivationGating) &&
-           !active_state_calculator_.IsActive();
+  void OnFocusedBrowserChanged(BrowserWindowInterface* browser_interface) {
+    const bool is_browser_active = browser_interface != nullptr;
+    if (browser_active_ == is_browser_active) {
+      return;
+    }
+    browser_active_ = is_browser_active;
+    web_client_->NotifyBrowserIsActiveChanged(is_browser_active);
   }
 
-  bool ShouldDoGetUserProfileInfoApiActivationGating() const {
-    return base::FeatureList::IsEnabled(
-               features::kGlicGetUserProfileInfoApiActivationGating) &&
+  bool ShouldDoApiActivationGating() const {
+    return base::FeatureList::IsEnabled(features::kGlicApiActivationGating) &&
            !active_state_calculator_.IsActive();
   }
 
@@ -1130,7 +1419,25 @@ class GlicWebClientHandler : public glic::mojom::WebClientHandler,
     web_client_->NotifyFocusedTabChanged(std::move(data));
   }
 
+  void NotifyActorTaskStateChanged(const actor::ActorTask& task) {
+    const mojom::ActorTaskState state = [&]() {
+      switch (task.GetState()) {
+        case actor::ActorTask::State::kCreated:
+        case actor::ActorTask::State::kReflecting:
+          return mojom::ActorTaskState::kIdle;
+        case actor::ActorTask::State::kActing:
+          return mojom::ActorTaskState::kActing;
+        case actor::ActorTask::State::kPausedByClient:
+          return mojom::ActorTaskState::kPaused;
+        case actor::ActorTask::State::kFinished:
+          return mojom::ActorTaskState::kStopped;
+      }
+    }();
+    web_client_->NotifyActorTaskStateChanged(task.id().value(), state);
+  }
+
   glic::mojom::FocusedTabDataPtr cached_focused_tab_data_ = nullptr;
+  bool browser_active_ = false;
   PrefChangeRegistrar pref_change_registrar_;
   PrefChangeRegistrar local_state_pref_change_registrar_;
   raw_ptr<Profile> profile_;
@@ -1144,13 +1451,15 @@ class GlicWebClientHandler : public glic::mojom::WebClientHandler,
   base::CallbackListSubscription pinned_tabs_changed_subscription_;
   base::CallbackListSubscription pinned_tab_data_changed_subscription_;
   base::CallbackListSubscription focus_data_changed_subscription_;
+  base::CallbackListSubscription focused_browser_changed_subscription_;
+  base::CallbackListSubscription actor_task_state_changed_subscription_;
   mojo::Receiver<glic::mojom::WebClientHandler> receiver_;
   mojo::Remote<glic::mojom::WebClient> web_client_;
   std::unique_ptr<BrowserAttachObservation> browser_attach_observation_;
   const std::unique_ptr<GlicAnnotationManager> annotation_manager_;
   std::unique_ptr<system_permission_settings::ScopedObservation>
       system_permission_settings_observation_;
-  std::vector<base::OnceClosure> on_get_user_profile_info_activation_callbacks_;
+  JournalHandler journal_handler_;
   std::unique_ptr<DebouncerDeduper> debouncer_deduper_;
 };
 
@@ -1262,6 +1571,20 @@ void GlicPageHandler::WebUiStateChanged(glic::mojom::WebUiState new_state) {
 void GlicPageHandler::AllowedChanged() {
   page_->SetProfileReadyState(GlicEnabling::GetProfileReadyState(
       Profile::FromBrowserContext(browser_context_)));
+}
+
+void GlicPageHandler::ZeroStateSuggestionChanged(
+    mojom::ZeroStateSuggestionsV2Ptr returned_suggestions,
+    mojom::ZeroStateSuggestionsOptions returned_options) {
+  if (!web_client_handler_) {
+    return;
+  }
+
+  auto options = mojom::ZeroStateSuggestionsOptions::New();
+  options->is_first_run = std::move(returned_options.is_first_run);
+  options->supported_tools = std::move(returned_options.supported_tools);
+  web_client_handler_->NotifyZeroStateSuggestionsChanged(
+      std::move(returned_suggestions), std::move(options));
 }
 
 }  // namespace glic

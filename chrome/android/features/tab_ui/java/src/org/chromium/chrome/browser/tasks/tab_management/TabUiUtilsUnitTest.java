@@ -81,7 +81,6 @@ import java.util.List;
 @EnableFeatures(ChromeFeatureList.DATA_SHARING)
 public class TabUiUtilsUnitTest {
     private static final int TAB_ID = 123;
-    private static final int ROOT_ID = TAB_ID;
     private static final String GROUP_TITLE = "My Group";
     private static final Token TAB_GROUP_ID = new Token(1L, 2L);
 
@@ -118,11 +117,10 @@ public class TabUiUtilsUnitTest {
         when(mFilter.getTabModel()).thenReturn(mTabModel);
         when(mTabModel.isIncognitoBranded()).thenReturn(false);
         when(mTabModel.getTabById(TAB_ID)).thenReturn(mTab);
-        when(mTab.getRootId()).thenReturn(ROOT_ID);
-        when(mFilter.getRootIdFromTabGroupId(TAB_GROUP_ID)).thenReturn(ROOT_ID);
         when(mFilter.getTabsInGroup(TAB_GROUP_ID)).thenReturn(mTabsToClose);
         when(mFilter.getTabCountForGroup(TAB_GROUP_ID)).thenReturn(mTabsToClose.size());
-        when(mFilter.getTabGroupTitle(ROOT_ID)).thenReturn(GROUP_TITLE);
+        when(mFilter.getTabGroupTitle(TAB_GROUP_ID)).thenReturn(GROUP_TITLE);
+        when(mFilter.tabGroupExists(TAB_GROUP_ID)).thenReturn(true);
         when(mTabModel.getTabById(TAB_ID)).thenReturn(mTab);
         when(mTab.isClosing()).thenReturn(false);
         when(mTab.getId()).thenReturn(TAB_ID);
@@ -427,7 +425,7 @@ public class TabUiUtilsUnitTest {
         mockIdentity(EMAIL2, GAIA_ID2);
         SavedTabGroup group = createSyncGroup(COLLABORATION_ID1);
         group.title = null;
-        when(mFilter.getTabGroupTitle(ROOT_ID)).thenReturn(null);
+        when(mFilter.getTabGroupTitle(TAB_GROUP_ID)).thenReturn(null);
         createSharedGroup(GROUP_MEMBER1, GROUP_MEMBER2);
         when(mCollaborationService.getCurrentUserRoleForGroup(COLLABORATION_ID1))
                 .thenReturn(MemberRole.MEMBER);

@@ -10,6 +10,8 @@ import org.jni_zero.NativeMethods;
 
 import org.chromium.base.Callback;
 import org.chromium.base.ResettersForTesting;
+import org.chromium.build.annotations.NullMarked;
+import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.preferences.Pref;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.tab.Tab;
@@ -21,16 +23,29 @@ import org.chromium.url.GURL;
 
 /** A helper class for using the DOM Distiller. */
 @JNINamespace("android")
+@NullMarked
 public class DomDistillerTabUtils {
     /** Triggering heuristics encoded in native enum DistillerHeuristicsType. */
-    private static Integer sHeuristics;
+    private static @Nullable Integer sHeuristics;
 
     /** Used to specify whether mobile friendly is enabled for testing purposes. */
-    private static Boolean sExcludeMobileFriendlyForTesting;
+    private static @Nullable Boolean sExcludeMobileFriendlyForTesting;
 
-    @DistillerHeuristicsType private static Integer sHeuristicsForTesting;
+    @DistillerHeuristicsType private static @Nullable Integer sHeuristicsForTesting;
 
     private DomDistillerTabUtils() {}
+
+    /**
+     * Distills the given WebContents and waits for the result. If the distillation succeeds, then
+     * the Viewer is opened via a navigation.
+     *
+     * @param webContents The WebContents to distill.
+     * @param callback The callback which will be called upon success/failure of the distillation.
+     */
+    public static void distillCurrentPageAndViewIfSuccessful(
+            WebContents webContents, Callback<Boolean> callback) {
+        DomDistillerTabUtilsJni.get().distillCurrentPageAndViewIfSuccessful(webContents, callback);
+    }
 
     /**
      * Creates a new WebContents and navigates the {@link WebContents} to view the URL of the
@@ -160,12 +175,15 @@ public class DomDistillerTabUtils {
      *     suitable for reader mode.
      */
     public static void runReadabilityHeuristicsOnWebContents(
-            WebContents webContents, Callback<Boolean> callback) {
+            @Nullable WebContents webContents, Callback<Boolean> callback) {
         DomDistillerTabUtilsJni.get().runReadabilityHeuristicsOnWebContents(webContents, callback);
     }
 
     @NativeMethods
     public interface Natives {
+        void distillCurrentPageAndViewIfSuccessful(
+                WebContents webContents, Callback<Boolean> callback);
+
         void distillCurrentPageAndView(WebContents webContents);
 
         void distillCurrentPage(WebContents webContents);
@@ -181,6 +199,6 @@ public class DomDistillerTabUtils {
                 InterceptNavigationDelegate delegate, WebContents webContents);
 
         void runReadabilityHeuristicsOnWebContents(
-                WebContents webContents, Callback<Boolean> callback);
+                @Nullable WebContents webContents, Callback<Boolean> callback);
     }
 }

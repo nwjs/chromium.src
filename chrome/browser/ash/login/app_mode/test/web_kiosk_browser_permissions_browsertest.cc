@@ -11,6 +11,7 @@
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/test/base/mixin_based_in_process_browser_test.h"
+#include "components/prefs/pref_service.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
@@ -152,7 +153,7 @@ IN_PROC_BROWSER_TEST_P(WebKioskGeolocationBrowserPermissionTest,
   WaitForPermissionDefined(web_contents);
 
   content::EvalJsResult result = CallPermission(web_contents);
-  EXPECT_EQ(result.value.GetString(), GetParam().result_message);
+  EXPECT_EQ(result, GetParam().result_message);
 }
 
 INSTANTIATE_TEST_SUITE_P(

@@ -15,7 +15,6 @@ On success, you will see a series of "PASS" messages, followed by "TEST COMPLETE
 -webkit-box-reflect: none
 -webkit-font-smoothing: auto
 -webkit-line-break: auto
--webkit-line-clamp: none
 -webkit-locale: auto
 -webkit-mask-box-image: none
 -webkit-mask-box-image-outset: 0
@@ -55,12 +54,7 @@ animation-range-end: normal
 animation-range-start: normal
 animation-timeline: auto
 animation-timing-function: ease
-animation-trigger-exit-range-end: auto
-animation-trigger-exit-range-start: auto
-animation-trigger-range-end: normal
-animation-trigger-range-start: normal
-animation-trigger-timeline: auto
-animation-trigger-type: once
+animation-trigger: none
 app-region: none
 appearance: none
 backdrop-filter: none
@@ -158,6 +152,7 @@ contain-intrinsic-width: none
 container-name: none
 container-type: normal
 content: normal
+continue: auto
 corner-bottom-left-shape: round
 corner-bottom-right-shape: round
 corner-end-end-shape: round
@@ -231,8 +226,8 @@ inset-block-start: auto
 inset-inline-end: auto
 inset-inline-start: auto
 interactivity: auto
-interest-target-hide-delay: 0.5s
-interest-target-show-delay: 0.5s
+interest-hide-delay: 0.5s
+interest-show-delay: 0.5s
 interpolate-size: numeric-only
 isolation: auto
 item-tolerance: normal
@@ -243,7 +238,6 @@ left: auto
 letter-spacing: normal
 lighting-color: rgb(255, 255, 255)
 line-break: auto
-line-clamp: none
 line-height: normal
 list-style-image: none
 list-style-position: outside
@@ -276,6 +270,7 @@ math-style: normal
 max-block-size: none
 max-height: none
 max-inline-size: none
+max-lines: none
 max-width: none
 min-block-size: 0px
 min-height: 0px
@@ -385,10 +380,10 @@ table-layout: auto
 text-align: start
 text-align-last: auto
 text-anchor: start
-text-autospace: normal
+text-autospace: no-autospace
 text-box-edge: auto
 text-box-trim: none
-text-decoration: none solid rgb(0, 0, 0)
+text-decoration: rgb(0, 0, 0)
 text-decoration-color: rgb(0, 0, 0)
 text-decoration-line: none
 text-decoration-skip-ink: auto
@@ -409,6 +404,13 @@ text-underline-position: auto
 text-wrap-mode: wrap
 text-wrap-style: auto
 timeline-scope: none
+timeline-trigger-behavior: once
+timeline-trigger-exit-range-end: auto
+timeline-trigger-exit-range-start: auto
+timeline-trigger-name: none
+timeline-trigger-range-end: normal
+timeline-trigger-range-start: normal
+timeline-trigger-timeline: auto
 top: auto
 touch-action: auto
 transform: none

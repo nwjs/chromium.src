@@ -23,6 +23,7 @@
 #include "third_party/blink/renderer/core/script/classic_script.h"
 #include "third_party/blink/renderer/core/testing/core_unit_test_helper.h"
 #include "third_party/blink/renderer/platform/testing/paint_test_configurations.h"
+#include "third_party/perfetto/protos/perfetto/config/trace_config.gen.h"
 
 using ::blink_testing::ClearRectFlags;
 using ::blink_testing::FillFlags;
@@ -72,12 +73,10 @@ TEST_P(HTMLCanvasElementTest, CleanCanvasResizeDoesntClearFrameBuffer) {
 
   auto* canvas =
       To<HTMLCanvasElement>(GetDocument().getElementById(AtomicString("c")));
-  CanvasResourceProvider* provider =
-      canvas->GetOrCreateCanvasResourceProviderForCanvas2D();
 
   cc::PaintFlags fill_flags = FillFlags();
   fill_flags.setColor(SkColors::kBlue);
-  EXPECT_THAT(provider->LastRecording(),
+  EXPECT_THAT(canvas->RenderingContext()->GetLastRecordingForCanvas2D(),
               Optional(RecordedOpsAre(PaintOpEq<DrawRectOp>(
                   SkRect::MakeXYWH(0, 0, 5, 5), fill_flags))));
 }
@@ -106,13 +105,11 @@ TEST_P(HTMLCanvasElementTest, CanvasResizeClearsFrameBuffer) {
 
   auto* canvas =
       To<HTMLCanvasElement>(GetDocument().getElementById(AtomicString("c")));
-  CanvasResourceProvider* provider =
-      canvas->GetOrCreateCanvasResourceProviderForCanvas2D();
 
   cc::PaintFlags fill_flags = FillFlags();
   fill_flags.setColor(SkColors::kBlue);
   EXPECT_THAT(
-      provider->LastRecording(),
+      canvas->RenderingContext()->GetLastRecordingForCanvas2D(),
       Optional(RecordedOpsAre(
           PaintOpEq<DrawRectOp>(SkRect::MakeXYWH(0, 0, 10, 20),
                                 ClearRectFlags()),
@@ -236,6 +233,56 @@ TEST_P(HTMLCanvasElementTest, BrokenCanvasHighRes) {
   EXPECT_EQ(HTMLCanvasElement::BrokenCanvas(1.0).second, 1.0);
 }
 
+TEST_P(HTMLCanvasElementTest, FallbackContentUseCounter) {
+  SetBodyInnerHTML(R"HTML(
+    <canvas></canvas>
+  )HTML");
+  EXPECT_FALSE(GetDocument().IsUseCounted(WebFeature::kCanvasFallbackContent));
+  EXPECT_FALSE(
+      GetDocument().IsUseCounted(WebFeature::kCanvasFallbackElementContent));
+
+  SetBodyInnerHTML(R"HTML(
+    <canvas>fallback</canvas>
+  )HTML");
+  EXPECT_TRUE(GetDocument().IsUseCounted(WebFeature::kCanvasFallbackContent));
+  EXPECT_FALSE(
+      GetDocument().IsUseCounted(WebFeature::kCanvasFallbackElementContent));
+
+  GetDocument().ClearUseCounterForTesting(WebFeature::kCanvasFallbackContent);
+
+  SetBodyInnerHTML(R"HTML(
+    <canvas><div>hello</div></canvas>
+  )HTML");
+  EXPECT_TRUE(GetDocument().IsUseCounted(WebFeature::kCanvasFallbackContent));
+  EXPECT_TRUE(
+      GetDocument().IsUseCounted(WebFeature::kCanvasFallbackElementContent));
+}
+
+TEST_P(HTMLCanvasElementTest, IsCanvasOrInCanvasSubtree) {
+  SetBodyInnerHTML(R"HTML(
+    <div id=div></div>
+    <canvas id=canvas>
+      <div id=nested_div></div>
+      <canvas id=nested_canvas></canvas>
+    </canvas>
+  )HTML");
+  auto* div = GetDocument().getElementById(AtomicString("div"));
+  EXPECT_FALSE(div->IsCanvasOrInCanvasSubtree());
+  auto* canvas = GetDocument().getElementById(AtomicString("canvas"));
+  EXPECT_TRUE(canvas->IsCanvasOrInCanvasSubtree());
+  auto* nested_div = GetDocument().getElementById(AtomicString("nested_div"));
+  EXPECT_TRUE(nested_div->IsCanvasOrInCanvasSubtree());
+  auto* nested_canvas =
+      GetDocument().getElementById(AtomicString("nested_canvas"));
+  EXPECT_TRUE(nested_canvas->IsCanvasOrInCanvasSubtree());
+
+  // Check `IsCanvasOrInCanvasSubtree` after a dynamic change where the nested
+  // elements are moved out of the canvas subtree.
+  div->appendChild(nested_div);
+  EXPECT_FALSE(nested_div->IsCanvasOrInCanvasSubtree());
+  div->appendChild(nested_canvas);
+  EXPECT_TRUE(nested_canvas->IsCanvasOrInCanvasSubtree());
+}
 
 class HTMLCanvasElementWithTracingTest : public RenderingTest {
  public:

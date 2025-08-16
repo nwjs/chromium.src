@@ -29,7 +29,6 @@
 #include "services/network/public/mojom/cookie_manager.mojom.h"
 #include "services/network/public/mojom/device_bound_sessions.mojom.h"
 #include "services/network/public/mojom/host_resolver.mojom.h"
-#include "services/network/public/mojom/network_context.mojom-forward.h"
 #include "services/network/public/mojom/network_context.mojom.h"
 #include "services/network/public/mojom/network_service.mojom.h"
 #include "services/network/public/mojom/oblivious_http_request.mojom.h"
@@ -220,6 +219,7 @@ class TestNetworkContext : public mojom::NetworkContext {
       const url::Origin& origin,
       const net::NetworkAnonymizationKey& network_anonymization_key,
       std::vector<mojom::WebTransportCertificateFingerprintPtr> fingerprints,
+      const std::vector<std::string>& application_protocols,
       mojo::PendingRemote<mojom::WebTransportHandshakeClient> handshake_client)
       override {}
   void LookUpProxyForURL(

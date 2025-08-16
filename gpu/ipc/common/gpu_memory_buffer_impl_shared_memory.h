@@ -14,7 +14,7 @@
 
 namespace gpu {
 
-class GpuMemoryBufferSupport;
+class ClientSharedImage;
 
 // Implementation of GPU memory buffer based on shared memory.
 class GPU_IPC_COMMON_EXPORT GpuMemoryBufferImplSharedMemory
@@ -30,24 +30,18 @@ class GPU_IPC_COMMON_EXPORT GpuMemoryBufferImplSharedMemory
   static constexpr gfx::GpuMemoryBufferType kBufferType =
       gfx::SHARED_MEMORY_BUFFER;
 
-  static std::unique_ptr<GpuMemoryBufferImplSharedMemory> CreateForTesting(
-      gfx::GpuMemoryBufferId id,
-      const gfx::Size& size,
-      gfx::BufferFormat format,
-      gfx::BufferUsage usage,
-      DestructionCallback callback);
+  static std::unique_ptr<GpuMemoryBufferImplSharedMemory>
+  CreateFromHandleForTesting(gfx::GpuMemoryBufferHandle handle,
+                             const gfx::Size& size,
+                             gfx::BufferFormat format,
+                             gfx::BufferUsage usage) {
+    return CreateFromHandle(std::move(handle), size, format, usage);
+  }
 
-  static gfx::GpuMemoryBufferHandle CreateGpuMemoryBuffer(
-      gfx::GpuMemoryBufferId id,
+  static std::unique_ptr<GpuMemoryBufferImplSharedMemory> CreateForTesting(
       const gfx::Size& size,
       gfx::BufferFormat format,
       gfx::BufferUsage usage);
-
-  static bool IsUsageSupported(gfx::BufferUsage usage);
-  static bool IsConfigurationSupported(gfx::BufferFormat format,
-                                       gfx::BufferUsage usage);
-  static bool IsSizeValidForFormat(const gfx::Size& size,
-                                   gfx::BufferFormat format);
 
   static base::OnceClosure AllocateForTesting(
       const gfx::Size& size,
@@ -55,38 +49,27 @@ class GPU_IPC_COMMON_EXPORT GpuMemoryBufferImplSharedMemory
       gfx::BufferUsage usage,
       gfx::GpuMemoryBufferHandle* handle);
 
-  // Overridden from gfx::GpuMemoryBuffer:
+  // Overridden from GpuMemoryBufferImpl:
   bool Map() override;
   void* memory(size_t plane) override;
   void Unmap() override;
   int stride(size_t plane) const override;
   gfx::GpuMemoryBufferType GetType() const override;
   gfx::GpuMemoryBufferHandle CloneHandle() const override;
-  void OnMemoryDump(
-      base::trace_event::ProcessMemoryDump* pmd,
-      const base::trace_event::MemoryAllocatorDumpGuid& buffer_dump_guid,
-      uint64_t tracing_process_id,
-      int importance) const override;
-
-  // Returns the shared memory GUID associated with buffer.
-  base::UnguessableToken GetSharedMemoryGUID() const;
 
  private:
-  friend class GpuMemoryBufferSupport;
+  friend class ClientSharedImage;
 
   static std::unique_ptr<GpuMemoryBufferImplSharedMemory> CreateFromHandle(
       gfx::GpuMemoryBufferHandle handle,
       const gfx::Size& size,
       gfx::BufferFormat format,
-      gfx::BufferUsage usage,
-      DestructionCallback callback);
+      gfx::BufferUsage usage);
 
   GpuMemoryBufferImplSharedMemory(
-      gfx::GpuMemoryBufferId id,
       const gfx::Size& size,
       gfx::BufferFormat format,
       gfx::BufferUsage usage,
-      DestructionCallback callback,
       base::UnsafeSharedMemoryRegion shared_memory_region,
       base::WritableSharedMemoryMapping shared_memory_mapping,
       size_t offset,

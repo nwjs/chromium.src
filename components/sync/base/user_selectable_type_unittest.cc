@@ -51,6 +51,7 @@ class UserSelectableTypeTest : public ::testing::Test {
     data_types.Put(SHARED_TAB_GROUP_DATA);
     data_types.Put(COLLABORATION_GROUP);
     data_types.Put(SHARED_TAB_GROUP_ACCOUNT_DATA);
+    data_types.Put(SHARED_COMMENT);
 
     return data_types;
   }
@@ -84,6 +85,28 @@ TEST_F(UserSelectableTypeTest, GetUserSelectableTypeFromDataType) {
           << "Failed for data type: " << type;
     }
   }
+}
+
+TEST_F(UserSelectableTypeTest, UserSelectableTypeSetToValueList) {
+  UserSelectableTypeSet types = {UserSelectableType::kBookmarks,
+                                 UserSelectableType::kPasswords,
+                                 UserSelectableType::kPreferences};
+  base::Value::List value_list = UserSelectableTypeSetToValueList(types);
+  EXPECT_EQ(value_list, base::Value::List()
+                            .Append("bookmarks")
+                            .Append("preferences")
+                            .Append("passwords"));
+}
+
+TEST_F(UserSelectableTypeTest, ValueListToUserSelectableTypeSet) {
+  base::Value::List value_list = base::Value::List()
+                                     .Append("bookmarks")
+                                     .Append("passwords")
+                                     .Append("preferences");
+  UserSelectableTypeSet types = ValueListToUserSelectableTypeSet(value_list);
+  EXPECT_EQ(types, UserSelectableTypeSet({UserSelectableType::kBookmarks,
+                                          UserSelectableType::kPreferences,
+                                          UserSelectableType::kPasswords}));
 }
 
 }  // namespace

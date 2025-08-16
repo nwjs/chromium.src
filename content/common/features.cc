@@ -6,6 +6,7 @@
 
 #include "base/feature_list.h"
 #include "base/metrics/field_trial_params.h"
+#include "third_party/blink/public/common/features.h"
 
 namespace features {
 
@@ -175,6 +176,21 @@ BASE_FEATURE(kEnableDevToolsJsErrorReporting,
              base::FEATURE_DISABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
 
+// When enabled, enforces that same-document navigations must not change
+// the committed origin, insecure request policy, or insecure navigations set.
+// Any mismatch will result in a renderer kill via bad_message handling.
+//
+// This defends against renderer misbehavior and session history corruption,
+// and helps catch violations of same-document invariants.
+//
+// This feature acts as a kill switch for https://crbug.com/40580002.
+//
+// Note: This feature remains disabled if
+// blink::features::kTreatMhtmlInitialDocumentLoadsAsCrossDocument is disabled.
+BASE_FEATURE(kEnforceSameDocumentOriginInvariants,
+             "EnforceSameDocumentOriginInvariants",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // Content counterpart of ExperimentalContentSecurityPolicyFeatures in
 // third_party/blink/renderer/platform/runtime_enabled_features.json5. Enables
 // experimental Content Security Policy features ('navigate-to').
@@ -280,6 +296,14 @@ BASE_FEATURE(kRemoveRendererProcessLimit,
              "RemoveRendererProcessLimit",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
+// Purge PartitionAlloc's Scheduler-Loop quarantine when the UI thread is done
+// executing a task. This allow purging memory without scanning the stack. See:
+// https://crbug.com/329027914
+BASE_FEATURE(
+    kPartitionAllocSchedulerLoopQuarantineTaskObserverForBrowserUIThread,
+    "PartitionAllocSchedulerLoopQuarantineTaskObserverForBrowserUIThread",
+    base::FEATURE_DISABLED_BY_DEFAULT);
+
 // A feature flag for the memory-backed code cache.
 BASE_FEATURE(kInMemoryCodeCache,
              "InMemoryCodeCache",
@@ -299,6 +323,98 @@ BASE_FEATURE(kIOSurfaceCapturer,
              "IOSurfaceCapturer",
              base::FEATURE_ENABLED_BY_DEFAULT);
 #endif
+
+// When enabled, child process will not terminate itself when IPC is reset.
+BASE_FEATURE(kKeepChildProcessAfterIPCReset,
+             "KeepChildProcessAfterIPCReset",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Enables Local Network Access checks for all types of web workers.
+//
+// The exact checks run are the same as for other document subresources, and
+// depends on the state of the main Local Network Access feature flags
+//`kLocalNetworkAccessChecks`.
+BASE_FEATURE(kLocalNetworkAccessForWorkers,
+             "LocalNetworkAccessForWorkers",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+// Enables Local Network Access checks in warning mode for all types of web
+// workers.
+//
+// Does nothing if `kLocalNetworkAccessForWorkers` is disabled.
+//
+// If both this and `kLocalNetworkAccessChecksForWorkers` are enabled, then LNA
+// requests for workers do not require a permission, but simply display a
+// warning in DevTools.
+BASE_FEATURE(kLocalNetworkAccessForWorkersWarningOnly,
+             "LocalNetworkAccessForWorkersWarningOnly",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Enables Local Network Access checks for main frame navigations.
+//
+// The exact checks run are the same as for other document subresources, and
+// depends on the state of the main Local Network Access feature flags
+//`kLocalNetworkAccessChecks`.
+BASE_FEATURE(kLocalNetworkAccessForNavigations,
+             "LocalNetworkAccessForNavigations",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Enables Local Network Access checks in warning mode for main frame
+// navigations.
+//
+// Does nothing if `kLocalNetworkAccessForNavigations` is disabled.
+//
+// If both this and `kLocalNetworkAccessChecksForNavigations` are enabled, then
+// main frame navigations that qualify as LNA requests do not require a
+// permission, but simply display a warning in DevTools.
+BASE_FEATURE(kLocalNetworkAccessForNavigationsWarningOnly,
+             "LocalNetworkAccessForNavigationsWarningOnly",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Enables Local Network Access checks for subframe navigations.
+//
+// The exact checks run are the same as for other document subresources, and
+// depends on the state of the main Local Network Access feature flags
+//`kLocalNetworkAccessChecks`.
+BASE_FEATURE(kLocalNetworkAccessForSubframeNavigations,
+             "LocalNetworkAccessForSubframeNavigations",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+// Enables Local Network Access checks in warning mode for subframe navigations.
+//
+// Does nothing if `kLocalNetworkAccessForSubframeNavigations` is disabled.
+//
+// If both this and `kLocalNetworkAccessChecksForSubframeNavigations` are
+// enabled, then subframe navigations that qualify as LNA requests do not
+// require a permission, but simply display a warning in DevTools.
+BASE_FEATURE(kLocalNetworkAccessForSubframeNavigationsWarningOnly,
+             "LocalNetworkAccessForSubframeNavigationsWarningOnly",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Enables Local Network Access checks for subframe navigations.
+//
+// The same checks are run as for other document subresources, and depends on
+// the state of the main Local Network Access feature flags
+//`kLocalNetworkAccessChecks`, however when enabled these navigations are
+// blocked without triggering a permission prompt.
+//
+// See crbug.com/409303581 for more discussion of Fenced Frames and LNA.
+BASE_FEATURE(kLocalNetworkAccessForFencedFrameNavigations,
+             "LocalNetworkAccessForFencedFrameNavigations",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+// Enables Local Network Access checks in warning mode for fenced frame
+// navigations.
+//
+// Does nothing if `kLocalNetworkAccessForFencedFrameNavigations`
+// is disabled.
+//
+// If both this and `kLocalNetworkAccessChecksForFencedFrameNavigations` are
+// enabled, then fenced frame navigations that qualify as LNA requests are not
+// blocked, but simply display a warning in DevTools.
+BASE_FEATURE(kLocalNetworkAccessForFencedFrameNavigationsWarningOnly,
+             "LocalNetworkAccessForFencedFrameNavigationsWarningOnly",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // If this feature is enabled, media-device enumerations use a cache that is
 // invalidated upon notifications sent by base::SystemMonitor. If disabled, the
@@ -334,6 +450,18 @@ BASE_FEATURE_PARAM(size_t,
                    &kMultipleSpareRPHs,
                    "count",
                    1u);
+
+// When enabled, NavigationThrottleRegistry will cache attribute query results
+// for the next same query. See https://crbug.com/424460302.
+BASE_FEATURE(kNavigationThrottleRegistryAttributeCache,
+             "NavigationThrottleRegistryAttributeCache",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// When enabled, NavigationThrottleRunner2 is used instead of the original
+// NavigationThrottleRunner. See https://crbug.com/422003056.
+BASE_FEATURE(kNavigationThrottleRunner2,
+             "NavigationThrottleRunner2",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // This feature enables Permissions Policy verification in the Browser process
 // in content/. Additionally only for //chrome Permissions Policy verification
@@ -445,6 +573,15 @@ BASE_FEATURE(kReloadHiddenTabsWithCrashedSubframes,
 #endif
 );
 
+// ReloadHiddenTabsWithCrashedSubframes feature reloads the WebContents
+// regardless of the crashed frame's state. This feature restricts the reload
+// to only happen for active subframes.
+// This is a bug fix but being launched as a feature to see the impact.
+// This will be removed once this is launched.
+BASE_FEATURE(kReloadHiddenTabsWithActiveCrashedSubframes,
+             "ReloadHiddenTabsWithActiveCrashedSubframes",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 #if BUILDFLAG(IS_ANDROID)
 // If enabled, then orientation lock won't claim to work on anything but phone
 // form factors.  Tablets already do unpredictable things, such as letterboxing
@@ -509,11 +646,13 @@ BASE_FEATURE(kSkipEarlyCommitPendingForCrashedFrame,
              "SkipEarlyCommitPendingForCrashedFrame",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-#if BUILDFLAG(IS_WIN)
-// Skip granting access to the data path if it has already been set.
-BASE_FEATURE(kSkipGrantAccessToDataPathIfAlreadySet,
-             "SkipGrantAccessToDataPathIfAlreadySet",
-             base::FEATURE_ENABLED_BY_DEFAULT);
+#if BUILDFLAG(IS_ANDROID)
+// When enabled, ensure high-rank processes are on the LRU list while app is in
+// background or the effective binding state is in conflict with low rank
+// processes.
+BASE_FEATURE(kStrictHighRankProcessLRU,
+             "StrictHighRankProcessLRU",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 #endif
 
 #if BUILDFLAG(IS_MAC)
@@ -540,6 +679,16 @@ BASE_FEATURE(kTrustedTypesFromLiteral,
              "TrustedTypesFromLiteral",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+// Optimize DirectManipulationHelper by updating its event handler when the
+// window parent changes instead of tearing down and recreating the whole
+// helper. This is a temporary flag to test the performance impact of the
+// optimization.
+#if BUILDFLAG(IS_WIN)
+BASE_FEATURE(kUpdateDirectManipulationHelperOnParentChange,
+             "UpdateDirectManipulationHelperOnParentChange",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+#endif
+
 // Validate the code signing identity of the network process before establishing
 // a Mojo connection with it.
 #if BUILDFLAG(IS_MAC)
@@ -563,7 +712,12 @@ BASE_FEATURE(kWebAssemblyDynamicTiering,
 // Enables in-process resource loading for WebUI renderer processes.
 BASE_FEATURE(kWebUIInProcessResourceLoading,
              "WebUIInProcessResourceLoading",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+#if BUILDFLAG(IS_ANDROID)
+             base::FEATURE_DISABLED_BY_DEFAULT
+#else
+             base::FEATURE_ENABLED_BY_DEFAULT
+#endif
+);
 
 // Enables WebOTP calls in cross-origin iframes if allowed by Permissions
 // Policy.
@@ -582,5 +736,11 @@ BASE_FEATURE(kDisallowRasterInterfaceWithoutSkiaBackend,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Please keep features in alphabetical order.
+
+bool IsEnforceSameDocumentOriginInvariantsEnabled() {
+  return base::FeatureList::IsEnabled(kEnforceSameDocumentOriginInvariants) &&
+         base::FeatureList::IsEnabled(
+             blink::features::kTreatMhtmlInitialDocumentLoadsAsCrossDocument);
+}
 
 }  // namespace features

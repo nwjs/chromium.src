@@ -195,6 +195,10 @@ public final class ChromePreferenceKeys {
     public static final String CONTEXT_MENU_SHOP_IMAGE_WITH_GOOGLE_LENS_CLICKED =
             "Chrome.ContextMenu.ShopImageWithGoogleLensClicked";
 
+    /** The Uri of the NTP's background image. */
+    public static final String NTP_CUSTOMIZATION_BACKGROUND_IMAGE_TYPE =
+            "Chrome.NtpCustomization.NtpBackgroundImageType";
+
     public static final String CRASH_UPLOAD_FAILURE_BROWSER = "browser_crash_failure_upload";
     public static final String CRASH_UPLOAD_FAILURE_GPU = "gpu_crash_failure_upload";
     public static final String CRASH_UPLOAD_FAILURE_OTHER = "other_crash_failure_upload";
@@ -335,9 +339,12 @@ public final class ChromePreferenceKeys {
     public static final String HOMEPAGE_IS_NEW_TAB_PAGE_POLICY_VALUE =
             "Chrome.Policy.HomepageIsNewTabPageValue";
 
-    public static final String SHOW_HOME_BUTTON_POLICY_MANAGED =
-            "Chrome.Policy.ShowHomeButtonManaged";
-    public static final String SHOW_HOME_BUTTON_POLICY_VALUE = "Chrome.Policy.ShowHomeButtonValue";
+    /**
+     * Stores the state of the ShowHomeButton policy.
+     *
+     * @see org.chromium.components.browser_ui.settings.ManagedPreferencesUtils.BooleanPolicyState
+     */
+    public static final String SHOW_HOME_BUTTON_POLICY_STATE = "Chrome.Policy.ShowHomeButtonState";
 
     /** Used for get image descriptions feature, track "Just once"/"Don't ask again" choice. */
     public static final String IMAGE_DESCRIPTIONS_JUST_ONCE_COUNT =
@@ -705,6 +712,8 @@ public final class ChromePreferenceKeys {
      */
     public static final String PWA_RESTORE_PROMO_STAGE = "Chrome.PwaRestore.PromoStage";
 
+    public static final String IS_MVT_VISIBLE = "Chrome.NtpCustomization.IsMvtVisible";
+
     public static final String IS_LAST_VISITED_TAB_SRP = "Chrome.StartSurface.IsLastVisitedTabSRP";
 
     /** Key used to store user actions for collapsing search resumption module on NTP. */
@@ -1021,6 +1030,7 @@ public final class ChromePreferenceKeys {
                 CONTEXT_MENU_OPEN_IN_EPHEMERAL_TAB_CLICKED,
                 CONTEXT_MENU_SEARCH_WITH_GOOGLE_LENS_CLICKED,
                 CONTEXT_MENU_SHOP_IMAGE_WITH_GOOGLE_LENS_CLICKED,
+                NTP_CUSTOMIZATION_BACKGROUND_IMAGE_TYPE,
                 CUSTOM_TABS_LAST_CLIENT_PACKAGE,
                 CUSTOM_TABS_LAST_CLOSE_TAB_INTERACTION,
                 CUSTOM_TABS_LAST_CLOSE_TIMESTAMP,
@@ -1062,6 +1072,7 @@ public final class ChromePreferenceKeys {
                 IS_EEA_CHOICE_COUNTRY,
                 IS_LAST_VISITED_TAB_SRP,
                 IS_DSE_GOOGLE,
+                IS_MVT_VISIBLE,
                 LAST_SESSION_BROWSER_PID,
                 LAST_SESSION_APPLICATION_STATE,
                 LOCALE_MANAGER_PROMO_V3_CHECKED,
@@ -1127,8 +1138,7 @@ public final class ChromePreferenceKeys {
                 SETTINGS_SAFETY_CHECK_RUN_COUNTER,
                 SHARING_LAST_SHARED_COMPONENT_NAME,
                 SHARING_TABS_WITH_OS,
-                SHOW_HOME_BUTTON_POLICY_MANAGED,
-                SHOW_HOME_BUTTON_POLICY_VALUE,
+                SHOW_HOME_BUTTON_POLICY_STATE,
                 SYNC_PROMO_SHOW_COUNT.pattern(),
                 SIGNIN_PROMO_NEXT_SHOW_TIME,
                 SIGNIN_PROMO_HISTORY_PAGE_DECLINED,

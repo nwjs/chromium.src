@@ -8,8 +8,10 @@ import android.content.Context;
 import android.content.res.ColorStateList;
 
 import androidx.annotation.ColorInt;
+import androidx.annotation.ColorRes;
 import androidx.appcompat.content.res.AppCompatResources;
 import androidx.core.content.ContextCompat;
+import androidx.core.graphics.ColorUtils;
 
 import com.google.android.material.color.MaterialColors;
 
@@ -39,6 +41,19 @@ public class TabCardThemeUtil {
     public static @ColorInt int getChromeOwnedFaviconTintColor(
             Context context, boolean isIncognito, boolean isSelected) {
         return getTitleTextColor(context, isIncognito, isSelected, null);
+    }
+
+    /**
+     * Returns the ColorStateList for media indicator based on the incognito mode or selected.
+     *
+     * @param context {@link Context} used to retrieve color.
+     * @param isIncognito Whether the color is used for incognito mode.
+     * @param isSelected Whether the tab is currently selected.
+     */
+    public static ColorStateList getMediaIndicatorColorStateList(
+            Context context, boolean isIncognito, boolean isSelected) {
+        return ColorStateList.valueOf(
+                getChromeOwnedFaviconTintColor(context, isIncognito, isSelected));
     }
 
     /**
@@ -116,6 +131,31 @@ public class TabCardThemeUtil {
             return SurfaceColorUpdateUtils.getCardViewBackgroundColor(
                     context, isIncognito, colorId);
         }
+    }
+
+    /**
+     * Returns the color to use for the tab grid card hover view background.
+     *
+     * @param context {@link Context} used to retrieve color.
+     * @param backgroundColor current background color of a tab.
+     * @return The {@link ColorInt} for tab grid card view background.
+     */
+    public static ColorStateList getCardViewBackgroundColorStateList(
+            Context context, boolean isIncognito, @ColorInt int backgroundColor) {
+        @ColorRes
+        int overlayColorRes =
+                isIncognito
+                        ? R.color.incognito_tab_card_hover_color_overlay
+                        : R.color.color_primary_with_alpha_16;
+
+        // Calculate the final hovered color by blending the overlay with the base color.
+        @ColorInt
+        int hoverColor =
+                ColorUtils.compositeColors(context.getColor(overlayColorRes), backgroundColor);
+
+        return new ColorStateList(
+                new int[][] {new int[] {android.R.attr.state_hovered}, new int[] {}},
+                new int[] {hoverColor, backgroundColor});
     }
 
     /**

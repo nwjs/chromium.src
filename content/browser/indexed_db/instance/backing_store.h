@@ -9,6 +9,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "base/types/expected.h"
@@ -69,8 +70,10 @@ class BackingStore {
     // Memory-cached metadata for this database.
     virtual const blink::IndexedDBDatabaseMetadata& GetMetadata() = 0;
 
-    // Generates a lock ID for the given object store.
-    virtual PartitionedLockId GetLockId(int64_t object_store_id) const = 0;
+    // Generates the lock ID key for the given object store. Not called on
+    // SQLite backing stores.
+    virtual std::string GetObjectStoreLockIdKey(
+        int64_t object_store_id) const = 0;
 
     // Creates a transaction on this database.
     virtual std::unique_ptr<Transaction> CreateTransaction(
@@ -78,7 +81,9 @@ class BackingStore {
         blink::mojom::IDBTransactionMode mode) = 0;
 
     // Deletes the database from the backing store and resets metadata to a
-    // mostly uninitialized state.
+    // mostly uninitialized state. If the database does not exist, this should
+    // return Status::OK() and `on_complete` need not be called. (The LevelDB
+    // backing store does call it, which is harmless but unnecessary.)
     [[nodiscard]] virtual Status DeleteDatabase(
         std::vector<PartitionedLock> locks,
         base::OnceClosure on_complete) = 0;
@@ -213,24 +218,38 @@ class BackingStore {
     virtual StatusOr<bool> Continue(const blink::IndexedDBKey& key,
                                     const blink::IndexedDBKey& primary_key) = 0;
     virtual StatusOr<bool> Advance(uint32_t count) = 0;
-    // Clone may return a nullptr if cloning fails for any reason.
-    virtual std::unique_ptr<Cursor> Clone() const = 0;
+
+    // Saves the current position of the cursor.
+    virtual void SavePosition() = 0;
+    // Attempts to reset the cursor to the last saved position. The cursor
+    // may not be in a valid state if this returns false.
+    virtual bool TryResetToLastSavedPosition() = 0;
   };
 
   virtual ~BackingStore() = default;
 
-  // Get tasks to be run after a BackingStore no longer has any connections.
+  // The BucketContext deletes itself and the BackingStore when it has no
+  // database or blob connections active (after a short timeout). This method
+  // should return true if there are no connections and no blobs. Note that the
+  // LevelDB store just returns true because the BucketContext implements the
+  // logic for it. SQLite blobs are managed by the store itself, so this method
+  // is necessary.
+  // TODO(crbug.com/419203257): consider revisiting this logic since there's
+  // very little memory to be reclaimed by deleting the SQLite BackingStore.
+  virtual bool CanOpportunisticallyClose() const = 0;
+
   virtual void TearDown(base::WaitableEvent* signal_on_destruction) = 0;
   virtual void InvalidateBlobReferences() = 0;
+  // Get tasks to be run after a BackingStore no longer has any connections.
   virtual void StartPreCloseTasks(base::OnceClosure on_done) = 0;
   virtual void StopPreCloseTasks() = 0;
   // Gets the total size of blobs and the database for in-memory backing
   // stores.
   virtual int64_t GetInMemorySize() const = 0;
-  // Returns a list of names of existing databases, regardless of whether
-  // they're currently open.
-  [[nodiscard]] virtual StatusOr<std::vector<std::u16string>>
-  GetDatabaseNames() = 0;
+  // Returns true iff a database with the given name exists, whether or not it's
+  // currently open.
+  [[nodiscard]] virtual StatusOr<bool> DatabaseExists(
+      std::u16string_view name) = 0;
   // Returns a list of names of existing databases and their version numbers
   // (i.e. `IndexedDBDatabaseMetadata::version`), regardless of whether they're
   // currently open.

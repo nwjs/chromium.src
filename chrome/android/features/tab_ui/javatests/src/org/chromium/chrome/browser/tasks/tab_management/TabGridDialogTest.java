@@ -45,7 +45,6 @@ import static org.mockito.Mockito.when;
 
 import static org.chromium.chrome.browser.flags.ChromeFeatureList.DATA_SHARING;
 import static org.chromium.chrome.browser.flags.ChromeFeatureList.DATA_SHARING_JOIN_ONLY;
-import static org.chromium.chrome.browser.flags.ChromeFeatureList.NAV_BAR_COLOR_MATCHES_TAB_BACKGROUND;
 import static org.chromium.chrome.browser.flags.ChromeFeatureList.TAB_GROUP_PARITY_BOTTOM_SHEET_ANDROID;
 import static org.chromium.chrome.browser.ntp.HomeSurfaceTestUtils.createTabStatesAndMetadataFile;
 import static org.chromium.chrome.browser.ntp.HomeSurfaceTestUtils.createThumbnailBitmapAndWriteToFile;
@@ -182,7 +181,7 @@ import java.util.concurrent.TimeoutException;
 @ParameterAnnotations.UseRunnerDelegate(ChromeJUnit4RunnerDelegate.class)
 @CommandLineFlags.Add({ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE})
 @Restriction({Restriction.RESTRICTION_TYPE_NON_LOW_END_DEVICE})
-@DisableFeatures({NAV_BAR_COLOR_MATCHES_TAB_BACKGROUND, TAB_GROUP_PARITY_BOTTOM_SHEET_ANDROID})
+@DisableFeatures(TAB_GROUP_PARITY_BOTTOM_SHEET_ANDROID)
 @EnableFeatures({DATA_SHARING, DATA_SHARING_JOIN_ONLY})
 @Batch(Batch.PER_CLASS)
 public class TabGridDialogTest {
@@ -298,7 +297,10 @@ public class TabGridDialogTest {
 
         if (cta.getLayoutManager().isLayoutVisible(LayoutType.TAB_SWITCHER)
                 && !cta.getLayoutManager().isLayoutStartingToHide(LayoutType.TAB_SWITCHER)) {
-            if (cta.getTabModelSelectorSupplier().get().getTotalTabCount() == 0) {
+            int tabCount =
+                    ThreadUtils.runOnUiThreadBlocking(
+                            () -> cta.getTabModelSelectorSupplier().get().getTotalTabCount());
+            if (tabCount == 0) {
                 addBlankTabs(cta, false, 1);
                 LayoutTestUtils.waitForLayout(cta.getLayoutManager(), LayoutType.BROWSING);
             } else {
@@ -2268,7 +2270,7 @@ public class TabGridDialogTest {
                 .resultRobot
                 .verifyTabListEditorIsVisible()
                 .verifyToolbarSelectionTextWithResourceId(
-                        R.string.tab_selection_editor_toolbar_select_tabs)
+                        R.string.tab_selection_editor_toolbar_select_items)
                 .verifyAdapterHasItemCount(count);
     }
 

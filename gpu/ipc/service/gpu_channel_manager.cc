@@ -571,13 +571,6 @@ void GpuChannelManager::OnDiskCacheHandleDestoyed(
   }
 }
 
-void GpuChannelManager::DestroyGpuMemoryBuffer(gfx::GpuMemoryBufferId id,
-                                               int client_id) {
-  DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
-
-  gpu_memory_buffer_factory_->DestroyGpuMemoryBuffer(id, client_id);
-}
-
 void GpuChannelManager::PopulateCache(const gpu::GpuDiskCacheHandle& handle,
                                       const std::string& key,
                                       const std::string& data) {
@@ -971,6 +964,8 @@ scoped_refptr<SharedContextState> GpuChannelManager::GetSharedContextState(
                      context_lost_count_ + 1),
       gpu_preferences_.gr_context_type, vulkan_context_provider_,
       metal_context_provider_, dawn_context_provider_, peak_memory_monitor_,
+      /*direct_rendering_display_compositor_enabled=*/
+      features::IsDrDcEnabled(gpu_feature_info_),
       /*created_on_compositor_gpu_thread=*/false, gr_context_options_provider_);
 
   // Initialize GL context, so Vulkan and GL interop can work properly.

@@ -3,27 +3,29 @@
 # found in the LICENSE file.
 """Definitions of builders in the chromium.fyi builder group."""
 
-load("//lib/branches.star", "branches")
-load("//lib/builder_config.star", "builder_config")
-load("//lib/builder_health_indicators.star", "health_spec")
-load("//lib/builders.star", "cpu", "os", "siso")
-load("//lib/ci.star", "ci")
-load("//lib/consoles.star", "consoles")
-load("//lib/gn_args.star", "gn_args")
-load("//lib/html.star", "linkify")
-load("//lib/targets.star", "targets")
+load("@chromium-luci//branches.star", "branches")
+load("@chromium-luci//builder_config.star", "builder_config")
+load("@chromium-luci//builder_health_indicators.star", "health_spec")
+load("@chromium-luci//builders.star", "cpu", "os")
+load("@chromium-luci//ci.star", "ci")
+load("@chromium-luci//consoles.star", "consoles")
+load("@chromium-luci//gn_args.star", "gn_args")
+load("@chromium-luci//html.star", "linkify")
+load("@chromium-luci//targets.star", "targets")
+load("//lib/ci_constants.star", "ci_constants")
+load("//lib/siso.star", "siso")
 load("//lib/xcode.star", "xcode")
 
 ci.defaults.set(
-    executable = ci.DEFAULT_EXECUTABLE,
+    executable = ci_constants.DEFAULT_EXECUTABLE,
     builder_group = "chromium.fyi",
-    pool = ci.DEFAULT_POOL,
+    pool = ci_constants.DEFAULT_POOL,
     cores = 8,
     execution_timeout = 10 * time.hour,
-    health_spec = health_spec.DEFAULT,
-    priority = ci.DEFAULT_FYI_PRIORITY,
-    service_account = ci.DEFAULT_SERVICE_ACCOUNT,
-    shadow_service_account = ci.DEFAULT_SHADOW_SERVICE_ACCOUNT,
+    health_spec = health_spec.default(),
+    priority = ci_constants.DEFAULT_FYI_PRIORITY,
+    service_account = ci_constants.DEFAULT_SERVICE_ACCOUNT,
+    shadow_service_account = ci_constants.DEFAULT_SHADOW_SERVICE_ACCOUNT,
     siso_project = siso.project.DEFAULT_TRUSTED,
     siso_remote_jobs = siso.remote_jobs.DEFAULT,
 )
@@ -296,6 +298,9 @@ ci.builder(
             target_bits = 64,
             target_platform = builder_config.target_platform.CHROMEOS,
         ),
+    ),
+    builder_config_settings = builder_config.ci_settings(
+        retry_failed_shards = True,
     ),
     gn_args = gn_args.config(
         configs = [
@@ -1617,9 +1622,25 @@ fyi_ios_builder(
         ],
     ),
     targets = targets.bundle(
+        targets = [
+            "tvos_rel_tests",
+        ],
         additional_compile_targets = [
+            "base_unittests",
             "content_shell",
+            "components_browsertests",
+            "components_unittests",
             "content_unittests",
+            "media_unittests",
+        ],
+        mixins = [
+            "expand-as-isolated-script",
+            "has_native_resultdb_integration",
+            "mac_default_arm64",
+            "mac_toolchain",
+            "out_dir_arg",
+            "xcode_16_beta",
+            "xctest",
         ],
     ),
     builderless = True,
@@ -1630,7 +1651,7 @@ fyi_ios_builder(
     ),
     contact_team_email = "cobalt-appletv@google.com",
     execution_timeout = 3 * time.hour,
-    xcode = xcode.xcode_default,
+    xcode = xcode.x16betabots,
 )
 
 fyi_ios_builder(
@@ -1827,7 +1848,7 @@ fyi_ios_builder(
         mixins = [
             "expand-as-isolated-script",
             "has_native_resultdb_integration",
-            "mac_15_arm64",
+            "mac_15_beta_arm64",
             "mac_toolchain",
             "out_dir_arg",
             "xcode_26_beta",
@@ -1941,7 +1962,7 @@ fyi_ios_builder(
         mixins = [
             "expand-as-isolated-script",
             "has_native_resultdb_integration",
-            "mac_15_arm64",
+            "mac_15_beta_arm64",
             "mac_toolchain",
             "out_dir_arg",
             "xcode_26_beta",
@@ -2002,10 +2023,10 @@ fyi_ios_builder(
         mixins = [
             "expand-as-isolated-script",
             "has_native_resultdb_integration",
-            "mac_15_arm64",
+            "mac_15_beta_arm64",
             "mac_toolchain",
             "out_dir_arg",
-            "xcode_16_beta",
+            "xcode_26_beta",
             "xctest",
         ],
     ),
@@ -2015,7 +2036,7 @@ fyi_ios_builder(
         category = "iOS|iOS18",
         short_name = "sdk18",
     ),
-    xcode = xcode.x16betabots,
+    xcode = xcode.x26betabots,
 )
 
 fyi_mac_builder(

@@ -340,10 +340,20 @@ declare_args() {
 }
 
 declare_args() {
-  # Shadow metadata is still under development and only supports Linux
-  # for now.
-  enable_shadow_metadata = is_linux && has_64_bit_pointers
+  # Because of address space issue, this feature cannot be enabled on
+  # 32bit OS and iOS, i.e. has_64_bit_pointers && !is_ios
+  move_metadata_outside_gigacage = false && has_64_bit_pointers && !is_ios
 }
+
+declare_args() {
+  enable_move_metadata_outside_gigacage_trial =
+      false && move_metadata_outside_gigacage
+}
+
+assert(!enable_move_metadata_outside_gigacage_trial ||
+           move_metadata_outside_gigacage,
+       "Can't enable PartitionAllocExternalMetadata synthetic trial " +
+           "without move_metadata_outside_gigacage=true.")
 
 declare_args() {
   # Use full MTE protection available by changing the feature flag default

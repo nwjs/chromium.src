@@ -53,6 +53,14 @@
   // NO-OP
 }
 
+- (void)setHUDViewHidden:(BOOL)hidden {
+  // NO-OP
+}
+
+- (void)setGuidanceViewHidden:(BOOL)hidden {
+  // NO-OP
+}
+
 - (void)disableFlyoutMenu:(BOOL)disable {
   // NO-OP
 }
@@ -70,6 +78,10 @@
 }
 
 - (void)requestShowOverflowMenuTooltip {
+  // NO-OP
+}
+
+- (void)updateGuidanceViewVisibility:(BOOL)visible animated:(BOOL)animated {
   // NO-OP
 }
 

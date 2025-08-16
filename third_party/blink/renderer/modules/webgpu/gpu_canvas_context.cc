@@ -4,6 +4,7 @@
 
 #include "third_party/blink/renderer/modules/webgpu/gpu_canvas_context.h"
 
+#include "base/metrics/histogram_functions.h"
 #include "components/viz/common/resources/shared_image_format_utils.h"
 #include "gpu/command_buffer/client/raster_interface.h"
 #include "gpu/config/gpu_finch_features.h"
@@ -27,6 +28,7 @@
 #include "third_party/blink/renderer/modules/webgpu/gpu_texture.h"
 #include "third_party/blink/renderer/platform/bindings/exception_state.h"
 #include "third_party/blink/renderer/platform/graphics/accelerated_static_bitmap_image.h"
+#include "third_party/blink/renderer/platform/graphics/canvas_resource.h"
 #include "third_party/blink/renderer/platform/graphics/canvas_resource_provider.h"
 #include "third_party/blink/renderer/platform/graphics/gpu/shared_gpu_context.h"
 #include "third_party/blink/renderer/platform/graphics/gpu/webgpu_mailbox_texture.h"
@@ -127,12 +129,6 @@ gfx::ColorSpace GPUCanvasContext::GetColorSpace() const {
   return PredefinedColorSpaceToGfxColorSpace(color_space_);
 }
 
-bool GPUCanvasContext::IsAccelerated() const {
-  auto* resource_provider = Host()->GetResourceProviderForWebGPU();
-  return resource_provider ? resource_provider->IsAccelerated()
-                           : Host()->ShouldTryToUseGpuRaster();
-}
-
 void GPUCanvasContext::Stop() {
   ReplaceDrawingBuffer(/*destroy_swap_buffers*/ true);
   stopped_ = true;
@@ -168,6 +164,11 @@ void GPUCanvasContext::Reshape(int width, int height) {
   Host()->SetNeedsCompositingUpdate();
 }
 
+void GPUCanvasContext::Dispose() {
+  resource_provider_.reset();
+  CanvasRenderingContext::Dispose();
+}
+
 scoped_refptr<StaticBitmapImage> GPUCanvasContext::GetImage(FlushReason) {
   if (!swap_buffers_) {
     return nullptr;
@@ -194,19 +195,44 @@ scoped_refptr<StaticBitmapImage> GPUCanvasContext::GetImage(FlushReason) {
   return SnapshotInternal(front_buffer_texture->GetTexture());
 }
 
+CanvasResourceProvider* GPUCanvasContext::GetOrCreateCanvasResourceProvider() {
+  auto* provider = resource_provider_.get();
+  if (!provider && !did_fail_to_create_resource_provider_) {
+    if (Host()->IsValidImageSize()) {
+      if (SharedGpuContext::IsGpuCompositingEnabled()) {
+        resource_provider_ = CanvasResourceProvider::CreateWebGPUImageProvider(
+            Host()->Size(), GetSharedImageFormat(), GetAlphaType(),
+            GetColorSpace(), gpu::SharedImageUsageSet(), Host());
+      }
+      Host()->UpdateMemoryUsage();
+      provider = resource_provider_.get();
+    }
+    if (!provider) {
+      did_fail_to_create_resource_provider_ = true;
+    } else if (provider->IsValid()) {
+      base::UmaHistogramBoolean("Blink.Canvas.ResourceProviderIsAccelerated",
+                                provider->IsAccelerated());
+      base::UmaHistogramEnumeration("Blink.Canvas.ResourceProviderType",
+                                    provider->GetType());
+    }
+  }
+  return provider;
+}
+
 CanvasResourceProvider* GPUCanvasContext::PaintRenderingResultsToCanvas(
     SourceDrawingBuffer source_buffer) {
   if (!swap_buffers_) {
-    return Host()->GetResourceProviderForWebGPU();
+    return resource_provider_.get();
   }
 
-  if (Host()->GetResourceProviderForWebGPU() &&
-      Host()->GetResourceProviderForWebGPU()->Size() != swap_buffers_->Size()) {
+  if (resource_provider_.get() &&
+      resource_provider_.get()->Size() != swap_buffers_->Size()) {
+    resource_provider_.reset();
     Host()->DiscardResources();
   }
 
   CanvasResourceProvider* resource_provider =
-      Host()->GetOrCreateCanvasResourceProviderForWebGPU();
+      GetOrCreateCanvasResourceProvider();
   if (!resource_provider) {
     return nullptr;
   }
@@ -273,6 +299,11 @@ bool GPUCanvasContext::CopyRenderingResultsToVideoFrame(
                                          dst_color_space, std::move(callback));
 }
 
+void GPUCanvasContext::SizeChanged() {
+  did_fail_to_create_resource_provider_ = false;
+  resource_provider_.reset();
+}
+
 bool GPUCanvasContext::PushFrame() {
   DCHECK(Host());
   DCHECK(Host()->IsOffscreenCanvas());
@@ -293,8 +324,7 @@ bool GPUCanvasContext::PushFrame() {
       std::move(client_si), sync_token,
       viz::TransferableResource::ResourceSource::kWebGPUSwapBuffer,
       swap_buffers_->GetHDRMetadata(), std::move(release_callback),
-      GetContextProviderWeakPtr(),
-      /*resource_provider=*/nullptr);
+      GetContextProviderWeakPtr());
   if (!canvas_resource)
     return false;
 
@@ -333,15 +363,11 @@ ImageBitmap* GPUCanvasContext::TransferToImageBitmap(
   }
   DCHECK(release_callback);
 
-  auto format = client_si->format();
-  auto size = client_si->size();
-
   return MakeGarbageCollected<ImageBitmap>(
       AcceleratedStaticBitmapImage::CreateFromCanvasSharedImage(
           std::move(client_si), sk_image_sync_token,
-          /* shared_image_texture_id = */ 0, size, format, kPremul_SkAlphaType,
-          gfx::ColorSpace::CreateSRGB(), GetContextProviderWeakPtr(),
-          base::PlatformThread::CurrentRef(),
+          /*shared_image_texture_id=*/0, kPremul_SkAlphaType,
+          GetContextProviderWeakPtr(), base::PlatformThread::CurrentRef(),
           ThreadScheduler::Current()->CleanupTaskRunner(),
           std::move(release_callback)));
 }

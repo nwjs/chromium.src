@@ -93,7 +93,9 @@ import org.chromium.chrome.browser.settings.SettingsActivity;
 import org.chromium.chrome.browser.settings.SettingsActivityTestRule;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
-import org.chromium.chrome.test.ChromeTabbedActivityTestRule;
+import org.chromium.chrome.test.transit.ChromeTransitTestRules;
+import org.chromium.chrome.test.transit.FreshCtaTransitTestRule;
+import org.chromium.chrome.test.transit.page.WebPageStation;
 import org.chromium.chrome.test.util.ActivityTestUtils;
 import org.chromium.chrome.test.util.ChromeRenderTestRule;
 import org.chromium.chrome.test.util.browser.signin.SigninTestRule;
@@ -185,7 +187,8 @@ public final class SafetyHubTest {
                     .build();
 
     @Rule
-    public ChromeTabbedActivityTestRule mActivityTestRule = new ChromeTabbedActivityTestRule();
+    public FreshCtaTransitTestRule mActivityTestRule =
+            ChromeTransitTestRules.freshChromeTabbedActivityRule();
 
     @Rule public final SigninTestRule mSigninTestRule = new SigninTestRule();
 
@@ -195,6 +198,7 @@ public final class SafetyHubTest {
     private final FakeNotificationPermissionReviewBridge mNotificationPermissionReviewBridge =
             new FakeNotificationPermissionReviewBridge();
 
+    private WebPageStation mPage;
     private Profile mProfile;
 
     private void executeWhileCapturingIntents(Runnable func) {
@@ -223,7 +227,7 @@ public final class SafetyHubTest {
         NotificationPermissionReviewBridgeJni.setInstanceForTesting(
                 mNotificationPermissionReviewBridge);
 
-        mActivityTestRule.startMainActivityOnBlankPage();
+        mPage = mActivityTestRule.startOnBlankPage();
         mProfile = mActivityTestRule.getProfile(/* incognito= */ false);
 
         // Reset state to the default of the compromised passwords count and the browsing data
@@ -644,7 +648,6 @@ public final class SafetyHubTest {
         onView(withText(safeBrowsingTitle)).check(matches(isDisplayed()));
 
         // Module should be collapsed initially since it's in a safe state.
-        verifyButtonsNextToTextVisibility(safeBrowsingTitle, false);
         verifySummaryNextToTextVisibility(safeBrowsingTitle, false);
 
         // Expand the module to show the buttons.
@@ -715,17 +718,14 @@ public final class SafetyHubTest {
         onView(withText(safeBrowsingTitle)).check(matches(isDisplayed()));
 
         // The module should be expanded in it's initial state.
-        verifyButtonsNextToTextVisibility(safeBrowsingTitle, true);
         verifySummaryNextToTextVisibility(safeBrowsingTitle, true);
 
         // Click on collapse button.
         expandPreferenceWithText(safeBrowsingTitle);
-        verifyButtonsNextToTextVisibility(safeBrowsingTitle, false);
         verifySummaryNextToTextVisibility(safeBrowsingTitle, false);
 
         // Click on expand button.
         expandPreferenceWithText(safeBrowsingTitle);
-        verifyButtonsNextToTextVisibility(safeBrowsingTitle, true);
         verifySummaryNextToTextVisibility(safeBrowsingTitle, true);
 
         // Reset Safe Browsing state so it doesn't leak to other tests.
@@ -769,7 +769,7 @@ public final class SafetyHubTest {
         String safeBrowsingTitle =
                 safetyHubFragment.getString(R.string.prefs_safe_browsing_no_protection_summary);
         scrollToPreference(withText(safeBrowsingTitle));
-        verifyButtonsNextToTextVisibility(safeBrowsingTitle, false);
+        verifySummaryNextToTextVisibility(safeBrowsingTitle, false);
 
         String notificationsTitle =
                 safetyHubFragment
@@ -792,7 +792,7 @@ public final class SafetyHubTest {
 
         // Verify info modules are now expanded.
         scrollToExpandedPreference(safeBrowsingTitle);
-        verifyButtonsNextToTextVisibility(safeBrowsingTitle, true);
+        verifySummaryNextToTextVisibility(safeBrowsingTitle, true);
 
         scrollToExpandedPreference(notificationsTitle);
         verifyButtonsNextToTextVisibility(notificationsTitle, true);
@@ -832,7 +832,7 @@ public final class SafetyHubTest {
         String safeBrowsingTitle =
                 safetyHubFragment.getString(R.string.prefs_safe_browsing_no_protection_summary);
         scrollToPreference(withText(safeBrowsingTitle));
-        verifyButtonsNextToTextVisibility(safeBrowsingTitle, true);
+        verifySummaryNextToTextVisibility(safeBrowsingTitle, true);
 
         // Make the password module state be warning.
         int compromisedPasswordsCount = 5;
@@ -853,7 +853,7 @@ public final class SafetyHubTest {
 
         // Verify that the other module in the information state is now collapsed.
         scrollToPreference(withText(safeBrowsingTitle));
-        verifyButtonsNextToTextVisibility(safeBrowsingTitle, false);
+        verifySummaryNextToTextVisibility(safeBrowsingTitle, false);
 
         // Make sure the compromised passwords count is reset at the end of the test.
         clearAccountCompromisedPasswordsCount();
@@ -885,7 +885,7 @@ public final class SafetyHubTest {
         String safeBrowsingTitle =
                 safetyHubFragment.getString(R.string.prefs_safe_browsing_no_protection_summary);
         scrollToPreference(withText(safeBrowsingTitle));
-        verifyButtonsNextToTextVisibility(safeBrowsingTitle, true);
+        verifySummaryNextToTextVisibility(safeBrowsingTitle, true);
 
         // Set weak and reused passwords to unavailable.
         setAccountWeakPasswordsCount(-1);
@@ -898,11 +898,11 @@ public final class SafetyHubTest {
                 safetyHubFragment.getString(
                         R.string.safety_hub_account_password_check_unavailable_title);
         scrollToExpandedPreference(weakPasswordsTitle);
-        verifyButtonsNextToTextVisibility(weakPasswordsTitle, true);
+        verifySummaryNextToTextVisibility(weakPasswordsTitle, true);
 
         // Verify that the other module in the information state is still expanded.
         scrollToPreference(withText(safeBrowsingTitle));
-        verifyButtonsNextToTextVisibility(safeBrowsingTitle, true);
+        verifySummaryNextToTextVisibility(safeBrowsingTitle, true);
     }
 
     @Test
@@ -939,7 +939,7 @@ public final class SafetyHubTest {
         String safeBrowsingTitle =
                 safetyHubFragment.getString(R.string.prefs_safe_browsing_no_protection_summary);
         scrollToPreference(withText(safeBrowsingTitle));
-        verifyButtonsNextToTextVisibility(safeBrowsingTitle, true);
+        verifySummaryNextToTextVisibility(safeBrowsingTitle, true);
 
         // Set reused passwords to 0.
         setAccountReusedPasswordsCount(0);
@@ -959,7 +959,7 @@ public final class SafetyHubTest {
 
         // Verify that the other module in the information state is still expanded.
         scrollToPreference(withText(safeBrowsingTitle));
-        verifyButtonsNextToTextVisibility(safeBrowsingTitle, true);
+        verifySummaryNextToTextVisibility(safeBrowsingTitle, true);
     }
 
     @Test
@@ -992,7 +992,7 @@ public final class SafetyHubTest {
         String safeBrowsingTitle =
                 safetyHubFragment.getString(R.string.prefs_safe_browsing_no_protection_summary);
         scrollToPreference(withText(safeBrowsingTitle));
-        verifyButtonsNextToTextVisibility(safeBrowsingTitle, true);
+        verifySummaryNextToTextVisibility(safeBrowsingTitle, true);
     }
 
     @Test
@@ -1025,7 +1025,7 @@ public final class SafetyHubTest {
         String safeBrowsingTitle =
                 safetyHubFragment.getString(R.string.prefs_safe_browsing_no_protection_summary);
         scrollToPreference(withText(safeBrowsingTitle));
-        verifyButtonsNextToTextVisibility(safeBrowsingTitle, true);
+        verifySummaryNextToTextVisibility(safeBrowsingTitle, true);
 
         clearLocalCompromisedPasswordsCount();
         setLocalPasswordCheckTimestamp(0);
@@ -1054,7 +1054,7 @@ public final class SafetyHubTest {
         String safeBrowsingTitle =
                 safetyHubFragment.getString(R.string.prefs_safe_browsing_no_protection_summary);
         scrollToPreference(withText(safeBrowsingTitle));
-        verifyButtonsNextToTextVisibility(safeBrowsingTitle, true);
+        verifySummaryNextToTextVisibility(safeBrowsingTitle, true);
     }
 
     @Test
@@ -1093,7 +1093,7 @@ public final class SafetyHubTest {
         String safeBrowsingTitle =
                 safetyHubFragment.getString(R.string.prefs_safe_browsing_no_protection_summary);
         scrollToPreference(withText(safeBrowsingTitle));
-        verifyButtonsNextToTextVisibility(safeBrowsingTitle, false);
+        verifySummaryNextToTextVisibility(safeBrowsingTitle, false);
 
         clearLocalCompromisedPasswordsCount();
         setLocalPasswordCheckTimestamp(0);
@@ -1129,7 +1129,7 @@ public final class SafetyHubTest {
         String safeBrowsingTitle =
                 safetyHubFragment.getString(R.string.prefs_safe_browsing_no_protection_summary);
         scrollToPreference(withText(safeBrowsingTitle));
-        verifyButtonsNextToTextVisibility(safeBrowsingTitle, true);
+        verifySummaryNextToTextVisibility(safeBrowsingTitle, true);
 
         clearLocalCompromisedPasswordsCount();
         setLocalPasswordCheckTimestamp(0);
@@ -1165,7 +1165,7 @@ public final class SafetyHubTest {
         String safeBrowsingTitle =
                 safetyHubFragment.getString(R.string.prefs_safe_browsing_no_protection_summary);
         scrollToPreference(withText(safeBrowsingTitle));
-        verifyButtonsNextToTextVisibility(safeBrowsingTitle, true);
+        verifySummaryNextToTextVisibility(safeBrowsingTitle, true);
 
         clearLocalCompromisedPasswordsCount();
         setLocalPasswordCheckTimestamp(0);
@@ -1202,7 +1202,7 @@ public final class SafetyHubTest {
         String safeBrowsingTitle =
                 safetyHubFragment.getString(R.string.prefs_safe_browsing_no_protection_summary);
         scrollToPreference(withText(safeBrowsingTitle));
-        verifyButtonsNextToTextVisibility(safeBrowsingTitle, true);
+        verifySummaryNextToTextVisibility(safeBrowsingTitle, true);
 
         clearLocalCompromisedPasswordsCount();
         setLocalPasswordCheckTimestamp(0);
@@ -1260,7 +1260,7 @@ public final class SafetyHubTest {
         String safeBrowsingTitle =
                 safetyHubFragment.getString(R.string.prefs_safe_browsing_no_protection_summary);
         scrollToPreference(withText(safeBrowsingTitle));
-        verifyButtonsNextToTextVisibility(safeBrowsingTitle, false);
+        verifySummaryNextToTextVisibility(safeBrowsingTitle, false);
 
         clearLocalCompromisedPasswordsCount();
         setLocalPasswordCheckTimestamp(0);
@@ -1310,7 +1310,7 @@ public final class SafetyHubTest {
         String safeBrowsingTitle =
                 safetyHubFragment.getString(R.string.prefs_safe_browsing_no_protection_summary);
         scrollToPreference(withText(safeBrowsingTitle));
-        verifyButtonsNextToTextVisibility(safeBrowsingTitle, false);
+        verifySummaryNextToTextVisibility(safeBrowsingTitle, false);
 
         clearLocalCompromisedPasswordsCount();
         setLocalPasswordCheckTimestamp(0);
@@ -1360,7 +1360,7 @@ public final class SafetyHubTest {
         String safeBrowsingTitle =
                 safetyHubFragment.getString(R.string.prefs_safe_browsing_no_protection_summary);
         scrollToPreference(withText(safeBrowsingTitle));
-        verifyButtonsNextToTextVisibility(safeBrowsingTitle, false);
+        verifySummaryNextToTextVisibility(safeBrowsingTitle, false);
 
         clearLocalCompromisedPasswordsCount();
         setLocalPasswordCheckTimestamp(0);
@@ -1404,7 +1404,7 @@ public final class SafetyHubTest {
         String safeBrowsingTitle =
                 safetyHubFragment.getString(R.string.prefs_safe_browsing_no_protection_summary);
         scrollToPreference(withText(safeBrowsingTitle));
-        verifyButtonsNextToTextVisibility(safeBrowsingTitle, true);
+        verifySummaryNextToTextVisibility(safeBrowsingTitle, true);
 
         clearLocalCompromisedPasswordsCount();
         setLocalPasswordCheckTimestamp(0);
@@ -1449,7 +1449,7 @@ public final class SafetyHubTest {
         String safeBrowsingTitle =
                 safetyHubFragment.getString(R.string.prefs_safe_browsing_no_protection_summary);
         scrollToPreference(withText(safeBrowsingTitle));
-        verifyButtonsNextToTextVisibility(safeBrowsingTitle, true);
+        verifySummaryNextToTextVisibility(safeBrowsingTitle, true);
 
         clearLocalCompromisedPasswordsCount();
         setLocalPasswordCheckTimestamp(0);
@@ -1493,7 +1493,7 @@ public final class SafetyHubTest {
         String safeBrowsingTitle =
                 safetyHubFragment.getString(R.string.prefs_safe_browsing_no_protection_summary);
         scrollToPreference(withText(safeBrowsingTitle));
-        verifyButtonsNextToTextVisibility(safeBrowsingTitle, true);
+        verifySummaryNextToTextVisibility(safeBrowsingTitle, true);
 
         clearLocalCompromisedPasswordsCount();
         setLocalPasswordCheckTimestamp(0);
@@ -1535,7 +1535,7 @@ public final class SafetyHubTest {
         String safeBrowsingTitle =
                 safetyHubFragment.getString(R.string.prefs_safe_browsing_no_protection_summary);
         scrollToPreference(withText(safeBrowsingTitle));
-        verifyButtonsNextToTextVisibility(safeBrowsingTitle, true);
+        verifySummaryNextToTextVisibility(safeBrowsingTitle, true);
 
         clearLocalCompromisedPasswordsCount();
         clearAccountCompromisedPasswordsCount();
@@ -1579,7 +1579,7 @@ public final class SafetyHubTest {
         String safeBrowsingTitle =
                 safetyHubFragment.getString(R.string.prefs_safe_browsing_no_protection_summary);
         scrollToPreference(withText(safeBrowsingTitle));
-        verifyButtonsNextToTextVisibility(safeBrowsingTitle, true);
+        verifySummaryNextToTextVisibility(safeBrowsingTitle, true);
 
         clearLocalCompromisedPasswordsCount();
         clearAccountCompromisedPasswordsCount();
@@ -1622,7 +1622,7 @@ public final class SafetyHubTest {
         String safeBrowsingTitle =
                 safetyHubFragment.getString(R.string.prefs_safe_browsing_no_protection_summary);
         scrollToPreference(withText(safeBrowsingTitle));
-        verifyButtonsNextToTextVisibility(safeBrowsingTitle, true);
+        verifySummaryNextToTextVisibility(safeBrowsingTitle, true);
 
         clearLocalCompromisedPasswordsCount();
         clearAccountCompromisedPasswordsCount();
@@ -1664,7 +1664,7 @@ public final class SafetyHubTest {
         String safeBrowsingTitle =
                 safetyHubFragment.getString(R.string.prefs_safe_browsing_no_protection_summary);
         scrollToPreference(withText(safeBrowsingTitle));
-        verifyButtonsNextToTextVisibility(safeBrowsingTitle, true);
+        verifySummaryNextToTextVisibility(safeBrowsingTitle, true);
 
         clearLocalCompromisedPasswordsCount();
         clearAccountCompromisedPasswordsCount();
@@ -1703,7 +1703,7 @@ public final class SafetyHubTest {
         String safeBrowsingTitle =
                 safetyHubFragment.getString(R.string.prefs_safe_browsing_no_protection_summary);
         scrollToPreference(withText(safeBrowsingTitle));
-        verifyButtonsNextToTextVisibility(safeBrowsingTitle, true);
+        verifySummaryNextToTextVisibility(safeBrowsingTitle, true);
 
         clearAccountCompromisedPasswordsCount();
         setLocalPasswordCheckTimestamp(0);
@@ -1742,7 +1742,7 @@ public final class SafetyHubTest {
         String safeBrowsingTitle =
                 safetyHubFragment.getString(R.string.prefs_safe_browsing_no_protection_summary);
         scrollToPreference(withText(safeBrowsingTitle));
-        verifyButtonsNextToTextVisibility(safeBrowsingTitle, true);
+        verifySummaryNextToTextVisibility(safeBrowsingTitle, true);
 
         clearLocalCompromisedPasswordsCount();
         clearAccountCompromisedPasswordsCount();
@@ -1783,7 +1783,7 @@ public final class SafetyHubTest {
         String safeBrowsingTitle =
                 safetyHubFragment.getString(R.string.prefs_safe_browsing_no_protection_summary);
         scrollToPreference(withText(safeBrowsingTitle));
-        verifyButtonsNextToTextVisibility(safeBrowsingTitle, true);
+        verifySummaryNextToTextVisibility(safeBrowsingTitle, true);
 
         clearLocalCompromisedPasswordsCount();
         setLocalPasswordCheckTimestamp(0);
@@ -1821,7 +1821,7 @@ public final class SafetyHubTest {
         String safeBrowsingTitle =
                 safetyHubFragment.getString(R.string.prefs_safe_browsing_no_protection_summary);
         scrollToPreference(withText(safeBrowsingTitle));
-        verifyButtonsNextToTextVisibility(safeBrowsingTitle, true);
+        verifySummaryNextToTextVisibility(safeBrowsingTitle, true);
     }
 
     @Test
@@ -1863,7 +1863,7 @@ public final class SafetyHubTest {
         String safeBrowsingTitle =
                 safetyHubFragment.getString(R.string.prefs_safe_browsing_no_protection_summary);
         scrollToPreference(withText(safeBrowsingTitle));
-        verifyButtonsNextToTextVisibility(safeBrowsingTitle, true);
+        verifySummaryNextToTextVisibility(safeBrowsingTitle, true);
 
         clearLocalCompromisedPasswordsCount();
         setLocalPasswordCheckTimestamp(0);

@@ -28,6 +28,7 @@ import androidx.core.graphics.drawable.DrawableCompat;
 import com.google.common.primitives.UnsignedLongs;
 
 import org.chromium.base.CallbackController;
+import org.chromium.base.DeviceInfo;
 import org.chromium.base.ResettersForTesting;
 import org.chromium.base.Token;
 import org.chromium.base.metrics.RecordHistogram;
@@ -35,7 +36,6 @@ import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.base.supplier.ObservableSupplier;
 import org.chromium.base.supplier.OneshotSupplier;
 import org.chromium.base.supplier.Supplier;
-import org.chromium.build.BuildConfig;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ActivityTabProvider;
 import org.chromium.chrome.browser.bookmarks.BookmarkModel;
@@ -102,10 +102,10 @@ public abstract class AppMenuPropertiesDelegateImpl implements AppMenuProperties
     protected final TabModelSelector mTabModelSelector;
     protected final ToolbarManager mToolbarManager;
     protected final View mDecorView;
+    protected final Supplier<ReadAloudController> mReadAloudControllerSupplier;
 
     private CallbackController mCallbackController = new CallbackController();
     private ObservableSupplier<BookmarkModel> mBookmarkModelSupplier;
-    private final Supplier<ReadAloudController> mReadAloudControllerSupplier;
     private @Nullable ModelList mModelList;
     private int mReadAloudPos;
     @Nullable protected Runnable mReadAloudAppMenuResetter;
@@ -518,13 +518,13 @@ public abstract class AppMenuPropertiesDelegateImpl implements AppMenuProperties
         return mBookmarkModelSupplier.get().hasBookmarkIdForTab(currentTab);
     }
 
-    @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
+    @VisibleForTesting
     public boolean instanceSwitcherWithMultiInstanceEnabled() {
         return MultiWindowUtils.instanceSwitcherEnabled()
                 && MultiWindowUtils.isMultiInstanceApi31Enabled();
     }
 
-    @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
+    @VisibleForTesting
     public boolean isTabletSizeScreen() {
         return mIsTablet;
     }
@@ -611,13 +611,12 @@ public abstract class AppMenuPropertiesDelegateImpl implements AppMenuProperties
     }
 
     /**
-     * @param currentTab Current tab being displayed. Returns whether the "Download page" menu item
-     *     should be displayed.
+     * Returns whether the "Download page" menu item should be displayed.
+     *
+     * @param currentTab Current tab being displayed.
      */
     protected boolean shouldShowDownloadPageMenuItem(Tab currentTab) {
-        return ChromeFeatureList.sHideTabletToolbarDownloadButton.isEnabled()
-                && isTabletSizeScreen()
-                && shouldEnableDownloadPage(currentTab);
+        return isTabletSizeScreen() && shouldEnableDownloadPage(currentTab);
     }
 
     /** Build the PropertyModel for the forward navigation action. */
@@ -859,12 +858,8 @@ public abstract class AppMenuPropertiesDelegateImpl implements AppMenuProperties
             if (profile == null) {
                 return false;
             }
-            // Return true if there is any identity error(for signed-in users) or sync error(for
-            // syncing users).
-            return SyncSettingsUtils.getIdentityError(profile)
-                            != SyncSettingsUtils.SyncError.NO_ERROR
-                    || SyncSettingsUtils.getSyncError(profile)
-                            != SyncSettingsUtils.SyncError.NO_ERROR;
+            // Return true if there is any error.
+            return SyncSettingsUtils.getSyncError(profile) != SyncSettingsUtils.SyncError.NO_ERROR;
         }
         return false;
     }
@@ -880,9 +875,7 @@ public abstract class AppMenuPropertiesDelegateImpl implements AppMenuProperties
             if (profile == null) {
                 return null;
             }
-            if (SyncSettingsUtils.getIdentityError(profile) != SyncSettingsUtils.SyncError.NO_ERROR
-                    || SyncSettingsUtils.getSyncError(profile)
-                            != SyncSettingsUtils.SyncError.NO_ERROR) {
+            if (SyncSettingsUtils.getSyncError(profile) != SyncSettingsUtils.SyncError.NO_ERROR) {
                 return mContext.getString(R.string.menu_settings_account_error);
             }
         }
@@ -942,35 +935,14 @@ public abstract class AppMenuPropertiesDelegateImpl implements AppMenuProperties
     public void onMenuDismissed() {}
 
     @Override
-    public int getFooterResourceId() {
-        return 0;
+    public @Nullable View buildFooterView(AppMenuHandler appMenuHandler) {
+        return null;
     }
 
     @Override
-    public int getHeaderResourceId() {
-        return 0;
+    public @Nullable View buildHeaderView() {
+        return null;
     }
-
-    @Override
-    public int getGroupDividerId() {
-        return R.id.divider_line_id;
-    }
-
-    @Override
-    public boolean shouldShowFooter(int maxMenuHeight) {
-        return true;
-    }
-
-    @Override
-    public boolean shouldShowHeader(int maxMenuHeight) {
-        return true;
-    }
-
-    @Override
-    public void onFooterViewInflated(AppMenuHandler appMenuHandler, View view) {}
-
-    @Override
-    public void onHeaderViewInflated(AppMenuHandler appMenuHandler, View view) {}
 
     @Override
     public boolean shouldShowIconBeforeItem() {
@@ -1109,7 +1081,7 @@ public abstract class AppMenuPropertiesDelegateImpl implements AppMenuProperties
                         && !shouldShowReaderModePrefs(currentTab)
                         && currentTab != null
                         && currentTab.getWebContents() != null
-                        && !BuildConfig.IS_DESKTOP_ANDROID;
+                        && !DeviceInfo.isDesktop();
 
         if (!itemVisible) return null;
 

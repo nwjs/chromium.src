@@ -42,7 +42,6 @@ if (is_android) {
   import("//build/android/test_wrapper/logdog_wrapper.gni")
   import("//build/config/android/config.gni")
   import("//build/config/android/create_unwind_table.gni")
-  import("//build/config/android/extract_unwind_tables.gni")
   import("//build/config/android/rules.gni")
   import("//build/config/sanitizers/sanitizers.gni")
 } else if (is_fuchsia) {
@@ -585,29 +584,16 @@ template("test") {
       # Adds the unwind tables from unstripped binary as an asset file in the
       # apk, if |add_unwind_tables_in_apk| is specified by the test.
       if (_add_unwind_tables_in_apk) {
-        # TODO(crbug.com/40833600): Remove generation of v1 unwind asset when
-        # `CFIBacktraceAndroid` is replaced with `ChromeUnwinderAndroid`.
-        _unwind_table_name = "${_library_target_name}_unwind_v1"
-        unwind_table_v1(_unwind_table_name) {
+        _unwind_table_v2_name = "${_library_target_name}_unwind_v2"
+        unwind_table_v2(_unwind_table_v2_name) {
           library_target = ":$_library_target_name"
-        }
-
-        if (use_android_unwinder_v2) {
-          _unwind_table_v2_name = "${_library_target_name}_unwind_v2"
-          unwind_table_v2(_unwind_table_v2_name) {
-            library_target = ":$_library_target_name"
-          }
         }
 
         _unwind_table_asset_name = "${target_name}__unwind_assets"
         android_assets(_unwind_table_asset_name) {
-          sources = [ "$target_out_dir/$_unwind_table_name/$unwind_table_asset_v1_filename" ]
           disable_compression = true
-          deps = [ ":$_unwind_table_name" ]
-          if (use_android_unwinder_v2) {
-            sources += [ "$target_out_dir/$_unwind_table_v2_name/$unwind_table_asset_v2_filename" ]
-            deps += [ ":$_unwind_table_v2_name" ]
-          }
+          sources = [ "$target_out_dir/$_unwind_table_v2_name/$unwind_table_asset_v2_filename" ]
+          deps = [ ":$_unwind_table_v2_name" ]
         }
       }
 
@@ -898,7 +884,6 @@ template("test") {
                                "data",
                                "data_deps",
                                "package_deps",
-                               "use_test_server",
                              ])
 
       is_test_exe = true
@@ -1092,7 +1077,7 @@ template("test") {
         data_deps += [ ":${invoker.target_name}__rts_filters" ]
       }
     }
-  } else if (!is_nacl) {
+  } else {
     if (is_mac || is_win) {
       assert(!defined(invoker.use_xvfb) || !invoker.use_xvfb)
     }
@@ -1163,29 +1148,6 @@ template("test") {
 
       write_runtime_deps = _runtime_deps_file
       deps += [ ":$_gen_runner_target" ]
-
-      if (!defined(data_deps)) {
-        data_deps = []
-      }
-
-      data_deps += [ "//testing:test_scripts_shared" ]
-      if (use_rts) {
-        data_deps += [ ":${invoker.target_name}__rts_filters" ]
-      }
-    }
-  } else {
-    # This is a catch-all clause for NaCl toolchains and other random
-    # configurations that might define tests; test() in these configs
-    # will just define the underlying executables.
-    assert(!defined(invoker.use_xvfb) || !invoker.use_xvfb,
-           "use_xvfb should not be defined for a non-linux configuration")
-    mixed_test(target_name) {
-      target_type = "executable"
-      forward_variables_from(invoker, "*", TESTONLY_AND_VISIBILITY)
-      forward_variables_from(invoker, [ "visibility" ])
-      if (!defined(deps)) {
-        deps = []
-      }
 
       if (!defined(data_deps)) {
         data_deps = []

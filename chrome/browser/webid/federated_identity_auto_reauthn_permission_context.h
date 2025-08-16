@@ -7,7 +7,7 @@
 
 #include "base/memory/raw_ptr.h"
 #include "components/keyed_service/core/keyed_service.h"
-#include "content/public/browser/federated_identity_auto_reauthn_permission_context_delegate.h"
+#include "content/public/browser/webid/federated_identity_auto_reauthn_permission_context_delegate.h"
 
 namespace password_manager {
 class PasswordManagerSettingsService;
@@ -69,7 +69,7 @@ class FederatedIdentityAutoReauthnPermissionContext
 
  private:
   const raw_ptr<HostContentSettingsMap> host_content_settings_map_;
-  const raw_ptr<permissions::PermissionDecisionAutoBlocker, DanglingUntriaged>
+  const raw_ptr<permissions::PermissionDecisionAutoBlocker>
       permission_autoblocker_;
 
   raw_ptr<password_manager::PasswordManagerSettingsService>

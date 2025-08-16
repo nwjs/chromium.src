@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import type {TabContextResult, TabData} from '/glic/glic_api/glic_api.js';
+import type {PinCandidate, Subscriber, TabContextResult, TabData} from '/glic/glic_api/glic_api.js';
 import {DEFAULT_PDF_SIZE_LIMIT} from '/glic/glic_api/glic_api.js';
 
 import {client, getBrowser, logMessage} from '../client.js';
@@ -21,6 +21,7 @@ interface PinnedTabStateUpdate {
 }
 
 let state: PinnedTabState[] = [];
+let pinCandidateSubscriber: Subscriber|undefined;
 
 function updateStateWithTabData(tabData: TabData[]) {
   state = state.filter((x) => {
@@ -80,8 +81,10 @@ async function fetchPinnedTabState(
   if (!tabState.tabData.isObservable && observableTabOnly) {
     return update;
   }
+
   try {
-    const viewportScreenshot = true;
+    const viewportScreenshot =
+        observableTabOnly || $.multiTabFetchScreenshot.checked;
     const annotatedPageContent = true;
     const pdfData = true;
     const pdfSizeLimit = DEFAULT_PDF_SIZE_LIMIT;
@@ -94,7 +97,9 @@ async function fetchPinnedTabState(
           pdfSizeLimit,
           maxMetaTags,
         });
+    logMessage(`Pinned tab context: ` + JSON.stringify(update));
   } catch (e: any) {
+    logMessage(`Failed to grab pinned tab context: ` + JSON.stringify(e));
     update.errorReason = e.message;
   }
   return update;
@@ -110,8 +115,8 @@ function updateUi() {
     const li = document.createElement('LI');
 
     // Favicon.
-    const favicon = document.createElement('IMG') as HTMLImageElement;
     if (tabState.tabData.favicon) {
+      const favicon = document.createElement('IMG') as HTMLImageElement;
       tabState.tabData.favicon().then((blob) => {
         if (blob) {
           favicon.src = URL.createObjectURL(blob);
@@ -168,10 +173,75 @@ function updateUi() {
   }
 }
 
+function clearCandidates() {
+  while ($.shareCandidates.childNodes.length > 0) {
+    $.shareCandidates.removeChild($.shareCandidates.firstChild!);
+  }
+}
+
+function replaceCandidates(candidates: PinCandidate[]) {
+  // Could be incremental; recreating for convenience.
+  clearCandidates();
+
+  for (const candidate of candidates) {
+    const li = document.createElement('LI');
+
+    // Favicon.
+    if (candidate.tabData.favicon) {
+      const favicon = document.createElement('IMG') as HTMLImageElement;
+      candidate.tabData.favicon().then((blob: Blob|undefined) => {
+        if (blob) {
+          favicon.src = URL.createObjectURL(blob);
+        }
+      });
+      favicon.classList.add('favicon');
+      li.appendChild(favicon);
+    }
+
+    // Favicon URL.
+    if (candidate.tabData.faviconUrl) {
+      const faviconUrl = document.createElement('IMG') as HTMLImageElement;
+      faviconUrl.src = candidate.tabData.faviconUrl;
+      faviconUrl.classList.add('favicon');
+      li.appendChild(faviconUrl);
+    }
+
+    // URL / Title.
+    const a = document.createElement('A') as HTMLAnchorElement;
+    a.href = candidate.tabData.url;
+    a.innerText = candidate.tabData.title || candidate.tabData.url;
+    li.appendChild(a);
+
+    // Share
+    const button = document.createElement('BUTTON') as HTMLButtonElement;
+    button.innerText = 'Share';
+    const clickHandler = async () => {
+      await getBrowser()!.pinTabs!([candidate.tabData.tabId]);
+      await fetchCandidates();
+    };
+    button.addEventListener('click', clickHandler);
+    li.appendChild(button);
+
+    $.shareCandidates.appendChild(li);
+  }
+}
+
+async function fetchCandidates() {
+  if (pinCandidateSubscriber) {
+    pinCandidateSubscriber.unsubscribe();
+  }
+  pinCandidateSubscriber = getBrowser()!
+                               .getPinCandidates!({
+                                 maxCandidates: 10,
+                                 query: $.shareCandidateQuery.value,
+                               })
+                               .subscribe(replaceCandidates);
+}
+
 client.getInitialized().then(async () => {
   logMessage('Detected client initialized');
 
-  const pinnedTabs = await getBrowser()!.getPinnedTabs!();
+  const pinnedTabs = await getBrowser()!.getPinnedTabs?.();
   if (!pinnedTabs) {
     logMessage('Feature is disabled, bailing');
     $.multiTabSection.style = 'display:none';
@@ -202,7 +272,7 @@ client.getInitialized().then(async () => {
     await updateUi();
     logMessage(`Pinned tabs (${tabData.length}) updated to:`);
     for (const tab of tabData) {
-      logMessage(tab.url);
+      logMessage(tab.url + ', observable: ' + tab.isObservable);
     }
   });
 
@@ -216,5 +286,21 @@ client.getInitialized().then(async () => {
       updateStateWithTabContextUpdate(update);
     }
     await updateUi();
+  });
+
+  $.shareCandidateQuery.addEventListener('focus', () => {
+    fetchCandidates();
+  });
+
+  $.shareCandidateQuery.addEventListener('blur', () => {
+    if (pinCandidateSubscriber) {
+      pinCandidateSubscriber.unsubscribe();
+      pinCandidateSubscriber = undefined;
+    }
+    clearCandidates();
+  });
+
+  $.shareCandidateQuery.addEventListener('input', () => {
+    fetchCandidates();
   });
 });

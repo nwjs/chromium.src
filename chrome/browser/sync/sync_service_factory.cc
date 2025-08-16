@@ -26,8 +26,8 @@
 #include "chrome/browser/history/history_service_factory.h"
 #include "chrome/browser/metrics/variations/google_groups_manager_factory.h"
 #include "chrome/browser/password_manager/account_password_store_factory.h"
+#include "chrome/browser/password_manager/factories/password_sender_service_factory.h"
 #include "chrome/browser/password_manager/password_receiver_service_factory.h"
-#include "chrome/browser/password_manager/password_sender_service_factory.h"
 #include "chrome/browser/password_manager/profile_password_store_factory.h"
 #include "chrome/browser/plus_addresses/plus_address_setting_service_factory.h"
 #include "chrome/browser/power_bookmarks/power_bookmark_service_factory.h"
@@ -89,7 +89,7 @@
 #include "services/network/public/cpp/shared_url_loader_factory.h"
 
 #if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
-#include "chrome/browser/extensions/extension_sync_service.h"  // nogncheck
+#include "chrome/browser/extensions/sync/extension_sync_service.h"  // nogncheck
 #include "extensions/browser/api/storage/storage_frontend.h"   // nogncheck
 #include "extensions/browser/extension_system_provider.h"      // nogncheck
 #include "extensions/browser/extensions_browser_client.h"      // nogncheck

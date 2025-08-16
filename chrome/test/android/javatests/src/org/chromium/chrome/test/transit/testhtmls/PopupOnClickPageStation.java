@@ -6,7 +6,7 @@ package org.chromium.chrome.test.transit.testhtmls;
 
 import org.chromium.chrome.test.ChromeTabbedActivityTestRule;
 import org.chromium.chrome.test.transit.page.CctPageStation;
-import org.chromium.chrome.test.transit.page.PageStation;
+import org.chromium.chrome.test.transit.page.CtaPageStation;
 import org.chromium.chrome.test.transit.page.PopupBlockedMessageFacility;
 import org.chromium.chrome.test.transit.page.WebPageStation;
 import org.chromium.content_public.browser.test.transit.HtmlElement;
@@ -35,7 +35,7 @@ public class PopupOnClickPageStation extends WebPageStation {
 
     /** Load popup_on_click.html in current tab. */
     public static PopupOnClickPageStation loadInCurrentTab(
-            ChromeTabbedActivityTestRule activityTestRule, PageStation currentPageStation) {
+            ChromeTabbedActivityTestRule activityTestRule, CtaPageStation currentPageStation) {
         Builder<PopupOnClickPageStation> builder = new Builder<>(PopupOnClickPageStation::new);
 
         String url = activityTestRule.getTestServer().getURL(PATH);
@@ -47,10 +47,9 @@ public class PopupOnClickPageStation extends WebPageStation {
         PopupOnClickPageStation newPage =
                 new Builder<>(PopupOnClickPageStation::new)
                         .initFrom(this)
-                        .withIsOpeningTabs(1)
-                        .withIsSelectingTabs(1)
+                        .initOpeningNewTab()
                         .build();
-        return travelToSync(newPage, linkToPopup.getClickTrigger());
+        return linkToPopup.clickTo().arriveAt(newPage);
     }
 
     /** Opens a sample page as a pop-up with bounds and expects a new window to open. */
@@ -71,7 +70,6 @@ public class PopupOnClickPageStation extends WebPageStation {
      * message to be shown.
      */
     public PopupBlockedMessageFacility clickLinkAndExpectPopupBlockedMessage() {
-        return enterFacilitySync(
-                new PopupBlockedMessageFacility<>(1), linkToPopup.getClickTrigger());
+        return linkToPopup.clickTo().enterFacility(new PopupBlockedMessageFacility<>(1));
     }
 }

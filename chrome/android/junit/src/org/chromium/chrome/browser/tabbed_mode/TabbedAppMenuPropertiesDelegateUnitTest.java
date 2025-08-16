@@ -6,9 +6,12 @@ package org.chromium.chrome.browser.tabbed_mode;
 
 import static androidx.test.espresso.matcher.ViewMatchers.assertThat;
 
+import static org.hamcrest.Matchers.anyOf;
+import static org.hamcrest.Matchers.instanceOf;
+import static org.hamcrest.Matchers.not;
+import static org.hamcrest.Matchers.nullValue;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -48,6 +51,7 @@ import org.robolectric.annotation.Config;
 import org.robolectric.shadows.ShadowPackageManager;
 
 import org.chromium.base.ContextUtils;
+import org.chromium.base.DeviceInfo;
 import org.chromium.base.ThreadUtils;
 import org.chromium.base.supplier.ObservableSupplierImpl;
 import org.chromium.base.supplier.OneshotSupplierImpl;
@@ -55,7 +59,6 @@ import org.chromium.base.task.test.PausedExecutorTestRule;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
-import org.chromium.build.BuildConfig;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ActivityTabProvider;
 import org.chromium.chrome.browser.ai.AiAssistantService;
@@ -68,8 +71,11 @@ import org.chromium.chrome.browser.device.ShadowDeviceConditions;
 import org.chromium.chrome.browser.enterprise.util.ManagedBrowserUtils;
 import org.chromium.chrome.browser.enterprise.util.ManagedBrowserUtilsJni;
 import org.chromium.chrome.browser.feed.FeedFeatures;
+import org.chromium.chrome.browser.feed.FeedServiceBridge;
+import org.chromium.chrome.browser.feed.FeedServiceBridgeJni;
 import org.chromium.chrome.browser.feed.webfeed.WebFeedBridge;
 import org.chromium.chrome.browser.feed.webfeed.WebFeedBridgeJni;
+import org.chromium.chrome.browser.feed.webfeed.WebFeedMainMenuItem;
 import org.chromium.chrome.browser.feed.webfeed.WebFeedSnackbarController;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.incognito.IncognitoUtils;
@@ -105,10 +111,11 @@ import org.chromium.chrome.browser.translate.TranslateBridgeJni;
 import org.chromium.chrome.browser.ui.appmenu.AppMenuDelegate;
 import org.chromium.chrome.browser.ui.appmenu.AppMenuHandler;
 import org.chromium.chrome.browser.ui.appmenu.AppMenuItemProperties;
-import org.chromium.chrome.browser.ui.extensions.ExtensionService;
 import org.chromium.chrome.browser.ui.extensions.ExtensionsBuildflags;
+import org.chromium.chrome.browser.ui.extensions.FakeExtensionUiBackendRule;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
 import org.chromium.chrome.browser.ui.native_page.NativePage;
+import org.chromium.chrome.test.OverrideContextWrapperTestRule;
 import org.chromium.components.browser_ui.accessibility.PageZoomCoordinator;
 import org.chromium.components.browser_ui.site_settings.WebsitePreferenceBridge;
 import org.chromium.components.browser_ui.site_settings.WebsitePreferenceBridgeJni;
@@ -117,9 +124,13 @@ import org.chromium.components.commerce.core.CommerceFeatureUtilsJni;
 import org.chromium.components.commerce.core.ShoppingService;
 import org.chromium.components.content_settings.ContentSettingValues;
 import org.chromium.components.dom_distiller.core.DomDistillerFeatures;
+import org.chromium.components.dom_distiller.core.DomDistillerUrlUtilsJni;
 import org.chromium.components.embedder_support.util.UrlConstants;
+import org.chromium.components.favicon.LargeIconBridge;
+import org.chromium.components.favicon.LargeIconBridgeJni;
 import org.chromium.components.power_bookmarks.PowerBookmarkMeta;
 import org.chromium.components.prefs.PrefService;
+import org.chromium.components.signin.identitymanager.ConsentLevel;
 import org.chromium.components.signin.identitymanager.IdentityManager;
 import org.chromium.components.sync.SyncService;
 import org.chromium.components.user_prefs.UserPrefs;
@@ -128,6 +139,8 @@ import org.chromium.components.webapps.AppBannerManager;
 import org.chromium.components.webapps.AppBannerManagerJni;
 import org.chromium.content_public.browser.NavigationController;
 import org.chromium.content_public.browser.WebContents;
+import org.chromium.google_apis.gaia.GoogleServiceAuthError;
+import org.chromium.google_apis.gaia.GoogleServiceAuthErrorState;
 import org.chromium.net.ConnectionType;
 import org.chromium.ui.accessibility.AccessibilityState;
 import org.chromium.ui.modaldialog.ModalDialogManager;
@@ -148,11 +161,11 @@ import java.util.List;
 @RunWith(BaseRobolectricTestRunner.class)
 @DisableFeatures({
     ChromeFeatureList.ADAPTIVE_BUTTON_IN_TOP_TOOLBAR_PAGE_SUMMARY,
-    ChromeFeatureList.BLOCK_INSTALLING_EXTENSIONS_ON_DESKTOP_ANDROID,
     ChromeFeatureList.NEW_TAB_PAGE_CUSTOMIZATION,
-    DomDistillerFeatures.READER_MODE_IMPROVEMENTS
+    ChromeFeatureList.FEED_AUDIO_OVERVIEWS,
+    DomDistillerFeatures.READER_MODE_IMPROVEMENTS,
+    DomDistillerFeatures.READER_MODE_DISTILL_IN_APP
 })
-@EnableFeatures({ChromeFeatureList.PROPAGATE_DEVICE_CONTENT_FILTERS_TO_SUPERVISED_USER})
 public class TabbedAppMenuPropertiesDelegateUnitTest {
     // Constants defining flags that determines multi-window menu items visibility.
     private static final boolean TAB_M = true; // multiple tabs
@@ -178,6 +191,14 @@ public class TabbedAppMenuPropertiesDelegateUnitTest {
     @Rule public final MockitoRule mMockitoRule = MockitoJUnit.rule();
     @Rule public PausedExecutorTestRule mExecutorRule = new PausedExecutorTestRule();
 
+    @Rule
+    public OverrideContextWrapperTestRule mOverrideContextWrapperTestRule =
+            new OverrideContextWrapperTestRule();
+
+    @Rule
+    public FakeExtensionUiBackendRule mFakeExtensionUiBackendRule =
+            new FakeExtensionUiBackendRule();
+
     @Mock private ActivityTabProvider mActivityTabProvider;
     @Mock private Tab mTab;
     @Mock private WebContents mWebContents;
@@ -193,10 +214,10 @@ public class TabbedAppMenuPropertiesDelegateUnitTest {
     @Mock private ManagedBrowserUtils.Natives mManagedBrowserUtilsJniMock;
     @Mock private Profile mProfile;
     @Mock private AppMenuDelegate mAppMenuDelegate;
+    @Mock private AppMenuHandler mAppMenuHandler;
     @Mock private WebFeedSnackbarController.FeedLauncher mFeedLauncher;
     @Mock private ModalDialogManager mDialogManager;
     @Mock private SnackbarManager mSnackbarManager;
-    @Mock private ExtensionService mExtensionService;
     @Mock private OfflinePageUtils.Internal mOfflinePageUtils;
     @Mock private SigninManager mSigninManager;
     @Mock private IdentityManager mIdentityManager;
@@ -216,6 +237,9 @@ public class TabbedAppMenuPropertiesDelegateUnitTest {
     @Mock private WebFeedBridge.Natives mWebFeedBridgeJniMock;
     @Mock private TranslateBridge.Natives mTranslateBridgeJniMock;
     @Mock private UpdateMenuItemHelper mUpdateMenuItemHelper;
+    @Mock private LargeIconBridge.Natives mLargeIconBridgeJni;
+    @Mock private DomDistillerUrlUtilsJni mDomDistillerUrlUtilsJni;
+    @Mock private FeedServiceBridge.Natives mFeedServiceBridgeJniMock;
 
     private ShadowPackageManager mShadowPackageManager;
 
@@ -275,8 +299,19 @@ public class TabbedAppMenuPropertiesDelegateUnitTest {
         when(mIdentityService.getSigninManager(any(Profile.class))).thenReturn(mSigninManager);
         when(mSigninManager.getIdentityManager()).thenReturn(mIdentityManager);
         IdentityServicesProvider.setInstanceForTests(mIdentityService);
+        when(mIdentityService.getIdentityManager(any(Profile.class))).thenReturn(mIdentityManager);
+        when(mIdentityManager.hasPrimaryAccount(ConsentLevel.SIGNIN)).thenReturn(true);
         PageZoomCoordinator.setShouldShowMenuItemForTesting(false);
         FeedFeatures.setFakePrefsForTest(mPrefService);
+        FeedServiceBridgeJni.setInstanceForTesting(mFeedServiceBridgeJniMock);
+        when(mSyncService.getAuthError())
+                .thenReturn(new GoogleServiceAuthError(GoogleServiceAuthErrorState.NONE));
+        when(mSyncService.hasUnrecoverableError()).thenReturn(false);
+        when(mSyncService.isEngineInitialized()).thenReturn(true);
+        when(mSyncService.isPassphraseRequiredForPreferredDataTypes()).thenReturn(false);
+        when(mSyncService.isTrustedVaultKeyRequiredForPreferredDataTypes()).thenReturn(false);
+        when(mSyncService.isTrustedVaultRecoverabilityDegraded()).thenReturn(false);
+        when(mSyncService.isSyncFeatureEnabled()).thenReturn(false);
         AppBannerManagerJni.setInstanceForTesting(mAppBannerManagerJniMock);
         Mockito.when(mAppBannerManagerJniMock.getInstallableWebAppManifestId(any()))
                 .thenReturn(null);
@@ -285,11 +320,7 @@ public class TabbedAppMenuPropertiesDelegateUnitTest {
         UserPrefsJni.setInstanceForTesting(mUserPrefsNatives);
         when(mUserPrefsNatives.get(mProfile)).thenReturn(mPrefService);
 
-        when(mSyncService.isSyncFeatureEnabled()).thenReturn(true);
         SyncServiceFactory.setInstanceForTesting(mSyncService);
-
-        when(mExtensionService.areExtensionsEnabled())
-                .thenReturn(ExtensionsBuildflags.ENABLE_DESKTOP_ANDROID_EXTENSIONS);
 
         IncognitoUtilsJni.setInstanceForTesting(mIncognitoUtilsJniMock);
 
@@ -322,7 +353,6 @@ public class TabbedAppMenuPropertiesDelegateUnitTest {
                         mFeedLauncher,
                         mDialogManager,
                         mSnackbarManager,
-                        mExtensionService,
                         mIncognitoReauthControllerSupplier,
                         mReadAloudControllerSupplier);
         mExecutorRule.runAllBackgroundAndUi();
@@ -335,6 +365,10 @@ public class TabbedAppMenuPropertiesDelegateUnitTest {
 
         CommerceFeatureUtilsJni.setInstanceForTesting(mCommerceFeatureUtilsJniMock);
         ShoppingServiceFactory.setShoppingServiceForTesting(mShoppingService);
+
+        LargeIconBridgeJni.setInstanceForTesting(mLargeIconBridgeJni);
+
+        DomDistillerUrlUtilsJni.setInstanceForTesting(mDomDistillerUrlUtilsJni);
     }
 
     @After
@@ -605,7 +639,7 @@ public class TabbedAppMenuPropertiesDelegateUnitTest {
         expectedTitles.add(R.string.menu_translate);
         expectedItems.add(R.id.universal_install);
         expectedTitles.add(R.string.menu_add_to_homescreen);
-        if (!BuildConfig.IS_DESKTOP_ANDROID) {
+        if (!DeviceInfo.isDesktop()) {
             expectedItems.add(R.id.request_desktop_site_id);
             expectedTitles.add(R.string.menu_request_desktop_site);
         }
@@ -680,7 +714,7 @@ public class TabbedAppMenuPropertiesDelegateUnitTest {
         expectedTitles.add(R.string.menu_translate);
         expectedItems.add(R.id.universal_install);
         expectedTitles.add(R.string.menu_add_to_homescreen);
-        if (!BuildConfig.IS_DESKTOP_ANDROID) {
+        if (!DeviceInfo.isDesktop()) {
             expectedItems.add(R.id.request_desktop_site_id);
             expectedTitles.add(R.string.menu_request_desktop_site);
         }
@@ -708,7 +742,7 @@ public class TabbedAppMenuPropertiesDelegateUnitTest {
     @Test
     @Config(qualifiers = "sw320dp")
     public void testPageMenuItems_DesktopAndroid() {
-        BuildConfig.IS_DESKTOP_ANDROID = true;
+        mOverrideContextWrapperTestRule.setIsDesktop(true);
         setUpMocksForPageMenu();
         setMenuOptions(
                 new MenuOptions()
@@ -969,7 +1003,7 @@ public class TabbedAppMenuPropertiesDelegateUnitTest {
                                 R.id.divider_line_id,
                                 R.id.preferences_id,
                                 R.id.help_id));
-        if (!BuildConfig.IS_DESKTOP_ANDROID) {
+        if (!DeviceInfo.isDesktop()) {
             expectedItems.add(R.id.request_desktop_site_id);
         }
         if (ExtensionsBuildflags.ENABLE_DESKTOP_ANDROID_EXTENSIONS) {
@@ -1046,7 +1080,7 @@ public class TabbedAppMenuPropertiesDelegateUnitTest {
                                 R.id.managed_by_divider_line_id,
                                 R.id.managed_by_menu_id));
 
-        if (!BuildConfig.IS_DESKTOP_ANDROID) {
+        if (!DeviceInfo.isDesktop()) {
             expectedItems.add(R.id.request_desktop_site_id);
         }
         if (ExtensionsBuildflags.ENABLE_DESKTOP_ANDROID_EXTENSIONS) {
@@ -1096,7 +1130,7 @@ public class TabbedAppMenuPropertiesDelegateUnitTest {
                                 R.id.menu_item_content_filter_divider_line_id,
                                 R.id.menu_item_content_filter_help_center_id));
 
-        if (!BuildConfig.IS_DESKTOP_ANDROID) {
+        if (!DeviceInfo.isDesktop()) {
             expectedItems.add(R.id.request_desktop_site_id);
         }
         if (ExtensionsBuildflags.ENABLE_DESKTOP_ANDROID_EXTENSIONS) {
@@ -1295,8 +1329,9 @@ public class TabbedAppMenuPropertiesDelegateUnitTest {
     }
 
     @Test
-    @EnableFeatures(DomDistillerFeatures.READER_MODE_IMPROVEMENTS + ":always_on_entry_point/true")
-    public void readerModeEntryPointEnabled() {
+    @DisableFeatures(DomDistillerFeatures.READER_MODE_IMPROVEMENTS + ":always_on_entry_point/false")
+    @EnableFeatures(DomDistillerFeatures.READER_MODE_DISTILL_IN_APP)
+    public void readerModeEntryPointEnabledWhenDistillingInApp() {
         setUpMocksForPageMenu();
         when(mTab.getUrl()).thenReturn(JUnitTestGURLs.EXAMPLE_URL);
         doReturn(mTabModel).when(mTabModelSelector).getCurrentModel();
@@ -1304,6 +1339,42 @@ public class TabbedAppMenuPropertiesDelegateUnitTest {
         MVCListAdapter.ModelList modelList = mTabbedAppMenuPropertiesDelegate.getMenuItems();
 
         assertTrue(isMenuVisible(modelList, R.id.reader_mode_menu_id));
+    }
+
+    @Test
+    @EnableFeatures(DomDistillerFeatures.READER_MODE_IMPROVEMENTS + ":always_on_entry_point/true")
+    public void readerModeEntryPointEnabled_ShowReadingMode() {
+        setUpMocksForPageMenu();
+        when(mTab.getUrl()).thenReturn(JUnitTestGURLs.EXAMPLE_URL);
+        doReturn(mTabModel).when(mTabModelSelector).getCurrentModel();
+        when(mDomDistillerUrlUtilsJni.isDistilledPage(any())).thenReturn(false);
+
+        MVCListAdapter.ModelList modelList = mTabbedAppMenuPropertiesDelegate.getMenuItems();
+
+        Context context = ContextUtils.getApplicationContext();
+        assertTrue(
+                isMenuVisibleWithCorrectTitle(
+                        modelList,
+                        R.id.reader_mode_menu_id,
+                        context.getString(R.string.show_reading_mode_text)));
+    }
+
+    @Test
+    @EnableFeatures(DomDistillerFeatures.READER_MODE_IMPROVEMENTS + ":always_on_entry_point/true")
+    public void readerModeEntryPointEnabled_HideReadingMode() {
+        setUpMocksForPageMenu();
+        when(mTab.getUrl()).thenReturn(JUnitTestGURLs.CHROME_DISTILLER_EXAMPLE_URL);
+        doReturn(mTabModel).when(mTabModelSelector).getCurrentModel();
+        when(mDomDistillerUrlUtilsJni.isDistilledPage(any())).thenReturn(true);
+
+        MVCListAdapter.ModelList modelList = mTabbedAppMenuPropertiesDelegate.getMenuItems();
+
+        Context context = ContextUtils.getApplicationContext();
+        assertTrue(
+                isMenuVisibleWithCorrectTitle(
+                        modelList,
+                        R.id.reader_mode_menu_id,
+                        context.getString(R.string.hide_reading_mode_text)));
     }
 
     private MVCListAdapter.ModelList setUpMenuWithIncognitoReauthPage(boolean isShowing) {
@@ -1408,6 +1479,96 @@ public class TabbedAppMenuPropertiesDelegateUnitTest {
         assertTrue(item.model.get(AppMenuItemProperties.ENABLED));
     }
 
+    @Test
+    @EnableFeatures({ChromeFeatureList.FEED_AUDIO_OVERVIEWS})
+    public void testListenToFeedMenuItem_available() {
+        MockTab ntpTab = new MockTab(1, mProfile);
+        ntpTab.setUrl(new GURL(UrlConstants.NTP_URL));
+
+        setUpMocksForPageMenu();
+        setMenuOptions(new MenuOptions());
+        when(mActivityTabProvider.get()).thenReturn(ntpTab);
+        when(mReadAloudController.isAvailable()).thenReturn(true);
+        when(mFeedServiceBridgeJniMock.isEnabled()).thenReturn(true);
+        when(mPrefService.getBoolean(Pref.ENABLE_SNIPPETS_BY_DSE)).thenReturn(true);
+        when(mPrefService.getBoolean(Pref.ARTICLES_LIST_VISIBLE)).thenReturn(true);
+
+        MVCListAdapter.ModelList modelList = mTabbedAppMenuPropertiesDelegate.getMenuItems();
+        assertTrue(isMenuVisible(modelList, R.id.listen_to_feed_id));
+    }
+
+    @Test
+    @EnableFeatures({ChromeFeatureList.FEED_AUDIO_OVERVIEWS})
+    public void testListenToFeedMenuItem_unavailableWhenNotNtp() {
+        MockTab ntpTab = new MockTab(1, mProfile);
+        ntpTab.setUrl(new GURL(UrlConstants.NTP_URL));
+
+        setUpMocksForPageMenu();
+        setMenuOptions(new MenuOptions());
+        when(mActivityTabProvider.get()).thenReturn(mTab);
+        when(mReadAloudController.isAvailable()).thenReturn(true);
+        when(mFeedServiceBridgeJniMock.isEnabled()).thenReturn(true);
+        when(mPrefService.getBoolean(Pref.ENABLE_SNIPPETS_BY_DSE)).thenReturn(true);
+        when(mPrefService.getBoolean(Pref.ARTICLES_LIST_VISIBLE)).thenReturn(true);
+
+        MVCListAdapter.ModelList modelList = mTabbedAppMenuPropertiesDelegate.getMenuItems();
+        assertFalse(isMenuVisible(modelList, R.id.listen_to_feed_id));
+    }
+
+    @Test
+    @EnableFeatures({ChromeFeatureList.FEED_AUDIO_OVERVIEWS})
+    public void testListenToFeedMenuItem_unavailableWhenFeedDisabled() {
+        MockTab ntpTab = new MockTab(1, mProfile);
+        ntpTab.setUrl(new GURL(UrlConstants.NTP_URL));
+
+        setUpMocksForPageMenu();
+        setMenuOptions(new MenuOptions());
+        when(mActivityTabProvider.get()).thenReturn(ntpTab);
+        when(mReadAloudController.isAvailable()).thenReturn(true);
+        when(mFeedServiceBridgeJniMock.isEnabled()).thenReturn(false);
+        when(mPrefService.getBoolean(Pref.ENABLE_SNIPPETS_BY_DSE)).thenReturn(true);
+        when(mPrefService.getBoolean(Pref.ARTICLES_LIST_VISIBLE)).thenReturn(true);
+
+        MVCListAdapter.ModelList modelList = mTabbedAppMenuPropertiesDelegate.getMenuItems();
+        assertFalse(isMenuVisible(modelList, R.id.listen_to_feed_id));
+    }
+
+    @Test
+    @EnableFeatures({ChromeFeatureList.FEED_AUDIO_OVERVIEWS})
+    public void testListenToFeedMenuItem_unavailableWhenFeedHidden() {
+        MockTab ntpTab = new MockTab(1, mProfile);
+        ntpTab.setUrl(new GURL(UrlConstants.NTP_URL));
+
+        setUpMocksForPageMenu();
+        setMenuOptions(new MenuOptions());
+        when(mActivityTabProvider.get()).thenReturn(ntpTab);
+        when(mReadAloudController.isAvailable()).thenReturn(true);
+        when(mFeedServiceBridgeJniMock.isEnabled()).thenReturn(true);
+        when(mPrefService.getBoolean(Pref.ENABLE_SNIPPETS_BY_DSE)).thenReturn(true);
+        when(mPrefService.getBoolean(Pref.ARTICLES_LIST_VISIBLE)).thenReturn(false);
+
+        MVCListAdapter.ModelList modelList = mTabbedAppMenuPropertiesDelegate.getMenuItems();
+        assertFalse(isMenuVisible(modelList, R.id.listen_to_feed_id));
+    }
+
+    @Test
+    @EnableFeatures({ChromeFeatureList.FEED_AUDIO_OVERVIEWS})
+    public void testListenToFeedMenuItem_unavailableWhenReadAloudNotAvailable() {
+        MockTab ntpTab = new MockTab(1, mProfile);
+        ntpTab.setUrl(new GURL(UrlConstants.NTP_URL));
+
+        setUpMocksForPageMenu();
+        setMenuOptions(new MenuOptions());
+        when(mActivityTabProvider.get()).thenReturn(ntpTab);
+        when(mReadAloudController.isAvailable()).thenReturn(false);
+        when(mFeedServiceBridgeJniMock.isEnabled()).thenReturn(true);
+        when(mPrefService.getBoolean(Pref.ENABLE_SNIPPETS_BY_DSE)).thenReturn(true);
+        when(mPrefService.getBoolean(Pref.ARTICLES_LIST_VISIBLE)).thenReturn(true);
+
+        MVCListAdapter.ModelList modelList = mTabbedAppMenuPropertiesDelegate.getMenuItems();
+        assertFalse(isMenuVisible(modelList, R.id.listen_to_feed_id));
+    }
+
     private boolean doTestShouldShowNewMenu(
             boolean isAutomotive,
             boolean isInstanceSwitcherEnabled,
@@ -1488,6 +1649,7 @@ public class TabbedAppMenuPropertiesDelegateUnitTest {
     }
 
     @Test
+    @DisableFeatures(ChromeFeatureList.ANDROID_OPEN_INCOGNITO_AS_WINDOW)
     public void testShouldShowNewMenu_isTabletSizedScreen_returnsTrue() {
         assertTrue(
                 doTestShouldShowNewMenu(
@@ -1500,6 +1662,25 @@ public class TabbedAppMenuPropertiesDelegateUnitTest {
                         /* isInMultiWindowMode= */ false,
                         /* isInMultiDisplayMode= */ false,
                         /* isMultiInstanceRunning= */ false));
+        assertFalse(mTabbedAppMenuPropertiesDelegate.shouldShowNewIncognitoWindow());
+        verify(mTabbedAppMenuPropertiesDelegate, atLeastOnce()).isTabletSizeScreen();
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.ANDROID_OPEN_INCOGNITO_AS_WINDOW)
+    public void testShouldShowNewMenu_isTabletSizedScreen_returnsTrue_withNewIncognitoWindow() {
+        assertTrue(
+                doTestShouldShowNewMenu(
+                        /* isAutomotive= */ false,
+                        /* isInstanceSwitcherEnabled= */ true,
+                        /* currentWindowInstances= */ 1,
+                        /* isTabletSizeScreen= */ true,
+                        /* canEnterMultiWindowMode= */ false,
+                        /* isChromeRunningInAdjacentWindow= */ false,
+                        /* isInMultiWindowMode= */ false,
+                        /* isInMultiDisplayMode= */ false,
+                        /* isMultiInstanceRunning= */ false));
+        assertTrue(mTabbedAppMenuPropertiesDelegate.shouldShowNewIncognitoWindow());
         verify(mTabbedAppMenuPropertiesDelegate, atLeastOnce()).isTabletSizeScreen();
     }
 
@@ -1770,6 +1951,42 @@ public class TabbedAppMenuPropertiesDelegateUnitTest {
     }
 
     @Test
+    @EnableFeatures(ChromeFeatureList.ANDROID_PINNED_TABS)
+    public void testPinTabToggleMenuItem_tabNotPinned_shouldShowPinTabItem() {
+        setUpMocksForPageMenu();
+        when(mTab.getUrl()).thenReturn(JUnitTestGURLs.URL_1);
+        when(mTab.getIsPinned()).thenReturn(false);
+
+        MVCListAdapter.ModelList modelList = mTabbedAppMenuPropertiesDelegate.getMenuItems();
+
+        assertTrue(
+                "Pin tab menu item should be visible",
+                isMenuVisible(modelList, R.id.pin_tab_menu_id));
+
+        assertFalse(
+                "Unpin tab menu item should not be visible",
+                isMenuVisible(modelList, R.id.unpin_tab_menu_id));
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.ANDROID_PINNED_TABS)
+    public void testPinTabToggleMenuItem_tabPinned_shouldShowUnpinTabItem() {
+        setUpMocksForPageMenu();
+        when(mTab.getUrl()).thenReturn(JUnitTestGURLs.URL_1);
+        when(mTab.getIsPinned()).thenReturn(true);
+
+        MVCListAdapter.ModelList modelList = mTabbedAppMenuPropertiesDelegate.getMenuItems();
+
+        assertTrue(
+                "Unpin tab menu item should be visible",
+                isMenuVisible(modelList, R.id.unpin_tab_menu_id));
+
+        assertFalse(
+                "Pin tab menu item should not be visible",
+                isMenuVisible(modelList, R.id.pin_tab_menu_id));
+    }
+
+    @Test
     public void testReadaloudMenuItem_readableBecomesUnreadable() {
         testReadAloudMenuItemUpdates(/* initiallyReadable= */ true, /* laterReadable= */ false);
     }
@@ -1825,10 +2042,10 @@ public class TabbedAppMenuPropertiesDelegateUnitTest {
         setUpMocksForWebFeedFooter();
         when(mTab.isIncognito()).thenReturn(true);
 
-        assertNotEquals(
-                "Footer Resource ID should not be web_feed_main_menu_item.",
-                R.layout.web_feed_main_menu_item,
-                mTabbedAppMenuPropertiesDelegate.getFooterResourceId());
+        assertThat(
+                "Footer should not be a WebFeed footer",
+                mTabbedAppMenuPropertiesDelegate.buildFooterView(mAppMenuHandler),
+                anyOf(nullValue(), not(instanceOf(WebFeedMainMenuItem.class))));
     }
 
     @Test
@@ -1836,10 +2053,10 @@ public class TabbedAppMenuPropertiesDelegateUnitTest {
         setUpMocksForWebFeedFooter();
         when(mOfflinePageUtils.isOfflinePage(mTab)).thenReturn(true);
 
-        assertNotEquals(
-                "Footer Resource ID should not be web_feed_main_menu_item.",
-                R.layout.web_feed_main_menu_item,
-                mTabbedAppMenuPropertiesDelegate.getFooterResourceId());
+        assertThat(
+                "Footer should not be a WebFeed footer",
+                mTabbedAppMenuPropertiesDelegate.buildFooterView(mAppMenuHandler),
+                anyOf(nullValue(), not(instanceOf(WebFeedMainMenuItem.class))));
     }
 
     @Test
@@ -1847,10 +2064,10 @@ public class TabbedAppMenuPropertiesDelegateUnitTest {
         setUpMocksForWebFeedFooter();
         when(mTab.getOriginalUrl()).thenReturn(JUnitTestGURLs.NTP_URL);
 
-        assertNotEquals(
-                "Footer Resource ID should not be web_feed_main_menu_item.",
-                R.layout.web_feed_main_menu_item,
-                mTabbedAppMenuPropertiesDelegate.getFooterResourceId());
+        assertThat(
+                "Footer should not be a WebFeed footer",
+                mTabbedAppMenuPropertiesDelegate.buildFooterView(mAppMenuHandler),
+                anyOf(nullValue(), not(instanceOf(WebFeedMainMenuItem.class))));
     }
 
     @Test
@@ -1858,20 +2075,20 @@ public class TabbedAppMenuPropertiesDelegateUnitTest {
         setUpMocksForWebFeedFooter();
         when(mIdentityManager.hasPrimaryAccount(anyInt())).thenReturn(false);
 
-        assertNotEquals(
-                "Footer Resource ID should not be web_feed_main_menu_item.",
-                R.layout.web_feed_main_menu_item,
-                mTabbedAppMenuPropertiesDelegate.getFooterResourceId());
+        assertThat(
+                "Footer should not be a WebFeed footer",
+                mTabbedAppMenuPropertiesDelegate.buildFooterView(mAppMenuHandler),
+                anyOf(nullValue(), not(instanceOf(WebFeedMainMenuItem.class))));
     }
 
     @Test
     public void getFooterResourceId_httpsUrl_returnsWebFeedMenuItem() {
         setUpMocksForWebFeedFooter();
 
-        assertEquals(
-                "Footer Resource ID should be web_feed_main_menu_item.",
-                R.layout.web_feed_main_menu_item,
-                mTabbedAppMenuPropertiesDelegate.getFooterResourceId());
+        assertThat(
+                "Footer should be a WebFeed footer",
+                mTabbedAppMenuPropertiesDelegate.buildFooterView(mAppMenuHandler),
+                instanceOf(WebFeedMainMenuItem.class));
     }
 
     @Test
@@ -1880,10 +2097,10 @@ public class TabbedAppMenuPropertiesDelegateUnitTest {
         when(mIdentityManager.hasPrimaryAccount(anyInt())).thenReturn(true);
         when(mPrefService.getBoolean(Pref.ENABLE_SNIPPETS_BY_DSE)).thenReturn(false);
 
-        assertNotEquals(
-                "Footer Resource ID should not be web_feed_main_menu_item.",
-                R.layout.web_feed_main_menu_item,
-                mTabbedAppMenuPropertiesDelegate.getFooterResourceId());
+        assertThat(
+                "Footer should not be a WebFeed footer",
+                mTabbedAppMenuPropertiesDelegate.buildFooterView(mAppMenuHandler),
+                anyOf(nullValue(), not(instanceOf(WebFeedMainMenuItem.class))));
     }
 
     @Test
@@ -1891,10 +2108,10 @@ public class TabbedAppMenuPropertiesDelegateUnitTest {
         setUpMocksForWebFeedFooter();
         when(mIdentityManager.hasPrimaryAccount(anyInt())).thenReturn(true);
 
-        assertEquals(
-                "Footer Resource ID should be web_feed_main_menu_item.",
-                R.layout.web_feed_main_menu_item,
-                mTabbedAppMenuPropertiesDelegate.getFooterResourceId());
+        assertThat(
+                "Footer should be a WebFeed footer",
+                mTabbedAppMenuPropertiesDelegate.buildFooterView(mAppMenuHandler),
+                instanceOf(WebFeedMainMenuItem.class));
     }
 
     @Test
@@ -1902,10 +2119,52 @@ public class TabbedAppMenuPropertiesDelegateUnitTest {
         setUpMocksForWebFeedFooter();
         when(mIdentityManager.hasPrimaryAccount(anyInt())).thenReturn(false);
 
-        assertNotEquals(
-                "Footer Resource ID should not be web_feed_main_menu_item.",
-                R.layout.web_feed_main_menu_item,
-                mTabbedAppMenuPropertiesDelegate.getFooterResourceId());
+        assertThat(
+                "Footer should not be a WebFeed footer",
+                mTabbedAppMenuPropertiesDelegate.buildFooterView(mAppMenuHandler),
+                anyOf(nullValue(), not(instanceOf(WebFeedMainMenuItem.class))));
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.TAB_GROUP_PARITY_BOTTOM_SHEET_ANDROID)
+    public void testAddToGroup() {
+        setUpMocksForPageMenu();
+        when(mTab.getUrl()).thenReturn(GURL.emptyGURL());
+        MVCListAdapter.ModelList modelList = mTabbedAppMenuPropertiesDelegate.getMenuItems();
+        assertTrue(isMenuVisible(modelList, R.id.add_to_group_menu_id));
+    }
+
+    @Test
+    @DisableFeatures(ChromeFeatureList.TAB_GROUP_PARITY_BOTTOM_SHEET_ANDROID)
+    public void testAddToGroup_noParity() {
+        setUpMocksForPageMenu();
+        when(mTab.getUrl()).thenReturn(GURL.emptyGURL());
+        MVCListAdapter.ModelList modelList = mTabbedAppMenuPropertiesDelegate.getMenuItems();
+        assertFalse(isMenuVisible(modelList, R.id.add_to_group_menu_id));
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.TAB_GROUP_PARITY_BOTTOM_SHEET_ANDROID)
+    @DisableFeatures(ChromeFeatureList.TAB_MODEL_INIT_FIXES)
+    public void testAddToGroup_preInitNoFixes() {
+        setUpMocksForPageMenu();
+        when(mTab.getUrl()).thenReturn(GURL.emptyGURL());
+        when(mTabModelSelector.isTabStateInitialized()).thenReturn(false);
+        MVCListAdapter.ModelList modelList = mTabbedAppMenuPropertiesDelegate.getMenuItems();
+        assertTrue(isMenuVisible(modelList, R.id.add_to_group_menu_id));
+    }
+
+    @Test
+    @EnableFeatures({
+        ChromeFeatureList.TAB_GROUP_PARITY_BOTTOM_SHEET_ANDROID,
+        ChromeFeatureList.TAB_MODEL_INIT_FIXES
+    })
+    public void testAddToGroup_preInit() {
+        setUpMocksForPageMenu();
+        when(mTab.getUrl()).thenReturn(GURL.emptyGURL());
+        when(mTabModelSelector.isTabStateInitialized()).thenReturn(false);
+        MVCListAdapter.ModelList modelList = mTabbedAppMenuPropertiesDelegate.getMenuItems();
+        assertFalse(isMenuVisible(modelList, R.id.add_to_group_menu_id));
     }
 
     private void setUpMocksForWebFeedFooter() {
@@ -2070,6 +2329,13 @@ public class TabbedAppMenuPropertiesDelegateUnitTest {
 
     private boolean isMenuVisible(MVCListAdapter.ModelList modelList, int itemId) {
         return findItemById(modelList, itemId) != null;
+    }
+
+    private boolean isMenuVisibleWithCorrectTitle(
+            MVCListAdapter.ModelList modelList, int itemId, String expectedTitle) {
+        MVCListAdapter.ListItem menuItem = findItemById(modelList, itemId);
+        if (menuItem == null) return false;
+        return menuItem.model.get(AppMenuItemProperties.TITLE) == expectedTitle;
     }
 
     private String getMenuTitles(MVCListAdapter.ModelList modelList) {

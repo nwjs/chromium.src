@@ -526,12 +526,6 @@ String StylePropertySerializer::SerializeShorthand(
       return GetLayeredShorthandValue(animationShorthand());
     case CSSPropertyID::kAnimationRange:
       return AnimationRangeShorthandValue();
-    case CSSPropertyID::kAnimationTrigger:
-      return GetLayeredShorthandValue(animationTriggerShorthand());
-    case CSSPropertyID::kAnimationTriggerRange:
-      return AnimationTriggerRangeShorthandValue();
-    case CSSPropertyID::kAnimationTriggerExitRange:
-      return AnimationTriggerExitRangeShorthandValue();
     case CSSPropertyID::kBorderSpacing:
       return Get2Values(borderSpacingShorthand());
     case CSSPropertyID::kBackgroundPosition:
@@ -617,12 +611,16 @@ String StylePropertySerializer::SerializeShorthand(
       return Get2Values(gapShorthand());
     case CSSPropertyID::kInset:
       return Get4Values(insetShorthand());
-    case CSSPropertyID::kInterestTargetDelay:
-      return Get2Values(interestTargetDelayShorthand());
+    case CSSPropertyID::kInterestDelay:
+      return Get2Values(interestDelayShorthand());
     case CSSPropertyID::kInsetBlock:
       return Get2Values(insetBlockShorthand());
     case CSSPropertyID::kInsetInline:
       return Get2Values(insetInlineShorthand());
+    case CSSPropertyID::kLineClamp:
+      return LineClampValue(/* is_webkit_line_clamp */ false);
+    case CSSPropertyID::kAlternativeWebkitLineClamp:
+      return LineClampValue(/* is_webkit_line_clamp */ true);
     case CSSPropertyID::kPlaceContent:
       return Get2Values(placeContentShorthand());
     case CSSPropertyID::kPlaceItems:
@@ -641,6 +639,8 @@ String StylePropertySerializer::SerializeShorthand(
       return Get2Values(marginBlockShorthand());
     case CSSPropertyID::kMarginInline:
       return Get2Values(marginInlineShorthand());
+    case CSSPropertyID::kMasonry:
+      return GetShorthandValueForMasonry(masonryShorthand());
     case CSSPropertyID::kMasonryFlow:
       return GetShorthandValue(masonryFlowShorthand());
     case CSSPropertyID::kOffset:
@@ -680,6 +680,8 @@ String StylePropertySerializer::SerializeShorthand(
       return GetShorthandValue(textEmphasisShorthand());
     case CSSPropertyID::kTextSpacing:
       return TextSpacingValue();
+    case CSSPropertyID::kTimelineTrigger:
+      return GetLayeredShorthandValue(timelineTriggerShorthand());
     case CSSPropertyID::kWebkitTextStroke:
       return GetShorthandValue(webkitTextStrokeShorthand());
     case CSSPropertyID::kTextWrap:
@@ -1088,61 +1090,6 @@ String StylePropertySerializer::AnimationRangeShorthandValue() const {
   return list->CssText();
 }
 
-String StylePropertySerializer::AnimationTriggerRangeShorthandValue() const {
-  CHECK_EQ(animationTriggerRangeShorthand().length(), 2u);
-  CHECK_EQ(animationTriggerRangeShorthand().properties()[0],
-           &GetCSSPropertyAnimationTriggerRangeStart());
-  CHECK_EQ(animationTriggerRangeShorthand().properties()[1],
-           &GetCSSPropertyAnimationTriggerRangeEnd());
-
-  const CSSValueList& start_list =
-      To<CSSValueList>(*property_set_.GetPropertyCSSValue(
-          GetCSSPropertyAnimationTriggerRangeStart()));
-  const CSSValueList& end_list =
-      To<CSSValueList>(*property_set_.GetPropertyCSSValue(
-          GetCSSPropertyAnimationTriggerRangeEnd()));
-
-  if (start_list.length() != end_list.length()) {
-    return "";
-  }
-
-  CSSValueList* list = CSSValueList::CreateCommaSeparated();
-
-  for (wtf_size_t i = 0; i < start_list.length(); ++i) {
-    list->Append(*AnimationRangeShorthandValueItem(i, start_list, end_list));
-  }
-
-  return list->CssText();
-}
-
-String StylePropertySerializer::AnimationTriggerExitRangeShorthandValue()
-    const {
-  CHECK_EQ(animationTriggerExitRangeShorthand().length(), 2u);
-  CHECK_EQ(animationTriggerExitRangeShorthand().properties()[0],
-           &GetCSSPropertyAnimationTriggerExitRangeStart());
-  CHECK_EQ(animationTriggerExitRangeShorthand().properties()[1],
-           &GetCSSPropertyAnimationTriggerExitRangeEnd());
-
-  const CSSValueList& start_list =
-      To<CSSValueList>(*property_set_.GetPropertyCSSValue(
-          GetCSSPropertyAnimationTriggerExitRangeStart()));
-  const CSSValueList& end_list =
-      To<CSSValueList>(*property_set_.GetPropertyCSSValue(
-          GetCSSPropertyAnimationTriggerExitRangeEnd()));
-
-  if (start_list.length() != end_list.length()) {
-    return "";
-  }
-
-  CSSValueList* list = CSSValueList::CreateCommaSeparated();
-
-  for (wtf_size_t i = 0; i < start_list.length(); ++i) {
-    list->Append(*AnimationRangeShorthandValueItem(i, start_list, end_list));
-  }
-
-  return list->CssText();
-}
-
 String StylePropertySerializer::FontValue() const {
   int font_size_property_index =
       property_set_.FindPropertyIndex(GetCSSPropertyFontSize());
@@ -1534,6 +1481,32 @@ String StylePropertySerializer::TextDecorationValue() const {
         CSSValueID value_id = identifier_value->GetValueID();
         if (value_id == CSSValueID::kAuto) {
           continue;
+        }
+      }
+    } else if (RuntimeEnabledFeatures::
+                   TextDecorationShortSerializationEnabled()) {
+      if (longhand->PropertyID() == CSSPropertyID::kTextDecorationLine) {
+        if (auto* identifier_value = DynamicTo<CSSIdentifierValue>(value)) {
+          // Skip the initial value.
+          if (identifier_value->GetValueID() == CSSValueID::kNone) {
+            continue;
+          }
+        }
+      } else if (longhand->PropertyID() ==
+                 CSSPropertyID::kTextDecorationStyle) {
+        if (auto* identifier_value = DynamicTo<CSSIdentifierValue>(value)) {
+          // Skip the initial value.
+          if (identifier_value->GetValueID() == CSSValueID::kSolid) {
+            continue;
+          }
+        }
+      } else if (longhand->PropertyID() ==
+                 CSSPropertyID::kTextDecorationColor) {
+        if (auto* identifier_value = DynamicTo<CSSIdentifierValue>(value)) {
+          // Skip the initial value.
+          if (identifier_value->GetValueID() == CSSValueID::kCurrentcolor) {
+            continue;
+          }
         }
       }
     }
@@ -2329,12 +2302,9 @@ String StylePropertySerializer::GetShorthandValueForGrid(
   // `grid-template-rows` and `grid-template-columns` are shorthards within this
   // shorthand. Based on how parsing works, we can't differentiate between an
   // author specifying `none` and uninitialized.
-  const bool non_initial_template_rows =
-      (*template_row_values !=
-       *GetCSSPropertyGridTemplateRows().InitialValue());
-  const bool non_initial_template_columns =
-      *template_column_values !=
-      *GetCSSPropertyGridTemplateColumns().InitialValue();
+  CSSValue* none_value = CSSIdentifierValue::Create(CSSValueID::kNone);
+  bool non_initial_template_rows = *template_row_values != *none_value;
+  bool non_initial_template_columns = *template_column_values != *none_value;
 
   // `grid-template-*` and `grid-auto-*` are mutually exclusive per direction.
   if ((non_initial_template_rows && specified_non_initial_auto_rows) ||
@@ -2471,6 +2441,37 @@ String StylePropertySerializer::GetShorthandValueForGridLine(
   }
 
   return result.ReleaseString();
+}
+
+String StylePropertySerializer::GetShorthandValueForMasonry(
+    const StylePropertyShorthand& shorthand) const {
+  const auto* template_area_values =
+      property_set_.GetPropertyCSSValue(*shorthand.properties()[0]);
+  DCHECK(template_area_values);
+  // Note: `shorthand.properties()[1]` is intentionally not used here because it
+  // always refers to `grid-template-columns`.
+  // Instead, we use `GetCSSPropertyGridTemplateColumns()` or
+  // `GetCSSPropertyGridTemplateRows()` depending on the `masonry-direction`,
+  // since `grid-template-rows` is not listed in the `masonry` shorthand
+  // property.
+  const auto* masonry_direction_values =
+      property_set_.GetPropertyCSSValue(*shorthand.properties()[2]);
+  DCHECK(masonry_direction_values);
+  const auto* masonry_template_tracks_values =
+      CSSOMUtils::IsMasonryColumnDirectionValue(masonry_direction_values)
+          ? property_set_.GetPropertyCSSValue(
+                GetCSSPropertyGridTemplateColumns())
+          : property_set_.GetPropertyCSSValue(GetCSSPropertyGridTemplateRows());
+  DCHECK(masonry_template_tracks_values);
+  const auto* masonry_fill_values =
+      property_set_.GetPropertyCSSValue(*shorthand.properties()[3]);
+  DCHECK(masonry_fill_values);
+
+  const CSSValueList* masonry_list =
+      CSSOMUtils::ComputedValueForMasonryShorthand(
+          masonry_template_tracks_values, template_area_values,
+          masonry_direction_values, masonry_fill_values);
+  return masonry_list->CssText();
 }
 
 String StylePropertySerializer::GetShorthandValueForGridTemplate(
@@ -2901,6 +2902,51 @@ String StylePropertySerializer::ScrollStartValue() const {
     list->Append(*inline_value);
   }
 
+  return list->CssText();
+}
+
+String StylePropertySerializer::LineClampValue(
+    bool is_webkit_line_clamp) const {
+  DCHECK(RuntimeEnabledFeatures::CSSLineClampEnabled());
+
+  const CSSValue* max_lines =
+      property_set_.GetPropertyCSSValue(GetCSSPropertyMaxLines());
+  const CSSIdentifierValue* continue_value = To<CSSIdentifierValue>(
+      property_set_.GetPropertyCSSValue(GetCSSPropertyContinue()));
+
+  if (continue_value->GetValueID() == CSSValueID::kAuto) {
+    if (max_lines->IsIdentifierValue()) {
+      DCHECK_EQ(To<CSSIdentifierValue>(max_lines)->GetValueID(),
+                CSSValueID::kNone);
+      return "none";
+    }
+    return g_empty_string;
+  }
+
+  CSSValueList* list = CSSValueList::CreateSpaceSeparated();
+  if (max_lines->IsNumericLiteralValue()) {
+    list->Append(*max_lines);
+  } else {
+    DCHECK_EQ(To<CSSIdentifierValue>(max_lines)->GetValueID(),
+              CSSValueID::kNone);
+    list->Append(*CSSIdentifierValue::Create(CSSValueID::kAuto));
+  }
+
+  if (continue_value->GetValueID() == CSSValueID::kWebkitLegacy) {
+    if (!is_webkit_line_clamp) {
+      list->Append(*continue_value);
+    }
+  } else {
+    if (is_webkit_line_clamp) {
+      return g_empty_string;
+    }
+    DCHECK_EQ(To<CSSIdentifierValue>(continue_value)->GetValueID(),
+              CSSValueID::kCollapse);
+  }
+
+  if (is_webkit_line_clamp) {
+    DCHECK_EQ(list->length(), 1u);
+  }
   return list->CssText();
 }
 

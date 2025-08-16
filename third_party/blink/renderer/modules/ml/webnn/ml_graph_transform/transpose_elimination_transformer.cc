@@ -14,11 +14,8 @@ void TransposeEliminationTransformer::Transform(
     MLNamedOperands& named_outputs) {
   HeapVector<Member<MLOperator>> sorted_operators =
       GetOperatorsInTopologicalOrder(named_outputs);
-  HeapHashSet<Member<const MLOperator>> graph_output_operators;
-  for (auto& named_output : named_outputs) {
-    MLOperand* output_operand = named_output.second.Get();
-    graph_output_operators.insert(output_operand->Operator());
-  }
+  HeapHashSet<Member<const MLOperator>> graph_output_operators =
+      GetGraphOutputOperators(named_outputs);
   for (auto& op : sorted_operators) {
     // HandleTranspose will only remove operators before "op", so the for loop
     // is safe to continue.
@@ -64,11 +61,11 @@ bool IsInversePermutations(const Vector<uint32_t>& perm0,
 // node0 -> clamp0 -> clamp1 -> node1
 std::optional<MLOperator*> TryFindEliminatableFrontTranspose(
     MLOperator* transpose) {
-  if (transpose->Inputs()[0]->Kind() !=
+  if (transpose->PositionalInputs()[0]->Kind() !=
       webnn::mojom::blink::Operand::Kind::kOutput) {
     return std::nullopt;
   }
-  MLOperator* cur_node = transpose->Inputs()[0].Get()->Operator();
+  MLOperator* cur_node = transpose->PositionalInputs()[0].Get()->Operator();
   while (true) {
     if (cur_node->Outputs().size() != 1 || cur_node->Inputs().size() != 1 ||
         cur_node->Outputs()[0]->DependentOperators().size() != 1) {
@@ -78,9 +75,9 @@ std::optional<MLOperator*> TryFindEliminatableFrontTranspose(
       return cur_node;
     }
     if (IsLayoutAgnosticNode(cur_node) &&
-        cur_node->Inputs()[0]->Kind() ==
+        cur_node->PositionalInputs()[0]->Kind() ==
             webnn::mojom::blink::Operand::Kind::kOutput) {
-      cur_node = cur_node->Inputs()[0].Get()->Operator();
+      cur_node = cur_node->PositionalInputs()[0].Get()->Operator();
     } else {
       break;
     }
@@ -93,12 +90,17 @@ void TransposeEliminationTransformer::HandleTranspose(
     MLOperator* transpose,
     HeapHashSet<Member<const MLOperator>>& graph_output_operators,
     MLNamedOperands& named_outputs) {
+  CHECK_EQ(transpose->Kind(), webnn::mojom::blink::Operation::Tag::kTranspose);
   auto optional_front_transpose = TryFindEliminatableFrontTranspose(transpose);
   if (!optional_front_transpose.has_value()) {
     return;
   }
 
   MLOperator* front_transpose = optional_front_transpose.value();
+
+  if (graph_output_operators.Contains(front_transpose)) {
+    return;
+  }
 
   // We should guarantee that after elmination, the graph should have at least
   // one valid operator. So if the input of "front_transpose" is graph input and
@@ -107,10 +109,10 @@ void TransposeEliminationTransformer::HandleTranspose(
   // example, the following graph should not be eliminated:
   // [a] -> transpose0 -> [b] -> transpose1 -> [c]
 
-  if (front_transpose->Inputs()[0]->Kind() ==
+  if (front_transpose->PositionalInputs()[0]->Kind() ==
           webnn::mojom::blink::Operand::Kind::kInput &&
       graph_output_operators.Contains(transpose) &&
-      transpose->Inputs()[0]->Operator() == front_transpose) {
+      transpose->PositionalInputs()[0]->Operator() == front_transpose) {
     return;
   }
 
@@ -118,7 +120,7 @@ void TransposeEliminationTransformer::HandleTranspose(
   auto* front_options =
       static_cast<const MLTransposeOptions*>(front_transpose->Options());
 
-  MLOperand* transpose_input_operand = transpose->Inputs()[0].Get();
+  MLOperand* transpose_input_operand = transpose->PositionalInputs()[0].Get();
   wtf_size_t rank = transpose_input_operand->Rank();
   const Vector<uint32_t> default_permutation = CreateDefaultPermutation(rank);
   const Vector<uint32_t> permutation =
@@ -129,19 +131,32 @@ void TransposeEliminationTransformer::HandleTranspose(
     return;
   }
 
-  MLOperand* front_transpose_input_operand = front_transpose->Inputs()[0].Get();
+  MLOperand* front_transpose_input_operand =
+      front_transpose->PositionalInputs()[0].Get();
   MLOperand* back_transpose_output_operand = transpose->Outputs()[0].Get();
 
   MLOperator* layout_agnostic_node_back = nullptr;
   MLOperator* layout_agnostic_node_front = nullptr;
 
-  if (transpose->Inputs()[0]->Operator() != front_transpose) {
-    layout_agnostic_node_back = transpose->Inputs()[0].Get()->Operator();
+  if (transpose->PositionalInputs()[0]->Operator() != front_transpose) {
+    layout_agnostic_node_back =
+        transpose->PositionalInputs()[0].Get()->Operator();
 
     auto front_transpose_deps =
         front_transpose->Outputs()[0]->DependentOperators();
     CHECK_EQ(front_transpose_deps.size(), 1u);
     layout_agnostic_node_front = front_transpose_deps.begin()->Get();
+  }
+
+  if (layout_agnostic_node_back != nullptr) {
+    CHECK_NE(layout_agnostic_node_front, nullptr);
+    for (MLOperator* cur_node = layout_agnostic_node_back;
+         cur_node != front_transpose;
+         cur_node = cur_node->PositionalInputs()[0].Get()->Operator()) {
+      if (graph_output_operators.Contains(cur_node)) {
+        return;
+      }
+    }
   }
 
   RemoveUnaryOperator(front_transpose);
@@ -151,7 +166,7 @@ void TransposeEliminationTransformer::HandleTranspose(
     CHECK_NE(layout_agnostic_node_front, nullptr);
     // Update layout agnostic nodes' shapes.
     for (MLOperator* cur_node = layout_agnostic_node_back;;
-         cur_node = cur_node->Inputs()[0].Get()->Operator()) {
+         cur_node = cur_node->PositionalInputs()[0].Get()->Operator()) {
       ReplaceOperandWithNewShape(cur_node->Outputs()[0].Get(),
                                  front_transpose_input_operand->shape());
 

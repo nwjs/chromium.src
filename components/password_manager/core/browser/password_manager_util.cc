@@ -140,13 +140,7 @@ void UserTriggeredManualGenerationFromContextMenu(
 
 bool IsAbleToSavePasswords(password_manager::PasswordManagerClient* client) {
 #if BUILDFLAG(IS_ANDROID)
-  // After LoginDb deprecation all users have split stores.
-  bool uses_split_stores =
-      base::FeatureList::IsEnabled(
-          password_manager::features::kLoginDbDeprecationAndroid) ||
-      password_manager::UsesSplitStoresAndUPMForLocal(client->GetPrefs());
-  if (uses_split_stores &&
-      password_manager::sync_util::HasChosenToSyncPasswords(
+  if (password_manager::sync_util::HasChosenToSyncPasswords(
           client->GetSyncService())) {
     // After store split on Android, AccountPasswordStore is a default store for
     // saving passwords when sync is enabled. If either of conditions above is
@@ -263,6 +257,28 @@ const PasswordForm* FindFormByUsername(
   return nullptr;
 }
 
+const password_manager::PasswordForm* FindLoginWithChangedPassword(
+    const password_manager::PasswordFormManagerForUI& submitted_manager) {
+  const password_manager::PasswordForm* match = FindFormByUsername(
+      submitted_manager.GetBestMatches(),
+      submitted_manager.GetPendingCredentials().username_value);
+  return match && match->type ==
+                      password_manager::PasswordForm::Type::kChangeSubmission
+             ? match
+             : nullptr;
+}
+
+const password_manager::PasswordForm* FindChangedPasswordLoginWithBackup(
+    const password_manager::PasswordFormManagerForUI& submitted_manager) {
+  const password_manager::PasswordForm* changed_password_form =
+      FindLoginWithChangedPassword(submitted_manager);
+  if (changed_password_form &&
+      changed_password_form->GetPasswordBackup().has_value()) {
+    return changed_password_form;
+  }
+  return nullptr;
+}
+
 const PasswordForm* GetMatchForUpdating(
     const PasswordForm& submitted_form,
     const std::vector<raw_ptr<const PasswordForm, VectorExperimental>>&
@@ -279,10 +295,14 @@ const PasswordForm* GetMatchForUpdating(
   const PasswordForm* username_match =
       FindFormByUsername(credentials, submitted_form.username_value);
   if (username_match) {
-    if (!IsCredentialWeakMatch(*username_match)) {
+    const bool password_change_should_update_match =
+        submitted_form.type == PasswordForm::Type::kChangeSubmission &&
+        // Password change should update all matches that are PSL or stronger.
+        username_match->match_type < PasswordForm::MatchType::kGrouped;
+    if (!IsCredentialWeakMatch(*username_match) ||
+        password_change_should_update_match) {
       return username_match;
     }
-
     const auto& password_to_save = submitted_form.new_password_value.empty()
                                        ? submitted_form.password_value
                                        : submitted_form.new_password_value;

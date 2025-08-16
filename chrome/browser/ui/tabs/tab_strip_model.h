@@ -55,6 +55,7 @@ namespace split_tabs {
 class SplitTabData;
 class SplitTabVisualData;
 enum class SplitTabLayout;
+enum class SplitTabCreatedSource;
 }
 
 namespace tabs {
@@ -421,6 +422,10 @@ class TabStripModel {
   // Returns the currently active Tab, or NULL if there is none.
   tabs::TabInterface* GetActiveTab() const;
 
+  // Returns the currently active tab or if it is a split tab, all the tabs in
+  // that split. Doesn't take into account occlusion.
+  std::vector<tabs::TabInterface*> GetForegroundTabs() const;
+
   // Returns the WebContents at the specified index, or NULL if there is
   // none.
   content::WebContents* GetWebContentsAt(int index) const;
@@ -504,13 +509,25 @@ class TabStripModel {
 
   split_tabs::SplitTabData* GetSplitData(split_tabs::SplitTabId split_id) const;
 
+  // Returns the set of SplitTabIds for the split tabs found in this
+  // TabStripModel. These ids are globally unique and randomly generated across
+  // all windows.
+  std::set<split_tabs::SplitTabId> ListSplits() const;
+
   bool ContainsSplit(split_tabs::SplitTabId split_id) const;
+
+  // Returns true if the active tab is split.
+  bool IsActiveTabSplit() const;
 
   std::optional<split_tabs::SplitTabId> GetSplitForTab(int index) const;
 
   // Returns the group that contains the tab at |index|, or nullopt if the tab
   // index is invalid or not grouped.
   std::optional<tab_groups::TabGroupId> GetTabGroupForTab(int index) const;
+
+  // Returns the TabGroupId of the active tab if it belongs to a group, or
+  // nullopt if ungrouped.
+  std::optional<tab_groups::TabGroupId> GetActiveTabGroupId() const;
 
   // If a tab inserted at |index| would be within a tab group, return that
   // group's ID. Otherwise, return nullopt. If |index| points to the first tab
@@ -623,8 +640,16 @@ class TabStripModel {
   // to by |indices| to it. Reorders the tabs so they are contiguous. |indices|
   // must be sorted in ascending order.
   split_tabs::SplitTabId AddToNewSplit(
-      const std::vector<int> indices,
-      split_tabs::SplitTabVisualData visual_data);
+      std::vector<int> indices,
+      split_tabs::SplitTabVisualData visual_data,
+      split_tabs::SplitTabCreatedSource source);
+
+  // Adds all the tabs in `indices` to a split with `split_id` and
+  // `visual_data`. `pivot_index` is the index in indices to determine the
+  // properties of the split like group, pin, destination index.
+  void RestoreSplit(split_tabs::SplitTabId split_id,
+                    const std::vector<int>& indices,
+                    split_tabs::SplitTabVisualData visual_data);
 
   // Create a new tab group and add the set of tabs pointed to be |indices| to
   // it. Pins all of the tabs if any of them were pinned, and reorders the tabs
@@ -908,7 +933,8 @@ class TabStripModel {
   void NotifySplitTabVisualsChanged(
       split_tabs::SplitTabId split_id,
       const split_tabs::SplitTabVisualData& old_visual_data,
-      const split_tabs::SplitTabVisualData& new_visual_data);
+      const split_tabs::SplitTabVisualData& new_visual_data,
+      const SplitTabChange::SplitVisualChangeReason reason);
 
   // Notify observers that contents of a split has been reordered.
   void NotifySplitTabContentsUpdated(
@@ -1120,7 +1146,8 @@ class TabStripModel {
 
   split_tabs::SplitTabId AddToSplitImpl(
       split_tabs::SplitTabId split_id,
-      std::vector<int> indices,
+      const std::vector<int>& indices,
+      int pivot_index,
       split_tabs::SplitTabVisualData visual_data,
       SplitTabChange::SplitTabAddReason reasons);
 

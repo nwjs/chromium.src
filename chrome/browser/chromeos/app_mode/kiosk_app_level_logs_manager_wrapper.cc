@@ -4,27 +4,35 @@
 
 #include "chrome/browser/chromeos/app_mode/kiosk_app_level_logs_manager_wrapper.h"
 
+#include <memory>
+
 #include "base/functional/bind.h"
+#include "chrome/browser/ash/app_mode/kiosk_app_types.h"
 #include "chrome/browser/browser_process.h"
+#include "chrome/browser/chromeos/app_mode/kiosk_app_level_logs_manager.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/common/pref_names.h"
 #include "components/prefs/pref_service.h"
 
 namespace chromeos {
 
-KioskAppLevelLogsManagerWrapper::KioskAppLevelLogsManagerWrapper() {
+KioskAppLevelLogsManagerWrapper::KioskAppLevelLogsManagerWrapper(
+    ash::KioskAppId app_id)
+    : app_id_(app_id) {
   profile_manager_observer_.Observe(g_browser_process->profile_manager());
 }
 
 KioskAppLevelLogsManagerWrapper::KioskAppLevelLogsManagerWrapper(
-    Profile* profile) {
+    Profile* profile,
+    ash::KioskAppId app_id)
+    : app_id_(app_id) {
   Init(profile);
 }
 
 KioskAppLevelLogsManagerWrapper::~KioskAppLevelLogsManagerWrapper() = default;
 
 bool KioskAppLevelLogsManagerWrapper::IsLogCollectionEnabled() {
-  return log_collection_enabled_;
+  return logs_manager_ != nullptr;
 }
 
 void KioskAppLevelLogsManagerWrapper::OnProfileAdded(Profile* profile) {
@@ -44,15 +52,11 @@ void KioskAppLevelLogsManagerWrapper::Init(Profile* profile) {
 }
 
 void KioskAppLevelLogsManagerWrapper::EnableLogging() {
-  log_collection_enabled_ = true;
-  // TODO(b:425622183): Create a KioskAppLevelLogsManager object (if it doesn't
-  // exist) to initialize logging and remove `log_collection_enabled_`;
+  logs_manager_ = std::make_unique<KioskAppLevelLogsManager>(profile_, app_id_);
 }
 
 void KioskAppLevelLogsManagerWrapper::DisableLogging() {
-  log_collection_enabled_ = false;
-  // TODO(b:425622183): Destroy the KioskAppLevelLogsManager object (if exist)
-  // to disable logging.
+  logs_manager_.reset();
 }
 
 void KioskAppLevelLogsManagerWrapper::OnPolicyChanged() {

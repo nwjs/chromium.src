@@ -554,15 +554,6 @@ void TruncateOrPadText(String* text, unsigned length) {
   }
 }
 
-bool SetParagraphTo(const String& text,
-                    const ComputedStyle& block_style,
-                    BidiParagraph& bidi) {
-  if (block_style.GetUnicodeBidi() == UnicodeBidi::kPlaintext) [[unlikely]] {
-    return bidi.SetParagraph(text, std::nullopt);
-  }
-  return bidi.SetParagraph(text, block_style.Direction());
-}
-
 }  // namespace
 
 InlineNode::InlineNode(LayoutBlockFlow* block)
@@ -1290,12 +1281,17 @@ void InlineNode::SegmentBidiRuns(InlineNodeData* data) const {
     return;
   }
 
+  const ComputedStyle& block_style = Style();
+  std::optional<TextDirection> base_direction;
+  if (block_style.GetUnicodeBidi() != UnicodeBidi::kPlaintext) {
+    base_direction = block_style.Direction();
+  }
   BidiParagraph bidi;
   data->text_content.Ensure16Bit();
-  if (!SetParagraphTo(data->text_content, Style(), bidi)) {
+  const String& text_content = data->text_content;
+  if (!bidi.SetParagraph(text_content, base_direction)) {
     // On failure, give up bidi resolving and reordering.
-    data->is_bidi_enabled_ = false;
-    data->SetBaseDirection(TextDirection::kLtr);
+    data->DisableBidi();
     return;
   }
 
@@ -1307,16 +1303,100 @@ void InlineNode::SegmentBidiRuns(InlineNodeData* data) const {
     return;
   }
 
+  // If this IFC has out-of-flow objects, create a text with them represented by
+  // the U+FFFC OBJECT REPLACEMENT CHARACTER. The [CSS Text] defines that
+  // out-of-flow elements must be ignored for text processing, but many existing
+  // tests require them to act as a [neutral] like U+FFFC OBJECT REPLACEMENT
+  // CHARACTER, and all browsers match.
+  //
+  // [CSS Text]: https://drafts.csswg.org/css-text-3/#text-encoding
+  // [neutral]: https://unicode.org/reports/tr9/#ON
+  struct OutOfFlowItem {
+    wtf_size_t text_offset;
+#if EXPENSIVE_DCHECKS_ARE_ON()
+    UBiDiLevel level = 0;
+#endif  // EXPENSIVE_DCHECKS_ARE_ON()
+  };
+  Vector<OutOfFlowItem> out_of_flow_items;
+  String text_content_with_out_of_flow;
+  wtf_size_t text_len = text_content.length();
   InlineItems& items = data->items;
+  if (data->HasFloatingOrOutOfFlowPositioned() &&
+      RuntimeEnabledFeatures::LineBreakOofNoOrcEnabled()) [[unlikely]] {
+    StringBuilder builder;
+    wtf_size_t last_offset = 0;
+    for (const auto item_ptr : items) {
+      const InlineItem& item = *item_ptr;
+      if (item.IsFloatingOrOutOfFlowPositioned()) [[unlikely]] {
+        const wtf_size_t offset = item.StartOffset();
+        if (builder.empty()) {
+          builder.Reserve16BitCapacity(text_len + 16);
+        }
+        builder.Append(text_content, last_offset, offset - last_offset);
+        last_offset = offset;
+        out_of_flow_items.push_back(OutOfFlowItem{builder.length()});
+        builder.Append(uchar::kObjectReplacementCharacter);
+      }
+    }
+    DCHECK_EQ(builder.empty(), out_of_flow_items.empty());
+    if (!builder.empty()) {
+      builder.Append(StringView{text_content, last_offset});
+      text_content_with_out_of_flow = builder.ReleaseString();
+      if (!bidi.SetParagraph(text_content_with_out_of_flow, base_direction)) {
+        data->DisableBidi();
+        return;
+      }
+      text_len = text_content_with_out_of_flow.length();
+
+      // Add a sentinel to help the loop below.
+      out_of_flow_items.push_back(
+          OutOfFlowItem{std::numeric_limits<wtf_size_t>::max()});
+    }
+  }
+
+  // Copy resolved `BidiLevel`s in the `bidi` to the `items`.
+  // If a boundary is within an `InlineItem`, this involves splitting.
+  wtf_size_t out_of_flow_item_index = 0;
   unsigned item_index = 0;
-  for (unsigned start = 0; start < data->text_content.length();) {
+  for (unsigned start = 0; start < text_len;) {
+    DCHECK_EQ(items[item_index]->start_offset_, start - out_of_flow_item_index);
     UBiDiLevel level;
-    unsigned end = bidi.GetLogicalRun(start, &level);
-    DCHECK_EQ(items[item_index]->start_offset_, start);
-    item_index = InlineItem::SetBidiLevel(items, item_index, end, level);
+    const unsigned end = bidi.GetLogicalRun(start, &level);
+    if (out_of_flow_items.empty()) {
+      item_index = InlineItem::SetBidiLevel(items, item_index, end, level);
+    } else {
+      DCHECK(RuntimeEnabledFeatures::LineBreakOofNoOrcEnabled());
+      wtf_size_t num_out_of_flow_in_this_run = 0;
+      while (end > out_of_flow_items[out_of_flow_item_index].text_offset) {
+#if EXPENSIVE_DCHECKS_ARE_ON()
+        out_of_flow_items[out_of_flow_item_index].level = level;
+#endif  // EXPENSIVE_DCHECKS_ARE_ON()
+        ++out_of_flow_item_index;
+        ++num_out_of_flow_in_this_run;
+      }
+      item_index = InlineItem::SetBidiLevel(items, item_index,
+                                            end - out_of_flow_item_index, level,
+                                            num_out_of_flow_in_this_run);
+    }
     start = end;
   }
-#if DCHECK_IS_ON()
+
+#if EXPENSIVE_DCHECKS_ARE_ON()
+  if (!out_of_flow_items.empty()) {
+    // Check the BiDi level for OOF items are set correctly.
+    DCHECK(RuntimeEnabledFeatures::LineBreakOofNoOrcEnabled());
+    DCHECK_EQ(out_of_flow_item_index, out_of_flow_items.size() - 1);
+    out_of_flow_item_index = 0;
+    for (const auto item_ptr : items) {
+      const InlineItem& item = *item_ptr;
+      if (item.IsFloatingOrOutOfFlowPositioned()) {
+        DCHECK_EQ(item.BidiLevel(),
+                  out_of_flow_items[out_of_flow_item_index].level);
+        ++out_of_flow_item_index;
+      }
+    }
+  }
+
   // Check all items have bidi levels, except trailing non-length items.
   // Items that do not create break opportunities such as kOutOfFlowPositioned
   // do not have corresponding characters, and that they do not have bidi level
@@ -1325,7 +1405,7 @@ void InlineNode::SegmentBidiRuns(InlineNodeData* data) const {
     item_index++;
   }
   DCHECK_EQ(item_index, items.size());
-#endif
+#endif  // EXPENSIVE_DCHECKS_ARE_ON()
 }
 
 bool InlineNode::IsNGShapeCacheAllowed(
@@ -1399,7 +1479,9 @@ void InlineNode::ShapeText(InlineItemsData* data,
     InlineItem& start_item = *(*items)[index];
     if (start_item.Type() != InlineItem::kText || !start_item.Length()) {
       index++;
-      is_next_start_of_paragraph = start_item.IsForcedLineBreak();
+      if (!start_item.IsOpaqueForTextProcessing()) {
+        is_next_start_of_paragraph = start_item.IsForcedLineBreak();
+      }
       continue;
     }
 
@@ -1681,8 +1763,8 @@ void InlineNode::AssociateItemsWithInlines(InlineNodeData* data) const {
   HeapHashSet<Member<LayoutObject>> associated_objects;
 #endif
   InlineItems& items = data->items;
-  WTF::wtf_size_t size = items.size();
-  for (WTF::wtf_size_t i = 0; i != size;) {
+  wtf_size_t size = items.size();
+  for (wtf_size_t i = 0; i != size;) {
     LayoutObject* object = items[i]->GetLayoutObject();
     auto* layout_text = DynamicTo<LayoutText>(object);
     if (layout_text && !layout_text->IsBR()) {
@@ -1692,7 +1774,7 @@ void InlineNode::AssociateItemsWithInlines(InlineNodeData* data) const {
 #endif
       layout_text->ClearHasBidiControlInlineItems();
       bool has_bidi_control = false;
-      WTF::wtf_size_t begin = i;
+      wtf_size_t begin = i;
       for (++i; i != size; ++i) {
         const InlineItem& item = *items[i];
         if (item.GetLayoutObject() != object)
@@ -1756,7 +1838,7 @@ String InlineNode::TextContentForStickyImagesQuirk(
     const InlineItem& item = *items_data.items[i];
     if (item.Type() == InlineItem::kAtomicInline && item.IsImage()) {
       auto item_span = base::span(items_data.items).subspan(i);
-      return WTF::VisitCharacters(text_content, [&](auto chars) {
+      return VisitCharacters(text_content, [&](auto chars) {
         return CreateTextContentForStickyImagesQuirk(chars, item_span);
       });
     }
@@ -1858,15 +1940,18 @@ static LayoutUnit ComputeContentSize(InlineNode node,
     const InlineItemsData& items_data;
     wtf_size_t next_item_index = 0;
     const LineBreaker::MaxSizeCache& max_size_cache;
+    const InlineNode& node;
     FloatsMaxSize* floats;
     bool is_after_break = true;
     wtf_size_t annotation_nesting_level = 0;
 
     explicit MaxSizeFromMinSize(const InlineItemsData& items_data,
                                 const LineBreaker::MaxSizeCache& max_size_cache,
+                                const InlineNode& node,
                                 FloatsMaxSize* floats)
         : items_data(items_data),
           max_size_cache(max_size_cache),
+          node(node),
           floats(floats) {}
 
     // Add all text items up to |end|. The line break results for min size
@@ -1911,9 +1996,11 @@ static LayoutUnit ComputeContentSize(InlineNode node,
       AddTextUntil(item.Index());
       DCHECK(item.Style());
       const ComputedStyle& style = *item.Style();
-      const Font* font = style.GetFont();
-      const SimpleFontData* font_data = font->PrimaryFont();
       const TabSize& tab_size = style.GetTabSize();
+      const Font* font = RuntimeEnabledFeatures::TabSizeAncestorEnabled()
+                             ? &node.FontForTab()
+                             : style.GetFont();
+      const SimpleFontData* font_data = font->PrimaryFont();
       // Sync with `ShapeResult::CreateForTabulationCharacters()`.
       TextRunLayoutUnit glyph_advance = TextRunLayoutUnit::FromFloatRound(
           font->TabWidth(font_data, tab_size, position));
@@ -2009,7 +2096,7 @@ static LayoutUnit ComputeContentSize(InlineNode node,
 
   FloatsMaxSize floats_max_size(float_input);
   bool can_compute_max_size_from_min_size = true;
-  MaxSizeFromMinSize max_size_from_min_size(items_data, *max_size_cache,
+  MaxSizeFromMinSize max_size_from_min_size(items_data, *max_size_cache, node,
                                             &floats_max_size);
 
   LineInfo line_info;
@@ -2166,6 +2253,16 @@ const HeapVector<SvgTextContentRange>& InlineNode::SvgTextPathRangeList()
     const {
   DCHECK(IsSvgText());
   return Data().svg_node_data_->text_path_range_list;
+}
+
+const Font& InlineNode::FontForTab() const {
+  const Node* layout_box_node = GetDOMNode();
+  const bool is_first_letter_pseudo_element =
+      layout_box_node && layout_box_node->IsFirstLetterPseudoElement();
+  const Font* font = is_first_letter_pseudo_element ? Style().ContainerFont()
+                                                    : Style().GetFont();
+  DCHECK(font);
+  return *font;
 }
 
 void InlineNode::AdjustFontForTextCombineUprightAll() const {

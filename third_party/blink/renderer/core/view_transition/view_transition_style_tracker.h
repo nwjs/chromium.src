@@ -75,11 +75,16 @@ class ViewTransitionStyleTracker
 
     // Transforms a point from local space into the snapshot viewport. For
     // details of the snapshot viewport, see README.md.
+    // This transform is in CSS space relative to the top-left corner of the
+    // box.
     gfx::Transform snapshot_matrix;
 
     PhysicalSize GroupSize() const {
       return border_box_rect_in_enclosing_layer_css_space.size;
     }
+
+    gfx::Transform ComputeRelativeTransformWithCenterOrigin(
+        const gfx::Transform& parent_transform) const;
   };
 
   explicit ViewTransitionStyleTracker(
@@ -126,9 +131,8 @@ class ViewTransitionStyleTracker
   // is initiated.
   void Abort();
 
-  // Notifies when rendering is throttled for the local subframe associated with
-  // this transition.
-  void DidThrottleLocalSubframeRendering();
+  // Notifies when rendering is paused.
+  void PauseRendering();
 
   // Returns the snapshot ID to identify the render pass based image produced by
   // this Element. Returns an invalid ID if this element is not participating in
@@ -137,8 +141,8 @@ class ViewTransitionStyleTracker
 
   // The layer used to paint the old Document rendered in a LocalFrame subframe
   // until the new Document can start rendering.
-  const scoped_refptr<cc::ViewTransitionContentLayer>&
-  GetSubframeSnapshotLayer() const;
+  const scoped_refptr<cc::ViewTransitionContentLayer>& GetScopeSnapshotLayer()
+      const;
 
   // Creates a PseudoElement for the corresponding |pseudo_id| and
   // |view_transition_name|. The |pseudo_id| must be a ::transition* element.
@@ -252,6 +256,8 @@ class ViewTransitionStyleTracker
 
   AtomicString GenerateAutoName(Element&, const TreeScope*, bool allow_from_id);
 
+  bool NeedsSnapshotForCapture() const;
+
   struct ElementData : public GarbageCollected<ElementData> {
     void Trace(Visitor* visitor) const;
 
@@ -313,14 +319,22 @@ class ViewTransitionStyleTracker
     base::flat_map<CSSPropertyID, String> captured_css_properties;
 
     // The set of properties to set on the view-transition-group-children
-    // pseudo. Only updated during the capture phase. This also includes the
-    // border offset from the border box to the content area.
+    // pseudo. This also includes the border offset from the border box to the
+    // content area.
     base::flat_map<CSSPropertyID, String> group_children_css_properties;
     gfx::Vector2d border_offset;
+
+    // Border offset as of capture time.
+    gfx::Vector2d cached_border_offset;
 
     // This only contains properties that need to be animated, which is a
     // subset of `captured_css_properties`.
     base::flat_map<CSSPropertyID, String> cached_animated_css_properties;
+
+    // This only contains properties that need to be animated on group children,
+    // which is a subset of `group_children_css_properties`.
+    base::flat_map<CSSPropertyID, String>
+        cached_group_children_animated_properties;
 
     // https://drafts.csswg.org/css-view-transitions-2/#captured-element-class-list
     Vector<AtomicString> class_list;
@@ -385,7 +399,7 @@ class ViewTransitionStyleTracker
   gfx::Transform ComputeTransformForParticipant(const LayoutObject&) const;
 
   viz::ViewTransitionElementResourceId GenerateResourceId(
-      bool for_subframe_snapshot = false) const;
+      bool for_scope_snapshot = false) const;
 
   void SnapBrowserControlsToFullyShown();
 
@@ -459,7 +473,7 @@ class ViewTransitionStyleTracker
 
   // Set if this transition is in a LocalFrame sub-frame, when the capture is
   // initiated until the start phase of the animation.
-  scoped_refptr<cc::ViewTransitionContentLayer> subframe_snapshot_layer_;
+  scoped_refptr<cc::ViewTransitionContentLayer> scope_snapshot_layer_;
 
   // Returns true if GetViewTransitionState() has already been called. This is
   // used only to enforce additional captures don't happen after that.

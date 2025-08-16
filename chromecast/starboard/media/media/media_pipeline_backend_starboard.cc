@@ -9,7 +9,6 @@
 #include "base/logging.h"
 #include "base/task/bind_post_task.h"
 #include "chromecast/public/graphics_types.h"
-#include "chromecast/starboard/media/cdm/starboard_drm_wrapper.h"
 #include "chromecast/starboard/media/media/starboard_api_wrapper.h"
 
 namespace chromecast {
@@ -42,6 +41,7 @@ MediaPipelineBackendStarboard::~MediaPipelineBackendStarboard() {
   DCHECK(media_task_runner_->RunsTasksInCurrentSequence());
   video_plane_->UnregisterCallback(video_plane_callback_token_);
   if (player_) {
+    LOG(INFO) << "Destroying SbPlayer";
     starboard_->DestroyPlayer(player_);
   }
 }
@@ -256,12 +256,32 @@ void MediaPipelineBackendStarboard::CreatePlayer() {
     }
   }
 
-  if (has_drm) {
-    LOG(INFO) << "Content is encrypted. Passing an SbDrmSystem to SbPlayer.";
+  const bool cdm_exists = StarboardDrmWrapper::GetInstance().HasClients();
+  if (cdm_exists || has_drm) {
+    if (cdm_exists && !has_drm) {
+      // There are some cases where this may occur, e.g. if watching a movie
+      // that begins with ads. The ads won't be encrypted, but the movie will
+      // be.
+      LOG(WARNING) << "A CDM exists, but content is not encrypted. Passing an "
+                      "SbDrmSystem to SbPlayer regardless.";
+    } else if (!cdm_exists && has_drm) {
+      // There may be race conditions where content is encrypted but the media
+      // keys have not been attached yet. For example: http://crbug.com/40904510
+      //
+      // We still need an SbDrmSystem in this case.
+      LOG(WARNING) << "Content is encrypted, but no CDM exists. Passing an "
+                      "SbDrmSystem to SbPlayer regardless";
+    } else {
+      // The normal case.
+      LOG(INFO) << "A CDM exists and content is encrypted. Passing an "
+                   "SbDrmSystem to SbPlayer";
+    }
+
+    drm_resource_.emplace();
     params.drm_system = StarboardDrmWrapper::GetInstance().GetDrmSystem();
   } else {
-    LOG(INFO)
-        << "Content is not encrypted. Passing a null SbDrmSystem to SbPlayer.";
+    LOG(INFO) << "Content is not encrypted, and no CDM exists. Passing a null "
+                 "SbDrmSystem to SbPlayer.";
     params.drm_system = nullptr;
   }
 

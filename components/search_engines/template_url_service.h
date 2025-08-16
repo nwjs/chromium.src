@@ -62,6 +62,7 @@ class ChoiceScreenData;
 
 namespace syncer {
 class SyncData;
+struct EntityData;
 }
 
 namespace TemplateURLPrepopulateData {
@@ -527,6 +528,8 @@ class TemplateURLService final : public WebDataServiceConsumer,
   void StopSyncing(syncer::DataType type) override;
   void OnBrowserShutdown(syncer::DataType type) override;
   base::WeakPtr<SyncableService> AsWeakPtr() override;
+  std::string GetClientTag(
+      const syncer::EntityData& entity_data) const override;
 
   // Processes a TemplateURL change for Sync. `turl` is the TemplateURL
   // that has been modified, and `type` is the Sync ChangeType that took place.
@@ -766,11 +769,6 @@ class TemplateURLService final : public WebDataServiceConsumer,
   // `existing_turl` with `new_data`. The current active value can either be the
   // local value or the account value.
   bool UpdateData(TemplateURL* existing_turl, TemplateURLData new_data);
-
-  // If the TemplateURL's sync GUID matches the kSyncedDefaultSearchProviderGUID
-  // preference it will be used to update the DSE in prefs.
-  // OnDefaultSearchChange may be triggered as a result.
-  void MaybeUpdateDSEViaPrefs(TemplateURL* synced_turl);
 
   // Iterates through the TemplateURLs to see if one matches the visited url.
   // For each TemplateURL whose url matches the visited url

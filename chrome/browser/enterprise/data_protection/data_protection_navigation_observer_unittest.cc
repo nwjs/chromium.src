@@ -19,6 +19,7 @@
 #include "chrome/browser/extensions/api/safe_browsing_private/safe_browsing_private_event_router_factory.h"
 #include "chrome/browser/policy/dm_token_utils.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/common/webui_url_constants.h"
 #include "chrome/test/base/testing_browser_process.h"
 #include "chrome/test/base/testing_profile.h"
 #include "chrome/test/base/testing_profile_manager.h"
@@ -294,6 +295,8 @@ TEST_F(DataProtectionNavigationObserverTest, MatchedAuditRuleHasEvent) {
       MakeTriggeredRuleInfo(/*has_watermark=*/false);
 
   enterprise_connectors::test::EventReportValidator validator(client_.get());
+  base::RunLoop run_loop;
+  validator.SetDoneClosure(run_loop.QuitClosure());
   validator.ExpectURLFilteringInterstitialEvent(expected_event);
 
   lookup_service_.SetShouldHaveMatchedRule(true);
@@ -328,6 +331,7 @@ TEST_F(DataProtectionNavigationObserverTest, MatchedAuditRuleHasEvent) {
   auto* user_data = DataProtectionPageUserData::GetForPage(
       GetPageFromWebContents(web_contents()));
   ASSERT_TRUE(user_data);
+  run_loop.Run();
 }
 
 TEST_F(DataProtectionNavigationObserverTest,
@@ -801,6 +805,46 @@ TEST_F(DataProtectionNavigationObserverTest,
   EXPECT_EQ(user_data->settings(), get_settings_future.Get());
 }
 
+TEST_F(DataProtectionNavigationObserverTest,
+       WatermarkWebUI_CreateForNavigationIfNeeded) {
+  SetContents(CreateTestWebContents());
+
+  auto simulator = content::NavigationSimulator::CreateBrowserInitiated(
+      GURL(chrome::kChromeUIWatermarkURL), web_contents());
+  base::test::TestFuture<const UrlSettings&> future;
+  FakeDataProtectionNavigationController controller(
+      web_contents(), &lookup_service_, future.GetCallback());
+  simulator->Start();
+  auto navigation_observer =
+      DataProtectionNavigationObserver::CreateForNavigationIfNeeded(
+          &controller, Profile::FromBrowserContext(browser_context()),
+          simulator->GetNavigationHandle(), future.GetCallback());
+
+  // The observer should be null since the callback is invoked directly.
+  ASSERT_EQ(navigation_observer, nullptr);
+
+  // The settings should contain the default watermark text.
+  const UrlSettings& settings = future.Get();
+  EXPECT_EQ(settings.watermark_text, "Watermark Test Page");
+  EXPECT_TRUE(settings.allow_screenshots);
+}
+
+TEST_F(DataProtectionNavigationObserverTest,
+       WatermarkWebUI_ApplyDataProtectionSettings) {
+  SetContents(CreateTestWebContents());
+
+  NavigateAndCommit(GURL(chrome::kChromeUIWatermarkURL));
+  base::test::TestFuture<const UrlSettings&> future;
+  DataProtectionNavigationObserver::ApplyDataProtectionSettings(
+      Profile::FromBrowserContext(browser_context()), web_contents(),
+      future.GetCallback());
+
+  // The settings should contain the default watermark text.
+  const UrlSettings& settings = future.Get();
+  EXPECT_EQ(settings.watermark_text, "Watermark Test Page");
+  EXPECT_TRUE(settings.allow_screenshots);
+}
+
 namespace {
 
 struct WatermarkStringParams {
@@ -951,6 +995,8 @@ TEST_P(OrderedDataProtectionNavigationObserverTest, TestWatermarkTextUpdated) {
       MakeTriggeredRuleInfo(/*has_watermark=*/true);
 
   enterprise_connectors::test::EventReportValidator validator(client_.get());
+  base::RunLoop run_loop;
+  validator.SetDoneClosure(run_loop.QuitClosure());
   validator.ExpectURLFilteringInterstitialEvent(expected_event);
 
   base::test::TestFuture<const UrlSettings&> future;
@@ -993,6 +1039,7 @@ TEST_P(OrderedDataProtectionNavigationObserverTest, TestWatermarkTextUpdated) {
   ASSERT_TRUE(user_data);
   EXPECT_NE(user_data->settings().watermark_text.find("custom_message"),
             std::string::npos);
+  run_loop.Run();
 }
 
 INSTANTIATE_TEST_SUITE_P(OrderedDataProtectionNavigationObserverTest,

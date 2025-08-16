@@ -240,11 +240,14 @@ public class InterceptNavigationDelegateImpl extends InterceptNavigationDelegate
                 isInitialNavigation(),
                 navigationHandle.isRendererInitiated());
 
-        // Initial navigation never leaves Chrome anyways and we don't want to block background
-        // navigation on waiting for a tab (or CCT pre-warming wouldn't work). Subsequent
-        // navigations and redirects can leave Chrome so they'll have to wait to be attached to an
-        // Activity.
-        if (!mHasAttachedToActivity && isInitialNavigation() && !navigationHandle.isRedirect()) {
+        // Initial navigation never leaves Chrome anyways (unless explicitly requested by a CCT
+        // client) and we don't want to block background navigation on waiting for a tab (or CCT
+        // pre-warming wouldn't work). Subsequent navigations and redirects can leave Chrome so
+        // they'll have to wait to be attached to an Activity.
+        if (!redirectHandler.canInitialNavigationLeaveChrome()
+                && !mHasAttachedToActivity
+                && isInitialNavigation()
+                && !navigationHandle.isRedirect()) {
             resultCallback.onResult(false);
             return;
         }
@@ -532,6 +535,11 @@ public class InterceptNavigationDelegateImpl extends InterceptNavigationDelegate
                 // A new auxiliary browsing context navigation starting in the browser should not be
                 // captured.
                 result = OverrideUrlLoadingResult.forNoOverride();
+            } else if (ExternalIntentsFeatures.AUXILIARY_NAVIGATION_STAYS_IN_PWA.isEnabled()
+                    && isPWAAuxiliaryNavigationInFullscreenWM()) {
+                // A new auxiliary browsing context navigation starting in the PWA should not be
+                // captured.
+                result = OverrideUrlLoadingResult.forNoOverride();
             } else {
                 result = assumeNonNull(mExternalNavHandler).shouldOverrideUrlLoading(params);
             }
@@ -660,6 +668,7 @@ public class InterceptNavigationDelegateImpl extends InterceptNavigationDelegate
     /** Returns whether a Tab instance should be reparented from the PWA to the browser. */
     public boolean shouldReparentTab(WebContents webContents) {
         return ExternalIntentsFeatures.REPARENT_AUXILIARY_NAVIGATION_FROM_PWA.isEnabled()
+                && isInitialNavigation()
                 && mClient.isTabInPWA()
                 && mClient.isInDesktopWindowingMode()
                 && webContents.hasOpener()
@@ -668,8 +677,20 @@ public class InterceptNavigationDelegateImpl extends InterceptNavigationDelegate
     }
 
     private boolean isBrowserAuxiliaryNavigation() {
+        // TODO(crbug.com/424781882): open discussion on whether self navigations in auxiliary page
+        // should be capturable or not. If opening apps is desirable, add `isInitialNavigation()` in
+        // the return statement below, otherwise remove it.
         WebContents webContents = assumeNonNull(mClient.getWebContents());
         return mClient.isTabInBrowser()
+                && webContents.hasOpener()
+                && webContents.getOriginalWindowOpenDisposition()
+                        == WindowOpenDisposition.NEW_FOREGROUND_TAB;
+    }
+
+    private boolean isPWAAuxiliaryNavigationInFullscreenWM() {
+        WebContents webContents = assumeNonNull(mClient.getWebContents());
+        return mClient.isTabInPWA()
+                && !mClient.isInDesktopWindowingMode()
                 && webContents.hasOpener()
                 && webContents.getOriginalWindowOpenDisposition()
                         == WindowOpenDisposition.NEW_FOREGROUND_TAB;

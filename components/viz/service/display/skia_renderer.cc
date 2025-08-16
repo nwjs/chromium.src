@@ -996,9 +996,9 @@ SkiaRenderer::SkiaRenderer(const RendererSettings* settings,
   // It's possible to use BufferQueue with DComp textures, so we can optionally
   // enable it behind a feature flag.
   const bool want_buffer_queue =
-      base::FeatureList::IsEnabled(kBufferQueue) &&
       output_surface_->capabilities().dc_support_level >=
-          OutputSurface::DCSupportLevel::kDCompTexture;
+          OutputSurface::DCSupportLevel::kDCompDynamicTexture &&
+      base::FeatureList::IsEnabled(kBufferQueue);
 #else
   const bool want_buffer_queue = true;
 #endif
@@ -1426,8 +1426,11 @@ bool SkiaRenderer::NeedsLayerForColorConversion(
 
 gfx::ColorSpace SkiaRenderer::CurrentDrawLayerColorSpace() const {
   if (hdr_color_conversion_layer_reset_) {
-    // A color conversion layer allows us to draw everything in extended sRGB.
-    return gfx::ColorSpace::CreateExtendedSRGB();
+    // A color conversion layer allows us to draw everything in an extended
+    // sRGB-like space.
+    return current_frame()
+        ->display_color_spaces.GetRasterAndCompositeColorSpace(
+            gfx::ContentColorUsage::kHDR);
   }
 
   // `NeedsLayerForColorConversion` can return false when no quads in a render
@@ -1500,7 +1503,8 @@ void SkiaRenderer::BeginDrawingRenderPass(
     SkPaint no_blend;
     no_blend.setBlendMode(SkBlendMode::kSrc);
     const gfx::ColorSpace blend_color_space =
-        gfx::ColorSpace::CreateExtendedSRGB();
+        current_frame()->display_color_spaces.GetRasterAndCompositeColorSpace(
+            gfx::ContentColorUsage::kHDR);
     CHECK(blend_color_space.IsSuitableForBlending());
     sk_sp<const SkColorSpace> color_space = blend_color_space.ToSkColorSpace();
     current_canvas_->saveLayer(
@@ -2777,9 +2781,8 @@ void SkiaRenderer::DrawTextureQuad(const TextureDrawQuad* quad,
     }
     cc::ToneMapUtil::AddGlobalToneMapFilterToPaint(
         paint, image, hdr_metadata,
-        quad->dynamic_range_limit.ComputeHdrHeadroom(
-            current_frame()
-                ->display_color_spaces.GetHDRMaxLuminanceRelative()));
+        quad->dynamic_range_limit.ComputeEffectiveHdrHeadroom(
+            current_frame()->display_color_spaces.GetHdrHeadroom()));
   }
 
   // From gl_renderer, the final src color will be

@@ -127,8 +127,10 @@ public interface TabModelObserver {
      *
      * @param tabs The tabs that are pending closure.
      * @param isAllTabs Whether |tabs| are all the tabs.
+     * @param closingSource The tab closing source, e.g. the tablet tab strip.
      */
-    default void multipleTabsPendingClosure(List<Tab> tabs, boolean isAllTabs) {}
+    default void multipleTabsPendingClosure(
+            List<Tab> tabs, boolean isAllTabs, @TabClosingSource int closingSource) {}
 
     /**
      * Called when a tab closure is undone.
@@ -145,8 +147,8 @@ public interface TabModelObserver {
     default void tabClosureCommitted(Tab tab) {}
 
     /**
-     * Called when an "all tabs" closure will happen. If multiple tabs are closed, @{@link
-     * TabModelObserver#willCloseMultipleTabs(boolean, List)} is invoked
+     * Called when an "all tabs" closure will happen. If multiple tabs are closed, {@link
+     * #willCloseMultipleTabs(boolean, List)} is invoked
      */
     default void willCloseAllTabs(boolean incognito) {}
 
@@ -212,4 +214,7 @@ public interface TabModelObserver {
      * @param isAllTabs Whether tabs are all the tabs.
      */
     default void onTabCloseUndone(List<Tab> tabs, boolean isAllTabs) {}
+
+    /** Called when the set of multi-selected tabs has changed. */
+    default void onTabSelectionChanged() {}
 }

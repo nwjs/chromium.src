@@ -56,6 +56,7 @@ class ProxyLookupClientImpl;
 class RenderFrameHost;
 class RenderFrameHostImpl;
 class ServiceWorkerClient;
+enum class PrefetchPotentialCandidateServingResult;
 
 // Holds the relevant size information of the prefetched response. The struct is
 // installed onto `PrefetchContainer`, and gets passed into
@@ -237,7 +238,7 @@ class CONTENT_EXPORT PrefetchContainer {
   // Each callback is called at most once in the lifecycle of a container.
   //
   // Be careful about using this. This is designed only for
-  // `PrefetchMatchResolver`.
+  // `PrefetchMatchResolver` and some other prefetch-internal classes.
   class Observer : public base::CheckedObserver {
    public:
     // Called at the head of dtor.
@@ -254,6 +255,7 @@ class CONTENT_EXPORT PrefetchContainer {
     virtual void OnDeterminedHead(PrefetchContainer& prefetch_container) = 0;
     // Called when load of prefetch completed or failed.
     virtual void OnPrefetchCompletedOrFailed(
+        PrefetchContainer& prefetch_container,
         const network::URLLoaderCompletionStatus& completion_status,
         const std::optional<int>& response_code) = 0;
   };
@@ -372,10 +374,30 @@ class CONTENT_EXPORT PrefetchContainer {
     // --- Phase 3. PrefetchService::StartSinglePrefetch() has been called and
     // the holdback check has completed.
 
-    // [Final state] Not heldback.
+    // Not heldback:
     //
-    // On this state, refer to `PrefetchResponseReader`s for detailed
+    // On these states, refer to `PrefetchResponseReader`s for detailed
     // prefetching state and servability.
+    //
+    // - `kStarted`: Prefetch is started.
+    // - `kDeterminedHead`: `PrefetchContainer::OnDeterminedHead()` is called.
+    //   `Observer::OnDeterminedHead()` is called after transitioning to this
+    //   state.
+    // - [Final state] `kCompletedOrFailed`:
+    //   `PrefetchContainer::OnPrefetchComplete()` is called.
+    //   `Observer::OnPrefetchCompletedOrFailed()` is called after transitioning
+    //   to this state.
+    //
+    // Currently the distinction between these three states is introduced for
+    // CHECK()ing the calling order of `OnDeterminedHead()` and
+    // `OnPrefetchComplete()` (for https://crbug.com/400761083) and shouldn't be
+    // used for
+    // other purposes (i.e. these three enum values should behave in the same
+    // way).
+    //
+    // TODO(https://crbug.com/432518638): Make more strict association with
+    // `PrefetchContainer::LoadState` and `PrefetchResponseReader::LoadState`
+    // and verify it by adding CHECK()s.
     //
     // Also, refer to `attempt_` for triggering outcome and failure reasons for
     // metrics.
@@ -385,6 +407,8 @@ class CONTENT_EXPORT PrefetchContainer {
     // (e.g. `PrefetchResponseReader::GetServableState()` can be still
     // `kServable` even if `attempt_` has a failure).
     kStarted,
+    kDeterminedHead,
+    kCompletedOrFailed,
 
     // [Final state] Heldback due to `PreloadingAttempt::ShouldHoldback()`.
     kFailedHeldback,
@@ -403,7 +427,6 @@ class CONTENT_EXPORT PrefetchContainer {
 
   // Whether or not the prefetch was determined to be eligibile.
   void OnEligibilityCheckComplete(PreloadingEligibility eligibility);
-  bool IsInitialPrefetchEligible() const;
 
   // Adds a the new URL to |redirect_chain_|.
   void AddRedirectHop(const net::RedirectInfo& redirect_info);
@@ -558,10 +581,6 @@ class CONTENT_EXPORT PrefetchContainer {
 
   // Returns request id to be used by DevTools and test utilities.
   const std::string& RequestId() const { return request_id_; }
-
-  const std::optional<PrefetchResponseSizes>& GetPrefetchResponseSizes() const {
-    return prefetch_response_sizes_;
-  }
 
   bool HasPreloadingAttempt() { return !!attempt_; }
   base::WeakPtr<PreloadingAttempt> preloading_attempt() { return attempt_; }
@@ -749,10 +768,12 @@ class CONTENT_EXPORT PrefetchContainer {
   //
   // This can be called multiple times, because this can be called for multiple
   // `PrefetchMatchResolver`s.
-  void OnUnregisterCandidate(const GURL& navigated_url,
-                             bool is_served,
-                             bool is_nav_prerender,
-                             std::optional<base::TimeDelta> blocked_duration);
+  void OnUnregisterCandidate(
+      const GURL& navigated_url,
+      bool is_served,
+      PrefetchPotentialCandidateServingResult matching_result,
+      bool is_nav_prerender,
+      std::optional<base::TimeDelta> blocked_duration);
 
   // TODO(crbug.com/372186548): Revisit the semantics of
   // `IsLikelyAheadOfPrerender()`.
@@ -815,12 +836,8 @@ class CONTENT_EXPORT PrefetchContainer {
   }
 
  protected:
-  friend class PrefetchContainerTestBase;
-
   // Updates metrics based on the result of the prefetch request.
   void UpdatePrefetchRequestMetrics(
-      const std::optional<network::URLLoaderCompletionStatus>&
-          completion_status,
       const network::mojom::URLResponseHead* head);
 
  private:
@@ -903,6 +920,17 @@ class CONTENT_EXPORT PrefetchContainer {
       const std::optional<base::TimeDelta>& blocked_duration,
       bool served,
       bool is_nav_prerender);
+  // Records
+  // `Prefetch.PrefetchPotentialCandidateServingResult.PerMatchingCandidate.*`
+  // UMAs.
+  void RecordPrefetchPotentialCandidateServingResultHistogram(
+      PrefetchPotentialCandidateServingResult matching_result);
+
+  // Should be called only from `OnPrefetchComplete()`, so that
+  // `OnPrefetchCompletedOrFailed()` is always called after
+  // `OnPrefetchCompleteInternal()`.
+  void OnPrefetchCompleteInternal(
+      const network::URLLoaderCompletionStatus& completion_status);
 
   // The ID of the RenderFrameHost/Document that triggered the prefetch.
   // This will be empty when browser-initiated prefetch.
@@ -1007,12 +1035,6 @@ class CONTENT_EXPORT PrefetchContainer {
   base::WeakPtr<PrefetchStreamingURLLoader> streaming_loader_;
 
   ukm::SourceId ukm_source_id_;
-
-  // The sizes information of the prefetched response.
-  std::optional<PrefetchResponseSizes> prefetch_response_sizes_;
-
-  // The amount of time it took for the prefetch to complete.
-  std::optional<base::TimeDelta> fetch_duration_;
 
   // The amount of time it took for the headers to be received.
   std::optional<base::TimeDelta> header_latency_;

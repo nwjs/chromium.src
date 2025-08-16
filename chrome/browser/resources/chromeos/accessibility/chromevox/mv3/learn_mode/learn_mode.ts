@@ -19,7 +19,7 @@ import {InternalKeyEvent} from '../common/internal_key_event.js'
 import {KeyUtil} from '../common/key_util.js';
 import {ChromeVoxKbHandler} from '../common/keyboard_handler.js';
 import {Msgs} from '../common/msgs.js';
-import {OffscreenCommandType} from '../common/offscreen_command_type.js';
+import {OffscreenBridge} from '../common/offscreen_bridge.js';
 import {QueueMode, TtsSpeechProperties} from '../common/tts_types.js';
 
 import Gesture = chrome.accessibilityPrivate.Gesture;
@@ -47,10 +47,7 @@ export class LearnMode {
   /** Initialize keyboard explorer. */
   static init(): void {
     // Listen to all key events on the offscreen document.
-    const message = {
-      command: OffscreenCommandType.LEARN_MODE_REGISTER_LISTENERS
-    };
-    chrome.runtime.sendMessage(undefined, message);
+    OffscreenBridge.learnModeRegisterListeners();
 
     chrome.brailleDisplayPrivate.onKeyEvent.addListener(
         LearnMode.onBrailleKeyEvent);
@@ -90,10 +87,6 @@ export class LearnMode {
         TestTARGET, TestAction.ON_BRAILLE_KEY_EVENT,
         (event: chrome.brailleDisplayPrivate.KeyEvent) =>
             LearnMode.onBrailleKeyEvent(event));
-    BridgeHelper.registerHandler(
-        TestTARGET, TestAction.READY, () => readyPromise);
-
-    readyCallback();
   }
 
   /**
@@ -298,12 +291,14 @@ export class LearnMode {
   }
 
   /** @param outputCallback A callback to run after output is requested. */
-  static output(text: string, outputCallback?: VoidFunction): void {
+  static output(
+      text: string, outputCallback?: VoidFunction,
+      doNotInterrupt?: Boolean): void {
     BackgroundBridge.TtsBackground.speak(
         text,
         LearnMode.shouldFlushSpeech_ ? QueueMode.CATEGORY_FLUSH :
                                        QueueMode.QUEUE,
-        new TtsSpeechProperties({endCallback: outputCallback}));
+        new TtsSpeechProperties({doNotInterrupt, endCallback: outputCallback}));
     BackgroundBridge.Braille.write(text);
     LearnMode.shouldFlushSpeech_ = false;
     if (outputCallback) {
@@ -317,8 +312,8 @@ export class LearnMode {
   }
 
   private static resetListeners_(): void {
-    const message = {command: OffscreenCommandType.LEARN_MODE_REMOVE_LISTENERS};
-    chrome.runtime.sendMessage(undefined, message);
+    // Stop listening to key events on the offscreen document.
+    OffscreenBridge.learnModeRemoveListeners();
 
     chrome.brailleDisplayPrivate.onKeyEvent.removeListener(
         LearnMode.onBrailleKeyEvent);
@@ -345,7 +340,9 @@ export class LearnMode {
   }
 
   private static close_(): void {
-    LearnMode.output(Msgs.getMsg('learn_mode_outtro'));
+    LearnMode.output(
+        Msgs.getMsg('learn_mode_outtro'), /*outputCallback=*/ undefined,
+        /*doNotInterrupt=*/ true);
     LearnMode.resetListeners_();
     window.close();
   }
@@ -353,6 +350,20 @@ export class LearnMode {
 
 document.addEventListener('DOMContentLoaded', function(): void {
   LearnMode.init();
+}, false);
+
+// Key up and down events are handled offscreen and forwarded to LearnMode when
+// it's active (see onkeyDown and onKeyUp above). However, we also receive DOM
+// events directly in LearnMode, so we need to cancel these to prevent them from
+// propagating.
+document.addEventListener('keydown', (evt) => {
+  evt.preventDefault();
+  evt.stopPropagation();
+}, false);
+
+document.addEventListener('keyup', (evt) => {
+  evt.preventDefault();
+  evt.stopPropagation();
 }, false);
 
 // Local to module.
@@ -371,8 +382,3 @@ function $(id: string): HTMLElement | null {
  * The minimum time to wait before describing another touch explore gesture.
  */
 let MIN_TOUCH_EXPLORE_OUTPUT_TIME_MS = 1000;
-
-
-let readyCallback: VoidFunction;
-const readyPromise =
-    new Promise(resolve => readyCallback = resolve as VoidFunction);

@@ -38,7 +38,6 @@
 #include "ash/app_list/views/search_result_list_view.h"
 #include "ash/app_list/views/search_result_page_view.h"
 #include "ash/app_list/views/search_result_view.h"
-#include "ash/constants/ash_features.h"
 #include "ash/keyboard/ui/keyboard_ui_controller.h"
 #include "ash/public/cpp/app_list/app_list_config.h"
 #include "ash/public/cpp/app_list/app_list_types.h"
@@ -51,9 +50,7 @@
 #include "base/strings/utf_string_conversions.h"
 #include "base/test/icu_test_util.h"
 #include "base/test/metrics/histogram_tester.h"
-#include "base/test/scoped_feature_list.h"
 #include "build/build_config.h"
-#include "chromeos/constants/chromeos_features.h"
 #include "chromeos/ui/vector_icons/vector_icons.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/base/themed_vector_icon.h"
@@ -517,10 +514,7 @@ class AppListViewTest : public views::ViewsTestBase {
 // Tests app list view layout for different screen sizes.
 class AppListViewScalableLayoutTest : public AppListViewTest {
  public:
-  AppListViewScalableLayoutTest() {
-    scoped_feature_list_.InitWithFeatures(
-        {ash::features::kEnableBackgroundBlur}, {});
-  }
+  AppListViewScalableLayoutTest() = default;
   ~AppListViewScalableLayoutTest() override = default;
 
   void SetUp() override {
@@ -538,9 +532,6 @@ class AppListViewScalableLayoutTest : public AppListViewTest {
     delegate_->GetTestModel()->PopulateApps(kInitialItems);
     Show();
   }
-
- protected:
-  base::test::ScopedFeatureList scoped_feature_list_;
 };
 
 // Tests of focus, optionally parameterized by RTL.
@@ -831,7 +822,6 @@ class AppListViewFocusTest : public views::ViewsTestBase,
 
  protected:
   bool is_rtl_ = false;
-  base::test::ScopedFeatureList scoped_feature_list_;
 
  private:
   AshColorProvider ash_color_provider_;
@@ -1602,10 +1592,8 @@ TEST_F(AppListViewTest, PageSwitchingAnimationTest) {
 }
 
 // Tests that the correct views are displayed for showing search results.
-TEST_F(AppListViewTest, DISABLED_SearchResultsTest) {
-  Initialize(false /*is_tablet_mode*/);
-  // TODO(newcomer): this test needs to be reevaluated for the fullscreen app
-  // list (http://crbug.com/759779).
+TEST_F(AppListViewTest, SearchResultsTest) {
+  Initialize(/*is_tablet_mode=*/true);
   EXPECT_FALSE(view_->GetWidget()->IsVisible());
   EXPECT_EQ(-1, GetPaginationModel()->total_pages());
   AppListTestModel* model = delegate_->GetTestModel();
@@ -1615,58 +1603,35 @@ TEST_F(AppListViewTest, DISABLED_SearchResultsTest) {
 
   AppListMainView* main_view = view_->app_list_main_view();
   ContentsView* contents_view = main_view->contents_view();
-  EXPECT_TRUE(SetAppListState(ash::AppListState::kStateApps));
+  EXPECT_EQ(ash::AppListViewState::kFullscreenAllApps, view_->app_list_state());
+  EXPECT_TRUE(contents_view->IsStateActive(ash::AppListState::kStateApps));
 
-  // Show the search results.
-  contents_view->ShowSearchResults(true);
-  views::test::RunScheduledLayout(contents_view);
-  EXPECT_TRUE(
-      contents_view->IsStateActive(ash::AppListState::kStateSearchResults));
-
-  EXPECT_TRUE(IsStateShown(ash::AppListState::kStateSearchResults));
-
-  // Hide the search results.
-  contents_view->ShowSearchResults(false);
-  views::test::RunScheduledLayout(contents_view);
-
-  // Check that we return to the page that we were on before the search.
-  EXPECT_TRUE(IsStateShown(ash::AppListState::kStateApps));
-
-  views::test::RunScheduledLayout(view_);
-  EXPECT_TRUE(IsStateShown(ash::AppListState::kStateApps));
-
-  std::u16string search_text = u"test";
-  main_view->search_box_view()->search_box()->SetText(std::u16string());
-  main_view->search_box_view()->search_box()->InsertText(
-      search_text,
-      ui::TextInputClient::InsertTextCursorBehavior::kMoveCursorAfterText);
-  // Check that the current search is using |search_text|.
-  EXPECT_EQ(search_text, main_view->search_box_view()->search_box()->GetText());
-  EXPECT_EQ(search_text, main_view->search_box_view()->current_query());
-  views::test::RunScheduledLayout(contents_view);
+  // Type in the search box to show search results.
+  SetTextInSearchBox(u"test");
+  EXPECT_EQ(ash::AppListViewState::kFullscreenSearch, view_->app_list_state());
   EXPECT_TRUE(
       contents_view->IsStateActive(ash::AppListState::kStateSearchResults));
   EXPECT_TRUE(CheckSearchBoxView(contents_view->GetSearchBoxBounds(
       ash::AppListState::kStateSearchResults)));
 
-  // Check that typing into the search box triggers the search page.
-  EXPECT_TRUE(SetAppListState(ash::AppListState::kStateApps));
-  views::test::RunScheduledLayout(contents_view);
-  EXPECT_TRUE(IsStateShown(ash::AppListState::kStateApps));
-  EXPECT_TRUE(CheckSearchBoxView(
-      contents_view->GetSearchBoxBounds(ash::AppListState::kStateApps)));
+  // Go back to hide search results, which is equivalent to pressing Esc.
+  view_->Back();
+  EXPECT_EQ(ash::AppListViewState::kFullscreenAllApps, view_->app_list_state());
+  EXPECT_TRUE(contents_view->IsStateActive(ash::AppListState::kStateApps));
 
-  std::u16string new_search_text = u"apple";
-  main_view->search_box_view()->search_box()->SetText(std::u16string());
-  main_view->search_box_view()->search_box()->InsertText(
-      new_search_text,
-      ui::TextInputClient::InsertTextCursorBehavior::kMoveCursorAfterText);
-  // Check that the current search is using |new_search_text|.
-  EXPECT_EQ(new_search_text,
-            main_view->search_box_view()->search_box()->GetText());
-  EXPECT_EQ(search_text, main_view->search_box_view()->current_query());
-  views::test::RunScheduledLayout(contents_view);
-  EXPECT_TRUE(IsStateShown(ash::AppListState::kStateSearchResults));
+  // Check that typing into the search box triggers the search page.
+  SetTextInSearchBox(u"test");
+  EXPECT_EQ(ash::AppListViewState::kFullscreenSearch, view_->app_list_state());
+  EXPECT_TRUE(
+      contents_view->IsStateActive(ash::AppListState::kStateSearchResults));
+  EXPECT_TRUE(CheckSearchBoxView(contents_view->GetSearchBoxBounds(
+      ash::AppListState::kStateSearchResults)));
+
+  // Check that typing a new query keeps the search page.
+  SetTextInSearchBox(u"apple");
+  EXPECT_EQ(ash::AppListViewState::kFullscreenSearch, view_->app_list_state());
+  EXPECT_TRUE(
+      contents_view->IsStateActive(ash::AppListState::kStateSearchResults));
   EXPECT_TRUE(CheckSearchBoxView(contents_view->GetSearchBoxBounds(
       ash::AppListState::kStateSearchResults)));
 }

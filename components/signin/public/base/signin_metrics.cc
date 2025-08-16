@@ -347,6 +347,14 @@ void RecordReauthFlowEventInSigninFlow(signin_metrics::AccessPoint access_point,
                     ReauthFlowEventToHistogramSuffix(event)}),
       access_point);
 }
+
+void RecordReauthFlowEventInExplicitFlow(ReauthAccessPoint access_point,
+                                         ReauthFlowEvent event) {
+  base::UmaHistogramEnumeration(
+      base::StrCat({"Signin.Reauth.InExplicitFlow",
+                    ReauthFlowEventToHistogramSuffix(event)}),
+      access_point);
+}
 #endif  // BUILDFLAG(IS_IOS)
 
 void RecordOpenTabCountOnSignin(signin::ConsentLevel consent_level,
@@ -628,6 +636,26 @@ void RecordSigninUserActionForAccessPoint(AccessPoint access_point) {
       base::RecordAction(base::UserMetricsAction(
           "Signin_Signin_FromNonModalSigninBookmarkPromo"));
       break;
+    case AccessPoint::kUserManagerWithPrefilledEmail:
+      base::RecordAction(base::UserMetricsAction(
+          "Signin_Signin_FromUserManagerWithPrefilledEmail"));
+      break;
+    case AccessPoint::kEnterpriseManagementDisclaimerAtStartup:
+      base::RecordAction(base::UserMetricsAction(
+          "Signin_Signin_FromEnterpriseManagementDisclaimerAtStartup"));
+      break;
+    case AccessPoint::kEnterpriseManagementDisclaimerAfterBrowserFocus:
+      base::RecordAction(base::UserMetricsAction(
+          "Signin_Signin_FromEnterpriseManagementDisclaimerAfterBrowserFocus"));
+      break;
+    case AccessPoint::kEnterpriseManagementDisclaimerAfterSignin:
+      base::RecordAction(base::UserMetricsAction(
+          "Signin_Signin_FromEnterpriseManagementDisclaimerAfterSignin"));
+      break;
+    case AccessPoint::kNtpFeaturePromo:
+      base::RecordAction(
+          base::UserMetricsAction("Signin_Signin_FromNtpFeaturePromo"));
+      break;
   }
 }
 
@@ -759,6 +787,10 @@ void RecordSigninImpressionUserActionForAccessPoint(AccessPoint access_point) {
       base::RecordAction(
           base::UserMetricsAction("Signin_Impression_FromAddressBubble"));
       break;
+    case AccessPoint::kUserManagerWithPrefilledEmail:
+      base::RecordAction(base::UserMetricsAction(
+          "Signin_Impression_FromUserManagerWithPrefilledEmail"));
+      break;
     case AccessPoint::kEnterpriseSignoutCoordinator:
     case AccessPoint::kExtensions:
     case AccessPoint::kSupervisedUser:
@@ -804,6 +836,10 @@ void RecordSigninImpressionUserActionForAccessPoint(AccessPoint access_point) {
     case AccessPoint::kManagedProfileAutoSigninIos:
     case AccessPoint::kNonModalSigninPasswordPromo:
     case AccessPoint::kNonModalSigninBookmarkPromo:
+    case AccessPoint::kEnterpriseManagementDisclaimerAtStartup:
+    case AccessPoint::kEnterpriseManagementDisclaimerAfterBrowserFocus:
+    case AccessPoint::kEnterpriseManagementDisclaimerAfterSignin:
+    case AccessPoint::kNtpFeaturePromo:
       NOTREACHED() << "Signin_Impression_From* user actions are not recorded "
                       "for access point "
                    << static_cast<int>(access_point);

@@ -297,10 +297,7 @@ public class ArchivedTabsDialogCoordinatorUnitTest {
     }
 
     @Test
-    @EnableFeatures({
-        ChromeFeatureList.DRAW_KEY_NATIVE_EDGE_TO_EDGE,
-        ChromeFeatureList.EDGE_TO_EDGE_BOTTOM_CHIN
-    })
+    @EnableFeatures({ChromeFeatureList.EDGE_TO_EDGE_BOTTOM_CHIN})
     public void testEdgeToEdgePadAdjuster() {
         EdgeToEdgePadAdjuster padAdjuster = mCoordinator.getEdgeToEdgePadAdjusterForTesting();
         assertNotNull("Pad adjuster should be created when feature enabled.", padAdjuster);
@@ -321,10 +318,7 @@ public class ArchivedTabsDialogCoordinatorUnitTest {
     }
 
     @Test
-    @DisableFeatures({
-        ChromeFeatureList.DRAW_KEY_NATIVE_EDGE_TO_EDGE,
-        ChromeFeatureList.EDGE_TO_EDGE_BOTTOM_CHIN
-    })
+    @DisableFeatures({ChromeFeatureList.EDGE_TO_EDGE_BOTTOM_CHIN})
     public void testEdgeToEdgePadAdjuster_FeatureDisabled() {
         mEdgeToEdgeSupplier.set(mEdgeToEdgeController);
         var padAdjuster = mCoordinator.getEdgeToEdgePadAdjusterForTesting();
@@ -345,7 +339,8 @@ public class ArchivedTabsDialogCoordinatorUnitTest {
                 .thenReturn(savedTabGroupBefore)
                 .thenReturn(savedTabGroupBefore)
                 .thenReturn(savedTabGroupAfter);
-        when(mCurrentTabGroupModelFilter.getRootIdFromTabGroupId(TAB_GROUP_ID)).thenReturn(TAB1_ID);
+        when(mCurrentTabGroupModelFilter.tabGroupExists(TAB_GROUP_ID)).thenReturn(true);
+        when(mCurrentTabGroupModelFilter.getGroupLastShownTabId(TAB_GROUP_ID)).thenReturn(TAB1_ID);
         when(mTabListEditorController.isVisible()).thenReturn(true);
 
         // Show the dialog.

@@ -13,10 +13,10 @@ import android.content.Intent;
 import android.content.pm.ResolveInfo;
 import android.net.Uri;
 import android.text.TextUtils;
-import android.util.Log;
 import android.util.Pair;
 
 import org.chromium.base.ContextUtils;
+import org.chromium.base.Log;
 import org.chromium.base.PackageManagerUtils;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
@@ -36,6 +36,8 @@ public class AndroidTaskUtils {
     // versions. However, theoretically this task list could be unbounded, so limit it to a number
     // that won't cause Chrome to blow up in degenerate cases.
     private static final int MAX_NUM_TASKS = 100;
+
+    @Nullable private static AppTask sAppTaskForTesting;
 
     /**
      * Finishes tasks other than the one with the given ID that were started with the given data in
@@ -198,6 +200,10 @@ public class AndroidTaskUtils {
      * @return The {@link AppTask} for a given taskId if found, {@code null} otherwise.
      */
     public static @Nullable AppTask getAppTaskFromId(Context context, int taskId) {
+        if (sAppTaskForTesting != null) {
+            return sAppTaskForTesting;
+        }
+
         ActivityManager am = (ActivityManager) context.getSystemService(Context.ACTIVITY_SERVICE);
         for (var appTask : am.getAppTasks()) {
             var taskInfo = appTask.getTaskInfo();
@@ -208,5 +214,9 @@ public class AndroidTaskUtils {
             }
         }
         return null;
+    }
+
+    public static void setAppTaskForTesting(@Nullable AppTask task) {
+        sAppTaskForTesting = task;
     }
 }

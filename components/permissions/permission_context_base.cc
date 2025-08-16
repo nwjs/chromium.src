@@ -29,12 +29,14 @@
 #include "components/content_settings/core/browser/content_settings_registry.h"
 #include "components/content_settings/core/browser/content_settings_utils.h"
 #include "components/content_settings/core/browser/host_content_settings_map.h"
+#include "components/content_settings/core/browser/permission_settings_registry.h"
 #include "components/content_settings/core/browser/website_settings_registry.h"
 #include "components/content_settings/core/common/content_settings.h"
 #include "components/content_settings/core/common/content_settings_pattern.h"
 #include "components/content_settings/core/common/content_settings_types.h"
 #include "components/content_settings/core/common/content_settings_utils.h"
 #include "components/content_settings/core/common/features.h"
+#include "components/guest_view/buildflags/buildflags.h"
 #include "components/permissions/features.h"
 #include "components/permissions/permission_context_base.h"
 #include "components/permissions/permission_decision.h"
@@ -55,9 +57,10 @@
 #include "content/public/common/content_features.h"
 #include "services/network/public/cpp/is_potentially_trustworthy.h"
 #include "services/network/public/mojom/permissions_policy/permissions_policy_feature.mojom.h"
+#include "third_party/blink/public/mojom/permissions/permission.mojom.h"
 #include "url/gurl.h"
 
-#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
+#if BUILDFLAG(ENABLE_GUEST_VIEW)
 #include "components/guest_view/browser/guest_view_base.h"
 #endif
 
@@ -343,7 +346,7 @@ content::PermissionResult PermissionContextBase::GetPermissionStatus(
     }
   }
 
-#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
+#if BUILDFLAG(ENABLE_GUEST_VIEW)
   guest_view::GuestViewBase* guest =
       guest_view::GuestViewBase::FromRenderFrameHost(render_frame_host);
   if (guest) {
@@ -375,7 +378,7 @@ content::PermissionResult PermissionContextBase::GetPermissionStatus(
   }
 #endif
 
-  base::Value retrieved_permission_data = GetPermissionStatusInternal(
+  PermissionSetting retrieved_permission_data = GetPermissionStatusInternal(
       render_frame_host, requesting_origin, embedding_origin);
 
   auto permission_status =
@@ -384,7 +387,7 @@ content::PermissionResult PermissionContextBase::GetPermissionStatus(
   if (permission_status != PermissionStatus::ASK) {
     return content::PermissionResult(
         permission_status, content::PermissionStatusSource::UNSPECIFIED,
-        std::move(retrieved_permission_data));
+        retrieved_permission_data);
   }
 
   if (UsesAutomaticEmbargo()) {
@@ -393,13 +396,13 @@ content::PermissionResult PermissionContextBase::GetPermissionStatus(
             ->GetPermissionDecisionAutoBlocker(browser_context_)
             ->GetEmbargoResult(requesting_origin, content_settings_type_);
     if (result) {
-      result->retrieved_permission_data = std::move(retrieved_permission_data);
+      result->retrieved_permission_setting = retrieved_permission_data;
       return std::move(result).value();
     }
   }
   return content::PermissionResult(PermissionStatus::ASK,
                                    content::PermissionStatusSource::UNSPECIFIED,
-                                   std::move(retrieved_permission_data));
+                                   retrieved_permission_data);
 }
 
 content::PermissionResult PermissionContextBase::GetPermissionStatus(
@@ -498,14 +501,14 @@ bool PermissionContextBase::IsPermissionKillSwitchOn() const {
   return param == kPermissionsKillSwitchBlockedValue;
 }
 
-base::Value PermissionContextBase::GetPermissionStatusInternal(
+PermissionSetting PermissionContextBase::GetPermissionStatusInternal(
     content::RenderFrameHost* render_frame_host,
     const GURL& requesting_origin,
     const GURL& embedding_origin) const {
   return PermissionsClient::Get()
       ->GetSettingsMap(browser_context())
-      ->GetWebsiteSetting(requesting_origin, embedding_origin,
-                          content_settings_type());
+      ->GetPermissionSetting(requesting_origin, embedding_origin,
+                             content_settings_type());
 }
 
 void PermissionContextBase::DecidePermission(
@@ -621,11 +624,6 @@ void PermissionContextBase::RemoveObserver(
 std::unique_ptr<PermissionResolver>
 PermissionContextBase::CreatePermissionResolver(
     const blink::mojom::PermissionDescriptorPtr& permission_descriptor) const {
-  return CreateRequestIndependentPermissionResolver();
-}
-
-std::unique_ptr<PermissionResolver>
-PermissionContextBase::CreateRequestIndependentPermissionResolver() const {
   return std::make_unique<ContentSettingPermissionResolver>(
       content_settings_type_);
 }
@@ -722,7 +720,7 @@ void PermissionContextBase::CleanUpRequest(
 
 void PermissionContextBase::UpdateSetting(
     const PermissionRequestData& request_data,
-    base::Value setting,
+    PermissionSetting setting,
     bool is_one_time) {
   DCHECK_EQ(request_data.requesting_origin,
             request_data.requesting_origin.DeprecatedGetOriginAsURL());
@@ -736,8 +734,11 @@ void PermissionContextBase::UpdateSetting(
 
   // The Permissions module in Safety check will revoke permissions after
   // a finite amount of time if the permission can be revoked.
-  if (content_settings::CanBeAutoRevoked(content_settings_type(), setting,
-                                         is_one_time)) {
+  auto* info = content_settings::PermissionSettingsRegistry::GetInstance()->Get(
+      content_settings_type_);
+  if (info && content_settings::CanBeAutoRevoked(
+                  content_settings_type(), info->delegate().ToValue(setting),
+                  is_one_time)) {
     // For #2, by definition, that should be all of them. If that changes in
     // the future, consider whether revocation for such permission makes
     // sense, and/or change this to an early return so that we don't
@@ -750,12 +751,16 @@ void PermissionContextBase::UpdateSetting(
       constraints.set_lifetime(kOneTimePermissionMaximumLifetime);
     }
   }
-
   PermissionsClient::Get()
       ->GetSettingsMap(browser_context())
       ->SetWebsiteSettingDefaultScope(
           request_data.requesting_origin, request_data.embedding_origin,
-          content_settings_type(), std::move(setting), constraints);
+          content_settings_type(),
+          content_settings::PermissionSettingsRegistry::GetInstance()
+              ->Get(content_settings_type())
+              ->delegate()
+              .ToValue(setting),
+          constraints);
 }
 
 bool PermissionContextBase::PermissionAllowedByPermissionsPolicy(

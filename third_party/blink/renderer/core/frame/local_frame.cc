@@ -131,7 +131,6 @@
 #include "third_party/blink/renderer/core/fragment_directive/text_fragment_handler.h"
 #include "third_party/blink/renderer/core/frame/ad_tracker.h"
 #include "third_party/blink/renderer/core/frame/attribution_src_loader.h"
-#include "third_party/blink/renderer/core/frame/context_menu_insets_changed_observer.h"
 #include "third_party/blink/renderer/core/frame/csp/content_security_policy.h"
 #include "third_party/blink/renderer/core/frame/event_handler_registry.h"
 #include "third_party/blink/renderer/core/frame/frame_console.h"
@@ -297,7 +296,7 @@ inline float ParentCssZoomFactor(LocalFrame* frame) {
 // blob, so that it can be passed across processes.
 mojo::PendingRemote<mojom::blink::Blob> DataURLToBlob(const String& data_url) {
   auto blob_data = std::make_unique<BlobData>();
-  StringUTF8Adaptor data_url_utf8(data_url);
+  StringUtf8Adaptor data_url_utf8(data_url);
   blob_data->AppendBytes(base::as_byte_span(data_url_utf8));
   scoped_refptr<BlobDataHandle> blob_data_handle =
       BlobDataHandle::Create(std::move(blob_data), data_url_utf8.size());
@@ -345,8 +344,7 @@ void SetViewportSegmentVariablesForRect(StyleEnvironmentVariables& vars,
 mojom::blink::BlockingDetailsPtr CreateBlockingDetailsMojom(
     const FeatureAndJSLocationBlockingBFCache& blocking_details) {
   auto feature_location_to_report = mojom::blink::BlockingDetails::New();
-  feature_location_to_report->feature =
-      static_cast<uint32_t>(blocking_details.Feature());
+  feature_location_to_report->feature = blocking_details.Feature();
   // Zero line number and column number means no source location found.
   if (blocking_details.LineNumber() > 0 &&
       blocking_details.ColumnNumber() > 0) {
@@ -506,7 +504,6 @@ void LocalFrame::Trace(Visitor* visitor) const {
   visitor->Trace(content_capture_manager_);
   visitor->Trace(system_clipboard_);
   visitor->Trace(virtual_keyboard_overlay_changed_observers_);
-  visitor->Trace(context_menu_insets_changed_observers_);
   visitor->Trace(widget_creation_observers_);
   visitor->Trace(pause_handle_receivers_);
   visitor->Trace(frame_color_overlay_);
@@ -708,6 +705,8 @@ bool LocalFrame::DetachImpl(FrameDetachType type) {
   // both when unloading itself and when unloading its descendants.
   IgnoreOpensDuringUnloadCountIncrementer ignore_opens_during_unload(
       GetDocument());
+  // Don't allow navigations to be triggered from the unload events below.
+  FrameNavigationDisabler navigation_disabler(*this);
 
   loader_.DispatchUnloadEventAndFillOldDocumentInfoIfNeeded(
       type != FrameDetachType::kRemove);
@@ -3559,28 +3558,6 @@ void LocalFrame::NotifyVirtualKeyboardOverlayRectObservers(
     observer->VirtualKeyboardOverlayChanged(rect);
 }
 
-void LocalFrame::RegisterContextMenuInsetsChangedObserver(
-    ContextMenuInsetsChangedObserver* observer) {
-  context_menu_insets_changed_observers_.insert(observer);
-}
-
-void LocalFrame::NotifyContextMenuInsetsObservers(
-    const gfx::Rect& safe_area) const {
-  gfx::Size viewport =
-      gfx::ScaleToEnclosingRect(gfx::Rect(GetOutermostMainFrameSize()),
-                                1.0 / DevicePixelRatio())
-          .size();
-  // Convert from a rect within the window to viewport insets.
-  auto insets = gfx::Insets::TLBR(safe_area.y(), safe_area.x(),
-                                  viewport.height() - safe_area.bottom(),
-                                  viewport.width() - safe_area.right());
-  HeapVector<Member<ContextMenuInsetsChangedObserver>, 32> observers(
-      context_menu_insets_changed_observers_);
-  for (ContextMenuInsetsChangedObserver* observer : observers) {
-    observer->ContextMenuInsetsChanged(safe_area.IsEmpty() ? nullptr : &insets);
-  }
-}
-
 void LocalFrame::ShowInterestInElement(int nodeID) const {
   Element* element = DynamicTo<Element>(DOMNodeIds::NodeForId(nodeID));
   if (!element) {
@@ -3845,8 +3822,9 @@ void LocalFrame::PostMessageEvent(
   // Preparation of the MessageEvent.
   MessageEvent* message_event = MessageEvent::Create();
   DOMWindow* window = nullptr;
-  if (source_frame)
+  if (source_frame) {
     window = source_frame->DomWindow();
+  }
   GCedMessagePortArray* ports = nullptr;
   if (GetDocument()) {
     ports = MessagePort::EntanglePorts(*GetDocument()->GetExecutionContext(),
@@ -3863,10 +3841,15 @@ void LocalFrame::PostMessageEvent(
         message.user_activation->was_active);
   }
 
+  const MessageEvent::MessageOriginKind message_origin_kind =
+      SecurityOrigin::CreateFromString(source_origin)
+              ->IsSameOriginWith(DomWindow()->GetSecurityOrigin())
+          ? MessageEvent::kMessageIsSameOrigin
+          : MessageEvent::kMessageIsCrossOrigin;
   message_event->initMessageEvent(
       event_type_names::kMessage, false, false, std::move(message.message),
-      source_origin, "" /*lastEventId*/, window, ports, user_activation,
-      message.delegated_capability);
+      source_origin, message_origin_kind, "" /*lastEventId*/, window, ports,
+      user_activation, message.delegated_capability);
 
   // If the agent cluster id had a value it means this was locked when it
   // was serialized.
@@ -4071,21 +4054,19 @@ void LocalFrame::AddScrollSnapshotClient(ScrollSnapshotClient& client) {
   scroll_snapshot_clients_.insert(&client);
 }
 
-void LocalFrame::UpdateScrollSnapshots() {
-  // Any calls that update style and layout may create scroll snapshot
-  // clients. As such, we can't iterate over the live clients directly.
-  // See https://crbug.com/421471058 for details.
-  // TODO(xiaochengh): Can we DCHECK that is is done at the beginning of a frame
-  // and is done exactly once?
+void LocalFrame::UpdateScrollSnapshotClientsForServiceAnimations() {
   for (auto& client : CopyClients(scroll_snapshot_clients_)) {
-    client->UpdateSnapshot();
+    client->UpdateSnapshotForServiceAnimations();
   }
 }
 
-bool LocalFrame::ValidateScrollSnapshotClients() {
+bool LocalFrame::UpdateScrollSnapshotClients() {
   bool valid = true;
-  for (auto& client : scroll_snapshot_clients_) {
-    valid &= client->ValidateSnapshot();
+  // Any calls that update style and layout may create scroll snapshot
+  // clients. As such, we can't iterate over the live clients directly.
+  // See https://crbug.com/421471058 for details.
+  for (auto& client : CopyClients(scroll_snapshot_clients_)) {
+    valid &= !client->UpdateSnapshot();
   }
   return valid;
 }

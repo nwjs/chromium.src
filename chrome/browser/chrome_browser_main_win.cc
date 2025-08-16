@@ -2,10 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifdef UNSAFE_BUFFERS_BUILD
-// TODO(crbug.com/40285824): Remove this and convert code to safer constructs.
-#pragma allow_unsafe_buffers
-#endif
 
 #include "chrome/browser/chrome_browser_main_win.h"
 
@@ -1016,9 +1012,10 @@ std::optional<int> ChromeBrowserMainPartsWin::MaybeAutoDeElevate() {
   }
   new_command_line.AppendSwitch(switches::kDoNotDeElevateOnLaunch);
 
-  const HRESULT hr = base::win::RunDeElevated(new_command_line).IsValid()
+  auto process_or_error = base::win::RunDeElevated(new_command_line);
+  const HRESULT hr = process_or_error.has_value()
                          ? S_OK
-                         : HRESULT_FROM_WIN32(::GetLastError());
+                         : HRESULT_FROM_WIN32(process_or_error.error());
   base::UmaHistogramSparse("Windows.AutoDeElevateResult", hr);
   // If it fails, it doesn't matter why, just proceed with the normal launch.
   if (SUCCEEDED(hr)) {

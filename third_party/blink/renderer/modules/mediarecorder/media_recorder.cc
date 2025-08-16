@@ -380,6 +380,10 @@ void MediaRecorder::requestData(ExceptionState& exception_state) {
     return;
   }
 
+  if (recorder_handler_) {
+    recorder_handler_->MaybeFlush();
+  }
+
   WriteData(/*data=*/{}, /*last_in_slice=*/true, /*error_event=*/nullptr);
 }
 
@@ -440,11 +444,7 @@ void MediaRecorder::ContextDestroyed() {
 void MediaRecorder::WriteData(base::span<const uint8_t> data,
                               bool last_in_slice,
                               ErrorEvent* error_event) {
-  if (!first_write_received_) {
-    mime_type_ = recorder_handler_->ActualMimeType();
-    ScheduleDispatchEvent(Event::Create(event_type_names::kStart));
-    first_write_received_ = true;
-  }
+  MaybeEmitStartEvent();
 
   if (error_event) {
     ScheduleDispatchEvent(error_event);
@@ -479,6 +479,15 @@ void MediaRecorder::OnError(DOMExceptionCode code, const String& message) {
   event_init->setError(error_value);
   StopRecording(
       ErrorEvent::Create(script_state, event_type_names::kError, event_init));
+}
+
+void MediaRecorder::MaybeEmitStartEvent() {
+  if (emitted_start_event_) {
+    return;
+  }
+  mime_type_ = recorder_handler_->ActualMimeType();
+  ScheduleDispatchEvent(Event::Create(event_type_names::kStart));
+  emitted_start_event_ = true;
 }
 
 void MediaRecorder::OnAllTracksEnded() {
@@ -526,7 +535,7 @@ void MediaRecorder::StopRecording(ErrorEvent* error_event) {
   recorder_handler_->Stop();
   WriteData(/*data=*/{}, /*last_in_slice=*/true, error_event);
   ScheduleDispatchEvent(Event::Create(event_type_names::kStop));
-  first_write_received_ = false;
+  emitted_start_event_ = false;
 }
 
 void MediaRecorder::ScheduleDispatchEvent(Event* event) {

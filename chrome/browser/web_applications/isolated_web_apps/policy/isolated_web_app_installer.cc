@@ -9,26 +9,29 @@
 #include "base/check_deref.h"
 #include "base/files/file_path.h"
 #include "base/functional/bind.h"
-#include "base/lazy_instance.h"
+#include "base/no_destructor.h"
 #include "base/types/expected_macros.h"
 #include "base/version.h"
 #include "chrome/browser/web_applications/callback_utils.h"
 #include "chrome/browser/web_applications/isolated_web_apps/commands/install_isolated_web_app_command.h"
-#include "chrome/browser/web_applications/isolated_web_apps/isolated_web_app_downloader.h"
-#include "chrome/browser/web_applications/isolated_web_apps/isolated_web_app_source.h"
 #include "chrome/browser/web_applications/isolated_web_apps/policy/isolated_web_app_external_install_options.h"
 #include "chrome/browser/web_applications/isolated_web_apps/update_manifest/update_manifest.h"
 #include "chrome/browser/web_applications/isolated_web_apps/update_manifest/update_manifest_fetcher.h"
 #include "chrome/browser/web_applications/web_app_provider.h"
 #include "chrome/common/chrome_features.h"
+#include "components/webapps/isolated_web_apps/download/bundle_downloader.h"
 #include "components/webapps/isolated_web_apps/iwa_key_distribution_info_provider.h"
+#include "components/webapps/isolated_web_apps/types/source.h"
 #include "services/network/public/cpp/shared_url_loader_factory.h"
 
 #if BUILDFLAG(IS_CHROMEOS)
+#include "base/metrics/histogram_functions.h"
+#include "base/types/expected.h"
 #include "chrome/browser/web_applications/isolated_web_apps/commands/copy_bundle_to_cache_command.h"
 #include "chrome/browser/web_applications/isolated_web_apps/commands/get_bundle_cache_path_command.h"
 #include "chrome/browser/web_applications/isolated_web_apps/policy/isolated_web_app_cache_client.h"
 #include "chromeos/components/mgs/managed_guest_session_utils.h"
+#include "components/webapps/isolated_web_apps/error/uma_logging.h"
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
 namespace web_app {
@@ -233,6 +236,8 @@ void IwaInstaller::InstallFromCache(const base::FilePath& cache_file,
 void IwaInstaller::OnIwaInstalledFromCache(
     base::expected<InstallIsolatedWebAppCommandSuccess,
                    InstallIsolatedWebAppCommandError> result) {
+  base::UmaHistogramBoolean("WebApp.Isolated.InstallFromCache",
+                            result.has_value());
   if (result.has_value()) {
     log_->Append(base::Value("successfully installed IWA from the cache"));
     Finish(Result(Result::Type::kSuccess));
@@ -241,11 +246,11 @@ void IwaInstaller::OnIwaInstalledFromCache(
     // When installing from cache failed, try to install IWA from the Internet.
     InstallFromInternet();
   }
-  // TODO(crbug.com/388727600): add UMA metrics for failed and successful cache
-  // installation.
 }
 
 void IwaInstaller::OnBundleCopiedToCache(CopyBundleToCacheResult result) {
+  web_app::UmaLogExpectedStatus(
+      "WebApp.Isolated.CopyBundleToCacheAfterInstallation", result);
   if (result.has_value()) {
     log_->Append(base::Value(u"successfully copied bundle to the cache: " +
                              result->cached_bundle_path().LossyDisplayName()));
@@ -253,9 +258,6 @@ void IwaInstaller::OnBundleCopiedToCache(CopyBundleToCacheResult result) {
     log_->Append(base::Value("failed to copy bundle to cache: " +
                              CopyBundleToCacheErrorToString(result.error())));
   }
-
-  // TODO(crbug.com/388727600): add UMA metrics for failed and successful copy
-  // to cache.
 
   // `OnBundleCopiedToCache` is called only after the successful IWA
   // installation.
@@ -441,12 +443,11 @@ std::unique_ptr<IwaInstaller> IwaInstallerFactory::Create(
 
 IwaInstallerFactory::IwaInstallerFactoryCallback&
 IwaInstallerFactory::GetIwaInstallerFactory() {
-  static base::LazyInstance<IwaInstallerFactoryCallback>::Leaky
-      iwa_installer_factory = LAZY_INSTANCE_INITIALIZER;
-  if (!iwa_installer_factory.Get()) {
-    iwa_installer_factory.Get() = GetDefaultIwaInstallerFactory();
+  static base::NoDestructor<IwaInstallerFactoryCallback> iwa_installer_factory;
+  if (!*iwa_installer_factory) {
+    *iwa_installer_factory = GetDefaultIwaInstallerFactory();
   }
-  return iwa_installer_factory.Get();
+  return *iwa_installer_factory;
 }
 
 IwaInstallerFactory::IwaInstallerFactoryCallback

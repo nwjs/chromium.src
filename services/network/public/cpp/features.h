@@ -57,14 +57,18 @@ COMPONENT_EXPORT(NETWORK_CPP_FLAGS_AND_SWITCHES)
 BASE_DECLARE_FEATURE_PARAM(bool, kSplitMaskedDomainList);
 COMPONENT_EXPORT(NETWORK_CPP_FLAGS_AND_SWITCHES)
 BASE_DECLARE_FEATURE(kMdnsResponderGeneratedNameListing);
-COMPONENT_EXPORT(NETWORK_CPP_FLAGS_AND_SWITCHES)
-BASE_DECLARE_FEATURE(kMaskedDomainListFlatbufferImpl);
 
 COMPONENT_EXPORT(NETWORK_CPP_FLAGS_AND_SWITCHES)
 BASE_DECLARE_FEATURE(kOpaqueResponseBlockingErrorsForAllFetches);
 
 COMPONENT_EXPORT(NETWORK_CPP_FLAGS_AND_SWITCHES)
 BASE_DECLARE_FEATURE(kAcceptCHFrame);
+COMPONENT_EXPORT(NETWORK_CPP_FLAGS_AND_SWITCHES)
+BASE_DECLARE_FEATURE(kOffloadAcceptCHFrameCheck);
+COMPONENT_EXPORT(NETWORK_CPP_FLAGS_AND_SWITCHES)
+BASE_DECLARE_FEATURE_PARAM(bool, kAcceptCHOffloadWithRedirect);
+COMPONENT_EXPORT(NETWORK_CPP_FLAGS_AND_SWITCHES)
+BASE_DECLARE_FEATURE_PARAM(bool, kAcceptCHOffloadForSubframe);
 
 COMPONENT_EXPORT(NETWORK_CPP_FLAGS_AND_SWITCHES)
 BASE_DECLARE_FEATURE(kCorsNonWildcardRequestHeadersSupport);
@@ -83,12 +87,12 @@ COMPONENT_EXPORT(NETWORK_CPP_FLAGS_AND_SWITCHES)
 BASE_DECLARE_FEATURE(kPrivateNetworkAccessPreflightShortTimeout);
 
 COMPONENT_EXPORT(NETWORK_CPP_FLAGS_AND_SWITCHES)
-BASE_DECLARE_FEATURE(kPrivateNetworkAccessPermissionPrompt);
-
-COMPONENT_EXPORT(NETWORK_CPP_FLAGS_AND_SWITCHES)
 BASE_DECLARE_FEATURE(kLocalNetworkAccessChecks);
 COMPONENT_EXPORT(NETWORK_CPP_FLAGS_AND_SWITCHES)
 BASE_DECLARE_FEATURE_PARAM(bool, kLocalNetworkAccessChecksWarn);
+
+COMPONENT_EXPORT(NETWORK_CPP_FLAGS_AND_SWITCHES)
+BASE_DECLARE_FEATURE(kLocalNetworkAccessChecksWebRTC);
 
 // If enabled, then the network service will parse the Cookie-Indices header.
 // This does not currently control changing cache behavior according to the
@@ -350,10 +354,17 @@ BASE_DECLARE_FEATURE_PARAM(size_t, kSharedDictionaryCacheSize);
 COMPONENT_EXPORT(NETWORK_CPP_FLAGS_AND_SWITCHES)
 BASE_DECLARE_FEATURE_PARAM(size_t, kSharedDictionaryCacheMaxSizeBytes);
 
-// When enabled, Network Service Scheduler is enabled on the Network
+// When enabled, Network Service Task Scheduler is enabled on the Network
 // Service's IO Thread.
 COMPONENT_EXPORT(NETWORK_CPP_FLAGS_AND_SWITCHES)
-BASE_DECLARE_FEATURE(kNetworkServiceScheduler);
+BASE_DECLARE_FEATURE(kNetworkServiceTaskScheduler);
+
+// These parameters control whether the Network Service Task Scheduler is used
+// for specific classes.
+COMPONENT_EXPORT(NETWORK_CPP_FLAGS_AND_SWITCHES)
+BASE_DECLARE_FEATURE_PARAM(bool, kNetworkServiceTaskSchedulerResourceScheduler);
+COMPONENT_EXPORT(NETWORK_CPP_FLAGS_AND_SWITCHES)
+BASE_DECLARE_FEATURE_PARAM(bool, kNetworkServiceTaskSchedulerURLLoader);
 
 }  // namespace network::features
 

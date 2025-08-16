@@ -76,52 +76,52 @@ constexpr bool kSecureContext = true;
 
 constexpr struct FeatureEntry kFeatureMap[] = {
     {
-        {AddressSpace::kPrivate, kNonSecureContext, AddressSpace::kLocal},
+        {AddressSpace::kLocal, kNonSecureContext, AddressSpace::kLoopback},
         Feature::kAddressSpaceLocalNonSecureContextEmbeddedLoopbackV2,
         Feature::kAddressSpaceLocalNonSecureContextNavigatedToLoopbackV2,
     },
     {
-        {AddressSpace::kPrivate, kSecureContext, AddressSpace::kLocal},
+        {AddressSpace::kLocal, kSecureContext, AddressSpace::kLoopback},
         Feature::kAddressSpaceLocalSecureContextEmbeddedLoopbackV2,
         Feature::kAddressSpaceLocalSecureContextNavigatedToLoopbackV2,
     },
     {
-        {AddressSpace::kPublic, kNonSecureContext, AddressSpace::kLocal},
+        {AddressSpace::kPublic, kNonSecureContext, AddressSpace::kLoopback},
         Feature::kAddressSpacePublicNonSecureContextEmbeddedLoopbackV2,
         Feature::kAddressSpacePublicNonSecureContextNavigatedToLoopbackV2,
     },
     {
-        {AddressSpace::kPublic, kSecureContext, AddressSpace::kLocal},
+        {AddressSpace::kPublic, kSecureContext, AddressSpace::kLoopback},
         Feature::kAddressSpacePublicSecureContextEmbeddedLoopbackV2,
         Feature::kAddressSpacePublicSecureContextNavigatedToLoopbackV2,
     },
     {
-        {AddressSpace::kPublic, kNonSecureContext, AddressSpace::kPrivate},
+        {AddressSpace::kPublic, kNonSecureContext, AddressSpace::kLocal},
         Feature::kAddressSpacePublicNonSecureContextEmbeddedLocalV2,
         Feature::kAddressSpacePublicNonSecureContextNavigatedToLocalV2,
     },
     {
-        {AddressSpace::kPublic, kSecureContext, AddressSpace::kPrivate},
+        {AddressSpace::kPublic, kSecureContext, AddressSpace::kLocal},
         Feature::kAddressSpacePublicSecureContextEmbeddedLocalV2,
         Feature::kAddressSpacePublicSecureContextNavigatedToLocalV2,
     },
     {
-        {AddressSpace::kUnknown, kNonSecureContext, AddressSpace::kLocal},
+        {AddressSpace::kUnknown, kNonSecureContext, AddressSpace::kLoopback},
         Feature::kAddressSpaceUnknownNonSecureContextEmbeddedLoopbackV2,
         Feature::kAddressSpaceUnknownNonSecureContextNavigatedToLoopbackV2,
     },
     {
-        {AddressSpace::kUnknown, kSecureContext, AddressSpace::kLocal},
+        {AddressSpace::kUnknown, kSecureContext, AddressSpace::kLoopback},
         Feature::kAddressSpaceUnknownSecureContextEmbeddedLoopbackV2,
         Feature::kAddressSpaceUnknownSecureContextNavigatedToLoopbackV2,
     },
     {
-        {AddressSpace::kUnknown, kNonSecureContext, AddressSpace::kPrivate},
+        {AddressSpace::kUnknown, kNonSecureContext, AddressSpace::kLocal},
         Feature::kAddressSpaceUnknownNonSecureContextEmbeddedLocalV2,
         Feature::kAddressSpaceUnknownNonSecureContextNavigatedToLocalV2,
     },
     {
-        {AddressSpace::kUnknown, kSecureContext, AddressSpace::kPrivate},
+        {AddressSpace::kUnknown, kSecureContext, AddressSpace::kLocal},
         Feature::kAddressSpaceUnknownSecureContextEmbeddedLocalV2,
         Feature::kAddressSpaceUnknownSecureContextNavigatedToLocalV2,
     },

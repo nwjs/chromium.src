@@ -77,7 +77,7 @@ class TabbedNavigationBarColorController
             color -> updateNavigationBarColor();
     private final Callback<EdgeToEdgeController> mEdgeToEdgeRegisterChangeObserverCallback;
     private EdgeToEdgeSystemBarColorHelper mEdgeToEdgeSystemBarColorHelper;
-    private final @Nullable BottomAttachedUiObserver mBottomAttachedUiObserver;
+    private final BottomAttachedUiObserver mBottomAttachedUiObserver;
     private final TabObserver mTabObserver;
     private final ObserverList<Observer> mObservers = new ObserverList<>();
 
@@ -165,17 +165,15 @@ class TabbedNavigationBarColorController
                 edgeToEdgeControllerSupplier,
                 overviewColorSupplier,
                 edgeToEdgeSystemBarColorHelper,
-                ChromeFeatureList.sNavBarColorMatchesTabBackground.isEnabled()
-                        ? new BottomAttachedUiObserver(
-                                bottomControlsStacker,
-                                browserControlsStateProvider,
-                                snackbarManagerSupplier.get(),
-                                contextualSearchManagerSupplier,
-                                bottomSheetController,
-                                omniboxSuggestionsVisualState,
-                                manualFillingComponentSupplier,
-                                insetObserver)
-                        : null);
+                new BottomAttachedUiObserver(
+                        bottomControlsStacker,
+                        browserControlsStateProvider,
+                        snackbarManagerSupplier.get(),
+                        contextualSearchManagerSupplier,
+                        bottomSheetController,
+                        omniboxSuggestionsVisualState,
+                        manualFillingComponentSupplier,
+                        insetObserver));
     }
 
     @VisibleForTesting
@@ -187,15 +185,13 @@ class TabbedNavigationBarColorController
             ObservableSupplier<EdgeToEdgeController> edgeToEdgeControllerSupplier,
             @NonNull ObservableSupplier<Integer> overviewColorSupplier,
             @NonNull EdgeToEdgeSystemBarColorHelper edgeToEdgeSystemBarColorHelper,
-            @Nullable BottomAttachedUiObserver bottomAttachedUiObserver) {
+            BottomAttachedUiObserver bottomAttachedUiObserver) {
         mContext = context;
         mFullScreenManager = fullscreenManager;
         mEdgeToEdgeSystemBarColorHelper = edgeToEdgeSystemBarColorHelper;
 
         mBottomAttachedUiObserver = bottomAttachedUiObserver;
-        if (mBottomAttachedUiObserver != null) {
-            mBottomAttachedUiObserver.addObserver(this);
-        }
+        mBottomAttachedUiObserver.addObserver(this);
 
         mTabModelSelector = tabModelSelector;
         mTabModelSelectorObserver =
@@ -282,10 +278,9 @@ class TabbedNavigationBarColorController
             mEdgeToEdgeChangeObserver = null;
         }
         mEdgeToEdgeControllerSupplier.removeObserver(mEdgeToEdgeRegisterChangeObserverCallback);
-        if (mBottomAttachedUiObserver != null) {
-            mBottomAttachedUiObserver.removeObserver(this);
-            mBottomAttachedUiObserver.destroy();
-        }
+        mBottomAttachedUiObserver.removeObserver(this);
+        mBottomAttachedUiObserver.destroy();
+
         if (mNavbarColorTransitionAnimation != null) {
             mNavbarColorTransitionAnimation.cancel();
         }
@@ -319,6 +314,7 @@ class TabbedNavigationBarColorController
                                 && ChromeFeatureList.sNavBarColorAnimation.isEnabled()
                                 && isBottomChinEnabled()) {
                             // Hide the nav bar during omnibox swipes.
+                            mNavigationBarColor = Color.TRANSPARENT;
                             mEdgeToEdgeSystemBarColorHelper.setNavigationBarColor(
                                     Color.TRANSPARENT);
                             mEdgeToEdgeSystemBarColorHelper.setNavigationBarDividerColor(
@@ -335,8 +331,7 @@ class TabbedNavigationBarColorController
 
                     @Override
                     public void onFinishedShowing(@LayoutType int layoutType) {
-                        if (ChromeFeatureList.sNavBarColorMatchesTabBackground.isEnabled()
-                                && layoutType == LayoutType.BROWSING) {
+                        if (layoutType == LayoutType.BROWSING) {
                             updateNavigationBarColor();
                         }
                     }
@@ -346,15 +341,20 @@ class TabbedNavigationBarColorController
     }
 
     private void updateActiveTab() {
-        if (!ChromeFeatureList.sNavBarColorMatchesTabBackground.isEnabled()) return;
-
         @Nullable Tab activeTab = mTabModelSelector.getCurrentTab();
         if (activeTab == mActiveTab) return;
 
         if (mActiveTab != null) mActiveTab.removeObserver(mTabObserver);
         mActiveTab = activeTab;
         if (mActiveTab != null) mActiveTab.addObserver(mTabObserver);
-        updateNavigationBarColor(/* forceShowDivider= */ false, /* disableAnimation= */ false);
+
+        // Do not update the navigation bar color if the device is in the middle of a toolbar swipe
+        // or animation, this will lead to incorrect colors flashing in the middle of the
+        // transition. Later calls to #updateNavigationBarColor() will properly update the color
+        // after the swipe is complete.
+        if (mLayoutManager != null && mLayoutManager.getActiveLayoutType() == LayoutType.BROWSING) {
+            updateNavigationBarColor(/* forceShowDivider= */ false, /* disableAnimation= */ false);
+        }
     }
 
     @SuppressLint("NewApi")
@@ -495,13 +495,11 @@ class TabbedNavigationBarColorController
     }
 
     private boolean useBottomAttachedUiColor() {
-        return ChromeFeatureList.sNavBarColorMatchesTabBackground.isEnabled()
-                && mBottomAttachedUiColor != null;
+        return mBottomAttachedUiColor != null;
     }
 
     private boolean useActiveTabColor() {
-        return ChromeFeatureList.sNavBarColorMatchesTabBackground.isEnabled()
-                && mLayoutManager != null
+        return mLayoutManager != null
                 && mLayoutManager.getActiveLayoutType() == LayoutType.BROWSING
                 && mActiveTab != null;
     }

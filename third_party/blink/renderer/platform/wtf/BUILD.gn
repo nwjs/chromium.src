@@ -54,6 +54,7 @@ component("wtf") {
     "bit_field.h",
     "bloom_filter.h",
     "casting.h",
+    "construct_traits.h",
     "container_annotations.h",
     "cross_thread_copier.cc",
     "cross_thread_copier.h",
@@ -108,7 +109,6 @@ component("wtf") {
     "stack_util.h",
     "static_constructors.h",
     "std_lib_extras.h",
-    "text/ascii_ctype.cc",
     "text/ascii_ctype.h",
     "text/ascii_fast_path.h",
     "text/atomic_string.cc",
@@ -225,7 +225,7 @@ component("wtf") {
 
   deps = [
     "//base/allocator:buildflags",
-    "//third_party/blink/public/common:common",
+    "//third_party/blink/public/common",
     "//third_party/modp_b64",
     "//third_party/rapidhash",
 
@@ -353,6 +353,8 @@ source_set("wtf_unittests_sources") {
     "uuid_test.cc",
     "vector_backed_linked_list_test.cc",
     "vector_test.cc",
+    "wtf_test_helper.cc",
+    "wtf_test_helper.h",
   ]
 
   if (is_win) {
@@ -371,4 +373,8 @@ source_set("wtf_unittests_sources") {
     "//testing/gmock",
     "//testing/gtest",
   ]
+
+  # TODO(crbug.com/40031409): Fix code that adds exit-time destructors and
+  # enable the diagnostic by removing this line.
+  configs += [ "//build/config/compiler:no_exit_time_destructors" ]
 }

@@ -5504,6 +5504,47 @@ class ChromeDriverTestLegacy(ChromeDriverBaseTestWithWebServer):
     self._driver.MouseDoubleClick()
     self.assertEqual(1, len(self._driver.FindElements('tag name', 'br')))
 
+  def testMouseActionOriginMatchesMoveToWithOverflowHiddenParent(self):
+    """Regression test for crbug.com/42322257
+    """
+    # Setting overflow: hidden on the parent element is required for this issue
+    # to manifest.
+    self._http_server.SetDataForPath('/page.html', bytes("""
+      <html><body>
+        <div style='position: absolute; top: 74px;
+          overflow: hidden; height: 1637px; width: 175px;'>
+          <div id='test' style='position: relative; top: -30px;
+            height: 1471px'></div>
+          </div>
+      <script>
+        clicks = [];
+        document.getElementById('test').addEventListener(
+          'click', function (event) {
+            clicks.push([event.clientX, event.clientY]);
+          });
+      </script>
+      </body></html>""", 'utf-8'))
+    self._driver.Load(self.GetHttpUrlForFile('/page.html'))
+    element = self._driver.FindElement('css selector', '#test')
+    element.Click()
+    self._driver.MouseMoveTo(element)
+    self._driver.MouseClick()
+    self._driver.MouseMoveTo(element)
+    self._driver.MouseDoubleClick()
+    actions = ({'actions': [{
+      'type': 'pointer',
+      'actions': [{'type': 'pointerMove', 'x': 0, 'y': 0, 'origin': element},
+                  {'type': 'pointerDown', 'button': 0},
+                  {'type': 'pointerUp', 'button': 0}],
+      'id': 'pointer1'}]})
+    self._driver.PerformActions(actions)
+    clicks = self._driver.ExecuteScript("return clicks;")
+    self.assertEqual(5, len(clicks))
+    for index in range (1, len(clicks)):
+      self.assertIsNotNone(clicks[0])
+      self.assertEqual(clicks[0][0], clicks[index][0])
+      self.assertEqual(clicks[0][1], clicks[index][1])
+
   def testMouseMoveTo(self):
     self._driver.Load(self.GetHttpUrlForFile('/chromedriver/empty.html'))
     div = self._driver.ExecuteScript(
@@ -8191,6 +8232,15 @@ class BidiTest(ChromeDriverBaseTestWithWebServer):
     })
     handles = self._driver.GetWindowHandles()
     self.assertEqual(2, len(handles))
+
+    response = conn.SendCommand({
+      'method': 'browsingContext.getTree',
+      'params': {
+      }
+    })
+    contexts = response['contexts']
+    existed_context_count = len(contexts)
+
     self._driver.CloseWindow()
     response = conn.SendCommand({
       'method': 'browsingContext.getTree',
@@ -8198,7 +8248,7 @@ class BidiTest(ChromeDriverBaseTestWithWebServer):
       }
     })
     contexts = response['contexts']
-    self.assertEqual(1, len(contexts))
+    self.assertEqual(existed_context_count - 1, len(contexts))
 
   def testCloseFirstTab(self):
     conn = self.createWebSocketConnection()
@@ -8217,7 +8267,7 @@ class BidiTest(ChromeDriverBaseTestWithWebServer):
       }
     })
     contexts = response['contexts']
-    self.assertEqual(2, len(contexts))
+    existed_context_count = len(contexts)
 
     conn.SendCommand({
       'method': 'browsingContext.close',
@@ -8232,7 +8282,7 @@ class BidiTest(ChromeDriverBaseTestWithWebServer):
       }
     })
     contexts = response['contexts']
-    self.assertEqual(1, len(contexts))
+    self.assertEqual(existed_context_count - 1, len(contexts))
 
   def testBrowserQuitsWhenLastBrowsingContextIsClosed(self):
     conn = self.createWebSocketConnection()
@@ -8993,11 +9043,8 @@ class FedCmSpecificTest(ChromeDriverBaseTestWithWebServer):
       """ % self._url_prefix, 'utf-8')
     self._https_server.SetDataForPath('/fedcm.html', script_content)
 
-    # Disable SegmentationPlatformFedCmUser for chromedriver tests since it is
-    # possible for segmentation platform to suppress the UI.
     self.chrome_switches = ['host-resolver-rules=MAP *:443 127.0.0.1:%s' % port,
-            'enable-experimental-web-platform-features',
-            'disable-features=SegmentationPlatformFedCmUser']
+            'enable-experimental-web-platform-features']
     self._driver = self.CreateDriver(
         accept_insecure_certs=True,
         chrome_switches=self.chrome_switches)
@@ -9403,6 +9450,43 @@ class ComputePressureSpecificTest(ChromeDriverBaseTestWithWebServer):
         'overridden',
         self._driver.UpdateVirtualPressureSource, source, 'nominal', 0.3,)
 
+class AutoOpenDevtoolsTests(ChromeDriverBaseTestWithWebServer):
+  def setUp(self):
+    self._driver = self.CreateDriver(chrome_switches=[
+        '--auto-open-devtools-for-tabs'
+    ])
+
+  def IsDevtoolsDomPresent(self):
+    return len(self._driver.FindElements('css selector', '.root-view')) > 0
+
+  def WaitForDevToolsToOpen(self):
+    handles = self._driver.GetWindowHandles()
+    for handle in handles:
+      self._driver.SwitchToWindow(handle)
+      self.assertEqual(handle, self._driver.GetCurrentWindowHandle())
+      if (self._driver.GetCurrentUrl().startswith('devtools:')):
+        self.WaitForCondition(self.IsDevtoolsDomPresent)
+        self.assertTrue(self.IsDevtoolsDomPresent())
+        return True
+    return False
+
+  def testAutoOpenDevtools(self):
+    """Regression test for crbug.com/427908560
+    """
+    initial_url = self.GetHttpUrlForFile('/initial.html')
+    self._http_server.SetDataForPath('/initial.html', bytes("""
+        <html>
+          <title>Initial</title>
+        </html>""", 'utf-8'))
+    self.WaitForCondition(
+        lambda: len(self._driver.GetWindowHandles()) >= 2)
+    self._driver.Load(initial_url)
+    primary_window = self._driver.GetCurrentWindowHandle()
+    handles = self._driver.GetWindowHandles()
+    self.WaitForCondition(
+        lambda: self.WaitForDevToolsToOpen() == True)
+    self._driver.SwitchToWindow(primary_window)
+    self.assertTrue(self._driver.GetTitle(), "Initial")
 
 class NavTrackingMitigationSpecificTest(ChromeDriverBaseTestWithWebServer):
 
@@ -9726,11 +9810,6 @@ if __name__ == '__main__':
       type=int,
       default=None,
       help='Maximum amount of failed attempts until the test is deemed failed')
-  parser.add_argument(
-      '--debug-bidi-mapper',
-      action='store_true',
-      default=False,
-      help='Run bidi mapper in a visible tab')
 
   ##############################################################################
   # Note for other Chromium based browsers!!!
@@ -9780,8 +9859,6 @@ if __name__ == '__main__':
   additional_args = []
   if options.disable_build_check:
     additional_args.append('--disable-build-check')
-  if options.debug_bidi_mapper:
-    additional_args.append('--debug-bidi-mapper')
 
   global chromedriver_server
   chromedriver_server = server.Server(

@@ -408,11 +408,6 @@ class PasswordFormManagerTest : public testing::Test,
         true);
     pref_service_.registry()->RegisterStringPref(
         autofill::prefs::kAutofillUploadEncodingSeed, "seed");
-#if BUILDFLAG(IS_ANDROID)
-    pref_service_.registry()->RegisterBooleanPref(
-        password_manager::prefs::kUnenrolledFromGoogleMobileServicesDueToErrors,
-        false);
-#endif
 #if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_CHROMEOS)
     pref_service_.registry()->RegisterBooleanPref(
         password_manager::prefs::kBiometricAuthenticationBeforeFilling, true);
@@ -702,6 +697,28 @@ TEST_P(PasswordFormManagerTest, DoesManageNoFormTag) {
   EXPECT_TRUE(form_manager_->DoesManage(another_form.renderer_id(), &driver_));
   // Forms on other drivers are not considered managed.
   EXPECT_FALSE(form_manager_->DoesManage(another_form.renderer_id(), nullptr));
+}
+
+TEST_P(PasswordFormManagerTest, DoesManageSimilarForm) {
+  PasswordForm form = parsed_observed_form_;
+  form.form_data.set_renderer_id(
+      FormRendererId(form.form_data.renderer_id().value() + 10));
+  // It should still match on action
+  form.username_element = u"";
+  form.password_element = u"";
+
+  EXPECT_TRUE(form_manager_->DoesManageSimilarForm(form, &driver_));
+}
+
+TEST_P(PasswordFormManagerTest, DoesManageSimilarFormNoMatch) {
+  PasswordForm form = parsed_observed_form_;
+  form.form_data.set_renderer_id(
+      FormRendererId(form.form_data.renderer_id().value() + 10));
+  form.username_element = u"";
+  form.password_element = u"";
+  form.form_data.set_action(GURL("https://example.com"));
+
+  EXPECT_FALSE(form_manager_->DoesManageSimilarForm(form, &driver_));
 }
 
 TEST_P(PasswordFormManagerTest, Autofill) {
@@ -1175,6 +1192,30 @@ TEST_P(PasswordFormManagerTest, IsEqualToSubmittedForm) {
 
   observed_form_.set_action(GURL("https://example.com"));
   EXPECT_FALSE(form_manager_->IsEqualToSubmittedForm(observed_form_));
+}
+
+TEST_P(PasswordFormManagerTest, IsEqualToObservedFormMatchOnAction) {
+  PasswordForm form = parsed_observed_form_;
+  form.username_element = u"";
+  form.password_element = u"";
+
+  EXPECT_TRUE(form_manager_->IsEqualToObservedForm(form));
+}
+
+TEST_P(PasswordFormManagerTest, IsEqualToObservedFormMatchOnFields) {
+  PasswordForm form = parsed_observed_form_;
+  form.form_data.set_action(GURL("https://example.com"));
+
+  EXPECT_TRUE(form_manager_->IsEqualToObservedForm(form));
+}
+
+TEST_P(PasswordFormManagerTest, IsEqualToObservedFormFalse) {
+  PasswordForm form = parsed_observed_form_;
+  form.username_element = u"";
+  form.password_element = u"";
+  form.form_data.set_action(GURL("https://example.com"));
+
+  EXPECT_FALSE(form_manager_->IsEqualToObservedForm(form));
 }
 
 // Tests that when credentials with a new username (i.e. not saved yet) is
@@ -4674,17 +4715,6 @@ TEST_P(PasswordFormManagerTest,
   EXPECT_CALL(client_, ShowPasswordManagerErrorMessage).Times(0);
   fetcher_->NotifyFetchCompleted();
 }
-
-TEST_P(PasswordFormManagerTest, ClientShouldNotShowErrorMessageWhenUnenrolled) {
-  client_.GetPrefs()->SetBoolean(
-      password_manager::prefs::kUnenrolledFromGoogleMobileServicesDueToErrors,
-      true);
-  fetcher_->SetProfileStoreBackendError(PasswordStoreBackendError(
-      PasswordStoreBackendErrorType::kAuthErrorResolvable));
-
-  EXPECT_CALL(client_, ShowPasswordManagerErrorMessage).Times(0);
-  fetcher_->NotifyFetchCompleted();
-}
 #endif
 
 #if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
@@ -4747,13 +4777,16 @@ TEST_P(PasswordFormManagerTest, SetCreditCardFieldsAsBanned) {
 
 #endif
 
-TEST_P(PasswordFormManagerTest, NotifiesObserver) {
+TEST_P(PasswordFormManagerTest, NotifiesObservers) {
   MockPasswordFormManagerObserver observer;
+  MockPasswordFormManagerObserver observer_2;
 
   CreateFormManager(observed_form_);
-  form_manager_->SetObserver(observer.GetWeakPtr());
+  form_manager_->AddObserver(&observer);
+  form_manager_->AddObserver(&observer_2);
 
   EXPECT_CALL(observer, OnPasswordFormParsed(form_manager_.get()));
+  EXPECT_CALL(observer_2, OnPasswordFormParsed(form_manager_.get()));
   SetNonFederatedAndNotifyFetchCompleted({saved_match_});
 
   task_environment_.FastForwardUntilNoTasksRemain();
@@ -4763,8 +4796,8 @@ TEST_P(PasswordFormManagerTest, DoesNotNotifyAfterObserverRemoved) {
   MockPasswordFormManagerObserver observer;
 
   CreateFormManager(observed_form_);
-  form_manager_->SetObserver(observer.GetWeakPtr());
-  form_manager_->ResetObserver();
+  form_manager_->AddObserver(&observer);
+  form_manager_->RemoveObserver(&observer);
 
   EXPECT_CALL(observer, OnPasswordFormParsed).Times(0);
   SetNonFederatedAndNotifyFetchCompleted({saved_match_});

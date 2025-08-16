@@ -7,6 +7,7 @@
 #include <algorithm>
 
 #include "base/check_deref.h"
+#include "base/debug/dump_without_crashing.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/trace_event/trace_event.h"
 #include "build/build_config.h"
@@ -21,10 +22,13 @@
 #include "content/browser/renderer_host/isolated_web_app_throttle.h"
 #include "content/browser/renderer_host/mixed_content_navigation_throttle.h"
 #include "content/browser/renderer_host/navigation_request.h"
+#include "content/browser/renderer_host/navigation_throttle_runner.h"
+#include "content/browser/renderer_host/navigation_throttle_runner2.h"
 #include "content/browser/renderer_host/navigator_delegate.h"
 #include "content/browser/renderer_host/partitioned_popins/partitioned_popins_navigation_throttle.h"
 #include "content/browser/renderer_host/renderer_cancellation_throttle.h"
 #include "content/browser/renderer_host/subframe_history_navigation_throttle.h"
+#include "content/common/features.h"
 #include "content/public/browser/navigation_handle.h"
 
 #if !BUILDFLAG(IS_ANDROID)
@@ -33,11 +37,31 @@
 
 namespace content {
 
+namespace {
+
+std::unique_ptr<NavigationThrottleRunnerBase> CreateNavigationThrottleRunner(
+    NavigationThrottleRegistryBase* registry,
+    int64_t navigation_id,
+    bool is_primary_main_frame) {
+  if (base::FeatureList::IsEnabled(features::kNavigationThrottleRunner2)) {
+    return std::make_unique<NavigationThrottleRunner2>(registry, navigation_id,
+                                                       is_primary_main_frame);
+  }
+  return std::make_unique<NavigationThrottleRunner>(registry, navigation_id,
+                                                    is_primary_main_frame);
+}
+
+}  // namespace
+
 NavigationThrottleRegistryBase::~NavigationThrottleRegistryBase() = default;
 
 NavigationThrottleRegistryImpl::NavigationThrottleRegistryImpl(
     NavigationRequest* navigation_request)
-    : navigation_request_(CHECK_DEREF(navigation_request)) {}
+    : navigation_request_(CHECK_DEREF(navigation_request)),
+      navigation_throttle_runner_(CreateNavigationThrottleRunner(
+          this,
+          navigation_request->GetNavigationId(),
+          navigation_request->IsInPrimaryMainFrame())) {}
 
 NavigationThrottleRegistryImpl::~NavigationThrottleRegistryImpl() = default;
 
@@ -57,7 +81,7 @@ void NavigationThrottleRegistryImpl::RegisterNavigationThrottles() {
   // NavigationThrottleRunner manages.
   navigation_request_->GetDelegate()->CreateThrottlesForNavigation(*this);
 
-  // Check for renderer-inititated main frame navigations to blocked URL schemes
+  // Check for renderer-initiated main frame navigations to blocked URL schemes
   // (data, filesystem). This is done early as it may block the main frame
   // navigation altogether.
   BlockedSchemeNavigationThrottle::MaybeCreateAndAdd(*this);
@@ -159,6 +183,64 @@ void NavigationThrottleRegistryImpl::
                     std::make_move_iterator(testing_throttles.end()));
 }
 
+void NavigationThrottleRegistryImpl::ProcessNavigationEvent(
+    NavigationThrottleEvent event) {
+  base::WeakPtr<NavigationThrottleRegistryImpl> weak_ref =
+      weak_factory_.GetWeakPtr();
+  navigation_throttle_runner_->ProcessNavigationEvent(event);
+  // DO NOT ADD CODE BETWEEN THIS AND THE WEAK_REF CHECK BELOW, as the
+  // NavigationHandle might have been deleted by the previous call.
+  if (!weak_ref) {
+    // The NavigationEvent handling might have destroyed NavigationHandle
+    // and its owning this instance. Return immediately.
+    return;
+  }
+  if (!deferring_throttles_.empty() && first_deferral_callback_for_testing_) {
+    std::move(first_deferral_callback_for_testing_).Run();  // IN-TEST
+  }
+}
+
+void NavigationThrottleRegistryImpl::ResumeProcessingNavigationEvent(
+    NavigationThrottle* resuming_throttle) {
+  if (!deferring_throttles_.contains(resuming_throttle)) {
+    // TODO(https://crbug.com/411238078): Upgrade to CHECK_EQ once remaining
+    // known cases are fixed. Until then, collect dump data and ignore the
+    // resume request to avoid bypassing required throttle checks.
+    const char* deferring_throttle_name =
+        deferring_throttles_.empty()
+            ? "null"
+            : (*deferring_throttles_.begin())->GetNameForLogging();
+    SCOPED_CRASH_KEY_STRING32("Bug411238078", "expected_throttle",
+                              deferring_throttle_name);
+    SCOPED_CRASH_KEY_STRING32("Bug411238078", "actual_throttle",
+                              resuming_throttle->GetNameForLogging());
+    base::debug::DumpWithoutCrashing();
+    return;
+  }
+  CHECK_EQ(1u, deferring_throttles_.erase(resuming_throttle));
+
+  navigation_throttle_runner_->ResumeProcessingNavigationEvent(
+      resuming_throttle);
+  // DO NOT ADD CODE AFTER THIS, as the NavigationHandle might have been deleted
+  // by the previous call.
+}
+
+void NavigationThrottleRegistryImpl::OnDeferProcessingNavigationEvent(
+    NavigationThrottle* deferring_throttle) {
+  deferring_throttles_.insert(deferring_throttle);
+}
+
+const std::set<NavigationThrottle*>&
+NavigationThrottleRegistryImpl::GetDeferringThrottles() const {
+  return deferring_throttles_;
+}
+
+void NavigationThrottleRegistryImpl::SetFirstDeferralCallbackForTesting(
+    base::OnceClosure callback) {
+  CHECK(deferring_throttles_.empty());
+  first_deferral_callback_for_testing_ = std::move(callback);
+}
+
 NavigationHandle& NavigationThrottleRegistryImpl::GetNavigationHandle() {
   return *navigation_request_;
 }
@@ -173,8 +255,8 @@ void NavigationThrottleRegistryImpl::AddThrottle(
 
 bool NavigationThrottleRegistryImpl::HasThrottle(const std::string& name) {
   return std::ranges::find_if(throttles_, [name](const auto& throttle) {
-    return throttle->GetNameForLogging() == name;
-  }) != throttles_.end();
+           return throttle->GetNameForLogging() == name;
+         }) != throttles_.end();
 }
 
 bool NavigationThrottleRegistryImpl::EraseThrottleForTesting(
@@ -182,6 +264,24 @@ bool NavigationThrottleRegistryImpl::EraseThrottleForTesting(
   return std::erase_if(throttles_, [name](const auto& throttle) {
     return throttle->GetNameForLogging() == name;
   });
+}
+
+bool NavigationThrottleRegistryImpl::IsHTTPOrHTTPS() {
+  static bool is_cache_enabled = base::FeatureList::IsEnabled(
+      features::kNavigationThrottleRegistryAttributeCache);
+  // The cached properties are only safe to access at throttle registration
+  // time, and not safe afterward because the URL could change (e.g., due to
+  // redirects).
+  CHECK_LE(navigation_request_->state(),
+           NavigationRequest::NavigationState::WILL_START_REQUEST);
+
+  if (!is_cache_enabled) {
+    return GetNavigationHandle().GetURL().SchemeIsHTTPOrHTTPS();
+  }
+  if (!is_http_or_https_.has_value()) {
+    is_http_or_https_ = GetNavigationHandle().GetURL().SchemeIsHTTPOrHTTPS();
+  }
+  return *is_http_or_https_;
 }
 
 void NavigationThrottleRegistryImpl::OnEventProcessed(

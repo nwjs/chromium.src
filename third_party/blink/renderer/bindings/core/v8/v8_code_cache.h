@@ -14,12 +14,9 @@
 #include "third_party/blink/renderer/platform/bindings/v8_binding_macros.h"
 #include "third_party/blink/renderer/platform/loader/fetch/url_loader/cached_metadata_handler.h"
 #include "third_party/blink/renderer/platform/wtf/allocator/allocator.h"
+#include "third_party/blink/renderer/platform/wtf/forward.h"
 #include "third_party/blink/renderer/platform/wtf/text/wtf_string.h"
 #include "v8/include/v8.h"
-
-namespace WTF {
-class TextPosition;
-}  // namespace WTF
 
 namespace blink {
 
@@ -122,14 +119,14 @@ class CORE_EXPORT V8CodeCache final {
                            CachedMetadataHandler*,
                            size_t source_text_length,
                            const KURL& source_url,
-                           const WTF::TextPosition& source_start_position,
+                           const TextPosition& source_start_position,
                            ProduceCacheOptions);
   static void ProduceCache(v8::Isolate*,
                            CodeCacheHost*,
                            ModuleRecordProduceCacheData*,
                            size_t source_text_length,
                            const KURL& source_url,
-                           const WTF::TextPosition& source_start_position);
+                           const TextPosition& source_start_position);
 
   static scoped_refptr<CachedMetadata> GenerateFullCodeCache(
       ScriptState*,

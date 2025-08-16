@@ -204,7 +204,8 @@ bool D3D12VideoEncodeH265Delegate::ReportsAverageQp() const {
 bool D3D12VideoEncodeH265Delegate::UpdateRateControl(const Bitrate& bitrate,
                                                      uint32_t framerate) {
   if (software_rate_controller_) {
-    if (bitrate.mode() != Bitrate::Mode::kConstant) {
+    if (bitrate.mode() != Bitrate::Mode::kConstant &&
+        bitrate.mode() != Bitrate::Mode::kVariable) {
       return false;
     }
 
@@ -219,7 +220,9 @@ bool D3D12VideoEncodeH265Delegate::UpdateRateControl(const Bitrate& bitrate,
       layer_settings.avg_bitrate = bitrate.target_bps();
       // Bitrate::Mode::kConstant only has target_bps. Using the target_bps for
       // peak_bitrate.
-      layer_settings.peak_bitrate = bitrate.target_bps();
+      layer_settings.peak_bitrate = bitrate.mode() == Bitrate::Mode::kConstant
+                                        ? bitrate.target_bps()
+                                        : bitrate.peak_bps();
       layer_settings.frame_rate = framerate;
       software_rate_controller_.emplace(rate_controller_settings_);
     } else {
@@ -239,7 +242,8 @@ EncoderStatus::Or<BitstreamBufferMetadata>
 D3D12VideoEncodeH265Delegate::EncodeImpl(
     ID3D12Resource* input_frame,
     UINT input_frame_subresource,
-    const VideoEncoder::EncodeOptions& options) {
+    const VideoEncoder::EncodeOptions& options,
+    const gfx::ColorSpace& input_color_space) {
   // Filling the |input_arguments_| according to
   // https://github.com/microsoft/DirectX-Specs/blob/master/d3d/D3D12VideoEncoding.md#6120-struct-d3d12_video_encoder_input_arguments
 
@@ -272,6 +276,22 @@ D3D12VideoEncodeH265Delegate::EncodeImpl(
   if (is_keyframe) {
     H265VPS vps = ToVPS();
     H265SPS sps = ToSPS(vps);
+    // Values specified here equals to that in T-REC H.273 Table 3.
+    if (IsRec601(input_color_space)) {
+      sps.vui_parameters.colour_primaries = 6;          // SMPTE170M
+      sps.vui_parameters.transfer_characteristics = 6;  // SMPTE170M
+      sps.vui_parameters.matrix_coeffs = 6;             // SMPTE170M
+      sps.vui_parameters.colour_description_present_flag = true;
+      sps.vui_parameters_present_flag = true;
+    } else if (IsRec709(input_color_space)) {
+      sps.vui_parameters.colour_primaries = 1;          // BT709
+      sps.vui_parameters.transfer_characteristics = 1;  // BT709
+      sps.vui_parameters.matrix_coeffs = 1;             // BT709
+      sps.vui_parameters.colour_description_present_flag = true;
+      sps.vui_parameters_present_flag = true;
+    }
+    sps.vui_parameters.video_full_range_flag =
+        input_color_space.GetRangeID() == gfx::ColorSpace::RangeID::FULL;
     H265PPS pps = ToPPS(sps);
     packed_header_.Reset();
     BuildPackedH265VPS(packed_header_, vps);
@@ -322,6 +342,8 @@ D3D12VideoEncodeH265Delegate::EncodeImpl(
           0, rate_controller_timestamp_);
     }
     qp = software_rate_controller_->temporal_layers(0).curr_frame_qp();
+  } else if (options.quantizer.has_value()) {
+    qp = options.quantizer.value();
   }
   if (qp != -1) {
     CHECK_EQ(input_arguments_.SequenceControlDesc.RateControl.Mode,
@@ -383,7 +405,38 @@ EncoderStatus D3D12VideoEncodeH265Delegate::InitializeVideoEncoder(
   CHECK_EQ(VideoCodecProfileToVideoCodec(config.output_profile),
            VideoCodec::kHEVC);
 
-  if (config.bitrate.mode() == Bitrate::Mode::kConstant) {
+  D3D12_VIDEO_ENCODER_CODEC_PICTURE_CONTROL_SUPPORT_HEVC
+  picture_control_support_h265{};
+  D3D12_FEATURE_DATA_VIDEO_ENCODER_CODEC_PICTURE_CONTROL_SUPPORT
+  picture_control_support{
+      .Codec = D3D12_VIDEO_ENCODER_CODEC_HEVC,
+      .Profile = {.DataSize = sizeof(h265_profile_),
+                  .pHEVCProfile = &h265_profile_},
+      .PictureSupport = {.DataSize = sizeof(picture_control_support_h265),
+                         .pHEVCSupport = &picture_control_support_h265},
+  };
+  EncoderStatus status = CheckD3D12VideoEncoderCodecPictureControlSupport(
+      video_device_.Get(), &picture_control_support);
+  if (!status.is_ok()) {
+    return status;
+  }
+
+  if (picture_control_support_h265.MaxLongTermReferences < 1) {
+    return {EncoderStatus::Codes::kEncoderUnsupportedConfig,
+            "D3D12VideoEncoder doesn't support long term reference for HEVC"};
+  }
+
+  max_num_ref_frames_ = 1;
+  if (picture_control_support_h265.MaxDPBCapacity < max_num_ref_frames_) {
+    return {
+        EncoderStatus::Codes::kEncoderUnsupportedConfig,
+        base::StringPrintf(
+            "D3D12VideoEncoder only support DPB capacity %u, got %u",
+            picture_control_support_h265.MaxDPBCapacity, max_num_ref_frames_)};
+  }
+
+  if (config.bitrate.mode() == Bitrate::Mode::kConstant ||
+      config.bitrate.mode() == Bitrate::Mode::kVariable) {
     constexpr uint32_t kDefaultQp = 26;
     rate_control_ = D3D12VideoEncoderRateControl::CreateCqp(
         kDefaultQp, kDefaultQp, kDefaultQp);
@@ -399,7 +452,10 @@ EncoderStatus D3D12VideoEncodeH265Delegate::InitializeVideoEncoder(
     layer_settings.avg_bitrate = config.bitrate.target_bps();
     // Bitrate::Mode::kConstant only has target_bps. Using the target_bps for
     // peak_bitrate.
-    layer_settings.peak_bitrate = config.bitrate.target_bps();
+    layer_settings.peak_bitrate =
+        config.bitrate.mode() == Bitrate::Mode::kConstant
+            ? config.bitrate.target_bps()
+            : config.bitrate.peak_bps();
     constexpr size_t kHRDBufferSize = 40000;
     layer_settings.hrd_buffer_size = kHRDBufferSize;
     layer_settings.min_qp = kH265MinQuantizer;
@@ -411,8 +467,7 @@ EncoderStatus D3D12VideoEncodeH265Delegate::InitializeVideoEncoder(
 
   D3D12_FEATURE_DATA_VIDEO_ENCODER_CODEC codec{
       .Codec = D3D12_VIDEO_ENCODER_CODEC_HEVC};
-  EncoderStatus status =
-      CheckD3D12VideoEncoderCodec(video_device_.Get(), &codec);
+  status = CheckD3D12VideoEncoderCodec(video_device_.Get(), &codec);
   if (!status.is_ok()) {
     return status;
   }
@@ -622,11 +677,10 @@ H265SPS D3D12VideoEncodeH265Delegate::ToSPS(const H265VPS& vps) const {
       (sps.pic_height_in_luma_samples - input_size_.Height) >> 1;
   sps.log2_max_pic_order_cnt_lsb_minus4 =
       gop_structure_.log2_max_pic_order_cnt_lsb_minus4;
-  std::ranges::copy(vps.vps_max_dec_pic_buffering_minus1,
-                    sps.sps_max_dec_pic_buffering_minus1);
-  std::ranges::copy(vps.vps_max_num_reorder_pics, sps.sps_max_num_reorder_pics);
+  sps.sps_max_dec_pic_buffering_minus1 = vps.vps_max_dec_pic_buffering_minus1;
+  sps.sps_max_num_reorder_pics = vps.vps_max_num_reorder_pics;
   std::ranges::copy(vps.vps_max_latency_increase_plus1,
-                    sps.sps_max_latency_increase_plus1);
+                    sps.sps_max_latency_increase_plus1.begin());
   sps.log2_min_luma_coding_block_size_minus3 =
       codec_config_hevc_.MinLumaCodingUnitSize;
   sps.log2_diff_max_min_luma_coding_block_size =

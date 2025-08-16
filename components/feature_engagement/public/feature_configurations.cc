@@ -289,13 +289,13 @@ std::optional<FeatureConfig> GetClientSideFeatureConfig(
     config.availability = Comparator(ANY, 0);
     config.session_rate = Comparator(ANY, 0);
     config.session_rate_impact.type = SessionRateImpact::Type::NONE;
-    // Show intervention dialog at most once per day and no more than 5 times
-    // per week.
+    // Show intervention dialog at most 3 times per day and no more than 21
+    // times per week.
     config.trigger = EventConfig("performance_intervention_dialog_trigger",
-                                 Comparator(EQUAL, 0), 1, 360);
+                                 Comparator(LESS_THAN, 3), 1, 360);
     config.event_configs.insert(
         EventConfig("performance_intervention_dialog_trigger",
-                    Comparator(LESS_THAN, 5), 7, 360));
+                    Comparator(LESS_THAN, 21), 7, 360));
     return config;
   }
 
@@ -774,6 +774,20 @@ std::optional<FeatureConfig> GetClientSideFeatureConfig(
     config.session_rate = Comparator(EQUAL, 0);
     config.trigger =
         EventConfig("tab_group_share_update_iph_triggered",
+                    Comparator(LESS_THAN, 1), k10YearsInDays, k10YearsInDays);
+    return config;
+  }
+
+  if (kIPHTabGroupShareVersionUpdateFeature.name == feature->name) {
+    // Allows an IPH for showing that shared tab groups have been
+    // re-enabled. This IPH can be shown up to 1 times total (10 year max
+    // in place of unlimited window).
+    FeatureConfig config;
+    config.valid = true;
+    config.availability = Comparator(ANY, 0);
+    config.session_rate = Comparator(ANY, 0);
+    config.trigger =
+        EventConfig("tab_group_share_version_update_iph_triggered",
                     Comparator(LESS_THAN, 1), k10YearsInDays, k10YearsInDays);
     return config;
   }
@@ -1921,6 +1935,24 @@ std::optional<FeatureConfig> GetClientSideFeatureConfig(
 
     return config;
   }
+  if (kIPHTouchToSearchCalloutFeature.name == feature->name) {
+    // A config that allows the touch to search IPH to be shown:
+    // * Once per week.
+    // * Up to two times per year.
+    // * Only as long as the user has never expanded the panel.
+    FeatureConfig config;
+    config.valid = true;
+    config.availability = Comparator(ANY, 0);
+    config.session_rate = Comparator(EQUAL, 0);
+    config.trigger = EventConfig("touch_to_search_expansion_trigger",
+                                 Comparator(EQUAL, 0), 7, 7);
+    config.event_configs.insert(EventConfig("touch_to_search_expansion_trigger",
+                                            Comparator(LESS_THAN, 2), 360,
+                                            360));
+    config.used = EventConfig("touch_to_search_expansion_used",
+                              Comparator(EQUAL, 0), 360, 360);
+    return config;
+  }
 #endif  // BUILDFLAG(IS_ANDROID)
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_APPLE) || BUILDFLAG(IS_LINUX) || \
@@ -2353,6 +2385,39 @@ std::optional<FeatureConfig> GetClientSideFeatureConfig(
     return config;
   }
 
+  if (kIPHiOSHomepageLensNewBadge.name == feature->name) {
+    FeatureConfig config;
+    config.valid = true;
+    config.availability = Comparator(ANY, 0);  // Available immediately
+    config.session_rate = Comparator(LESS_THAN, 1);
+    config.used = EventConfig(events::kIOSLensButtonUsed, Comparator(EQUAL, 0),
+                              feature_engagement::kMaxStoragePeriod,
+                              feature_engagement::kMaxStoragePeriod);
+    config.trigger =
+        EventConfig("ios_homepage_lens_badge_trigger", Comparator(LESS_THAN, 3),
+                    feature_engagement::kMaxStoragePeriod,
+                    feature_engagement::kMaxStoragePeriod);
+    config.groups.push_back(kiOSHomepageNewBadgesGroup.name);
+    return config;
+  }
+
+  if (kIPHiOSHomepageCustomizationNewBadge.name == feature->name) {
+    FeatureConfig config;
+    config.valid = true;
+    config.availability = Comparator(ANY, 0);  // Available immediately
+    config.session_rate = Comparator(LESS_THAN, 1);
+    config.used =
+        EventConfig(events::kHomeCustomizationMenuUsed, Comparator(EQUAL, 0),
+                    feature_engagement::kMaxStoragePeriod,
+                    feature_engagement::kMaxStoragePeriod);
+    config.trigger = EventConfig("ios_homepage_customization_badge_trigger",
+                                 Comparator(LESS_THAN, 3),
+                                 feature_engagement::kMaxStoragePeriod,
+                                 feature_engagement::kMaxStoragePeriod);
+    config.groups.push_back(kiOSHomepageNewBadgesGroup.name);
+    return config;
+  }
+
   if (kIPHiOSPromoPasswordManagerWidgetFeature.name == feature->name) {
     // A config to allow a user to be shown the Password Manager widget promo in
     // the Password Manager. The promo will be shown for a maximum of three
@@ -2662,23 +2727,6 @@ std::optional<FeatureConfig> GetClientSideFeatureConfig(
     return config;
   }
 
-  if (kIPHAutofillHomeWorkProfileSuggestionFeature.name == feature->name) {
-    // Allows an IPH for showing the home and work address suggestion. This will
-    // only be shown once.
-    FeatureConfig config;
-    config.valid = true;
-    config.availability = Comparator(ANY, 0);
-    config.session_rate = Comparator(EQUAL, 0);
-    config.trigger =
-        EventConfig("home_work_address_create_suggestion_feature_trigger",
-                    Comparator(LESS_THAN, 1), k10YearsInDays, k10YearsInDays);
-    config.used =
-        EventConfig("home_work_address_create_suggestion_feature_used",
-                    Comparator(EQUAL, 0), k10YearsInDays, k10YearsInDays);
-
-    return config;
-  }
-
   if (kIPHiOSSwitchAccountsWithNTPAccountParticleDiscFeature.name ==
       feature->name) {
     // A config that allows the NTP-identity-disc IPH to be shown to users. This
@@ -2748,6 +2796,23 @@ std::optional<FeatureConfig> GetClientSideFeatureConfig(
                     Comparator(LESS_THAN, 9), 90, 360);
     config.used = EventConfig("plus_address_create_suggestion_feature_used",
                               Comparator(LESS_THAN, 2), 90, 360);
+    return config;
+  }
+
+  if (kIPHAutofillHomeWorkProfileSuggestionFeature.name == feature->name) {
+    // Allows an IPH for showing the home and work address suggestion. This will
+    // only be shown once.
+    FeatureConfig config;
+    config.valid = true;
+    config.availability = Comparator(ANY, 0);
+    config.session_rate = Comparator(EQUAL, 0);
+    config.trigger =
+        EventConfig("home_work_address_create_suggestion_feature_trigger",
+                    Comparator(LESS_THAN, 1), k10YearsInDays, k10YearsInDays);
+    config.used =
+        EventConfig("home_work_address_create_suggestion_feature_used",
+                    Comparator(EQUAL, 0), k10YearsInDays, k10YearsInDays);
+
     return config;
   }
 #endif  // BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)

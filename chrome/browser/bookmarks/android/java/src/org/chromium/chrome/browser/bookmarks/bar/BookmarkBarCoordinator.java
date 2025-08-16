@@ -30,6 +30,7 @@ import org.chromium.chrome.browser.browser_controls.TopControlLayer;
 import org.chromium.chrome.browser.browser_controls.TopControlsStacker;
 import org.chromium.chrome.browser.browser_controls.TopControlsStacker.TopControlType;
 import org.chromium.chrome.browser.browser_controls.TopControlsStacker.TopControlVisibility;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.ui.modelutil.MVCListAdapter.ModelList;
@@ -117,7 +118,7 @@ public class BookmarkBarCoordinator implements TopControlLayer, BookmarkBarVisib
                         activity,
                         allBookmarksButtonModel,
                         browserControlsStateProvider,
-                        this::getHeight,
+                        this::getTopControlHeight,
                         itemsModel,
                         mBookmarkBarItemsLayoutManager.getItemsOverflowSupplier(),
                         model,
@@ -144,6 +145,14 @@ public class BookmarkBarCoordinator implements TopControlLayer, BookmarkBarVisib
      */
     public View getView() {
         return mView;
+    }
+
+    public boolean isVisible() {
+        return mView != null && mView.getVisibility() == VISIBLE;
+    }
+
+    public void setVisibility(boolean isVisible) {
+        mMediator.setVisibility(isVisible);
     }
 
     private BookmarkBarButton inflateBookmarkBarButton(ViewGroup parent) {
@@ -176,7 +185,7 @@ public class BookmarkBarCoordinator implements TopControlLayer, BookmarkBarVisib
     }
 
     @Override
-    public int getHeight() {
+    public int getTopControlHeight() {
         return mView.getHeight();
     }
 
@@ -189,6 +198,18 @@ public class BookmarkBarCoordinator implements TopControlLayer, BookmarkBarVisib
         return mView != null && mView.getVisibility() == VISIBLE
                 ? TopControlVisibility.VISIBLE
                 : TopControlVisibility.HIDDEN;
+    }
+
+    @Override
+    public void onTopControlLayerHeightChanged(int topControlsHeight, int topControlsMinHeight) {
+        assert ChromeFeatureList.sTopControlsRefactor.isEnabled()
+                : "onTopControlLayerHeightChanged should not be called unless refactor is enabled";
+
+        // Here we are subtracting the height of the TopControl, |mView|, to bottom align the
+        // BookmarkBar relative to the other TopControls.
+        // TODO(crbug.com/417238089): We should not hardcode this offset functionality since it
+        // assumes an absolute BookmarkBar position, and fails when topControlsHeight becomes 0.
+        mMediator.setTopMargin(topControlsHeight - getTopControlHeight());
     }
 
     // BookmarkBarVisibilityObserver implementation:

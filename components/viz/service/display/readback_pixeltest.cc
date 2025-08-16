@@ -40,6 +40,7 @@
 #include "gpu/command_buffer/client/raster_interface.h"
 #include "gpu/command_buffer/client/shared_image_interface.h"
 #include "gpu/command_buffer/common/shared_image_usage.h"
+#include "gpu/command_buffer/common/sync_token.h"
 #include "gpu/command_buffer/service/shared_context_state.h"
 #include "gpu/command_buffer/service/shared_image/shared_image_manager.h"
 #include "gpu/command_buffer/service/shared_image/shared_image_representation.h"
@@ -579,7 +580,7 @@ TEST_P(ReadbackPixelTestRGBA, ExecutesCopyRequest) {
       break;
     }
 #if !BUILDFLAG(IS_ANDROID)
-    case CopyOutputResult::Destination::kNativeTextures: {
+    case CopyOutputResult::Destination::kSharedImage: {
       const gfx::Size size = result->size();
       actual.allocPixels(SkImageInfo::Make(size.width(), size.height(),
                                            kRGBA_8888_SkColorType,
@@ -617,7 +618,7 @@ INSTANTIATE_TEST_SUITE_P(
         testing::Values(CopyOutputResult::Destination::kSystemMemory)));
 #else
         testing::Values(CopyOutputResult::Destination::kSystemMemory,
-                        CopyOutputResult::Destination::kNativeTextures)));
+                        CopyOutputResult::Destination::kSharedImage)));
 #endif
 
 #if !BUILDFLAG(IS_ANDROID)
@@ -633,7 +634,7 @@ class ReadbackPixelTestRGBAWithBlit
         populates_gpu_memory_buffer_(std::get<3>(GetParam())) {}
 
   CopyOutputResult::Destination RequestDestination() const {
-    return CopyOutputResult::Destination::kNativeTextures;
+    return CopyOutputResult::Destination::kSharedImage;
   }
 
   CopyOutputResult::Format RequestFormat() const {
@@ -681,41 +682,38 @@ TEST_P(ReadbackPixelTestRGBAWithBlit, ExecutesCopyRequestWithBlit) {
   const std::vector<uint8_t> pattern = {255, 0, 0, 255};
   const gfx::ColorSpace color_space = gfx::ColorSpace::CreateSRGB();
 
-  auto* sii = child_context_provider_->SharedImageInterface();
-
   // Create the dest shared image and pass the pixel data.
   constexpr auto format = SinglePlaneFormat::kRGBA_8888;
   std::vector<uint8_t> pixels =
       GeneratePixels(format.EstimatedSizeInBytes(source_size), pattern);
-  scoped_refptr<gpu::ClientSharedImage> blit_dest_shared_image =
+  scoped_refptr<gpu::ClientSharedImage> shared_image =
       CreateSharedImageWithPixels(format, source_size, color_space, pixels);
-
-  ASSERT_TRUE(blit_dest_shared_image);
-  gpu::Mailbox mailbox = blit_dest_shared_image->mailbox();
+  ASSERT_TRUE(shared_image);
 
   std::unique_ptr<CopyOutputResult> result = IssueCopyOutputRequestAndRender(
       RequestFormat(), RequestDestination(),
-      base::BindLambdaForTesting([this, &result_selection,
-                                  &destination_subregion,
-                                  &mailbox](CopyOutputRequest& request) {
-        // Build CopyOutputRequest based on test parameters.
-        if (ScaleByHalf()) {
-          request.SetUniformScaleRatio(2, 1);
-        }
+      base::BindLambdaForTesting(
+          // Take `shared_image` by copy to keep alive on main thread.
+          [this, shared_image, &result_selection,
+           &destination_subregion](CopyOutputRequest& request) {
+            // Build CopyOutputRequest based on test parameters.
+            if (ScaleByHalf()) {
+              request.SetUniformScaleRatio(2, 1);
+            }
 
-        request.set_result_selection(result_selection);
+            request.set_result_selection(result_selection);
 
-        request.set_blit_request(BlitRequest(
-            destination_subregion.origin(), GetLetterboxingBehavior(), mailbox,
-            gpu::SyncToken(), populates_gpu_memory_buffer()));
-      }));
+            request.set_blit_request(
+                BlitRequest(destination_subregion.origin(),
+                            GetLetterboxingBehavior(), std::move(shared_image),
+                            gpu::SyncToken(), populates_gpu_memory_buffer()));
+          }));
 
   // Check that a result was produced and is of the expected rect/size.
   ASSERT_TRUE(result);
   ASSERT_FALSE(result->IsEmpty());
   ASSERT_EQ(result_selection, result->rect());
-  ASSERT_EQ(result->destination(),
-            CopyOutputResult::Destination::kNativeTextures);
+  ASSERT_EQ(result->destination(), CopyOutputResult::Destination::kSharedImage);
 
   // Packed plane sizes. Note that for blit request, the size of the returned
   // textures is caller-controlled, and we have issued a COR w/ blit request
@@ -727,10 +725,8 @@ TEST_P(ReadbackPixelTestRGBAWithBlit, ExecutesCopyRequestWithBlit) {
   ReadbackResultRGBA(gpu_service_holder_, is_software_renderer(), *result,
                      source_size, actual);
 
-  sii->DestroySharedImage(gpu::SyncToken(), std::move(blit_dest_shared_image));
-
-  // Load the expected subregion from a file - we will then write it on top of
-  // a new, all-red bitmap:
+  // Load the expected subregion from a file - we will then write it on top
+  // of a new, all-red bitmap:
   SkBitmap expected_subregion =
       GLScalerTestUtil::CopyAndConvertToRGBA(GetExpectedOutputBitmap());
 
@@ -894,7 +890,7 @@ INSTANTIATE_TEST_SUITE_P(
         // Result scaling: Scale by half?
         testing::Values(true, false),
         testing::Values(CopyOutputResult::Destination::kSystemMemory,
-                        CopyOutputResult::Destination::kNativeTextures)));
+                        CopyOutputResult::Destination::kSharedImage)));
 
 class ReadbackPixelTestNV12WithBlit
     : public ReadbackPixelTest,
@@ -908,7 +904,7 @@ class ReadbackPixelTestNV12WithBlit
         populates_gpu_memory_buffer_(std::get<3>(GetParam())) {}
 
   CopyOutputResult::Destination RequestDestination() const {
-    return CopyOutputResult::Destination::kNativeTextures;
+    return CopyOutputResult::Destination::kSharedImage;
   }
 
   CopyOutputResult::Format RequestFormat() const {
@@ -1024,7 +1020,6 @@ TEST_P(ReadbackPixelTestNV12WithBlit, ExecutesCopyRequestWithBlit) {
       SkYUVAPixmaps::FromExternalPixmaps(info, pixmaps.data());
   ri->WritePixelsYUV(shared_image->mailbox(), yuv_pixmap);
 
-  gpu::Mailbox mailbox = shared_image->mailbox();
   // Create and wait on raster interface sync token for write pixels YUV.
   gpu::SyncToken sync_token =
       gpu::RasterScopedAccess::EndAccess(std::move(ri_access));
@@ -1032,7 +1027,7 @@ TEST_P(ReadbackPixelTestNV12WithBlit, ExecutesCopyRequestWithBlit) {
   std::unique_ptr<CopyOutputResult> result = IssueCopyOutputRequestAndRender(
       RequestFormat(), RequestDestination(),
       base::BindLambdaForTesting([this, &result_selection,
-                                  &destination_subregion, &mailbox,
+                                  &destination_subregion, &shared_image,
                                   &sync_token](CopyOutputRequest& request) {
         // Build CopyOutputRequest based on test parameters.
         if (ScaleByHalf()) {
@@ -1042,16 +1037,15 @@ TEST_P(ReadbackPixelTestNV12WithBlit, ExecutesCopyRequestWithBlit) {
         request.set_result_selection(result_selection);
 
         request.set_blit_request(BlitRequest(
-            destination_subregion.origin(), GetLetterboxingBehavior(), mailbox,
-            sync_token, populates_gpu_memory_buffer()));
+            destination_subregion.origin(), GetLetterboxingBehavior(),
+            shared_image, sync_token, populates_gpu_memory_buffer()));
       }));
 
   // Check that a result was produced and is of the expected rect/size.
   ASSERT_TRUE(result);
   ASSERT_FALSE(result->IsEmpty());
   ASSERT_EQ(result_selection, result->rect());
-  ASSERT_EQ(result->destination(),
-            CopyOutputResult::Destination::kNativeTextures);
+  ASSERT_EQ(result->destination(), CopyOutputResult::Destination::kSharedImage);
 
   // Packed plane sizes. Note that for blit request, the size of the returned
   // textures is caller-controlled, and we have issued a COR w/ blit request
@@ -1067,8 +1061,6 @@ TEST_P(ReadbackPixelTestNV12WithBlit, ExecutesCopyRequestWithBlit) {
 
   ReadbackNV12Planes(gpu_service_holder_, *result, source_size, luma_plane,
                      chroma_planes);
-
-  sii->DestroySharedImage(sync_token, std::move(shared_image));
 
   // Allocate new bitmap & populate it with Y & UV data.
   SkBitmap actual = GLScalerTestUtil::AllocateRGBABitmap(source_size);

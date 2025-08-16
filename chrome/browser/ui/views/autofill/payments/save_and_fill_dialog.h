@@ -6,8 +6,10 @@
 #define CHROME_BROWSER_UI_VIEWS_AUTOFILL_PAYMENTS_SAVE_AND_FILL_DIALOG_H_
 
 #include "chrome/browser/ui/views/autofill/payments/payments_view_util.h"
+#include "components/autofill/core/browser/payments/payments_autofill_client.h"
 #include "components/autofill/core/browser/ui/payments/save_and_fill_dialog_view.h"
 #include "ui/views/controls/textfield/textfield_controller.h"
+#include "ui/views/controls/throbber.h"
 #include "ui/views/focus/focus_manager.h"
 #include "ui/views/window/dialog_delegate.h"
 
@@ -22,7 +24,8 @@ class SaveAndFillDialog : public views::DialogDelegateView,
                           public views::FocusChangeListener {
  public:
   explicit SaveAndFillDialog(
-      base::WeakPtr<SaveAndFillDialogController> controller);
+      base::WeakPtr<SaveAndFillDialogController> controller,
+      base::RepeatingCallback<void(const GURL&)> on_legal_message_link_clicked);
   SaveAndFillDialog(const SaveAndFillDialog&) = delete;
   SaveAndFillDialog& operator=(const SaveAndFillDialog&) = delete;
   ~SaveAndFillDialog() override;
@@ -43,8 +46,21 @@ class SaveAndFillDialog : public views::DialogDelegateView,
  private:
   // Initialize the dialog's contents.
   void InitViews();
+  // Extract user-provided card details from the textfields in the Save and Fill
+  // dialog.
+  payments::PaymentsAutofillClient::UserProvidedCardSaveAndFillDetails
+  GetUserProvidedDataFromInput() const;
+  // Callback that is triggered when the dialog is accepted or canceled.
+  void OnDialogClosed(views::Widget::ClosedReason reason);
+  // Create a view with a legal message.
+  std::unique_ptr<views::View> CreateLegalMessageView();
+
+  void CreateMainContentView();
+  void CreatePendingView();
+  void ToggleThrobberVisibility(bool visible);
 
   base::WeakPtr<SaveAndFillDialogController> controller_;
+  base::RepeatingCallback<void(const GURL&)> on_legal_message_link_clicked_;
 
   // The focus manager associated with this view. The focus manager is expected
   // to outlive this view.
@@ -53,6 +69,12 @@ class SaveAndFillDialog : public views::DialogDelegateView,
   LabeledTextfieldWithErrorMessage card_number_data_;
   LabeledTextfieldWithErrorMessage cvc_data_;
   LabeledTextfieldWithErrorMessage expiration_date_data_;
+  LabeledTextfieldWithErrorMessage name_on_card_data_;
+
+  raw_ptr<views::View> container_view_ = nullptr;
+  raw_ptr<views::BoxLayoutView> main_view_ = nullptr;
+  raw_ptr<views::BoxLayoutView> pending_view_ = nullptr;
+  raw_ptr<views::Throbber> throbber_ = nullptr;
 };
 
 }  // namespace autofill

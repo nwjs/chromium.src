@@ -104,12 +104,10 @@ void ProfileManagementFlowController::OnNavigateBackRequested() {
       ->OnNavigateBackRequested();
 }
 
-#if BUILDFLAG(ENABLE_DICE_SUPPORT)
 void ProfileManagementFlowController::OnReloadRequested() {
   DCHECK(initialized_steps_.contains(flow_tracker_.tracked_step()));
   initialized_steps_.at(flow_tracker_.tracked_step())->OnReloadRequested();
 }
-#endif
 
 std::u16string
 ProfileManagementFlowController::GetFallbackAccessibleWindowTitle() const {
@@ -183,10 +181,6 @@ void ProfileManagementFlowController::FinishFlowAndRunInBrowser(
       std::move(post_browser_open_callback),
       /*always_create=*/false,   // Don't create a window if one already exists.
       /*is_new_profile=*/false,  // Don't create a first run window.
-      /*unblock_extensions=*/false,  // There is no need to unblock all
-                                     // extensions because we only open browser
-                                     // window if the Profile is not locked.
-                                     // Hence there is no extension blocked.
       profile);
 }
 

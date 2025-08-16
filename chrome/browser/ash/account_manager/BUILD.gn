@@ -47,6 +47,7 @@ static_library("account_manager") {
     "//chrome/browser/ash/login/session",
     "//chrome/browser/ash/net",
     "//chrome/browser/profiles",
+    "//chrome/browser/signin",
     "//chromeos/ash/components/browser_context_helper",
     "//chromeos/components/mgs",
     "//components/user_manager",
@@ -86,6 +87,10 @@ source_set("unit_tests") {
     "//testing/gmock",
     "//testing/gtest",
   ]
+
+  # TODO(crbug.com/40031409): Fix code that adds exit-time destructors and
+  # enable the diagnostic by removing this line.
+  configs += [ "//build/config/compiler:no_exit_time_destructors" ]
 }
 
 source_set("browser_tests") {

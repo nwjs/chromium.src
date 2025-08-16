@@ -17,6 +17,7 @@
 #include "base/memory/weak_ptr.h"
 #include "base/time/time.h"
 #include "base/timer/timer.h"
+#include "base/trace_event/trace_event.h"
 #include "base/types/expected.h"
 #include "net/base/completion_once_callback.h"
 #include "net/base/ip_endpoint.h"
@@ -26,7 +27,6 @@
 #include "net/base/net_export.h"
 #include "net/base/priority_queue.h"
 #include "net/base/request_priority.h"
-#include "net/base/tracing.h"
 #include "net/dns/host_resolver.h"
 #include "net/dns/public/resolve_error_info.h"
 #include "net/http/http_stream_pool.h"
@@ -144,6 +144,8 @@ class HttpStreamPool::AttemptManager
     return dns_resolution_end_time_;
   }
 
+  NextProtoSet allowed_alpns() const { return allowed_alpns_; }
+
   const NetLogWithSource& net_log();
 
   // Starts `job` for a stream request. Will call one of Job::Delegate methods
@@ -241,13 +243,6 @@ class HttpStreamPool::AttemptManager
   MultiplexedSessionCreationInitiator
   CalculateMultiplexedSessionCreationInitiator();
 
-  // TODO(crbug.com/383606724): Remove this once we move unittests from
-  // HttpStreamPoolAttemptManagerTest to
-  // HttpStreamPoolIPEndPointStateTrackerTest
-  const IPEndPointStateTracker& ip_endpoint_state_tracker() const {
-    return ip_endpoint_state_tracker_;
-  }
-
   std::optional<int> GetQuicAttemptResultForTesting() {
     return quic_attempt_result_;
   }
@@ -261,9 +256,6 @@ class HttpStreamPool::AttemptManager
   void SetOnCompleteCallbackForTesting(base::OnceClosure callback);
 
  private:
-  FRIEND_TEST_ALL_PREFIXES(HttpStreamPoolAttemptManagerTest,
-                           GetIPEndPointToAttempt);
-
   // Represents the availability of this instance. If not kAvailable, `this`
   // can't handle new Jobs and this should not have in-flight attempts.
   enum class AvailabilityState {
@@ -376,8 +368,9 @@ class HttpStreamPool::AttemptManager
   // limits.
   bool ShouldRespectLimits() const;
 
-  // Returns true only when there are no jobs that disable IP based pooling.
-  bool IsIpBasedPoolingEnabled() const;
+  // Returns true only when there are no jobs that disable IP based pooling for
+  // HTTP/2. Note that this does nothing with QUIC.
+  bool IsIpBasedPoolingEnabledForH2() const;
 
   // Returns true only when there are no jobs that disable alternative services.
   bool IsAlternativeServiceEnabled() const;

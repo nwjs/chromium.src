@@ -38,11 +38,11 @@
 #include "content/public/browser/preload_pipeline_info.h"
 #include "content/public/browser/preloading.h"
 #include "content/public/browser/preloading_trigger_type.h"
-#include "content/public/browser/prerender_handle.h"
 #include "content/public/browser/save_page_type.h"
 #include "content/public/browser/visibility.h"
 #include "content/public/browser/web_contents_capability_type.h"
 #include "content/public/common/stop_find_action.h"
+#include "ipc/constants.mojom.h"
 #include "net/base/network_handle.h"
 #include "net/http/http_request_headers.h"
 #include "services/network/public/mojom/web_sandbox_flags.mojom-shared.h"
@@ -55,10 +55,9 @@
 #include "third_party/blink/public/mojom/picture_in_picture_window_options/picture_in_picture_window_options.mojom.h"
 #include "third_party/perfetto/include/perfetto/tracing/traced_value_forward.h"
 #include "third_party/skia/include/core/SkColor.h"
-#include "ui/accessibility/ax_enums.mojom-shared.h"
+#include "ui/accessibility/ax_enums.mojom-forward.h"
 #include "ui/accessibility/ax_mode.h"
 #include "ui/accessibility/platform/inspect/ax_api_type.h"
-#include "ui/base/cursor/mojom/cursor_type.mojom-shared.h"
 #include "ui/color/color_provider_key.h"
 #include "ui/gfx/geometry/rect.h"
 #include "ui/gfx/geometry/size.h"
@@ -123,6 +122,7 @@ class BackForwardTransitionAnimationManager;
 class BrowserContext;
 class BrowserPluginGuestDelegate;
 class GuestPageHolder;
+class PrerenderHandle;
 class RenderFrameHost;
 class RenderViewHost;
 class RenderWidgetHost;
@@ -187,7 +187,7 @@ class WebContents : public PageNavigator, public base::SupportsUserData {
     int opener_render_process_id = content::ChildProcessHost::kInvalidUniqueID;
 
     // The routing id of the frame initiating the open.
-    int opener_render_frame_id = MSG_ROUTING_NONE;
+    int opener_render_frame_id = IPC::mojom::kRoutingIdNone;
 
     // If the opener is suppressed, then the new WebContents doesn't hold a
     // reference to its opener.
@@ -773,7 +773,15 @@ class WebContents : public PageNavigator, public base::SupportsUserData {
   virtual const std::string& GetEncoding() = 0;
 
   // Discards the RenderFrame. Use is guarded by kWebContentsDiscard.
-  virtual void Discard() = 0;
+  // `on_discarded_cb` will be called immediately after the discard operation
+  // has completed. A discard operation may complete after being successfully
+  // processed in the renderer and acknowledged by the Browser, or if the
+  // discarded WebContents' renderer was proactively terminated.
+  // Discard can fail if attempted on a WebContents with a speculative RFH that
+  // has a navigation waiting to commit.
+  // TODO(crbug.com/433627400): Consider updating `on_discarded_cb` to return a
+  // bool to indicate whether the operation completed successfully.
+  virtual void Discard(base::OnceClosure on_discarded_cb) = 0;
 
   // Indicates that the tab was previously discarded.
   // wasDiscarded is exposed on Document after discard, see:
@@ -1507,12 +1515,27 @@ class WebContents : public PageNavigator, public base::SupportsUserData {
   // Returns the primary main frame importance. This is for testing only.
   virtual ChildProcessImportance GetPrimaryMainFrameImportanceForTesting() = 0;
 
-  // Set an importance of the page to the primary main frame.
+  // Returns the primary page's subframe importance cached. This is for testing
+  // only.
+  virtual ChildProcessImportance
+  GetPrimaryPageSubframeImportanceForTesting() = 0;
+
+  // Set importance for main frame and subframes of the page in the primary
+  // frame tree.
   //
-  // Note this does not affect importance of subframe processes or main frames
-  // processeses for non-primary pages.
-  virtual void SetPrimaryMainFrameImportance(
-      ChildProcessImportance importance) = 0;
+  // The subframe importance will be set to new subframes in the primary frame
+  // tree when they are created as well. Also the subframe importance will be
+  // set to subframes when they are restored (e.g. from BFCache) to the primary
+  // frame tree.
+  //
+  // SubframePriorityContribution and SubframeImportance features are required
+  // to set subframe importance to other than NORMAL.
+  //
+  // The subframe_importance must be less than or equal to the
+  // main_frame_importance.
+  virtual void SetPrimaryPageImportance(
+      ChildProcessImportance main_frame_importance,
+      ChildProcessImportance subframe_importance) = 0;
 #endif  // BUILDFLAG(IS_ANDROID)
 
   // Returns true if the WebContents has completed its first meaningful paint
@@ -1692,7 +1715,8 @@ class WebContents : public PageNavigator, public base::SupportsUserData {
                                    const std::optional<UrlMatchType>&)>
           url_match_predicate,
       base::RepeatingCallback<void(NavigationHandle&)>
-          prerender_navigation_handle_callback) = 0;
+          prerender_navigation_handle_callback,
+      bool allow_reuse) = 0;
 
   // Cancels all prerendering hosted on this WebContents.
   virtual void CancelAllPrerendering() = 0;

@@ -6,6 +6,7 @@
 #include <stdint.h>
 
 #include <array>
+#include <cmath>
 #include <utility>
 
 #include "base/containers/contains.h"
@@ -126,7 +127,7 @@ class FakeRasterBuffer : public RasterBuffer {
   bool SupportsBackgroundThreadPriority() const override { return true; }
 
  private:
-  const float expected_hdr_headroom_ = 1.f;
+  const float expected_hdr_headroom_ = 0.f;
 };
 
 class TileManagerTilePriorityQueueTest : public TestLayerTreeHostBase {
@@ -2539,7 +2540,7 @@ class MockReadyToDrawRasterBufferProviderImpl
   }
 
  private:
-  float expected_hdr_headroom_ = 1.f;
+  float expected_hdr_headroom_ = 0.f;
 };
 
 class TileManagerReadyToDrawTest : public TileManagerTest {
@@ -2664,9 +2665,9 @@ TEST_F(TileManagerReadyToDrawTest, NonSmoothActivationDoesNotWaitOnCallback) {
 }
 
 TEST_F(TileManagerReadyToDrawTest, HdrHeadroomPropagated) {
-  constexpr float kTestHdrHeadroom = 4.f;
+  constexpr float kTestHdrHeadroom = 2.f;
   TargetColorParams target_color_params;
-  target_color_params.hdr_max_luminance_relative = kTestHdrHeadroom;
+  target_color_params.hdr_headroom = kTestHdrHeadroom;
   host_impl()->set_target_color_params(target_color_params);
   mock_raster_buffer_provider()->set_expected_hdr_headroom(kTestHdrHeadroom);
 
@@ -3891,7 +3892,7 @@ class HdrImageTileManagerTest : public CheckerImagingTileManagerTest {
     auto pending_tiles = pending_tiling->AllTilesForTesting();
     ASSERT_FALSE(pending_tiles.empty());
 
-    const auto raster_cs = gfx::ColorSpace::CreateExtendedSRGB();
+    const auto raster_cs = gfx::ColorSpace::CreateDisplayP3D65().GetAsHDR();
     if (output_cs.IsHDR()) {
       // Only the last tile will have any pending tasks.
       const auto& pending_tasks =
@@ -3900,7 +3901,6 @@ class HdrImageTileManagerTest : public CheckerImagingTileManagerTest {
       EXPECT_FALSE(pending_tasks.empty());
       for (const auto& draw_info : pending_tasks) {
         EXPECT_EQ(draw_info.target_color_space(), raster_cs);
-        EXPECT_FLOAT_EQ(draw_info.sdr_white_level(), kCustomWhiteLevel);
       }
     }
 
@@ -3940,8 +3940,8 @@ TEST_F(HdrImageTileManagerTest, DecodeHdrImagesToSdrP3) {
 class TileManagerCheckRasterQueriesTest : public TileManagerTest {
  public:
   TileManagerCheckRasterQueriesTest()
-      : pending_raster_queries_(
-            viz::TestContextProvider::CreateWorker().get()) {}
+      : worker_context_provider_(viz::TestContextProvider::CreateWorker()),
+        pending_raster_queries_(worker_context_provider_.get()) {}
 
   void SetUp() override {
     TileManagerTest::SetUp();
@@ -3958,6 +3958,9 @@ class TileManagerCheckRasterQueriesTest : public TileManagerTest {
     MOCK_METHOD0(CheckRasterFinishedQueries, bool());
   };
 
+  // MockRasterQueryQueue holds onto a ptr to TestContextProvider, so member
+  // declaration order is important to avoid a dangling pointer.
+  scoped_refptr<viz::TestContextProvider> worker_context_provider_;
   MockRasterQueryQueue pending_raster_queries_;
 };
 

@@ -731,9 +731,6 @@ id<GREYAction> grey_longPressWithDuration(base::TimeDelta duration);
 // Returns YES if UKM feature is enabled.
 - (BOOL)isUKMEnabled [[nodiscard]];
 
-// Returns YES if DWA feature is enabled.
-- (BOOL)isDWAEnabled [[nodiscard]];
-
 // Returns YES if kTestFeature is enabled.
 - (BOOL)isTestFeatureEnabled;
 
@@ -760,9 +757,6 @@ id<GREYAction> grey_longPressWithDuration(base::TimeDelta duration);
 
 // Returns whether the UseLensToSearchForImage feature is enabled;
 - (BOOL)isUseLensToSearchForImageEnabled;
-
-// Returns whether the Tab Group Sync feature is enabled.
-- (BOOL)isTabGroupSyncEnabled;
 
 // Returns whether the unfocused omnibox is at the bottom.
 - (BOOL)isUnfocusedOmniboxAtBottom;
@@ -854,6 +848,7 @@ id<GREYAction> grey_longPressWithDuration(base::TimeDelta duration);
 // Gets the value of a user pref in the original profile.
 - (bool)userBooleanPref:(const std::string&)prefName;
 - (int)userIntegerPref:(const std::string&)prefName;
+- (double)userDoublePref:(const std::string&)prefName;
 - (std::string)userStringPref:(const std::string&)prefName;
 
 // Sets the value of a user pref in the original profile.
@@ -861,6 +856,8 @@ id<GREYAction> grey_longPressWithDuration(base::TimeDelta duration);
            forUserPref:(const std::string&)UTF8PrefName;
 - (void)setBoolValue:(BOOL)value forUserPref:(const std::string&)UTF8PrefName;
 - (void)setIntegerValue:(int)value forUserPref:(const std::string&)UTF8PrefName;
+- (void)setDoubleValue:(double)value
+           forUserPref:(const std::string&)UTF8PrefName;
 
 // Returns true if the LocaState Preference is currently using its default
 // value, and has not been set by any higher-priority source (even with the same
@@ -1004,6 +1001,17 @@ id<GREYAction> grey_longPressWithDuration(base::TimeDelta duration);
 
 // Waits for the MessagingBackendService to be initialized.
 - (NSError*)waitForMessagingBackendServiceInitialized;
+
+#pragma mark - Reader mode Utilities
+
+// Shows Reader mode in the current tab.
+- (void)showReaderMode;
+
+// Waits until the Reader mode WebState is ready in the current tab.
+- (BOOL)waitUntilReaderModeWebStateIsReady;
+
+// Hides Reader mode in the current tab.
+- (void)hideReaderMode;
 
 @end
 

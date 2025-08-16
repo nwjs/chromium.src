@@ -48,7 +48,6 @@ class GURL;
 namespace net {
 
 class ClientSocketFactory;
-class HashValue;
 class HostPortPair;
 class HostResolver;
 class QuicContext;
@@ -74,9 +73,8 @@ const uint32_t kMaxHeaderListSizeForTest = 1024;
 // Chop a spdy::SpdySerializedFrame into an array of MockWrites.
 // |frame| is the frame to chop.
 // |num_chunks| is the number of chunks to create.
-std::unique_ptr<MockWrite[]> ChopWriteFrame(
-    const spdy::SpdySerializedFrame& frame,
-    int num_chunks);
+std::vector<MockWrite> ChopWriteFrame(const spdy::SpdySerializedFrame& frame,
+                                      int num_chunks);
 
 // Adds headers and values to a map.
 // |extra_headers| is an array of { name, value } pairs, arranged as strings
@@ -496,8 +494,8 @@ class SpdyTestUtil {
 
 namespace test {
 
-// Returns a SHA1 HashValue in which each byte has the value |label|.
-HashValue GetTestHashValue(uint8_t label);
+// Returns a SHA256HashValue in which each byte has the value |label|.
+SHA256HashValue GetTestHashValue(uint8_t label);
 
 }  // namespace test
 }  // namespace net

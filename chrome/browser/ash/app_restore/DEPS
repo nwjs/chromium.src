@@ -30,6 +30,9 @@ include_rules = [
   "+chrome/browser/sessions",
   "+chrome/browser/signin",
   "+chrome/browser/ui/ash",
+  "+chrome/browser/ui/ash/desks",
+  "+chrome/browser/ui/ash/shelf",
+  "+chrome/browser/ui/ash/system_web_apps",
   "+chrome/browser/ui/startup",
   "+chrome/browser/ui/webui/ash/settings",
   "+chrome/browser/web_applications/web_app_install_info.h",
@@ -47,6 +50,22 @@ specific_include_rules = {
     "+chrome/browser/browser_process.h",
     "+chrome/browser/browser_process_platform_part.h",
   ],
+
+  # Handles web browser restoring so depending on //chrome.
+  "browser_restore_observer\\.cc": [
+    "+chrome/browser/custom_handlers/protocol_handler_registry_factory.h",
+    "+chrome/browser/ui/browser.h",
+    "+chrome/browser/ui/browser_finder.h",
+    "+chrome/browser/ui/browser_list.h",
+    "+chrome/browser/ui/browser_navigator.h",
+    "+chrome/browser/ui/browser_navigator_params.h",
+    "+chrome/browser/ui/browser_window.h",
+    "+chrome/browser/ui/tabs/tab_enums.h",
+  ],
+  "browser_restore_observer\\.h": [
+    "+chrome/browser/ui/browser_list_observer.h",
+  ],
+
   ".*test\\.cc": [
     "+chrome/browser/browser_process.h",
     "+chrome/browser/ui/browser.h",

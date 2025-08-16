@@ -211,6 +211,29 @@ static const uint8_t kHashPrefix[] = {0x82, 0x40, 32};
 static const char kPinRenewalFailureHistogram[] =
     "WebAuthentication.PinRenewalFailureCause";
 
+// The parsed response to an enclave "recovery_key_store/wrap" command.
+struct EnclaveRecoveryKeyStoreWrapResponse {
+  EnclaveRecoveryKeyStoreWrapResponse() = default;
+  ~EnclaveRecoveryKeyStoreWrapResponse() = default;
+  EnclaveRecoveryKeyStoreWrapResponse(
+      const EnclaveRecoveryKeyStoreWrapResponse& other) = delete;
+  EnclaveRecoveryKeyStoreWrapResponse& operator=(
+      const EnclaveRecoveryKeyStoreWrapResponse& other) = delete;
+  EnclaveRecoveryKeyStoreWrapResponse(
+      EnclaveRecoveryKeyStoreWrapResponse&& other) = default;
+  EnclaveRecoveryKeyStoreWrapResponse& operator=(
+      EnclaveRecoveryKeyStoreWrapResponse&& other) = default;
+
+  // The protobuf that can be sent to the recovery key store.
+  std::unique_ptr<trusted_vault_pb::Vault> vault;
+
+  // The chosen cohort public key.
+  std::vector<uint8_t> cohort_public_key;
+
+  // The cert.xml serial number used to select a cohort.
+  int cert_xml_serial_number;
+};
+
 // Since protobuf maps `bytes` to `std::string` (rather than
 // `std::vector<uint8_t>`), functions for jumping between these representations
 // are needed.
@@ -262,9 +285,6 @@ std::optional<int> CheckPINInvariants(
     return __LINE__;
   }
   if (wrapped_pin.claim_key().size() != 32) {
-    return __LINE__;
-  }
-  if (wrapped_pin.generation() < 0) {
     return __LINE__;
   }
   if (wrapped_pin.form() == wrapped_pin.FORM_UNSPECIFIED) {
@@ -506,7 +526,6 @@ cbor::Value::ArrayValue BuildRecoveryKeyStorePINWrappingEnclaveRequest(
 // Build an enclave request to wrap a PIN with the security domain secret.
 cbor::Value::ArrayValue BuildPINWrappingEnclaveRequest(
     base::span<const uint8_t> hashed_pin,
-    int64_t generation,
     base::span<const uint8_t, 32> claim_key,
     base::span<const uint8_t, enclave::kCounterIDLen> counter_id,
     base::span<const uint8_t, enclave::kVaultHandleLen - 1>
@@ -516,7 +535,9 @@ cbor::Value::ArrayValue BuildPINWrappingEnclaveRequest(
   request.emplace(enclave::kRequestCommandKey,
                   enclave::kPasskeysWrapPinCommandName);
   request.emplace(enclave::kPinHash, hashed_pin);
-  request.emplace(enclave::kGeneration, generation);
+  if (base::FeatureList::IsEnabled(device::kWebAuthnSendPinGeneration)) {
+    request.emplace(enclave::kGeneration, 0);
+  }
   request.emplace(enclave::kClaimKey, claim_key);
   request.emplace(enclave::kRequestWrappedSecretKey, wrapped_secret);
   request.emplace(enclave::kRequestCounterIDKey, counter_id);
@@ -791,9 +812,10 @@ struct PinMetadata {
 };
 
 // Convert the response to an enclave "recovery_key_store/wrap" command, into a
-// protobuf that can be sent to the recovery key store service.
-std::optional<std::unique_ptr<trusted_vault_pb::Vault>>
-RecoveryKeyStoreWrapResponseToProto(
+// protobuf that can be sent to the recovery key store service and extracts the
+// data required to build a wrapped PIN.
+std::optional<EnclaveRecoveryKeyStoreWrapResponse>
+ParseRecoveryKeyStoreWrapResponse(
     const PinMetadata& pin_metadata,
     const cbor::Value& recovery_key_store_wrap_response) {
   if (!recovery_key_store_wrap_response.is_map()) {
@@ -842,6 +864,15 @@ RecoveryKeyStoreWrapResponseToProto(
     return std::nullopt;
   }
 
+  int cert_xml_serial_number = 0;
+  if (base::FeatureList::IsEnabled(device::kWebAuthnWrapCohortData)) {
+    it = response.find(cbor::Value("serial"));
+    if (it == response.end() || !it->second.is_integer()) {
+      return std::nullopt;
+    }
+    cert_xml_serial_number = it->second.GetInteger();
+  }
+
   auto vault = std::make_unique<trusted_vault_pb::Vault>();
   auto* params = vault->mutable_vault_parameters();
   params->set_backend_public_key(VecToString(cohort_public_key));
@@ -875,7 +906,11 @@ RecoveryKeyStoreWrapResponseToProto(
   }
   vault->set_vault_metadata(std::move(metadata_bytes));
 
-  return vault;
+  EnclaveRecoveryKeyStoreWrapResponse result;
+  result.vault = std::move(vault);
+  result.cohort_public_key = std::move(cohort_public_key);
+  result.cert_xml_serial_number = cert_xml_serial_number;
+  return result;
 }
 
 base::flat_map<int32_t, std::vector<uint8_t>> GetNewSecretsToStore(
@@ -942,14 +977,12 @@ struct HashedPIN {
   // Copies the values of this structure into a `WrappedPIN` protobuf with a
   // random claim key. The inner `wrapped_pin` member is not set and needs to be
   // filled in by the caller once that value is available.
-  std::unique_ptr<EnclaveLocalState::WrappedPIN> ToWrappedPIN(
-      int64_t generation) const {
+  std::unique_ptr<EnclaveLocalState::WrappedPIN> ToWrappedPIN() const {
     uint8_t claim_key[32];
     crypto::RandBytes(claim_key);
 
     auto ret = std::make_unique<EnclaveLocalState::WrappedPIN>();
     ret->set_claim_key(VecToString(claim_key));
-    ret->set_generation(generation);
     ret->set_form(this->metadata.is_six_digits
                       ? EnclaveLocalState::WrappedPIN::FORM_SIX_DIGITS
                       : EnclaveLocalState::WrappedPIN::FORM_ARBITRARY);
@@ -1024,7 +1057,7 @@ std::vector<uint8_t> EncryptWrappedPIN(
 // Parse a Vault and security domain member keys from a CBOR map. These maps
 // result from enclave operations that return a Vault for insertion into the
 // security domain.
-static std::optional<std::pair<std::unique_ptr<trusted_vault_pb::Vault>,
+static std::optional<std::pair<EnclaveRecoveryKeyStoreWrapResponse,
                                trusted_vault::MemberKeysSource>>
 ParseVaultAndMemberResponse(const int32_t key_version,
                             const PinMetadata& pin_metadata,
@@ -1034,9 +1067,9 @@ ParseVaultAndMemberResponse(const int32_t key_version,
     FIDO_LOG(ERROR) << "response missing 'wrapped'";
     return std::nullopt;
   }
-  std::optional<std::unique_ptr<trusted_vault_pb::Vault>> vault =
-      RecoveryKeyStoreWrapResponseToProto(pin_metadata, it->second);
-  if (!vault) {
+  std::optional<EnclaveRecoveryKeyStoreWrapResponse> wrap_response =
+      ParseRecoveryKeyStoreWrapResponse(pin_metadata, it->second);
+  if (!wrap_response) {
     FIDO_LOG(ERROR) << "Failed to translate response into an UpdateVaultProto";
     return std::nullopt;
   }
@@ -1058,7 +1091,8 @@ ParseVaultAndMemberResponse(const int32_t key_version,
   auto member_keys_source =
       trusted_vault::MemberKeys(key_version, wrapped_sds, member_proof);
 
-  return std::make_pair(std::move(*vault), std::move(member_keys_source));
+  return std::make_pair(std::move(*wrap_response),
+                        std::move(member_keys_source));
 }
 
 class UvKeyCreationLockImpl : public EnclaveManager::UvKeyCreationLock {
@@ -1534,12 +1568,7 @@ class EnclaveManager::StateMachine {
       }
 
       is_pin_renewal_ = true;
-      if (base::FeatureList::IsEnabled(
-              device::kSyncSecurityDomainBeforePINRenewal)) {
-        SyncWithSecurityDomain();
-      } else {
-        DownloadRecoveryKeyStoreKeys();
-      }
+      SyncWithSecurityDomain();
       return;
     }
 
@@ -2028,13 +2057,7 @@ class EnclaveManager::StateMachine {
     // recovery key store.
     CHECK(std::holds_alternative<PINHashed>(event));
     hashed_pin_ = std::move(std::get_if<PINHashed>(&event)->value());
-
-    int64_t generation = 0;
-    if (is_pin_update_) {
-      generation = user_->wrapped_pin().generation() + 1;
-    }
-    wrapped_pin_proto_ = hashed_pin_->ToWrappedPIN(generation);
-
+    wrapped_pin_proto_ = hashed_pin_->ToWrappedPIN();
     DownloadRecoveryKeyStoreKeys();
   }
 
@@ -2140,7 +2163,7 @@ class EnclaveManager::StateMachine {
         //      with that PIN in the future.
         ConcatEnclaveRequests(
             BuildPINWrappingEnclaveRequest(
-                hashed_pin_->hashed, wrapped_pin_proto_->generation(),
+                hashed_pin_->hashed,
                 ToSizedSpan<32>(wrapped_pin_proto_->claim_key()), counter_id,
                 vault_handle_without_type, wrapped_secret),
             BuildRecoveryKeyStorePINChangeEnclaveRequest(
@@ -2189,23 +2212,21 @@ class EnclaveManager::StateMachine {
             .find(cbor::Value(enclave::kResponseSuccessKey))
             ->second;
 
-    std::optional<std::unique_ptr<trusted_vault_pb::Vault>> vault =
-        RecoveryKeyStoreWrapResponseToProto(hashed_pin_->metadata,
-                                            recovery_key_store_wrap_response);
-    if (!vault) {
+    recovery_key_store_wrap_response_ = ParseRecoveryKeyStoreWrapResponse(
+        hashed_pin_->metadata, recovery_key_store_wrap_response);
+    if (!recovery_key_store_wrap_response_) {
       FIDO_LOG(ERROR)
           << "Failed to translate response into an UpdateVaultProto";
       state_ = State::kStop;
       return;
     }
-    vault_ = std::move(*vault);
 
     wrapping_response_ = std::move(response);
 
     state_ = State::kWaitingForRecoveryKeyStore;
     recovery_key_store_request_ =
         manager_->recovery_key_store_conn_->UpdateRecoveryKeyStore(
-            *primary_account_info_, *vault_,
+            *primary_account_info_, *recovery_key_store_wrap_response_->vault,
             base::BindOnce(
                 [](base::WeakPtr<StateMachine> machine,
                    trusted_vault::RecoveryKeyStoreStatus status) {
@@ -2240,12 +2261,14 @@ class EnclaveManager::StateMachine {
     if (!updating_pin_member && !is_set_pin_) {
       CHECK(wrapped_pin_proto_->wrapped_pin().empty());
       wrapped_pin_proto_->set_wrapped_pin(BuildWrappedPIN(
-          *hashed_pin_, /*generation=*/0,
-          ToSizedSpan<32>(wrapped_pin_proto_->claim_key()), vault_.get(),
+          *hashed_pin_, ToSizedSpan<32>(wrapped_pin_proto_->claim_key()),
+          *recovery_key_store_wrap_response_,
           store_keys_args_for_joining_->keys.back()));
     }
     const std::string& vault_public_key =
-        vault_->application_keys()[0].asymmetric_key_pair().public_key();
+        recovery_key_store_wrap_response_->vault->application_keys()[0]
+            .asymmetric_key_pair()
+            .public_key();
     const auto secure_box_pub_key =
         trusted_vault::SecureBoxPublicKey::CreateByImport(
             base::as_byte_span(vault_public_key));
@@ -2483,7 +2506,7 @@ class EnclaveManager::StateMachine {
       return false;
     }
     const int32_t key_version = GetCurrentWrappedSecretForUser(user_).first;
-    std::optional<std::pair<std::unique_ptr<trusted_vault_pb::Vault>,
+    std::optional<std::pair<EnclaveRecoveryKeyStoreWrapResponse,
                             trusted_vault::MemberKeysSource>>
         result = ParseVaultAndMemberResponse(key_version, pin_metadata,
                                              response_value.GetMap());
@@ -2495,12 +2518,13 @@ class EnclaveManager::StateMachine {
       }
       return false;
     }
-    std::tie(vault_, member_keys_source_) = std::move(*result);
+    std::tie(recovery_key_store_wrap_response_, member_keys_source_) =
+        std::move(*result);
 
     state_ = State::kWaitingForRecoveryKeyStore;
     recovery_key_store_request_ =
         manager_->recovery_key_store_conn_->UpdateRecoveryKeyStore(
-            *primary_account_info_, *vault_,
+            *primary_account_info_, *recovery_key_store_wrap_response_->vault,
             base::BindOnce(
                 [](base::WeakPtr<StateMachine> machine,
                    trusted_vault::RecoveryKeyStoreStatus status) {
@@ -2602,19 +2626,26 @@ class EnclaveManager::StateMachine {
   // encrypted) by the security domain secret.
   static std::string BuildWrappedPIN(
       const HashedPIN& hashed_pin,
-      int64_t generation,
       base::span<const uint8_t, 32> claim_key,
-      const trusted_vault_pb::Vault* vault,
+      const EnclaveRecoveryKeyStoreWrapResponse& vault_details,
       base::span<const uint8_t> security_domain_secret) {
     cbor::Value::MapValue map;
     map.emplace(1, base::span<const uint8_t>(hashed_pin.hashed));
-    map.emplace(2, generation);
+    if (base::FeatureList::IsEnabled(device::kWebAuthnSendPinGeneration)) {
+      map.emplace(2, 0);  // Generation number.
+    }
     map.emplace(3, claim_key);
-    map.emplace(4, base::as_byte_span(vault->vault_parameters().counter_id()));
+    map.emplace(4, base::as_byte_span(
+                       vault_details.vault->vault_parameters().counter_id()));
     // The vault handle in the wrapped PIN doesn't include the first byte,
     // which is the type of the vault entry.
-    map.emplace(5, base::as_byte_span(vault->vault_parameters().vault_handle())
+    map.emplace(5, base::as_byte_span(
+                       vault_details.vault->vault_parameters().vault_handle())
                        .subspan<1>());
+    if (base::FeatureList::IsEnabled(device::kWebAuthnWrapCohortData)) {
+      map.emplace(6, vault_details.cert_xml_serial_number);
+      map.emplace(7, vault_details.cohort_public_key);
+    }
     const std::vector<uint8_t> cbor_bytes =
         cbor::Writer::Write(cbor::Value(std::move(map))).value();
     return VecToString(EncryptWrappedPIN(security_domain_secret, cbor_bytes));
@@ -2662,7 +2693,8 @@ class EnclaveManager::StateMachine {
   std::optional<std::string> cert_xml_;
   std::optional<std::string> sig_xml_;
   std::unique_ptr<HashedPIN> hashed_pin_;
-  std::unique_ptr<trusted_vault_pb::Vault> vault_;
+  std::optional<EnclaveRecoveryKeyStoreWrapResponse>
+      recovery_key_store_wrap_response_;
   std::unique_ptr<trusted_vault::RecoveryKeyStoreConnection::Request>
       recovery_key_store_request_;
   std::optional<cbor::Value> wrapping_response_;
@@ -3603,19 +3635,22 @@ unsigned EnclaveManager::renewal_attempts_for_testing() const {
 std::string EnclaveManager::MakeWrappedPINForTesting(
     base::span<const uint8_t> security_domain_secret,
     std::string_view pin) {
-  constexpr int32_t kGeneration = 0;
   std::unique_ptr<HashedPIN> hashed = HashPINSlowly(pin);
   std::unique_ptr<EnclaveLocalState::WrappedPIN> wrapped_pin =
-      hashed->ToWrappedPIN(kGeneration);
+      hashed->ToWrappedPIN();
   const uint8_t kFakeCounterId[8] = {};
   const uint8_t kFakeVaultHandle[16] = {};
+  const uint8_t kFakeCohortPublicKey[16] = {};
+  const int32_t kFakeSerialNumber = 1;
 
   cbor::Value::MapValue map;
   map.emplace(1, base::span<const uint8_t>(hashed->hashed));
-  map.emplace(2, kGeneration);
+  // 2 used to correspond to the generation.
   map.emplace(3, ToSizedSpan<32>(wrapped_pin->claim_key()));
   map.emplace(4, base::span<const uint8_t>(kFakeCounterId));
   map.emplace(5, base::span<const uint8_t>(kFakeVaultHandle));
+  map.emplace(6, base::span<const uint8_t>(kFakeCohortPublicKey));
+  map.emplace(7, kFakeSerialNumber);
   const std::vector<uint8_t> cbor_bytes =
       cbor::Writer::Write(cbor::Value(std::move(map))).value();
   wrapped_pin->set_wrapped_pin(

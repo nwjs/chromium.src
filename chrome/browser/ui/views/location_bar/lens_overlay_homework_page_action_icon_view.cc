@@ -14,13 +14,12 @@
 #include "chrome/browser/ui/lens/lens_search_controller.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/location_bar/location_bar_view.h"
-#include "chrome/browser/ui/views/omnibox/omnibox_view_views.h"
 #include "chrome/browser/ui/views/page_action/page_action_icon_view.h"
 #include "chrome/browser/user_education/user_education_service.h"
 #include "chrome/grit/branded_strings.h"
 #include "components/lens/lens_features.h"
 #include "components/lens/lens_metrics.h"
-#include "components/omnibox/browser/omnibox_prefs.h"
+#include "components/omnibox/browser/autocomplete_match_type.h"
 #include "components/vector_icons/vector_icons.h"
 #include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/navigation_entry.h"
@@ -94,11 +93,6 @@ bool LensOverlayHomeworkPageActionIconView::ShouldShow() {
   }
 #endif  // BUILDFLAG(ENABLE_GLIC)
 
-  if (!browser_->GetProfile()->GetPrefs()->GetBoolean(
-          omnibox::kShowGoogleLensShortcut)) {
-    return false;
-  }
-
   // Hide the homework chip if the broader lens feature is disabled.
   const auto* controller =
       browser_->GetFeatures().lens_overlay_entry_point_controller();
@@ -169,8 +163,20 @@ void LensOverlayHomeworkPageActionIconView::OnExecuting(
       LensSearchController::FromTabWebContents(GetWebContents());
   CHECK(controller);
 
-  controller->OpenLensOverlay(
-      lens::LensOverlayInvocationSource::kHomeworkActionChip);
+  if (lens::features::IsLensOverlayStraightToSrpEnabled()) {
+    std::string query_text =
+        lens::features::GetStraightToSrpQuery().empty()
+            ? l10n_util::GetStringUTF8(IDS_LENS_CONTEXTUAL_SEARCH_DEFAULT_QUERY)
+            : lens::features::GetStraightToSrpQuery();
+    controller->IssueContextualSearchRequestWithQuery(
+        lens::LensOverlayInvocationSource::kHomeworkActionChip, query_text,
+        /*additional_query_parameters=*/{},
+        AutocompleteMatchType::Type::SEARCH_SUGGEST,
+        /*is_zero_prefix_suggestion=*/false);
+  } else {
+    controller->OpenLensOverlay(
+        lens::LensOverlayInvocationSource::kHomeworkActionChip);
+  }
   UserEducationService::MaybeNotifyNewBadgeFeatureUsed(
       GetWebContents()->GetBrowserContext(), lens::features::kLensOverlay);
 

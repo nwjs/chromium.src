@@ -279,8 +279,8 @@ TEST_F(ContactInfoSyncBridgeTest,
   ASSERT_TRUE(StartSyncing({remote}));
 
   // Since `remote` is a complete H/W profile, expect it in local storage.
-  histogram_tester.ExpectUniqueSample(
-      "Autofill.HomeWorkProfiles.ProfileFiltered", false, 1);
+  histogram_tester.ExpectUniqueSample("Autofill.HomeAndWork.ProfileFiltered",
+                                      false, 1);
   EXPECT_THAT(GetAllDataFromTable(), ElementsAre(remote));
 
   // Receive an update for remote that makes it incomplete.
@@ -292,9 +292,9 @@ TEST_F(ContactInfoSyncBridgeTest,
       bridge().CreateMetadataChangeList(), std::move(entity_change_list)));
 
   // Expect that the profile was removed locally.
-  EXPECT_THAT(histogram_tester.GetAllSamples(
-                  "Autofill.HomeWorkProfiles.ProfileFiltered"),
-              BucketsAre(base::Bucket(false, 1), base::Bucket(true, 1)));
+  EXPECT_THAT(
+      histogram_tester.GetAllSamples("Autofill.HomeAndWork.ProfileFiltered"),
+      BucketsAre(base::Bucket(false, 1), base::Bucket(true, 1)));
   EXPECT_THAT(GetAllDataFromTable(), testing::IsEmpty());
 }
 
@@ -330,6 +330,16 @@ TEST_F(ContactInfoSyncBridgeTest, AutofillProfileChange_IgnoresLocalProfiles) {
   bridge().AutofillProfileChanged(
       {AutofillProfileChange::ADD, kGUID1,
        TestProfile(kGUID1, AutofillProfile::RecordType::kLocalOrSyncable)});
+}
+
+// Tests that AccountNameEmail profiles are not synced.
+TEST_F(ContactInfoSyncBridgeTest,
+       AutofillProfileChange_IgnoresAccountNameEmailProfiles) {
+  ASSERT_TRUE(StartSyncing(/*remote_profiles=*/{}));
+  EXPECT_CALL(mock_processor(), Put).Times(0);
+  bridge().AutofillProfileChanged(
+      {AutofillProfileChange::ADD, kGUID1,
+       TestProfile(kGUID1, AutofillProfile::RecordType::kAccountNameEmail)});
 }
 
 // Tests that new local profiles are pushed to Sync.

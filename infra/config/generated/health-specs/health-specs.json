@@ -178,7 +178,7 @@
         ]
       },
       "Centipede Upload Linux ASan": {
-        "contact_team_email": "chrome-deet-core@google.com",
+        "contact_team_email": "chrome-fuzzing-core@google.com",
         "problem_specs": [
           {
             "name": "Unhealthy",
@@ -619,7 +619,7 @@
         ]
       },
       "Libfuzzer Upload Linux ASan": {
-        "contact_team_email": "chrome-deet-core@google.com",
+        "contact_team_email": "chrome-fuzzing-core@google.com",
         "problem_specs": [
           {
             "name": "Unhealthy",
@@ -640,7 +640,7 @@
         ]
       },
       "Libfuzzer Upload Windows ASan": {
-        "contact_team_email": "chrome-deet-core@google.com",
+        "contact_team_email": "chrome-fuzzing-core@google.com",
         "problem_specs": [
           {
             "name": "Unhealthy",
@@ -829,27 +829,6 @@
         ]
       },
       "Linux Tests": {
-        "contact_team_email": "chrome-linux-engprod@google.com",
-        "problem_specs": [
-          {
-            "name": "Unhealthy",
-            "period_days": 7,
-            "score": 5,
-            "thresholds": {
-              "_default": "_default"
-            }
-          },
-          {
-            "name": "Low Value",
-            "period_days": 90,
-            "score": 1,
-            "thresholds": {
-              "_default": "_default"
-            }
-          }
-        ]
-      },
-      "Linux Tests (Wayland)": {
         "contact_team_email": "chrome-linux-engprod@google.com",
         "problem_specs": [
           {
@@ -2091,6 +2070,27 @@
         ]
       },
       "linux-wayland-mutter-rel-tests": {
+        "contact_team_email": "chrome-linux-engprod@google.com",
+        "problem_specs": [
+          {
+            "name": "Unhealthy",
+            "period_days": 7,
+            "score": 5,
+            "thresholds": {
+              "_default": "_default"
+            }
+          },
+          {
+            "name": "Low Value",
+            "period_days": 90,
+            "score": 1,
+            "thresholds": {
+              "_default": "_default"
+            }
+          }
+        ]
+      },
+      "linux-wayland-weston-rel-tests": {
         "contact_team_email": "chrome-linux-engprod@google.com",
         "problem_specs": [
           {

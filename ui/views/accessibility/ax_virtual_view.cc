@@ -221,6 +221,25 @@ Widget* AXVirtualView::GetWidget() const {
   return nullptr;
 }
 
+ViewAccessibility* AXVirtualView::GetViewAccessibilityParent() const {
+  if (parent_view_) {
+    return parent_view_;
+  }
+  if (virtual_parent_view_) {
+    return virtual_parent_view_;
+  }
+  // This virtual view hasn't been added to a parent view yet.
+  return nullptr;
+}
+
+std::string AXVirtualView::GetDebugString() const {
+  View* owner_view = GetOwnerView();
+  if (!owner_view) {
+    return std::string("Virtual view with no owner view");
+  }
+  return base::StrCat({"Virtual view child of ", owner_view->GetClassName()});
+}
+
 void AXVirtualView::NotifyEvent(ax::mojom::Event event_type,
                                 bool send_native_event) {
   // If `ready_to_notify_events_` is false, it means we are initializing
@@ -431,6 +450,11 @@ bool AXVirtualView::ShouldIgnoreHoveredStateForTesting() {
 bool AXVirtualView::IsOffscreen() const {
   // TODO(nektar): Implement.
   return false;
+}
+
+ui::AXPlatformNodeId AXVirtualView::GetUniqueId() const {
+  // The unique ID is held in the `ViewAccessibility`.
+  return ViewAccessibility::GetUniqueId();
 }
 
 // Virtual views need to implement this function in order for accessibility

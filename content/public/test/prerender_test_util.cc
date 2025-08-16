@@ -57,6 +57,8 @@ std::string ConvertEagernessToString(
   switch (eagerness) {
     case blink::mojom::SpeculationEagerness::kImmediate:
       return "immediate";
+    case blink::mojom::SpeculationEagerness::kEager:
+      return "eager";
     case blink::mojom::SpeculationEagerness::kModerate:
       return "moderate";
     case blink::mojom::SpeculationEagerness::kConservative:
@@ -112,6 +114,19 @@ std::string BuildScriptElementSpeculationRules(
              : base::ReplaceStringPlaceholders(kAddSpeculationRuleScript,
                                                {ss.str()}, nullptr);
 }
+
+// TODO(crbug.com/428500219): Move these patterns to preloading_test_util.cc.
+constexpr char kAddSpeculationRulePrerenderUntilScriptScript[] = R"({
+    const script = document.createElement('script');
+    script.type = 'speculationrules';
+    script.text = `{
+      "prerender_until_script": [{
+        "source": "list",
+        "urls": [$1]
+      }]
+    }`;
+    document.head.appendChild(script);
+  })";
 
 constexpr char kAddSpeculationRulePrefetchScript[] = R"({
     const script = document.createElement('script');
@@ -367,6 +382,10 @@ class PrerenderHostObserverImpl : public PrerenderHost::Observer {
 
   bool was_activated() const { return was_activated_; }
 
+  bool WasHostReused() const {
+    return last_status_ == PrerenderFinalStatus::kPrerenderHostReused;
+  }
+
  private:
   void OnTrigger(WebContents& web_contents, const GURL& url) {
     PrerenderHost* host =
@@ -424,6 +443,10 @@ void PrerenderHostObserver::WaitForDestroyed() {
 
 bool PrerenderHostObserver::was_activated() const {
   return impl_->was_activated();
+}
+
+bool PrerenderHostObserver::WasHostReused() const {
+  return impl_->WasHostReused();
 }
 
 PrerenderHostCreationWaiter::PrerenderHostCreationWaiter() {
@@ -491,11 +514,13 @@ PrerenderTestHelper::~PrerenderTestHelper() = default;
 
 void PrerenderTestHelper::RegisterServerRequestMonitor(
     net::test_server::EmbeddedTestServer* http_server) {
+  EXPECT_FALSE(http_server->Started());
   http_server->RegisterRequestMonitor(base::BindRepeating(
       &PrerenderTestHelper::MonitorResourceRequest, base::Unretained(this)));
 }
 void PrerenderTestHelper::RegisterServerRequestMonitor(
     net::test_server::EmbeddedTestServer& test_server) {
+  EXPECT_FALSE(test_server.Started());
   test_server.RegisterRequestMonitor(base::BindRepeating(
       &PrerenderTestHelper::MonitorResourceRequest, base::Unretained(this)));
 }
@@ -667,6 +692,19 @@ void PrerenderTestHelper::AddPrerendersAsync(
   }
 }
 
+void PrerenderTestHelper::AddPrerenderUntilScriptAsync(const GURL& url) {
+  EXPECT_TRUE(content::BrowserThread::CurrentlyOn(BrowserThread::UI));
+  std::string script =
+      JsReplace(kAddSpeculationRulePrerenderUntilScriptScript, url);
+
+  // Have to use ExecuteJavaScriptForTests instead of ExecJs/EvalJs here,
+  // because some test pages have ContentSecurityPolicy and EvalJs cannot work
+  // with it. See the quick migration guide for EvalJs for more information.
+  GetWebContents()->GetPrimaryMainFrame()->ExecuteJavaScriptForTests(
+      base::UTF8ToUTF16(script), base::NullCallback(),
+      ISOLATED_WORLD_ID_GLOBAL);
+}
+
 void PrerenderTestHelper::AddPrefetchAsync(const GURL& prefetch_url) {
   EXPECT_TRUE(content::BrowserThread::CurrentlyOn(BrowserThread::UI));
   std::string script =
@@ -704,7 +742,8 @@ PrerenderTestHelper::AddEmbedderTriggeredPrerenderAsync(
       PreloadPipelineInfo::Create(
           /*planned_max_preloading_type=*/PreloadingType::kPrerender),
       /*preloading_attempt=*/nullptr, /*url_match_predicate=*/{},
-      /*prerender_navigation_handle_callback=*/{});
+      /*prerender_navigation_handle_callback=*/{},
+      /*allow_reuse=*/false);
 }
 
 std::unique_ptr<PrerenderHandle>

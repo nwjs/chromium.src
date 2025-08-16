@@ -168,9 +168,8 @@ views::View* GetAnchorViewForBrowser(Browser* browser) {
 #endif
   if (!IsBrowserFullscreen(browser) || browser_view->IsToolbarVisible() ||
       browser_view->immersive_mode_controller()->IsRevealed()) {
-    // TODO(crbug.com/376284060): An action ID should be created and used here
-    // when Zoom is migrated to the new page actions framework.
-    return browser_view->toolbar_button_provider()->GetAnchorView(std::nullopt);
+    return browser_view->toolbar_button_provider()->GetAnchorView(
+        kActionZoomNormal);
   }
   return nullptr;
 }
@@ -188,14 +187,9 @@ void ParentToBrowser(Browser* browser,
                      content::WebContents* web_contents) {
   BrowserView* const browser_view =
       BrowserView::GetBrowserViewForBrowser(browser);
-  views::Button* button;
-  if (IsPageActionMigrated(PageActionIconType::kZoom)) {
-    button = browser_view->toolbar_button_provider()->GetPageActionView(
-        kActionZoomNormal);
-  } else {
-    button = browser_view->toolbar_button_provider()->GetPageActionIconView(
-        PageActionIconType::kZoom);
-  }
+  views::Button* button =
+      browser_view->toolbar_button_provider()->GetPageActionView(
+          kActionZoomNormal);
 
   zoom_bubble->SetHighlightedButton(button);
 
@@ -257,9 +251,10 @@ void ZoomBubbleView::ShowBubble(content::WebContents* web_contents,
   views::View* anchor_view = GetAnchorViewForBrowser(browser);
   ImmersiveModeController* immersive_mode_controller =
       GetImmersiveModeControllerForBrowser(browser);
+  CHECK(immersive_mode_controller);
 
   zoom_bubble_ = new ZoomBubbleView(anchor_view, web_contents, reason,
-                                    immersive_mode_controller);
+                                    *immersive_mode_controller);
 
   const extensions::ExtensionZoomRequestClient* client =
       GetExtensionZoomRequestClient(web_contents);
@@ -349,26 +344,18 @@ ZoomBubbleView::ZoomBubbleView(
     views::View* anchor_view,
     content::WebContents* web_contents,
     DisplayReason reason,
-    ImmersiveModeController* immersive_mode_controller)
+    ImmersiveModeController& immersive_mode_controller)
     : LocationBarBubbleDelegateView(anchor_view, web_contents),
       auto_close_duration_(kBubbleCloseDelayDefault),
       auto_close_(reason == AUTOMATIC),
-      immersive_mode_controller_(immersive_mode_controller),
       session_id_(chrome::FindBrowserWithTab(web_contents)->session_id()) {
   SetButtons(static_cast<int>(ui::mojom::DialogButton::kNone));
-
   SetNotifyEnterExitOnChild(true);
-  if (immersive_mode_controller_) {
-    immersive_mode_controller_->AddObserver(this);
-  }
+  scoped_observation_.Observe(&immersive_mode_controller);
   UseCompactMargins();
 }
 
-ZoomBubbleView::~ZoomBubbleView() {
-  if (immersive_mode_controller_) {
-    immersive_mode_controller_->RemoveObserver(this);
-  }
-}
+ZoomBubbleView::~ZoomBubbleView() = default;
 
 std::u16string ZoomBubbleView::GetAccessibleWindowTitle() const {
   Browser* browser = GetBrowser();
@@ -379,12 +366,7 @@ std::u16string ZoomBubbleView::GetAccessibleWindowTitle() const {
   ToolbarButtonProvider* provider =
       BrowserView::GetBrowserViewForBrowser(browser)->toolbar_button_provider();
 
-  if (IsPageActionMigrated(PageActionIconType::kZoom)) {
-    return provider->GetPageActionView(kActionZoomNormal)->GetAccessibleName();
-  }
-
-  return provider->GetPageActionIconView(PageActionIconType::kZoom)
-      ->GetTextForTooltipAndAccessibleName();
+  return provider->GetPageActionView(kActionZoomNormal)->GetAccessibleName();
 }
 
 void ZoomBubbleView::OnFocus() {
@@ -561,7 +543,7 @@ void ZoomBubbleView::OnImmersiveRevealStarted() {
 }
 
 void ZoomBubbleView::OnImmersiveModeControllerDestroyed() {
-  immersive_mode_controller_ = nullptr;
+  scoped_observation_.Reset();
 }
 
 void ZoomBubbleView::OnExtensionIconImageChanged(

@@ -279,9 +279,8 @@ id<GREYMatcher> snackbarMessageMatcher(FakeSystemIdentity* identity) {
   [self assertAccountMenuIsNotShown];
 }
 
-// TODO(crbug.com/376334069): Re-enable once flakiness is fixed.
 // Tests that the account menu is not dismissed if the app was backgrounded.
-- (void)DISABLED_testAccountMenuStaysIfAppBackgrounded {
+- (void)testAccountMenuStaysIfAppBackgrounded {
   [SigninEarlGrey signinWithFakeIdentity:kPrimaryIdentity];
   // Select the identity disc particle.
   [self selectIdentityDiscAndVerify];
@@ -462,15 +461,19 @@ id<GREYMatcher> snackbarMessageMatcher(FakeSystemIdentity* identity) {
   // Confirm "Delete and Switch" when alert dialog that data will be cleared
   // is shown. This dialog is only shown when multi profiles are not available.
   if (![SigninEarlGrey areSeparateProfilesForManagedAccountsEnabled]) {
-    [[EarlGrey
-        selectElementWithMatcher:
-            grey_allOf(chrome_test_util::AlertAction(l10n_util::GetNSString(
-                           IDS_IOS_DATA_NOT_UPLOADED_SWITCH_DIALOG_BUTTON)),
-                       grey_sufficientlyVisible(), nil)]
+    [[EarlGrey selectElementWithMatcher:
+                   chrome_test_util::ActionSheetItemWithAccessibilityLabelId(
+                       IDS_IOS_DATA_NOT_UPLOADED_SWITCH_DIALOG_BUTTON)]
         performAction:grey_tap()];
   }
 
-  [self assertSnackbarShownAndDismissItWithIdentity:kPrimaryIdentity];
+  if ([ChromeEarlGrey isIPadIdiom]) {
+    // The snackbar shows in test executed locally and during actual usage, but
+    // is not always detected on CQ causing flakyness.
+    // TODO(crbug.com/433726717): Remove the `if` around the assertion when
+    // snack-bar stop being flaky on egtest on iphone.
+    [self assertSnackbarShownAndDismissItWithIdentity:kPrimaryIdentity];
+  }
   [SigninEarlGrey verifySignedInWithFakeIdentity:kPrimaryIdentity];
   [self assertAccountMenuIsNotShown];
 }
@@ -505,12 +508,23 @@ id<GREYMatcher> snackbarMessageMatcher(FakeSystemIdentity* identity) {
         performAction:grey_tap()];
   }
 
-  [self assertSnackbarShownAndDismissItWithIdentity:kManagedIdentity1];
+  if ([ChromeEarlGrey isIPadIdiom]) {
+    // The snackbar shows in test executed locally and during actual usage, but
+    // is not always detected on CQ causing flakyness.
+    // TODO(crbug.com/433726717): Remove the `if` around the assertion when
+    // snack-bar stop being flaky on egtest on iphone.
+    [self assertSnackbarShownAndDismissItWithIdentity:kManagedIdentity1];
+  }
   [SigninEarlGrey verifySignedInWithFakeIdentity:kManagedIdentity1];
   [self assertAccountMenuIsNotShown];
 }
 
 - (void)testSwitchFromManagedAccountToManagedAccount {
+  // TODO(crbug.com/433726717): Test disabled on iPhones.
+  if (![ChromeEarlGrey isIPadIdiom]) {
+    EARL_GREY_TEST_DISABLED(@"Fails on iPhones.");
+  }
+
   [SigninEarlGrey
       signinWithFakeManagedIdentityInPersonalProfile:kManagedIdentity1];
   [ChromeEarlGreyUI waitForAppToIdle];
@@ -523,11 +537,9 @@ id<GREYMatcher> snackbarMessageMatcher(FakeSystemIdentity* identity) {
   // Confirm "Delete and Switch" when alert dialog that data will be cleared
   // is shown. This dialog is only shown when multi profiles are not available.
   if (![SigninEarlGrey areSeparateProfilesForManagedAccountsEnabled]) {
-    [[EarlGrey
-        selectElementWithMatcher:
-            grey_allOf(chrome_test_util::AlertAction(l10n_util::GetNSString(
-                           IDS_IOS_DATA_NOT_UPLOADED_SWITCH_DIALOG_BUTTON)),
-                       grey_sufficientlyVisible(), nil)]
+    [[EarlGrey selectElementWithMatcher:
+                   chrome_test_util::ActionSheetItemWithAccessibilityLabelId(
+                       IDS_IOS_DATA_NOT_UPLOADED_SWITCH_DIALOG_BUTTON)]
         performAction:grey_tap()];
   }
 
@@ -560,6 +572,11 @@ id<GREYMatcher> snackbarMessageMatcher(FakeSystemIdentity* identity) {
 // Verifies identity confirmation snackbar shows on startup with multiple
 // identities on device after 1 day.
 - (void)testMultipleIdentities_IdentityConfirmationToast {
+  // TODO(crbug.com/433726717): Test disabled on iPhones.
+  if (![ChromeEarlGrey isIPadIdiom]) {
+    EARL_GREY_TEST_DISABLED(@"Fails on iPhones.");
+  }
+
   [self prepareStartSurface];
   // Add multiple identities and sign in with one of them.
   [SigninEarlGrey signinWithFakeIdentity:kPrimaryIdentity];
@@ -619,6 +636,11 @@ id<GREYMatcher> snackbarMessageMatcher(FakeSystemIdentity* identity) {
 // Verifies identity confirmation snackbar shows on startup with multiple
 // identities on device with frequency limitations.
 - (void)testFrequencyLimitation_IdentityConfirmationToast {
+  // TODO(crbug.com/433726717): Test disabled on iPhones.
+  if (![ChromeEarlGrey isIPadIdiom]) {
+    EARL_GREY_TEST_DISABLED(@"Fails on iPhones.");
+  }
+
   [self prepareStartSurface];
   // Add multiple identities and sign in with one of them.
   [SigninEarlGrey signinWithFakeIdentity:kPrimaryIdentity];

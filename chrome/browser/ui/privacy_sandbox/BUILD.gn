@@ -29,6 +29,7 @@ source_set("impl") {
     "//chrome/browser/sync",
     "//chrome/browser/sync:factories",
     "//chrome/browser/ui/browser_window",
+    "//chrome/browser/ui/profiles",
     "//chrome/browser/ui/signin",
     "//chrome/common",
     "//chrome/common/extensions",
@@ -65,6 +66,7 @@ source_set("browser_tests") {
     "//chrome/browser/sync",
     "//chrome/browser/sync:factories",
     "//chrome/browser/ui/browser_window",
+    "//chrome/browser/ui/search:test_support_ui",
     "//chrome/browser/ui/signin",
     "//chrome/common",
     "//chrome/common:non_code_constants",
@@ -89,7 +91,7 @@ source_set("browser_tests") {
   if (is_chromeos) {
     deps += [
       "//ash/webui/help_app_ui",
-      "//chromeos/ash/components/browser_context_helper:browser_context_helper",
+      "//chromeos/ash/components/browser_context_helper",
     ]
   }
 }

@@ -28,6 +28,7 @@ after discussions on the right group.
       <annotation id="rlz"/>
       <annotation id="webapk_create"/>
       <annotation id="webapk_update"/>
+      <annotation id="webview_preconnect"/>
       <annotation id="webview_proxy_config"/>
     </sender>
     <sender name="Feed Library">
@@ -78,7 +79,6 @@ after discussions on the right group.
       <annotation id="wallpaper_google_photos_albums"/>
       <annotation id="wallpaper_google_photos_enabled"/>
       <annotation id="wallpaper_google_photos_photos"/>
-      <annotation id="search_and_assistant_enabled_checker"/>
       <annotation id="wallpaper_online_downloader"/>
     </sender>
     <sender name="ChromeOS Recovery">
@@ -380,6 +380,9 @@ after discussions on the right group.
       <annotation id="trusted_vault_cert_request"/>
       <annotation id="keepalive_fetch_retry"/>
       <annotation id="ntp_composebox_query_controller"/>
+      <annotation id="password_change_submission_model_execution"/>
+      <annotation id="glic_web_ui"/>
+      <annotation id="glic_fre_web_ui"/>
     </sender>
   </group>
   <group name="Admin Features" hidden="true">
@@ -438,7 +441,6 @@ after discussions on the right group.
       <annotation id="safe_browsing_hashprefix_realtime_lookup_ohttp"/>
       <annotation id="sct_auditing"/>
       <annotation id="sct_auditing_hashdance"/>
-      <annotation id="ppapi_download_request"/>
       <annotation id="tailored_security_service"/>
     </sender>
   </group>

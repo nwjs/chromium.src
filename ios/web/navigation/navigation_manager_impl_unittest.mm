@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/40285824): Remove this and convert code to safer constructs.
+#pragma allow_unsafe_buffers
+#endif
+
 #import "ios/web/navigation/navigation_manager_impl.h"
 
 #import <array>
@@ -2480,11 +2485,11 @@ TEST_F(NavigationManagerTest, RestoreSessionWithEmptyHistory) {
 
 // Tests that all NavigationManager APIs return reasonable values in the Empty
 // Window Open Navigation edge case. See comments in header file for details.
-// TODO(crbug.com/425579167) Re-enable the test
-// The URL method is not always called on CQ.
-TEST_F(NavigationManagerTest, DISABLED_EmptyWindowOpenNavigation) {
+TEST_F(NavigationManagerTest, EmptyWindowOpenNavigation) {
   // Set up the precondition for an empty window open item.
-  OCMExpect([mock_web_view_ URL])
+  // Use OCMStub for `URL` instead of OCMExpect because it will only be called
+  // when DCHECKS are enabled.
+  OCMStub([mock_web_view_ URL])
       .andReturn(net::NSURLWithGURL(GURL(url::kAboutBlankURL)));
   mock_wk_list_.currentItem = nil;
 

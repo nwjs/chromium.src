@@ -40,6 +40,9 @@ GIN_EXPORT BASE_DECLARE_FEATURE(kV8FlushCodeBasedOnTabVisibility);
 GIN_EXPORT BASE_DECLARE_FEATURE(kV8FlushCodeBasedOnTime);
 GIN_EXPORT extern const base::FeatureParam<int> kV8FlushCodeOldTime;
 GIN_EXPORT BASE_DECLARE_FEATURE(kV8FlushEmbeddedBlobICache);
+GIN_EXPORT BASE_DECLARE_FEATURE(kV8HighEndAndroid);
+GIN_EXPORT extern const base::FeatureParam<int>
+    kV8HighEndAndroidMemoryThreshold;
 GIN_EXPORT BASE_DECLARE_FEATURE(kV8IncrementalMarkingStartUserVisible);
 GIN_EXPORT BASE_DECLARE_FEATURE(kV8IdleGcOnContextDisposal);
 GIN_EXPORT BASE_DECLARE_FEATURE(kV8IgnitionElideRedundantTdzChecks);
@@ -66,9 +69,6 @@ GIN_EXPORT BASE_DECLARE_FEATURE(kV8SingleThreadedGCInBackground);
 GIN_EXPORT BASE_DECLARE_FEATURE(kV8SingleThreadedGCInBackgroundParallelPause);
 GIN_EXPORT BASE_DECLARE_FEATURE(
     kV8SingleThreadedGCInBackgroundNoIncrementalMarking);
-GIN_EXPORT BASE_DECLARE_FEATURE(kV8EfficiencyModeTiering);
-GIN_EXPORT extern const base::FeatureParam<int>
-    kV8EfficiencyModeTieringDelayTurbofan;
 GIN_EXPORT BASE_DECLARE_FEATURE(kV8SlowHistograms);
 GIN_EXPORT BASE_DECLARE_FEATURE(kV8SlowHistogramsCodeMemoryWriteProtection);
 GIN_EXPORT BASE_DECLARE_FEATURE(kV8SlowHistogramsIntelJCCErratumMitigation);
@@ -89,8 +89,6 @@ GIN_EXPORT BASE_DECLARE_FEATURE(kJavaScriptRegExpModifiers);
 GIN_EXPORT BASE_DECLARE_FEATURE(kJavaScriptImportAttributes);
 GIN_EXPORT BASE_DECLARE_FEATURE(kJavaScriptRegExpDuplicateNamedGroups);
 GIN_EXPORT BASE_DECLARE_FEATURE(kJavaScriptPromiseTry);
-GIN_EXPORT BASE_DECLARE_FEATURE(kWebAssemblyDeopt);
-GIN_EXPORT BASE_DECLARE_FEATURE(kWebAssemblyInliningCallIndirect);
 
 }  // namespace features
 

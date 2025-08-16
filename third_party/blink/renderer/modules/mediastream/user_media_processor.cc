@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "base/containers/contains.h"
+#include "base/feature_list.h"
 #include "base/functional/callback_helpers.h"
 #include "base/location.h"
 #include "base/logging.h"
@@ -21,6 +22,7 @@
 #include "base/types/optional_util.h"
 #include "build/build_config.h"
 #include "media/base/audio_parameters.h"
+#include "media/base/media_switches.h"
 #include "media/capture/video_capture_types.h"
 #include "media/webrtc/constants.h"
 #include "third_party/blink/public/common/features.h"
@@ -52,6 +54,7 @@
 #include "third_party/blink/renderer/modules/mediastream/processed_local_audio_source.h"
 #include "third_party/blink/renderer/modules/mediastream/scoped_media_stream_tracer.h"
 #include "third_party/blink/renderer/modules/mediastream/user_media_client.h"
+#include "third_party/blink/renderer/platform/mediastream/media_stream_audio_processor_options.h"
 #include "third_party/blink/renderer/platform/mediastream/media_stream_audio_source.h"
 #include "third_party/blink/renderer/platform/mediastream/media_stream_audio_track.h"
 #include "third_party/blink/renderer/platform/mediastream/media_stream_component_impl.h"
@@ -68,12 +71,9 @@ namespace blink {
 
 using blink::mojom::MediaStreamRequestResult;
 using blink::mojom::MediaStreamType;
-using EchoCancellationType =
-    blink::AudioProcessingProperties::EchoCancellationType;
 using AudioSourceErrorCode = media::AudioCapturerSource::ErrorCode;
 
 namespace {
-
 void LogCameraCaptureCapability(CameraCaptureCapability capability) {
   base::UmaHistogramEnumeration(
       "Media.MediaDevices.GetUserMedia.CameraCaptureCapability", capability);
@@ -199,30 +199,49 @@ bool IsSameSource(MediaStreamSource* source, MediaStreamSource* other_source) {
 }
 
 void SurfaceAudioProcessingSettings(MediaStreamSource* source) {
+  // TODO(http://crbug.com/428837201): Consolidate the logic for both types
+  // of sources.
   auto* source_impl =
       static_cast<blink::MediaStreamAudioSource*>(source->GetPlatformSource());
 
   // If the source is a processed source, get the properties from it.
-  if (auto* processed_source =
-          blink::ProcessedLocalAudioSource::From(source_impl)) {
-    blink::AudioProcessingProperties properties =
-        processed_source->audio_processing_properties();
+  if (auto* processed_source = ProcessedLocalAudioSource::From(source_impl)) {
+    std::optional<AudioProcessingProperties> properties =
+        processed_source->GetAudioProcessingProperties();
+    CHECK(properties);
 
     source->SetAudioProcessingProperties(
-        properties.echo_cancellation_type !=
-            EchoCancellationType::kEchoCancellationDisabled,
-        properties.auto_gain_control, properties.noise_suppression,
-        properties.voice_isolation ==
+        properties->echo_cancellation_mode, properties->auto_gain_control,
+        properties->noise_suppression,
+        properties->voice_isolation ==
             AudioProcessingProperties::VoiceIsolationType::
                 kVoiceIsolationEnabled);
-  } else {
-    // If the source is not a processed source, it could still support system
-    // echo cancellation or voice. Surface that if it does.
+    return;
+  }
+
+  if (auto* platform_source = MediaStreamAudioSource::From(source)) {
+    // TODO(http://crbug.com/428837201): this logic is broken:
+    // LocalMediaStreamAudioSource does not take into account anything but echo
+    // cancellation while configuring device effects. And here we look at echo
+    // cancellation which was configured, and voice isolation - which was left
+    // unchanged, and we ignore possible gain control/noise suppression. If the
+    // source is not a processed source, it could still support system echo
+    // cancellation or voice. Surface that if it does.
+    EchoCancellationMode ec_mode;
+    std::optional<blink::AudioProcessingProperties> properties =
+        platform_source->GetAudioProcessingProperties();
     media::AudioParameters params = source_impl->GetAudioParameters();
+    if (RuntimeEnabledFeatures::GetUserMediaEchoCancellationModesEnabled() &&
+        properties) {
+      ec_mode = properties->echo_cancellation_mode;
+    } else {
+      ec_mode = params.IsValid() && (params.effects() &
+                                     media::AudioParameters::ECHO_CANCELLER)
+                    ? EchoCancellationMode::kBrowserDecides
+                    : EchoCancellationMode::kDisabled;
+    }
     source->SetAudioProcessingProperties(
-        params.IsValid() &&
-            (params.effects() & media::AudioParameters::ECHO_CANCELLER),
-        false, false,
+        ec_mode, false, false,
         params.IsValid() &&
             (params.effects() &
              media::AudioParameters::VOICE_ISOLATION_SUPPORTED) &&
@@ -603,11 +622,23 @@ void UserMediaProcessor::RequestInfo::OnTrackStarted(
   auto it = std::ranges::find(sources_waiting_for_callback_, source);
   CHECK(it != sources_waiting_for_callback_.end());
   sources_waiting_for_callback_.erase(it);
-  // All tracks must be started successfully. Otherwise the request is a
-  // failure.
-  if (result != MediaStreamRequestResult::OK) {
+  // The request fails unless:
+  // 1. All tracks started successfully (result == OK), OR
+  // 2. The failure is a system-level permission denial for a display audio
+  //    input, and kGetDisplayMediaIgnoreAudioPermissionFailures is enabled.
+  if (result != MediaStreamRequestResult::OK &&
+      !(base::FeatureList::IsEnabled(
+            features::kGetDisplayMediaIgnoreAudioPermissionFailures) &&
+        result == MediaStreamRequestResult::PERMISSION_DENIED_BY_SYSTEM &&
+        source->device().type == MediaStreamType::DISPLAY_AUDIO_CAPTURE)) {
     request_result_ = result;
     request_result_name_ = result_name;
+  }
+  // Log to UMA to see on what platforms we get PERMISSION_DENIED_BY_SYSTEM.
+  if (source->device().type == MediaStreamType::DISPLAY_AUDIO_CAPTURE) {
+    base::UmaHistogramBoolean(
+        "Media.MediaDevices.GetDisplayMedia.Audio.PermissionDeniedBySystem",
+        result == MediaStreamRequestResult::PERMISSION_DENIED_BY_SYSTEM);
   }
 
   if (IsAudioInputMediaType(source->device().type)) {
@@ -701,6 +732,7 @@ void UserMediaProcessor::SetupAudioInput() {
   StreamControls* const stream_controls =
       current_request_info_->stream_controls();
   stream_controls->exclude_system_audio = request->exclude_system_audio();
+  stream_controls->window_audio_preference = request->window_audio_preference();
 
   stream_controls->suppress_local_audio_playback =
       request->suppress_local_audio_playback();
@@ -1775,15 +1807,26 @@ MediaStreamSource* UserMediaProcessor::InitializeAudioSourceObject(
 #endif  // DCHECK_IS_ON()
 
   MediaStreamSource::Capabilities capabilities;
-  capabilities.echo_cancellation = {true, false};
+  media::AudioParameters device_parameters = audio_source->device().input;
+  capabilities.echo_cancellation = GetSupportedEchoCancellationModes(
+      device_parameters.effects(), device.type);
   capabilities.auto_gain_control = {true, false};
   capabilities.noise_suppression = {true, false};
   capabilities.voice_isolation = {true, false};
+
+  if (RuntimeEnabledFeatures::RestrictOwnAudioEnabled()) {
+    if (device.type == mojom::blink::MediaStreamType::DISPLAY_AUDIO_CAPTURE) {
+      capabilities.restrict_own_audio = {false};
+      if (media::IsRestrictOwnAudioSupported()) {
+        capabilities.restrict_own_audio->push_back(true);
+      }
+    }
+  }
+
   capabilities.sample_size = {
       media::SampleFormatToBitsPerChannel(media::kSampleFormatS16),  // min
       media::SampleFormatToBitsPerChannel(media::kSampleFormatS16)   // max
   };
-  auto device_parameters = audio_source->device().input;
   if (device_parameters.IsValid()) {
     capabilities.channel_count = {1, device_parameters.channels()};
     capabilities.sample_rate = {
@@ -1856,17 +1899,28 @@ UserMediaProcessor::CreateAudioSource(
         *processing_layout, std::move(source_ready), task_runner_);
   }
 
-  bool system_aec = processing_layout &&
-                    processing_layout->properties().echo_cancellation_type ==
-                        EchoCancellationType::kEchoCancellationSystem;
+  // TODO(http://crbug.com/428837201)
+  // At this point besides echo cancellation, `processing_layout` may have other
+  // processing enableds/disabled in AudioProcessingProperties; also its
+  // `platform_effects()` are configured to reflect the requested processing.
+  // However, for historical reasons, the current implementation ignores them,
+  // and only takes care of echo cancellation - which is a bug for microhpone
+  // capture.
+  MediaStreamAudioProcessingLayout local_source_processing_layout =
+      MediaStreamAudioProcessingLayout::MakeForUnprocessedLocalSource(
+          current_request_info_->audio_capture_settings()
+              .audio_processing_properties(),
+          device.input.effects());
+  CHECK(!local_source_processing_layout.NeedWebrtcAudioProcessing());
+
   SendLogMessage(
       base::StringPrintf("%s => (no audiprocessing is used)", __func__));
   return std::make_unique<blink::LocalMediaStreamAudioSource>(
       frame_, device,
       base::OptionalToPtr(current_request_info_->audio_capture_settings()
                               .requested_buffer_size()),
-      stream_controls->disable_local_echo, system_aec, std::move(source_ready),
-      task_runner_);
+      stream_controls->disable_local_echo, local_source_processing_layout,
+      std::move(source_ready), task_runner_);
 }
 
 std::unique_ptr<blink::MediaStreamVideoSource>

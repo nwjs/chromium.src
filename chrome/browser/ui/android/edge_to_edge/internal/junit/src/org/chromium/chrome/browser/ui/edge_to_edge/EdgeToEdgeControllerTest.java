@@ -94,11 +94,7 @@ import org.chromium.ui.insets.InsetObserver.WindowInsetsConsumer.InsetConsumerSo
         sdk = VERSION_CODES.R,
         manifest = Config.NONE,
         shadows = EdgeToEdgeControllerTest.ShadowEdgeToEdgeControllerFactory.class)
-@EnableFeatures({
-    ChromeFeatureList.EDGE_TO_EDGE_BOTTOM_CHIN,
-    ChromeFeatureList.EDGE_TO_EDGE_WEB_OPT_IN,
-    ChromeFeatureList.DRAW_KEY_NATIVE_EDGE_TO_EDGE
-})
+@EnableFeatures({ChromeFeatureList.EDGE_TO_EDGE_BOTTOM_CHIN})
 @Features.DisableFeatures({ChromeFeatureList.EDGE_TO_EDGE_EVERYWHERE})
 public class EdgeToEdgeControllerTest {
 
@@ -136,6 +132,32 @@ public class EdgeToEdgeControllerTest {
                             MANDATORY_SYSTEM_GESTURE_INSETS)
                     .build();
 
+    private static final WindowInsetsCompat GESTURE_NAV_INSETS_MISSING_NAVBAR =
+            new WindowInsetsCompat.Builder()
+                    .setInsets(WindowInsetsCompat.Type.statusBars(), STATUS_BAR_INSETS)
+                    .setInsets(WindowInsetsCompat.Type.navigationBars(), Insets.NONE)
+                    .setInsets(WindowInsetsCompat.Type.systemBars(), STATUS_BAR_INSETS)
+                    .setInsets(WindowInsetsCompat.Type.ime(), IME_INSETS_NO_KEYBOARD)
+                    .setInsets(
+                            WindowInsetsCompat.Type.systemGestures(),
+                            SYSTEM_GESTURE_INSETS_FOR_GESTURE_NAV)
+                    .setInsets(
+                            WindowInsetsCompat.Type.mandatorySystemGestures(),
+                            MANDATORY_SYSTEM_GESTURE_INSETS)
+                    .build();
+
+    private static final WindowInsetsCompat GESTURE_NAV_INSETS_MISSING_ALL_BOTTOM_INSETS =
+            new WindowInsetsCompat.Builder()
+                    .setInsets(WindowInsetsCompat.Type.statusBars(), STATUS_BAR_INSETS)
+                    .setInsets(WindowInsetsCompat.Type.navigationBars(), Insets.NONE)
+                    .setInsets(WindowInsetsCompat.Type.systemBars(), STATUS_BAR_INSETS)
+                    .setInsets(WindowInsetsCompat.Type.ime(), IME_INSETS_NO_KEYBOARD)
+                    .setInsets(
+                            WindowInsetsCompat.Type.systemGestures(),
+                            Insets.of(GESTURE_SWIPE_INSET, TOP_INSET, GESTURE_SWIPE_INSET, 0))
+                    .setInsets(WindowInsetsCompat.Type.mandatorySystemGestures(), STATUS_BAR_INSETS)
+                    .build();
+
     private static final WindowInsetsCompat SYSTEM_BARS_WINDOW_INSETS_WITH_KEYBOARD =
             new WindowInsetsCompat.Builder()
                     .setInsets(WindowInsetsCompat.Type.navigationBars(), NAVIGATION_BAR_INSETS)
@@ -160,6 +182,7 @@ public class EdgeToEdgeControllerTest {
             new WindowInsetsCompat.Builder()
                     .setInsets(WindowInsetsCompat.Type.statusBars(), STATUS_BAR_INSETS)
                     .setInsets(WindowInsetsCompat.Type.navigationBars(), NAVIGATION_BAR_INSETS)
+                    .setInsets(WindowInsetsCompat.Type.systemBars(), SYSTEM_INSETS)
                     .setInsets(WindowInsetsCompat.Type.tappableElement(), NAVIGATION_BAR_INSETS)
                     .setInsets(
                             WindowInsetsCompat.Type.systemGestures(),
@@ -167,13 +190,27 @@ public class EdgeToEdgeControllerTest {
                     .setInsets(
                             WindowInsetsCompat.Type.mandatorySystemGestures(),
                             MANDATORY_SYSTEM_GESTURE_INSETS)
-                    .setInsets(WindowInsetsCompat.Type.systemBars(), SYSTEM_INSETS)
+                    .build();
+
+    private static final WindowInsetsCompat SYSTEM_BARS_WITH_TAPPABLE_MISSING_NAVBAR =
+            new WindowInsetsCompat.Builder()
+                    .setInsets(WindowInsetsCompat.Type.statusBars(), STATUS_BAR_INSETS)
+                    .setInsets(WindowInsetsCompat.Type.navigationBars(), Insets.NONE)
+                    .setInsets(WindowInsetsCompat.Type.systemBars(), STATUS_BAR_INSETS)
+                    .setInsets(WindowInsetsCompat.Type.tappableElement(), NAVIGATION_BAR_INSETS)
+                    .setInsets(
+                            WindowInsetsCompat.Type.systemGestures(),
+                            MANDATORY_SYSTEM_GESTURE_INSETS)
+                    .setInsets(
+                            WindowInsetsCompat.Type.mandatorySystemGestures(),
+                            MANDATORY_SYSTEM_GESTURE_INSETS)
                     .build();
 
     private static final WindowInsetsCompat SYSTEM_BARS_NEITHER_TAPPABLE_NOR_GESTURE_NAV =
             new WindowInsetsCompat.Builder()
                     .setInsets(WindowInsetsCompat.Type.statusBars(), STATUS_BAR_INSETS)
                     .setInsets(WindowInsetsCompat.Type.navigationBars(), NAVIGATION_BAR_INSETS)
+                    .setInsets(WindowInsetsCompat.Type.systemBars(), SYSTEM_INSETS)
                     .setInsets(WindowInsetsCompat.Type.tappableElement(), Insets.NONE)
                     .setInsets(
                             WindowInsetsCompat.Type.systemGestures(),
@@ -181,7 +218,6 @@ public class EdgeToEdgeControllerTest {
                     .setInsets(
                             WindowInsetsCompat.Type.mandatorySystemGestures(),
                             MANDATORY_SYSTEM_GESTURE_INSETS)
-                    .setInsets(WindowInsetsCompat.Type.systemBars(), SYSTEM_INSETS)
                     .build();
 
     private Activity mActivity;
@@ -422,7 +458,6 @@ public class EdgeToEdgeControllerTest {
     }
 
     @Test
-    @EnableFeatures(ChromeFeatureList.DYNAMIC_SAFE_AREA_INSETS)
     public void onObservingDifferentTab_changeToWebEnabled() {
         EdgeToEdgeUtils.setAlwaysDrawWebEdgeToEdgeForTesting(true);
         when(mTab.isNativePage()).thenReturn(false);
@@ -435,7 +470,6 @@ public class EdgeToEdgeControllerTest {
     }
 
     @Test
-    @EnableFeatures(ChromeFeatureList.DYNAMIC_SAFE_AREA_INSETS)
     public void onObservingDifferentTab_changeToWebEnabled_SetsDecor() {
         EdgeToEdgeUtils.setAlwaysDrawWebEdgeToEdgeForTesting(true);
         when(mTab.isNativePage()).thenReturn(false);
@@ -448,7 +482,6 @@ public class EdgeToEdgeControllerTest {
     }
 
     @Test
-    @EnableFeatures(ChromeFeatureList.DYNAMIC_SAFE_AREA_INSETS)
     public void onObservingDifferentTab_viewportFitChanged() {
         // Start with web always-enabled.
         EdgeToEdgeUtils.setAlwaysDrawWebEdgeToEdgeForTesting(true);
@@ -527,16 +560,6 @@ public class EdgeToEdgeControllerTest {
         assertToEdgeExpectations();
     }
 
-    @Test
-    @EnableFeatures(
-            ChromeFeatureList.DRAW_KEY_NATIVE_EDGE_TO_EDGE + ":disable_cct_media_viewer_e2e/true")
-    public void onObservingDifferentTab_embeddedMediaExperience_DisableByParam() {
-        when(mTab.shouldEnableEmbeddedMediaExperience()).thenReturn(true);
-        mTabProvider.set(mTab);
-        verifyInteractions(mTab);
-        assertToNormalExpectations();
-    }
-
     /** Test that we update WebContentsObservers when a Tab changes WebContents. */
     @Test
     public void onTabSwitched_onWebContentsSwapped() {
@@ -588,40 +611,6 @@ public class EdgeToEdgeControllerTest {
         WebContentsObserver secondObserver = mEdgeToEdgeControllerImpl.getWebContentsObserver();
         assertNotNull(secondObserver);
         assertNotEquals(firstObserver, secondObserver);
-    }
-
-    @Test
-    @DisableFeatures(ChromeFeatureList.DYNAMIC_SAFE_AREA_INSETS)
-    public void bottomInsetForSafeArea_noTab() {
-        mEdgeToEdgeControllerImpl.drawToEdge(true, /* changedWindowState= */ false);
-        assertToEdgeExpectations();
-        assertBottomInsetForSafeArea(0);
-    }
-
-    @Test
-    @DisableFeatures(ChromeFeatureList.DYNAMIC_SAFE_AREA_INSETS)
-    public void bottomInsetForSafeArea_noBrowserControlsOnOptInPages() {
-        doReturn(false).when(mTab).isNativePage();
-        mTabProvider.set(mTab);
-        verifyInteractions(mTab);
-        mEdgeToEdgeControllerImpl.drawToEdge(true, /* changedWindowState= */ false);
-
-        assertToEdgeExpectations();
-        mEdgeToEdgeControllerImpl.onBottomControlsHeightChanged(0, 0);
-        assertBottomInsetForSafeArea(SYSTEM_INSETS.bottom);
-    }
-
-    @Test
-    @DisableFeatures(ChromeFeatureList.DYNAMIC_SAFE_AREA_INSETS)
-    public void bottomInsetForSafeArea_hasBrowserControlsOnOptInPages() {
-        doReturn(false).when(mTab).isNativePage();
-        mTabProvider.set(mTab);
-        verifyInteractions(mTab);
-        mEdgeToEdgeControllerImpl.drawToEdge(true, /* changedWindowState= */ false);
-        assertToEdgeExpectations();
-
-        mEdgeToEdgeControllerImpl.onBottomControlsHeightChanged(1, 0);
-        assertBottomInsetForSafeArea(0);
     }
 
     @Test
@@ -750,11 +739,24 @@ public class EdgeToEdgeControllerTest {
 
     @Test
     @Config(qualifiers = "xlarge")
-    public void disabledWhenNotPhone() {
+    @DisableFeatures(ChromeFeatureList.EDGE_TO_EDGE_TABLET)
+    public void disabledWhenNotPhoneAndTabletFeatureDisabled() {
         // Even these always-draw flags do not override the device abilities.
         EdgeToEdgeUtils.setAlwaysDrawWebEdgeToEdgeForTesting(true);
         // Even the always-draw flags do not override the device abilities.
         assertFalse(
+                EdgeToEdgeUtils.isEdgeToEdgeBottomChinEnabled(
+                        Robolectric.buildActivity(AppCompatActivity.class).setup().get()));
+    }
+
+    @Test
+    @Config(qualifiers = "xlarge")
+    @EnableFeatures(ChromeFeatureList.EDGE_TO_EDGE_TABLET)
+    public void enabledOnTabletWhenFeatureEnabled() {
+        // Even these always-draw flags do not override the device abilities.
+        EdgeToEdgeUtils.setAlwaysDrawWebEdgeToEdgeForTesting(true);
+        // Even the always-draw flags do not override the device abilities.
+        assertTrue(
                 EdgeToEdgeUtils.isEdgeToEdgeBottomChinEnabled(
                         Robolectric.buildActivity(AppCompatActivity.class).setup().get()));
     }
@@ -951,7 +953,6 @@ public class EdgeToEdgeControllerTest {
     }
 
     @Test
-    @EnableFeatures(ChromeFeatureList.EDGE_TO_EDGE_SAFE_AREA_CONSTRAINT)
     public void safeAreaConstraint() {
         when(mLayoutManager.getActiveLayoutType()).thenReturn(LayoutType.BROWSING);
         when(mTab.isNativePage()).thenReturn(false);
@@ -972,24 +973,6 @@ public class EdgeToEdgeControllerTest {
                 "Safe area constraint should be removed by observer.",
                 mEdgeToEdgeControllerImpl.getHasSafeAreaConstraintForTesting());
         verify(mChangeObserver).onSafeAreaConstraintChanged(false);
-    }
-
-    @Test
-    @DisableFeatures(ChromeFeatureList.EDGE_TO_EDGE_SAFE_AREA_CONSTRAINT)
-    public void safeAreaConstraint_disabled() {
-        when(mLayoutManager.getActiveLayoutType()).thenReturn(LayoutType.BROWSING);
-        when(mTab.isNativePage()).thenReturn(false);
-        mTabProvider.set(mTab);
-        verifyInteractions(mTab);
-        assertFalse(
-                "Safe area constraint should default to false.",
-                mEdgeToEdgeControllerImpl.getHasSafeAreaConstraintForTesting());
-
-        mEdgeToEdgeControllerImpl.getWebContentsObserver().safeAreaConstraintChanged(true);
-        assertFalse(
-                "Safe area constraint disabled.",
-                mEdgeToEdgeControllerImpl.getHasSafeAreaConstraintForTesting());
-        verify(mChangeObserver, times(0)).onSafeAreaConstraintChanged(true);
     }
 
     @Test
@@ -1206,6 +1189,262 @@ public class EdgeToEdgeControllerTest {
     }
 
     @Test
+    @DisableFeatures(ChromeFeatureList.EDGE_TO_EDGE_USE_BACKUP_NAVBAR_INSETS)
+    @EnableFeatures(ChromeFeatureList.EDGE_TO_EDGE_MONITOR_CONFIGURATIONS)
+    public void handleWindowInsets_backupInsetsDisabled() {
+        TestChangeObserver changeObserver = new TestChangeObserver();
+        mEdgeToEdgeControllerImpl.registerObserver(changeObserver);
+
+        when(mLayoutManager.getActiveLayoutType()).thenReturn(LayoutType.BROWSING);
+        when(mTab.isNativePage()).thenReturn(false);
+        mTabProvider.set(mTab);
+
+        try (var watcher =
+                HistogramWatcher.newBuilder()
+                        .expectNoRecords(
+                                "Android.EdgeToEdge.BackupNavbarInsets.EdgeToEdgeController")
+                        .build()) {
+            when(mInsetObserver.getLastRawWindowInsets())
+                    .thenReturn(SYSTEM_BARS_WITH_TAPPABLE_NAVBAR);
+            mEdgeToEdgeControllerImpl.handleWindowInsets(
+                    mViewMock, SYSTEM_BARS_WITH_TAPPABLE_NAVBAR);
+        }
+        assertFalse(mEdgeToEdgeControllerImpl.isDrawingToEdge());
+        assertEquals(
+                "The controller should be using the system bar insets.",
+                Insets.of(0, TOP_INSET, 0, BOTTOM_INSET),
+                mEdgeToEdgeControllerImpl.getAppliedContentViewPaddingForTesting());
+        changeObserver.verify(
+                "The system bars are providing a bottom inset and the controller should be drawing"
+                        + " toEdge.",
+                BOTTOM_INSET,
+                /* isDrawingToEdge= */ false,
+                /* isPageOptInToEdge= */ false);
+
+        try (var watcher =
+                HistogramWatcher.newBuilder()
+                        .expectNoRecords(
+                                "Android.EdgeToEdge.BackupNavbarInsets.EdgeToEdgeController")
+                        .build()) {
+            when(mInsetObserver.getLastRawWindowInsets())
+                    .thenReturn(SYSTEM_BARS_WITH_TAPPABLE_MISSING_NAVBAR);
+            mEdgeToEdgeControllerImpl.handleWindowInsets(
+                    mViewMock, SYSTEM_BARS_WITH_TAPPABLE_MISSING_NAVBAR);
+        }
+        assertFalse(mEdgeToEdgeControllerImpl.isDrawingToEdge());
+        assertEquals(
+                "The controller should be using the system bar insets, even though the navbar"
+                        + " insets are zero.",
+                Insets.of(0, TOP_INSET, 0, 0),
+                mEdgeToEdgeControllerImpl.getAppliedContentViewPaddingForTesting());
+        changeObserver.verify(
+                "The system bars have no bottom inset, and backup insets are disabled, so the"
+                        + " controller should not be drawing toEdge.",
+                0,
+                /* isDrawingToEdge= */ false,
+                /* isPageOptInToEdge= */ false);
+    }
+
+    @Test
+    @EnableFeatures({
+        ChromeFeatureList.EDGE_TO_EDGE_USE_BACKUP_NAVBAR_INSETS,
+        ChromeFeatureList.EDGE_TO_EDGE_MONITOR_CONFIGURATIONS
+    })
+    public void handleWindowInsets_useTappableElementForBackupInsets() {
+        TestChangeObserver changeObserver = new TestChangeObserver();
+        mEdgeToEdgeControllerImpl.registerObserver(changeObserver);
+
+        when(mLayoutManager.getActiveLayoutType()).thenReturn(LayoutType.BROWSING);
+        when(mTab.isNativePage()).thenReturn(false);
+        mTabProvider.set(mTab);
+
+        try (var watcher =
+                HistogramWatcher.newBuilder()
+                        .expectNoRecords(
+                                "Android.EdgeToEdge.BackupNavbarInsets.EdgeToEdgeController")
+                        .build()) {
+            when(mInsetObserver.getLastRawWindowInsets())
+                    .thenReturn(SYSTEM_BARS_WITH_TAPPABLE_NAVBAR);
+            mEdgeToEdgeControllerImpl.handleWindowInsets(
+                    mViewMock, SYSTEM_BARS_WITH_TAPPABLE_NAVBAR);
+        }
+        assertFalse(mEdgeToEdgeControllerImpl.isDrawingToEdge());
+        assertEquals(
+                "The controller should be using the system bar insets.",
+                Insets.of(0, TOP_INSET, 0, BOTTOM_INSET),
+                mEdgeToEdgeControllerImpl.getAppliedContentViewPaddingForTesting());
+        changeObserver.verify(
+                "The system bars are providing a bottom inset.",
+                BOTTOM_INSET,
+                /* isDrawingToEdge= */ false,
+                /* isPageOptInToEdge= */ false);
+
+        try (var watcher =
+                HistogramWatcher.newBuilder()
+                        .expectIntRecord(
+                                "Android.EdgeToEdge.BackupNavbarInsets.EdgeToEdgeController",
+                                EdgeToEdgeManager.BackupNavbarInsetsSource.TAPPABLE_ELEMENT)
+                        .build()) {
+            when(mInsetObserver.getLastRawWindowInsets())
+                    .thenReturn(SYSTEM_BARS_WITH_TAPPABLE_MISSING_NAVBAR);
+            mEdgeToEdgeControllerImpl.handleWindowInsets(
+                    mViewMock, SYSTEM_BARS_WITH_TAPPABLE_MISSING_NAVBAR);
+        }
+        assertFalse(mEdgeToEdgeControllerImpl.isDrawingToEdge());
+        assertEquals(
+                "The controller should receive backup navbar insets sourced from the mandatory"
+                        + " system gesture insets.",
+                Insets.of(0, TOP_INSET, 0, BOTTOM_INSET),
+                mEdgeToEdgeControllerImpl.getAppliedContentViewPaddingForTesting());
+        changeObserver.verify(
+                "The tappable element should be used as a backup for the bottom inset, and the"
+                        + " controller should not be drawing toEdge.",
+                BOTTOM_INSET,
+                /* isDrawingToEdge= */ false,
+                /* isPageOptInToEdge= */ false);
+    }
+
+    @Test
+    @EnableFeatures({
+        ChromeFeatureList.EDGE_TO_EDGE_USE_BACKUP_NAVBAR_INSETS,
+        ChromeFeatureList.EDGE_TO_EDGE_MONITOR_CONFIGURATIONS
+    })
+    public void handleWindowInsets_hasSeenNonZeroNavBar_doNotUseBackupInsets() {
+        TestChangeObserver changeObserver = new TestChangeObserver();
+        mEdgeToEdgeControllerImpl.registerObserver(changeObserver);
+
+        when(mLayoutManager.getActiveLayoutType()).thenReturn(LayoutType.BROWSING);
+        when(mTab.isNativePage()).thenReturn(false);
+        mTabProvider.set(mTab);
+        when(mInsetObserver.hasSeenNonZeroNavigationBarInsets()).thenReturn(true);
+
+        try (var watcher =
+                HistogramWatcher.newBuilder()
+                        .expectNoRecords(
+                                "Android.EdgeToEdge.BackupNavbarInsets.EdgeToEdgeController")
+                        .build()) {
+            when(mInsetObserver.getLastRawWindowInsets()).thenReturn(SYSTEM_BARS_WINDOW_INSETS);
+            mEdgeToEdgeControllerImpl.handleWindowInsets(mViewMock, SYSTEM_BARS_WINDOW_INSETS);
+        }
+        assertTrue(mEdgeToEdgeControllerImpl.isDrawingToEdge());
+        assertEquals(
+                "The controller should be using the system bar insets.",
+                Insets.of(0, TOP_INSET, 0, 0),
+                mEdgeToEdgeControllerImpl.getAppliedContentViewPaddingForTesting());
+        changeObserver.verify(
+                "The system bars are providing a bottom inset, and the controller should be drawing"
+                        + " toEdge.",
+                BOTTOM_INSET,
+                /* isDrawingToEdge= */ true,
+                /* isPageOptInToEdge= */ false);
+
+        try (var watcher =
+                HistogramWatcher.newBuilder()
+                        .expectIntRecord(
+                                "Android.EdgeToEdge.BackupNavbarInsets.EdgeToEdgeController",
+                                EdgeToEdgeManager.BackupNavbarInsetsSource.FILTERED_WEAKER_SIGNALS)
+                        .build()) {
+            when(mInsetObserver.getLastRawWindowInsets())
+                    .thenReturn(GESTURE_NAV_INSETS_MISSING_NAVBAR);
+            mEdgeToEdgeControllerImpl.handleWindowInsets(
+                    mViewMock, GESTURE_NAV_INSETS_MISSING_NAVBAR);
+        }
+        assertFalse(mEdgeToEdgeControllerImpl.isDrawingToEdge());
+        assertEquals(
+                "The controller should receive backup navbar insets sourced from the mandatory"
+                        + " system gesture insets.",
+                Insets.of(0, TOP_INSET, 0, 0),
+                mEdgeToEdgeControllerImpl.getAppliedContentViewPaddingForTesting());
+        changeObserver.verify(
+                "The mandatory system gestures should not be used as a backup after a non-zero"
+                        + " navigation bar inset has been seen, and the controller should not be"
+                        + " drawing toEdge.",
+                0,
+                /* isDrawingToEdge= */ false,
+                /* isPageOptInToEdge= */ false);
+    }
+
+    @Test
+    @EnableFeatures({
+        ChromeFeatureList.EDGE_TO_EDGE_USE_BACKUP_NAVBAR_INSETS,
+        ChromeFeatureList.EDGE_TO_EDGE_MONITOR_CONFIGURATIONS
+    })
+    public void handleWindowInsets_useMandatoryGesturesForBackupInsets() {
+        TestChangeObserver changeObserver = new TestChangeObserver();
+        mEdgeToEdgeControllerImpl.registerObserver(changeObserver);
+
+        when(mLayoutManager.getActiveLayoutType()).thenReturn(LayoutType.BROWSING);
+        when(mTab.isNativePage()).thenReturn(false);
+        mTabProvider.set(mTab);
+        when(mInsetObserver.hasSeenNonZeroNavigationBarInsets()).thenReturn(false);
+
+        try (var watcher =
+                HistogramWatcher.newBuilder()
+                        .expectIntRecord(
+                                "Android.EdgeToEdge.BackupNavbarInsets.EdgeToEdgeController",
+                                EdgeToEdgeManager.BackupNavbarInsetsSource
+                                        .MANDATORY_SYSTEM_GESTURES)
+                        .build()) {
+            when(mInsetObserver.getLastRawWindowInsets())
+                    .thenReturn(GESTURE_NAV_INSETS_MISSING_NAVBAR);
+            mEdgeToEdgeControllerImpl.handleWindowInsets(
+                    mViewMock, GESTURE_NAV_INSETS_MISSING_NAVBAR);
+        }
+        assertTrue(mEdgeToEdgeControllerImpl.isDrawingToEdge());
+        assertEquals(
+                "The controller should receive backup navbar insets sourced from the mandatory"
+                        + " system gesture insets.",
+                Insets.of(0, TOP_INSET, 0, 0),
+                mEdgeToEdgeControllerImpl.getAppliedContentViewPaddingForTesting());
+        changeObserver.verify(
+                "The mandatory system gestures should be used as a backup for the bottom inset, and"
+                        + " the controller should be drawing toEdge.",
+                BOTTOM_INSET,
+                /* isDrawingToEdge= */ true,
+                /* isPageOptInToEdge= */ false);
+    }
+
+    @Test
+    @EnableFeatures({
+        ChromeFeatureList.EDGE_TO_EDGE_USE_BACKUP_NAVBAR_INSETS,
+        ChromeFeatureList.EDGE_TO_EDGE_MONITOR_CONFIGURATIONS
+    })
+    public void handleWindowInsets_noOptionsForBackupInsets() {
+        TestChangeObserver changeObserver = new TestChangeObserver();
+        mEdgeToEdgeControllerImpl.registerObserver(changeObserver);
+
+        when(mLayoutManager.getActiveLayoutType()).thenReturn(LayoutType.BROWSING);
+        when(mTab.isNativePage()).thenReturn(false);
+        mTabProvider.set(mTab);
+        when(mInsetObserver.hasSeenNonZeroNavigationBarInsets()).thenReturn(false);
+
+        try (var watcher =
+                HistogramWatcher.newBuilder()
+                        .expectIntRecord(
+                                "Android.EdgeToEdge.BackupNavbarInsets.EdgeToEdgeController",
+                                EdgeToEdgeManager.BackupNavbarInsetsSource.NO_APPLICABLE_BACKUP)
+                        .build()) {
+            when(mInsetObserver.getLastRawWindowInsets())
+                    .thenReturn(GESTURE_NAV_INSETS_MISSING_ALL_BOTTOM_INSETS);
+            mEdgeToEdgeControllerImpl.handleWindowInsets(
+                    mViewMock, GESTURE_NAV_INSETS_MISSING_ALL_BOTTOM_INSETS);
+        }
+        // In practice, it doesn't matter if the controller is drawing toEdge or not, as any applied
+        // padding will be zero anyways.
+        assertFalse(mEdgeToEdgeControllerImpl.isDrawingToEdge());
+        assertEquals(
+                "The controller should receive backup navbar insets sourced from the mandatory"
+                        + " system gesture insets.",
+                Insets.of(0, TOP_INSET, 0, 0),
+                mEdgeToEdgeControllerImpl.getAppliedContentViewPaddingForTesting());
+        changeObserver.verify(
+                "No options have possible backup insets.",
+                0,
+                /* isDrawingToEdge= */ false,
+                /* isPageOptInToEdge= */ false);
+    }
+
+    @Test
     @DisableFeatures(ChromeFeatureList.EDGE_TO_EDGE_MONITOR_CONFIGURATIONS)
     public void hasSeenTappableNavigationBarInsets_disabled() {
         EdgeToEdgeUtils.setHas3ButtonNavBarForTesting(null);
@@ -1310,6 +1549,30 @@ public class EdgeToEdgeControllerTest {
 
         void checkInsets(int expected) {
             assertEquals("The pad adjuster does not have the expected inset.", expected, mInset);
+        }
+    }
+
+    private static class TestChangeObserver implements EdgeToEdgeSupplier.ChangeObserver {
+        private int mBottomInset;
+        private boolean mIsDrawingToEdge;
+        private boolean mIsPageOptInToEdge;
+
+        @Override
+        public void onToEdgeChange(
+                int bottomInset, boolean isDrawingToEdge, boolean isPageOptInToEdge) {
+            mBottomInset = bottomInset;
+            mIsDrawingToEdge = isDrawingToEdge;
+            mIsPageOptInToEdge = isPageOptInToEdge;
+        }
+
+        void verify(
+                String message,
+                int bottomInset,
+                boolean isDrawingToEdge,
+                boolean isPageOptInToEdge) {
+            assertEquals(message, bottomInset, mBottomInset);
+            assertEquals(message, isDrawingToEdge, mIsDrawingToEdge);
+            assertEquals(message, isPageOptInToEdge, mIsPageOptInToEdge);
         }
     }
 }

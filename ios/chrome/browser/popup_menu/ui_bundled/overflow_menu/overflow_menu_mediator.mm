@@ -42,6 +42,9 @@
 #import "ios/chrome/browser/follow/model/follow_menu_updater.h"
 #import "ios/chrome/browser/follow/model/follow_tab_helper.h"
 #import "ios/chrome/browser/follow/model/follow_util.h"
+#import "ios/chrome/browser/intelligence/bwg/model/bwg_service.h"
+#import "ios/chrome/browser/intelligence/bwg/model/bwg_service_factory.h"
+#import "ios/chrome/browser/intelligence/bwg/utils/bwg_constants.h"
 #import "ios/chrome/browser/intelligence/features/features.h"
 #import "ios/chrome/browser/intents/model/intents_donation_helper.h"
 #import "ios/chrome/browser/lens_overlay/coordinator/lens_overlay_availability.h"
@@ -708,7 +711,7 @@ OverflowMenuFooter* CreateOverflowMenuManagedFooter(
     self.AIPrototypeAction = [self openAIPrototypeAction];
   }
 
-  if (IsPageActionMenuEnabled()) {
+  if ([self isGeminiAvailable]) {
     self.askBWGAction = [self openAskBWGAction];
   }
 
@@ -759,7 +762,7 @@ OverflowMenuFooter* CreateOverflowMenuManagedFooter(
 - (OverflowMenuAction*)toggleReaderModeAction {
   ReaderModeTabHelper* tabHelper =
       ReaderModeTabHelper::FromWebState(self.webState);
-  BOOL isReaderModeActive = tabHelper->IsActive();
+  BOOL isReaderModeActive = tabHelper && tabHelper->IsActive();
   int nameID = isReaderModeActive ? IDS_IOS_TOOLS_MENU_HIDE_READER_MODE
                                   : IDS_IOS_TOOLS_MENU_READER_MODE;
   __weak __typeof(self) weakSelf = self;
@@ -844,12 +847,19 @@ OverflowMenuFooter* CreateOverflowMenuManagedFooter(
 
 - (OverflowMenuAction*)openAskBWGAction {
   __weak __typeof(self) weakSelf = self;
-  // TODO(crbug.com/414777888): Change the icon.
+#if BUILDFLAG(IOS_USE_BRANDED_SYMBOLS)
+  BOOL isBrandedIcon = YES;
+  NSString* symbolName = kGeminiBrandedLogoImage;
+#else
+  BOOL isBrandedIcon = NO;
+  NSString* symbolName = kGeminiNonBrandedLogoImage;
+#endif
   return
-      [self createOverflowMenuActionWithName:@"Ask BWG"
+      [self createOverflowMenuActionWithName:l10n_util::GetNSString(
+                                                 IDS_IOS_AI_HUB_GEMINI_LABEL)
                                   actionType:overflow_menu::ActionType::AskBWG
-                                  symbolName:kMagicStackSymbol
-                                systemSymbol:YES
+                                  symbolName:symbolName
+                                systemSymbol:!isBrandedIcon
                             monochromeSymbol:NO
                              accessibilityID:kToolsMenuOpenAskBWG
                                 hideItemText:nil
@@ -1441,6 +1451,12 @@ OverflowMenuFooter* CreateOverflowMenuManagedFooter(
   bool canFetchUserPolicies =
       _authenticationService && _profilePrefs &&
       CanFetchUserPolicy(_authenticationService, _profilePrefs);
+  bool isReaderModeActive = false;
+  if (IsReaderModeAvailable()) {
+    ReaderModeTabHelper* readerModeTabHelper =
+        ReaderModeTabHelper::FromWebState(self.webState);
+    isReaderModeActive = readerModeTabHelper && readerModeTabHelper->IsActive();
+  }
   // Set footer (on last section), if any.
   web::BrowserState* browserState =
       self.webState ? self.webState->GetBrowserState() : nullptr;
@@ -1473,9 +1489,10 @@ OverflowMenuFooter* CreateOverflowMenuManagedFooter(
       [self isCurrentURLWebURL] && [self isEditBookmarksEnabled];
   self.addBookmarkAction.enabled = bookmarkEnabled;
   self.editBookmarkAction.enabled = bookmarkEnabled;
-  self.translateAction.enabled = [self isTranslateEnabled];
+  self.translateAction.enabled =
+      [self isTranslateEnabled] && !isReaderModeActive;
   self.findInPageAction.enabled = [self isFindInPageEnabled];
-  self.textZoomAction.enabled = [self isTextZoomEnabled];
+  self.textZoomAction.enabled = [self isTextZoomEnabled] && !isReaderModeActive;
   self.requestDesktopAction.enabled =
       [self userAgentType] == web::UserAgentType::MOBILE;
   self.requestMobileAction.enabled =
@@ -1610,16 +1627,21 @@ OverflowMenuFooter* CreateOverflowMenuManagedFooter(
     return NO;
   }
 
-  // Reader Mode is always enabled in the Overflow menu if the triggering
-  // heuristic is disabled.
-  if (!base::FeatureList::IsEnabled(
-          kEnableReaderModePageEligibilityForToolsMenu)) {
-    return YES;
-  }
-
   ReaderModeTabHelper* helper =
       ReaderModeTabHelper::FromWebState(self.webState);
-  return helper && helper->CurrentPageSupportsReaderMode();
+  if (!helper || helper->CurrentPageDistillationAlreadyFailed()) {
+    return NO;
+  }
+
+  // If `kEnableReaderModePageEligibilityForToolsMenu` is enabled then not only
+  // the page needs to support Reader mode, but it needs to be probably
+  // distillable according to the heuristic.
+  if (base::FeatureList::IsEnabled(
+          kEnableReaderModePageEligibilityForToolsMenu)) {
+    return helper->CurrentPageIsDistillable();
+  } else {
+    return helper->CurrentPageIsEligibleForReaderMode();
+  }
 }
 
 // Whether or not text zoom is enabled for this page.
@@ -1745,6 +1767,23 @@ OverflowMenuFooter* CreateOverflowMenuManagedFooter(
     self.engagementTracker->NotifyEvent(
         feature_engagement::events::kIOSOverflowMenuOffscreenItemUsed);
   }
+}
+
+/// Returns whether the Ask Gemini feature is currently available for the web
+/// state.
+- (BOOL)isGeminiAvailable {
+  if (!IsPageActionMenuEnabled()) {
+    return NO;
+  }
+  if (_webState) {
+    ProfileIOS* profile =
+        ProfileIOS::FromBrowserState(_webState->GetBrowserState());
+    BwgService* BWGService = BwgServiceFactory::GetForProfile(profile);
+    if (BWGService) {
+      return BWGService->IsBwgAvailableForWebState(_webState);
+    }
+  }
+  return NO;
 }
 
 #pragma mark - CRWWebStateObserver
@@ -2083,7 +2122,6 @@ OverflowMenuFooter* CreateOverflowMenuManagedFooter(
     actions.push_back(overflow_menu::ActionType::SetTabReminder);
   }
 
-  actions.push_back(overflow_menu::ActionType::Follow);
   actions.push_back(overflow_menu::ActionType::Bookmark);
   actions.push_back(overflow_menu::ActionType::ReadingList);
   actions.push_back(overflow_menu::ActionType::ClearBrowsingData);
@@ -2100,7 +2138,7 @@ OverflowMenuFooter* CreateOverflowMenuManagedFooter(
     actions.push_back(overflow_menu::ActionType::AIPrototype);
   }
 
-  if (IsPageActionMenuEnabled()) {
+  if ([self isGeminiAvailable]) {
     actions.push_back(overflow_menu::ActionType::AskBWG);
   }
 
@@ -2453,7 +2491,7 @@ OverflowMenuFooter* CreateOverflowMenuManagedFooter(
 // Starts ask BWG.
 - (void)startAskBWG {
   [self dismissMenu];
-  [self.BWGHandler startBWGFlow];
+  [self.BWGHandler startBWGFlowWithEntryPoint:bwg::EntryPoint::OverflowMenu];
 }
 
 // Opens the "Set a reminder" screen for the user's current tab.
@@ -2468,7 +2506,12 @@ OverflowMenuFooter* CreateOverflowMenuManagedFooter(
 
 // Sets the Reader mode UI visibility.
 - (void)setReaderModeVisibility:(BOOL)visible {
-  ReaderModeTabHelper::FromWebState(self.webState)->SetActive(visible);
+  if (visible) {
+    [self.readerModeHandler
+        showReaderModeFromAccessPoint:ReaderModeAccessPoint::kToolsMenu];
+  } else {
+    [self.readerModeHandler hideReaderMode];
+  }
   [self dismissMenu];
 }
 

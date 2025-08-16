@@ -77,7 +77,7 @@ class TestContentAnalysisInfo : public ContentAnalysisInfo {
 
   std::string email() const override { return "test@user.com"; }
 
-  std::string url() const override { return kUrl; }
+  const GURL& url() const override { return url_; }
 
   const GURL& tab_url() const override { return tab_url_; }
 
@@ -96,7 +96,10 @@ class TestContentAnalysisInfo : public ContentAnalysisInfo {
     return {};
   }
 
+  content::WebContents* web_contents() const override { return nullptr; }
+
  private:
+  GURL url_{kUrl};
   GURL tab_url_{kTabUrl};
   AnalysisSettings settings_;
 };
@@ -145,16 +148,15 @@ class PagePrintRequestHandlerTest : public testing::Test {
   safe_browsing::TestBinaryUploadService binary_upload_service_;
   base::test::ScopedFeatureList scoped_feature_list_;
   base::HistogramTester histogram_tester_;
+  TestContentAnalysisInfo info_ = TestContentAnalysisInfo(cloud_settings());
 };
 
 }  // namespace
 TEST_F(PagePrintRequestHandlerTest, Test) {
-  TestContentAnalysisInfo info(cloud_settings());
-
   auto page = CreatePageRegion(kMaxSize);
   size_t page_size_bytes = page.mapping.size();
   auto handler = PagePrintRequestHandler::Create(
-      &info, &binary_upload_service_, profile_.get(), GURL(kUrl),
+      &info_, &binary_upload_service_, profile_.get(), GURL(kUrl),
       "printer_name", "page_content_type", std::move(page.region),
       base::BindOnce([](RequestHandlerResult result) {
         EXPECT_EQ(result.final_result, FinalContentAnalysisResult::FAILURE);
@@ -202,7 +204,10 @@ TEST_F(PagePrintRequestHandlerTest, Test) {
   histogram_tester_.ExpectTotalCount(
       "Enterprise.FileAnalysisRequest.PrintedPageSize", 1);
 
-  validator.ExpectSensitiveDataEvent(
+  base::RunLoop run_loop_bypass;
+  auto validator_bypass = helper_->CreateValidator();
+  validator_bypass.SetDoneClosure(run_loop_bypass.QuitClosure());
+  validator_bypass.ExpectSensitiveDataEvent(
       /*url*/
       kUrl,
       /*tab_url*/ kTabUrl,
@@ -226,11 +231,10 @@ TEST_F(PagePrintRequestHandlerTest, Test) {
       /*content_transfer_method*/ std::nullopt,
       /*user_justification*/ kJustification);
   handler->ReportWarningBypass(kJustification);
+  run_loop_bypass.Run();
 }
 
 TEST_F(PagePrintRequestHandlerTest, TestNewLimit) {
-  TestContentAnalysisInfo info(cloud_settings());
-
   scoped_feature_list_.Reset();
   scoped_feature_list_.InitAndEnableFeatureWithParameters(
       enterprise_connectors::kEnableNewUploadSizeLimit,
@@ -239,7 +243,7 @@ TEST_F(PagePrintRequestHandlerTest, TestNewLimit) {
   auto page = CreatePageRegion(kMaxSize);
   size_t page_size_bytes = page.mapping.size();
   auto handler = PagePrintRequestHandler::Create(
-      &info, &binary_upload_service_, profile_.get(), GURL(kUrl),
+      &info_, &binary_upload_service_, profile_.get(), GURL(kUrl),
       "printer_name", "page_content_type", std::move(page.region),
       base::BindOnce([](RequestHandlerResult result) {
         EXPECT_EQ(result.final_result, FinalContentAnalysisResult::FAILURE);
@@ -287,7 +291,10 @@ TEST_F(PagePrintRequestHandlerTest, TestNewLimit) {
   histogram_tester_.ExpectTotalCount(
       "Enterprise.FileAnalysisRequest.PrintedPageSize", 1);
 
-  validator.ExpectSensitiveDataEvent(
+  base::RunLoop run_loop_bypass;
+  auto validator_bypass = helper_->CreateValidator();
+  validator_bypass.SetDoneClosure(run_loop_bypass.QuitClosure());
+  validator_bypass.ExpectSensitiveDataEvent(
       /*url*/
       kUrl,
       /*tab_url*/ kTabUrl,
@@ -311,6 +318,7 @@ TEST_F(PagePrintRequestHandlerTest, TestNewLimit) {
       /*content_transfer_method*/ std::nullopt,
       /*user_justification*/ kJustification);
   handler->ReportWarningBypass(kJustification);
+  run_loop_bypass.Run();
 }
 
 }  // namespace enterprise_connectors

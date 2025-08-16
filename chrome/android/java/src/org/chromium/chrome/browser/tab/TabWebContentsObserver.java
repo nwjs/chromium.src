@@ -32,12 +32,12 @@ import org.chromium.chrome.browser.app.usb.UsbNotificationService;
 import org.chromium.chrome.browser.bluetooth.BluetoothNotificationManager;
 import org.chromium.chrome.browser.display_cutout.DisplayCutoutTabHelper;
 import org.chromium.chrome.browser.feedback.HelpAndFeedbackLauncherImpl;
-import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.media.MediaCaptureNotificationServiceImpl;
 import org.chromium.chrome.browser.pdf.PdfUtils;
 import org.chromium.chrome.browser.policy.PolicyAuditor;
 import org.chromium.chrome.browser.policy.PolicyAuditor.AuditEvent;
 import org.chromium.chrome.browser.serial.SerialNotificationManager;
+import org.chromium.chrome.browser.tab.Tab.MediaState;
 import org.chromium.chrome.browser.ui.native_page.NativePage;
 import org.chromium.chrome.browser.usb.UsbNotificationManager;
 import org.chromium.content_public.browser.GlobalRenderFrameHostId;
@@ -356,10 +356,8 @@ public class TabWebContentsObserver extends TabWebContentsUserData {
 
         @Override
         public void onBackgroundColorChanged() {
-            if (ChromeFeatureList.sNavBarColorMatchesTabBackground.isEnabled()) {
-                mTab.changeWebContentBackgroundColor(
-                        assumeNonNull(mTab.getWebContents()).getBackgroundColor());
-            }
+            mTab.changeWebContentBackgroundColor(
+                    assumeNonNull(mTab.getWebContents()).getBackgroundColor());
         }
 
         @Override
@@ -370,17 +368,12 @@ public class TabWebContentsObserver extends TabWebContentsUserData {
         @Override
         public void viewportFitChanged(@WebContentsObserver.ViewportFitType int value) {
             DisplayCutoutTabHelper.from(mTab).setViewportFit(value);
-            if (ChromeFeatureList.sEdgeToEdgeSafeAreaConstraint.isEnabled()) {
-                DisplayCutoutTabHelper.from(mTab)
-                        .setSafeAreaConstraint(value == ViewportFit.CONTAIN);
-            }
+            DisplayCutoutTabHelper.from(mTab).setSafeAreaConstraint(value == ViewportFit.CONTAIN);
         }
 
         @Override
         public void safeAreaConstraintChanged(boolean hasConstraint) {
-            if (ChromeFeatureList.sEdgeToEdgeSafeAreaConstraint.isEnabled()) {
-                DisplayCutoutTabHelper.from(mTab).setSafeAreaConstraint(hasConstraint);
-            }
+            DisplayCutoutTabHelper.from(mTab).setSafeAreaConstraint(hasConstraint);
         }
 
         @Override
@@ -421,6 +414,17 @@ public class TabWebContentsObserver extends TabWebContentsUserData {
                     null,
                     mLastUrl,
                     mTab.isIncognito());
+        }
+
+        @Override
+        public void mediaStartedPlaying() {
+            // TODO(crbug.com/430072416): Identify when audio is muted.
+            mTab.setMediaState(MediaState.AUDIBLE);
+        }
+
+        @Override
+        public void mediaStoppedPlaying() {
+            mTab.setMediaState(MediaState.NONE);
         }
     }
 }

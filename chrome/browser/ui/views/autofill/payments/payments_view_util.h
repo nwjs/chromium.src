@@ -62,10 +62,11 @@ struct LabeledTextfieldWithErrorMessage {
   raw_ptr<views::Textfield> input = nullptr;
   raw_ptr<views::Label> error_label = nullptr;
   raw_ptr<views::View> error_label_placeholder = nullptr;
+  bool is_valid_input = false;
 
   views::Textfield& GetInputTextField() const;
 
-  void SetErrorState(bool is_valid_input,
+  void SetErrorState(bool is_valid,
                      std::optional<std::u16string> error_message);
 };
 
@@ -75,6 +76,8 @@ ui::ImageModel GetProfileAvatar(const AccountInfo& account_info);
 // Defines a title view with a label and an icon, to be used by dialogs
 // that need to present the Google or Google Pay logo and custom
 // horizontal padding.
+// TODO(crbug.com/417538725): Announce Title and GPay logo variants in dialogs
+// by default for accessibility.
 class TitleWithIconAfterLabelView : public views::BoxLayoutView {
   METADATA_HEADER(TitleWithIconAfterLabelView, views::BoxLayoutView)
 
@@ -90,6 +93,8 @@ class TitleWithIconAfterLabelView : public views::BoxLayoutView {
     GOOGLE_PAY_AND_AFTERPAY,
     // Google Pay logo next to an Zip logo separated by a vertical line.
     GOOGLE_PAY_AND_ZIP,
+    // Google Pay logo next to an Klarna logo separated by a vertical line.
+    GOOGLE_PAY_AND_KLARNA,
   };
 
   TitleWithIconAfterLabelView(const std::u16string& window_title,

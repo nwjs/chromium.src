@@ -459,12 +459,6 @@ AcceptedGeneratedPasswordSourceType DetermineGeneratedPasswordSource(
                        forForm:(FormGlobalId)formId
                     fromSource:
                         (AutofillManager::Observer::FieldTypeSource)source {
-  if (source != AutofillManager::Observer::FieldTypeSource::kAutofillServer &&
-      !base::FeatureList::IsEnabled(
-          password_manager::features::kPasswordFormClientsideClassifier)) {
-    return;
-  }
-
   autofill::FormStructure* form_structure = manager.FindCachedFormById(formId);
   if (!form_structure) {
     return;
@@ -721,12 +715,15 @@ AcceptedGeneratedPasswordSourceType DetermineGeneratedPasswordSource(
       NSString* username = suggestion.value;
       bool stateless = base::FeatureList::IsEnabled(
           password_manager::features::kIOSStatelessFillDataFlow);
+      bool isBackupCredential =
+          suggestion.type == autofill::SuggestionType::kBackupPasswordEntry;
 
       ASSIGN_OR_RETURN(
           password_manager::FillDataRetrievalResult fill_data_result,
           stateless
               ? [self.suggestionHelper
                     passwordFillDataForUsername:username
+                             isBackupCredential:isBackupCredential
                         likelyRealPasswordField:
                             suggestion.metadata.likely_from_real_password_field
                                  formIdentifier:suggestion.params
@@ -734,8 +731,10 @@ AcceptedGeneratedPasswordSourceType DetermineGeneratedPasswordSource(
                                 fieldIdentifier:suggestion.params
                                                     ->field_renderer_id
                                         frameId:suggestion.params->frame_id]
-              : [self.suggestionHelper passwordFillDataForUsername:username
-                                                        forFrameId:frameId],
+              : [self.suggestionHelper
+                    passwordFillDataForUsername:username
+                             isBackupCredential:isBackupCredential
+                                     forFrameId:frameId],
           [completion](auto e) {
             base::UmaHistogramEnumeration(kFillDataRetrievalStatusHistogram, e);
             completion();
@@ -1171,11 +1170,15 @@ AcceptedGeneratedPasswordSourceType DetermineGeneratedPasswordSource(
           manager.GetServerPredictionsForForm(globalFormId, field_ids));
       break;
     case AutofillManager::Observer::FieldTypeSource::kHeuristicsOrAutocomplete:
-      _passwordManager->ProcessClassificationModelPredictions(
-          driver, form,
-          manager.GetHeursticPredictionForForm(
-              autofill::HeuristicSource::kPasswordManagerMachineLearning,
-              globalFormId, field_ids));
+      if (base::FeatureList::IsEnabled(
+              password_manager::features::
+                  kApplyClientsideModelPredictionsForPasswordTypes)) {
+        _passwordManager->ProcessClassificationModelPredictions(
+            driver, form,
+            manager.GetHeursticPredictionForForm(
+                autofill::HeuristicSource::kPasswordManagerMachineLearning,
+                globalFormId, field_ids));
+      }
       break;
   }
 }

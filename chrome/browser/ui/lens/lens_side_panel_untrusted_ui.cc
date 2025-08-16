@@ -76,6 +76,9 @@ LensSidePanelUntrustedUI::LensSidePanelUntrustedUI(content::WebUI* web_ui)
                                   IDS_LENS_OVERLAY_FEEDBACK_TOAST_MESSAGE);
   html_source->AddLocalizedString("sendFeedbackButtonText",
                                   IDS_LENS_OVERLAY_SEND_FEEDBACK_BUTTON_LABEL);
+  html_source->AddLocalizedString(
+      "closeFeedbackToastAccessibilityLabel",
+      IDS_LENS_OVERLAY_CLOSE_FEEDBACK_TOAST_ACCESSIBILITY_LABEL);
   const bool dark_mode = lens::LensOverlayShouldUseDarkMode(
       ThemeServiceFactory::GetForProfile(Profile::FromWebUI(web_ui)));
 
@@ -100,9 +103,6 @@ LensSidePanelUntrustedUI::LensSidePanelUntrustedUI(content::WebUI* web_ui)
   html_source->AddBoolean(
       "newFeedbackEnabled",
       lens::features::IsLensSearchSidePanelNewFeedbackEnabled());
-  html_source->AddBoolean(
-      "scrollToEnabled",
-      lens::features::IsLensSearchSidePanelScrollToAPIEnabled());
   html_source->AddString("resultsSearchURL",
                          lens::features::GetLensOverlayResultsSearchURL());
   html_source->AddBoolean(
@@ -111,6 +111,8 @@ LensSidePanelUntrustedUI::LensSidePanelUntrustedUI(content::WebUI* web_ui)
   html_source->AddBoolean(
       "enableSummarizeSuggestionHint",
       lens::features::ShouldEnableSummarizeHintForContextualSuggest());
+  html_source->AddBoolean("enableAimSearchbox",
+                          lens::features::GetAimSearchboxEnabled());
 
   // Allow FrameSrc from all Google subdomains as redirects can occur.
   GURL results_side_panel_url =
@@ -160,6 +162,9 @@ LensSidePanelUntrustedUI::LensSidePanelUntrustedUI(content::WebUI* web_ui)
   html_source->AddBoolean(
       "enableCsbMotionTweaks",
       lens::features::GetVisualSelectionUpdatesEnableCsbMotionTweaks());
+  html_source->AddBoolean(
+      "enableVisualSelectionUpdates",
+      lens::features::IsLensOverlayVisualSelectionUpdatesEnabled());
   html_source->AddBoolean(
       "enableThumbnailSizingTweaks",
       lens::features::GetVisualSelectionUpdatesEnableThumbnailSizingTweaks());

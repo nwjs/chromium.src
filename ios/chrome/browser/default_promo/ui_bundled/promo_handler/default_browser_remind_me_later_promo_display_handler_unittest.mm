@@ -49,7 +49,7 @@
 - (void)showSigninPromo {
 }
 
-- (void)showBWGPromo {
+- (void)showWelcomeBackPromo {
 }
 
 @end

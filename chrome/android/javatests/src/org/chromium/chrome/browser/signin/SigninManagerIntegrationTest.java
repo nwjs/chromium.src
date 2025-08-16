@@ -43,7 +43,8 @@ import org.chromium.components.signin.SigninFeatures;
 import org.chromium.components.signin.base.AccountInfo;
 import org.chromium.components.signin.base.CoreAccountInfo;
 import org.chromium.components.signin.identitymanager.ConsentLevel;
-import org.chromium.components.signin.identitymanager.IdentityManager;
+import org.chromium.components.signin.identitymanager.IdentityManagerImpl;
+import org.chromium.components.signin.metrics.SigninAccessPoint;
 import org.chromium.components.signin.metrics.SignoutReason;
 import org.chromium.components.signin.test.util.FakeAccountManagerFacade;
 import org.chromium.components.signin.test.util.TestAccounts;
@@ -67,7 +68,7 @@ public class SigninManagerIntegrationTest {
     @Rule
     public final MockitoRule mMockitoRule = MockitoJUnit.rule().strictness(Strictness.STRICT_STUBS);
 
-    private IdentityManager mIdentityManager;
+    private IdentityManagerImpl mIdentityManager;
     private AccountManagerFacade mAccountManagerFacade;
     private SigninManager mSigninManager;
 
@@ -80,7 +81,9 @@ public class SigninManagerIntegrationTest {
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     Profile profile = ProfileManager.getLastUsedRegularProfile();
-                    mIdentityManager = IdentityServicesProvider.get().getIdentityManager(profile);
+                    mIdentityManager =
+                            (IdentityManagerImpl)
+                                    IdentityServicesProvider.get().getIdentityManager(profile);
                     mAccountManagerFacade = AccountManagerFacadeProvider.getInstance();
                     mSigninManager = IdentityServicesProvider.get().getSigninManager(profile);
                     mSigninManager.addSignInStateObserver(mSignInStateObserverMock);
@@ -533,5 +536,18 @@ public class SigninManagerIntegrationTest {
                             mIdentityManager.getAccountsWithRefreshTokens());
                 });
         signoutWatcher.assertExpected();
+    }
+
+    @Test
+    @MediumTest
+    public void testSignIn_SignInCompletedHistogramRecorded() {
+        var signinHistogram =
+                HistogramWatcher.newSingleRecordWatcher(
+                        "Signin.SignIn.Completed", SigninAccessPoint.UNKNOWN);
+
+        mSigninTestRule.addAccountThenSignin(TestAccounts.ACCOUNT1);
+
+        signinHistogram.assertExpected(
+                "Signin should be recorded with unknown as the access point.");
     }
 }

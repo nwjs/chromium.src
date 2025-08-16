@@ -37,10 +37,10 @@ source_set("screen_ai") {
     "//services/screen_ai/proto",
     "//services/screen_ai/public/cpp:metrics",
     "//services/screen_ai/public/cpp:utilities",
+    "//services/screen_ai/public/mojom",
     "//services/screen_ai/public/mojom:factory",
-    "//services/screen_ai/public/mojom:mojom",
     "//skia",
-    "//ui/accessibility:accessibility",
+    "//ui/accessibility",
   ]
 
   if (is_linux) {
@@ -69,6 +69,10 @@ if (is_chromeos) {
       "//skia",
       "//ui/gfx/codec",
     ]
+
+    # TODO(crbug.com/40031409): Fix code that adds exit-time destructors and
+    # enable the diagnostic by removing this line.
+    configs += [ "//build/config/compiler:no_exit_time_destructors" ]
   }
 }
 
@@ -92,6 +96,10 @@ if (is_linux || is_chromeos) {
     public_deps = [ "//sandbox/policy" ]
 
     configs += [ "//build/config/compiler:wexit_time_destructors" ]
+
+    # TODO(crbug.com/40031409): Fix code that adds exit-time destructors and
+    # enable the diagnostic by removing this line.
+    configs += [ "//build/config/compiler:no_exit_time_destructors" ]
   }
 }
 

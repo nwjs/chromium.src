@@ -28,15 +28,14 @@
 #include "base/memory/weak_ptr.h"
 #include "base/notreached.h"
 #include "base/numerics/safe_conversions.h"
+#include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/trace_event/trace_event.h"
 #include "base/types/expected_macros.h"
 #include "base/unguessable_token.h"
 #include "components/services/storage/indexed_db/locks/partitioned_lock_id.h"
 #include "components/services/storage/indexed_db/locks/partitioned_lock_manager.h"
-#include "components/services/storage/privileged/mojom/indexed_db_client_state_checker.mojom-shared.h"
 #include "components/services/storage/privileged/mojom/indexed_db_client_state_checker.mojom.h"
-#include "components/services/storage/privileged/mojom/indexed_db_internals_types.mojom-forward.h"
 #include "components/services/storage/privileged/mojom/indexed_db_internals_types.mojom.h"
 #include "content/browser/indexed_db/indexed_db_external_object.h"
 #include "content/browser/indexed_db/indexed_db_value.h"
@@ -52,7 +51,7 @@
 #include "content/browser/indexed_db/instance/pending_connection.h"
 #include "content/browser/indexed_db/instance/transaction.h"
 #include "content/browser/indexed_db/status.h"
-#include "ipc/ipc_channel.h"
+#include "ipc/constants.mojom.h"
 #include "mojo/public/cpp/bindings/associated_remote.h"
 #include "mojo/public/cpp/bindings/pending_associated_receiver.h"
 #include "mojo/public/cpp/bindings/pending_associated_remote.h"
@@ -75,8 +74,78 @@ using blink::IndexedDBObjectStoreMetadata;
 namespace content::indexed_db {
 namespace {
 
-// Used to generated IDs for `Database` objects, for use with PartitionedLockId.
-uint32_t g_unique_id = 0;
+// `backing_store_db` can be null only if `mode` is VersionChange.
+std::vector<PartitionedLockManager::PartitionedLockRequest>
+BuildLockRequestsForLevelDb(const std::u16string& database_name,
+                            const BackingStore::Database* backing_store_db,
+                            blink::mojom::IDBTransactionMode mode,
+                            const std::set<int64_t>& scope) {
+  // NB: LevelDB lock IDs are potentially persisted to disk - see
+  // `LevelDBPartitionedLock`.
+  const constexpr int kDatabaseLockPartition = 0;
+  PartitionedLockId database_lock_id{kDatabaseLockPartition,
+                                     base::UTF16ToUTF8(database_name)};
+  if (mode == blink::mojom::IDBTransactionMode::VersionChange) {
+    return {{std::move(database_lock_id),
+             PartitionedLockManager::LockType::kExclusive}};
+  }
+  CHECK(backing_store_db);
+  std::vector<PartitionedLockManager::PartitionedLockRequest> lock_requests;
+  lock_requests.reserve(1 + scope.size());
+  lock_requests.emplace_back(std::move(database_lock_id),
+                             PartitionedLockManager::LockType::kShared);
+  const constexpr int kObjectStoreLockPartition = 1;
+  const auto object_store_lock_type =
+      mode == blink::mojom::IDBTransactionMode::ReadOnly
+          ? PartitionedLockManager::LockType::kShared
+          : PartitionedLockManager::LockType::kExclusive;
+  for (int64_t object_store_id : scope) {
+    lock_requests.emplace_back(
+        PartitionedLockId{
+            kObjectStoreLockPartition,
+            backing_store_db->GetObjectStoreLockIdKey(object_store_id)},
+        object_store_lock_type);
+  }
+  return lock_requests;
+}
+
+std::vector<PartitionedLockManager::PartitionedLockRequest>
+BuildLockRequestsForSqlite(uint32_t database_id,
+                           blink::mojom::IDBTransactionMode mode,
+                           const std::set<int64_t>& scope) {
+  // TODO(crbug.com/427608926): Refactor `PartitionedLockId` to not need `key`
+  // to be a string.
+  const constexpr int kMetadataLockPartition = 0;
+  PartitionedLockId metadata_lock_id{kMetadataLockPartition,
+                                     base::StringPrintf("%u", database_id)};
+  if (mode == blink::mojom::IDBTransactionMode::VersionChange) {
+    return {{std::move(metadata_lock_id),
+             PartitionedLockManager::LockType::kExclusive}};
+  }
+  std::vector<PartitionedLockManager::PartitionedLockRequest> lock_requests{
+      {std::move(metadata_lock_id), PartitionedLockManager::LockType::kShared}};
+  if (mode == blink::mojom::IDBTransactionMode::ReadWrite) {
+    const constexpr int kWriteOperationsLockPartition = 1;
+    lock_requests.emplace_back(
+        PartitionedLockId{kWriteOperationsLockPartition,
+                          base::StringPrintf("%u", database_id)},
+        PartitionedLockManager::LockType::kExclusive);
+  }
+  lock_requests.reserve(lock_requests.size() + scope.size());
+  const constexpr int kObjectStoreLockPartition = 2;
+  const auto object_store_lock_type =
+      mode == blink::mojom::IDBTransactionMode::ReadOnly
+          ? PartitionedLockManager::LockType::kShared
+          : PartitionedLockManager::LockType::kExclusive;
+  for (int64_t object_store_id : scope) {
+    lock_requests.emplace_back(
+        PartitionedLockId{
+            kObjectStoreLockPartition,
+            base::StringPrintf("%u|%lld", database_id, object_store_id)},
+        object_store_lock_type);
+  }
+  return lock_requests;
+}
 
 // Values returned to the IDB client may contain a primary key value generated
 // by IDB. This is optional and only done when using a key generator. This key
@@ -131,8 +200,10 @@ blink::mojom::IDBErrorPtr CreateIDBErrorPtr(blink::mojom::IDBException code,
 Database::OpenCursorOperationParams::OpenCursorOperationParams() = default;
 Database::OpenCursorOperationParams::~OpenCursorOperationParams() = default;
 
-Database::Database(const std::u16string& name, BucketContext& bucket_context)
-    : id_for_locks_(g_unique_id++),
+Database::Database(uint32_t id_for_locks,
+                   const std::u16string& name,
+                   BucketContext& bucket_context)
+    : id_for_locks_(id_for_locks),
       name_(name),
       bucket_context_(bucket_context),
       connection_coordinator_(this, bucket_context) {}
@@ -170,6 +241,16 @@ StatusOr<int64_t> Database::DeleteDatabase(std::vector<PartitionedLock> locks,
     return base::unexpected(s);
   }
   return old_version;
+}
+
+std::vector<PartitionedLockManager::PartitionedLockRequest>
+Database::BuildLockRequestsForTransaction(
+    blink::mojom::IDBTransactionMode mode,
+    const std::set<int64_t>& scope) const {
+  return bucket_context_->ShouldUseSqlite()
+             ? BuildLockRequestsForSqlite(id_for_locks_, mode, scope)
+             : BuildLockRequestsForLevelDb(name_, backing_store_db_.get(), mode,
+                                           scope);
 }
 
 bool Database::OnlyHasOneClient() const {
@@ -223,7 +304,8 @@ void Database::RegisterAndScheduleTransaction(Transaction* transaction) {
   DCHECK_NE(transaction->mode(),
             blink::mojom::IDBTransactionMode::VersionChange);
   std::vector<PartitionedLockManager::PartitionedLockRequest> lock_requests =
-      transaction->BuildLockRequests();
+      BuildLockRequestsForTransaction(transaction->mode(),
+                                      transaction->scope());
 
   RequireBlockingTransactionClientsToBeActive(transaction, lock_requests);
 
@@ -988,14 +1070,14 @@ void Database::NotifyOfIdbInternalsRelevantChange() {
 }
 
 // kIDBMaxMessageSize is defined based on the original
-// IPC::Channel::kMaximumMessageSize value.  We use kIDBMaxMessageSize to
+// IPC::mojom::kChannelMaximumMessageSize value.  We use kIDBMaxMessageSize to
 // limit the size of arguments we pass into our Mojo calls.  We want to ensure
 // this value is always no bigger than the current kMaximumMessageSize value
 // which also ensures it is always no bigger than the current Mojo message
 // size limit.
 static_assert(
-    blink::mojom::kIDBMaxMessageSize <= IPC::Channel::kMaximumMessageSize,
-    "kIDBMaxMessageSize is bigger than IPC::Channel::kMaximumMessageSize");
+    blink::mojom::kIDBMaxMessageSize <= IPC::mojom::kChannelMaximumMessageSize,
+    "kIDBMaxMessageSize is bigger than IPC::mojom::kChannelMaximumMessageSize");
 
 void Database::CallUpgradeTransactionStartedForTesting(int64_t old_version) {
   connection_coordinator_.OnUpgradeTransactionStarted(old_version);

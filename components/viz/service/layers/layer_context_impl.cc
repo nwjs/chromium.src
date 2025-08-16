@@ -21,7 +21,9 @@
 #include "cc/animation/animation_host.h"
 #include "cc/animation/animation_timeline.h"
 #include "cc/animation/keyframe_effect.h"
+#include "cc/debug/layer_tree_debug_state.h"
 #include "cc/debug/rendering_stats_instrumentation.h"
+#include "cc/input/browser_controls_offset_manager.h"
 #include "cc/layers/layer_impl.h"
 #include "cc/layers/mirror_layer_impl.h"
 #include "cc/layers/nine_patch_layer_impl.h"
@@ -62,11 +64,14 @@ int GenerateNextDisplayTreeId() {
   return next_id++;
 }
 
-cc::LayerTreeSettings GetDisplayTreeSettings(bool draw_mode_is_gpu) {
+cc::LayerTreeSettings GetDisplayTreeSettings(
+    mojom::LayerContextSettingsPtr remote_settings) {
   cc::LayerTreeSettings settings;
   settings.use_layer_lists = true;
   settings.trees_in_viz_in_viz_process = true;
-  settings.display_tree_draw_mode_is_gpu = draw_mode_is_gpu;
+  settings.display_tree_draw_mode_is_gpu = remote_settings->draw_mode_is_gpu;
+  settings.enable_edge_anti_aliasing =
+      remote_settings->enable_edge_anti_aliasing;
   return settings;
 }
 
@@ -1352,9 +1357,9 @@ base::expected<void, std::string> DeserializeAnimationUpdates(
 
 LayerContextImpl::LayerContextImpl(CompositorFrameSinkSupport* compositor_sink,
                                    mojom::PendingLayerContext& context,
-                                   bool draw_mode_is_gpu)
+                                   mojom::LayerContextSettingsPtr settings)
     : LayerContextImpl(compositor_sink,
-                       draw_mode_is_gpu,
+                       std::move(settings),
                        std::move(context.receiver),
                        std::move(context.client)) {
   // Always expect valid context receiver & client to be passed to the
@@ -1366,16 +1371,16 @@ LayerContextImpl::LayerContextImpl(CompositorFrameSinkSupport* compositor_sink,
 // static
 std::unique_ptr<LayerContextImpl> LayerContextImpl::CreateForTesting(
     CompositorFrameSinkSupport* compositor_sink,
-    bool draw_mode_is_gpu) {
+    mojom::LayerContextSettingsPtr settings) {
   return base::WrapUnique<LayerContextImpl>(new LayerContextImpl(
-      compositor_sink, draw_mode_is_gpu,
+      compositor_sink, std::move(settings),
       mojo::PendingAssociatedReceiver<mojom::LayerContext>(),
       mojo::PendingAssociatedRemote<mojom::LayerContextClient>()));
 }
 
 LayerContextImpl::LayerContextImpl(
     CompositorFrameSinkSupport* compositor_sink,
-    bool draw_mode_is_gpu,
+    mojom::LayerContextSettingsPtr settings,
     mojo::PendingAssociatedReceiver<mojom::LayerContext> receiver_pipe,
     mojo::PendingAssociatedRemote<mojom::LayerContextClient> client_pipe)
     : compositor_sink_(compositor_sink),
@@ -1383,7 +1388,7 @@ LayerContextImpl::LayerContextImpl(
           base::SingleThreadTaskRunner::GetCurrentDefault())),
       rendering_stats_(cc::RenderingStatsInstrumentation::Create()),
       host_impl_(cc::LayerTreeHostImpl::Create(
-          GetDisplayTreeSettings(draw_mode_is_gpu),
+          GetDisplayTreeSettings(std::move(settings)),
           this,
           task_runner_provider_.get(),
           rendering_stats_.get(),
@@ -1713,17 +1718,34 @@ base::expected<void, std::string> LayerContextImpl::DoUpdateDisplayTree(
   RETURN_IF_ERROR(CreateOrUpdateLayers(
       *(this->host_impl_.get()), update->layers, update->layer_order, layers));
 
-  if (update->local_surface_id_from_parent) {
-    layers.SetLocalSurfaceIdFromParent(*update->local_surface_id_from_parent);
-    if (update->new_local_surface_id_request) {
-      layers.RequestNewLocalSurfaceId();
+  // After layers are updated, validate backdrop_mask_element_id.
+  for (const auto& wire : update->effect_nodes) {
+    if (wire->backdrop_mask_element_id) {
+      if (auto* layer =
+              layers.LayerByElementId(wire->backdrop_mask_element_id)) {
+        if (layer->GetLayerType() != cc::mojom::LayerType::kTileDisplay) {
+          return base::unexpected(
+              "Invalid backdrop_mask_element_id: layer is not a "
+              "TileDisplayLayer");
+        }
+      } else {
+        return base::unexpected(
+            "Invalid backdrop_mask_element_id: layer not found");
+      }
     }
-    host_impl_->UpdateChildLocalSurfaceId();
   }
 
+  if (update->local_surface_id_from_parent) {
+    layers.SetLocalSurfaceIdFromParent(*update->local_surface_id_from_parent);
+  }
+  host_impl_->set_current_local_surface_id_from_client(
+      update->current_local_surface_id);
   if (update->target_local_surface_id) {
     host_impl_->SetTargetLocalSurfaceId(*update->target_local_surface_id);
   }
+
+  RETURN_IF_FALSE(update->next_frame_token > 0, "invalid frame token");
+  host_impl_->set_next_frame_token_from_client(update->next_frame_token);
 
   for (const auto& tiling : update->tilings) {
     if (cc::LayerImpl* layer = layers.LayerById(tiling->layer_id)) {
@@ -1746,6 +1768,8 @@ base::expected<void, std::string> LayerContextImpl::DoUpdateDisplayTree(
   layers.set_primary_main_frame_item_sequence_number(
       update->primary_main_frame_item_sequence_number);
   layers.SetDeviceViewportRect(update->device_viewport);
+
+  layers.RegisterSelection(update->selection);
 
   if (update->page_scale_factor <= 0 ||
       !std::isfinite(update->page_scale_factor) ||
@@ -1782,15 +1806,26 @@ base::expected<void, std::string> LayerContextImpl::DoUpdateDisplayTree(
   if (layers.elastic_overscroll()->SetCurrent(update->elastic_overscroll)) {
     layers.set_needs_update_draw_properties();
   }
+  layers.SetBrowserControlsParams(update->browser_controls_params);
+  host_impl_->browser_controls_manager()->SetOffsetTagModifications(
+      update->browser_controls_offset_tag_modifications);
+
   layers.set_display_transform_hint(update->display_transform_hint);
   layers.SetMaxSafeAreaInsetBottom(update->max_safe_area_inset_bottom);
   layers.set_painted_device_scale_factor(update->painted_device_scale_factor);
   layers.SetDisplayColorSpaces(update->display_color_spaces);
-  if (update->local_surface_id_from_parent) {
-    layers.SetLocalSurfaceIdFromParent(*update->local_surface_id_from_parent);
+
+  if (!(update->top_controls_shown_ratio >= 0 &&
+        update->top_controls_shown_ratio <= 1 &&
+        update->bottom_controls_shown_ratio >= 0 &&
+        update->bottom_controls_shown_ratio <= 1)) {
+    return base::unexpected("Invalid top/bottom controls shown ratios");
   }
+  host_impl_->SetCurrentBrowserControlsShownRatio(
+      update->top_controls_shown_ratio, update->bottom_controls_shown_ratio);
 
   host_impl_->SetViewportDamage(update->viewport_damage_rect);
+  host_impl_->SetDebugState(update->debug_state);
 
   for (auto& ui_resource_request : update->ui_resource_requests) {
     if (ui_resource_request->type ==

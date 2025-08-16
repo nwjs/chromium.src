@@ -825,6 +825,13 @@ experimental domain Audits
       ValidationFailedSignatureMismatch
       ValidationFailedIntegrityMismatch
 
+  type UnencodedDigestError extends string
+    enum
+      MalformedDictionary
+      UnknownAlgorithm
+      IncorrectDigestType
+      IncorrectDigestLength
+
   # Details for issues around "Attribution Reporting API" usage.
   # Explainer: https://github.com/WICG/attribution-reporting-api
   type AttributionReportingIssueDetails extends object
@@ -861,6 +868,11 @@ experimental domain Audits
       SRIMessageSignatureError error
       string signatureBase
       array of string integrityAssertions
+      AffectedRequest request
+
+  type UnencodedDigestIssueDetails extends object
+    properties
+      UnencodedDigestError error
       AffectedRequest request
 
   type GenericIssueErrorType extends string
@@ -1031,19 +1043,20 @@ experimental domain Audits
       # Additional information about the Partitioning Blob URL issue.
       PartitioningBlobURLInfo partitioningBlobURLInfo
 
-  type SelectElementAccessibilityIssueReason extends string
+  type ElementAccessibilityIssueReason extends string
     enum
       DisallowedSelectChild
       DisallowedOptGroupChild
       NonPhrasingContentOptionChild
       InteractiveContentOptionChild
       InteractiveContentLegendChild
+      InteractiveContentSummaryDescendant
 
-  # This issue warns about errors in the select element content model.
-  type SelectElementAccessibilityIssueDetails extends object
+  # This issue warns about errors in the select or summary element content model.
+  type ElementAccessibilityIssueDetails extends object
     properties
       DOM.BackendNodeId nodeId
-      SelectElementAccessibilityIssueReason selectElementAccessibilityIssueReason
+      ElementAccessibilityIssueReason elementAccessibilityIssueReason
       boolean hasDisallowedAttributes
 
   type StyleSheetLoadingIssueReason extends string
@@ -1120,8 +1133,9 @@ experimental domain Audits
       FederatedAuthUserInfoRequestIssue
       PropertyRuleIssue
       SharedDictionaryIssue
-      SelectElementAccessibilityIssue
+      ElementAccessibilityIssue
       SRIMessageSignatureIssue
+      UnencodedDigestIssue
       UserReidentificationIssue
 
   # This struct holds a list of optional fields with additional information
@@ -1151,8 +1165,9 @@ experimental domain Audits
       optional PropertyRuleIssueDetails propertyRuleIssueDetails
       optional FederatedAuthUserInfoRequestIssueDetails federatedAuthUserInfoRequestIssueDetails
       optional SharedDictionaryIssueDetails sharedDictionaryIssueDetails
-      optional SelectElementAccessibilityIssueDetails selectElementAccessibilityIssueDetails
+      optional ElementAccessibilityIssueDetails elementAccessibilityIssueDetails
       optional SRIMessageSignatureIssueDetails sriMessageSignatureIssueDetails
+      optional UnencodedDigestIssueDetails unencodedDigestIssueDetails
       optional UserReidentificationIssueDetails userReidentificationIssueDetails
 
   # A unique id for a DevTools inspector issue. Allows other entities (e.g.
@@ -1747,6 +1762,18 @@ domain Browser
       # with 'left', 'top', 'width' or 'height'. Leaves unspecified fields unchanged.
       Bounds bounds
 
+  # Set size of the browser contents resizing browser window as necessary.
+  experimental command setContentsSize
+    parameters
+      # Browser window id.
+      WindowID windowId
+      # The window contents width in DIP. Assumes current width if omitted.
+      # Must be specified if 'height' is omitted.
+      optional integer width
+      # The window contents height in DIP. Assumes current height if omitted.
+      # Must be specified if 'width' is omitted.
+      optional integer height
+
   # Set dock tile details, platform-specific.
   experimental command setDockTile
     parameters
@@ -2121,6 +2148,8 @@ experimental domain CSS
       optional DOM.LogicalAxes logicalAxes
       # true if the query contains scroll-state() queries.
       optional boolean queriesScrollState
+      # true if the query contains anchored() queries.
+      optional boolean queriesAnchored
 
   # CSS Supports at-rule descriptor.
   experimental type CSSSupports extends object
@@ -2545,6 +2574,11 @@ experimental domain CSS
       experimental optional DOM.NodeId parentLayoutNodeId
       # A list of CSS at-function rules referenced by styles of this node.
       experimental optional array of CSSFunctionRule cssFunctionRules
+
+  # Returns the values of the default UA-defined environment variables used in env()
+  experimental command getEnvironmentVariables
+    returns
+      object environmentVariables
 
   # Returns all media queries parsed by the rendering engine.
   command getMediaQueries
@@ -3385,6 +3419,8 @@ domain DOM
       optional BackendNodeId backendNodeId
       # JavaScript object id of the node wrapper.
       optional Runtime.RemoteObjectId objectId
+      # Include all shadow roots. Equals to false if not specified.
+      experimental optional boolean includeShadowDOM
     returns
       # Outer HTML markup.
       string outerHTML
@@ -3517,7 +3553,8 @@ domain DOM
         # Get the popover target for a given element. In this case, this given
         # element can only be an HTMLFormControlElement (<input>, <button>).
         PopoverTarget
-        # Get the interest target for a given element.
+        # Get the interestfor target (the attribute used to be named
+        # `interesttarget`) for for a given element.
         InterestTarget
         # Get the commandfor target for a given element. In this case, this given
         # element can only be an HTMLButtonElement.
@@ -3696,9 +3733,9 @@ domain DOM
 
   # Returns the query container of the given node based on container query
   # conditions: containerName, physical and logical axes, and whether it queries
-  # scroll-state. If no axes are provided and queriesScrollState is false, the
-  # style container is returned, which is the direct parent or the closest
-  # element with a matching container-name.
+  # scroll-state or anchored elements. If no axes are provided and
+  # queriesScrollState is false, the style container is returned, which is the
+  # direct parent or the closest element with a matching container-name.
   experimental command getContainerForNode
     parameters
       NodeId nodeId
@@ -3706,6 +3743,7 @@ domain DOM
       optional PhysicalAxes physicalAxes
       optional LogicalAxes logicalAxes
       optional boolean queriesScrollState
+      optional boolean queriesAnchored
     returns
       # The container node for the given node, or null if not found.
       optional NodeId nodeId
@@ -3734,6 +3772,19 @@ domain DOM
     returns
       # The anchor element of the given anchor query.
       NodeId nodeId
+
+  # When enabling, this API force-opens the popover identified by nodeId
+  # and keeps it open until disabled.
+  experimental command forceShowPopover
+    parameters
+      # Id of the popover HTMLElement
+      NodeId nodeId
+      # If true, opens the popover and keeps it open. If false, closes the
+      # popover if it was previously force-opened.
+      boolean enable
+    returns
+      # List of popovers that were closed in order to respect popover stacking order.
+      array of NodeId nodeIds
 
   # Fired when `Element`'s attribute is modified.
   event attributeModified
@@ -4871,6 +4922,13 @@ domain Emulation
     parameters
       # Image types to disable.
       array of DisabledImageType imageTypes
+
+
+  # Override the value of navigator.connection.saveData
+  experimental command setDataSaverOverride
+    parameters
+      # Override value. Omitting the parameter disables the override.
+      optional boolean dataSaverEnabled
 
   experimental command setHardwareConcurrencyOverride
     parameters
@@ -6321,7 +6379,7 @@ domain Network
       # https://github.com/WICG/private-network-access/blob/main/permission_prompt/explainer.md
       PrivateNetworkAccessPermissionDenied
       # Request was a local network request and is denied by user permission.
-      # https://github.com/explainers-by-googlers/local-network-access
+      # https://wicg.github.io/local-network-access/
       LocalNetworkAccessPermissionDenied
 
   type CorsErrorStatus extends object
@@ -6467,6 +6525,9 @@ domain Network
       Security.SecurityState securityState
       # Security details for the request.
       optional SecurityDetails securityDetails
+      # Indicates whether the request was sent through IP Protection proxies. If
+      # set to true, the request used the IP Protection privacy feature.
+      experimental optional boolean isIpProtectionUsed
 
   # WebSocket request data.
   type WebSocketRequest extends object
@@ -7669,8 +7730,8 @@ domain Network
 
   experimental type IPAddressSpace extends string
     enum
+      Loopback
       Local
-      Private
       Public
       Unknown
 
@@ -8251,7 +8312,6 @@ experimental domain Overlay
       searchForNode
       searchForUAShadowDOM
       captureAreaScreenshot
-      showDistances
       none
 
   # Disables domain notifications.
@@ -8587,6 +8647,7 @@ domain Page
       accelerometer
       all-screens-capture
       ambient-light-sensor
+      aria-notify
       attribution-reporting
       autoplay
       bluetooth
@@ -9412,6 +9473,8 @@ domain Page
       optional Network.LoaderId loaderId
       # User friendly error message, present if and only if navigation has failed.
       optional string errorText
+      # Whether the navigation resulted in a download.
+      experimental optional boolean isDownload
 
   # Navigates current page to the given history entry.
   command navigateToHistoryEntry
@@ -10061,6 +10124,7 @@ domain Page
       BroadcastChannel
       WebXR
       SharedWorker
+      SharedWorkerMessage
       WebLocks
       WebHID
       WebShare
@@ -10233,8 +10297,7 @@ domain Page
       # Whether or not it was triggered by user gesture.
       boolean userGesture
 
-  # Issued for every compilation cache generated. Is only available
-  # if Page.setGenerateCompilationCache is enabled.
+  # Issued for every compilation cache generated.
   experimental event compilationCacheProduced
     parameters
       string url
@@ -10636,10 +10699,6 @@ experimental domain ServiceWorker
       string tag
 
   command enable
-
-  command inspectWorker
-    parameters
-      string versionId
 
   command setForceUpdateOnPageLoad
     parameters
@@ -12038,6 +12097,15 @@ domain Target
     parameters
       TargetInfo targetInfo
 
+  # Opens a DevTools window for the target.
+  experimental command openDevTools
+    parameters
+      # This can be the page or tab target ID.
+      TargetID targetId
+    returns
+      # The targetId of DevTools page target.
+      TargetID targetId
+
 # The Tethering domain defines methods and events for browser port binding.
 experimental domain Tethering
 
@@ -13064,6 +13132,7 @@ experimental domain Preload
     enum
       SourceIsNotJsonObject
       InvalidRulesSkipped
+      InvalidRulesetLevelTag
 
   # The type of preloading attempted. It corresponds to
   # mojom::SpeculationAction (although PrefetchWithSubresources is omitted as it
@@ -13202,6 +13271,7 @@ experimental domain Preload
       V8OptimizerDisabled
       PrerenderFailedDuringPrefetch
       BrowsingDataRemoved
+      PrerenderHostReused
 
   # Fired when a preload enabled state is updated.
   event preloadEnabledStateUpdated

@@ -22,9 +22,9 @@ TEST(PaymentsServiceSandboxUrl, CheckSandboxUrls) {
       switches::kWalletServiceUseSandbox, "1");
 
   const char kExpectedURL[] =
-      "https://pay.sandbox.google.com/"
-      "pay?p=paymentmethods&utm_source=chrome&utm_medium=settings&utm_campaign="
-      "payment_methods";
+      "https://wallet-web.sandbox.google.com/wallet?"
+      "p=paymentmethods&utm_source=chrome&utm_medium=settings&utm_campaign="
+      "paymentmethods";
 
   EXPECT_EQ(kExpectedURL, GetManageInstrumentsUrl().spec());
   EXPECT_EQ(kExpectedURL, GetManageAddressesUrl().spec());
@@ -58,6 +58,7 @@ TEST(PaymentsServiceUrl, BnplTermsUrl) {
 
   EXPECT_EQ(kExpectedURL, GetBnplTermsUrl(IssuerId::kBnplAffirm));
   EXPECT_EQ(kExpectedURL, GetBnplTermsUrl(IssuerId::kBnplZip));
+  EXPECT_EQ(kExpectedURL, GetBnplTermsUrl(IssuerId::kBnplKlarna));
   EXPECT_NOTREACHED_DEATH(GetBnplTermsUrl(IssuerId::kBnplAfterpay));
 }
 

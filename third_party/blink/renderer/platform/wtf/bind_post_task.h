@@ -17,7 +17,7 @@
 
 // See base::BindPostTask() for docs, this is the WTF cross-thread version.
 
-namespace WTF {
+namespace blink {
 
 namespace internal {
 
@@ -111,6 +111,6 @@ CrossThreadFunction<void(Args...)> BindPostTask(
                                   std::move(helper));
 }
 
-}  // namespace WTF
+}  // namespace blink
 
 #endif  // THIRD_PARTY_BLINK_RENDERER_PLATFORM_WTF_BIND_POST_TASK_H_

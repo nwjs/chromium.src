@@ -22,7 +22,6 @@
 #include "base/test/gtest_util.h"
 #include "base/test/values_test_util.h"
 #include "base/values.h"
-#include "chrome/browser/extensions/account_extension_tracker.h"
 #include "chrome/browser/extensions/api/developer_private/developer_private_functions.h"
 #include "chrome/browser/extensions/api/developer_private/extension_info_generator.h"
 #include "chrome/browser/extensions/api/developer_private/profile_info_generator.h"
@@ -34,9 +33,6 @@
 #include "chrome/browser/extensions/extension_management_test_util.h"
 #include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/extensions/extension_service_test_with_install.h"
-#include "chrome/browser/extensions/extension_sync_data.h"
-#include "chrome/browser/extensions/extension_sync_service.h"
-#include "chrome/browser/extensions/extension_sync_util.h"
 #include "chrome/browser/extensions/extension_util.h"
 #include "chrome/browser/extensions/external_provider_manager.h"
 #include "chrome/browser/extensions/manifest_v2_experiment_manager.h"
@@ -45,6 +41,10 @@
 #include "chrome/browser/extensions/permissions/scripting_permissions_modifier.h"
 #include "chrome/browser/extensions/permissions/site_permissions_helper.h"
 #include "chrome/browser/extensions/signin_test_util.h"
+#include "chrome/browser/extensions/sync/account_extension_tracker.h"
+#include "chrome/browser/extensions/sync/extension_sync_data.h"
+#include "chrome/browser/extensions/sync/extension_sync_service.h"
+#include "chrome/browser/extensions/sync/extension_sync_util.h"
 #include "chrome/browser/extensions/test_extension_system.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/signin/identity_test_environment_profile_adaptor.h"
@@ -3340,8 +3340,9 @@ class DeveloperPrivateApiWithMV2DeprecationDisabledUnitTest
     : public DeveloperPrivateApiUnitTest {
  public:
   DeveloperPrivateApiWithMV2DeprecationDisabledUnitTest() {
-    feature_list_.InitAndEnableFeature(
-        extensions_features::kExtensionManifestV2Disabled);
+    feature_list_.InitWithFeatures(
+        {extensions_features::kExtensionManifestV2Disabled},
+        {extensions_features::kExtensionManifestV2Unsupported});
   }
 
  private:
@@ -3379,8 +3380,7 @@ TEST_F(DeveloperPrivateApiWithMV2DeprecationWarningUnitTest,
 TEST_F(DeveloperPrivateApiWithMV2DeprecationWarningUnitTest,
        TestAcknowledgingANonAffectedExtension) {
   // Add an extension that is not affected by the MV2 deprecation.
-  scoped_refptr<const Extension> extension =
-      ExtensionBuilder("ext").SetManifestVersion(3).Build();
+  scoped_refptr<const Extension> extension = ExtensionBuilder("ext").Build();
   registrar()->AddExtension(extension.get());
 
   std::string args = base::StringPrintf(R"(["%s"])", extension->id().c_str());

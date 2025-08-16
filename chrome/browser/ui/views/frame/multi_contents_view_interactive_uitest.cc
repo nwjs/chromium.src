@@ -2,12 +2,15 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "base/functional/bind.h"
 #include "base/numerics/clamped_math.h"
 #include "base/test/scoped_feature_list.h"
 #include "chrome/browser/bookmarks/bookmark_model_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_features.h"
+#include "chrome/browser/ui/tabs/split_tab_scrim_controller.h"
 #include "chrome/browser/ui/toolbar/bookmark_sub_menu_model.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/bookmarks/bookmark_bar_view.h"
@@ -25,6 +28,7 @@
 #include "chrome/test/interaction/interactive_browser_test.h"
 #include "components/bookmarks/browser/bookmark_model.h"
 #include "components/bookmarks/common/bookmark_pref_names.h"
+#include "components/prefs/pref_service.h"
 #include "components/tabs/public/split_tab_collection.h"
 #include "components/tabs/public/split_tab_visual_data.h"
 #include "content/public/test/browser_test.h"
@@ -32,6 +36,7 @@
 #include "net/dns/mock_host_resolver.h"
 #include "net/test/embedded_test_server/embedded_test_server.h"
 #include "third_party/blink/public/common/input/web_mouse_event.h"
+#include "ui/base/interaction/state_observer.h"
 #include "ui/events/base_event_utils.h"
 #include "ui/events/event_modifiers.h"
 #include "ui/events/keycodes/keyboard_codes.h"
@@ -97,18 +102,17 @@ class MultiContentsViewUiTest
     return result;
   }
 
-  auto CheckResizeValues(base::RepeatingCallback<bool(double, double)> check) {
-    // MultiContentsView overrides Layout, causing an edge case where resizes
-    // don't take effect until the next layout pass. Use PollView and
-    // WaitForState to wait for the expected layout pass to be completed.
-    using MultiContentsViewLayoutObserver =
-        views::test::PollingViewObserver<bool, MultiContentsView>;
-    DEFINE_LOCAL_STATE_IDENTIFIER_VALUE(MultiContentsViewLayoutObserver,
-                                        kMultiContentsViewLayoutObserver);
+  // MultiContentsView overrides Layout, causing an edge case where resizes
+  // don't take effect until the next layout pass. Use PollView and
+  // WaitForState to wait for the expected layout pass to be completed.
+  using MultiContentsViewLayoutObserver =
+      views::test::PollingViewObserver<bool, MultiContentsView>;
 
+  auto CheckResizeValues(
+      base::RepeatingCallback<bool(double, double)> check,
+      ui::test::StateIdentifier<MultiContentsViewLayoutObserver> observer_id) {
     auto result = Steps(
-        PollView(kMultiContentsViewLayoutObserver,
-                 MultiContentsView::kMultiContentsViewElementId,
+        PollView(observer_id, MultiContentsView::kMultiContentsViewElementId,
                  [check](const MultiContentsView* multi_contents_view) -> bool {
                    double start_width =
                        multi_contents_view->start_contents_view_for_testing()
@@ -122,7 +126,7 @@ class MultiContentsViewUiTest
                            .width();
                    return check.Run(start_width, end_width);
                  }),
-        WaitForState(kMultiContentsViewLayoutObserver, true));
+        WaitForState(observer_id, true));
     AddDescriptionPrefix(result, "CheckResizeValues()");
     return result;
   }
@@ -130,11 +134,26 @@ class MultiContentsViewUiTest
   // Perform a check on the contents view sizes following a direct resize call
   auto CheckResize(int resize_amount,
                    base::RepeatingCallback<bool(double, double)> check) {
+    DEFINE_LOCAL_STATE_IDENTIFIER_VALUE(MultiContentsViewLayoutObserver,
+                                        kMultiContentsViewLayoutObserver);
+    auto result =
+        Steps(Do([resize_amount, this]() {
+                multi_contents_view()->OnResize(resize_amount, true);
+              }),
+              CheckResizeValues(check, kMultiContentsViewLayoutObserver));
+    AddDescriptionPrefix(result, "CheckResize()");
+    return result;
+  }
+
+  auto CheckResizeWithId(
+      int resize_amount,
+      base::RepeatingCallback<bool(double, double)> check,
+      ui::test::StateIdentifier<MultiContentsViewLayoutObserver> observer_id) {
     auto result = Steps(Do([resize_amount, this]() {
                           multi_contents_view()->OnResize(resize_amount, true);
                         }),
-                        CheckResizeValues(check));
-    AddDescriptionPrefix(result, "CheckResize()");
+                        CheckResizeValues(check, observer_id));
+    AddDescriptionPrefix(result, "CheckResizeWithId()");
     return result;
   }
 
@@ -142,13 +161,15 @@ class MultiContentsViewUiTest
   // resize
   auto CheckResizeKey(ui::KeyboardCode key_code,
                       base::RepeatingCallback<bool(double, double)> check) {
+    DEFINE_LOCAL_STATE_IDENTIFIER_VALUE(MultiContentsViewLayoutObserver,
+                                        kMultiContentsViewLayoutObserver);
     auto result = Steps(
         FocusElement(
             MultiContentsResizeHandle::kMultiContentsResizeHandleElementId),
         SendKeyPress(
             MultiContentsResizeHandle::kMultiContentsResizeHandleElementId,
             key_code),
-        CheckResizeValues(check));
+        CheckResizeValues(check, kMultiContentsViewLayoutObserver));
     AddDescriptionPrefix(result, "CheckResizeKey()");
     return result;
   }
@@ -176,6 +197,18 @@ class MultiContentsViewUiTest
         [](MultiContentsView* multi_contents_view) -> bool {
           return multi_contents_view->GetActiveContentsView()->HasFocus();
         });
+  }
+
+  auto SimulateTriggeringPermissionPrompt(bool show_prompt) {
+    return Do([this, show_prompt]() {
+      split_tabs::SplitTabScrimController* const split_tab_scrim_controller =
+          browser()->browser_window_features()->split_tab_scrim_controller();
+      if (show_prompt) {
+        split_tab_scrim_controller->OnPermissionPromptShown();
+      } else {
+        split_tab_scrim_controller->OnPermissionPromptHidden();
+      }
+    });
   }
 };
 
@@ -363,6 +396,33 @@ IN_PROC_BROWSER_TEST_F(MultiContentsViewUiTest, ResizesToMinWidth) {
             // On large window, uses flat min width.
             return end_width == 60 - MultiContentsView::kSplitViewContentInset;
           })));
+}
+
+IN_PROC_BROWSER_TEST_F(MultiContentsViewUiTest, ResizesToSnapPointWidth) {
+  DEFINE_LOCAL_STATE_IDENTIFIER_VALUE(
+      MultiContentsViewLayoutObserver,
+      kMultiContentsViewLayoutInitialResizeObserver);
+  DEFINE_LOCAL_STATE_IDENTIFIER_VALUE(
+      MultiContentsViewLayoutObserver,
+      kMultiContentsViewLayoutSnapResizeObserver);
+
+  RunTestSequence(
+      CreateTabsAndEnterSplitView(), ResizeWindow(1000),
+      // Resize outside of the snap point width
+      CheckResizeWithId(
+          100, base::BindRepeating([](double start_width, double end_width) {
+            // Rounding differences mean this width is only changed by 199
+            // instead of 200.
+            return start_width == end_width + 199;
+          }),
+          kMultiContentsViewLayoutInitialResizeObserver),
+      // Resize back to within the snap point margin and snap back to 50% width
+      CheckResizeWithId(
+          -96, base::BindRepeating([](double start_width, double end_width) {
+            // On large window, uses snap point width.
+            return end_width == start_width;
+          }),
+          kMultiContentsViewLayoutSnapResizeObserver));
 }
 
 // TODO(crbug.com/399212996): Flaky on linux_chromium_asan_rel_ng, linux-rel
@@ -607,29 +667,34 @@ IN_PROC_BROWSER_TEST_F(MultiContentsViewUiTest,
 }
 
 IN_PROC_BROWSER_TEST_F(MultiContentsViewUiTest,
-                       MiniToolbarShownForInactiveContents) {
+                       MiniToolbarVisibilityForContents) {
+  bool visible_on_active_contents =
+      features::kSideBySideMiniToolbarActiveConfiguration.Get() !=
+      features::MiniToolbarActiveConfiguration::Hide;
   RunTestSequence(
       // Open split view.
       CreateTabsAndEnterSplitView(), WaitForActiveTabChange(0),
-      // Verify the mini toolbar is only visible for the inactive contents.
+      // Verify the mini toolbar is visible for the inactive contents.
       Check([&]() {
-        return !multi_contents_view()
-                    ->mini_toolbar_for_testing(0)
-                    ->GetVisible();
+        return multi_contents_view()
+                   ->mini_toolbar_for_testing(0)
+                   ->GetVisible() == visible_on_active_contents;
       }),
+      // Verify the mini toolbar visibility on active contents.
       Check([&]() {
         return multi_contents_view()->mini_toolbar_for_testing(1)->GetVisible();
       }),
       // Focus inactive contents and verify active tab.
       FocusInactiveTabInSplit(), WaitForActiveTabChange(1),
-      // Verify the mini toolbar is only visile for the newly inactive contents.
+      // Verify the mini toolbar is only visible on the newly inactive contents.
       Check([&]() {
         return multi_contents_view()->mini_toolbar_for_testing(0)->GetVisible();
       }),
+      // Verify the mini toolbar visibility on the newly active contents.
       Check([&]() {
-        return !multi_contents_view()
-                    ->mini_toolbar_for_testing(1)
-                    ->GetVisible();
+        return multi_contents_view()
+                   ->mini_toolbar_for_testing(1)
+                   ->GetVisible() == visible_on_active_contents;
       }));
 }
 
@@ -678,6 +743,65 @@ IN_PROC_BROWSER_TEST_F(MultiContentsViewUiTest,
       SelectTab(kTabStripElementId, 0),
       WaitForShow(MultiContentsView::kEndContainerViewScrimElementId),
       EnsureNotPresent(MultiContentsView::kStartContainerViewScrimElementId));
+}
+
+IN_PROC_BROWSER_TEST_F(MultiContentsViewUiTest, ScrimShowsForPermissionPrompt) {
+  RunTestSequence(
+      EnsureNotPresent(MultiContentsView::kStartContainerViewScrimElementId),
+      EnsureNotPresent(MultiContentsView::kEndContainerViewScrimElementId),
+      InstrumentTab(kNewTab),
+      // Create a split tab and simulate the permission prompt is shown
+      AddInstrumentedTab(kSecondTab, GetTestUrl()),
+      SelectTab(kTabStripElementId, 0), EnterSplitView(0, 1),
+      FocusElement(kNewTab),
+      WaitForHide(MultiContentsView::kEndContainerViewScrimElementId),
+      SimulateTriggeringPermissionPrompt(true),
+      WaitForShow(MultiContentsView::kEndContainerViewScrimElementId),
+      // Simulate the permission prompt closed
+      SimulateTriggeringPermissionPrompt(false),
+      WaitForHide(MultiContentsView::kEndContainerViewScrimElementId));
+}
+
+IN_PROC_BROWSER_TEST_F(MultiContentsViewUiTest, CoordinateScrimShowReasons) {
+  RunTestSequence(
+      EnsureNotPresent(MultiContentsView::kStartContainerViewScrimElementId),
+      EnsureNotPresent(MultiContentsView::kEndContainerViewScrimElementId),
+      InstrumentTab(kNewTab),
+      // Create a split tab and focus the omnibox
+      AddInstrumentedTab(kSecondTab, GetTestUrl()),
+      SelectTab(kTabStripElementId, 0), EnterSplitView(0, 1),
+      FocusElement(kOmniboxElementId),
+      WaitForShow(MultiContentsView::kEndContainerViewScrimElementId),
+      // Trigger the permission prompt while focusing the omnibox should
+      // continue showing the scrim.
+      SimulateTriggeringPermissionPrompt(true),
+      EnsurePresent(MultiContentsView::kEndContainerViewScrimElementId),
+      // removing focus from the omnibox should still have the scrim continue to
+      // show because the permission prompt is still showing.
+      FocusElement(kNewTab),
+      EnsurePresent(MultiContentsView::kEndContainerViewScrimElementId),
+      // The scrim should hide after the prompt is closed because there is no
+      // longer any reason to continue showing the scrim.
+      SimulateTriggeringPermissionPrompt(false),
+      WaitForHide(MultiContentsView::kEndContainerViewScrimElementId));
+}
+
+IN_PROC_BROWSER_TEST_F(MultiContentsViewUiTest, ScrimShowsForPageInfoBubble) {
+  RunTestSequence(
+      EnsureNotPresent(MultiContentsView::kStartContainerViewScrimElementId),
+      EnsureNotPresent(MultiContentsView::kEndContainerViewScrimElementId),
+      InstrumentTab(kNewTab),
+      NavigateWebContents(kNewTab, GURL(chrome::kChromeUISettingsURL)),
+      AddInstrumentedTab(kSecondTab, GetTestUrl()),
+      SelectTab(kTabStripElementId, 0), EnterSplitView(0, 1),
+      FocusElement(kNewTab),
+      WaitForHide(MultiContentsView::kEndContainerViewScrimElementId),
+      PressButton(kLocationIconElementId),
+      WaitForShow(MultiContentsView::kEndContainerViewScrimElementId),
+      // Clicking the location icon again should close the page info bubble and
+      // hide the scrim.
+      MoveMouseTo(kLocationIconElementId), ClickMouse(),
+      WaitForHide(MultiContentsView::kEndContainerViewScrimElementId));
 }
 
 // TODO(crbug.com/414590951): There's limited support for testing drag and drop

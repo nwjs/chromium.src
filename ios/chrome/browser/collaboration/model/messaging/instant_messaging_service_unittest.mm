@@ -61,7 +61,6 @@ class InstantMessagingServiceTest : public PlatformTest {
     scoped_feature_list_.InitWithFeatures(
         /*enabled_features=*/
         {
-            kTabGroupSync,
             data_sharing::features::kDataSharingFeature,
             collaboration::features::kCollaborationMessaging,
         },

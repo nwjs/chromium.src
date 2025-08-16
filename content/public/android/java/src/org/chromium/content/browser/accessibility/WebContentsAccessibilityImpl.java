@@ -79,6 +79,7 @@ import android.view.accessibility.AccessibilityNodeProvider;
 import android.view.autofill.AutofillManager;
 import android.view.inputmethod.EditorInfo;
 
+import androidx.annotation.VisibleForTesting;
 import androidx.core.view.accessibility.AccessibilityNodeInfoCompat;
 import androidx.core.view.accessibility.AccessibilityNodeProviderCompat;
 
@@ -159,6 +160,13 @@ public class WebContentsAccessibilityImpl extends AccessibilityNodeProviderCompa
 
     // Maximum number of times that the auto-disable feature can affect |this|.
     private static final int AUTO_DISABLE_SINGLE_INSTANCE_TOGGLE_LIMIT = 3;
+
+    // Accessibility extras key for absolute drawing order (paint order among all
+    // nodes in tree). Used to compute occlusion.
+    // TODO(419600429): Update to retrieve this string from AccessibilityNodeInfo when possible.
+    @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
+    public static final String EXTRA_DATA_ABSOLUTE_DRAWING_ORDER_KEY =
+            "android.view.accessibility.extra.ABSOLUTE_DRAWING_ORDER";
 
     private final AccessibilityDelegate mDelegate;
     protected AccessibilityManager mAccessibilityManager;
@@ -539,6 +547,23 @@ public class WebContentsAccessibilityImpl extends AccessibilityNodeProviderCompa
                 .setMaxContentChangedEventsToFireForTesting(mNativeObj, maxEvents);
     }
 
+    public int @Nullable [] getChildIdsForTesting(int virtualViewId) {
+        if (!isNativeInitialized()) return null;
+        assert isRootManagerConnected()
+                : "Accessibility root manager should be connected when the native object is"
+                + " initialized.";
+        return WebContentsAccessibilityImplJni.get()
+                .getChildIdsForTesting(mNativeObj, virtualViewId);
+    }
+
+    public int getRootIdForTesting() {
+        assert isNativeInitialized() : "native object is not initialized";
+        assert isRootManagerConnected()
+                : "Accessibility root manager should be connected when the native object is"
+                + " initialized.";
+        return WebContentsAccessibilityImplJni.get().getRootId(mNativeObj);
+    }
+
     public int getMaxContentChangedEventsToFireForTesting() {
         return WebContentsAccessibilityImplJni.get()
                 .getMaxContentChangedEventsToFireForTesting(mNativeObj);
@@ -558,6 +583,10 @@ public class WebContentsAccessibilityImpl extends AccessibilityNodeProviderCompa
     public void setIsAutoDisableAccessibilityCandidateForTesting(
             boolean isAutoDisableAccessibilityCandidate) {
         mIsAutoDisableAccessibilityCandidate = isAutoDisableAccessibilityCandidate;
+    }
+
+    public void setThrottleDelayForTesting(Map<Integer, Integer> eventThrottleDelays) {
+        mEventDispatcher.setEventThrottleDelays(eventThrottleDelays);
     }
 
     public boolean hasAnyPendingTimersForTesting() {
@@ -893,10 +922,7 @@ public class WebContentsAccessibilityImpl extends AccessibilityNodeProviderCompa
 
             mNativeObj =
                     WebContentsAccessibilityImplJni.get()
-                            .init(
-                                    WebContentsAccessibilityImpl.this,
-                                    mDelegate.getWebContents(),
-                                    mAccessibilityNodeInfoBuilder);
+                            .init(this, mDelegate.getWebContents(), mAccessibilityNodeInfoBuilder);
             onNativeInit();
         }
 
@@ -913,10 +939,7 @@ public class WebContentsAccessibilityImpl extends AccessibilityNodeProviderCompa
 
         mNativeObj =
                 WebContentsAccessibilityImplJni.get()
-                        .initWithAXTree(
-                                WebContentsAccessibilityImpl.this,
-                                nativeAxTree,
-                                mAccessibilityNodeInfoBuilder);
+                        .initWithAXTree(this, nativeAxTree, mAccessibilityNodeInfoBuilder);
         onNativeInit();
     }
 
@@ -1117,10 +1140,7 @@ public class WebContentsAccessibilityImpl extends AccessibilityNodeProviderCompa
         if (ContentFeatureMap.isEnabled(ContentFeatureList.ACCESSIBILITY_UNIFIED_SNAPSHOTS)) {
             mNativeAssistDataObj =
                     WebContentsAccessibilityImplJni.get()
-                            .initForAssistData(
-                                    WebContentsAccessibilityImpl.this,
-                                    webContents,
-                                    new AssistDataBuilder());
+                            .initForAssistData(this, webContents, new AssistDataBuilder());
 
             WebContentsAccessibilityImplJni.get()
                     .requestAccessibilityTreeSnapshot(
@@ -1896,7 +1916,7 @@ public class WebContentsAccessibilityImpl extends AccessibilityNodeProviderCompa
     }
 
     @CalledByNative
-    private void handleFocusChanged(int id) {
+    private void handleFocusChanged(int id, boolean isRootOrFrameRoot) {
         // If |mShouldFocusOnPageLoad| is false, that means this is a WebView and
         // we should avoid moving accessibility focus when the page loads, but more
         // generally we should avoid moving accessibility focus whenever it's not
@@ -1910,7 +1930,7 @@ public class WebContentsAccessibilityImpl extends AccessibilityNodeProviderCompa
             // result in a blur aka focus on the root. This interferes
             // with some accessibility services that move accessibility
             // focus along with input focus.
-            if (mCurrentRootId == id) {
+            if (isRootOrFrameRoot) {
                 return;
             }
         }
@@ -2199,6 +2219,9 @@ public class WebContentsAccessibilityImpl extends AccessibilityNodeProviderCompa
             case EXTRAS_DATA_REQUEST_IMAGE_DATA_KEY:
                 getImageData(virtualViewId, info);
                 break;
+            case EXTRA_DATA_ABSOLUTE_DRAWING_ORDER_KEY:
+                getPaintOrder(virtualViewId, info);
+                break;
         }
     }
 
@@ -2266,21 +2289,27 @@ public class WebContentsAccessibilityImpl extends AccessibilityNodeProviderCompa
         }
     }
 
+    private void getPaintOrder(int virtualViewId, AccessibilityNodeInfoCompat info) {
+        int paintOrder =
+                WebContentsAccessibilityImplJni.get().getPaintOrder(mNativeObj, virtualViewId);
+        info.getExtras().putInt(EXTRA_DATA_ABSOLUTE_DRAWING_ORDER_KEY, paintOrder);
+    }
+
     @NativeMethods
     interface Natives {
         long init(
-                WebContentsAccessibilityImpl caller,
+                WebContentsAccessibilityImpl self,
                 WebContents webContents,
                 AccessibilityNodeInfoBuilder builder);
 
         long initWithAXTree(
-                WebContentsAccessibilityImpl caller,
+                WebContentsAccessibilityImpl self,
                 long axTreePtr,
                 AccessibilityNodeInfoBuilder builder);
 
         // These two methods are only used for one-off accessibility tree snapshots.
         long initForAssistData(
-                WebContentsAccessibilityImpl caller,
+                WebContentsAccessibilityImpl self,
                 @Nullable WebContents webContents,
                 AssistDataBuilder builder);
 
@@ -2412,6 +2441,8 @@ public class WebContentsAccessibilityImpl extends AccessibilityNodeProviderCompa
         int[] getCharacterBoundingBoxes(
                 long nativeWebContentsAccessibilityAndroid, int id, int start, int len);
 
+        int[] getChildIdsForTesting(long nativeWebContentsAccessibilityAndroid, int virtualViewId);
+
         int getTextLength(long nativeWebContentsAccessibilityAndroid, int id);
 
         void addSpellingErrorForTesting(
@@ -2435,5 +2466,7 @@ public class WebContentsAccessibilityImpl extends AccessibilityNodeProviderCompa
                 AccessibilityNodeInfoCompat info,
                 int id,
                 boolean hasSentPreviousRequest);
+
+        int getPaintOrder(long nativeWebContentsAccessibilityAndroid, int id);
     }
 }

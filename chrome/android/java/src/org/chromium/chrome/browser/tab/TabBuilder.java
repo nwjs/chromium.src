@@ -37,6 +37,7 @@ public class TabBuilder {
     private boolean mInitializeRenderer;
     private @Nullable TabState mTabState;
     private @Nullable Callback<Tab> mPreInitializeAction;
+    private boolean mIsPinned;
 
     public TabBuilder(Profile profile) {
         mProfile = profile;
@@ -104,12 +105,13 @@ public class TabBuilder {
     }
 
     /**
-     * Sets a {@link WebContents} object to be used on the Tab. If not set, a new one
-     * will be created.
+     * Sets a {@link WebContents} object to be used on the Tab. If not set, a new one will be
+     * created.
+     *
      * @param webContents {@link WebContents} object.
      * @return {@link TabBuilder} creating the Tab.
      */
-    public TabBuilder setWebContents(WebContents webContents) {
+    public TabBuilder setWebContents(@Nullable WebContents webContents) {
         mWebContents = webContents;
         return this;
     }
@@ -153,6 +155,11 @@ public class TabBuilder {
      */
     public TabBuilder setTabState(TabState tabState) {
         mTabState = tabState;
+        return this;
+    }
+
+    public TabBuilder setInitialPinState(boolean isPinned) {
+        mIsPinned = isPinned;
         return this;
     }
 
@@ -200,7 +207,8 @@ public class TabBuilder {
                 mDelegateFactory,
                 mInitiallyHidden,
                 mTabState,
-                mInitializeRenderer);
+                mInitializeRenderer,
+                mIsPinned);
         return tab;
     }
 

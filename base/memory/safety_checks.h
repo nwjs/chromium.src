@@ -5,6 +5,8 @@
 #ifndef BASE_MEMORY_SAFETY_CHECKS_H_
 #define BASE_MEMORY_SAFETY_CHECKS_H_
 
+#include <stdint.h>
+
 #include <new>
 #include <type_traits>
 
@@ -336,6 +338,16 @@ class BASE_EXPORT ScopedSafetyChecksExclusion {
       opt_out_scheduler_loop_quarantine_;
 #endif  // PA_BUILDFLAG(USE_PARTITION_ALLOC_AS_MALLOC)
 };
+
+#if PA_BUILDFLAG(USE_PARTITION_ALLOC_AS_MALLOC)
+using base::allocator::SchedulerLoopQuarantineScanPolicyUpdater;
+#else
+class SchedulerLoopQuarantineScanPolicyUpdater {
+ public:
+  ALWAYS_INLINE void DisallowScanlessPurge() {}
+  ALWAYS_INLINE void AllowScanlessPurge() {}
+};
+#endif  // PA_BUILDFLAG(USE_PARTITION_ALLOC_AS_MALLOC)
 
 }  // namespace base
 

@@ -4,6 +4,7 @@
 
 #include "components/autofill/core/browser/filling/autofill_ai/field_filling_entity_util.h"
 
+#include "base/containers/span.h"
 #include "base/containers/to_vector.h"
 #include "base/path_service.h"
 #include "base/strings/string_number_conversions.h"
@@ -28,6 +29,7 @@
 #include "components/autofill/core/browser/webdata/autofill_webdata_service_test_helper.h"
 #include "components/autofill/core/common/autofill_features.h"
 #include "components/autofill/core/common/autofill_test_utils.h"
+#include "components/autofill/core/common/mojom/autofill_types.mojom-data-view.h"
 #include "components/autofill/core/common/mojom/autofill_types.mojom-shared.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -59,6 +61,55 @@ FieldPrediction CreatePrediction(
   return prediction;
 }
 
+// Wrapper for GetFillValueForEntity() that calls
+// RationalizeAndDetermineAttributeTypes(). It considers the first field in
+// `fields` to be the triggering field.
+std::u16string GetFillValueForEntity(
+    const EntityInstance& entity,
+    base::span<const std::unique_ptr<AutofillField>> fields,
+    mojom::ActionPersistence action_persistence,
+    const std::string& app_locale = kAppLocaleUS,
+    AddressNormalizer* address_normalizer = nullptr) {
+  CHECK(!fields.empty());
+  std::vector<AutofillFieldWithAttributeType> fields_and_types =
+      RationalizeAndDetermineAttributeTypes(fields, fields[0]->section(),
+                                            entity.type());
+
+  // For a name field fake that there are other fields that dynamically
+  // propagate to the name field.
+  for (AutofillFieldWithAttributeType& field_and_type : fields_and_types) {
+    if (field_and_type.field->Type().GetGroups().contains(
+            FieldTypeGroup::kName) &&
+        base::FeatureList::IsEnabled(features::kAutofillAiNoTagTypes)) {
+      auto attribute_type = [&entity]() -> std::optional<AttributeType> {
+        switch (entity.type().name()) {
+          case EntityTypeName::kDriversLicense:
+            return AttributeType(AttributeTypeName::kDriversLicenseName);
+          case EntityTypeName::kKnownTravelerNumber:
+            return AttributeType(AttributeTypeName::kKnownTravelerNumberNumber);
+          case EntityTypeName::kPassport:
+            return AttributeType(AttributeTypeName::kPassportName);
+          case EntityTypeName::kNationalIdCard:
+            return AttributeType(AttributeTypeName::kNationalIdCardName);
+          case EntityTypeName::kRedressNumber:
+            return AttributeType(AttributeTypeName::kRedressNumberName);
+          case EntityTypeName::kVehicle:
+            return AttributeType(AttributeTypeName::kVehicleOwner);
+        }
+        return std::nullopt;
+      }();
+      if (attribute_type) {
+        fields_and_types.emplace_back(*field_and_type.field, *attribute_type);
+        break;
+      }
+    }
+  }
+
+  return GetFillValueForEntity(entity, fields_and_types, *fields[0],
+                               action_persistence, app_locale,
+                               address_normalizer);
+}
+
 // Wrapper for GetFillValueForEntity() that calls DetermineAttributeTypes() for
 // the single `field`.
 std::u16string GetFillValueForEntity(
@@ -67,32 +118,7 @@ std::u16string GetFillValueForEntity(
     mojom::ActionPersistence action_persistence,
     const std::string& app_locale = kAppLocaleUS,
     AddressNormalizer* address_normalizer = nullptr) {
-  std::vector<AutofillFieldWithAttributeType> fields_and_types =
-      DetermineAttributeTypes(base::span_from_ref(field), field->section(),
-                              entity.type());
-
-  // For a name field fake that there are other fields that dynamically
-  // propagate to the name field.
-  if (GroupTypeOfFieldType(field->Type().GetStorableType()) ==
-          FieldTypeGroup::kName &&
-      base::FeatureList::IsEnabled(features::kAutofillAiNoTagTypes)) {
-    auto attribute_type = [&entity]() -> std::optional<AttributeType> {
-      switch (entity.type().name()) {
-        case EntityTypeName::kDriversLicense:
-          return AttributeType(AttributeTypeName::kDriversLicenseName);
-        case EntityTypeName::kPassport:
-          return AttributeType(AttributeTypeName::kPassportName);
-        case EntityTypeName::kVehicle:
-          return AttributeType(AttributeTypeName::kVehicleOwner);
-      }
-      return std::nullopt;
-    }();
-    if (attribute_type) {
-      fields_and_types.emplace_back(*field, *attribute_type);
-    }
-  }
-
-  return GetFillValueForEntity(entity, fields_and_types, *field,
+  return GetFillValueForEntity(entity, base::span_from_ref(field),
                                action_persistence, app_locale,
                                address_normalizer);
 }
@@ -197,18 +223,31 @@ class GetFillValueForEntityTest : public testing::Test {
 };
 
 TEST_F(GetFillValueForEntityTest, UnobfuscatedAttributes) {
-  auto field = std::make_unique<AutofillField>();
-  field->set_server_predictions(
+  auto name_field = std::make_unique<AutofillField>();
+  name_field->set_server_predictions(
       {CreatePrediction(NAME_FIRST, FieldPrediction::SOURCE_AUTOFILL_DEFAULT)});
-  field->SetTypeTo(NAME_FIRST, AutofillPredictionSource::kServerCrowdsourcing);
+  name_field->SetTypeTo(AutofillType(NAME_FIRST),
+                        AutofillPredictionSource::kServerCrowdsourcing);
 
+  // The passport number needs to be added in order for a form/set of fields
+  // to be pass the passport entity requirements.
+  auto passport_number_field = std::make_unique<AutofillField>();
+  passport_number_field->set_server_predictions(
+      {CreatePrediction(PASSPORT_NUMBER)});
+  passport_number_field->SetTypeTo(
+      AutofillType(PASSPORT_NUMBER),
+      AutofillPredictionSource::kServerCrowdsourcing);
+  std::vector<std::unique_ptr<AutofillField>> fields;
+  fields.push_back(std::move(name_field));
+  fields.push_back(std::move(passport_number_field));
   EntityInstance passport =
       test::GetPassportEntityInstance({.name = u"John Doe"});
-  EXPECT_EQ(GetFillValueForEntity(passport, field,
+
+  EXPECT_EQ(GetFillValueForEntity(passport, fields,
                                   mojom::ActionPersistence::kPreview),
             u"John");
   EXPECT_EQ(
-      GetFillValueForEntity(passport, field, mojom::ActionPersistence::kFill),
+      GetFillValueForEntity(passport, fields, mojom::ActionPersistence::kFill),
       u"John");
 }
 
@@ -235,12 +274,23 @@ TEST_F(GetFillValueForEntityTest, FillingStructuredNames) {
            {NAME_FULL, u"Pippi Långstrump"},
            {NAME_FIRST, u"Pippi"},
            {NAME_LAST, u"Långstrump"}}) {
-    auto field = std::make_unique<AutofillField>();
-    field->SetTypeTo(type, AutofillPredictionSource::kServerCrowdsourcing);
-
-    EXPECT_EQ(
-        GetFillValueForEntity(passport, field, mojom::ActionPersistence::kFill),
-        expectation)
+    auto name_field = std::make_unique<AutofillField>();
+    name_field->SetTypeTo(AutofillType(type),
+                          AutofillPredictionSource::kServerCrowdsourcing);
+    // The passport number needs to be added in order for a form/set of fields
+    // to be pass the passport entity requirements.
+    auto passport_number_field = std::make_unique<AutofillField>();
+    passport_number_field->set_server_predictions(
+        {CreatePrediction(PASSPORT_NUMBER)});
+    passport_number_field->SetTypeTo(
+        AutofillType(PASSPORT_NUMBER),
+        AutofillPredictionSource::kServerCrowdsourcing);
+    std::vector<std::unique_ptr<AutofillField>> fields;
+    fields.push_back(std::move(name_field));
+    fields.push_back(std::move(passport_number_field));
+    EXPECT_EQ(GetFillValueForEntity(passport, fields,
+                                    mojom::ActionPersistence::kFill),
+              expectation)
         << FieldTypeToStringView(type);
   }
 }
@@ -256,12 +306,23 @@ TEST_F(GetFillValueForEntityTest, FillingLocalizedCountries) {
            {"fr-FR", u"Liban"},
            {"de-DE", u"Libanon"},
            {"ar-LB", u"لبنان"}}) {
-    auto field = std::make_unique<AutofillField>();
-    field->set_server_predictions({CreatePrediction(PASSPORT_ISSUING_COUNTRY)});
-    field->SetTypeTo(ADDRESS_HOME_COUNTRY,
-                     AutofillPredictionSource::kServerCrowdsourcing);
-
-    EXPECT_EQ(GetFillValueForEntity(passport, field,
+    auto country_field = std::make_unique<AutofillField>();
+    country_field->set_server_predictions(
+        {CreatePrediction(PASSPORT_ISSUING_COUNTRY)});
+    country_field->SetTypeTo(AutofillType(PASSPORT_ISSUING_COUNTRY),
+                             AutofillPredictionSource::kServerCrowdsourcing);
+    // The passport number needs to be added in order for a form/set of fields
+    // to be pass the passport entity requirements.
+    auto passport_number_field = std::make_unique<AutofillField>();
+    passport_number_field->set_server_predictions(
+        {CreatePrediction(PASSPORT_NUMBER)});
+    passport_number_field->SetTypeTo(
+        AutofillType(PASSPORT_NUMBER),
+        AutofillPredictionSource::kServerCrowdsourcing);
+    std::vector<std::unique_ptr<AutofillField>> fields;
+    fields.push_back(std::move(country_field));
+    fields.push_back(std::move(passport_number_field));
+    EXPECT_EQ(GetFillValueForEntity(passport, fields,
                                     mojom::ActionPersistence::kFill, locale),
               expectation)
         << locale;
@@ -277,15 +338,26 @@ TEST_F(GetFillValueForEntityTest, FillingSelectControlWithCountries) {
        std::vector<std::pair<std::vector<const char*>, std::u16string>>{
            {{"FR", "CA", "SE", "BR"}, u"SE"},
            {{"France", "Sweden", "Canada", "Brazil"}, u"Sweden"}}) {
-    auto field =
+    auto country_field =
         std::make_unique<AutofillField>(test::CreateTestSelectField(options));
-    field->set_server_predictions({CreatePrediction(PASSPORT_ISSUING_COUNTRY)});
-    field->SetTypeTo(ADDRESS_HOME_COUNTRY,
-                     AutofillPredictionSource::kServerCrowdsourcing);
-
-    EXPECT_EQ(
-        GetFillValueForEntity(passport, field, mojom::ActionPersistence::kFill),
-        expectation);
+    country_field->set_server_predictions(
+        {CreatePrediction(PASSPORT_ISSUING_COUNTRY)});
+    country_field->SetTypeTo(AutofillType(PASSPORT_ISSUING_COUNTRY),
+                             AutofillPredictionSource::kServerCrowdsourcing);
+    // The passport number needs to be added in order for a form/set of fields
+    // to be pass the passport entity requirements.
+    auto passport_number_field = std::make_unique<AutofillField>();
+    passport_number_field->set_server_predictions(
+        {CreatePrediction(PASSPORT_NUMBER)});
+    passport_number_field->SetTypeTo(
+        AutofillType(PASSPORT_NUMBER),
+        AutofillPredictionSource::kServerCrowdsourcing);
+    std::vector<std::unique_ptr<AutofillField>> fields;
+    fields.push_back(std::move(country_field));
+    fields.push_back(std::move(passport_number_field));
+    EXPECT_EQ(GetFillValueForEntity(passport, fields,
+                                    mojom::ActionPersistence::kFill),
+              expectation);
   }
 }
 
@@ -297,6 +369,83 @@ TEST_F(GetFillValueForEntityTest, DifferentEntities) {
   EXPECT_EQ(GetFillValueForEntity(drivers_license, field,
                                   mojom::ActionPersistence::kPreview),
             u"");
+}
+
+TEST_F(GetFillValueForEntityTest, NumbersWithMaxLength) {
+  EntityInstance drivers_license = test::GetDriversLicenseEntityInstance();
+  EntityInstance passport = test::GetPassportEntityInstance();
+  EntityInstance vehicle = test::GetVehicleEntityInstance();
+
+  auto drivers_license_number_field = std::make_unique<AutofillField>();
+  drivers_license_number_field->set_server_predictions(
+      {CreatePrediction(DRIVERS_LICENSE_NUMBER)});
+  auto passport_number_field = std::make_unique<AutofillField>();
+  passport_number_field->set_server_predictions(
+      {CreatePrediction(PASSPORT_NUMBER)});
+  auto license_plate_field = std::make_unique<AutofillField>();
+  license_plate_field->set_server_predictions(
+      {CreatePrediction(VEHICLE_LICENSE_PLATE)});
+  auto vin_field = std::make_unique<AutofillField>();
+  vin_field->set_server_predictions({CreatePrediction(VEHICLE_VIN)});
+
+  // Currently the fields have no max_length so the value getters should return
+  // the whole number.
+  EXPECT_EQ(GetFillValueForEntity(drivers_license, drivers_license_number_field,
+                                  mojom::ActionPersistence::kFill),
+            u"12312345");
+  EXPECT_EQ(GetFillValueForEntity(passport, passport_number_field,
+                                  mojom::ActionPersistence::kFill),
+            u"LR1234567");
+  EXPECT_EQ(GetFillValueForEntity(vehicle, license_plate_field,
+                                  mojom::ActionPersistence::kFill),
+            u"123456");
+  EXPECT_EQ(GetFillValueForEntity(vehicle, vin_field,
+                                  mojom::ActionPersistence::kFill),
+            u"12312345");
+
+  // Now, `FormFieldData::max_length_` is set for the fields such that the
+  // numbers will need stripping.
+  drivers_license_number_field->set_max_length(3);
+  passport_number_field->set_max_length(3);
+  license_plate_field->set_max_length(3);
+  vin_field->set_max_length(3);
+
+  // It is now expected that the getters only return the last three digits of
+  // the corresponding numbers.
+  EXPECT_EQ(GetFillValueForEntity(drivers_license, drivers_license_number_field,
+                                  mojom::ActionPersistence::kFill),
+            u"345");
+  EXPECT_EQ(GetFillValueForEntity(passport, passport_number_field,
+                                  mojom::ActionPersistence::kFill),
+            u"567");
+  EXPECT_EQ(GetFillValueForEntity(vehicle, license_plate_field,
+                                  mojom::ActionPersistence::kFill),
+            u"456");
+  EXPECT_EQ(GetFillValueForEntity(vehicle, vin_field,
+                                  mojom::ActionPersistence::kFill),
+            u"345");
+
+  // Now, `FormFieldData::max_length_` will be set to a large value so that all
+  // values fit completely.
+  drivers_license_number_field->set_max_length(100);
+  passport_number_field->set_max_length(100);
+  license_plate_field->set_max_length(100);
+  vin_field->set_max_length(100);
+
+  // It is now expected that the getters return the full value as if the
+  // `max_length` attribute was not set.
+  EXPECT_EQ(GetFillValueForEntity(drivers_license, drivers_license_number_field,
+                                  mojom::ActionPersistence::kFill),
+            u"12312345");
+  EXPECT_EQ(GetFillValueForEntity(passport, passport_number_field,
+                                  mojom::ActionPersistence::kFill),
+            u"LR1234567");
+  EXPECT_EQ(GetFillValueForEntity(vehicle, license_plate_field,
+                                  mojom::ActionPersistence::kFill),
+            u"123456");
+  EXPECT_EQ(GetFillValueForEntity(vehicle, vin_field,
+                                  mojom::ActionPersistence::kFill),
+            u"12312345");
 }
 
 class GetFillValueForEntityStateTest : public GetFillValueForEntityTest {
@@ -353,7 +502,7 @@ TEST_F(GetFillValueForEntityStateTest, FillingStateValueIntoInput) {
                                                       {2u, u"CA"}}) {
     auto field = std::make_unique<AutofillField>();
     field->set_server_predictions({CreatePrediction(DRIVERS_LICENSE_REGION)});
-    field->SetTypeTo(ADDRESS_HOME_STATE,
+    field->SetTypeTo(AutofillType(DRIVERS_LICENSE_REGION),
                      AutofillPredictionSource::kServerCrowdsourcing);
     field->set_max_length(max_length);
 
@@ -377,7 +526,7 @@ TEST_F(GetFillValueForEntityStateTest, FillingSelectControlWithState) {
     auto field =
         std::make_unique<AutofillField>(test::CreateTestSelectField(options));
     field->set_server_predictions({CreatePrediction(DRIVERS_LICENSE_REGION)});
-    field->SetTypeTo(ADDRESS_HOME_STATE,
+    field->SetTypeTo(AutofillType(DRIVERS_LICENSE_REGION),
                      AutofillPredictionSource::kServerCrowdsourcing);
 
     EXPECT_EQ(GetFillValueForEntity(drivers_license, field,

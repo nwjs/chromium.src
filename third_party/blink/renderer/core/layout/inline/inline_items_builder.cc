@@ -1285,8 +1285,14 @@ void InlineItemsBuilderTemplate<MappingBuilder>::AppendBlockInInline(
 template <typename MappingBuilder>
 void InlineItemsBuilderTemplate<MappingBuilder>::AppendFloating(
     LayoutObject* layout_object) {
-  AppendOpaque(InlineItem::kFloating, uchar::kObjectReplacementCharacter,
-               layout_object);
+  if (RuntimeEnabledFeatures::LineBreakOofNoOrcEnabled()) {
+    // Out-of-flow elements should be ignored for text processing.
+    // https://drafts.csswg.org/css-text-3/#text-encoding
+    AppendOpaque(InlineItem::kFloating, layout_object);
+  } else {
+    AppendOpaque(InlineItem::kFloating, uchar::kObjectReplacementCharacter,
+                 layout_object);
+  }
   has_floats_ = true;
   // Floats/exclusions require computing line heights, which is currently
   // skipped during the bisect. See `ParagraphLineBreaker`.
@@ -1297,8 +1303,15 @@ void InlineItemsBuilderTemplate<MappingBuilder>::AppendFloating(
 template <typename MappingBuilder>
 void InlineItemsBuilderTemplate<MappingBuilder>::AppendOutOfFlowPositioned(
     LayoutObject* layout_object) {
-  AppendOpaque(InlineItem::kOutOfFlowPositioned,
-               uchar::kObjectReplacementCharacter, layout_object);
+  if (RuntimeEnabledFeatures::LineBreakOofNoOrcEnabled()) {
+    // Out-of-flow elements should be ignored for text processing.
+    // https://drafts.csswg.org/css-text-3/#text-encoding
+    AppendOpaque(InlineItem::kOutOfFlowPositioned, layout_object);
+  } else {
+    AppendOpaque(InlineItem::kOutOfFlowPositioned,
+                 uchar::kObjectReplacementCharacter, layout_object);
+  }
+  has_out_of_flow_positioned_ = true;
 }
 
 template <typename MappingBuilder>
@@ -1438,6 +1451,13 @@ void InlineItemsBuilderTemplate<MappingBuilder>::EnterBidiContext(
 template <typename MappingBuilder>
 void InlineItemsBuilderTemplate<MappingBuilder>::EnterBlock(
     const ComputedStyle* style) {
+  // The ScoreLineBreaker doesn't support line clamping with the ellipsis
+  // handled as part of line breaking.
+  if (RuntimeEnabledFeatures::CSSLineClampLineBreakingEllipsisEnabled() &&
+      style->HasLineClamp()) [[unlikely]] {
+    is_score_line_break_disabled_ = true;
+  }
+
   // Handle bidi-override on the block itself.
   if (style->RtlOrdering() == EOrder::kLogical) {
     EnterSvgTextChunk(style);
@@ -1531,6 +1551,7 @@ void InlineItemsBuilderTemplate<MappingBuilder>::EnterInline(
                                              : uchar::kRightToLeftIsolate,
                    nullptr);
       AppendOpaque(InlineItem::kRubyLinePlaceholder, nullptr);
+      is_score_line_break_disabled_ = true;
     } else {
       AppendOpaque(InlineItem::kRubyLinePlaceholder, node->Parent());
     }
@@ -1560,6 +1581,7 @@ void InlineItemsBuilderTemplate<MappingBuilder>::EnterInline(
       ++ruby_text_nesting_level_;
     }
     AppendOpaque(InlineItem::kRubyLinePlaceholder, node);
+    is_score_line_break_disabled_ = true;
   } else if (node->IsInlineRubyText()) {
     AppendOpaque(InlineItem::kRubyLinePlaceholder, node);
   }
@@ -1660,6 +1682,7 @@ void InlineItemsBuilderTemplate<MappingBuilder>::ExitInline(
                        : uchar::kRightToLeftIsolate,
                    ruby_container);
       AppendOpaque(InlineItem::kRubyLinePlaceholder, node);
+      is_score_line_break_disabled_ = true;
     } else {
       AppendOpaque(InlineItem::kCloseRubyColumn, uchar::kPopDirectionalIsolate,
                    nullptr);
@@ -1691,6 +1714,7 @@ void InlineItemsBuilderTemplate<MappingBuilder>::DidFinishCollectInlines(
       HasBidiControls() ||
       (has_non_orc_16bit_ && Character::MaybeBidiRtl(data->text_content));
   data->has_floats_ = has_floats_;
+  data->has_out_of_flow_positioned_ = has_out_of_flow_positioned_;
   data->has_initial_letter_box_ = has_initial_letter_box_;
   data->has_ruby_ = has_ruby_;
   data->is_block_level_ = IsBlockLevel();

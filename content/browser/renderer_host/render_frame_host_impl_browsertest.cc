@@ -32,6 +32,7 @@
 #include "base/test/mock_callback.h"
 #include "base/test/run_until.h"
 #include "base/test/scoped_feature_list.h"
+#include "base/values.h"
 #include "build/build_config.h"
 #include "components/input/timeout_monitor.h"
 #include "components/viz/common/features.h"
@@ -369,7 +370,7 @@ BackForwardCacheBlockingDetails CreateBlockingDetails(
   BackForwardCacheBlockingDetails feature_vector;
   for (auto feature : features) {
     auto feature_info = BlockingDetails::New();
-    feature_info->feature = static_cast<uint32_t>(feature);
+    feature_info->feature = feature;
     feature_vector.push_back(std::move(feature_info));
   }
   return feature_vector;
@@ -5992,8 +5993,7 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostImplBrowserTest,
 
   std::string kScript = "Object.keys(testObject).join(' ');";
   auto result = EvalJs(web_contents(), kScript);
-  EXPECT_EQ(base::JoinString(kMainObject.methods, " "),
-            result.value.GetString());
+  EXPECT_EQ(base::JoinString(kMainObject.methods, " "), result);
 }
 
 IN_PROC_BROWSER_TEST_F(RenderFrameHostImplBrowserTest,
@@ -6063,8 +6063,8 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostImplBrowserTest,
       testObject.readArray(array);
     )",
                                   error_message);
-  auto error = EvalJs(web_contents(), kScript).error;
-  EXPECT_NE(error.find(error_message), std::string::npos);
+  EXPECT_THAT(EvalJs(web_contents(), kScript),
+              EvalJsResult::ErrorIs(testing::HasSubstr(error_message)));
 }
 
 // Based on testReturnedObjectIsGarbageCollected.
@@ -7819,7 +7819,7 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostImplBrowserTest,
         static_cast<WebContentsImpl*>(popup_observer.GetWebContents());
     FrameTreeNode* popup_frame =
         popup->GetPrimaryMainFrame()->frame_tree_node();
-    EXPECT_EQ(nullptr, EvalJs(popup_frame, "window.opener"));
+    EXPECT_EQ(base::Value(), EvalJs(popup_frame, "window.opener"));
 
     // The popup should use a new opaque origin, instead of the subframe's
     // origin.

@@ -18,6 +18,7 @@
 #include "base/task/thread_pool.h"
 #include "base/uuid.h"
 #include "build/build_config.h"
+#include "components/component_updater/pref_names.h"
 #include "components/crx_file/crx_verifier.h"
 #include "components/download/public/background_service/background_download_service.h"
 #include "components/optimization_guide/core/delivery/model_util.h"
@@ -27,10 +28,12 @@
 #include "components/optimization_guide/core/optimization_guide_features.h"
 #include "components/optimization_guide/core/optimization_guide_switches.h"
 #include "components/optimization_guide/core/optimization_guide_util.h"
+#include "components/prefs/pref_service.h"
 #include "components/services/unzip/public/cpp/unzip.h"
 #include "components/services/unzip/public/mojom/unzipper.mojom.h"
 #include "crypto/hash.h"
 #include "google_apis/common/api_key_request_util.h"
+#include "google_apis/google_api_keys.h"
 #include "net/traffic_annotation/network_traffic_annotation.h"
 
 namespace optimization_guide {
@@ -95,6 +98,7 @@ const char kPredictionModelOptimizationTargetCustomDataKey[] =
     "PredictionModelOptimizationTargetCustomDataKey";
 
 PredictionModelDownloadManager::PredictionModelDownloadManager(
+    PrefService* local_state,
     download::BackgroundDownloadService* download_service,
     GetBaseModelDirForDownloadCallback get_base_model_dir_for_download_callback,
     unzip::UnzipperFactory unzipper_factory,
@@ -105,6 +109,7 @@ PredictionModelDownloadManager::PredictionModelDownloadManager(
       get_base_model_dir_for_download_callback_(
           get_base_model_dir_for_download_callback),
       unzipper_factory_(std::move(unzipper_factory)),
+      local_state_(local_state),
       background_task_runner_(background_task_runner) {}
 
 PredictionModelDownloadManager::~PredictionModelDownloadManager() = default;
@@ -131,15 +136,8 @@ void PredictionModelDownloadManager::StartDownload(
   download_params.request_params.method = "GET";
   google_apis::AddAPIKeyToRequest(
       download_params.request_params.request_headers, api_key_);
-  if (features::IsUnrestrictedModelDownloadingEnabled()) {
-    // This feature param should really only be used for testing, so it is ok
-    // to have this be a high priority download with no network restrictions.
-    download_params.scheduling_params.priority =
-        download::SchedulingParams::Priority::HIGH;
-  } else {
-    download_params.scheduling_params.priority =
-        download::SchedulingParams::Priority::NORMAL;
-  }
+  download_params.scheduling_params.priority =
+      download::SchedulingParams::Priority::HIGH;
   download_params.scheduling_params.battery_requirements =
       download::SchedulingParams::BatteryRequirements::BATTERY_INSENSITIVE;
   download_params.scheduling_params.network_requirements =
@@ -161,6 +159,12 @@ void PredictionModelDownloadManager::CancelAllPendingDownloads() {
 
 bool PredictionModelDownloadManager::IsAvailableForDownloads() const {
   return is_available_for_downloads_;
+}
+
+bool PredictionModelDownloadManager::ShouldFetchModels() const {
+  return (switches::ShouldSkipGoogleApiKeyConfigurationCheck() ||
+          google_apis::HasAPIKeyConfigured()) &&
+         local_state_->GetBoolean(prefs::kComponentUpdatesEnabled);
 }
 
 void PredictionModelDownloadManager::AddObserver(

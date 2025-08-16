@@ -57,18 +57,18 @@ namespace quick_answers {
 namespace {
 
 // Main view (or common) specs.
-constexpr auto kContentViewInsets = gfx::Insets::TLBR(0, 8, 0, 0);
 constexpr auto kButtonPadding = gfx::Insets::VH(6, 8);
-constexpr auto kSettingsViewInsets = gfx::Insets::TLBR(12, 16, 16, 16);
-constexpr auto kChipMargin = gfx::Insets::TLBR(0, 0, 0, 10);
+constexpr auto kMainViews = gfx::Insets::TLBR(12, 16, 12, 14);
+constexpr auto kHeaderInsets = gfx::Insets::TLBR(0, 0, 8, 0);
+constexpr auto kSparkIconInsets = gfx::Insets::TLBR(0, 0, 0, 4);
 
 constexpr int kButtonBorderThickness = 1;
 constexpr int kButtonCornerRadius = 8;
-constexpr int kSettingsButtonSizeDip = 14;
+constexpr int kSettingsButtonSizeDip = 16;
 constexpr int kSettingsButtonBorderDip = 3;
 
 // Icon.
-constexpr gfx::Insets kIntentIconInsets = gfx::Insets(8);
+constexpr gfx::Insets kIntentIconInsets = gfx::Insets(0);
 
 std::u16string GetChipLabel(IntentType intent_type,
                             const std::u16string& intent_text) {
@@ -108,58 +108,34 @@ MagicBoostUserConsentView::MagicBoostUserConsentView(
   SetUseDefaultFillLayout(true);
   SetBackground(views::CreateSolidBackground(ui::kColorPrimaryBackground));
 
+  auto* layout = SetLayoutManager(std::make_unique<views::BoxLayout>());
+  layout->SetOrientation(views::LayoutOrientation::kVertical);
+  layout->set_inside_border_insets(kMainViews);
+
+  // Adds the header row
   AddChildView(
       views::Builder<views::FlexLayoutView>()
           .SetOrientation(views::LayoutOrientation::kHorizontal)
-          .SetInteriorMargin(kMainViewInsets)
-          .SetCrossAxisAlignment(views::LayoutAlignment::kStart)
-          .AddChild(views::Builder<views::ImageView>().SetImage(
-              ui::ImageModel::FromVectorIcon(chromeos::kInfoSparkIcon,
-                                             ui::ColorIds::kColorSysOnSurface,
-                                             kGoogleIconSizeDip)))
+          .SetCrossAxisAlignment(views::LayoutAlignment::kCenter)
+          .SetMainAxisAlignment(views::LayoutAlignment::kStart)
+          .SetProperty(views::kMarginsKey, kHeaderInsets)
           .AddChild(
-              views::Builder<views::FlexLayoutView>()
-                  .SetInteriorMargin(kContentViewInsets)
+              views::Builder<views::BoxLayoutView>()
+                  .SetOrientation(views::LayoutOrientation::kHorizontal)
+                  .SetMainAxisAlignment(views::LayoutAlignment::kStart)
+                  .SetCrossAxisAlignment(views::LayoutAlignment::kCenter)
                   .SetProperty(views::kFlexBehaviorKey,
                                views::FlexSpecification(
+                                   views::LayoutOrientation::kHorizontal,
                                    views::MinimumFlexSizeRule::kScaleToZero,
-                                   views::MaximumFlexSizeRule::kPreferred,
-                                   /*adjust_height_for_width=*/true))
-                  .SetOrientation(views::LayoutOrientation::kVertical)
-                  .AddChild(GetMagicBoostHeader())
+                                   views::MaximumFlexSizeRule::kUnbounded))
                   .AddChild(
-                      views::Builder<views::FlexLayoutView>()
-                          .SetInteriorMargin(kIntentIconInsets)
-                          .AddChild(
-                              views::Builder<views::LabelButton>()
-                                  .CopyAddressTo(&intent_chip_)
-                                  .SetText(
-                                      GetChipLabel(intent_type, intent_text))
-                                  .SetProperty(views::kMarginsKey, kChipMargin)
-                                  .SetLabelStyle(
-                                      views::style::STYLE_BODY_4_EMPHASIS)
-                                  .SetTextColor(views::LabelButton::
-                                                    ButtonState::STATE_NORMAL,
-                                                ui::kColorSysOnSurface)
-                                  .SetTextColor(views::LabelButton::
-                                                    ButtonState::STATE_DISABLED,
-                                                ui::kColorSysStateDisabled)
-                                  .SetImageLabelSpacing(4)
-                                  .SetBorder(views::CreatePaddedBorder(
-                                      views::CreateRoundedRectBorder(
-                                          kButtonBorderThickness,
-                                          kButtonCornerRadius,
-                                          ui::kColorSysTonalOutline),
-                                      kButtonPadding))
-                                  .SetEnabled(true))))
-          .Build());
-
-  AddChildView(
-      views::Builder<views::BoxLayoutView>()
-          .SetOrientation(views::LayoutOrientation::kHorizontal)
-          .SetMainAxisAlignment(views::LayoutAlignment::kEnd)
-          .SetCrossAxisAlignment(views::LayoutAlignment::kStart)
-          .SetInsideBorderInsets(kSettingsViewInsets)
+                      views::Builder<views::ImageView>()
+                          .SetImage(ui::ImageModel::FromVectorIcon(
+                              chromeos::kInfoSparkIcon,
+                              ui::ColorIds::kColorSysOnSurface, kIconSizeDip))
+                          .SetProperty(views::kMarginsKey, kSparkIconInsets))
+                  .AddChild(GetMagicBoostHeader()))
           .AddChild(
               views::Builder<views::ImageButton>()
                   .SetTooltipText(l10n_util::GetStringUTF16(
@@ -172,6 +148,27 @@ MagicBoostUserConsentView::MagicBoostUserConsentView(
                           ui::kColorSysSecondary, kSettingsButtonSizeDip))
                   .SetProperty(views::kMarginsKey,
                                gfx::Insets(kSettingsButtonBorderDip)))
+          .Build());
+
+  // Adds the chip row
+  AddChildView(
+      views::Builder<views::FlexLayoutView>()
+          .SetInteriorMargin(kIntentIconInsets)
+          .AddChild(
+              views::Builder<views::LabelButton>()
+                  .CopyAddressTo(&intent_chip_)
+                  .SetText(GetChipLabel(intent_type, intent_text))
+                  .SetLabelStyle(views::style::STYLE_BODY_4_EMPHASIS)
+                  .SetTextColor(views::LabelButton::ButtonState::STATE_NORMAL,
+                                ui::kColorSysOnSurface)
+                  .SetTextColor(views::LabelButton::ButtonState::STATE_DISABLED,
+                                ui::kColorSysStateDisabled)
+                  .SetBorder(views::CreatePaddedBorder(
+                      views::CreateRoundedRectBorder(kButtonBorderThickness,
+                                                     kButtonCornerRadius,
+                                                     ui::kColorSysTonalOutline),
+                      kButtonPadding))
+                  .SetEnabled(true))
           .Build());
 
   GetViewAccessibility().SetRole(ax::mojom::Role::kDialog);

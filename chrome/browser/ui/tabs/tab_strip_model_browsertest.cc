@@ -20,6 +20,7 @@
 #include "chrome/browser/ui/tabs/organization/tab_organization_service.h"
 #include "chrome/browser/ui/tabs/organization/tab_organization_service_factory.h"
 #include "chrome/browser/ui/tabs/organization/tab_organization_session.h"
+#include "chrome/browser/ui/tabs/split_tab_metrics.h"
 #include "chrome/browser/ui/tabs/tab_group_deletion_dialog_controller.h"
 #include "chrome/browser/ui/tabs/tab_group_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_model_observer.h"
@@ -48,8 +49,8 @@
 #include "url/gurl.h"
 
 #if BUILDFLAG(ENABLE_GLIC)
-#include "chrome/browser/glic/glic_keyed_service_factory.h"
 #include "chrome/browser/glic/host/glic_features.mojom.h"
+#include "chrome/browser/glic/public/glic_keyed_service_factory.h"
 #include "chrome/browser/glic/test_support/glic_test_environment.h"
 #endif
 
@@ -456,7 +457,9 @@ IN_PROC_BROWSER_TEST_F(TabStripModelBrowserTest, CommandDuplicateSplit) {
 
   ASSERT_NO_FATAL_FAILURE(
       PrepareTabstripForSelectionTest(tab_strip_model, 4, 1, {2}));
-  tab_strip_model->AddToNewSplit({3}, split_tabs::SplitTabVisualData());
+  tab_strip_model->AddToNewSplit(
+      {3}, split_tabs::SplitTabVisualData(),
+      split_tabs::SplitTabCreatedSource::kToolbarButton);
   ASSERT_EQ("0p 1 2s 3s", GetTabStripStateString(tab_strip_model));
   tab_strip_model->ActivateTabAt(1);
 
@@ -474,13 +477,21 @@ IN_PROC_BROWSER_TEST_F(TabStripModelBrowserTest, CommandDuplicateSelected) {
 
   ASSERT_NO_FATAL_FAILURE(
       PrepareTabstripForSelectionTest(tab_strip_model, 12, 6, {2}));
-  tab_strip_model->AddToNewSplit({3}, split_tabs::SplitTabVisualData());
+  tab_strip_model->AddToNewSplit(
+      {3}, split_tabs::SplitTabVisualData(),
+      split_tabs::SplitTabCreatedSource::kToolbarButton);
   tab_strip_model->ActivateTabAt(4);
-  tab_strip_model->AddToNewSplit({5}, split_tabs::SplitTabVisualData());
+  tab_strip_model->AddToNewSplit(
+      {5}, split_tabs::SplitTabVisualData(),
+      split_tabs::SplitTabCreatedSource::kToolbarButton);
   tab_strip_model->ActivateTabAt(8);
-  tab_strip_model->AddToNewSplit({9}, split_tabs::SplitTabVisualData());
+  tab_strip_model->AddToNewSplit(
+      {9}, split_tabs::SplitTabVisualData(),
+      split_tabs::SplitTabCreatedSource::kToolbarButton);
   tab_strip_model->ActivateTabAt(10);
-  tab_strip_model->AddToNewSplit({11}, split_tabs::SplitTabVisualData());
+  tab_strip_model->AddToNewSplit(
+      {11}, split_tabs::SplitTabVisualData(),
+      split_tabs::SplitTabCreatedSource::kToolbarButton);
   ASSERT_EQ("0p 1p 2ps 3ps 4ps 5ps 6 7 8s 9s 10s 11s",
             GetTabStripStateString(tab_strip_model));
   tab_strip_model->ActivateTabAt(1);
@@ -510,10 +521,13 @@ class TabStripModelGlicMultiTabBrowserTest : public TabStripModelBrowserTest {
  protected:
   TabStripModel* tab_strip() { return browser()->tab_strip_model(); }
 
-  glic::GlicSharingManager& sharing_manager() {
+  glic::GlicKeyedService* service() {
     return glic::GlicKeyedServiceFactory::GetGlicKeyedService(
-               browser()->profile())
-        ->sharing_manager();
+        browser()->profile());
+  }
+
+  glic::GlicSharingManager& sharing_manager() {
+    return service()->sharing_manager();
   }
 
   tabs::TabHandle TabHandleAtIndex(int index) {
@@ -585,6 +599,32 @@ IN_PROC_BROWSER_TEST_F(TabStripModelGlicMultiTabBrowserTest, ShareLimit) {
 
   sharing_manager().UnpinAllTabs();
   EXPECT_EQ(0, sharing_manager().GetNumPinnedTabs());
+}
+
+IN_PROC_BROWSER_TEST_F(TabStripModelGlicMultiTabBrowserTest,
+                       StartSharingShouldOpenGlicWindow) {
+  AddTabs(1);
+  tab_strip()->ActivateTabAt(0);
+  EXPECT_FALSE(service()->IsWindowOrFreShowing());
+
+  tab_strip()->ExecuteContextMenuCommand(1,
+                                         TabStripModel::CommandGlicStartShare);
+
+  EXPECT_TRUE(service()->IsWindowOrFreShowing());
+}
+
+IN_PROC_BROWSER_TEST_F(TabStripModelGlicMultiTabBrowserTest,
+                       StartSharingShouldNotCloseGlicWindow) {
+  AddTabs(1);
+  tab_strip()->ActivateTabAt(0);
+  service()->ToggleUI(/*bwi=*/nullptr, /*prevent_close=*/true,
+                      glic::mojom::InvocationSource::kOsButton);
+  EXPECT_TRUE(service()->IsWindowOrFreShowing());
+
+  tab_strip()->ExecuteContextMenuCommand(1,
+                                         TabStripModel::CommandGlicStartShare);
+
+  EXPECT_TRUE(service()->IsWindowOrFreShowing());
 }
 
 #endif  // BUILDFLAG(ENABLE_GLIC)

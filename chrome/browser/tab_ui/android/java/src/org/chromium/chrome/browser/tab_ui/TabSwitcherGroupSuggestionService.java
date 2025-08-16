@@ -4,8 +4,6 @@
 
 package org.chromium.chrome.browser.tab_ui;
 
-import static org.chromium.build.NullUtil.assumeNonNull;
-
 import static java.util.Comparator.comparingInt;
 
 import org.chromium.base.Callback;
@@ -114,7 +112,7 @@ public class TabSwitcherGroupSuggestionService {
                 }
 
                 @Override
-                public void willMoveTabGroup(int tabModelOldIndex, int tabModelNewIndex) {
+                public void willMoveTabGroup(Token tabGroupId, int currentIndex) {
                     clearSuggestions();
                 }
 
@@ -125,14 +123,7 @@ public class TabSwitcherGroupSuggestionService {
                 }
 
                 @Override
-                public void didCreateGroup(
-                        List<Tab> tabs,
-                        List<Integer> tabOriginalIndex,
-                        List<Integer> tabOriginalRootId,
-                        List<Token> tabOriginalTabGroupId,
-                        @Nullable String destinationGroupTitle,
-                        int destinationGroupColorId,
-                        boolean destinationGroupTitleCollapsed) {
+                public void didCreateNewGroup(Tab destinationTab, TabGroupModelFilter filter) {
                     clearSuggestions();
                 }
 
@@ -150,10 +141,11 @@ public class TabSwitcherGroupSuggestionService {
                 }
             };
     private final @WindowId int mWindowId;
-    private final ObservableSupplier<TabGroupModelFilter> mCurrentTabGroupModelFilterSupplier;
+    private final ObservableSupplier<@Nullable TabGroupModelFilter>
+            mCurrentTabGroupModelFilterSupplier;
     private final SuggestionLifecycleObserverHandler mSuggestionLifecycleObserverHandler;
     private final GroupSuggestionsService mGroupSuggestionsService;
-    private final Callback<TabGroupModelFilter> mOnTabGroupModelFilterChanged =
+    private final Callback<@Nullable TabGroupModelFilter> mOnTabGroupModelFilterChanged =
             new ValueChangedCallback<>(this::onTabGroupModelFilterChanged);
 
     /**
@@ -165,7 +157,7 @@ public class TabSwitcherGroupSuggestionService {
      */
     public TabSwitcherGroupSuggestionService(
             @WindowId int windowId,
-            ObservableSupplier<TabGroupModelFilter> currentTabGroupModelFilterSupplier,
+            ObservableSupplier<@Nullable TabGroupModelFilter> currentTabGroupModelFilterSupplier,
             Profile profile,
             SuggestionLifecycleObserverHandler suggestionLifecycleObserverHandler) {
         mWindowId = windowId;
@@ -174,10 +166,8 @@ public class TabSwitcherGroupSuggestionService {
 
         mGroupSuggestionsService = GroupSuggestionsServiceFactory.getForProfile(profile);
 
-        mOnTabGroupModelFilterChanged.onResult(
-                assumeNonNull(
-                        mCurrentTabGroupModelFilterSupplier.addObserver(
-                                mOnTabGroupModelFilterChanged)));
+        mCurrentTabGroupModelFilterSupplier.addSyncObserverAndCallIfNonNull(
+                mOnTabGroupModelFilterChanged);
     }
 
     public void destroy() {
@@ -219,15 +209,6 @@ public class TabSwitcherGroupSuggestionService {
                 cachedSuggestions.userResponseMetadataCallback;
 
         List<GroupSuggestion> groupSuggestionsList = groupSuggestions.groupSuggestions;
-
-        // Mark all suggestions except the first one as "not shown".
-        for (int i = 1; i < groupSuggestionsList.size(); i++) {
-            GroupSuggestion groupSuggestion = groupSuggestionsList.get(i);
-            userResponseCallback.onResult(
-                    new UserResponseMetadata(groupSuggestion.suggestionId, UserResponse.NOT_SHOWN));
-        }
-
-        if (groupSuggestionsList.isEmpty()) return;
         GroupSuggestion suggestion = groupSuggestionsList.get(0);
 
         TabModel tabModel = filter.getTabModel();
@@ -237,6 +218,8 @@ public class TabSwitcherGroupSuggestionService {
         if (tabsSortedByIndex == null || !canShowSuggestion(tabIdsToIndices, tabsSortedByIndex)) {
             RecordUserAction.record(
                     TabSwitcherGroupSuggestionService.USER_ACTION_PREFIX + ".Invalidated");
+            userResponseCallback.onResult(
+                    new UserResponseMetadata(suggestion.suggestionId, UserResponse.NOT_SHOWN));
             return;
         }
 

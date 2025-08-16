@@ -17,6 +17,9 @@
 #include "components/permissions/request_type.h"
 #include "components/strings/grit/components_strings.h"
 #include "components/url_formatter/elide_url.h"
+#include "content/public/browser/permission_controller.h"
+#include "content/public/browser/render_frame_host.h"
+#include "ui/base/device_form_factor.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/gfx/text_elider.h"
 #include "ui/strings/grit/ui_strings.h"
@@ -144,12 +147,13 @@ PermissionRequest::GetDialogAnnotatedMessageText(
   }
   DCHECK_NE(0, message_id);
 
-  // Only format origins bold iff it's one time allowable (which uses a new
-  // prompt design on Clank)
+  // Only format origins bold if it's one time allowable or on tablet (which
+  // uses a new prompt design on Clank)
   return GetDialogAnnotatedMessageText(
       requesting_origin_string_formatted, message_id, /*format_origin_bold=*/
-      permissions::PermissionUtil::DoesSupportTemporaryGrants(
-          GetContentSettingsType()));
+      ui::GetDeviceFormFactor() == ui::DEVICE_FORM_FACTOR_TABLET ||
+          permissions::PermissionUtil::DoesSupportTemporaryGrants(
+              GetContentSettingsType()));
 }
 
 // static
@@ -304,8 +308,9 @@ std::optional<std::u16string> PermissionRequest::GetRequestChipText(
          IDS_PERMISSIONS_WEB_INSTALL_NOT_ALLOWED_CONFIRMATION_SCREENREADER_ANNOUNCEMENT}}});
 
   auto messages = kMessageIds->find(request_type());
-  if (messages != kMessageIds->end() && messages->second[type] != -1)
+  if (messages != kMessageIds->end() && messages->second[type] != -1) {
     return l10n_util::GetStringUTF16(messages->second[type]);
+  }
 
   return std::nullopt;
 }
@@ -444,6 +449,10 @@ PermissionRequestGestureType PermissionRequest::GetGestureType() const {
   return PermissionUtil::GetGestureType(data_->user_gesture);
 }
 
+void PermissionRequest::SetPromptOptions(PromptOptions prompt_options) {
+  data_->prompt_options = std::move(prompt_options);
+}
+
 const std::vector<std::string>&
 PermissionRequest::GetRequestedAudioCaptureDeviceIds() const {
   return data_->requested_audio_capture_device_ids;
@@ -456,8 +465,9 @@ PermissionRequest::GetRequestedVideoCaptureDeviceIds() const {
 
 ContentSettingsType PermissionRequest::GetContentSettingsType() const {
   auto type = RequestTypeToContentSettingsType(request_type());
-  if (type.has_value())
+  if (type.has_value()) {
     return type.value();
+  }
   return ContentSettingsType::DEFAULT;
 }
 
@@ -494,6 +504,23 @@ void PermissionRequest::SetEmbeddedPermissionElementInitiatedForTesting(
     bool embedded_permission_element_initiated) {
   data_->embedded_permission_element_initiated =
       embedded_permission_element_initiated;
+}
+
+bool PermissionRequest::IsSourceSubscribedToPermissionChangeEvent(
+    content::PermissionController* controller) const {
+  DCHECK(controller);
+  content::RenderFrameHost* rfh =
+      content::RenderFrameHost::FromID(get_requesting_frame_id());
+
+  if (rfh == nullptr) {
+    return false;
+  }
+
+  blink::PermissionType permission_type =
+      permissions::PermissionUtil::ContentSettingsTypeToPermissionType(
+          GetContentSettingsType());
+
+  return controller->IsSubscribedToPermissionChangeEvent(permission_type, rfh);
 }
 
 }  // namespace permissions

@@ -18,6 +18,7 @@
 #include "base/functional/callback.h"
 #include "base/functional/callback_forward.h"
 #include "base/i18n/rtl.h"
+#include "base/no_destructor.h"
 #include "base/notreached.h"
 #include "base/scoped_observation.h"
 #include "build/build_config.h"
@@ -36,6 +37,7 @@
 #include "components/autofill/core/browser/integrators/fast_checkout/mock_fast_checkout_client.h"
 #include "components/autofill/core/browser/integrators/identity_credential/identity_credential_delegate.h"
 #include "components/autofill/core/browser/integrators/optimization_guide/mock_autofill_optimization_guide.h"
+#include "components/autofill/core/browser/integrators/password_manager/otp_suggestion_delegate.h"
 #include "components/autofill/core/browser/integrators/password_manager/password_manager_delegate.h"
 #include "components/autofill/core/browser/integrators/plus_addresses/autofill_plus_address_delegate.h"
 #include "components/autofill/core/browser/logging/log_manager.h"
@@ -182,7 +184,7 @@ class TestAutofillClientTemplate : public T {
     return *single_field_fill_router_;
   }
 
-  MockAutocompleteHistoryManager* GetAutocompleteHistoryManager() override {
+  AutocompleteHistoryManager* GetAutocompleteHistoryManager() override {
     return &mock_autocomplete_history_manager_;
   }
 
@@ -197,6 +199,10 @@ class TestAutofillClientTemplate : public T {
   PasswordManagerDelegate* GetPasswordManagerDelegate(
       const autofill::FieldGlobalId& field_id) override {
     return password_manager_delegate_.get();
+  }
+
+  OtpSuggestionDelegate* GetOtpSuggestionDelegate() override {
+    return otp_suggestion_delegate_.get();
   }
 
   test::AutofillTestingPrefService* GetPrefs() override {
@@ -396,8 +402,9 @@ class TestAutofillClientTemplate : public T {
   }
 
   const AutofillAblationStudy& GetAblationStudy() const override {
-    static const AutofillAblationStudy default_ablation_study("seed");
-    return default_ablation_study;
+    static const base::NoDestructor<AutofillAblationStudy>
+        default_ablation_study("seed");
+    return *default_ablation_study;
   }
 
   bool ShouldFormatForLargeKeyboardAccessory() const override {
@@ -490,7 +497,7 @@ class TestAutofillClientTemplate : public T {
         "foo@gmail.com", signin::ConsentLevel::kSignin);
     SetCanUseModelExecutionFeatures(true);
     SetVariationConfigCountryCode(GeoIpCountryCode("US"));
-    return SetAutofillAiOptInStatus(*this, true);
+    return SetAutofillAiOptInStatus(*this, AutofillAiOptInStatus::kOptedIn);
   }
 
   // Updates whether the currently signed in primary account can use model
@@ -603,6 +610,11 @@ class TestAutofillClientTemplate : public T {
     password_manager_delegate_ = std::move(password_manager_delegate);
   }
 
+  void set_otp_suggestion_delegate(
+      std::unique_ptr<OtpSuggestionDelegate> otp_suggestion_delegate) {
+    otp_suggestion_delegate_ = std::move(otp_suggestion_delegate);
+  }
+
   void set_suggestion_ui_session_id(
       std::optional<AutofillClient::SuggestionUiSessionId> session_id) {
     suggestion_ui_session_id_ = session_id;
@@ -624,6 +636,7 @@ class TestAutofillClientTemplate : public T {
   std::unique_ptr<AutofillPlusAddressDelegate> plus_address_delegate_;
   std::unique_ptr<IdentityCredentialDelegate> identity_credential_delegate_;
   std::unique_ptr<PasswordManagerDelegate> password_manager_delegate_;
+  std::unique_ptr<OtpSuggestionDelegate> otp_suggestion_delegate_;
   TestAddressNormalizer test_address_normalizer_;
   std::unique_ptr<::testing::NiceMock<MockAutofillOptimizationGuide>>
       mock_autofill_optimization_guide_ =

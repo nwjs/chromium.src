@@ -14,6 +14,7 @@
 #include "chrome/browser/ui/tabs/organization/tab_organization_observer.h"
 #include "chrome/browser/ui/tabs/organization/tab_organization_session.h"
 #include "chrome/browser/ui/tabs/organization/tab_organization_utils.h"
+#include "chrome/browser/ui/tabs/saved_tab_groups/saved_tab_group_utils.h"
 #include "chrome/browser/ui/tabs/saved_tab_groups/tab_group_sync_service_initialized_observer.h"
 #include "chrome/browser/ui/tabs/tab_group_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
@@ -30,6 +31,10 @@
 #include "ui/base/mojom/window_show_state.mojom.h"
 #include "ui/base/page_transition_types.h"
 #include "ui/base/ui_base_features.h"
+
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+#include "chrome/browser/enterprise/util/managed_browser_utils.h"
+#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 
 namespace {
 
@@ -82,7 +87,7 @@ class TabOrganizationServiceTest : public BrowserWithTestWindowTest {
   void WaitForTabGroupSyncServiceInitialized() {
     auto observer =
         std::make_unique<tab_groups::TabGroupSyncServiceInitializedObserver>(
-            tab_groups::TabGroupSyncServiceFactory::GetForProfile(profile()));
+            tab_groups::SavedTabGroupUtils::GetServiceForProfile(profile()));
     observer->Wait();
   }
 
@@ -311,6 +316,10 @@ TEST_F(TabOrganizationServiceTest, CreateSessionForBrowserOnTab) {
 // The signin flow is not used on ChromeOS.
 #if !BUILDFLAG(IS_CHROMEOS)
 TEST_F(TabOrganizationServiceTest, CanStartRequest) {
+  auto enable_disclaimer_on_primary_account_change_resetter =
+      enterprise_util::DisableAutomaticManagementDisclaimerUntilReset(
+          profile());
+  // Not signed in
   // Not signed in
   signin::IdentityManager* identity_manager =
       IdentityManagerFactory::GetForProfile(profile());

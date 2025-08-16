@@ -9,7 +9,6 @@ import static org.chromium.build.NullUtil.assumeNonNull;
 import android.content.Context;
 
 import org.chromium.base.CallbackController;
-import org.chromium.base.Token;
 import org.chromium.base.lifetime.Destroyable;
 import org.chromium.base.supplier.ObservableSupplier;
 import org.chromium.base.supplier.ObservableSupplierImpl;
@@ -82,7 +81,7 @@ public class TabModelNotificationDotManager implements Destroyable {
     private final TabGroupModelFilterObserver mTabGroupModelFilterObserver =
             new TabGroupModelFilterObserver() {
                 @Override
-                public void didMergeTabToGroup(Tab movedTab) {
+                public void didMergeTabToGroup(Tab movedTab, boolean isDestinationTab) {
                     maybeUpdateForTab(movedTab, /* mayAddDot= */ true);
                 }
             };
@@ -219,10 +218,9 @@ public class TabModelNotificationDotManager implements Destroyable {
 
             @Nullable Tab tab = tabModel.getTabById(tabId);
             if (tab != null && !tab.isClosing()) {
-                Token groupId = mTabGroupModelFilter.getTabGroupIdFromRootId(tab.getRootId());
                 String title =
                         TabGroupTitleUtils.getDisplayableTitle(
-                                mContext, mTabGroupModelFilter, groupId);
+                                mContext, mTabGroupModelFilter, tab.getTabGroupId());
                 return new TabModelDotInfo(true, title);
             }
         }

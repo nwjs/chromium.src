@@ -9,7 +9,6 @@ import static org.chromium.chrome.browser.multiwindow.MultiWindowTestHelper.move
 import static org.chromium.chrome.browser.multiwindow.MultiWindowTestHelper.waitForSecondChromeTabbedActivity;
 import static org.chromium.chrome.browser.multiwindow.MultiWindowTestHelper.waitForTabs;
 
-import androidx.test.core.app.ApplicationProvider;
 import androidx.test.filters.MediumTest;
 import androidx.test.platform.app.InstrumentationRegistry;
 
@@ -25,6 +24,7 @@ import org.chromium.base.test.util.Batch;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.Criteria;
 import org.chromium.base.test.util.CriteriaHelper;
+import org.chromium.base.test.util.DisabledTest;
 import org.chromium.base.test.util.Feature;
 import org.chromium.chrome.browser.ChromeTabbedActivity;
 import org.chromium.chrome.browser.ChromeTabbedActivity2;
@@ -35,8 +35,10 @@ import org.chromium.chrome.browser.layouts.LayoutTestUtils;
 import org.chromium.chrome.browser.layouts.LayoutType;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
-import org.chromium.chrome.test.ChromeTabbedActivityTestRule;
 import org.chromium.chrome.test.R;
+import org.chromium.chrome.test.transit.ChromeTransitTestRules;
+import org.chromium.chrome.test.transit.FreshCtaTransitTestRule;
+import org.chromium.chrome.test.transit.page.WebPageStation;
 import org.chromium.chrome.test.util.MenuUtils;
 import org.chromium.net.test.EmbeddedTestServer;
 
@@ -46,16 +48,16 @@ import org.chromium.net.test.EmbeddedTestServer;
 @CommandLineFlags.Add({ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE})
 public class MultiWindowIntegrationTest {
     @Rule
-    public ChromeTabbedActivityTestRule mActivityTestRule = new ChromeTabbedActivityTestRule();
+    public FreshCtaTransitTestRule mActivityTestRule =
+            ChromeTransitTestRules.freshChromeTabbedActivityRule();
 
     private EmbeddedTestServer mTestServer;
+    private WebPageStation mPage;
 
     @Before
     public void setUp() throws InterruptedException {
-        mTestServer =
-                EmbeddedTestServer.createAndStartServer(
-                        ApplicationProvider.getApplicationContext());
-        mActivityTestRule.startMainActivityOnBlankPage();
+        mTestServer = mActivityTestRule.getTestServer();
+        mPage = mActivityTestRule.startOnBlankPage();
     }
 
     @Test
@@ -151,6 +153,7 @@ public class MultiWindowIntegrationTest {
         ChromeSwitches.DISABLE_TAB_MERGING_FOR_TESTING,
         ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE
     })
+    @DisabledTest(message = "crbug.com/432308780")
     public void testMovingLastTabKeepsActivityAlive() {
         if (MultiWindowUtils.isMultiInstanceApi31Enabled()) {
             return;

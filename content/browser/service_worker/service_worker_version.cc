@@ -59,7 +59,6 @@
 #include "content/public/common/result_codes.h"
 #include "crypto/secure_hash.h"
 #include "crypto/sha2.h"
-#include "ipc/ipc_message.h"
 #include "mojo/public/c/system/types.h"
 #include "net/base/net_errors.h"
 #include "net/cookies/site_for_cookies.h"
@@ -2150,12 +2149,15 @@ ServiceWorkerVersion::BuildClientSecurityState() const {
   }
 
   const PolicyContainerPolicies& policies = policy_container_host_->policies();
+  // TODO(crbug.com/395895368): try replacing the below with
+  // DeriveClientSecurityState
   return network::mojom::ClientSecurityState::New(
       policies.cross_origin_embedder_policy, policies.is_web_secure_context,
       policies.ip_address_space,
-      DerivePrivateNetworkRequestPolicy(policies.ip_address_space,
-                                        policies.is_web_secure_context,
-                                        PrivateNetworkRequestContext::kWorker),
+      DerivePrivateNetworkRequestPolicy(
+          policies.ip_address_space, policies.is_web_secure_context,
+          policies.allow_non_secure_local_network_access,
+          PrivateNetworkRequestContext::kWorker),
       policies.document_isolation_policy);
 }
 

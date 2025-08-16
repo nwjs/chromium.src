@@ -319,7 +319,7 @@ enum PermissionsPolicyFeature {
   kDeviceAttributes = 135,
 
   // Allows a site to make local network access requests.
-  // See https://github.com/explainers-by-googlers/local-network-access
+  // See: https://wicg.github.io/local-network-access/
   kLocalNetworkAccess = 136,
 
   // Controls Protected Audience API's view and click functionality.
@@ -334,6 +334,9 @@ enum PermissionsPolicyFeature {
   // Allows sites to delegate Language Model API access to iframes.
   // See https://github.com/webmachinelearning/prompt-api
   kLanguageModel = 139,
+
+  // Controls use of ARIA notify for accessibility notifications in iframes.
+  kAriaNotify = 140,
 
   // Don't change assigned numbers of any item, and don't reuse removed slots.
   // Add new features at the end of the enum.

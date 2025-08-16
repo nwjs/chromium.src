@@ -58,8 +58,14 @@ void PrefetchContainerObserver::OnDeterminedHead(
 }
 
 void PrefetchContainerObserver::OnPrefetchCompletedOrFailed(
+    PrefetchContainer& prefetch_container,
     const network::URLLoaderCompletionStatus& completion_status,
     const std::optional<int>& response_code) {
+  // `IsDecoy()` check is added to preserve the existing behavior.
+  // https://crbug.com/400761083
+  if (prefetch_container.IsDecoy()) {
+    return;
+  }
   if (on_prefetch_completed_or_failed_) {
     on_prefetch_completed_or_failed_.Run(completion_status, response_code);
   }
@@ -97,6 +103,8 @@ PrefetchHandleImpl::~PrefetchHandleImpl() {
         case PrefetchContainer::LoadState::kFailedHeldback:
           break;
         case PrefetchContainer::LoadState::kStarted:
+        case PrefetchContainer::LoadState::kDeterminedHead:
+        case PrefetchContainer::LoadState::kCompletedOrFailed:
           prefetch_container_->SetPrefetchStatus(
               *prefetch_status_on_release_started_prefetch_);
           break;

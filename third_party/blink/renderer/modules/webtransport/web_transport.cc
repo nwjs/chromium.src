@@ -58,6 +58,7 @@
 #include "third_party/blink/renderer/platform/loader/fetch/unique_identifier.h"
 #include "third_party/blink/renderer/platform/timer.h"
 #include "third_party/blink/renderer/platform/wtf/functional.h"
+#include "third_party/blink/renderer/platform/wtf/text/strcat.h"
 #include "third_party/blink/renderer/platform/wtf/text/string_builder.h"
 #include "third_party/blink/renderer/platform/wtf/text/wtf_string.h"
 #include "third_party/blink/renderer/platform/wtf/vector.h"
@@ -971,6 +972,7 @@ void WebTransport::OnConnectionEstablished(
     mojo::PendingReceiver<network::mojom::blink::WebTransportClient>
         client_receiver,
     network::mojom::blink::HttpResponseHeadersPtr response_headers,
+    const String& /*selected_application_protocol*/,
     network::mojom::blink::WebTransportStatsPtr initial_stats) {
   DVLOG(1) << "WebTransport::OnConnectionEstablished() this=" << this;
   connector_.reset();
@@ -1337,7 +1339,7 @@ void WebTransport::Init(const String& url_for_diagnostics,
             execution_context->GetTaskRunner(TaskType::kNetworking)));
 
     connector_->Connect(
-        url_, std::move(fingerprints),
+        url_, std::move(fingerprints), /*application_protocols=*/{},
         handshake_client_receiver_.BindNewPipeAndPassRemote(
             execution_context->GetTaskRunner(TaskType::kNetworking)));
 

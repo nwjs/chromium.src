@@ -4,24 +4,43 @@
 
 #include "chrome/browser/actor/browser_action_util.h"
 
+#include <algorithm>
+#include <cstdint>
+#include <memory>
 #include <optional>
 
+#include "base/barrier_closure.h"
+#include "base/base64.h"
+#include "base/functional/callback_helpers.h"
 #include "base/notimplemented.h"
+#include "base/numerics/safe_conversions.h"
+#include "base/types/expected.h"
+#include "chrome/browser/actor/actor_keyed_service.h"
+#include "chrome/browser/actor/actor_task.h"
+#include "chrome/browser/actor/shared_types.h"
+#include "chrome/browser/actor/tools/attempt_login_tool_request.h"
 #include "chrome/browser/actor/tools/click_tool_request.h"
 #include "chrome/browser/actor/tools/drag_and_release_tool_request.h"
 #include "chrome/browser/actor/tools/history_tool_request.h"
 #include "chrome/browser/actor/tools/move_mouse_tool_request.h"
 #include "chrome/browser/actor/tools/navigate_tool_request.h"
+#include "chrome/browser/actor/tools/script_tool_request.h"
 #include "chrome/browser/actor/tools/scroll_tool_request.h"
 #include "chrome/browser/actor/tools/select_tool_request.h"
 #include "chrome/browser/actor/tools/tab_management_tool_request.h"
 #include "chrome/browser/actor/tools/tool_request.h"
 #include "chrome/browser/actor/tools/type_tool_request.h"
 #include "chrome/browser/actor/tools/wait_tool_request.h"
+#include "chrome/browser/page_content_annotations/multi_source_page_context_fetcher.h"
+#include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_finder.h"
+#include "chrome/common/actor/action_result.h"
 #include "chrome/common/actor/actor_constants.h"
 #include "chrome/common/actor/actor_logging.h"
 #include "components/optimization_guide/content/browser/page_content_proto_provider.h"
 #include "components/optimization_guide/proto/features/actions_data.pb.h"
+#include "content/public/browser/browser_context.h"
 #include "content/public/browser/web_contents.h"
 #include "ui/base/window_open_disposition.h"
 
@@ -34,6 +53,7 @@ namespace apc = ::optimization_guide::proto;
 using apc::Action;
 using apc::ActionTarget;
 using apc::ActivateTabAction;
+using apc::AttemptLoginAction;
 using apc::ClickAction;
 using apc::CloseTabAction;
 using apc::CreateTabAction;
@@ -42,11 +62,15 @@ using apc::HistoryBackAction;
 using apc::HistoryForwardAction;
 using apc::MoveMouseAction;
 using apc::NavigateAction;
+using apc::ScriptToolAction;
 using apc::ScrollAction;
 using apc::SelectAction;
 using apc::TypeAction;
 using apc::WaitAction;
 using ::optimization_guide::DocumentIdentifierUserData;
+using ::page_content_annotations::FetchPageContextOptions;
+using ::page_content_annotations::FetchPageContextResult;
+using ::page_content_annotations::FetchPageContextResultCallbackArg;
 using ::tabs::TabHandle;
 using ::tabs::TabInterface;
 
@@ -68,28 +92,26 @@ TabHandle GetTabHandle(const T& action, TabInterface* deprecated_fallback_tab) {
   return tab_handle;
 }
 
-std::optional<PageToolRequest::Target> ToPageToolTarget(
+std::optional<PageTarget> ToPageTarget(
     const optimization_guide::proto::ActionTarget& target) {
   // A valid target must have either a coordinate or a
   // document_identifier-dom_node_id pair.
   if (target.has_coordinate()) {
-    return PageToolRequest::Target(
+    return PageTarget(
         gfx::Point(target.coordinate().x(), target.coordinate().y()));
   } else {
     if (!target.has_content_node_id() || !target.has_document_identifier()) {
       return std::nullopt;
     }
-    return PageToolRequest::Target(
-        {target.content_node_id(),
-         target.document_identifier().serialized_token()});
+    return PageTarget(
+        DomNode{.node_id = target.content_node_id(),
+                .document_identifier =
+                    target.document_identifier().serialized_token()});
   }
 }
 std::unique_ptr<ToolRequest> CreateClickRequest(
     const ClickAction& action,
     TabInterface* deprecated_fallback_tab) {
-  using ClickCount = ClickToolRequest::ClickCount;
-  using ClickType = ClickToolRequest::ClickType;
-
   TabHandle tab_handle = GetTabHandle(action, deprecated_fallback_tab);
 
   if (!action.has_target() || !action.has_click_count() ||
@@ -97,13 +119,13 @@ std::unique_ptr<ToolRequest> CreateClickRequest(
     return nullptr;
   }
 
-  ClickCount count;
+  MouseClickCount count;
   switch (action.click_count()) {
     case apc::ClickAction_ClickCount_SINGLE:
-      count = ClickCount::kSingle;
+      count = MouseClickCount::kSingle;
       break;
     case apc::ClickAction_ClickCount_DOUBLE:
-      count = ClickCount::kDouble;
+      count = MouseClickCount::kDouble;
       break;
     case apc::ClickAction_ClickCount_UNKNOWN_CLICK_COUNT:
     case apc::
@@ -111,17 +133,17 @@ std::unique_ptr<ToolRequest> CreateClickRequest(
     case apc::
         ClickAction_ClickCount_ClickAction_ClickCount_INT_MAX_SENTINEL_DO_NOT_USE_:
       // TODO(crbug.com/412700289): Revert once this is set.
-      count = ClickCount::kSingle;
+      count = MouseClickCount::kSingle;
       break;
   }
 
-  ClickType type;
+  MouseClickType type;
   switch (action.click_type()) {
     case apc::ClickAction_ClickType_LEFT:
-      type = ClickType::kLeft;
+      type = MouseClickType::kLeft;
       break;
     case apc::ClickAction_ClickType_RIGHT:
-      type = ClickType::kRight;
+      type = MouseClickType::kRight;
       break;
     case apc::
         ClickAction_ClickType_ClickAction_ClickType_INT_MIN_SENTINEL_DO_NOT_USE_:
@@ -129,11 +151,11 @@ std::unique_ptr<ToolRequest> CreateClickRequest(
         ClickAction_ClickType_ClickAction_ClickType_INT_MAX_SENTINEL_DO_NOT_USE_:
     case apc::ClickAction_ClickType_UNKNOWN_CLICK_TYPE:
       // TODO(crbug.com/412700289): Revert once this is set.
-      type = ClickType::kLeft;
+      type = MouseClickType::kLeft;
       break;
   }
 
-  auto target = ToPageToolTarget(action.target());
+  auto target = ToPageTarget(action.target());
   if (!target.has_value()) {
     return nullptr;
   }
@@ -175,7 +197,7 @@ std::unique_ptr<ToolRequest> CreateTypeRequest(
       break;
   }
 
-  auto target = ToPageToolTarget(action.target());
+  auto target = ToPageTarget(action.target());
   if (!target.has_value()) {
     return nullptr;
   }
@@ -196,9 +218,9 @@ std::unique_ptr<ToolRequest> CreateScrollRequest(
     return nullptr;
   }
 
-  std::optional<PageToolRequest::Target> target;
+  std::optional<PageTarget> target;
   if (action.has_target()) {
-    target = ToPageToolTarget(action.target());
+    target = ToPageTarget(action.target());
   } else {
     // Scroll action may omit a target which means "target the viewport".
     TabInterface* tab = tab_handle.Get();
@@ -210,8 +232,9 @@ std::unique_ptr<ToolRequest> CreateScrollRequest(
             tab->GetContents()->GetPrimaryMainFrame())
             ->serialized_token();
 
-    target.emplace(PageToolRequest::Target(
-        {/*dom_node_id=*/kRootElementDomNodeId, document_identifier}));
+    target.emplace(
+        PageTarget(DomNode{.node_id = kRootElementDomNodeId,
+                           .document_identifier = document_identifier}));
   }
 
   if (!target) {
@@ -254,7 +277,7 @@ std::unique_ptr<ToolRequest> CreateMoveMouseRequest(
     return nullptr;
   }
 
-  auto target = ToPageToolTarget(action.target());
+  auto target = ToPageTarget(action.target());
   if (!target.has_value()) {
     return nullptr;
   }
@@ -272,12 +295,12 @@ std::unique_ptr<ToolRequest> CreateDragAndReleaseRequest(
     return nullptr;
   }
 
-  auto from_target = ToPageToolTarget(action.from_target());
+  auto from_target = ToPageTarget(action.from_target());
   if (!from_target.has_value()) {
     return nullptr;
   }
 
-  auto to_target = ToPageToolTarget(action.to_target());
+  auto to_target = ToPageTarget(action.to_target());
   if (!to_target.has_value()) {
     return nullptr;
   }
@@ -295,7 +318,7 @@ std::unique_ptr<ToolRequest> CreateSelectRequest(
     return nullptr;
   }
 
-  auto target = ToPageToolTarget(action.target());
+  auto target = ToPageTarget(action.target());
   if (!target.has_value()) {
     return nullptr;
   }
@@ -400,6 +423,35 @@ std::unique_ptr<ToolRequest> CreateWaitRequest(const WaitAction& action) {
   return std::make_unique<WaitToolRequest>(kWaitTime);
 }
 
+std::unique_ptr<ToolRequest> CreateAttemptLoginRequest(
+    const AttemptLoginAction& action,
+    TabInterface* deprecated_fallback_tab) {
+  const tabs::TabHandle tab_handle =
+      GetTabHandle(action, deprecated_fallback_tab);
+  if (tab_handle == TabHandle::Null()) {
+    return nullptr;
+  }
+
+  return std::make_unique<AttemptLoginToolRequest>(tab_handle);
+}
+
+std::unique_ptr<ToolRequest> CreateScriptToolRequest(
+    const ScriptToolAction& action,
+    TabInterface* deprecated_fallback_tab) {
+  const tabs::TabHandle tab_handle =
+      GetTabHandle(action, deprecated_fallback_tab);
+  if (tab_handle == TabHandle::Null()) {
+    return nullptr;
+  }
+
+  return std::make_unique<ScriptToolRequest>(
+      tab_handle,
+      PageTarget(DomNode{.node_id = kRootElementDomNodeId,
+                         .document_identifier =
+                             action.document_identifier().serialized_token()}),
+      action.tool_name(), action.input_arguments());
+}
+
 }  // namespace
 
 std::unique_ptr<ToolRequest> CreateToolRequest(
@@ -459,6 +511,16 @@ std::unique_ptr<ToolRequest> CreateToolRequest(
       return CreateActivateTabRequest(activate_tab_action,
                                       deprecated_fallback_tab);
     }
+    case optimization_guide::proto::Action::kAttemptLogin: {
+      const AttemptLoginAction& attempt_login_action = action.attempt_login();
+      return CreateAttemptLoginRequest(attempt_login_action,
+                                       deprecated_fallback_tab);
+    }
+    case optimization_guide::proto::Action::kScriptTool: {
+      const ScriptToolAction& script_tool_action = action.script_tool();
+      return CreateScriptToolRequest(script_tool_action,
+                                     deprecated_fallback_tab);
+    }
     case optimization_guide::proto::Action::kCreateWindow:
     case optimization_guide::proto::Action::kCloseWindow:
     case optimization_guide::proto::Action::kActivateWindow:
@@ -468,9 +530,202 @@ std::unique_ptr<ToolRequest> CreateToolRequest(
     case optimization_guide::proto::Action::ACTION_NOT_SET:
       ACTOR_LOG() << "Action Type Not Set!";
       break;
+    default:
+      NOTIMPLEMENTED();
+      break;
   }
 
   return nullptr;
+}
+
+base::expected<std::vector<std::unique_ptr<ToolRequest>>, size_t>
+BuildToolRequest(const optimization_guide::proto::Actions& actions) {
+  std::vector<std::unique_ptr<ToolRequest>> requests;
+  requests.reserve(actions.actions_size());
+  for (int i = 0; i < actions.actions_size(); ++i) {
+    std::unique_ptr<actor::ToolRequest> request = actor::CreateToolRequest(
+        actions.actions().at(i), /*deprecated_fallback_tab=*/nullptr);
+    if (request) {
+      requests.push_back(std::move(request));
+    } else {
+      return base::unexpected(base::checked_cast<size_t>(i));
+    }
+  }
+
+  return requests;
+}
+
+apc::TabObservation ConvertToTabObservation(
+    const page_content_annotations::FetchPageContextResult& fetch_result) {
+  apc::TabObservation tab_observation;
+
+  if (fetch_result.screenshot_result) {
+    auto& data = fetch_result.screenshot_result->jpeg_data;
+    if (data.size() != 0) {
+      tab_observation.set_screenshot_mime_type(kMimeTypeJpeg);
+      // TODO(bokan): Can we avoid a copy here?
+      tab_observation.set_screenshot(data.data(), data.size());
+    }
+  }
+
+  if (fetch_result.annotated_page_content_result) {
+    *tab_observation.mutable_annotated_page_content() =
+        fetch_result.annotated_page_content_result->proto;
+  }
+
+  return tab_observation;
+}
+
+namespace {
+
+void FetchCallback(base::RepeatingClosure barrier,
+                   apc::TabObservation* tab_observation,
+                   ActorKeyedService::TabObservationResult result) {
+  base::ScopedClosureRunner run_barrier_at_return(barrier);
+
+  if (!result.has_value()) {
+    // TODO(crbug.com/435210098): There should be some way to message failure to
+    // observe.
+    return;
+  }
+
+  FetchPageContextResult& fetch_result = **result;
+
+  // RequestTabObservation should return an error if these aren't filled in.
+  CHECK(fetch_result.screenshot_result.has_value());
+  CHECK(fetch_result.annotated_page_content_result.has_value());
+
+  *tab_observation = ConvertToTabObservation(fetch_result);
+}
+
+}  // namespace
+
+void BuildActionsResultWithObservations(
+    content::BrowserContext& browser_context,
+    mojom::ActionResultCode result_code,
+    std::optional<size_t> index_of_failed_action,
+    const ActorTask& task,
+    base::OnceCallback<void(std::unique_ptr<apc::ActionsResult>)> callback) {
+  auto response = std::make_unique<apc::ActionsResult>();
+
+  response->set_action_result(static_cast<int32_t>(result_code));
+  if (index_of_failed_action) {
+    response->set_index_of_failed_action(*index_of_failed_action);
+  }
+
+  auto* profile = Profile::FromBrowserContext(&browser_context);
+
+  std::vector<Browser*> browsers = chrome::FindAllTabbedBrowsersWithProfile(
+      profile, /*ignore_closing_browsers=*/true);
+
+  for (Browser* browser : browsers) {
+    apc::WindowObservation* window_observation = response->add_windows();
+    window_observation->set_id(browser->session_id().id());
+    window_observation->set_active(browser->IsActive());
+
+    if (tabs::TabInterface* tab = browser->GetActiveTabInterface()) {
+      window_observation->set_activated_tab_id(tab->GetHandle().raw_value());
+    }
+
+    for (const tabs::TabInterface* tab : *browser->GetTabStripModel()) {
+      window_observation->add_tab_ids(tab->GetHandle().raw_value());
+    }
+  }
+
+  absl::flat_hash_set<tabs::TabInterface*> tabs_to_fetch;
+
+  for (const tabs::TabHandle& handle : task.GetLastActedTabs()) {
+    // Include a TabObservation entry for acted on tabs. If the tab no longer
+    // exists or the fetch context failed, the observation will be empty.
+    // TODO(crbug.com/392167142): Check for a crashed tab here.
+    // TODO(crbug.com/434263095): We should probably avoid capturing
+    // observations if an action fails with kUrlBlocked. That might be better
+    // implemented by not putting the tab into the LastActedTabs set.
+    TabInterface* tab = handle.Get();
+    if (!tab) {
+      // TODO(crbug.com/435210098): There should be some way to message failure
+      // to capture an observation to the model (here and in FetchCallback). For
+      // now we leave the observation empty.
+      apc::TabObservation* tab_observation = response->add_tabs();
+      tab_observation->set_id(handle.raw_value());
+    } else {
+      tabs_to_fetch.insert(tab);
+    }
+  }
+
+  apc::ActionsResult* raw_response = response.get();
+  base::RepeatingClosure barrier = base::BarrierClosure(
+      tabs_to_fetch.size(),
+      base::BindOnce(std::move(callback), std::move(response)));
+
+  auto* actor_service = actor::ActorKeyedService::Get(profile);
+  CHECK(actor_service);
+
+  for (const tabs::TabInterface* tab : tabs_to_fetch) {
+    apc::TabObservation* tab_observation = raw_response->add_tabs();
+    tab_observation->set_id(tab->GetHandle().raw_value());
+
+    // tab_observation can be Unretained because the underlying APC is owned by
+    // the barrier which is ref-counted.
+    actor_service->RequestTabObservation(
+        *tab, base::BindOnce(FetchCallback, barrier,
+                             base::Unretained(tab_observation)));
+  }
+}
+
+apc::ActionsResult BuildErrorActionsResult(
+    mojom::ActionResultCode result_code,
+    std::optional<size_t> index_of_failed_action) {
+  apc::ActionsResult response;
+  CHECK(!IsOk(result_code));
+
+  response.set_action_result(static_cast<int32_t>(result_code));
+  if (index_of_failed_action) {
+    response.set_index_of_failed_action(*index_of_failed_action);
+  }
+
+  return response;
+}
+
+base::expected<std::vector<std::unique_ptr<ToolRequest>>, size_t>
+BuildToolRequest(const optimization_guide::proto::BrowserAction& actions,
+                 tabs::TabInterface* deprecated_fallback_tab) {
+  std::vector<std::unique_ptr<actor::ToolRequest>> requests;
+  requests.reserve(actions.actions_size());
+  for (int i = 0; i < actions.actions_size(); ++i) {
+    std::unique_ptr<actor::ToolRequest> request = actor::CreateToolRequest(
+        actions.actions().at(i), deprecated_fallback_tab);
+    if (request) {
+      requests.push_back(std::move(request));
+    } else {
+      return base::unexpected(base::checked_cast<size_t>(i));
+    }
+  }
+
+  return requests;
+}
+
+optimization_guide::proto::BrowserActionResult BuildBrowserActionResult(
+    mojom::ActionResultCode result_code,
+    int32_t tab_id) {
+  optimization_guide::proto::BrowserActionResult response;
+  response.set_action_result(static_cast<int32_t>(result_code));
+  response.set_tab_id(tab_id);
+  return response;
+}
+
+std::string ToBase64(const optimization_guide::proto::BrowserAction& actions) {
+  size_t size = actions.ByteSizeLong();
+  std::vector<uint8_t> buffer(size);
+  actions.SerializeToArray(buffer.data(), size);
+  return base::Base64Encode(buffer);
+}
+
+std::string ToBase64(const optimization_guide::proto::Actions& actions) {
+  size_t size = actions.ByteSizeLong();
+  std::vector<uint8_t> buffer(size);
+  actions.SerializeToArray(buffer.data(), size);
+  return base::Base64Encode(buffer);
 }
 
 }  // namespace actor

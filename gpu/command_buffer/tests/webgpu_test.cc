@@ -117,7 +117,6 @@ void WebGPUTest::Initialize(const Options& options) {
       std::make_unique<viz::TestGpuServiceHolder>(gpu_preferences);
 
   ContextCreationAttribs attributes;
-  attributes.bind_generates_resource = false;
   attributes.enable_gles2_interface = false;
   attributes.context_type = CONTEXT_TYPE_WEBGPU;
 
@@ -197,14 +196,9 @@ void WebGPUTest::WaitForCompletion(wgpu::Device device) {
   // Wait for any work submitted to the queue to be finished. The guarantees of
   // Dawn are that all previous operations will have been completed and more
   // importantly the callbacks will have been called.
-#ifdef WGPU_BREAKING_CHANGE_QUEUE_WORK_DONE_CALLBACK_MESSAGE
   wgpu::FutureWaitInfo wait_info = {device.GetQueue().OnSubmittedWorkDone(
       wgpu::CallbackMode::WaitAnyOnly,
       [](wgpu::QueueWorkDoneStatus, wgpu::StringView) {})};
-#else   // WGPU_BREAKING_CHANGE_QUEUE_WORK_DONE_CALLBACK_MESSAGE
-  wgpu::FutureWaitInfo wait_info = {device.GetQueue().OnSubmittedWorkDone(
-      wgpu::CallbackMode::WaitAnyOnly, [](wgpu::QueueWorkDoneStatus) {})};
-#endif  // WGPU_BREAKING_CHANGE_QUEUE_WORK_DONE_CALLBACK_MESSAGE
 
   while (!wait_info.completed) {
     instance_.WaitAny(1, &wait_info, 0);

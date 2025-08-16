@@ -13,6 +13,7 @@
 #include "chrome/browser/actor/tools/tool_request.h"
 #include "chrome/common/actor.mojom-forward.h"
 #include "chrome/common/chrome_render_frame.mojom.h"
+#include "components/optimization_guide/content/browser/page_content_proto_util.h"
 #include "components/optimization_guide/proto/features/actions_data.pb.h"
 #include "content/public/browser/weak_document_ptr.h"
 #include "mojo/public/cpp/bindings/associated_remote.h"
@@ -23,7 +24,6 @@ class RenderFrameHost;
 
 namespace actor {
 
-class AggregatedJournal;
 class PageToolRequest;
 class RenderFrameChangeObserver;
 
@@ -33,7 +33,7 @@ class RenderFrameChangeObserver;
 class PageTool : public Tool {
  public:
   PageTool(TaskId task_id,
-           AggregatedJournal& journal,
+           ToolDelegate& tool_delegate,
            const PageToolRequest& params);
   ~PageTool() override;
 
@@ -48,6 +48,8 @@ class PageTool : public Tool {
   std::string JournalEvent() const override;
   std::unique_ptr<ObservationDelayController> GetObservationDelayer()
       const override;
+  void UpdateTaskBeforeInvoke(ActorTask& task,
+                              InvokeCallback callback) const override;
 
  private:
   void FinishInvoke(mojom::ActionResultPtr result);
@@ -68,6 +70,10 @@ class PageTool : public Tool {
 
   // Set during TimeOfUseValidation.
   content::WeakDocumentPtr target_document_;
+
+  // Set during TimeOfUseValidation. Contains the hit test result against
+  // observed page content.
+  std::optional<optimization_guide::TargetNodeInfo> observed_target_node_info_;
 
   base::WeakPtrFactory<PageTool> weak_ptr_factory_{this};
 };

@@ -17,6 +17,7 @@
 #include "components/commerce/core/compare/compare_utils.h"
 #include "components/commerce/core/feature_utils.h"
 #include "components/endpoint_fetcher/endpoint_fetcher.h"
+#include "google_apis/gaia/gaia_constants.h"
 #include "net/http/http_status_code.h"
 #include "net/traffic_annotation/network_traffic_annotation.h"
 #include "services/data_decoder/public/cpp/data_decoder.h"
@@ -304,8 +305,9 @@ ProductSpecificationsServerProxy::CreateEndpointFetcher(
   request_params.SetUrl(url)
       .SetContentType(kContentType)
       .SetAuthType(endpoint_fetcher::OAUTH)
-      .SetOauthScopes(std::vector<std::string>{kOAuthScope})
-      .SetConsentLevel(signin::ConsentLevel::kSync)
+      .SetOauthScopes(
+          std::vector<std::string>{GaiaConstants::kChromeMemexOAuth2Scope})
+      .SetConsentLevel(signin::ConsentLevel::kSignin)
       .SetTimeout(base::Milliseconds(kTimeoutMs))
       .SetOauthConsumerName(kOAuthName)
       .SetPostData(post_data);

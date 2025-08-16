@@ -467,29 +467,6 @@ TEST_F(AddressDataCleanerTest, DeleteDisusedAccountAddresses) {
   EXPECT_THAT(test_adm_.GetProfiles(), UnorderedElementsAre(Pointee(profile2)));
 }
 
-// Tests that H/W is not removed by disused address deletion.
-TEST_F(AddressDataCleanerTest, DeleteDisusedAccountAddressesHomeAndWork) {
-  base::test::ScopedFeatureList feature_list{
-      features::kAutofillDeduplicateAccountAddresses};
-  base::Time kDisusedDate = AutofillClock::Now() - base::Days(400);
-
-  // Create a disused home address.
-  AutofillProfile home = test::GetFullProfile();
-  home.usage_history().set_use_date(kDisusedDate);
-  test_api(home).set_record_type(AutofillProfile::RecordType::kAccountHome);
-  test_adm_.AddProfile(home);
-
-  // Create a disused work address.
-  AutofillProfile work = test::GetFullProfile2();
-  test_api(work).set_record_type(AutofillProfile::RecordType::kAccountWork);
-  work.usage_history().set_use_date(kDisusedDate);
-  test_adm_.AddProfile(work);
-
-  test_api(data_cleaner_).DeleteDisusedAddresses();
-  EXPECT_THAT(test_adm_.GetProfiles(),
-              UnorderedElementsAre(Pointee(home), Pointee(work)));
-}
-
 TEST_F(AddressDataCleanerTest, CalculateMinimalIncompatibleTypeSets) {
   const AutofillProfileComparator comparator("en_US");
   AutofillProfile profile = test::GetFullProfile();
@@ -520,6 +497,53 @@ TEST_F(AddressDataCleanerTest, CalculateMinimalIncompatibleTypeSets) {
                                                         {EMAIL_ADDRESS}},
           autofill_metrics::DifferingProfileWithTypeSet{
               &other_profile3, {PHONE_HOME_WHOLE_NUMBER}}));
+}
+
+// Checks that migration of phonetic names from regular name fields, does not
+// run if the feature is disabled.
+TEST_F(AddressDataCleanerTest, NoNameMigrationIfFlagDisabled) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndDisableFeature(
+      features::kAutofillSupportPhoneticNameForJP);
+  base::HistogramTester histogram_tester;
+
+  // Creating a profile.
+  AutofillProfile profile(AddressCountryCode("JP"));
+  profile.SetRawInfo(NAME_FULL, u"タ ワ");
+  profile.FinalizeAfterImport();
+  test_adm_.AddProfile(profile);
+
+  data_cleaner_.MaybeCleanupAddressData();
+  histogram_tester.ExpectTotalCount(
+      "Autofill.NumberOfNamesMigratedToAlternativeNamesDuringCleanUp", 0);
+  EXPECT_THAT(test_adm_.GetProfiles(), UnorderedElementsAre(Pointee(profile)));
+}
+
+// Checks that migration of phonetic names from regular name fields,
+// records the metric and migrates the name.
+TEST_F(AddressDataCleanerTest, NameMigration) {
+  base::test::ScopedFeatureList feature_list{
+      features::kAutofillSupportPhoneticNameForJP};
+  base::HistogramTester histogram_tester;
+
+  AutofillProfile profile(AddressCountryCode("JP"));
+  profile.SetRawInfo(NAME_FULL, u"タ ワ");
+  profile.FinalizeAfterImport();
+  test_adm_.AddProfile(profile);
+
+  AutofillProfile expected(AddressCountryCode("JP"));
+  expected.set_guid(profile.guid());
+  expected.SetRawInfoWithVerificationStatus(ALTERNATIVE_FULL_NAME, u"タ ワ",
+                                            VerificationStatus::kNoStatus);
+  expected.SetRawInfoWithVerificationStatus(ALTERNATIVE_FAMILY_NAME, u"タ",
+                                            VerificationStatus::kNoStatus);
+  expected.SetRawInfoWithVerificationStatus(ALTERNATIVE_GIVEN_NAME, u"ワ",
+                                            VerificationStatus::kNoStatus);
+
+  data_cleaner_.MaybeCleanupAddressData();
+  histogram_tester.ExpectUniqueSample(
+      "Autofill.NumberOfNamesMigratedToAlternativeNamesDuringCleanUp", 1, 1);
+  EXPECT_THAT(test_adm_.GetProfiles(), UnorderedElementsAre(Pointee(expected)));
 }
 
 }  // namespace

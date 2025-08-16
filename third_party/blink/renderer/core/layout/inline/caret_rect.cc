@@ -4,6 +4,7 @@
 
 #include "third_party/blink/renderer/core/layout/inline/caret_rect.h"
 
+#include "third_party/blink/renderer/core/editing/editing_utilities.h"
 #include "third_party/blink/renderer/core/editing/local_caret_rect.h"
 #include "third_party/blink/renderer/core/frame/local_frame_view.h"
 #include "third_party/blink/renderer/core/layout/geometry/physical_rect.h"
@@ -39,48 +40,7 @@ TextDirection ResolvedDirection(const InlineCursor& cursor) {
   return line_box.Current().BaseDirection();
 }
 
-PhysicalRect ComputeLocalCaretRectByBoxSide(
-    const InlineCursor& cursor,
-    InlineCaretPositionType position_type) {
-  InlineCursor line_box(cursor);
-  line_box.MoveToContainingLine();
-  DCHECK(line_box);
-  bool is_atomic_inline = cursor.Current().IsAtomicInline();
-  // RTL is handled manually at the bottom of this function.
-  WritingModeConverter converter(
-      {cursor.Current().Style().GetWritingMode(), TextDirection::kLtr},
-      is_atomic_inline ? cursor.Current().Size()
-                       : cursor.ContainerFragment().Size());
-  LogicalRect line_rect =
-      converter.ToLogical(line_box.Current().RectInContainerFragment());
-  LogicalRect item_rect =
-      converter.ToLogical(cursor.Current().RectInContainerFragment());
 
-  LogicalRect caret_rect;
-  caret_rect.size.block_size = line_rect.size.block_size;
-  // The block-start of the caret is always the block-start of the line.
-  caret_rect.offset.block_offset = line_rect.offset.block_offset;
-  if (is_atomic_inline) {
-    // For atomic-inline, this function should return a rectangle relative to
-    // the atomic-inline.
-    caret_rect.offset.block_offset -= item_rect.offset.block_offset;
-  }
-
-  const LocalFrameView* frame_view =
-      cursor.Current().GetLayoutObject()->GetDocument().View();
-  caret_rect.size.inline_size = frame_view->BarCaretWidth();
-
-  const bool is_ltr = IsLtr(ResolvedDirection(cursor));
-  if (!is_atomic_inline) {
-    caret_rect.offset.inline_offset = item_rect.offset.inline_offset;
-  }
-  if (is_ltr != (position_type == InlineCaretPositionType::kBeforeBox)) {
-    caret_rect.offset.inline_offset +=
-        item_rect.size.inline_size - caret_rect.size.inline_size;
-  }
-
-  return converter.ToPhysical(caret_rect);
-}
 
 bool ShouldAlignCaretRight(ETextAlign text_align, TextDirection direction) {
   switch (text_align) {
@@ -112,14 +72,14 @@ LayoutUnit ClampAndRound(LayoutUnit value, LayoutUnit min, LayoutUnit max) {
 LayoutUnit ComputeCharacterWidthAtOffset(const InlineCursor& cursor,
                                          unsigned offset,
                                          const ComputedStyle& style) {
-  const LocalFrameView* frame_view =
-      cursor.Current().GetLayoutObject()->GetFrameView();
   unsigned cluster_size =
       LengthOfGraphemeCluster(cursor.CurrentText().ToString(), offset);
+  // The width calculation takes into account font information from style.
+  // The zoom value is baked into the font size already.
   float width = ComputeTextWidth(
       StringView(cursor.CurrentText(), offset, cluster_size), style);
 
-  return frame_view->ScaleCssPixelForCaret(width);
+  return LayoutUnit(width);
 }
 
 LogicalRect ComputeNextCharacterLogicalRect(const InlineCursor& cursor,
@@ -215,9 +175,7 @@ LogicalRect ComputeLogicalCaretRectAtTextOffset(const InlineCursor& cursor,
   LogicalRect caret_rect;
   LayoutUnit cursor_block_size =
       converter.ToLogical(cursor.Current().Size()).block_size;
-  if (caret_shape != CaretShape::kBar &&
-      !IsA<LayoutTextCombine>(cursor.Current().GetLayoutObject()->Parent()))
-      [[unlikely]] {
+  if (caret_shape != CaretShape::kBar) [[unlikely]] {
     // Get the width of the "next" character, or width of the last visible
     // character if there is no visible next character.
     caret_rect = ComputeNextCharacterLogicalRect(cursor, offset, caret_shape);
@@ -267,11 +225,13 @@ PhysicalRect ComputeLocalCaretRectAtTextOffset(const InlineCursor& cursor,
       physical_caret_rect.offset + cursor.Current().OffsetInContainerFragment();
   const auto* const text_combine = DynamicTo<LayoutTextCombine>(
       cursor.Current().GetLayoutObject()->Parent());
-  // TODO(https://crbug.com/353713061): Add caret-shape support for combine
-  // text.
   if (text_combine) [[unlikely]] {
     caret_location =
         text_combine->AdjustOffsetForLocalCaretRect(caret_location);
+    if (caret_shape != CaretShape::kBar) {
+      physical_caret_rect =
+          text_combine->AdjustRectForBoundingBox(physical_caret_rect);
+    }
   }
 
   const PhysicalBoxFragment& fragment = cursor.ContainerFragment();
@@ -314,6 +274,108 @@ PhysicalRect ComputeLocalCaretRectAtTextOffset(const InlineCursor& cursor,
   return PhysicalRect(caret_location, physical_caret_rect.size);
 }
 
+PhysicalRect ComputeLocalCaretRectByBoxSide(
+    const InlineCursor& cursor,
+    InlineCaretPositionType position_type,
+    CaretShape caret_shape) {
+  InlineCursor line_box(cursor);
+  line_box.MoveToContainingLine();
+  DCHECK(line_box);
+  bool is_atomic_inline = cursor.Current().IsAtomicInline();
+  // RTL is handled manually at the bottom of this function.
+  WritingModeConverter converter(
+      {cursor.Current().Style().GetWritingMode(), TextDirection::kLtr},
+      is_atomic_inline ? cursor.Current().Size()
+                       : cursor.ContainerFragment().Size());
+  LogicalRect line_rect =
+      converter.ToLogical(line_box.Current().RectInContainerFragment());
+  LogicalRect item_rect =
+      converter.ToLogical(cursor.Current().RectInContainerFragment());
+
+  LogicalRect caret_rect;
+  caret_rect.size.block_size = line_rect.size.block_size;
+  // The block-start of the caret is always the block-start of the line.
+  caret_rect.offset.block_offset = line_rect.offset.block_offset;
+  if (is_atomic_inline) {
+    // For atomic-inline, this function should return a rectangle relative to
+    // the atomic-inline.
+    caret_rect.offset.block_offset -= item_rect.offset.block_offset;
+  }
+
+  const LocalFrameView* frame_view =
+      cursor.Current().GetLayoutObject()->GetDocument().View();
+  caret_rect.size.inline_size = frame_view->BarCaretWidth();
+
+  const bool is_ltr = IsLtr(ResolvedDirection(cursor));
+  if (!is_atomic_inline) {
+    caret_rect.offset.inline_offset = item_rect.offset.inline_offset;
+  }
+  if (is_ltr != (position_type == InlineCaretPositionType::kBeforeBox)) {
+    caret_rect.offset.inline_offset +=
+        item_rect.size.inline_size - caret_rect.size.inline_size;
+  }
+
+  if (caret_shape != CaretShape::kBar) [[unlikely]] {
+    if (position_type == InlineCaretPositionType::kAfterBox) {
+      auto next = cursor;
+      if (!IsLtr(ResolvedDirection(cursor))) {
+        next.MoveToPrevious();
+      } else {
+        next.MoveToNext();
+      }
+      if (next && next.Current().IsText()) {
+        LogicalSize text_caret_size =
+            ComputeLogicalCaretRectAtTextOffset(
+                next, next.Current().TextStartOffset(), caret_shape)
+                .size;
+        switch (next.Current().Style().GetWritingMode()) {
+          case WritingMode::kHorizontalTb:
+            caret_rect.offset.block_offset +=
+                caret_rect.size.block_size - text_caret_size.block_size;
+            break;
+          case WritingMode::kVerticalLr:
+          case WritingMode::kVerticalRl:
+            if (caret_shape == CaretShape::kBlock) {
+              caret_rect.offset.block_offset +=
+                  (caret_rect.size.block_size - text_caret_size.block_size) / 2;
+            } else {
+              if (next.Current().Style().GetWritingMode() ==
+                  WritingMode::kVerticalLr) {
+                caret_rect.offset.block_offset +=
+                    (caret_rect.size.block_size - next.Current().Size().width) /
+                    2;
+              } else {
+                caret_rect.offset.block_offset +=
+                    (caret_rect.size.block_size + next.Current().Size().width) /
+                        2 -
+                    text_caret_size.block_size;
+              }
+            }
+            break;
+          case WritingMode::kSidewaysRl:
+          case WritingMode::kSidewaysLr:
+            // Get the half-way difference for block_size between line_rect and
+            // item_rect.
+            LayoutUnit adjusted_offset =
+                (caret_rect.size.block_size - item_rect.size.block_size) / 2;
+            if (caret_shape == CaretShape::kBlock) {
+              caret_rect.offset.block_offset += caret_rect.size.block_size -
+                                                text_caret_size.block_size -
+                                                adjusted_offset;
+            } else {
+              caret_rect.offset.block_offset +=
+                  caret_rect.size.block_size - adjusted_offset;
+            }
+            break;
+        }
+        caret_rect.size = text_caret_size;
+      }
+    }
+  }
+
+  return converter.ToPhysical(caret_rect);
+}
+
 }  // namespace
 
 CaretShape GetCaretShapeFromComputedStyle(const ComputedStyle& style) {
@@ -342,6 +404,11 @@ LocalCaretRect ComputeLocalCaretRect(const InlineCaretPosition& caret_position,
 
   const LayoutObject* const layout_object =
       caret_position.cursor.Current().GetLayoutObject();
+  // Care-shape applies to text or elements that accept text input.
+  const Node* node = layout_object->GetNode();
+  if (!node || !IsEditable(*node)) {
+    caret_shape = CaretShape::kBar;
+  }
   const PhysicalBoxFragment& container_fragment =
       caret_position.cursor.ContainerFragment();
   switch (caret_position.position_type) {
@@ -349,7 +416,7 @@ LocalCaretRect ComputeLocalCaretRect(const InlineCaretPosition& caret_position,
     case InlineCaretPositionType::kAfterBox: {
       DCHECK(!caret_position.cursor.Current().IsText());
       const PhysicalRect fragment_local_rect = ComputeLocalCaretRectByBoxSide(
-          caret_position.cursor, caret_position.position_type);
+          caret_position.cursor, caret_position.position_type, caret_shape);
       return {layout_object, fragment_local_rect, &container_fragment};
     }
     case InlineCaretPositionType::kAtTextOffset: {

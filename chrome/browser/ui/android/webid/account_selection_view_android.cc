@@ -14,9 +14,9 @@
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/webid/account_selection_view.h"
 #include "chrome/browser/ui/webid/identity_ui_utils.h"
-#include "content/public/browser/identity_request_dialog_controller.h"
 #include "content/public/browser/render_widget_host.h"
 #include "content/public/browser/web_contents.h"
+#include "content/public/browser/webid/identity_request_dialog_controller.h"
 #include "third_party/blink/public/mojom/webid/federated_auth_request.mojom-shared.h"
 #include "third_party/blink/public/mojom/webid/federated_auth_request.mojom.h"
 #include "ui/android/color_utils_android.h"
@@ -88,7 +88,7 @@ ScopedJavaLocalRef<jobject> ConvertToJavaAccount(
       // TODO(crbug.com/398001374): Pass the circle cropped image here to avoid
       // duplication of code on Android.
       decoded_picture, circle_cropped_badged_picture,
-      account->login_state == Account::LoginState::kSignIn,
+      account->idp_claimed_login_state == Account::LoginState::kSignIn,
       account->browser_trusted_login_state == Account::LoginState::kSignIn,
       account->is_filtered_out, ConvertFieldsToJavaArray(env, account->fields),
       identity_provider);
@@ -142,7 +142,7 @@ ScopedJavaLocalRef<jobjectArray> ConvertToJavaAccounts(
     float device_scale_factor) {
   ScopedJavaLocalRef<jclass> account_clazz = base::android::GetClass(
       env, "org/chromium/chrome/browser/ui/android/webid/data/Account");
-  ScopedJavaLocalRef<jobjectArray> array(
+  auto array = ScopedJavaLocalRef<jobjectArray>::Adopt(
       env, env->NewObjectArray(accounts.size(), account_clazz.obj(), nullptr));
 
   base::android::CheckException(env);
@@ -193,7 +193,7 @@ ScopedJavaLocalRef<jobjectArray> ConvertToJavaIdentityProvidersList(
   ScopedJavaLocalRef<jclass> identity_provider_clazz = base::android::GetClass(
       env,
       "org/chromium/chrome/browser/ui/android/webid/data/IdentityProviderData");
-  ScopedJavaLocalRef<jobjectArray> array(
+  auto array = ScopedJavaLocalRef<jobjectArray>::Adopt(
       env, env->NewObjectArray(identity_providers_map.size(),
                                identity_provider_clazz.obj(), nullptr));
 

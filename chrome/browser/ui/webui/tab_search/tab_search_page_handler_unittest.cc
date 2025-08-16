@@ -27,10 +27,11 @@
 #include "chrome/browser/ui/tabs/alert/tab_alert.h"
 #include "chrome/browser/ui/tabs/organization/tab_declutter_controller.h"
 #include "chrome/browser/ui/tabs/public/tab_features.h"
+#include "chrome/browser/ui/tabs/saved_tab_groups/saved_tab_group_utils.h"
 #include "chrome/browser/ui/tabs/saved_tab_groups/tab_group_sync_service_initialized_observer.h"
+#include "chrome/browser/ui/tabs/split_tab_metrics.h"
 #include "chrome/browser/ui/tabs/tab_utils.h"
 #include "chrome/browser/ui/tabs/test_tab_strip_model_delegate.h"
-#include "chrome/browser/ui/tabs/test_util.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/webui/metrics_reporter/metrics_reporter.h"
 #include "chrome/browser/ui/webui/metrics_reporter/mock_metrics_reporter.h"
@@ -264,9 +265,9 @@ class TabSearchPageHandlerTest : public BrowserWithTestWindowTest {
 
   void WaitForTabGroupSyncServiceInitialized() {
     tab_groups::TabGroupSyncService* tab_group_service_1 =
-        tab_groups::TabGroupSyncServiceFactory::GetForProfile(profile1());
+        tab_groups::SavedTabGroupUtils::GetServiceForProfile(profile1());
     tab_groups::TabGroupSyncService* tab_group_service_2 =
-        tab_groups::TabGroupSyncServiceFactory::GetForProfile(profile2());
+        tab_groups::SavedTabGroupUtils::GetServiceForProfile(profile2());
     auto observer_1 =
         std::make_unique<tab_groups::TabGroupSyncServiceInitializedObserver>(
             tab_group_service_1);
@@ -1028,7 +1029,7 @@ class TabSearchPageHandlerDeclutterTest : public TabSearchPageHandlerTest {
   std::unique_ptr<TabStripModel> tab_strip_model_;
   std::unique_ptr<MockTabDeclutterController> tab_declutter_controller_;
   std::unique_ptr<MockBrowserWindowInterface> browser_window_interface_;
-  tabs::PreventTabFeatureInitialization prevent_;
+  const tabs::TabModel::PreventFeatureInitializationForTesting prevent_;
 };
 
 TEST_F(TabSearchPageHandlerDeclutterTest, TabDeclutterFindUnusedTabs) {
@@ -1292,8 +1293,9 @@ TEST_F(TabSearchPageHandlerTest, ReplaceActiveSplitTab) {
   AddTab(browser(), GURL(kTabUrl2));
   AddTab(browser(), GURL(kTabUrl3));
   TabStripModel* tab_strip_model = browser()->tab_strip_model();
-  const split_tabs::SplitTabId split_id =
-      tab_strip_model->AddToNewSplit({1}, split_tabs::SplitTabVisualData());
+  const split_tabs::SplitTabId split_id = tab_strip_model->AddToNewSplit(
+      {1}, split_tabs::SplitTabVisualData(),
+      split_tabs::SplitTabCreatedSource::kToolbarButton);
 
   const split_tabs::SplitTabData* split_data =
       tab_strip_model->GetSplitData(split_id);

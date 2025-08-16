@@ -75,6 +75,7 @@ import org.mockito.Mockito;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 
+import org.chromium.base.BaseSwitches;
 import org.chromium.base.ContextUtils;
 import org.chromium.base.ThreadUtils;
 import org.chromium.base.metrics.RecordHistogram;
@@ -185,7 +186,6 @@ import java.util.concurrent.TimeoutException;
 })
 // TODO(crbug.com/344672098): Failing when batched, batch this again.
 public class SiteSettingsTest {
-    public static final String SITE_SETTINGS_BATCH_NAME = "site_settings";
 
     @ClassRule public static PermissionTestRule mPermissionRule = new PermissionTestRule(true);
 
@@ -268,7 +268,6 @@ public class SiteSettingsTest {
             ThreadUtils.runOnUiThreadBlocking(
                     () -> {
                         mPermissionRule
-                                .getActivity()
                                 .getActivityTab()
                                 .removeObserver(mPermissionUpdateWaiter);
                     });
@@ -310,12 +309,11 @@ public class SiteSettingsTest {
             ThreadUtils.runOnUiThreadBlocking(
                     () -> {
                         mPermissionRule
-                                .getActivity()
                                 .getActivityTab()
                                 .removeObserver(mPermissionUpdateWaiter);
                     });
         }
-        Tab tab = mPermissionRule.getActivity().getActivityTab();
+        Tab tab = mPermissionRule.getActivityTab();
 
         mPermissionUpdateWaiter =
                 new PermissionUpdateWaiter(
@@ -1588,7 +1586,7 @@ public class SiteSettingsTest {
     public void testOnlyExpectedPreferencesShown() {
         // If you add a category in the SiteSettings UI, please update this total AND add a test for
         // it below, named "testOnlyExpectedPreferences<Category>".
-        Assert.assertEquals(36, SiteSettingsCategory.Type.NUM_ENTRIES);
+        Assert.assertEquals(37, SiteSettingsCategory.Type.NUM_ENTRIES);
     }
 
     @Test
@@ -2327,6 +2325,26 @@ public class SiteSettingsTest {
     public void testOnlyExpectedPreferencesLocalNetworkAccess() {
         testExpectedPreferences(
                 SiteSettingsCategory.Type.LOCAL_NETWORK_ACCESS,
+                BINARY_RADIO_BUTTON_AND_INFO_TEXT,
+                BINARY_RADIO_BUTTON_AND_INFO_TEXT);
+    }
+
+    @Test
+    @SmallTest
+    @Feature({"Preferences"})
+    @DisableFeatures(ChromeFeatureList.PERMISSION_SITE_SETTING_RADIO_BUTTON)
+    public void testOnlyExpectedPreferencesWindowManagementWithToggle() {
+        testExpectedPreferences(
+                SiteSettingsCategory.Type.WINDOW_MANAGEMENT, BINARY_TOGGLE, BINARY_TOGGLE);
+    }
+
+    @Test
+    @SmallTest
+    @Feature({"Preferences"})
+    @EnableFeatures(ChromeFeatureList.PERMISSION_SITE_SETTING_RADIO_BUTTON)
+    public void testOnlyExpectedPreferencesWindowManagement() {
+        testExpectedPreferences(
+                SiteSettingsCategory.Type.WINDOW_MANAGEMENT,
                 BINARY_RADIO_BUTTON_AND_INFO_TEXT,
                 BINARY_RADIO_BUTTON_AND_INFO_TEXT);
     }
@@ -3249,6 +3267,34 @@ public class SiteSettingsTest {
     @Test
     @SmallTest
     @Feature({"Preferences"})
+    @EnableFeatures(ChromeFeatureList.PERMISSION_SITE_SETTING_RADIO_BUTTON)
+    public void testAllowWindowManager() {
+        new TwoStatePermissionTestCaseWithRadioButton(
+                        "WindowManagement",
+                        SiteSettingsCategory.Type.WINDOW_MANAGEMENT,
+                        ContentSettingsType.WINDOW_MANAGEMENT,
+                        true)
+                .withExpectedPrefKeysAtStart(SingleCategorySettings.INFO_TEXT_KEY)
+                .run();
+    }
+
+    @Test
+    @SmallTest
+    @Feature({"Preferences"})
+    @EnableFeatures(ChromeFeatureList.PERMISSION_SITE_SETTING_RADIO_BUTTON)
+    public void testBlockWindowManager() {
+        new TwoStatePermissionTestCaseWithRadioButton(
+                        "WindowManagement",
+                        SiteSettingsCategory.Type.WINDOW_MANAGEMENT,
+                        ContentSettingsType.WINDOW_MANAGEMENT,
+                        false)
+                .withExpectedPrefKeysAtStart(SingleCategorySettings.INFO_TEXT_KEY)
+                .run();
+    }
+
+    @Test
+    @SmallTest
+    @Feature({"Preferences"})
     @DisableFeatures(ChromeFeatureList.PERMISSION_SITE_SETTING_RADIO_BUTTON)
     public void testAllowAutoDarkWithToggle() {
         final String histogramName = "Android.DarkTheme.AutoDarkMode.SettingsChangeSource.Enabled";
@@ -3534,6 +3580,49 @@ public class SiteSettingsTest {
                     Assert.assertEquals(
                             AdvancedProtectionTestRule.TEST_JAVASCRIPT_OPTIMIZER_MESSAGE,
                             radioButtonDisableReason.getTitle());
+
+                    settingsActivity.finish();
+                });
+    }
+
+    @Test
+    @SmallTest
+    @Feature({"Preferences"})
+    @CommandLineFlags.Add(BaseSwitches.ENABLE_LOW_END_DEVICE_MODE)
+    @EnableFeatures(ChromeFeatureList.PERMISSION_SITE_SETTING_RADIO_BUTTON)
+    public void testAddingJavascriptOptimizerExceptionsBlockedIfNotEnoughRam() {
+        final SettingsActivity settingsActivity =
+                SiteSettingsTestUtils.startSiteSettingsCategory(
+                        SiteSettingsCategory.Type.JAVASCRIPT_OPTIMIZER);
+
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    SingleCategorySettings singleCategorySettings =
+                            (SingleCategorySettings) settingsActivity.getMainFragment();
+
+                    checkPreferencesForSettingsActivity(
+                            settingsActivity,
+                            new String[] {
+                                SingleCategorySettings.INFO_TEXT_KEY,
+                                SingleCategorySettings.BINARY_RADIO_BUTTON_KEY,
+                                SingleCategorySettings.ADD_EXCEPTION_KEY,
+                                SingleCategorySettings.ADD_EXCEPTION_DISABLED_REASON_KEY,
+                            });
+
+                    Preference addExceptionButton =
+                            singleCategorySettings.findPreference(
+                                    SingleCategorySettings.ADD_EXCEPTION_KEY);
+                    Assert.assertFalse(addExceptionButton.isEnabled());
+
+                    Preference addExceptionButtonDisabledReason =
+                            singleCategorySettings.findPreference(
+                                    SingleCategorySettings.ADD_EXCEPTION_DISABLED_REASON_KEY);
+                    Context context = ApplicationProvider.getApplicationContext();
+                    int expectedReasonId =
+                            R.string.website_settings_js_opt_add_exceptions_disabled_reason;
+                    Assert.assertEquals(
+                            context.getString(expectedReasonId),
+                            addExceptionButtonDisabledReason.getTitle());
 
                     settingsActivity.finish();
                 });

@@ -2,11 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifdef UNSAFE_BUFFERS_BUILD
-// TODO(crbug.com/390223051): Remove C-library calls to fix the errors.
-#pragma allow_unsafe_libc_calls
-#endif
-
 #include "pdf/pdfium/pdfium_engine.h"
 
 #include <math.h>
@@ -22,6 +17,7 @@
 
 #include "base/auto_reset.h"
 #include "base/check_op.h"
+#include "base/compiler_specific.h"
 #include "base/containers/contains.h"
 #include "base/containers/flat_map.h"
 #include "base/containers/span.h"
@@ -54,6 +50,8 @@
 #include "pdf/loader/document_loader_impl.h"
 #include "pdf/loader/url_loader.h"
 #include "pdf/loader/url_loader_wrapper_impl.h"
+#include "pdf/page_character_index.h"
+#include "pdf/pdf_caret.h"
 #include "pdf/pdf_features.h"
 #include "pdf/pdf_transform.h"
 #include "pdf/pdfium/pdfium_api_string_buffer_adapter.h"
@@ -64,6 +62,7 @@
 #include "pdf/pdfium/pdfium_permissions.h"
 #include "pdf/pdfium/pdfium_text_fragment_finder.h"
 #include "pdf/pdfium/pdfium_unsupported_features.h"
+#include "pdf/region_data.h"
 #include "printing/mojom/print.mojom-shared.h"
 #include "printing/units.h"
 #include "third_party/blink/public/common/input/web_input_event.h"
@@ -613,9 +612,8 @@ PDFiumEngine::~PDFiumEngine() {
                                 base::TimeTicks::Now() - engine_creation_time_);
   }
 #if BUILDFLAG(ENABLE_SCREEN_AI_SERVICE)
-  // `searchifier_` is created when at least one page needs searchify.
-  if (searchifier_) {
-    base::UmaHistogramBoolean("PDF.SearchifySuccessful", has_searchify_text_);
+  if (searchifier_ && searchifier_->PerformedOCR()) {
+    base::UmaHistogramBoolean("PDF.SearchifySuccessful2", has_searchify_text_);
   }
 
   // Should be reset before document is unloaded.
@@ -661,6 +659,10 @@ void PDFiumEngine::PluginSizeUpdated(const gfx::Size& size) {
   CalculateVisiblePages();
   OnSelectionPositionChanged();
 
+  if (caret_) {
+    caret_->OnGeometryChanged();
+  }
+
   if (document_pending_) {
     // This method may be called in a `blink::ScriptForbiddenScope` context,
     // which imposes certain restrictions on clients. Complete the work
@@ -685,6 +687,9 @@ void PDFiumEngine::ScrolledToXPosition(int position) {
   client_->CaretChanged(caret_rect_);
 
   OnSelectionPositionChanged();
+  if (caret_) {
+    caret_->OnGeometryChanged();
+  }
 }
 
 void PDFiumEngine::ScrolledToYPosition(int position) {
@@ -699,6 +704,9 @@ void PDFiumEngine::ScrolledToYPosition(int position) {
   client_->CaretChanged(caret_rect_);
 
   OnSelectionPositionChanged();
+  if (caret_) {
+    caret_->OnGeometryChanged();
+  }
 }
 
 void PDFiumEngine::PrePaint() {
@@ -931,6 +939,26 @@ void PDFiumEngine::OnDocumentCanceled() {
     OnDocumentComplete();
 }
 
+uint32_t PDFiumEngine::GetCharCount(uint32_t page_index) const {
+  CHECK(PageIndexInBounds(page_index));
+  return base::checked_cast<uint32_t>(pages_[page_index]->GetCharCount());
+}
+
+std::vector<gfx::Rect> PDFiumEngine::GetScreenRectsForChar(
+    const PageCharacterIndex& index) const {
+  CHECK(PageIndexInBounds(index.page_index));
+  PDFiumPage* page = pages_[index.page_index].get();
+  CHECK(page->IsCharIndexInBounds(index.char_index));
+
+  PDFiumRange range(page, index.char_index, 1);
+  return range.GetScreenRects(GetVisibleRect().origin(), current_zoom_,
+                              GetCurrentOrientation());
+}
+
+void PDFiumEngine::InvalidateRect(const gfx::Rect& rect) {
+  client_->Invalidate(rect);
+}
+
 void PDFiumEngine::FinishLoadingDocument() {
   // Note that doc_loader_->IsDocumentComplete() may not be true here if
   // called via `OnDocumentCanceled()`.
@@ -1024,16 +1052,25 @@ void PDFiumEngine::SetFormHighlight(bool enable_form) {
   KillFormFocus();
 }
 
-void PDFiumEngine::HighlightTextFragments(
+bool PDFiumEngine::FindAndHighlightTextFragments(
     base::span<const std::string> text_fragments) {
   HighlightChangeInvalidator invalidator(this);
   PDFiumTextFragmentFinder text_fragment_finder(this);
+  client_->OnNewTextFragmentsSearchStarted();
   text_fragment_highlights_ =
       text_fragment_finder.FindTextFragments(text_fragments);
+  return !text_fragment_highlights_.empty();
+}
 
-  // Scroll to first text fragment if any were found.
+void PDFiumEngine::ScrollToFirstTextFragment(bool force_smooth_scroll) {
+  CHECK(!text_fragment_highlights_.empty());
+  ScrollToBoundingRects(text_fragment_highlights_[0], force_smooth_scroll);
+}
+
+void PDFiumEngine::RemoveTextFragments() {
   if (!text_fragment_highlights_.empty()) {
-    ScrollToBoundingRects(text_fragment_highlights_[0]);
+    HighlightChangeInvalidator invalidator(this);
+    text_fragment_highlights_.clear();
   }
 }
 
@@ -1047,6 +1084,26 @@ void PDFiumEngine::SearchForFragment(
                  character_to_start_searching_from,
                  last_character_index_to_search, page_to_search, page_to_search,
                  std::move(add_result_callback));
+}
+
+void PDFiumEngine::SetCaretBrowsingEnabled(bool enabled) {
+  CHECK(features::kPdfInk2TextHighlighting.Get());
+  CHECK(!client_->IsPrintPreview());
+
+  if (pages_.empty() || pages_[0]->GetCharCount() == 0) {
+    return;
+  }
+
+  if (!caret_) {
+    if (!enabled) {
+      return;
+    }
+    // TODO(crbug.com/427242881): Determine the starting position of the caret.
+    caret_ = std::make_unique<PdfCaret>(this, PageCharacterIndex(0, 0));
+  }
+
+  // TODO(crbug.com/427778119): Set caret blink interval.
+  caret_->SetVisibility(enabled);
 }
 
 void PDFiumEngine::ClearTextSelection() {
@@ -1387,6 +1444,12 @@ void PDFiumEngine::OnTextOrLinkAreaClickInternal(const PointData& point_data,
 
   if (click_count == 1) {
     OnSingleClick(point_data.page_index, point_data.char_index);
+    if (caret_) {
+      // TODO(crbug.com/427133561): Handle corner case of clicking to the right
+      // of the last char on a page.
+      caret_->SetChar(
+          PageCharacterIndex(point_data.page_index, point_data.char_index));
+    }
   } else if (click_count == 2 || click_count == 3) {
     OnMultipleClick(click_count, point_data.page_index, point_data.char_index);
   }
@@ -2184,7 +2247,8 @@ bool PDFiumEngine::SelectFindResult(bool forward) {
   selection_.push_back(find_results_[current_find_index_.value()]);
 
   // If the result is not in view, scroll to it.
-  ScrollToBoundingRects(find_results_[current_find_index_.value()]);
+  ScrollToBoundingRects(find_results_[current_find_index_.value()],
+                        /*force_smooth_scroll=*/false);
 
   client_->NotifySelectedFindResultChanged(
       current_find_index_.value(), /*final_result=*/!search_in_progress_);
@@ -3139,16 +3203,9 @@ gfx::Size PDFiumEngine::GetPageSizeForLayout(
   int height_in_pixels = static_cast<int>(ConvertUnitFloat(
       size_in_points.value().height(), kPointsPerInch, kPixelsPerInch));
 
-  switch (layout_options.default_page_orientation()) {
-    case PageOrientation::kOriginal:
-    case PageOrientation::kClockwise180:
-      // No axis swap needed.
-      break;
-    case PageOrientation::kClockwise90:
-    case PageOrientation::kClockwise270:
-      // Rotated 90 degrees: swap axes.
-      std::swap(width_in_pixels, height_in_pixels);
-      break;
+  if (IsTransposedPageOrientation(layout_options.default_page_orientation())) {
+    // Rotated 90 degrees: swap axes.
+    std::swap(width_in_pixels, height_in_pixels);
   }
 
   return gfx::Size(width_in_pixels, height_in_pixels);
@@ -3248,6 +3305,7 @@ void PDFiumEngine::FinishPaint(size_t progressive_index, SkBitmap& image_data) {
   // Paint the page shadows.
   PaintPageShadow(progressive_index, image_data);
 
+  DrawCaret(progressive_index, image_data);
   DrawSelections(progressive_index, image_data);
   form_highlights_.clear();
 
@@ -3345,6 +3403,26 @@ void PDFiumEngine::PaintPageShadow(size_t progressive_index,
   gfx::Rect page_rect = shadow_rect;
   page_rect.Inset(ScaleToCeiledInsets(insets, current_zoom_));
   DrawPageShadow(page_rect, shadow_rect, dirty_in_screen, image_data);
+}
+
+void PDFiumEngine::DrawCaret(size_t progressive_index,
+                             SkBitmap& image_data) const {
+  if (!caret_) {
+    return;
+  }
+
+  CHECK_LT(progressive_index, progressive_paints_.size());
+
+  const gfx::Rect& dirty_in_screen =
+      progressive_paints_[progressive_index].rect();
+
+  const std::optional<RegionData> region =
+      GetRegion(dirty_in_screen.origin(), image_data);
+  if (!region.has_value()) {
+    return;
+  }
+
+  caret_->MaybeDrawCaret(region.value(), dirty_in_screen);
 }
 
 void PDFiumEngine::DrawSelections(size_t progressive_index,
@@ -3677,16 +3755,6 @@ bool PDFiumEngine::MouseDownState::Matches(
   return true;
 }
 
-PDFiumEngine::RegionData::RegionData(base::span<uint8_t> buffer, size_t stride)
-    : buffer(buffer), stride(stride) {}
-
-PDFiumEngine::RegionData::RegionData(RegionData&&) noexcept = default;
-
-PDFiumEngine::RegionData& PDFiumEngine::RegionData::operator=(
-    RegionData&&) noexcept = default;
-
-PDFiumEngine::RegionData::~RegionData() = default;
-
 void PDFiumEngine::DeviceToPage(int page_index,
                                 const gfx::PointF& device_point,
                                 double* page_x,
@@ -3791,9 +3859,8 @@ void PDFiumEngine::DrawHighlightOnPage(
   }
 }
 
-std::optional<PDFiumEngine::RegionData> PDFiumEngine::GetRegion(
-    const gfx::Point& location,
-    SkBitmap& image_data) const {
+std::optional<RegionData> PDFiumEngine::GetRegion(const gfx::Point& location,
+                                                  SkBitmap& image_data) const {
   if (image_data.isNull()) {
     DCHECK(plugin_size().IsEmpty());
     return std::nullopt;
@@ -3810,12 +3877,15 @@ std::optional<PDFiumEngine::RegionData> PDFiumEngine::GetRegion(
   }
 
   size_t stride = image_data.rowBytes();
-  UNSAFE_TODO({
-    base::span<uint8_t> buffer_span(buffer, image_data.height() * stride);
-    size_t x_offset = location.x() + page_offset_.x();
-    size_t offset = location.y() * stride + x_offset * 4;
-    return PDFiumEngine::RegionData(buffer_span.subspan(offset), stride);
-  });
+  size_t x_offset = location.x() + page_offset_.x();
+  size_t offset = location.y() * stride + x_offset * 4;
+  // SAFETY: Skia guarantees image_data.height() * image_data.rowBytes() is the
+  // exact size of the allocated pixel buffer, including row padding. However,
+  // Skia does not have a span-based API for this.
+  // TODO(crbug.com/357905831): Switch to SkSpan when possible.
+  UNSAFE_BUFFERS(
+      base::span<uint8_t> buffer_span(buffer, image_data.height() * stride));
+  return RegionData(buffer_span.subspan(offset), stride);
 }
 
 void PDFiumEngine::OnSelectionTextChanged() {
@@ -4049,16 +4119,19 @@ void PDFiumEngine::ScrollAnnotationIntoView(FPDF_ANNOTATION annot,
   if (rect.y() < visible_rect.y() || rect.bottom() > visible_rect.bottom()) {
     // Scroll the viewport vertically to align the top of focus rect to
     // centre.
-    client_->ScrollToY(rect.y() * current_zoom_ - plugin_size().height() / 2);
+    client_->ScrollToY(rect.y() * current_zoom_ - plugin_size().height() / 2,
+                       /*force_smooth_scroll=*/false);
   }
   if (rect.x() < visible_rect.x() || rect.right() > visible_rect.right()) {
     // Scroll the viewport horizontally to align the left of focus rect to
     // centre.
-    client_->ScrollToX(rect.x() * current_zoom_ - plugin_size().width() / 2);
+    client_->ScrollToX(rect.x() * current_zoom_ - plugin_size().width() / 2,
+                       /*force_smooth_scroll=*/false);
   }
 }
 
-void PDFiumEngine::ScrollToBoundingRects(const PDFiumRange& range) {
+void PDFiumEngine::ScrollToBoundingRects(const PDFiumRange& range,
+                                         bool force_smooth_scroll) {
   // Use zoom of 1.0 since `visible_rect` is without zoom.
   const std::vector<gfx::Rect>& rects =
       range.GetScreenRects(gfx::Point(), 1.0, GetCurrentOrientation());
@@ -4073,13 +4146,13 @@ void PDFiumEngine::ScrollToBoundingRects(const PDFiumRange& range) {
   // Make the page centered.
   int new_y =
       CalculateCenterForZoom(center.y(), visible_rect.height(), current_zoom_);
-  client_->ScrollToY(new_y);
+  client_->ScrollToY(new_y, force_smooth_scroll);
 
   // Only move horizontally if it's not visible.
   if (center.x() < visible_rect.x() || center.x() > visible_rect.right()) {
     int new_x =
         CalculateCenterForZoom(center.x(), visible_rect.width(), current_zoom_);
-    client_->ScrollToX(new_x);
+    client_->ScrollToX(new_x, force_smooth_scroll);
   }
 }
 
@@ -4522,8 +4595,7 @@ void PDFiumEngine::ApplyStroke(int page_index,
   FPDF_PAGE page = pdfium_page->GetPage();
   CHECK(page);
 
-  std::vector<FPDF_PAGEOBJECT> page_objects =
-      WriteStrokeToPage(doc(), page, stroke);
+  std::vector<FPDF_PAGEOBJECT> page_objects = WriteStrokeToPage(page, stroke);
   CHECK(!page_objects.empty());
   ink_stroked_pages_needing_regeneration_.insert(page_index);
 

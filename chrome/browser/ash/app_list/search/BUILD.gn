@@ -126,7 +126,7 @@ static_library("search") {
   ]
 
   if (is_chrome_branded) {
-    deps += [ "//chromeos/ash/resources/internal/strings:strings" ]
+    deps += [ "//chromeos/ash/resources/internal/strings" ]
   }
 
   allow_circular_includes_from = [
@@ -144,7 +144,6 @@ source_set("unit_tests") {
     "app_discovery_metrics_manager_unittest.cc",
     "app_search_provider_unittest.cc",
     "app_zero_state_provider_unittest.cc",
-    "assistant_text_search_provider_unittest.cc",
     "chrome_search_result_unittest.cc",
     "desks_admin_template_provider_unittest.cc",
     "help_app_provider_unittest.cc",
@@ -231,6 +230,10 @@ source_set("unit_tests") {
     "//ui/events:event_constants",
     "//url",
   ]
+
+  # TODO(crbug.com/40031409): Fix code that adds exit-time destructors and
+  # enable the diagnostic by removing this line.
+  configs += [ "//build/config/compiler:no_exit_time_destructors" ]
 }
 
 source_set("browser_tests") {

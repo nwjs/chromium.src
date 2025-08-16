@@ -69,6 +69,10 @@ class GlicPageHandler : public glic::mojom::PageHandler {
 
   void EnableDragResize(bool enabled) override;
 
+  // Notifies the web client about zero state suggestions.
+  void ZeroStateSuggestionChanged(mojom::ZeroStateSuggestionsV2Ptr suggestions,
+                                  mojom::ZeroStateSuggestionsOptions options);
+
   void WebUiStateChanged(glic::mojom::WebUiState new_state) override;
 
  private:

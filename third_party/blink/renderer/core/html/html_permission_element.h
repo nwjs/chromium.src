@@ -35,7 +35,7 @@ namespace blink {
 class Page;
 class V8PermissionState;
 
-class CORE_EXPORT HTMLPermissionElement final
+class CORE_EXPORT HTMLPermissionElement
     : public HTMLElement,
       public mojom::blink::EmbeddedPermissionControlClient,
       public ScrollSnapshotClient,
@@ -46,7 +46,8 @@ class CORE_EXPORT HTMLPermissionElement final
  public:
   static bool isTypeSupported(const AtomicString& type);
 
-  explicit HTMLPermissionElement(Document&);
+  explicit HTMLPermissionElement(Document&,
+                                 std::optional<QualifiedName> = std::nullopt);
 
   ~HTMLPermissionElement() override;
 
@@ -102,6 +103,9 @@ class CORE_EXPORT HTMLPermissionElement final
 
   // HTMLElement overrides.
   bool IsHTMLPermissionElement() const final { return true; }
+
+ protected:
+  void setType(const AtomicString& type) { type_ = type; }
 
  private:
   // TODO(crbug.com/1315595): remove this friend class once migration
@@ -214,8 +218,9 @@ class CORE_EXPORT HTMLPermissionElement final
     kLowConstrastColorAndBackgroundColor = 1,
     kTooSmallFontSize = 3,
     kTooLargeFontSize = 4,
+    kInvalidDisplayProperty = 5,
 
-    kMaxValue = kTooLargeFontSize,
+    kMaxValue = kInvalidDisplayProperty,
   };
   // LINT.ThenChange(//tools/metrics/histograms/metadata/blink/enums.xml:PermissionElementInvalidStyleReason)
 
@@ -360,8 +365,7 @@ class CORE_EXPORT HTMLPermissionElement final
   // ScrollSnapshotClient. It could make sense to bring this in line with other
   // features that deal with snapshotting this state, such as scroll-driven
   // animations, scroll-state container queries, and anchor positioning.
-  void UpdateSnapshot() override;
-  bool ValidateSnapshot() override;
+  bool UpdateSnapshot() override;
   bool ShouldScheduleNextService() override { return false; }
 
   // Update and notify CSS pseudo-class changed, which indicates PEPC is
@@ -369,6 +373,11 @@ class CORE_EXPORT HTMLPermissionElement final
   // being occluded.
   // Return true if the state has been changed.
   bool NotifyClickingDisablePseudoStateChanged();
+
+  // Wrapper to make this a void function for PostTask().
+  void NotifyClickingDisablePseudoStateChangedTask() {
+    NotifyClickingDisablePseudoStateChanged();
+  }
 
   // Verify whether the element has been registered in browser process.
   bool is_registered_in_browser_process() const {

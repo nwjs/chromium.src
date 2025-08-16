@@ -23,7 +23,6 @@
 #include "gpu/ipc/service/gpu_channel.h"
 #include "gpu/ipc/service/gpu_channel_manager.h"
 #include "gpu/ipc/service/gpu_channel_shared_image_interface.h"
-#include "gpu/ipc/service/gpu_memory_buffer_factory.h"
 #include "ui/gfx/buffer_format_util.h"
 #include "ui/gfx/gpu_fence_handle.h"
 #include "ui/gfx/gpu_memory_buffer_handle.h"
@@ -172,25 +171,6 @@ void SharedImageStub::ExecuteDeferredRequest(
     }
 #endif  // BUILDFLAG(IS_WIN)
   }
-}
-
-bool SharedImageStub::GetGpuMemoryBufferHandleInfo(
-    const gpu::Mailbox& mailbox,
-    gfx::GpuMemoryBufferHandle& handle,
-    viz::SharedImageFormat& format,
-    gfx::Size& size,
-    gfx::BufferUsage& buffer_usage) {
-  TRACE_EVENT0("gpu", "SharedImageStub::GetGpuMemoryBufferHandleInfo");
-  // Note that we are not making |context_state_| current here as of now since
-  // it is not needed to get the handle from the backings. Make context current
-  // if we find that it is required.
-
-  if (!factory_->GetGpuMemoryBufferHandleInfo(mailbox, handle, format, size,
-                                              buffer_usage)) {
-    LOG(ERROR) << "SharedImageStub: Unable to get GpuMemoryBufferHandle";
-    return false;
-  }
-  return true;
 }
 
 bool SharedImageStub::CreateSharedImage(

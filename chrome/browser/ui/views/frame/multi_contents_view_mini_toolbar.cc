@@ -7,6 +7,8 @@
 #include <optional>
 
 #include "base/i18n/rtl.h"
+#include "base/metrics/user_metrics.h"
+#include "base/metrics/user_metrics_action.h"
 #include "chrome/app/vector_icons/vector_icons.h"
 #include "chrome/browser/favicon/favicon_utils.h"
 #include "chrome/browser/ui/tabs/alert/tab_alert.h"
@@ -95,28 +97,41 @@ MultiContentsViewMiniToolbar::MultiContentsViewMiniToolbar(
   domain_label_->SetElideBehavior(gfx::ELIDE_HEAD);
   domain_label_->SetTruncateLength(20);
   domain_label_->SetSubpixelRenderingEnabled(false);
+  domain_label_->SetEnabledColor(kColorMulitContentsViewMiniToolbarForeground);
+  domain_label_->SetBackgroundColor(kColorToolbar);
   alert_state_indicator_ = AddChildView(std::make_unique<views::ImageView>());
   alert_state_indicator_->SetProperty(views::kFlexBehaviorKey,
                                       icon_flex_spec.WithOrder(2));
-  menu_button_ = AddChildView(views::CreateVectorImageButtonWithNativeTheme(
-      base::RepeatingClosure(), kBrowserToolsChromeRefreshIcon, 16,
-      kColorSidePanelHeaderButtonIcon,
-      kColorSidePanelHeaderButtonIconDisabled));
-  menu_button_->SetProperty(
+  if (features::kSideBySideMiniToolbarActiveConfiguration.Get() ==
+      features::MiniToolbarActiveConfiguration::ShowClose) {
+    image_button_ = AddChildView(views::CreateVectorImageButtonWithNativeTheme(
+        base::BindRepeating(&MultiContentsViewMiniToolbar::CloseCurrentView,
+                            base::Unretained(this)),
+        kCloseTabChromeRefreshIcon, 16,
+        kColorMulitContentsViewMiniToolbarForeground));
+    image_button_->SetTooltipText(
+        l10n_util::GetStringUTF16(IDS_SPLIT_TAB_CLOSE));
+  } else {
+    image_button_ = AddChildView(views::CreateVectorImageButtonWithNativeTheme(
+        base::RepeatingClosure(), kBrowserToolsChromeRefreshIcon, 16,
+        kColorMulitContentsViewMiniToolbarForeground));
+    image_button_->SetTooltipText(l10n_util::GetStringUTF16(
+        IDS_SPLIT_VIEW_MINI_TOOLBAR_MENU_BUTTON_TOOLTIP));
+    image_button_->SetButtonController(
+        std::make_unique<views::MenuButtonController>(
+            image_button_,
+            base::BindRepeating(
+                &MultiContentsViewMiniToolbar::OpenSplitViewMenu,
+                base::Unretained(this)),
+            std::make_unique<views::Button::DefaultButtonControllerDelegate>(
+                image_button_)));
+  }
+  image_button_->SetProperty(
       views::kFlexBehaviorKey,
       views::FlexSpecification(views::MinimumFlexSizeRule::kPreferred,
                                views::MaximumFlexSizeRule::kPreferred)
           .WithOrder(1));
-  menu_button_->SetTooltipText(l10n_util::GetStringUTF16(
-      IDS_SPLIT_VIEW_MINI_TOOLBAR_MENU_BUTTON_TOOLTIP));
-  views::InstallCircleHighlightPathGenerator(menu_button_);
-  menu_button_->SetButtonController(
-      std::make_unique<views::MenuButtonController>(
-          menu_button_,
-          base::BindRepeating(&MultiContentsViewMiniToolbar::OpenSplitViewMenu,
-                              base::Unretained(this)),
-          std::make_unique<views::Button::DefaultButtonControllerDelegate>(
-              menu_button_)));
+  views::InstallCircleHighlightPathGenerator(image_button_);
 
   // Update minitoolbar contents.
   std::optional<TabRendererData> tab_data = GetTabData();
@@ -153,28 +168,19 @@ void MultiContentsViewMiniToolbar::UpdateState(bool is_active) {
   stroke_color_ = is_active ? kColorMulitContentsViewActiveContentOutline
                             : kColorMulitContentsViewInactiveContentOutline;
 
-  if (features::kSideBySideMiniToolbarActiveConfiguration.Get() ==
-      features::MiniToolbarActiveConfiguration::ShowMenuOnly) {
-    // Reduce the margins in the case of showing only the menu button.
-    static constexpr gfx::Insets kActiveInteriorMargins = gfx::Insets::TLBR(
-        kMiniToolbarOutlineCornerRadius + kMiniToolbarContentPadding,
-        kMiniToolbarOutlineCornerRadius + kMiniToolbarContentPadding,
-        kMiniToolbarContentPadding, kContentOutlineThickness * 2);
+  // Reduce the margins in the case of showing only the close or menu button.
+  static constexpr gfx::Insets kActiveInteriorMargins = gfx::Insets::TLBR(
+      kMiniToolbarOutlineCornerRadius + kMiniToolbarContentPadding,
+      kMiniToolbarOutlineCornerRadius + kMiniToolbarContentPadding,
+      kMiniToolbarContentPadding, kContentOutlineThickness * 2);
 
-    favicon_->SetVisible(!is_active);
-    domain_label_->SetVisible(!is_active);
-    alert_state_indicator_->SetVisible(!is_active);
+  favicon_->SetVisible(!is_active);
+  domain_label_->SetVisible(!is_active);
+  alert_state_indicator_->SetVisible(!is_active);
 
-    static_cast<views::FlexLayout*>(GetLayoutManager())
-        ->SetInteriorMargin(is_active ? kActiveInteriorMargins
-                                      : kDefaultInteriorMargins);
-
-  } else {
-    DCHECK(features::kSideBySideMiniToolbarActiveConfiguration.Get() ==
-           features::MiniToolbarActiveConfiguration::ShowAll);
-    // Schedule paint since the stroke color has been updated.
-    SchedulePaint();
-  }
+  static_cast<views::FlexLayout*>(GetLayoutManager())
+      ->SetInteriorMargin(is_active ? kActiveInteriorMargins
+                                    : kDefaultInteriorMargins);
 }
 
 void MultiContentsViewMiniToolbar::UpdateWebContents(views::WebView* web_view) {
@@ -353,19 +359,33 @@ void MultiContentsViewMiniToolbar::UpdateFavicon(TabRendererData tab_data) {
 }
 
 void MultiContentsViewMiniToolbar::OpenSplitViewMenu() {
+  base::RecordAction(
+      base::UserMetricsAction("DesktopSplitView_OpenMiniToolbarMenu"));
+
   TabStripModel* const model = browser_view_->browser()->tab_strip_model();
   const int index = model->GetIndexOfWebContents(web_contents_);
   menu_model_ = std::make_unique<SplitTabMenuModel>(
       browser_view_->browser()->tab_strip_model(),
-      SplitTabMenuModel::CloseTabMenuItem::kCloseSpecifiedTab, index);
+      SplitTabMenuModel::MenuSource::kMiniToolbar, index);
   menu_runner_ = std::make_unique<views::MenuRunner>(
       menu_model_.get(), views::MenuRunner::HAS_MNEMONICS);
-  menu_runner_->RunMenuAt(menu_button_->GetWidget(),
+  menu_runner_->RunMenuAt(image_button_->GetWidget(),
                           static_cast<views::MenuButtonController*>(
-                              menu_button_->button_controller()),
-                          menu_button_->GetAnchorBoundsInScreen(),
+                              image_button_->button_controller()),
+                          image_button_->GetAnchorBoundsInScreen(),
                           views::MenuAnchorPosition::kBubbleTopLeft,
                           ui::mojom::MenuSourceType::kNone);
+}
+
+void MultiContentsViewMiniToolbar::CloseCurrentView() {
+  base::RecordAction(
+      base::UserMetricsAction("DesktopSplitView_MiniToolbarCloseView"));
+
+  TabStripModel* const model = browser_view_->browser()->tab_strip_model();
+  const int index = model->GetIndexOfWebContents(web_contents_);
+  model->CloseWebContentsAt(index,
+                            TabCloseTypes::CLOSE_USER_GESTURE |
+                                TabCloseTypes::CLOSE_CREATE_HISTORICAL_TAB);
 }
 
 BEGIN_METADATA(MultiContentsViewMiniToolbar)

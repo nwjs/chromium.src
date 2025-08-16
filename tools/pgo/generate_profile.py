@@ -170,7 +170,7 @@ def parse_args():
         help='The device path to pull profiles from. By '
         'default this is /data_mirror/data_ce/null/0/<package>'
         '/cache/pgo_profiles/ but you can override it for your '
-        'device if needed.')
+        'device if needed. Use "auto" for dynamic detection.')
     parser.add_argument('--skip-profdata',
                         action='store_true',
                         default=False,
@@ -555,7 +555,7 @@ def main():
 
     # Run the shortest benchmarks first to fail early if anything is wrong.
     benchmarks: list[Benchmark] = [
-        Benchmark('speedometer3', ['speedometer3']),
+        Benchmark('speedometer3', ['speedometer3', "--iterations=20"]),
         Benchmark('jetstream2', ['jetstream2']),
     ]
 

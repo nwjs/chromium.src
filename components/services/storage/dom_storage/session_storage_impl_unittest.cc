@@ -34,6 +34,7 @@
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/common/storage_key/storage_key.h"
+#include "third_party/leveldatabase/env_chromium.h"
 
 namespace storage {
 
@@ -973,10 +974,11 @@ TEST_F(SessionStorageImplTest, PurgeInactiveWrappers) {
   // Clear all the data from the backing database.
   base::RunLoop loop;
   session_storage_impl()->DatabaseForTesting()->RunDatabaseTask(
-      base::BindOnce([](const DomStorageDatabase& db) {
-        leveldb::WriteBatch batch;
-        db.DeletePrefixed(StringViewToUint8Vector("map"), &batch);
-        EXPECT_TRUE(db.Commit(&batch).ok());
+      base::BindOnce([](DomStorageDatabase& db) {
+        std::unique_ptr<DomStorageBatchOperation> batch =
+            db.CreateBatchOperation();
+        batch->DeletePrefixed(StringViewToUint8Vector("map"));
+        EXPECT_TRUE(batch->Commit().ok());
         return 0;
       }),
       base::IgnoreArgs<int>(loop.QuitClosure()));

@@ -15,7 +15,6 @@
 #include "base/time/time.h"
 #include "components/collaboration/internal/metrics.h"
 #include "components/collaboration/public/collaboration_flow_type.h"
-#include "components/collaboration/public/collaboration_service.h"
 #include "components/collaboration/public/collaboration_utils.h"
 #include "components/data_sharing/public/data_sharing_service.h"
 #include "components/data_sharing/public/group_data.h"
@@ -48,6 +47,7 @@ using GroupDataOrFailureOutcome =
     data_sharing::DataSharingService::GroupDataOrFailureOutcome;
 using StateId = CollaborationController::StateId;
 using Flow = CollaborationController::Flow;
+using ServiceStatusUpdate = CollaborationService::Observer::ServiceStatusUpdate;
 
 constexpr base::TimeDelta kTimeoutWaitingForDataSharingGroup =
     base::Seconds(20);
@@ -258,7 +258,9 @@ class PendingState : public ControllerState {
       return;
     }
     // Handle disabled by policy.
-    if (!status.IsAllowedToJoin()) {
+    if (status.collaboration_status == CollaborationStatus::kDisabledPending ||
+        status.collaboration_status ==
+            CollaborationStatus::kDisabledForPolicy) {
       controller_->TransitionTo(StateId::kWaitingForPolicyUpdate);
       return;
     }
@@ -300,6 +302,17 @@ class WaitingForPolicyUpdateState : public ControllerState,
       return;
     }
 
+    // If neither sign in nor sync has been disabled by the enterprise and the
+    // user is not trying to join, allow it.
+    bool signin_enabled = status.signin_status != SigninStatus::kSigninDisabled;
+    bool sync_enabled =
+        status.sync_status != SyncStatus::kSyncDisabledByEnterprise;
+    bool is_join_flow = controller_->flow().type == FlowType::kJoin;
+    if (signin_enabled && sync_enabled && !is_join_flow) {
+      OnProcessingFinishedWithSuccess();
+      return;
+    }
+
     HandleError();
   }
 
@@ -307,6 +320,7 @@ class WaitingForPolicyUpdateState : public ControllerState,
     DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
     ServiceStatus status =
         controller_->collaboration_service()->GetServiceStatus();
+
     if (status.signin_status == SigninStatus::kSigninDisabled) {
       RecordJoinOrShareOrManageEvent(
           GetLogger(), controller_->flow().type,
@@ -326,7 +340,12 @@ class WaitingForPolicyUpdateState : public ControllerState,
     RecordCollaborationFlowEvent(
         GetLogger(), controller_->flow().type,
         CollaborationServiceFlowEvent::kManagedAccountSignin);
-    HandleErrorWithType(ErrorInfo::Type::kSyncDisabledByPolicy);
+
+    if (status.sync_status == SyncStatus::kSyncDisabledByEnterprise) {
+      HandleErrorWithType(ErrorInfo::Type::kSyncDisabledByPolicy);
+    } else if (controller_->flow().type == FlowType::kJoin) {
+      HandleErrorWithType(ErrorInfo::Type::kSharingDisabledByPolicy);
+    }
   }
 
   void OnProcessingFinishedWithSuccess() override {
@@ -863,21 +882,6 @@ class WaitingForSyncAndDataSharingGroup
             CollaborationServiceJoinEvent::
                 kTimeoutWaitingForSyncAndDataSharingGroup),
         kTimeoutWaitingForDataSharingGroup);
-    const data_sharing::GroupId group_id =
-        controller->flow().join_token().group_id;
-
-    if (IsTabGroupInSync(group_id) && IsPeopleGroupInDataSharing(group_id)) {
-      OnProcessingFinishedWithSuccess();
-      return;
-    }
-
-    if (!IsTabGroupInSync(group_id)) {
-      tab_group_sync_observer_.Observe(controller->tab_group_sync_service());
-    }
-
-    if (!IsPeopleGroupInDataSharing(group_id)) {
-      data_sharing_observer_.Observe(controller->data_sharing_service());
-    }
   }
 
   // ControllerState implementation.
@@ -896,9 +900,19 @@ class WaitingForSyncAndDataSharingGroup
         controller_->flow().join_token().group_id;
     bool tab_group_exists = IsTabGroupInSync(group_id);
     bool people_group_exists = IsPeopleGroupInDataSharing(group_id);
-    CHECK(!tab_group_exists || !people_group_exists);
-    // Force update data sharing service.
-    if (!IsPeopleGroupInDataSharing(group_id)) {
+
+    if (tab_group_exists && people_group_exists) {
+      OnProcessingFinishedWithSuccess();
+      return;
+    }
+
+    if (!tab_group_exists) {
+      tab_group_sync_observer_.Observe(controller_->tab_group_sync_service());
+    }
+
+    if (!people_group_exists) {
+      data_sharing_observer_.Observe(controller_->data_sharing_service());
+      // Force update data sharing service.
       controller_->data_sharing_service()->ReadGroupDeprecated(
           group_id, base::DoNothing());
     }
@@ -1386,6 +1400,7 @@ CollaborationController::CollaborationController(
       finish_and_delete_(std::move(finish_and_delete)) {
   DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
   tab_group_sync_service_observer_.Observe(tab_group_sync_service_);
+  collaboration_service_observer_.Observe(collaboration_service_);
 
   RecordJoinOrShareOrManageEvent(
       data_sharing_service_->GetLogger(), flow_.type,
@@ -1438,7 +1453,10 @@ void CollaborationController::Exit() {
     return;
   }
 
-  current_state_->OnExit();
+  // Transition to the cancel state while waiting for full deletion.
+  if (current_state_->id() != StateId::kCancel) {
+    TransitionTo(StateId::kCancel);
+  }
   delegate_->OnFlowFinished();
   is_deleting_ = true;
   base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
@@ -1500,6 +1518,29 @@ void CollaborationController::OnTabGroupMigrated(
   CancelShareOrManageFlow(old_sync_id);
   if (new_group.local_group_id().has_value()) {
     CancelShareOrManageFlow(new_group.local_group_id().value());
+  }
+}
+
+void CollaborationController::OnServiceStatusChanged(
+    const ServiceStatusUpdate& update) {
+  // If the Shared Tab Groups feature, sync or signin got disabled by an
+  // enterprise policy while this flow is active, cancel the current flow and
+  // show an error.
+  if (update.old_status.collaboration_status !=
+          CollaborationStatus::kDisabledForPolicy &&
+      update.new_status.collaboration_status ==
+          CollaborationStatus::kDisabledForPolicy) {
+    if (update.new_status.signin_status == SigninStatus::kSigninDisabled) {
+      current_state_->HandleErrorWithType(
+          ErrorInfo::Type::kSigninDisabledByPolicy);
+    } else if (update.new_status.sync_status ==
+               SyncStatus::kSyncDisabledByEnterprise) {
+      current_state_->HandleErrorWithType(
+          ErrorInfo::Type::kSyncDisabledByPolicy);
+    } else {
+      current_state_->HandleErrorWithType(
+          ErrorInfo::Type::kSharingDisabledByPolicy);
+    }
   }
 }
 

@@ -4,8 +4,11 @@
 
 #include "chrome/browser/actor/tools/navigate_tool.h"
 
+#include "chrome/browser/actor/actor_task.h"
+#include "chrome/browser/actor/site_policy.h"
 #include "chrome/browser/actor/tools/observation_delay_controller.h"
 #include "chrome/browser/actor/tools/tool_callbacks.h"
+#include "chrome/browser/profiles/profile.h"
 #include "chrome/common/actor.mojom.h"
 #include "chrome/common/actor/action_result.h"
 #include "components/tabs/public/tab_interface.h"
@@ -17,14 +20,27 @@
 
 using content::NavigationHandle;
 using content::WebContents;
+using tabs::TabInterface;
 
 namespace actor {
 
+namespace {
+
+mojom::ActionResultPtr MayActOnUrlToResult(bool may_act) {
+  return may_act ? MakeOkResult()
+                 : MakeResult(mojom::ActionResultCode::kUrlBlocked);
+}
+
+}  // namespace
+
 NavigateTool::NavigateTool(TaskId task_id,
-                           AggregatedJournal& journal,
-                           WebContents& web_contents,
+                           ToolDelegate& tool_delegate,
+                           TabInterface& tab,
                            const GURL& url)
-    : Tool(task_id, journal), WebContentsObserver(&web_contents), url_(url) {}
+    : Tool(task_id, tool_delegate),
+      WebContentsObserver(tab.GetContents()),
+      url_(url),
+      tab_handle_(tab.GetHandle()) {}
 
 NavigateTool::~NavigateTool() = default;
 
@@ -36,15 +52,17 @@ void NavigateTool::Validate(ValidateCallback callback) {
     return;
   }
 
-  // TODO(crbug.com/402731599): Validate URL and state here.
-
-  PostResponseTask(std::move(callback), MakeOkResult());
+  MayActOnUrl(url_,
+              /*allow_insecure_http=*/true,
+              Profile::FromBrowserContext(web_contents()->GetBrowserContext()),
+              journal(), task_id(),
+              base::BindOnce(&MayActOnUrlToResult).Then(std::move(callback)));
 }
 
 void NavigateTool::Invoke(InvokeCallback callback) {
   content::OpenURLParams params(
       url_, content::Referrer(), WindowOpenDisposition::CURRENT_TAB,
-      ui::PageTransition::PAGE_TRANSITION_AUTO_TOPLEVEL,
+      ::ui::PageTransition::PAGE_TRANSITION_AUTO_TOPLEVEL,
       false /* is_renderer_initiated */);
 
   CHECK(web_contents());
@@ -72,11 +90,18 @@ NavigateTool::GetObservationDelayer() const {
       *web_contents()->GetPrimaryMainFrame());
 }
 
+void NavigateTool::UpdateTaskBeforeInvoke(ActorTask& task,
+                                          InvokeCallback callback) const {
+  task.AddTab(tab_handle_, std::move(callback));
+}
+
 void NavigateTool::DidFinishNavigation(NavigationHandle* navigation_handle) {
-  // TODO(crbug.com/411748801): We should probably handle the case where the
-  // page navigates before it's done loading. Common with client-side redirects.
   if (pending_navigation_handle_id_ &&
       navigation_handle->GetNavigationId() == *pending_navigation_handle_id_) {
+    journal().Log(
+        url_, task_id(), mojom::JournalTrack::kActor,
+        "NavigateTool::DidFinishNavigation",
+        absl::StrFormat("id[%d]", navigation_handle->GetNavigationId()));
     auto result =
         navigation_handle->HasCommitted() && !navigation_handle->IsErrorPage()
             ? MakeOkResult()
@@ -90,6 +115,9 @@ void NavigateTool::DidFinishNavigation(NavigationHandle* navigation_handle) {
 }
 
 void NavigateTool::NavigationHandleCallback(NavigationHandle& handle) {
+  journal().Log(url_, task_id(), mojom::JournalTrack::kActor,
+                "NavigateTool::NavigationHandleCallback",
+                absl::StrFormat("id[%d]", handle.GetNavigationId()));
   pending_navigation_handle_id_ = handle.GetNavigationId();
 }
 

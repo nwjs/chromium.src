@@ -659,7 +659,7 @@ Response PageHandler::Enable(
       host_->frame_tree_node() &&
       host_->frame_tree_node()->navigation_request()) {
     // If the Page domain was not enabled, the page is the top level frame, and
-    // there is a penging navigation, emit `FrameStartedNavigating` event.
+    // there is a pending navigation, emit `FrameStartedNavigating` event.
     FrameTreeNode* frame_tree_node = host_->frame_tree_node();
     NavigationRequest* navigation_request =
         host_->frame_tree_node()->navigation_request();
@@ -815,7 +815,8 @@ void DispatchNavigateCallback(
   // abort to DevTools anyway.
   if (!request->IsNavigationStarted()) {
     callback->sendSuccess(frame_id, std::nullopt,
-                          net::ErrorToString(net::ERR_ABORTED));
+                          net::ErrorToString(net::ERR_ABORTED),
+                          request->IsDownload());
     return;
   }
   std::optional<std::string> opt_error;
@@ -825,7 +826,8 @@ void DispatchNavigateCallback(
       request->IsSameDocument()
           ? std::optional<std::string>()
           : request->devtools_navigation_token().ToString();
-  callback->sendSuccess(frame_id, std::move(loader_id), std::move(opt_error));
+  callback->sendSuccess(frame_id, std::move(loader_id), std::move(opt_error),
+                        request->IsDownload());
 }
 
 }  // namespace
@@ -938,7 +940,7 @@ void PageHandler::Navigate(const std::string& url,
     return;
   if (!navigation_handle) {
     callback->sendSuccess(out_frame_id, std::nullopt,
-                          net::ErrorToString(net::ERR_ABORTED));
+                          net::ErrorToString(net::ERR_ABORTED), std::nullopt);
     return;
   }
   auto* navigation_request =
@@ -1884,6 +1886,8 @@ Page::BackForwardCacheNotRestoredReason NotRestoredReasonToProtocol(
     case Reason::kCacheControlNoStoreDeviceBoundSessionTerminated:
       return Page::BackForwardCacheNotRestoredReasonEnum::
           CacheControlNoStoreDeviceBoundSessionTerminated;
+    case Reason::kSharedWorkerMessage:
+      return Page::BackForwardCacheNotRestoredReasonEnum::SharedWorkerMessage;
   }
 }
 
@@ -2007,6 +2011,8 @@ Page::BackForwardCacheNotRestoredReason BlocklistedFeatureToProtocol(
     case WebSchedulerTrackedFeature::kWebAuthentication:
       return Page::BackForwardCacheNotRestoredReasonEnum::
           ContentWebAuthenticationAPI;
+    case WebSchedulerTrackedFeature::kSharedWorkerMessage:
+      return Page::BackForwardCacheNotRestoredReasonEnum::SharedWorkerMessage;
   }
 }
 
@@ -2174,6 +2180,7 @@ Page::BackForwardCacheNotRestoredReasonType MapNotRestoredReasonToType(
     case Reason::kWebViewDocumentStartJavascriptChanged:
     case Reason::kCacheLimitPrunedOnModerateMemoryPressure:
     case Reason::kCacheLimitPrunedOnCriticalMemoryPressure:
+    case Reason::kSharedWorkerMessage:
       return Page::BackForwardCacheNotRestoredReasonTypeEnum::Circumstantial;
     case Reason::kCacheControlNoStore:
     case Reason::kCacheControlNoStoreCookieModified:
@@ -2198,6 +2205,7 @@ Page::BackForwardCacheNotRestoredReasonType MapBlocklistedFeatureToType(
     case WebSchedulerTrackedFeature::kBroadcastChannel:
     case WebSchedulerTrackedFeature::kWebXR:
     case WebSchedulerTrackedFeature::kSharedWorker:
+    case WebSchedulerTrackedFeature::kSharedWorkerMessage:
     case WebSchedulerTrackedFeature::kWebHID:
     case WebSchedulerTrackedFeature::kWebShare:
     case WebSchedulerTrackedFeature::kPaymentManager:

@@ -28,11 +28,13 @@ class ClickTool : public ToolBase {
   ClickTool(content::RenderFrame& frame,
             Journal::TaskId task_id,
             Journal& journal,
-            mojom::ClickActionPtr action);
+            mojom::ClickActionPtr action,
+            mojom::ToolTargetPtr target,
+            mojom::ObservedToolTargetPtr observed_target);
   ~ClickTool() override;
 
   // actor::ToolBase
-  mojom::ActionResultPtr Execute() override;
+  void Execute(ToolFinishedCallback callback) override;
   std::string DebugString() const override;
 
  private:

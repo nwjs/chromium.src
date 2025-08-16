@@ -542,6 +542,7 @@ chromium-metrics-reviews@google.com.
     the AccessibilityTextFormatting feature enabled.
   </summary>
   <token key="Operation">
+    <variant name="CheckAXFocus" summary="accessibility focus check"/>
     <variant name="GetTextContent" summary="GetSubstringTextContentUTF16()"/>
     <variant name="SetAniText" summary="setAccessibilityNodeInfoText() JNI"/>
     <variant name="ToJavaData" summary="conversion to Java data structures"/>
@@ -2270,6 +2271,27 @@ even if they fit the naming pattern. -->
   </summary>
 </histogram>
 
+<histogram name="Accessibility.LiveTranslate.TranslationDispatcher.LoadResult"
+    enum="TranslationDispatcherLoadResult" expires_after="2025-10-11">
+  <owner>evanliu@google.com</owner>
+  <owner>chrome-accessibility-eng@google.com</owner>
+  <summary>
+    Records the result of a URL load for the TranslationDispatcher. This is used
+    to track the success and failure rates of translation requests.
+  </summary>
+</histogram>
+
+<histogram name="Accessibility.LiveTranslate.TranslationDispatcher.ParseResult"
+    enum="TranslationDispatcherParseResult" expires_after="2025-10-11">
+  <owner>evanliu@google.com</owner>
+  <owner>chrome-accessibility-eng@google.com</owner>
+  <summary>
+    Records the result of parsing the JSON response for the
+    TranslationDispatcher. This is used to track the success and failure rates
+    of parsing translation responses.
+  </summary>
+</histogram>
+
 <histogram name="Accessibility.MainNodeAnnotations.AnnotationResult"
     enum="MainNodeAnnotationResult" expires_after="2026-06-01">
   <owner>abigailbklein@google.com</owner>
@@ -3045,14 +3067,27 @@ even if they fit the naming pattern. -->
   <summary>Records when the Read Anything omnibox icon is shown.</summary>
 </histogram>
 
+<histogram name="Accessibility.ReadAnything.ReadAloud.EngineVersion"
+    units="yyyymmdd0" expires_after="2026-07-10">
+  <owner>lwinston@google.com</owner>
+  <owner>komo-eng@google.com</owner>
+  <summary>
+    Records the installed TTS engine version of the format yyyymmdd0 for the
+    date + revision number of the installed engine
+  </summary>
+</histogram>
+
 <histogram name="Accessibility.ReadAnything.ReadAloud.HighlightGranularity"
-    enum="ReadAnythingHighlightState" expires_after="2026-06-01">
+    enum="ReadAnythingHighlightGranularity" expires_after="2026-06-01">
   <owner>ajitnarayanan@google.com</owner>
-  <owner>xiangxiao@google.com</owner>
+  <owner>kristislee@google.com</owner>
+  <owner>ammedina@google.com</owner>
   <owner>komo-eng@google.com</owner>
   <summary>
     Records the user-chosen highlight granularity for reading aloud in the Read
-    Anything panel.
+    Anything panel. There was an error in the enum before 2025-07-22. This
+    shouldn't affect the release of the feature to stable but use caution when
+    interpreting results before that date.
   </summary>
 </histogram>
 
@@ -3385,6 +3420,17 @@ even if they fit the naming pattern. -->
   <owner>chrome-a11y-core@google.com</owner>
   <summary>
     Records the number of lines that OCR recognized for an image sent from PDF.
+  </summary>
+</histogram>
+
+<histogram name="Accessibility.ScreenAI.OCR.ModeSwitch" units="count"
+    expires_after="2026-06-01">
+  <owner>rhalavati@chromium.org</owner>
+  <owner>chrome-a11y-core@google.com</owner>
+  <summary>
+    Records the number of times that OCR mode was switched between light and
+    normal during lifetime of the service. It's recorded only when service is
+    shutting down due to being idle.
   </summary>
 </histogram>
 
@@ -3821,6 +3867,17 @@ even if they fit the naming pattern. -->
   <token key="ServiceName" variants="ScreenAIServices"/>
 </histogram>
 
+<histogram name="Accessibility.{ServiceName}.Service.ResourceMonitorCreated"
+    enum="Boolean" expires_after="2025-12-01">
+  <owner>rhalavati@chromium.org</owner>
+  <owner>chrome-a11y-core@google.com</owner>
+  <summary>
+    Records if resource monitor could be created when {ServiceName} service was
+    initialized.
+  </summary>
+  <token key="ServiceName" variants="ScreenAIServices"/>
+</histogram>
+
 <histogram name="DomDistiller.AdaBoostModel.NegativeScore" units="count"
     expires_after="2026-06-01">
   <owner>wylieb@google.com</owner>
@@ -3829,6 +3886,8 @@ even if they fit the naming pattern. -->
     Records the score for the ada boost model for negative scores (scores that
     prevent pages from showing). This model is used to determine if any given
     page is suitable for distillation. Recorded for every page load.
+
+    Note: Incorrect before M140.
   </summary>
 </histogram>
 
@@ -3840,6 +3899,8 @@ even if they fit the naming pattern. -->
     Records the score for the ada boost model for positive scores. This model is
     used to determine if any given page is suitable for distillation. Recorded
     for every page load.
+
+    Note: Incorrect before M140.
   </summary>
 </histogram>
 
@@ -3898,6 +3959,16 @@ even if they fit the naming pattern. -->
   </summary>
 </histogram>
 
+<histogram name="DomDistiller.Distillation.Result"
+    enum="DistillationParseResult" expires_after="2026-06-01">
+  <owner>gusmartin@google.com</owner>
+  <owner>chrome-reader-mode-team@google.com</owner>
+  <summary>
+    Records whether distilling the page resulted in sucess, parse failure, or no
+    Data to distill
+  </summary>
+</histogram>
+
 <histogram name="DomDistiller.IsDistillable" enum="Boolean"
     expires_after="2026-06-01">
   <owner>wylieb@google.com</owner>
@@ -3916,6 +3987,8 @@ even if they fit the naming pattern. -->
     Records the score for the ada boost model for negative scores (scores that
     prevent pages from showing). This model is used to determine if any given
     page is suitable for distillation. Recorded for every page load.
+
+    Note: Incorrect before M140.
   </summary>
 </histogram>
 
@@ -3927,6 +4000,8 @@ even if they fit the naming pattern. -->
     Records the score for the ada boost model for positive scores. This model is
     used to determine if any given page is suitable for distillation. Recorded
     for every page load.
+
+    Note: Incorrect before M140.
   </summary>
 </histogram>
 

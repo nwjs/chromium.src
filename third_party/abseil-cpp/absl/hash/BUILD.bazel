@@ -14,6 +14,9 @@
 # limitations under the License.
 #
 
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
 load(
     "//absl:copts/configure_copts.bzl",
     "ABSL_DEFAULT_COPTS",
@@ -76,14 +79,13 @@ cc_library(
 
 cc_test(
     name = "hash_test",
+    size = "large",
     srcs = [
         "hash_test.cc",
         "internal/hash_test.h",
     ],
     copts = ABSL_TEST_COPTS,
     linkopts = ABSL_DEFAULT_LINKOPTS,
-    # TODO(b/417700722): Fix HashValueTest.PointerAlignment reporting more collisions under ubsan.
-    tags = ["noubsan"],
     deps = [
         ":hash",
         ":hash_testing",

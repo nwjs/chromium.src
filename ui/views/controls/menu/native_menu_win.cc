@@ -45,7 +45,7 @@ static NativeMenuWin* GetNativeMenuWinFromHMENU(HMENU hmenu) {
 // NativeMenuWin, public:
 
 NativeMenuWin::NativeMenuWin(ui::MenuModel* model, HWND sysmenu_hwnd)
-  : model_(model), sysmenu_hwnd_(sysmenu_hwnd), is_popup_menu_(true) {}
+    : model_(model->AsWeakPtr()), sysmenu_hwnd_(sysmenu_hwnd), is_popup_menu_(true) {}
 
 NativeMenuWin::~NativeMenuWin() {
   items_.clear();

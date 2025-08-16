@@ -68,7 +68,6 @@
 #if BUILDFLAG(IS_CHROMEOS)
 #include "ash/constants/ash_features.h"
 #include "chrome/browser/ash/kcer/kcer_factory_ash.h"
-#include "chrome/browser/ash/net/client_cert_store_ash.h"
 #include "chrome/browser/ash/net/client_cert_store_kcer.h"
 #include "chrome/browser/ash/profiles/profile_helper.h"
 #include "chrome/browser/certificate_provider/certificate_provider.h"
@@ -131,29 +130,7 @@ class ClientCertStoreLoader {
       active_requests_;
 };
 
-#if BUILDFLAG(IS_CHROMEOS)
-class ClientCertStoreFactoryAsh : public ClientCertStoreFactory {
- public:
-  explicit ClientCertStoreFactoryAsh(Profile* profile) : profile_(profile) {}
-
-  std::unique_ptr<net::ClientCertStore> CreateClientCertStore() override {
-    CHECK(!ash::features::ShouldUseKcerClientCertStore());
-
-    const user_manager::User* user =
-        ash::ProfileHelper::Get()->GetUserByProfile(profile_);
-    // Use the device-wide system key slot only if the user is affiliated on
-    // the device.
-    const bool use_system_key_slot = user->IsAffiliated();
-    return std::make_unique<ash::ClientCertStoreAsh>(
-        nullptr,  // no additional provider
-        use_system_key_slot, user->username_hash(),
-        ash::ClientCertStoreAsh::PasswordDelegateFactory());
-  }
-
- private:
-  raw_ptr<Profile> profile_;
-};
-#elif BUILDFLAG(USE_NSS_CERTS)
+#if BUILDFLAG(IS_LINUX)
 class ClientCertStoreFactoryNSS : public ClientCertStoreFactory {
  public:
   std::unique_ptr<net::ClientCertStore> CreateClientCertStore() override {
@@ -236,8 +213,7 @@ std::unique_ptr<ClientCertStoreLoader> CreateProvisionedClientCertLoader(
     Profile* profile) {
   client_certificates::CertificateProvisioningService*
       profile_provisioning_service = nullptr;
-  if (profile && client_certificates::features::
-                     IsManagedClientCertificateForUserEnabled()) {
+  if (profile) {
     profile_provisioning_service = client_certificates::
         CertificateProvisioningServiceFactory::GetForProfile(profile);
   }
@@ -545,20 +521,15 @@ class KcerLoader : public WritableCertLoader {
   base::CallbackListSubscription observer_callback_;
   base::WeakPtrFactory<KcerLoader> weak_ptr_factory_{this};
 };
-#endif  // BUILDFLAG(IS_CHROMEOS)
+
+#else   // BUILDFLAG(IS_CHROMEOS)
 
 class NSSLoader : public WritableCertLoader {
  public:
   explicit NSSLoader(Profile* profile)
       : profile_(profile),
         loader_(std::make_unique<ClientCertStoreLoader>(
-#if BUILDFLAG(IS_CHROMEOS)
-            std::make_unique<ClientCertStoreFactoryAsh>(profile)
-#else
-            std::make_unique<ClientCertStoreFactoryNSS>()
-#endif
-                )) {
-  }
+            std::make_unique<ClientCertStoreFactoryNSS>())) {}
   ~NSSLoader() override = default;
 
   void RefreshCachedCertificateList(base::OnceClosure callback) override {
@@ -598,6 +569,7 @@ class NSSLoader : public WritableCertLoader {
   std::unique_ptr<ClientCertStoreLoader> loader_;
   base::WeakPtrFactory<NSSLoader> weak_ptr_factory_{this};
 };
+#endif  // BUILDFLAG(IS_CHROMEOS)
 
 // Subclass of ClientCertSource that also allows importing client certificates
 // to the ChromeOS or Linux client cert store.
@@ -611,11 +583,7 @@ class WritableClientCertSource
       Profile* profile)
       : remote_client_(remote_client), profile_(profile) {
 #if BUILDFLAG(IS_CHROMEOS)
-    if (ash::features::ShouldUseKcerClientCertStore()) {
-      cert_loader_ = std::make_unique<KcerLoader>(profile, remote_client);
-    } else {
-      cert_loader_ = std::make_unique<NSSLoader>(profile);
-    }
+    cert_loader_ = std::make_unique<KcerLoader>(profile, remote_client);
 #else
     cert_loader_ = std::make_unique<NSSLoader>(profile);
 #endif
@@ -838,8 +806,7 @@ class WritableClientCertSource
       // be imported into Chaps. `import_hardware_backed_` == true means that
       // the cert came from the "Import and Bind" button and it's import into
       // Chaps by default.
-      if (!import_hardware_backed_ &&
-          chromeos::features::IsPkcs12ToChapsDualWriteEnabled()) {
+      if (!import_hardware_backed_) {
         // Record the dual-write event. Even if the import fails, it's
         // theoretically possible that some related objects are still created
         // and would need to be deleted in case of a rollback.

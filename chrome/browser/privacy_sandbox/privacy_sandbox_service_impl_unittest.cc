@@ -103,6 +103,7 @@ using ::privacy_sandbox::CanonicalTopic;
 using PromptAction = ::PrivacySandboxService::PromptAction;
 using PromptSuppressedReason = ::PrivacySandboxService::PromptSuppressedReason;
 using PromptType = ::PrivacySandboxService::PromptType;
+using EligibilityLevel = ::privacy_sandbox::EligibilityLevel;
 using SurfaceType = ::PrivacySandboxService::SurfaceType;
 using NoticeSurfaceType = ::privacy_sandbox::SurfaceType;
 using ::testing::Combine;
@@ -589,6 +590,9 @@ TEST_P(PrivacySandboxPrivacyGuideShouldShowAdTopicsTest,
   feature_list()->Reset();
   if (is_feature_on) {
     feature_list()->InitAndEnableFeature(
+        privacy_sandbox::kPrivacySandboxAdTopicsContentParity);
+  } else {
+    feature_list()->InitAndDisableFeature(
         privacy_sandbox::kPrivacySandboxAdTopicsContentParity);
   }
 
@@ -2611,7 +2615,7 @@ TEST_F(PrivacySandboxServiceM1PromptTest, DeviceLocalAccountUser) {
       PromptType::kM1Consent);
 
   // No prompt should be shown for a web kiosk account.
-  chromeos::SetUpFakeKioskSession();
+  chromeos::SetUpFakeChromeAppKioskSession();
   EXPECT_EQ(
       privacy_sandbox_service()->GetRequiredPromptType(SurfaceType::kDesktop),
       PromptType::kNone);
@@ -3538,3 +3542,17 @@ TEST_P(PrivacySandboxNoticeFrameworkResultCallbackUnitTest,
 INSTANTIATE_TEST_SUITE_P(PrivacySandboxNoticeFrameworkResultCallbackUnitTest,
                          PrivacySandboxNoticeFrameworkResultCallbackUnitTest,
                          testing::Bool());
+
+class PrivacySandboxNoticeFrameworkEligibilityTest
+    : public PrivacySandboxServiceTest {};
+
+TEST_F(PrivacySandboxNoticeFrameworkEligibilityTest, EligibilityCallbacks) {
+  // TODO(crbug.com/408017260): These are currently placeholders. Update tests
+  // when real eligibility logic is implemented.
+  EXPECT_EQ(privacy_sandbox_service()->GetTopicsApiEligibility(),
+            EligibilityLevel::kNotEligible);
+  EXPECT_EQ(privacy_sandbox_service()->GetProtectedAudienceApiEligibility(),
+            EligibilityLevel::kNotEligible);
+  EXPECT_EQ(privacy_sandbox_service()->GetAdMeasurementApiEligibility(),
+            EligibilityLevel::kNotEligible);
+}

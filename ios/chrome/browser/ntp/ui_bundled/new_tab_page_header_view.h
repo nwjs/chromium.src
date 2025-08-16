@@ -11,6 +11,7 @@
 @class TabGroupIndicatorView;
 @protocol NewTabPageShortcutsHandler;
 @class OmniboxContainerView;
+@class NewTabPageColorPalette;
 
 // Header view for the NTP. The header view contains all views that are
 // displayed above the list of most visited sites, which includes the
@@ -128,8 +129,8 @@
 // and defocus animations.
 - (UIView*)fakeboxButtonsSnapshot;
 
-// Whether MIA is allowed from a policy perspective.
-- (void)setMIAAllowedByPolicy:(BOOL)policyAllowed;
+// Whether AIM is allowed.
+- (void)setAIMAllowed:(BOOL)allowed;
 
 @end
 

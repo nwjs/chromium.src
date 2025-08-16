@@ -54,6 +54,7 @@
 #include "content/public/browser/web_drag_dest_delegate.h"
 #include "content/public/common/content_client.h"
 #include "content/public/common/content_features.h"
+#include "ipc/constants.mojom.h"
 #include "net/base/filename_util.h"
 #include "third_party/blink/public/common/input/web_input_event.h"
 #include "third_party/blink/public/mojom/drag/drag.mojom.h"
@@ -672,7 +673,7 @@ WebContentsViewAura::WebContentsViewAura(
       delegate_(std::move(delegate)),
       drag_dest_delegate_(nullptr),
       current_rvh_for_drag_(ChildProcessHost::kInvalidUniqueID,
-                            MSG_ROUTING_NONE),
+                            IPC::mojom::kRoutingIdNone),
       drag_in_progress_(false),
       init_rwhv_with_null_parent_for_testing_(false) {}
 
@@ -1529,8 +1530,12 @@ aura::client::DragUpdateInfo WebContentsViewAura::OnDragUpdated(
 }
 
 void WebContentsViewAura::OnDragExited() {
-  if (web_contents_->ShouldIgnoreInputEvents())
+  if (web_contents_->ShouldIgnoreInputEvents()) {
+    // Don't compute the results of exiting, but clean up the flag to avoid
+    // hanging the renderer process. See crbug.com/434130454.
+    drag_in_progress_ = false;
     return;
+  }
   CompleteDragExit();
 }
 
@@ -1613,7 +1618,7 @@ void WebContentsViewAura::PerformDropCallback(
     std::unique_ptr<ui::OSExchangeData> data,
     base::WeakPtr<RenderWidgetHostViewBase> target,
     std::optional<gfx::PointF> transformed_pt) {
-  // Exit callback to make sure |drag_in_pregress_| is flipped on exit and
+  // Exit callback to make sure |drag_in_progress_| is flipped on exit and
   // |end_drag_runner_| is run after OnGotVirtualFilesAsTempFiles finishes.
   base::ScopedClosureRunner drop_exit_cleanup(base::BindOnce(
       &WebContentsViewAura::OnDropExit, weak_ptr_factory_.GetWeakPtr(),

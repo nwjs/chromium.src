@@ -216,14 +216,14 @@ void AutofillOptimizationGuide::OnDidParseForm(
 
   const bool has_iban_field =
       std::ranges::any_of(form_structure, [](const auto& field) {
-        return field->Type().GetStorableType() == IBAN_VALUE;
+        return field->Type().GetTypes().contains(IBAN_VALUE);
       });
   if (has_iban_field) {
     optimization_types.insert(optimization_guide::proto::IBAN_AUTOFILL_BLOCKED);
   }
   const bool has_credit_card_field =
       std::ranges::any_of(form_structure, [](const auto& field) {
-        return field->Type().group() == FieldTypeGroup::kCreditCard;
+        return field->Type().GetGroups().contains(FieldTypeGroup::kCreditCard);
       });
 
   if (has_credit_card_field) {
@@ -248,6 +248,11 @@ void AutofillOptimizationGuide::OnDidParseForm(
   if (bnpl_issuer_allowlist_can_be_loaded(BnplIssuer::IssuerId::kBnplZip)) {
     optimization_types.insert(
         optimization_guide::proto::BUY_NOW_PAY_LATER_ALLOWLIST_ZIP);
+  }
+
+  if (bnpl_issuer_allowlist_can_be_loaded(BnplIssuer::IssuerId::kBnplKlarna)) {
+    optimization_types.insert(
+        optimization_guide::proto::BUY_NOW_PAY_LATER_ALLOWLIST_KLARNA);
   }
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) ||
         // BUILDFLAG(IS_CHROMEOS)
@@ -326,7 +331,7 @@ bool AutofillOptimizationGuide::ShouldBlockSingleFieldSuggestions(
     const AutofillField* field) const {
   // If the field's storable type is `IBAN_VALUE`, check whether IBAN
   // suggestions should be blocked based on `url`.
-  if (field->Type().GetStorableType() == IBAN_VALUE) {
+  if (field->Type().GetTypes().contains(IBAN_VALUE)) {
     optimization_guide::OptimizationGuideDecision decision =
         decider_->CanApplyOptimization(
             url, optimization_guide::proto::IBAN_AUTOFILL_BLOCKED,
@@ -432,6 +437,9 @@ bool AutofillOptimizationGuide::IsUrlEligibleForBnplIssuer(
       // adding Afterpay to the BNPL flow.
       case BnplIssuer::IssuerId::kBnplAfterpay:
         NOTREACHED();
+      case BnplIssuer::IssuerId::kBnplKlarna:
+        return can_apply_optimization(
+            optimization_guide::proto::BUY_NOW_PAY_LATER_ALLOWLIST_KLARNA);
     }
     NOTREACHED();
   }

@@ -302,6 +302,7 @@ bool IsPasswordSuggestion(FormSuggestion* suggestion) {
     case SuggestionType::kPendingStateSignin:
     case SuggestionType::kLoyaltyCardEntry:
     case SuggestionType::kAllLoyaltyCardsEntry:
+    case SuggestionType::kOneTimePasswordEntry:
       return false;
   }
   NOTREACHED();
@@ -321,12 +322,33 @@ NSString* PasswordSuggestionDisplayText(NSString* suggestion_value) {
   return suggestion_value;
 }
 
+// Returns the string to set as the view's accessibility label.
+NSString* AccessibilityLabel(NSString* suggestion_text,
+                             NSString* suggestion_description,
+                             BOOL is_backup_password_suggestion) {
+  std::u16string accessibility_label = l10n_util::GetStringFUTF16(
+      IDS_IOS_AUTOFILL_ACCNAME_SUGGESTION,
+      base::SysNSStringToUTF16(suggestion_text),
+      base::SysNSStringToUTF16(suggestion_description));
+
+  if (is_backup_password_suggestion) {
+    // Append an additional mention to the accessibility label.
+    accessibility_label = l10n_util::GetStringFUTF16(
+        IDS_IOS_AUTOFILL_ACCNAME_SUGGESTION, accessibility_label,
+        l10n_util::GetStringUTF16(
+            IDS_IOS_KEYBOARD_ACCESSORY_RECOVERY_PASSWORD_ACCESSIBILITY_LABEL));
+  }
+
+  return base::SysUTF16ToNSString(accessibility_label);
+}
+
 }  // namespace
 
 @implementation FormSuggestionLabel {
   // Client of this view.
   __weak id<FormSuggestionLabelDelegate> _delegate;
   FormSuggestion* _suggestion;
+  NSUInteger _suggestionIndex;
 }
 
 #pragma mark - Public
@@ -339,6 +361,7 @@ NSString* PasswordSuggestionDisplayText(NSString* suggestion_value) {
   self = [super initWithFrame:CGRectZero];
   if (self) {
     _suggestion = suggestion;
+    _suggestionIndex = index;
     _delegate = delegate;
 
     UIStackView* stackView = [[UIStackView alloc] initWithArrangedSubviews:@[]];
@@ -350,7 +373,15 @@ NSString* PasswordSuggestionDisplayText(NSString* suggestion_value) {
     stackView.spacing = kSpacing;
     stackView.translatesAutoresizingMaskIntoConstraints = NO;
     [self addSubview:stackView];
-    AddSameConstraints(stackView, self);
+    if (IsLiquidGlassEffectEnabled()) {
+      AddSameConstraintsToSides(
+          stackView, self,
+          LayoutSides::kTop | LayoutSides::kLeading | LayoutSides::kTrailing);
+      [stackView.heightAnchor constraintEqualToAnchor:self.heightAnchor]
+          .active = YES;
+    } else {
+      AddSameConstraints(stackView, self);
+    }
 
     if (suggestion.icon) {
       UIImageView* iconView = [[UIImageView alloc]
@@ -384,7 +415,7 @@ NSString* PasswordSuggestionDisplayText(NSString* suggestion_value) {
         verticalStackView.spacing = kVerticalSpacing;
         [stackView addArrangedSubview:verticalStackView];
 
-        // Insert the next subviews vertically instead of horizonatally.
+        // Insert the next subviews vertically instead of horizontally.
         stackView = verticalStackView;
       }
     }
@@ -413,15 +444,18 @@ NSString* PasswordSuggestionDisplayText(NSString* suggestion_value) {
     }
 
     [self setBackgroundColor:[self customBackgroundColor]];
+    if (IsLiquidGlassEffectEnabled()) {
+      [self setOpaque:NO];
+    }
 
     [self setClipsToBounds:YES];
     [self setUserInteractionEnabled:YES];
     [self setIsAccessibilityElement:YES];
-    [self setAccessibilityLabel:l10n_util::GetNSStringF(
-                                    IDS_IOS_AUTOFILL_ACCNAME_SUGGESTION,
-                                    base::SysNSStringToUTF16(suggestionText),
-                                    base::SysNSStringToUTF16(
-                                        suggestion.displayDescription))];
+    [self
+        setAccessibilityLabel:AccessibilityLabel(
+                                  suggestionText, suggestion.displayDescription,
+                                  suggestion.type ==
+                                      SuggestionType::kBackupPasswordEntry)];
     [self setAccessibilityValue:l10n_util::GetNSStringF(
                                     IDS_IOS_AUTOFILL_SUGGESTION_INDEX_VALUE,
                                     base::NumberToString16(index + 1),
@@ -442,12 +476,20 @@ NSString* PasswordSuggestionDisplayText(NSString* suggestion_value) {
   return self;
 }
 
+- (FormSuggestion*)suggestion {
+  return _suggestion;
+}
+
+- (NSUInteger)suggestionIndex {
+  return _suggestionIndex;
+}
+
 #pragma mark - UIView
 
 - (void)layoutSubviews {
   [super layoutSubviews];
-  self.layer.cornerRadius = [self cornerRadius];
-  if (IsKeyboardAccessoryUpgradeEnabled()) {
+  [self setCornerRadius:[self cornerRadius]];
+  if (!IsLiquidGlassEffectEnabled() && IsKeyboardAccessoryUpgradeEnabled()) {
     self.layer.shadowRadius = kShadowRadius;
     self.layer.shadowOffset = CGSizeMake(0, kShadowVerticalOffset);
     self.layer.shadowOpacity = kShadowOpacity;
@@ -483,8 +525,29 @@ NSString* PasswordSuggestionDisplayText(NSString* suggestion_value) {
 
 #pragma mark - Private
 
+// Sets the corner radius. Can be dymamic if the liquid glass effect is enabled.
+- (void)setCornerRadius:(CGFloat)cornerRadius {
+#if defined(__IPHONE_26_0) && __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_26_0
+  if (IsLiquidGlassEffectEnabled()) {
+    if (@available(iOS 26, *)) {
+      self.cornerConfiguration = [UICornerConfiguration
+          configurationWithRadius:
+              [UICornerRadius
+                  containerConcentricRadiusWithMinimum:[self cornerRadius]]];
+      return;
+    }
+  }
+#endif  // defined(__IPHONE_26_0) && __IPHONE_OS_VERSION_MAX_ALLOWED >=
+        // __IPHONE_26_0
+  self.layer.cornerRadius = [self cornerRadius];
+}
+
 // Color of the suggestion chips.
 - (UIColor*)customBackgroundColor {
+  if (IsLiquidGlassEffectEnabled()) {
+    return UIColor.clearColor;
+  }
+
   return
       [UIColor colorNamed:IsKeyboardAccessoryUpgradeEnabled() ? kBackgroundColor
                                                               : kGrey100Color];

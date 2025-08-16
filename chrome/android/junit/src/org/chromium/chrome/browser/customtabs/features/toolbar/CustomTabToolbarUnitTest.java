@@ -14,7 +14,6 @@ import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.mock;
@@ -83,7 +82,6 @@ import org.chromium.chrome.browser.browser_controls.BrowserStateBrowserControlsV
 import org.chromium.chrome.browser.browserservices.intents.BrowserServicesIntentDataProvider;
 import org.chromium.chrome.browser.browserservices.intents.CustomButtonParams.ButtonType;
 import org.chromium.chrome.browser.customtabs.CustomButtonParamsImpl;
-import org.chromium.chrome.browser.customtabs.CustomTabFeatureOverridesManager;
 import org.chromium.chrome.browser.customtabs.CustomTabsConnection;
 import org.chromium.chrome.browser.customtabs.features.minimizedcustomtab.CustomTabMinimizeDelegate;
 import org.chromium.chrome.browser.customtabs.features.minimizedcustomtab.MinimizedFeatureUtils;
@@ -93,6 +91,8 @@ import org.chromium.chrome.browser.multiwindow.MultiWindowUtils;
 import org.chromium.chrome.browser.omnibox.UrlBarData;
 import org.chromium.chrome.browser.omnibox.status.PageInfoIphController;
 import org.chromium.chrome.browser.tab.Tab;
+import org.chromium.chrome.browser.tabmodel.IncognitoStateProvider;
+import org.chromium.chrome.browser.theme.ThemeColorProvider;
 import org.chromium.chrome.browser.toolbar.LocationBarModel;
 import org.chromium.chrome.browser.toolbar.ToolbarDataProvider;
 import org.chromium.chrome.browser.toolbar.ToolbarProgressBar;
@@ -156,9 +156,10 @@ public class CustomTabToolbarUnitTest {
     @Mock WindowAndroid mWindowAndroid;
     @Mock AppMenuHandler mAppMenuHandler;
     private @Mock PageInfoIphController mPageInfoIphController;
-    @Mock private CustomTabFeatureOverridesManager mFeatureOverridesManager;
     @Mock private BrowserServicesIntentDataProvider mIntentDataProvider;
     @Mock private CustomTabMinimizeDelegate mMinimizeDelegate;
+    @Mock private ThemeColorProvider mThemeColorProvider;
+    @Mock private IncognitoStateProvider mIncognitoStateProvider;
     @Captor ArgumentCaptor<AppMenuObserver> mAppMenuObserverCaptor;
 
     private Activity mActivity;
@@ -196,7 +197,6 @@ public class CustomTabToolbarUnitTest {
         when(mIntentDataProvider.getActivityType()).thenReturn(CUSTOM_TAB);
         when(mIntentDataProvider.isOptionalButtonSupported())
                 .thenReturn(ChromeFeatureList.sCctAdaptiveButton.isEnabled());
-        when(mFeatureOverridesManager.isFeatureEnabled(anyString())).thenReturn(null);
 
         mActivity = Robolectric.buildActivity(TestActivity.class).get();
         var shareButtonParams = CustomButtonParamsImpl.createShareButton(mActivity, Color.WHITE);
@@ -223,10 +223,12 @@ public class CustomTabToolbarUnitTest {
                 mToolbarProgressBar,
                 null,
                 null,
-                /* homeButtonDisplay= */ null);
+                /* homeButtonDisplay= */ null,
+                null,
+                mThemeColorProvider,
+                mIncognitoStateProvider);
         if (!ChromeFeatureList.sCctToolbarRefactor.isEnabled()) {
             mToolbar.initVisibilityRule(mActivity, () -> mAppMenuHandler, mIntentDataProvider);
-            mToolbar.setFeatureOverridesManager(mFeatureOverridesManager);
         }
         mLocationBar =
                 (CustomTabLocationBar)
@@ -267,7 +269,7 @@ public class CustomTabToolbarUnitTest {
 
         // Attempt to update title and URL, should noop since location bar is still in empty state.
         mLocationBar.onTitleChanged();
-        mLocationBar.onUrlChanged();
+        mLocationBar.onUrlChanged(false);
         verify(mLocationBarModel, never()).notifySecurityStateChanged();
 
         mLocationBar.showRegularToolbar();
@@ -335,7 +337,7 @@ public class CustomTabToolbarUnitTest {
         when(mTab.getUrl()).thenReturn(JUnitTestGURLs.RED_1);
         UrlBarData urlBarData = UrlBarData.forUrl(JUnitTestGURLs.RED_1);
         when(mLocationBarModel.getUrlBarData()).thenReturn(urlBarData);
-        mLocationBar.onUrlChanged();
+        mLocationBar.onUrlChanged(false);
         result = mToolbar.isReadyForTextureCapture();
         assertTrue(result.isReady);
         assertEquals(ToolbarSnapshotDifference.URL_TEXT, result.snapshotDifference);
@@ -375,7 +377,7 @@ public class CustomTabToolbarUnitTest {
     public void testAboutBlankUrlIsShown() {
         setUpForAboutBlank();
         ShadowLooper.idleMainLooper();
-        mLocationBar.onUrlChanged();
+        mLocationBar.onUrlChanged(false);
         assertEquals("The url bar should be visible.", View.VISIBLE, mUrlBar.getVisibility());
         assertEquals(
                 "The url bar should show about:blank",
@@ -388,7 +390,7 @@ public class CustomTabToolbarUnitTest {
         setUpForAboutBlank();
         mLocationBar.setShowTitle(true);
         ShadowLooper.idleMainLooper();
-        mLocationBar.onUrlChanged();
+        mLocationBar.onUrlChanged(false);
         assertEquals("The title should be gone.", View.GONE, mTitleBar.getVisibility());
     }
 
@@ -397,7 +399,7 @@ public class CustomTabToolbarUnitTest {
         setUpForAboutBlank();
         mLocationBar.setUrlBarHidden(true);
         ShadowLooper.idleMainLooper();
-        mLocationBar.onUrlChanged();
+        mLocationBar.onUrlChanged(false);
         assertEquals("The url bar should be visible.", View.VISIBLE, mUrlBar.getVisibility());
         assertEquals(
                 "The url bar should show about:blank",
@@ -443,7 +445,6 @@ public class CustomTabToolbarUnitTest {
     }
 
     @Test
-    @EnableFeatures({ChromeFeatureList.CCT_MINIMIZED})
     public void testMinimizeButtonEnabled() {
         MinimizedFeatureUtils.setDeviceEligibleForMinimizedCustomTabForTesting(true);
         setup();
@@ -480,27 +481,6 @@ public class CustomTabToolbarUnitTest {
     }
 
     @Test
-    @DisableFeatures({ChromeFeatureList.CCT_MINIMIZED})
-    public void testMinimizeButtonDisabled() {
-        ImageButton minimizeButton = mToolbar.findViewById(R.id.custom_tabs_minimize_button);
-        ImageButton closeButton = mToolbar.findViewById(R.id.close_button);
-
-        // Button on left side
-        assertNull("Minimize button should never be initialized", minimizeButton);
-        assertEquals("Close button should still be present", mToolbar.getChildAt(0), closeButton);
-
-        // Button on right side
-        mToolbar.setCloseButtonPosition(CustomTabsIntent.CLOSE_BUTTON_POSITION_END);
-        mToolbar.onMeasure(MeasureSpec.UNSPECIFIED, MeasureSpec.UNSPECIFIED);
-        assertNull("Minimize button should never be initialized", minimizeButton);
-        assertEquals(
-                "Close button should still be present",
-                mToolbar.getChildAt(mToolbar.getChildCount() - 1),
-                closeButton);
-    }
-
-    @Test
-    @EnableFeatures({ChromeFeatureList.CCT_MINIMIZED})
     public void testMinimizeButtonEnabled_MultiWindowMode() {
         MinimizedFeatureUtils.setDeviceEligibleForMinimizedCustomTabForTesting(true);
         setup();

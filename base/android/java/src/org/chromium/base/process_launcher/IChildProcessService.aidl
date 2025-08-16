@@ -22,7 +22,7 @@ interface IChildProcessService {
 
   // Sets up the initial IPC channel.
   oneway void setupConnection(in IChildProcessArgs args, in IParentProcess parentProcess,
-           in @nullable List<IBinder> clientInterfaces, in @nullable IBinder binderBox);
+           in @nullable List<IBinder> clientInterfaces);
 
   // Forcefully kills the child process.
   oneway void forceKill();
@@ -41,5 +41,5 @@ interface IChildProcessService {
   // uses it to replace the memory behind read only relocations in the child
   // process. On error the bundle is silently ignored, disabling the memory
   // optimization.
-  oneway void consumeRelroLibInfo(in IRelroLibInfo libInfo);
+  oneway void consumeRelroLibInfo(in @nullable IRelroLibInfo libInfo);
 }

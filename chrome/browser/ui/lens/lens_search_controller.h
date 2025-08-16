@@ -17,6 +17,7 @@
 #include "components/omnibox/browser/autocomplete_match_type.h"
 #include "components/tabs/public/tab_interface.h"
 #include "third_party/skia/include/core/SkBitmap.h"
+#include "ui/base/unowned_user_data/scoped_unowned_user_data.h"
 #include "ui/gfx/geometry/rect.h"
 
 class LensOverlayController;
@@ -54,6 +55,9 @@ class LensSearchController {
  public:
   explicit LensSearchController(tabs::TabInterface* tab);
   virtual ~LensSearchController();
+
+  DECLARE_USER_DATA(LensSearchController);
+  static LensSearchController* From(tabs::TabInterface* tab);
 
   // Initializes all the necessary dependencies for the LensSearchController.
   void Initialize(variations::VariationsClient* variations_client,
@@ -116,6 +120,17 @@ class LensSearchController {
   void IssueContextualSearchRequest(
       lens::LensOverlayInvocationSource invocation_source,
       const GURL& destination_url,
+      AutocompleteMatchType::Type match_type,
+      bool is_zero_prefix_suggestion);
+
+  // Issues a contextual search request for Lens to fulfill using query text.
+  // Starts contextualization flow if its not already in progress. If the Lens
+  // Overlay is in the process of opening, the request will be queued until the
+  // overlay is fully opened.
+  void IssueContextualSearchRequestWithQuery(
+      lens::LensOverlayInvocationSource invocation_source,
+      std::string query_text,
+      std::map<std::string, std::string> additional_query_parameters,
       AutocompleteMatchType::Type match_type,
       bool is_zero_prefix_suggestion);
 
@@ -436,6 +451,8 @@ class LensSearchController {
 
   // Owns this class.
   raw_ptr<tabs::TabInterface> tab_;
+
+  ui::ScopedUnownedUserData<LensSearchController> scoped_unowned_user_data_;
 
   // Must be the last member.
   base::WeakPtrFactory<LensSearchController> weak_ptr_factory_{this};

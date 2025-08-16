@@ -279,6 +279,11 @@ chromium-metrics-reviews@google.com.
   <int value="1" label="Had missing callbacks"/>
 </enum>
 
+<enum name="BooleanRuntimeError">
+  <int value="0" label="Runtime error"/>
+  <int value="1" label="No runtime error"/>
+</enum>
+
 <enum name="BreakoutBoxUsage">
   <int value="0" label="ReadableVideo"/>
   <int value="1" label="ReadableVideoWorker"/>
@@ -352,6 +357,7 @@ chromium-metrics-reviews@google.com.
   <int value="6" label="kGetProcessAudioDeviceIdsReturnedEmpty"/>
   <int value="7" label="kErrorConfiguringSampleRate"/>
   <int value="8" label="kErrorConfiguringFramesPerBuffer"/>
+  <int value="9" label="kErrorCreatingTapDescription"/>
 </enum>
 
 <enum name="CdmCapabilityQueryStatus">
@@ -1078,6 +1084,13 @@ chromium-metrics-reviews@google.com.
   <int value="2" label="Exclude"/>
 </enum>
 
+<enum name="GetDisplayMediaSystemWindowOrExcludeConstraint">
+  <int value="0" label="Not specified"/>
+  <int value="1" label="System"/>
+  <int value="2" label="Window"/>
+  <int value="3" label="Exclude"/>
+</enum>
+
 <enum name="GetDisplayMediaTransientActivation">
   <int value="0" label="Present"/>
   <int value="1" label="Missing"/>
@@ -1290,6 +1303,16 @@ chromium-metrics-reviews@google.com.
   <int value="15" label="FailedToSetPlaybackRate"/>
   <int value="16" label="FailedToGetMediaEngineEx"/>
 </enum>
+
+<!-- LINT.IfChange(MediaFoundationRendererRenderedVideoFrameDetectionResult) -->
+
+<enum name="MediaFoundationRendererRenderedVideoFrameDetectionResult">
+  <int value="0" label="kUnknown"/>
+  <int value="1" label="kDetected"/>
+  <int value="2" label="kNotDetected"/>
+</enum>
+
+<!-- LINT.ThenChange(/media/renderers/win/media_foundation_renderer.h:RenderedVideoFrameDetectionResult) -->
 
 <enum name="MediaHardwareKeyAction">
   <int value="0" label="Play"/>
@@ -1533,11 +1556,6 @@ chromium-metrics-reviews@google.com.
   <int value="2" label="kGmcDialogErrorShown"/>
   <int value="3" label="kGmcDialogLinkClicked"/>
   <int value="4" label="kGmcDialogErrorDismissed"/>
-</enum>
-
-<enum name="MediaRouterUserPromptWhenLaunchingCast">
-  <int value="0" label="Total prompts"/>
-  <int value="1" label="User rejects cast request"/>
 </enum>
 
 <enum name="MediaSessionActionSource">
@@ -1849,6 +1867,15 @@ chromium-metrics-reviews@google.com.
 <enum name="ReasonToClearRenderBuffer">
   <int value="0" label="Video frame with out-of-order timestamp."/>
   <int value="1" label="Call to UpdateCurrentFrame() is overdue."/>
+</enum>
+
+<enum name="ReferenceOpenOutcome">
+  <int value="0" label="Success"/>
+  <int value="1" label="Stream create error"/>
+  <int value="2" label="Stream open error"/>
+  <int value="3" label="System permissions error"/>
+  <int value="4" label="Device in use error"/>
+  <int value="5" label="Previous stream error"/>
 </enum>
 
 <enum name="RemotingCompatibility">

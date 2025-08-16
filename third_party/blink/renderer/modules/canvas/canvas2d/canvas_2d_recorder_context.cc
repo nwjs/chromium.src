@@ -114,7 +114,7 @@
 #include "third_party/blink/renderer/platform/graphics/image.h"
 #include "third_party/blink/renderer/platform/graphics/image_orientation.h"
 #include "third_party/blink/renderer/platform/graphics/interpolation_space.h"
-#include "third_party/blink/renderer/platform/graphics/memory_managed_paint_canvas.h"  // IWYU pragma: keep (https://github.com/clangd/clangd/issues/2044)
+#include "third_party/blink/renderer/platform/graphics/memory_managed_paint_canvas.h"
 #include "third_party/blink/renderer/platform/graphics/memory_managed_paint_recorder.h"
 #include "third_party/blink/renderer/platform/graphics/paint/paint_filter.h"
 #include "third_party/blink/renderer/platform/graphics/pattern.h"
@@ -379,16 +379,9 @@ String LineJoinName(LineJoin join) {
 
 }  // namespace
 
-BASE_FEATURE(kDisableCanvasOverdrawOptimization,
-             "DisableCanvasOverdrawOptimization",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
 // Maximum number of colors in the color cache
 // (`Canvas2DRecorderContext::color_cache_`).
 constexpr size_t kColorCacheMaxSize = 8;
-
-// Dummy overdraw test for ops that do not support overdraw detection
-const auto kNoOverdraw = [](const SkIRect& clip_bounds) { return false; };
 
 Canvas2DRecorderContext::Canvas2DRecorderContext(float effective_zoom)
     : effective_zoom_(effective_zoom),
@@ -766,8 +759,7 @@ void Canvas2DRecorderContext::PopAndRestore(cc::PaintCanvas& canvas) {
 void Canvas2DRecorderContext::ValidateStateStackImpl(
     const cc::PaintCanvas* canvas) const {
   DCHECK_GE(state_stack_.size(), 1u);
-  DCHECK_GT(state_stack_.size(),
-            base::checked_cast<WTF::wtf_size_t>(layer_count_));
+  DCHECK_GT(state_stack_.size(), base::checked_cast<wtf_size_t>(layer_count_));
 
   using SaveType = CanvasRenderingContext2DState::SaveType;
   DCHECK_EQ(state_stack_[0]->GetSaveType(), SaveType::kInitial);
@@ -807,7 +799,7 @@ void Canvas2DRecorderContext::ValidateStateStackImpl(
 
       // The state stack depth should match the number of saves in the
       // recording (taking in to account that some layers require two saves).
-      DCHECK_EQ(base::checked_cast<WTF::wtf_size_t>(main_saves + layer_saves),
+      DCHECK_EQ(base::checked_cast<wtf_size_t>(main_saves + layer_saves),
                 state_stack_.size() + extra_layer_saves);
     }
   }
@@ -1401,6 +1393,17 @@ void Canvas2DRecorderContext::setGlobalAlpha(double alpha) {
   state.SetGlobalAlpha(alpha);
 }
 
+double Canvas2DRecorderContext::globalHDRHeadroom() const {
+  return GetState().GlobalHDRHeadroom();
+}
+
+void Canvas2DRecorderContext::setGlobalHDRHeadroom(double h) {
+  if (h < 0.f) {
+    return;
+  }
+  GetState().SetGlobalHDRHeadroom(h);
+}
+
 String Canvas2DRecorderContext::globalCompositeOperation() const {
   auto [composite_op, blend_mode] =
       CompositeAndBlendOpsFromSkBlendMode(GetState().GlobalComposite());
@@ -1752,15 +1755,12 @@ void Canvas2DRecorderContext::DrawPathInternal(
     }
     auto line = path.line();
     Draw<OverdrawOp::kNone>(
-        [line](cc::PaintCanvas* c,
-               const cc::PaintFlags* flags)  // draw lambda
-        {
+        /*draw_func=*/
+        [line](MemoryManagedPaintCanvas* c, const cc::PaintFlags* flags) {
           c->drawLine(line.start.x(), line.start.y(), line.end.x(),
                       line.end.y(), *flags);
         },
-        [](const SkIRect& rect)  // overdraw test lambda
-        { return false; },
-        bounds, paint_type,
+        NoOverdraw, bounds, paint_type,
         GetState().HasPattern(paint_type)
             ? CanvasRenderingContext2DState::kNonOpaqueImage
             : CanvasRenderingContext2DState::kNoImage,
@@ -1779,17 +1779,14 @@ void Canvas2DRecorderContext::DrawPathInternal(
         ClampNonFiniteToZero(arc.sweep_angle_radians * 180 / kPiFloat);
     const bool closed = arc.closed;
     Draw<OverdrawOp::kNone>(
+        /*draw_func=*/
         [oval, start_degrees, sweep_degrees, closed](
-            cc::PaintCanvas* c,
-            const cc::PaintFlags* flags)  // draw lambda
-        {
+            MemoryManagedPaintCanvas* c, const cc::PaintFlags* flags) {
           cc::PaintFlags arc_paint_flags(*flags);
           arc_paint_flags.setArcClosed(closed);
           c->drawArc(oval, start_degrees, sweep_degrees, arc_paint_flags);
         },
-        [](const SkIRect& rect)  // overdraw test lambda
-        { return false; },
-        bounds, paint_type,
+        NoOverdraw, bounds, paint_type,
         GetState().HasPattern(paint_type)
             ? CanvasRenderingContext2DState::kNonOpaqueImage
             : CanvasRenderingContext2DState::kNoImage,
@@ -1801,12 +1798,12 @@ void Canvas2DRecorderContext::DrawPathInternal(
   sk_path.setFillType(fill_type);
 
   Draw<OverdrawOp::kNone>(
-      [sk_path, use_paint_cache](cc::PaintCanvas* c,
-                                 const cc::PaintFlags* flags)  // draw lambda
-      { c->drawPath(sk_path, *flags, use_paint_cache); },
-      [](const SkIRect& rect)  // overdraw test lambda
-      { return false; },
-      bounds, paint_type,
+      /*draw_func=*/
+      [sk_path, use_paint_cache](MemoryManagedPaintCanvas* c,
+                                 const cc::PaintFlags* flags) {
+        c->drawPath(sk_path, *flags, use_paint_cache);
+      },
+      NoOverdraw, bounds, paint_type,
       GetState().HasPattern(paint_type)
           ? CanvasRenderingContext2DState::kNonOpaqueImage
           : CanvasRenderingContext2DState::kNoImage,
@@ -1917,11 +1914,12 @@ void Canvas2DRecorderContext::fillRect(double x,
   gfx::RectF rect(ClampTo<float>(x), ClampTo<float>(y), ClampTo<float>(width),
                   ClampTo<float>(height));
   Draw<OverdrawOp::kNone>(
-      [rect](cc::PaintCanvas* c, const cc::PaintFlags* flags)  // draw lambda
-      { c->drawRect(gfx::RectFToSkRect(rect), *flags); },
-      [rect, this](const SkIRect& clip_bounds)  // overdraw test lambda
-      { return RectContainsTransformedRect(rect, clip_bounds); },
-      rect, CanvasRenderingContext2DState::kFillPaintType,
+      /*draw_func=*/
+      [rect](MemoryManagedPaintCanvas* c, const cc::PaintFlags* flags) {
+        c->drawRect(gfx::RectFToSkRect(rect), *flags);
+      },
+      NoOverdraw, /*bounds=*/rect,
+      CanvasRenderingContext2DState::kFillPaintType,
       has_pattern ? CanvasRenderingContext2DState::kNonOpaqueImage
                   : CanvasRenderingContext2DState::kNoImage,
       CanvasPerformanceMonitor::DrawType::kRectangle);
@@ -1976,9 +1974,11 @@ void Canvas2DRecorderContext::strokeRect(double x,
   }
 
   Draw<OverdrawOp::kNone>(
-      [rect](cc::PaintCanvas* c, const cc::PaintFlags* flags)  // draw lambda
-      { StrokeRectOnCanvas(rect, c, flags); },
-      kNoOverdraw, bounds, CanvasRenderingContext2DState::kStrokePaintType,
+      /*draw_func=*/
+      [rect](MemoryManagedPaintCanvas* c, const cc::PaintFlags* flags) {
+        StrokeRectOnCanvas(rect, c, flags);
+      },
+      NoOverdraw, bounds, CanvasRenderingContext2DState::kStrokePaintType,
       GetState().HasPattern(CanvasRenderingContext2DState::kStrokePaintType)
           ? CanvasRenderingContext2DState::kNonOpaqueImage
           : CanvasRenderingContext2DState::kNoImage,
@@ -2472,16 +2472,16 @@ void Canvas2DRecorderContext::drawImage(CanvasImageSource* image_source,
 
   ValidateStateStack();
 
-  WillDrawImage(image_source);
+  WillDrawImage(image_source, image && image->IsTextureBacked());
 
   if (!origin_tainted_by_content_ && WouldTaintCanvasOrigin(image_source)) {
     SetOriginTaintedByContent();
   }
 
   Draw<OverdrawOp::kDrawImage>(
+      /*draw_func=*/
       [this, image_source, image, src_rect, dst_rect](
-          cc::PaintCanvas* c, const cc::PaintFlags* flags)  // draw lambda
-      {
+          MemoryManagedPaintCanvas* c, const cc::PaintFlags* flags) {
         SkSamplingOptions sampling =
             cc::PaintFlags::FilterQualityToSkSamplingOptions(
                 flags ? flags->getFilterQuality()
@@ -2489,9 +2489,11 @@ void Canvas2DRecorderContext::drawImage(CanvasImageSource* image_source,
         DrawImageInternal(c, image_source, image.get(), src_rect, dst_rect,
                           sampling, flags);
       },
-      [this, dst_rect](const SkIRect& clip_bounds)  // overdraw test lambda
-      { return RectContainsTransformedRect(dst_rect, clip_bounds); },
-      dst_rect, CanvasRenderingContext2DState::kImagePaintType,
+      /*draw_covers_clip_bounds=*/
+      [this, dst_rect](const SkIRect& clip_bounds) {
+        return RectContainsTransformedRect(dst_rect, clip_bounds);
+      },
+      /*bounds=*/dst_rect, CanvasRenderingContext2DState::kImagePaintType,
       image_source->IsOpaque() ? CanvasRenderingContext2DState::kOpaqueImage
                                : CanvasRenderingContext2DState::kNonOpaqueImage,
       CanvasPerformanceMonitor::DrawType::kImage);
@@ -2794,7 +2796,7 @@ void Canvas2DRecorderContext::drawMesh(
       index_buffer->GetBuffer();
   CHECK_NE(index_data, nullptr);
 
-  WillDrawImage(image_source);
+  WillDrawImage(image_source, image && image->IsTextureBacked());
 
   if (!origin_tainted_by_content_ && WouldTaintCanvasOrigin(image_source)) {
     SetOriginTaintedByContent();
@@ -2805,7 +2807,7 @@ void Canvas2DRecorderContext::drawMesh(
   Draw<OverdrawOp::kNone>(
       /*draw_func=*/
       [&image, &vertex_data, &uv_data, &index_data](
-          cc::PaintCanvas* c, const cc::PaintFlags* flags) {
+          MemoryManagedPaintCanvas* c, const cc::PaintFlags* flags) {
         const gfx::RectF src(image->width(), image->height());
         // UV coordinates are normalized, relative to the texture size.
         const SkMatrix local_matrix =
@@ -2815,7 +2817,7 @@ void Canvas2DRecorderContext::drawMesh(
         image->ApplyShader(scoped_flags, local_matrix, src, ImageDrawOptions());
         c->drawVertices(vertex_data, uv_data, index_data, scoped_flags);
       },
-      kNoOverdraw,
+      NoOverdraw,
       gfx::RectF(bounds.x(), bounds.y(), bounds.width(), bounds.height()),
       CanvasRenderingContext2DState::PaintType::kFillPaintType,
       image_source->IsOpaque() ? CanvasRenderingContext2DState::kOpaqueImage

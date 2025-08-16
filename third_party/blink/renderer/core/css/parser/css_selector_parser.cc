@@ -938,112 +938,11 @@ CSSSelector::PseudoType CSSSelectorParser::ParsePseudoType(
   return CSSSelector::PseudoType::kPseudoUnknown;
 }
 
-namespace {
-PseudoId ParsePseudoElementLegacy(const String& selector_string,
-                                  const Node* parent) {
-  CSSParserTokenStream stream(selector_string);
-
-  int number_of_colons = 0;
-  while (!stream.AtEnd() && stream.Peek().GetType() == kColonToken) {
-    number_of_colons++;
-    stream.Consume();
-  }
-
-  // TODO(crbug.com/1197620): allowing 0 or 1 preceding colons is not aligned
-  // with specs.
-  if (stream.AtEnd() || number_of_colons > 2) {
-    return kPseudoIdNone;
-  }
-
-  if (stream.Peek().GetType() == kIdentToken) {
-    CSSParserToken selector_name_token = stream.Consume();
-    PseudoId pseudo_id =
-        CSSSelector::GetPseudoId(CSSSelectorParser::ParsePseudoType(
-            selector_name_token.Value().ToAtomicString(),
-            /*has_arguments=*/false,
-            parent ? &parent->GetDocument() : nullptr));
-
-    if (stream.AtEnd() && PseudoElement::IsWebExposed(pseudo_id, parent)) {
-      return pseudo_id;
-    } else {
-      return kPseudoIdNone;
-    }
-  }
-
-  if (stream.Peek().GetType() == kFunctionToken) {
-    CSSParserToken selector_name_token = stream.Peek();
-    PseudoId pseudo_id =
-        CSSSelector::GetPseudoId(CSSSelectorParser::ParsePseudoType(
-            selector_name_token.Value().ToAtomicString(),
-            /*has_arguments=*/true, parent ? &parent->GetDocument() : nullptr));
-
-    if (!PseudoElementHasArguments(pseudo_id) ||
-        !PseudoElement::IsWebExposed(pseudo_id, parent)) {
-      return kPseudoIdNone;
-    }
-
-    {
-      CSSParserTokenStream::BlockGuard guard(stream);
-      if (stream.Peek().GetType() != kIdentToken) {
-        return kPseudoIdNone;
-      }
-      stream.Consume();
-      if (!stream.AtEnd()) {
-        return kPseudoIdNone;
-      }
-    }
-    return stream.AtEnd() ? pseudo_id : kPseudoIdNone;
-  }
-
-  return kPseudoIdNone;
-}
-
-AtomicString ParsePseudoElementArgument(const String& selector_string) {
-  CSSParserTokenStream stream(selector_string);
-
-  int number_of_colons = 0;
-  while (!stream.AtEnd() && stream.Peek().GetType() == kColonToken) {
-    number_of_colons++;
-    stream.Consume();
-  }
-
-  // TODO(crbug.com/1197620): allowing 0 or 1 preceding colons is not aligned
-  // with specs.
-  if (number_of_colons > 2 || stream.Peek().GetType() != kFunctionToken) {
-    return g_null_atom;
-  }
-
-  AtomicString ret;
-  {
-    CSSParserTokenStream::BlockGuard guard(stream);
-    if (stream.Peek().GetType() != kIdentToken) {
-      return g_null_atom;
-    }
-    ret = stream.Consume().Value().ToAtomicString();
-    if (!stream.AtEnd()) {
-      return g_null_atom;
-    }
-  }
-  if (!stream.AtEnd()) {
-    return g_null_atom;
-  }
-  return ret;
-}
-}  // namespace
 
 // static
 PseudoId CSSSelectorParser::ParsePseudoElement(const String& selector_string,
                                                const Node* parent,
                                                AtomicString& argument) {
-  if (!RuntimeEnabledFeatures::
-          CSSComputedStyleFullPseudoElementParserEnabled()) {
-    PseudoId pseudo_id = ParsePseudoElementLegacy(selector_string, parent);
-    if (PseudoElementHasArguments(pseudo_id)) {
-      argument = ParsePseudoElementArgument(selector_string);
-    }
-    return pseudo_id;
-  }
-
   // For old pseudos (before, after, first-letter, first-line), we
   // allow the legacy behavior of single-colon / no-colon.
   {
@@ -2503,7 +2402,12 @@ static void RecordUsageAndDeprecationsOneSelector(
     const CSSSelector* selector,
     const CSSParserContext* context,
     bool* has_visited_pseudo) {
+  // Both the classic WebFeature and the newer WebDXFeature use counters can be
+  // recorded. Some WebFeature counters are mapped to WebDXFeature counters in
+  // webdx_feature_maps.cc. For new features, it's OK to only add a WebDXFeature
+  // counter instead of adding a classic counter and mapping it.
   std::optional<WebFeature> feature;
+  std::optional<WebDXFeature> webdx_feature;
   switch (selector->GetPseudoType()) {
     case CSSSelector::kPseudoAny:
       feature = WebFeature::kCSSSelectorPseudoAny;
@@ -2599,6 +2503,19 @@ static void RecordUsageAndDeprecationsOneSelector(
     case CSSSelector::kPseudoOpen:
       feature = WebFeature::kCSSPseudoOpen;
       break;
+    case CSSSelector::kPseudoNot:
+      feature = WebFeature::kCSSSelectorPseudoNot;
+      break;
+    case CSSSelector::kPseudoAutofill:
+      webdx_feature = WebDXFeature::kAutofill;
+      break;
+    case CSSSelector::kPseudoDetailsContent:
+      webdx_feature = WebDXFeature::kDetailsContent;
+      break;
+    case CSSSelector::kPseudoPastCue:
+    case CSSSelector::kPseudoFutureCue:
+      webdx_feature = WebDXFeature::kTimeRelativeSelectors;
+      break;
     default:
       break;
   }
@@ -2608,6 +2525,9 @@ static void RecordUsageAndDeprecationsOneSelector(
     } else {
       context->Count(*feature);
     }
+  }
+  if (webdx_feature.has_value()) {
+    context->Count(*webdx_feature);
   }
   if (selector->Relation() == CSSSelector::kIndirectAdjacent) {
     context->Count(WebFeature::kCSSSelectorIndirectAdjacent);

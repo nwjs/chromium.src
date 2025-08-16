@@ -26,10 +26,8 @@
 #include "base/time/time.h"
 #include "base/trace_event/trace_event.h"
 #include "build/build_config.h"
-#include "components/prefs/pref_service.h"
 #include "components/signin/public/base/gaia_id_hash.h"
 #include "components/signin/public/base/signin_metrics.h"
-#include "components/signin/public/base/signin_pref_names.h"
 #include "components/signin/public/base/signin_switches.h"
 #include "components/signin/public/identity_manager/account_info.h"
 #include "components/signin/public/identity_manager/accounts_in_cookie_jar_info.h"
@@ -240,11 +238,6 @@ SyncServiceImpl::SyncServiceImpl(InitParams init_params)
   // shouldn't be instantiated.
   DCHECK(IsSyncAllowedByFlag());
 
-  sync_prefs_.SetPasswordSyncAllowed(sync_client_->IsPasswordSyncAllowed());
-  // base::Unretained() is safe, `this` outlives `sync_client_`.
-  sync_client_->SetPasswordSyncAllowedChangeCb(base::BindRepeating(
-      &SyncServiceImpl::OnPasswordSyncAllowedChanged, base::Unretained(this)));
-
   sync_stopped_reporter_ = std::make_unique<SyncStoppedReporter>(
       sync_service_url_, MakeUserAgentForSync(channel_), url_loader_factory_);
 
@@ -269,8 +262,7 @@ SyncServiceImpl::SyncServiceImpl(InitParams init_params)
 }
 
 void SyncServiceImpl::RegisterTrustedVaultSyntheticFieldTrialsIfNecessary() {
-  if (registered_trusted_vault_auto_upgrade_synthetic_field_trial_group_
-          .has_value()) {
+  if (trusted_vault_auto_upgrade_synthetic_field_trial_registered_) {
     // Registration function already invoked. It cannot be invoked twice, as
     // runtime changes to the group assignment is not supported (e.g. signout).
     return;
@@ -290,7 +282,7 @@ void SyncServiceImpl::RegisterTrustedVaultSyntheticFieldTrialsIfNecessary() {
     return;
   }
 
-  registered_trusted_vault_auto_upgrade_synthetic_field_trial_group_ = group;
+  trusted_vault_auto_upgrade_synthetic_field_trial_registered_ = true;
   sync_client_->RegisterTrustedVaultAutoUpgradeSyntheticFieldTrial(group);
 }
 
@@ -380,14 +372,6 @@ void SyncServiceImpl::Initialize(DataTypeController::TypeVector controllers) {
   RecordSyncInitialState(GetDisableReasons(),
                          is_sync_feature_requested_for_metrics,
                          user_settings_->IsInitialSyncFeatureSetupComplete());
-
-  if (registered_trusted_vault_auto_upgrade_synthetic_field_trial_group_
-          .has_value()) {
-    CHECK(registered_trusted_vault_auto_upgrade_synthetic_field_trial_group_
-              ->is_valid());
-    registered_trusted_vault_auto_upgrade_synthetic_field_trial_group_
-        ->LogValidationMetricsUponOnProfileLoad(GetAccountInfo().gaia);
-  }
 
   // Call Stop() on controllers for non-preferred types to clear metadata.
   // This allows clearing metadata for types disabled in previous run early-on
@@ -1183,10 +1167,6 @@ void SyncServiceImpl::OnConfigureDone(
   DCHECK(!user_settings_->IsPassphraseRequiredForPreferredDataTypes() ||
          user_settings_->IsEncryptedDatatypePreferred());
 
-  if (result.sync_mode == SyncMode::kFull) {
-    sync_prefs_.SetFirstSyncCompletedInFullSyncMode();
-  }
-
   DVLOG(2) << "Notify observers OnConfigureDone";
   NotifyObservers();
 
@@ -1342,7 +1322,7 @@ void SyncServiceImpl::PassphraseTypeChanged(PassphraseType passphrase_type) {
   if (!sync_prefs_.GetCachedPassphraseType().has_value() &&
       IsExplicitPassphrase(passphrase_type) &&
       GetSyncAccountStateForPrefs() ==
-          SyncPrefs::SyncAccountState::kSignedInNotSyncing &&
+          SyncPrefs::SyncAccountState::kSignedInWithoutSyncConsent &&
       sync_prefs_.DoesTypeHaveDefaultValueForAccount(
           UserSelectableType::kAutofill, GetAccountInfo().gaia) &&
       base::FeatureList::IsEnabled(kReplaceSyncPromosWithSignInPromos)) {
@@ -1385,8 +1365,9 @@ SyncPrefs::SyncAccountState SyncServiceImpl::GetSyncAccountStateForPrefs()
   }
   // This doesn't check IsSyncFeatureEnabled() so it covers the case of advanced
   // sync setup, where IsInitialSyncFeatureSetupComplete() is not true yet.
-  return HasSyncConsent() ? SyncPrefs::SyncAccountState::kSyncing
-                          : SyncPrefs::SyncAccountState::kSignedInNotSyncing;
+  return HasSyncConsent()
+             ? SyncPrefs::SyncAccountState::kSyncing
+             : SyncPrefs::SyncAccountState::kSignedInWithoutSyncConsent;
 }
 
 CoreAccountInfo SyncServiceImpl::GetSyncAccountInfoForPrefs() const {
@@ -1617,8 +1598,6 @@ void SyncServiceImpl::ConfigureDataTypeManager(
 
   ConfigureContext configure_context;
   configure_context.authenticated_gaia_id = GetAccountInfo().gaia;
-  configure_context.previously_syncing_gaia_id_info =
-      DeterminePreviouslySyncingGaiaIdInfoForMetrics();
   configure_context.cache_guid = engine_->GetCacheGuid();
   configure_context.sync_mode = SyncMode::kFull;
   configure_context.reason = reason;
@@ -2013,11 +1992,6 @@ SyncService::DataTypeDownloadStatus SyncServiceImpl::GetDownloadStatusFor(
   return DataTypeDownloadStatus::kUpToDate;
 }
 
-void SyncServiceImpl::OnPasswordSyncAllowedChanged() {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  sync_prefs_.SetPasswordSyncAllowed(sync_client_->IsPasswordSyncAllowed());
-}
-
 void SyncServiceImpl::CacheTrustedVaultDebugInfoToPrefsFromEngine() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   CHECK(engine_);
@@ -2118,7 +2092,6 @@ void SyncServiceImpl::StopAndClear(ResetEngineReason reset_engine_reason) {
   // If the migration didn't finish before StopAndClear() was called, mark it as
   // done so it doesn't trigger again if the user signs in later.
   sync_prefs_.MarkPartialSyncToSigninMigrationFullyDone();
-  sync_prefs_.ClearFirstSyncCompletedInFullSyncMode();
 
   if (reset_engine_reason == ResetEngineReason::kNotSignedIn) {
     sync_prefs_.ClearCachedPersistentAuthErrorForMetrics();
@@ -2225,47 +2198,6 @@ void SyncServiceImpl::RecordHistoryOptInStateOnSigninHistograms(
   signin_metrics::RecordHistoryOptInStateOnSignin(
       access_point, consent_level,
       user_settings_->GetSelectedTypes().Has(UserSelectableType::kHistory));
-}
-
-PreviouslySyncingGaiaIdInfoForMetrics
-SyncServiceImpl::DeterminePreviouslySyncingGaiaIdInfoForMetrics() const {
-  if (IsLocalSyncEnabled()) {
-    return PreviouslySyncingGaiaIdInfoForMetrics::kUnspecified;
-  }
-
-  // If a configuration cycle already completed in full-sync mode, return
-  // `kUnspecified` because this field is used to record metrics that are
-  // relevant immediately when the user turns sync on. Later
-  // reconfigurations, such as when the user toggles sync settings, should be
-  // excluded from metrics.
-  if (sync_prefs_.IsFirstSyncCompletedInFullSyncMode()) {
-    return PreviouslySyncingGaiaIdInfoForMetrics::kUnspecified;
-  }
-
-  // Depending on whether sync the feature is currently on or not, the gaia ID
-  // corresponding to the previous user is stored in one pref or another. That's
-  // because `kGoogleServicesLastSyncingGaiaId` is updated early, as soon as
-  // the sync consent is granted, and before the notification reaches
-  // SyncServiceImpl.
-  const GaiaId previously_syncing_gaia_id = GaiaId(
-      HasSyncConsent() ? sync_client_->GetPrefService()->GetString(
-                             prefs::kGoogleServicesSecondLastSyncingGaiaId)
-                       : sync_client_->GetPrefService()->GetString(
-                             prefs::kGoogleServicesLastSyncingGaiaId));
-
-  if (previously_syncing_gaia_id.empty()) {
-    // It is known that no previous gaia ID existed that turned sync on.
-    return PreviouslySyncingGaiaIdInfoForMetrics::
-        kSyncFeatureNeverPreviouslyTurnedOn;
-  }
-
-  const GaiaId current_gaia_id = GetAccountInfo().gaia;
-
-  return current_gaia_id == previously_syncing_gaia_id
-             ? PreviouslySyncingGaiaIdInfoForMetrics::
-                   kCurrentGaiaIdMatchesPreviousWithSyncFeatureOn
-             : PreviouslySyncingGaiaIdInfoForMetrics::
-                   kCurrentGaiaIdIfDiffersPreviousWithSyncFeatureOn;
 }
 
 const GURL& SyncServiceImpl::GetSyncServiceUrlForDebugging() const {

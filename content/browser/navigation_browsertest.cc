@@ -33,6 +33,7 @@
 #include "base/threading/thread_restrictions.h"
 #include "base/time/time.h"
 #include "base/uuid.h"
+#include "base/values.h"
 #include "build/build_config.h"
 #include "cc/test/pixel_test_utils.h"
 #include "components/ukm/test_ukm_recorder.h"
@@ -50,7 +51,6 @@
 #include "content/common/navigation_client.mojom-forward.h"
 #include "content/common/navigation_client.mojom.h"
 #include "content/public/browser/browser_context.h"
-#include "content/public/browser/browser_message_filter.h"
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/browser_url_handler.h"
@@ -95,7 +95,6 @@
 #include "content/test/render_document_feature.h"
 #include "content/test/task_runner_deferring_throttle.h"
 #include "content/test/test_render_frame_host_factory.h"
-#include "ipc/ipc_security_test_util.h"
 #include "mojo/public/cpp/bindings/pending_associated_remote.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "net/base/features.h"
@@ -1856,7 +1855,10 @@ IN_PROC_BROWSER_TEST_F(NavigationBrowserTest,
 // Failing to do so causes the browser to become unresponsive.
 // See https://crbug.com/882238
 // TODO(crbug.com/379844650): Disabled on Linux sanitizer bots due to flakiness.
-#if BUILDFLAG(IS_LINUX) && defined(ADDRESS_SANITIZER)
+// TODO(crbug.com/346960510): Disabled on ChromeOS sanitizer bots due to
+// flakiness.
+#if (BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)) && \
+    defined(ADDRESS_SANITIZER)
 #define MAYBE_IPCFlood_GoToEntryAtOffset DISABLED_IPCFlood_GoToEntryAtOffset
 #else
 #define MAYBE_IPCFlood_GoToEntryAtOffset IPCFlood_GoToEntryAtOffset
@@ -8579,7 +8581,7 @@ IN_PROC_BROWSER_TEST_F(NavigationBrowserTest, FilterURL_JavascriptURLs) {
     // https://html.spec.whatwg.org/multipage/document-sequences.html#creating-a-new-browsing-context
     // TODO(crbug.com/40236679): Also prevent the origin from being
     // inherited.
-    EXPECT_EQ(nullptr, EvalJs(popup_contents, "window.foo"));
+    EXPECT_EQ(base::Value(), EvalJs(popup_contents, "window.foo"));
   }
 }
 
@@ -9973,7 +9975,7 @@ IN_PROC_BROWSER_TEST_F(VisualPropertiesSynchronization,
   // Ensure a frame has been produced.
   ASSERT_TRUE(
       EvalJsAfterLifecycleUpdate(web_contents->GetPrimaryMainFrame(), "", "")
-          .error.empty());
+          .is_ok());
 
   // Verify the renderer received the correct size for the viewport.
   EXPECT_GT(EvalJs(web_contents->GetPrimaryMainFrame(), "window.innerWidth;")

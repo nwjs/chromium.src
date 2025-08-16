@@ -403,6 +403,8 @@ namespace blink {
 
 namespace {
 
+constexpr char kSelectName[] = "select";
+
 class IntrinsicSizeResizeObserverDelegate : public ResizeObserver::Delegate {
  public:
   void OnResize(const HeapVector<Member<ResizeObserverEntry>>& entries) final;
@@ -464,6 +466,60 @@ bool DefaultFaviconAllowedByCSP(const Document* document, const IconURL& icon) {
       ContentSecurityPolicy::CheckHeaderType::kCheckAll);
 }
 
+// This function is a heuristic to detect potential synthetic selects.
+// It is a necessary but not sufficient condition for an element to be
+// considered a synthetic select.
+//
+// Synthetic selects are select elements that are built using
+// <div>s, <span>s, <button>s etc. with CSS and JavaScript
+// instead of the native <select> element.
+// For more details, see go/analyzing-synthetic-selects.
+bool CanBeSyntheticSelect(Element& element) {
+  return !element.HasTagName(html_names::kSelectTag) &&
+         (element.hasAttribute(html_names::kAriaExpandedAttr) ||
+          element.hasAttribute(html_names::kAriaHaspopupAttr));
+}
+
+bool HasSelectInTagName(Element& element) {
+  return element.localName().Contains(kSelectName, kTextCaseASCIIInsensitive);
+}
+
+bool HasSelectInClassAttribute(Element& element) {
+  return element.GetClassAttribute().Contains(kSelectName,
+                                              kTextCaseASCIIInsensitive);
+}
+
+bool HasSelectInNameAttribute(Element& element) {
+  return element.getAttribute(html_names::kNameAttr)
+      .Contains(kSelectName, kTextCaseASCIIInsensitive);
+}
+
+bool IsRoleCombobox(Element& element) {
+  DEFINE_STATIC_LOCAL(const AtomicString, combobox, ("combobox"));
+  return element.getAttribute(html_names::kRoleAttr) == combobox;
+}
+
+bool IsAriaHasPopupListbox(Element& element) {
+  DEFINE_STATIC_LOCAL(const AtomicString, listbox, ("listbox"));
+  return element.getAttribute(html_names::kAriaHaspopupAttr) == listbox;
+}
+
+// This function is a heuristic to detect synthetic selects.
+//
+// Synthetic selects are select elements that are built using
+// <div>s, <span>s, <button>s etc. with CSS and JavaScript
+// instead of the native <select> element.
+// For more details, see go/analyzing-synthetic-selects.
+bool IsSyntheticSelect(Element& element) {
+  if (!CanBeSyntheticSelect(element)) {
+    return false;
+  }
+
+  return HasSelectInTagName(element) || HasSelectInClassAttribute(element) ||
+         HasSelectInNameAttribute(element) || IsRoleCombobox(element) ||
+         IsAriaHasPopupListbox(element);
+}
+
 // The sampling rate for UKM.
 constexpr double kUkmSamplingRate = 0.001;
 
@@ -486,12 +542,13 @@ template <typename CharType>
 std::optional<CharType> ParseNamespacePrefixNewSpec(
     base::span<const CharType> characters) {
   DCHECK(RuntimeEnabledFeatures::RelaxDOMValidNamesEnabled());
+  DCHECK(!characters.empty());
   for (size_t i = 0; i < characters.size(); i++) {
     CharType c = characters[i];
     // A string is a valid namespace prefix if its length is at least 1 and
     // it does not contain ASCII whitespace, U+0000 NULL, U+002F (/), or
     // U+003E (>).
-    if (c == '>' || c == '/' || !c || WTF::IsASCIISpaceWHATWG(c)) {
+    if (c == '>' || c == '/' || !c || IsASCIISpaceWHATWG(c)) {
       return c;
     }
   }
@@ -510,7 +567,7 @@ std::optional<CharType> ParseAttributeLocalNameNewSpec(
     // A string is a valid attribute local name if its length is at least 1
     // and it does not contain ASCII whitespace, U+0000 NULL, U+002F (/),
     // U+003D (=), or U+003E (>).
-    if (!c || WTF::IsASCIISpaceWHATWG(c) || c == '/' || c == '=' || c == '>') {
+    if (!c || IsASCIISpaceWHATWG(c) || c == '/' || c == '=' || c == '>') {
       return c;
     }
   }
@@ -532,8 +589,8 @@ std::optional<CharType> ParseElementLocalNameNewSpec(
       // If name contains ASCII whitespace, U+0000 NULL, U+002F (/), or U+003E
       // (>), then return false.
       next_char = characters[i];
-      if (!next_char || WTF::IsASCIISpaceWHATWG(next_char) ||
-          next_char == '/' || next_char == '>') {
+      if (!next_char || IsASCIISpaceWHATWG(next_char) || next_char == '/' ||
+          next_char == '>') {
         return next_char;
       }
     }
@@ -674,7 +731,7 @@ static bool IsValidElementNamePerHTMLParser(const String& name) {
   if (name.empty()) {
     return false;
   }
-  return WTF::VisitCharacters(
+  return VisitCharacters(
       name, [](auto chars) { return IsValidElementNamePerHTMLParser(chars); });
 }
 
@@ -686,7 +743,7 @@ bool IsValidElementName(Document* document, const String& name) {
     if (name.empty()) {
       return false;
     }
-    return WTF::VisitCharacters(
+    return VisitCharacters(
         name, [](auto chars) { return !ParseElementLocalNameNewSpec(chars); });
   }
 
@@ -797,9 +854,53 @@ const HeapVector<Member<HTMLFormElement>>& Document::TopLevelFormsList::Get(
         }
       }
     }
+    if (base::FeatureList::IsEnabled(
+            features::kAutofillEnableSyntheticSelectMetricsLogging)) {
+      LogSyntheticSelectMetrics(owner);
+    }
     dirty_ = false;
   }
   return list_;
+}
+
+// For every form found in the document, logs the number of synthetic select
+// and potential synthetic select elements.
+//
+// An element is classified as a synthetic select if and only if it
+//   * has 'aria-expanded' attribute, or
+//   * has 'aria-haspopup' attribute
+// and one of the following conditions
+//   * has 'select' substring in the HTML tag name,
+//   * has 'select' substring in the HTML class attribute,
+//   * has 'select' substring in the HTML name attribute,
+//   * 'aria-role' attribute is equal to 'combobox',
+//   * 'aria-haspopup' attribute is equal to 'listbox'
+// is true.
+//
+// The element which satisfies one of the first 2 conditions
+// but does satisfy any of the last 5 conditions
+// is considered a potential synthetic select.
+void Document::TopLevelFormsList::LogSyntheticSelectMetrics(
+    Document& owner) const {
+  for (Node* form : list_) {
+    bool found_synthetic_select = false;
+    bool found_potential_synthetic_select = false;
+
+    for (Element& element : Traversal<Element>::DescendantsOf(*form)) {
+      if (found_synthetic_select && found_potential_synthetic_select) {
+        return;
+      }
+
+      if (!found_synthetic_select && IsSyntheticSelect(element)) {
+        found_synthetic_select = true;
+        UseCounter::Count(owner, WebFeature::kAutofillSyntheticSelect);
+      } else if (!found_potential_synthetic_select &&
+                 CanBeSyntheticSelect(element)) {
+        found_potential_synthetic_select = true;
+        UseCounter::Count(owner, WebFeature::kAutofillMaybeSyntheticSelect);
+      }
+    }
+  }
 }
 
 const HeapVector<Member<HTMLFormElement>>& Document::GetTopLevelForms() {
@@ -1302,26 +1403,53 @@ Element* Document::CreateElementForBinding(const AtomicString& name,
   return MakeGarbageCollected<Element>(QualifiedName(name), this);
 }
 
-AtomicString GetTypeExtension(
+std::pair<CustomElementRegistry*, AtomicString> FlattenCreateElementOptions(
     Document* document,
-    const V8UnionElementCreationOptionsOrString* string_or_options) {
+    const V8UnionElementCreationOptionsOrString* string_or_options,
+    ExceptionState& exception_state) {
   DCHECK(string_or_options);
+  CustomElementRegistry* registry = nullptr;
+  AtomicString is = AtomicString();
 
   switch (string_or_options->GetContentType()) {
+    // 3. If options is a dictionary:
     case V8UnionElementCreationOptionsOrString::ContentType::
         kElementCreationOptions: {
       const ElementCreationOptions* options =
           string_or_options->GetAsElementCreationOptions();
+      // 3-1. If options["customElementRegistry"] exists, then set registry to
+      // it.
+      if (RuntimeEnabledFeatures::ScopedCustomElementRegistryEnabled() &&
+          options->hasCustomElementRegistry()) {
+        registry = options->customElementRegistry();
+      }
+      // 3-2. If options["is"] exists, then set is to it.
       if (options->hasIs())
-        return AtomicString(options->is());
-      return AtomicString();
+        is = AtomicString(options->is());
+      // 3-3. If registry is non-null and is is non-null, then throw a
+      // "notSupportedError" DOMException.
+      if (registry != nullptr && !is.IsNull()) {
+        exception_state.ThrowDOMException(
+            DOMExceptionCode::kNotSupportedError,
+            "The custom element registry and is option can't be set at the "
+            "same time.");
+      }
+      // 4. If registry is null then set registry to the result of looking up a
+      // custom element registry given document.
+      if (RuntimeEnabledFeatures::ScopedCustomElementRegistryEnabled() &&
+          !registry) {
+        registry = document->customElementRegistry();
+      }
+      break;
     }
     case V8UnionElementCreationOptionsOrString::ContentType::kString:
       UseCounter::Count(document,
                         WebFeature::kDocumentCreateElement2ndArgStringHandling);
-      return AtomicString(string_or_options->GetAsString());
+      is = AtomicString(string_or_options->GetAsString());
+      break;
   }
-  NOTREACHED();
+  // 5. Return registry and is.
+  return std::make_pair(registry, is);
 }
 
 // https://dom.spec.whatwg.org/#dom-document-createelement
@@ -1333,7 +1461,8 @@ Element* Document::CreateElementForBinding(
     return CreateElementForBinding(local_name, exception_state);
   }
 
-  // 1. If localName does not match Name production, throw InvalidCharacterError
+  // 1. If localName does not match Name production, throw
+  // InvalidCharacterError.
   if (!IsValidElementName(this, local_name)) {
     exception_state.ThrowDOMException(
         DOMExceptionCode::kInvalidCharacterError,
@@ -1342,19 +1471,21 @@ Element* Document::CreateElementForBinding(
     return nullptr;
   }
 
-  // 2. localName converted to ASCII lowercase
+  // 2. localName converted to ASCII lowercase if this is an HTML document.
   const AtomicString& converted_local_name = ConvertLocalName(local_name);
   QualifiedName q_name(g_null_atom, converted_local_name,
                        IsXHTMLDocument() || IsA<HTMLDocument>(this)
                            ? html_names::xhtmlNamespaceURI
                            : g_null_atom);
 
-  // 3.
-  const AtomicString& is = GetTypeExtension(this, string_or_options);
+  // 3. Let registry and is be the result of flattening element creation options
+  // given options.
+  auto [registry, is] =
+      FlattenCreateElementOptions(this, string_or_options, exception_state);
 
   // 5. Let element be the result of creating an element given ...
-  Element* element =
-      CreateElement(q_name, CreateElementFlags::ByCreateElement(), is);
+  Element* element = CreateElement(
+      q_name, CreateElementFlags::ByCreateElement(), is, registry);
 
   return element;
 }
@@ -1407,15 +1538,16 @@ Element* Document::createElementNS(
     ExceptionState& exception_state) {
   DCHECK(string_or_options);
 
-  // 1. Validate and extract
+  // 1. Validate and extract.
   QualifiedName q_name(
       CreateQualifiedName(namespace_uri, qualified_name, exception_state,
                           Document::QualifiedNameParsingMode::kParsingElement));
   if (q_name == QualifiedName::Null())
     return nullptr;
 
-  // 2.
-  const AtomicString& is = GetTypeExtension(this, string_or_options);
+  // Let registry and is be the result of flattening element creation options.
+  auto [registry, is] =
+      FlattenCreateElementOptions(this, string_or_options, exception_state);
 
   if (!IsValidElementName(this, qualified_name)) {
     exception_state.ThrowDOMException(
@@ -1425,9 +1557,9 @@ Element* Document::createElementNS(
     return nullptr;
   }
 
-  // 3. Let element be the result of creating an element
-  Element* element =
-      CreateElement(q_name, CreateElementFlags::ByCreateElement(), is);
+  // 3. Let element be the result of creating an element.
+  Element* element = CreateElement(
+      q_name, CreateElementFlags::ByCreateElement(), is, registry);
 
   return element;
 }
@@ -1436,21 +1568,31 @@ Element* Document::createElementNS(
 // https://dom.spec.whatwg.org/#concept-create-element
 Element* Document::CreateElement(const QualifiedName& q_name,
                                  const CreateElementFlags flags,
-                                 const AtomicString& is) {
+                                 const AtomicString& is,
+                                 CustomElementRegistry* registry) {
   CustomElementDefinition* definition = nullptr;
   if (flags.IsCustomElements() &&
       q_name.NamespaceURI() == html_names::xhtmlNamespaceURI) {
+    // 2. If registry is "default", set registry to the result of looking up
+    // a custom element registry given document.
+    if (!RuntimeEnabledFeatures::ScopedCustomElementRegistryEnabled() ||
+        !registry) {
+      registry = customElementRegistry();
+    }
+    // 3. Let definition be the result of looking up a custom element definition
+    // given registry, namespace, localName and is.
     const CustomElementDescriptor desc(is.IsNull() ? q_name.LocalName() : is,
                                        q_name.LocalName());
-    if (CustomElementRegistry* registry = CustomElement::Registry(*this))
+    if (registry) {
       definition = registry->DefinitionFor(desc);
+    }
   }
 
   if (definition)
-    return definition->CreateElement(*this, q_name, flags);
+    return definition->CreateElement(*this, q_name, flags, registry);
 
-  return CustomElement::CreateUncustomizedOrUndefinedElement(*this, q_name,
-                                                             flags, is);
+  return CustomElement::CreateUncustomizedOrUndefinedElement(
+      *this, q_name, flags, is, registry);
 }
 
 DocumentFragment* Document::createDocumentFragment() {
@@ -1640,11 +1782,6 @@ Node* Document::adoptNode(Node* source, ExceptionState& exception_state) {
   AdoptIfNeeded(*source);
 
   return source;
-}
-
-CustomElementRegistry* Document::customElementRegistry() const {
-  DCHECK(RuntimeEnabledFeatures::ScopedCustomElementRegistryEnabled());
-  return dom_window_ ? dom_window_->customElements() : nullptr;
 }
 
 bool Document::HasValidNamespaceForElements(const QualifiedName& q_name) {
@@ -1933,12 +2070,6 @@ Element* Document::ScrollingElementNoLayout() {
   return body();
 }
 
-bool Document::KeyboardFocusableScrollersEnabled() {
-  return RuntimeEnabledFeatures::KeyboardFocusableScrollersEnabled() &&
-         !RuntimeEnabledFeatures::KeyboardFocusableScrollersOptOutEnabled(
-             GetExecutionContext());
-}
-
 bool Document::StandardizedBrowserZoomEnabled() const {
   return RuntimeEnabledFeatures::StandardizedBrowserZoomEnabled() &&
          !RuntimeEnabledFeatures::StandardizedBrowserZoomOptOutEnabled(
@@ -1989,7 +2120,7 @@ void Document::UpdateTitle(const String& title) {
   if (raw_title_.empty()) {
     title_ = String();
   } else {
-    title_ = WTF::VisitCharacters(
+    title_ = VisitCharacters(
         raw_title_, [](auto chars) { return CanonicalizedTitle(chars); });
   }
 
@@ -4078,6 +4209,30 @@ void Document::close() {
   CheckCompleted();
 }
 
+namespace {
+bool NeedsStyleAndLayoutUpdateAtClose(Document& document) {
+  if (!document.HaveRenderBlockingStylesheetsLoaded()) {
+    return false;
+  }
+  if (document.GetFrame()->IsMainFrame()) {
+    return true;
+  }
+  if (!document.Loader()->HasLoadedNonInitialEmptyDocument()) {
+    return false;
+  }
+  if (!RuntimeEnabledFeatures::
+          AvoidForcedLayoutOnInvisibleDocumentCloseEnabled()) {
+    return true;
+  }
+
+  // We don't need to update the style and layout if the subframe is not
+  // visible. This style/layout update is needed mainly for browser features
+  // (like autofill) that rely on a stable layout/style state when a document
+  // finished parsing, however that is irrelevant for invisible subframes.
+  return document.GetFrame()->View()->IsVisible();
+}
+}  // namespace
+
 void Document::ImplicitClose() {
   DCHECK(!InStyleRecalc());
 
@@ -4120,20 +4275,15 @@ void Document::ImplicitClose() {
     return;
   }
 
-  if (HaveRenderBlockingStylesheetsLoaded()) {
-    // The initial empty document might be loaded synchronously.
-    // When this occurs and we also synchronously update the style and layout
-    // here, which is needed for things like autofill, it creates a chain
-    // reaction where inserting iframes without a src to a document causes
-    // expensive layout thrashing of the embedding document. Since this is a
-    // common scenario, special-casing it here, and avoiding that layout if
-    // this is an initial-empty document in a subframe.
-    if (!base::FeatureList::IsEnabled(
-            features::kAvoidForcedLayoutOnInitialEmptyDocumentInSubframe) ||
-        Loader()->HasLoadedNonInitialEmptyDocument() ||
-        GetFrame()->IsMainFrame()) {
-      UpdateStyleAndLayout(DocumentUpdateReason::kUnknown);
-    }
+  // The initial empty document might be loaded synchronously.
+  // When this occurs and we also synchronously update the style and layout
+  // here, which is needed for things like autofill, it creates a chain
+  // reaction where inserting iframes without a src to a document causes
+  // expensive layout thrashing of the embedding document. Since this is a
+  // common scenario, special-casing it here, and avoiding that layout if
+  // this is an initial-empty document in a subframe.
+  if (NeedsStyleAndLayoutUpdateAtClose(*this)) {
+    UpdateStyleAndLayout(DocumentUpdateReason::kUnknown);
   }
 
   load_event_progress_ = kLoadEventCompleted;
@@ -5452,7 +5602,8 @@ void Document::LayoutViewportWasResized() {
   // event *actually* completed; but we also need to fire a resize event if the
   // window size changes during load event dispatch.
   // Note that in the case of the initial empty document, the load may hav
-  // completed before performing the first layout.
+  // completed before performing the first layout. Also, we need to fire a
+  // resize event if the window size changes during load event dispatch.
   if ((View() && View()->DidFirstLayout()) ||
       load_event_progress_ == kLoadEventInProgress || IsLoadCompleted()) {
     EnqueueResizeEvent();
@@ -6318,7 +6469,8 @@ void Document::EnqueueScrollSnapChangingEvent(Node* target,
 }
 
 void Document::EnqueueMoveEvent() {
-  CHECK(RuntimeEnabledFeatures::WindowOnMoveEventEnabled());
+  CHECK(
+      RuntimeEnabledFeatures::DesktopPWAsAdditionalWindowingControlsEnabled());
 
   Event* event = Event::Create(event_type_names::kMove);
   event->SetTarget(domWindow());
@@ -7122,7 +7274,7 @@ bool Document::IsValidName(const StringView& name) {
   unsigned length = name.length();
   if (!length)
     return false;
-  return WTF::VisitCharacters(name, [](auto chars) {
+  return VisitCharacters(name, [](auto chars) {
     if (IsValidNameASCII(chars)) {
       return true;
     }
@@ -7136,7 +7288,7 @@ bool Document::IsValidAttributeLocalNameNewSpec(const StringView& local_name) {
   if (local_name.empty()) {
     return false;
   }
-  return WTF::VisitCharacters(local_name, [](auto chars) {
+  return VisitCharacters(local_name, [](auto chars) {
     return !ParseAttributeLocalNameNewSpec(chars);
   });
 }
@@ -7146,7 +7298,7 @@ bool Document::IsValidElementLocalNameNewSpec(const StringView& local_name) {
   if (local_name.empty()) {
     return false;
   }
-  return WTF::VisitCharacters(local_name, [](auto chars) {
+  return VisitCharacters(local_name, [](auto chars) {
     return !ParseElementLocalNameNewSpec(chars);
   });
 }
@@ -7227,19 +7379,31 @@ ParseQualifiedNameResult ParseQualifiedNameInternalNewSpec(
   // Do a first pass to look for the colon. Otherwise, we don't know which
   // parsing rules to apply to the text we are iterating.
   std::optional<size_t> colon_index;
+  std::optional<size_t> second_colon_index;
   for (size_t i = 0; i < characters.size(); i++) {
     if (characters[i] == ':') {
-      colon_index = i;
-      break;
+      if (colon_index) {
+        second_colon_index = i;
+        break;
+      } else {
+        colon_index = i;
+      }
     }
   }
 
   base::span<const CharType> prefix;
   base::span<const CharType> local_name;
   if (colon_index) {
-    auto split_pair = characters.split_at(*colon_index);
-    prefix = split_pair.first;
-    local_name = split_pair.second.subspan(1u);
+    prefix = characters.subspan(0u, *colon_index);
+    if (second_colon_index) {
+      local_name = characters.subspan(*colon_index + 1,
+                                      *second_colon_index - *colon_index - 1);
+    } else {
+      local_name = characters.subspan(*colon_index + 1);
+    }
+    if (!prefix.size()) {
+      return ParseQualifiedNameResult(kQNEmptyPrefix, ':');
+    }
     if (auto invalid_char = ParseNamespacePrefixNewSpec(prefix)) {
       return ParseQualifiedNameResult(kQNInvalidChar, *invalid_char);
     }
@@ -7280,7 +7444,7 @@ bool Document::ParseQualifiedName(const AtomicString& qualified_name,
     return false;
   }
 
-  ParseQualifiedNameResult return_value = WTF::VisitCharacters(
+  ParseQualifiedNameResult return_value = VisitCharacters(
       qualified_name,
       [&qualified_name, &prefix, &local_name, &parsing_mode](auto chars) {
         if (RuntimeEnabledFeatures::RelaxDOMValidNamesEnabled()) {
@@ -7788,10 +7952,7 @@ void Document::FinishedParsing() {
       // of sync. Loader()->HasLoadedNonInitialEmptyDocument() is more correct.
       // Keeping both for now behind a flag so that it's finch-testable.
       if (GetFrame()->IsMainFrame() ||
-          Loader()->HasLoadedNonInitialEmptyDocument() ||
-          !base::FeatureList::IsEnabled(
-              blink::features::
-                  kAvoidForcedLayoutOnInitialEmptyDocumentInSubframe)) {
+          Loader()->HasLoadedNonInitialEmptyDocument()) {
         UpdateStyleAndLayoutTree();
         if (base::FeatureList::IsEnabled(
                 features::kPrerender2EarlyDocumentLifecycleUpdate) &&
@@ -8144,7 +8305,7 @@ void Document::MaybeRecordSvgImageProcessingTime(
 bool Document::AllowInlineEventHandler(Node* node,
                                        EventListener* listener,
                                        const String& context_url,
-                                       const WTF::OrdinalNumber& context_line) {
+                                       const OrdinalNumber& context_line) {
   auto* element = DynamicTo<Element>(node);
   // HTML says that inline script needs browsing context to create its execution
   // environment.
@@ -8831,8 +8992,9 @@ void Document::EnqueueAutofocusCandidate(Element& element) {
   if (autofocus_processed_flag_)
     return;
   wtf_size_t index = autofocus_candidates_.Find(&element);
-  if (index != WTF::kNotFound)
+  if (index != kNotFound) {
     autofocus_candidates_.EraseAt(index);
+  }
   autofocus_candidates_.push_back(element);
 }
 
@@ -9811,20 +9973,30 @@ Document* Document::parseHTMLInternal(ExecutionContext* context,
 
 // static
 Document* Document::parseHTMLUnsafe(ExecutionContext* context,
-                                    const String& html,
+                                    const V8UnionStringOrTrustedHTML* html,
                                     ExceptionState& exception_state) {
   UseCounter::Count(context, WebFeature::kHTMLUnsafeMethods);
-  return parseHTMLInternal(context, html, exception_state);
+  String compliant_html = TrustedTypesCheckForHTML(
+      html, context, "Document", "parseHTMLUnsafe", exception_state);
+  if (exception_state.HadException()) {
+    return nullptr;
+  }
+  return parseHTMLInternal(context, compliant_html, exception_state);
 }
 
 // static
 Document* Document::parseHTMLUnsafe(ExecutionContext* context,
-                                    const String& html,
+                                    const V8UnionStringOrTrustedHTML* html,
                                     SetHTMLUnsafeOptions* options,
                                     ExceptionState& exception_state) {
   UseCounter::Count(context, WebFeature::kHTMLUnsafeMethods);
   CHECK(RuntimeEnabledFeatures::SanitizerAPIEnabled());
-  Document* doc = parseHTMLInternal(context, html, exception_state);
+  String compliant_html = TrustedTypesCheckForHTML(
+      html, context, "Document", "parseHTMLUnsafe", exception_state);
+  if (exception_state.HadException()) {
+    return nullptr;
+  }
+  Document* doc = parseHTMLInternal(context, compliant_html, exception_state);
   SanitizerAPI::SanitizeUnsafeInternal(doc, options, exception_state);
   return doc;
 }

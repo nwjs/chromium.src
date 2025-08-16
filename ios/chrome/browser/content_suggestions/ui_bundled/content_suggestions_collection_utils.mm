@@ -10,6 +10,7 @@
 #import "components/strings/grit/components_strings.h"
 #import "ios/chrome/browser/content_suggestions/ui_bundled/ntp_home_constant.h"
 #import "ios/chrome/browser/location_bar/ui_bundled/location_bar_constants.h"
+#import "ios/chrome/browser/ntp/search_engine_logo/ui/search_engine_logo_state.h"
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_feature.h"
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_header_constants.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
@@ -123,21 +124,28 @@ void SetUpButtonWithNewFeatureBadge(UIButton* button) {
   button.layer.shadowOpacity = kButtonShadowOpacity;
   button.layer.shadowRadius = kButtonShadowRadius;
 
+  // Remove any possible badge view created as part a previous configuration.
+  for (UIView* subview in button.subviews) {
+    if ([subview isKindOfClass:[NewFeatureBadgeView class]]) {
+      [subview removeFromSuperview];
+    }
+  }
+
   NewFeatureBadgeView* badgeView =
       [[NewFeatureBadgeView alloc] initWithBadgeSize:kNewFeatureBadgeSize
                                             fontSize:kNewFeatureFontSize];
   badgeView.translatesAutoresizingMaskIntoConstraints = NO;
   badgeView.accessibilityElementsHidden = YES;
-  [button.imageView addSubview:badgeView];
+  [button addSubview:badgeView];
 
   [NSLayoutConstraint activateConstraints:@[
     [button.widthAnchor constraintEqualToConstant:kSymbolButtonSize],
     [button.heightAnchor constraintEqualToConstant:kSymbolButtonSize],
     [badgeView.centerXAnchor
-        constraintEqualToAnchor:button.imageView.centerXAnchor
+        constraintEqualToAnchor:button.centerXAnchor
                        constant:kNewBadgeOffsetFromButtonCenter],
     [badgeView.centerYAnchor
-        constraintEqualToAnchor:button.imageView.centerYAnchor
+        constraintEqualToAnchor:button.centerYAnchor
                        constant:-kNewBadgeOffsetFromButtonCenter],
   ]];
 }
@@ -148,36 +156,32 @@ namespace content_suggestions {
 const CGFloat kHintTextScale = 0.15;
 const CGFloat kReturnToRecentTabSectionBottomMargin = 25;
 
-CGFloat DoodleHeight(BOOL logo_is_showing,
-                     BOOL doodle_is_showing,
+CGFloat DoodleHeight(SearchEngineLogoState logo_state,
                      UITraitCollection* trait_collection) {
   // For users with non-Google default search engine, there is no doodle.
-  if (!IsRegularXRegularSizeClass(trait_collection) && !logo_is_showing) {
-    return 0;
+  if (logo_state == SearchEngineLogoState::kNone) {
+    return IsRegularXRegularSizeClass(trait_collection)
+               ? kGoogleSearchDoodleHeight
+               : 0;
   }
-
-  if (logo_is_showing) {
-    if (doodle_is_showing ||
-        (ui::GetDeviceFormFactor() == ui::DEVICE_FORM_FACTOR_TABLET)) {
-      return kGoogleSearchDoodleShrunkHeight;
-    } else if (ShouldEnlargeLogoAndFakebox()) {
-      return kLargeFakeboxGoogleSearchLogoHeight;
-    } else {
-      return kGoogleSearchLogoHeight;
-    }
+  if ((logo_state == SearchEngineLogoState::kDoodle) ||
+      (ui::GetDeviceFormFactor() == ui::DEVICE_FORM_FACTOR_TABLET)) {
+    return kGoogleSearchDoodleShrunkHeight;
   }
-
-  return kGoogleSearchDoodleHeight;
+  if (ShouldEnlargeLogoAndFakebox()) {
+    return kLargeFakeboxGoogleSearchLogoHeight;
+  }
+  return kGoogleSearchLogoHeight;
 }
 
-CGFloat DoodleTopMargin(BOOL logo_is_showing,
-                        BOOL doodle_is_showing,
+CGFloat DoodleTopMargin(SearchEngineLogoState logo_state,
                         UITraitCollection* trait_collection) {
   if (IsRegularXRegularSizeClass(trait_collection)) {
     return kDoodleTopMarginRegularXRegular;
   }
   CGFloat top_inset = 0;
-  if (logo_is_showing && !doodle_is_showing && ShouldEnlargeLogoAndFakebox()) {
+  if ((logo_state == SearchEngineLogoState::kLogo) &&
+      ShouldEnlargeLogoAndFakebox()) {
     // Shrink the top inset so that the enlarged logo has the same bottom
     // positioning as the regular logo.
     top_inset = kGoogleSearchLogoHeight - kLargeFakeboxGoogleSearchLogoHeight;
@@ -249,19 +253,17 @@ CGFloat FakeToolbarHeight() {
       [UIApplication sharedApplication].preferredContentSizeCategory);
 }
 
-CGFloat HeightForLogoHeader(BOOL logo_is_showing,
-                            BOOL doodle_is_showing,
+CGFloat HeightForLogoHeader(SearchEngineLogoState logo_state,
                             UITraitCollection* trait_collection) {
-  CGFloat header_height =
-      DoodleTopMargin(logo_is_showing, doodle_is_showing, trait_collection) +
-      DoodleHeight(logo_is_showing, doodle_is_showing, trait_collection) +
-      SearchFieldTopMargin() + FakeOmniboxHeight() +
-      ntp_header::kScrolledToTopOmniboxBottomMargin +
-      ceil(HeaderSeparatorHeight());
+  CGFloat header_height = DoodleTopMargin(logo_state, trait_collection) +
+                          DoodleHeight(logo_state, trait_collection) +
+                          SearchFieldTopMargin() + FakeOmniboxHeight() +
+                          ntp_header::kScrolledToTopOmniboxBottomMargin +
+                          ceil(HeaderSeparatorHeight());
   if (!IsRegularXRegularSizeClass(trait_collection)) {
     return header_height;
   }
-  if (!logo_is_showing) {
+  if (logo_state == SearchEngineLogoState::kNone) {
     // Returns sufficient vertical space for the Identity Disc to be
     // displayed.
     return ntp_home::kIdentityAvatarDimension +
@@ -305,7 +307,9 @@ void ConfigureVoiceSearchButton(UIButton* voice_search_button,
   buttonConfig.contentInsets = NSDirectionalEdgeInsetsMake(0, 0, 0, 0);
   voice_search_button.configuration = buttonConfig;
 
-  voice_search_button.tintColor = FakeboxIconColor();
+  if (!IsNTPBackgroundCustomizationEnabled()) {
+    voice_search_button.tintColor = FakeboxIconColor();
+  }
   UIImage* mic_image = CustomSymbolWithPointSize(
       kVoiceSymbol, kSymbolContentSuggestionsPointSize);
   mic_image = use_color_icon ? MakeSymbolMulticolor(mic_image)
@@ -344,7 +348,9 @@ void ConfigureLensButtonAppearance(UIButton* lens_button,
   camera_image = use_color_icon ? MakeSymbolMulticolor(camera_image)
                                 : MakeSymbolMonochrome(camera_image);
   [lens_button setImage:camera_image forState:UIControlStateNormal];
-  lens_button.tintColor = FakeboxIconColor();
+  if (!IsNTPBackgroundCustomizationEnabled()) {
+    lens_button.tintColor = FakeboxIconColor();
+  }
 
   if (use_new_badge) {
     // Show the "New" badge and colored symbol.
@@ -366,7 +372,10 @@ void ConfigureMIAButton(UIButton* mia_button, BOOL use_color_icon) {
   magnifier_icon = use_color_icon ? MakeSymbolMulticolor(magnifier_icon)
                                   : MakeSymbolMonochrome(magnifier_icon);
   [mia_button setImage:magnifier_icon forState:UIControlStateNormal];
-  mia_button.tintColor = FakeboxIconColor();
+
+  if (!IsNTPBackgroundCustomizationEnabled()) {
+    mia_button.tintColor = FakeboxIconColor();
+  }
   // TODO(crbug.com/425339867): Handle button accessibility
 
   mia_button.pointerInteractionEnabled = YES;
@@ -383,7 +392,19 @@ void ConfigureLensButtonWithNewBadgeAlpha(UIButton* lens_button,
           colorWithAlphaComponent:new_badge_alpha];
   lens_button.layer.shadowOpacity = kButtonShadowOpacity * new_badge_alpha;
 
+  UIView* attachedBadgeView = nil;
+  for (UIView* subview in lens_button.subviews) {
+    if ([subview isKindOfClass:[NewFeatureBadgeView class]]) {
+      attachedBadgeView = subview;
+      break;
+    }
+  }
+
   // Scale the N badge.
+  attachedBadgeView.alpha = new_badge_alpha;
+  attachedBadgeView.transform = CGAffineTransformScale(
+      CGAffineTransformIdentity, new_badge_alpha, new_badge_alpha);
+
   for (UIView* subview in lens_button.imageView.subviews) {
     subview.alpha = new_badge_alpha;
     subview.transform = CGAffineTransformScale(

@@ -49,7 +49,6 @@
 #include "cc/layers/painted_scrollbar_layer.h"
 #include "cc/metrics/ukm_dropped_frames_data.h"
 #include "cc/metrics/ukm_manager.h"
-#include "cc/metrics/ukm_smoothness_data.h"
 #include "cc/paint/paint_worklet_layer_painter.h"
 #include "cc/resources/ui_resource_manager.h"
 #include "cc/tiles/raster_dark_mode_filter.h"
@@ -1052,7 +1051,7 @@ void LayerTreeHost::ApplyViewportChanges(
       commit_data.elastic_overscroll_delta.IsZero() &&
       !commit_data.top_controls_delta && !commit_data.bottom_controls_delta &&
       !commit_data.browser_controls_constraint_changed &&
-      !commit_data.scroll_end_data.scroll_gesture_did_end &&
+      commit_data.scroll_end_data.done_containers.empty() &&
       commit_data.is_pinch_gesture_active ==
           is_pinch_gesture_active_from_impl_) {
     return;
@@ -1079,7 +1078,7 @@ void LayerTreeHost::ApplyViewportChanges(
        commit_data.page_scale_delta, commit_data.is_pinch_gesture_active,
        commit_data.top_controls_delta, commit_data.bottom_controls_delta,
        commit_data.browser_controls_constraint,
-       commit_data.scroll_end_data.scroll_gesture_did_end});
+       !commit_data.scroll_end_data.done_containers.empty()});
   SetNeedsUpdateLayers();
 }
 
@@ -1790,14 +1789,31 @@ const Layer* LayerTreeHost::LayerByElementId(ElementId element_id) const {
   return iter != element_layers_map_.end() ? iter->second : nullptr;
 }
 
-void LayerTreeHost::RegisterElement(ElementId element_id,
-                                    Layer* layer) {
+void LayerTreeHost::RegisterElement(ElementId element_id, Layer* layer) {
   DCHECK(IsMainThread());
+  DCHECK(layer);
+  const Layer* existing_layer = LayerByElementId(element_id);
+  if (existing_layer) {
+    if (existing_layer == layer) {
+      return;
+    } else {
+      UnregisterElement(element_id, existing_layer);
+    }
+  }
   element_layers_map_[element_id] = layer;
 }
 
-void LayerTreeHost::UnregisterElement(ElementId element_id) {
+void LayerTreeHost::UnregisterElement(ElementId element_id,
+                                      const Layer* layer) {
   DCHECK(IsMainThread());
+  DCHECK(layer);
+  const Layer* existing_layer = LayerByElementId(element_id);
+  if (existing_layer != layer) {
+    // Nothing to do; the element_id is already associated with another layer.
+    // This can happen if a scrollbar is lost and restored in the same frame,
+    // as we register the new scrollbar layer before cleaning up the old one.
+    return;
+  }
   property_tree_delegate_->OnUnregisterElement(element_id);
   element_layers_map_.erase(element_id);
 }
@@ -1991,18 +2007,6 @@ void LayerTreeHost::SetSourceURL(ukm::SourceId source_id, const GURL& url) {
   // If this is not used as a common web page, don't show HUD.
   if (!url.SchemeIsHTTPOrHTTPS())
     pending_commit_state()->debug_state.TurnOffHudInfoDisplay();
-}
-
-base::ReadOnlySharedMemoryRegion
-LayerTreeHost::CreateSharedMemoryForSmoothnessUkm() {
-  DCHECK(IsMainThread());
-  const auto size = sizeof(UkmSmoothnessDataShared);
-  auto ukm_smoothness_mapping = base::ReadOnlySharedMemoryRegion::Create(size);
-  if (!ukm_smoothness_mapping.IsValid())
-    return {};
-  proxy_->SetUkmSmoothnessDestination(
-      std::move(ukm_smoothness_mapping.mapping));
-  return std::move(ukm_smoothness_mapping.region);
 }
 
 base::ReadOnlySharedMemoryRegion

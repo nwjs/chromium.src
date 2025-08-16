@@ -9,7 +9,6 @@
 #include <optional>
 #include <string>
 #include <string_view>
-#include <unordered_set>
 #include <utility>
 
 #include "base/check.h"
@@ -26,7 +25,6 @@
 #include "ui/base/mojom/dialog_button.mojom.h"
 #include "ui/base/mojom/ui_base_types.mojom-shared.h"
 #include "ui/color/color_variant.h"
-#include "ui/compositor/layer.h"
 #include "ui/compositor/layer_type.h"
 #include "ui/views/bubble/bubble_border.h"
 #include "ui/views/bubble/bubble_frame_view.h"
@@ -249,6 +247,11 @@ class VIEWS_EXPORT BubbleDialogDelegate : public DialogDelegate {
   // using base::WrapUnique().
   static Widget* CreateBubble(
       std::unique_ptr<BubbleDialogDelegate> bubble_delegate,
+      Widget::InitParams::Ownership ownership =
+          Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET);
+
+  static Widget* CreateBubble(
+      BubbleDialogDelegate* bubble_delegate,
       Widget::InitParams::Ownership ownership =
           Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET);
 
@@ -503,6 +506,10 @@ class VIEWS_EXPORT BubbleDialogDelegate : public DialogDelegate {
   // instead.
   void SizeToContents();
 
+  // Override this method if you want to position the bubble regardless of its
+  // anchor, while retaining the other anchor view logic.
+  virtual gfx::Rect GetBubbleBounds();
+
  protected:
   // A helper class for logging UMA metrics related to bubbles.
   // The class logs metrics to:
@@ -543,10 +550,6 @@ class VIEWS_EXPORT BubbleDialogDelegate : public DialogDelegate {
         allowed_class_names_for_testing_;
     base::WeakPtrFactory<BubbleUmaLogger> weak_factory_{this};
   };
-
-  // Override this method if you want to position the bubble regardless of its
-  // anchor, while retaining the other anchor view logic.
-  virtual gfx::Rect GetBubbleBounds();
 
   // Override this to perform initialization after the Widget is created but
   // before it is shown.
@@ -657,9 +660,6 @@ class VIEWS_EXPORT BubbleDialogDelegate : public DialogDelegate {
 
   // By default, all BubbleDialogDelegates have parent windows.
   bool has_parent_ = true;
-
-  // Pointer to this bubble's ClientView.
-  raw_ptr<ClientView> client_view_ = nullptr;
 
 #if BUILDFLAG(IS_MAC)
   // Special handler for close_on_deactivate() on Mac. Window (de)activation is

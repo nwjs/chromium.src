@@ -54,6 +54,7 @@
 #import "ios/chrome/browser/discover_feed/model/discover_feed_visibility_observer.h"
 #import "ios/chrome/browser/discover_feed/model/feed_constants.h"
 #import "ios/chrome/browser/feature_engagement/model/tracker_factory.h"
+#import "ios/chrome/browser/intelligence/features/features.h"
 #import "ios/chrome/browser/language/model/language_model_manager_factory.h"
 #import "ios/chrome/browser/net/model/crurl.h"
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_feature.h"
@@ -66,6 +67,7 @@
 #import "ios/chrome/browser/photos/model/photos_service_factory.h"
 #import "ios/chrome/browser/push_notification/model/push_notification_client_id.h"
 #import "ios/chrome/browser/push_notification/model/push_notification_settings_util.h"
+#import "ios/chrome/browser/safari_data_import/public/safari_data_import_entry_point.h"
 #import "ios/chrome/browser/search_engines/model/search_engine_observer_bridge.h"
 #import "ios/chrome/browser/search_engines/model/template_url_service_factory.h"
 #import "ios/chrome/browser/settings/model/sync/utils/identity_error_util.h"
@@ -75,10 +77,12 @@
 #import "ios/chrome/browser/settings/ui_bundled/autofill/autofill_credit_card_table_view_controller.h"
 #import "ios/chrome/browser/settings/ui_bundled/autofill/autofill_profile_table_view_controller.h"
 #import "ios/chrome/browser/settings/ui_bundled/bandwidth/bandwidth_management_table_view_controller.h"
+#import "ios/chrome/browser/settings/ui_bundled/bwg/coordinator/bwg_settings_coordinator.h"
 #import "ios/chrome/browser/settings/ui_bundled/cells/account_sign_in_item.h"
 #import "ios/chrome/browser/settings/ui_bundled/cells/enhanced_safe_browsing_inline_promo_item.h"
 #import "ios/chrome/browser/settings/ui_bundled/cells/settings_check_item.h"
 #import "ios/chrome/browser/settings/ui_bundled/cells/settings_image_detail_text_item.h"
+#import "ios/chrome/browser/settings/ui_bundled/content_settings/content_settings_coordinator.h"
 #import "ios/chrome/browser/settings/ui_bundled/content_settings/content_settings_table_view_controller.h"
 #import "ios/chrome/browser/settings/ui_bundled/default_browser/default_browser_settings_table_view_controller.h"
 #import "ios/chrome/browser/settings/ui_bundled/downloads/downloads_settings_coordinator.h"
@@ -171,6 +175,15 @@ UIImage* GetBrandedGoogleServicesSymbol() {
 #endif
 }
 
+// Returns the branded version of the Gemini symbol.
+UIImage* GetBrandedGeminiSymbol() {
+#if BUILDFLAG(IOS_USE_BRANDED_SYMBOLS)
+  return CustomSettingsRootSymbol(kGeminiBrandedLogoImage);
+#else
+  return DefaultSettingsRootSymbol(kGeminiNonBrandedLogoImage);
+#endif
+}
+
 // Struct used to count and store the number of active Enhanced Safe Browsing
 // promos, as the FET does not support showing multiple badges for the same FET
 // feature at the same time.
@@ -190,6 +203,8 @@ struct EnhancedSafeBrowsingActivePromoData
 @interface SettingsTableViewController () <
     AddressBarPreferenceCoordinatorDelegate,
     BooleanObserver,
+    BWGSettingsCoordinatorDelegate,
+    ContentSettingsCoordinatorDelegate,
     DiscoverFeedVisibilityObserver,
     DownloadsSettingsCoordinatorDelegate,
     EnhancedSafeBrowsingInlinePromoDelegate,
@@ -205,7 +220,8 @@ struct EnhancedSafeBrowsingActivePromoData
     PrivacyCoordinatorDelegate,
     SafetyCheckCoordinatorDelegate,
     SearchEngineObserving,
-    SyncObserverModelBridge> {
+    SyncObserverModelBridge,
+    TabsSettingsCoordinatorDelegate> {
   // The browser where the settings are being displayed.
   raw_ptr<Browser> _browser;
   // The profile for `_browser`. Never off the record.
@@ -233,6 +249,12 @@ struct EnhancedSafeBrowsingActivePromoData
   // The item related to the safety check.
   SettingsCheckItem* _safetyCheckItem;
   SigninCoordinator* _signinAndHistorySyncCoordinator;
+
+  // BWG settings coordinator.
+  BWGSettingsCoordinator* _BWGSettingsCoordinator;
+
+  // Content settings coordinator.
+  ContentSettingsCoordinator* _contentSettingsCoordinator;
 
   GoogleServicesSettingsCoordinator* _googleServicesSettingsCoordinator;
   ManageSyncSettingsCoordinator* _manageSyncSettingsCoordinator;
@@ -280,6 +302,7 @@ struct EnhancedSafeBrowsingActivePromoData
   TableViewDetailIconItem* _autoFillCreditCardDetailItem;
   TableViewDetailIconItem* _notificationsItem;
   TableViewDetailIconItem* _defaultBrowserCellItem;
+  TableViewDetailIconItem* _BWGDetailItem;
 
   // Whether Settings have been dismissed.
   BOOL _settingsAreDismissed;
@@ -303,9 +326,6 @@ struct EnhancedSafeBrowsingActivePromoData
 // YES if the default browser settings row is currently showing the notification
 // dot.
 @property(nonatomic, assign) BOOL showingDefaultBrowserNotificationDot;
-
-// YES if the sign-in is in progress.
-@property(nonatomic, assign) BOOL isSigninInProgress;
 
 // Account manager service to retrieve Chrome identities.
 @property(nonatomic, assign) ChromeAccountManagerService* accountManagerService;
@@ -407,10 +427,6 @@ struct EnhancedSafeBrowsingActivePromoData
         [[NotificationsSettingsObserver alloc] initWithPrefService:prefService
                                                         localState:localState];
     _notificationsObserver.delegate = self;
-
-    // TODO(crbug.com/41344225): -loadModel should not be called from
-    // initializer. A possible fix is to move this call to -viewDidLoad.
-    [self loadModel];
   }
   return self;
 }
@@ -434,6 +450,8 @@ struct EnhancedSafeBrowsingActivePromoData
 
   self.navigationItem.largeTitleDisplayMode =
       UINavigationItemLargeTitleDisplayModeAlways;
+
+  [self loadModel];
 }
 
 - (void)viewWillAppear:(BOOL)animated {
@@ -444,6 +462,12 @@ struct EnhancedSafeBrowsingActivePromoData
     // Update the address bar new IPH badge here as it depends on the number of
     // time it's shown.
     [self updateAddressBarNewIPHBadge];
+  }
+
+  // Update the BWG new IPH badge here as it depends on the number of times it's
+  // shown.
+  if (IsPageActionMenuEnabled()) {
+    [self updateBWGNewIPHBadge];
   }
 }
 
@@ -491,6 +515,10 @@ struct EnhancedSafeBrowsingActivePromoData
 
   // Advanced Section
   [model addSectionWithIdentifier:SettingsSectionIdentifierAdvanced];
+  if (IsPageActionMenuEnabled()) {
+    [model addItem:[self BWGSettingsDetailItem]
+        toSectionWithIdentifier:SettingsSectionIdentifierAdvanced];
+  }
   if ([self shouldShowNotificationsSettings]) {
     _notificationsItem = [self notificationsItem];
     [self updateNotificationsDetailText];
@@ -536,7 +564,7 @@ struct EnhancedSafeBrowsingActivePromoData
     [model addItem:[self downloadsSettingsDetailItem]
         toSectionWithIdentifier:SettingsSectionIdentifierInfo];
   }
-  if (base::FeatureList::IsEnabled(kImportPasswordsFromSafari)) {
+  if (ShouldShowSafariImportWorkflow()) {
     [model addItem:[self safariDataImportSettingsDetailItem]
         toSectionWithIdentifier:SettingsSectionIdentifierInfo];
   }
@@ -1037,6 +1065,19 @@ struct EnhancedSafeBrowsingActivePromoData
   return item;
 }
 
+- (TableViewItem*)BWGSettingsDetailItem {
+  UIImage* geminiLogo = [self createGeminiLogo];
+  _BWGDetailItem = [self
+           detailItemWithType:SettingsItemTypeBWGSettings
+                         text:l10n_util::GetNSString(IDS_IOS_BWG_SETTINGS_TITLE)
+                   detailText:nil
+                       symbol:geminiLogo
+        symbolBackgroundColor:nil
+      accessibilityIdentifier:kSettingsBWGSettingsCellId];
+
+  return _BWGDetailItem;
+}
+
 #if BUILDFLAG(CHROMIUM_BRANDING) && !defined(NDEBUG)
 
 - (TableViewSwitchItem*)viewSourceSwitchItem {
@@ -1327,8 +1368,7 @@ struct EnhancedSafeBrowsingActivePromoData
     }
     case SettingsItemTypeContentSettings:
       base::RecordAction(base::UserMetricsAction("Settings.ContentSettings"));
-      controller =
-          [[ContentSettingsTableViewController alloc] initWithBrowser:_browser];
+      [self showContentSettings];
       break;
     case SettingsItemTypeDownloadsSettings:
       base::RecordAction(base::UserMetricsAction("Settings.DownloadsSettings"));
@@ -1339,11 +1379,13 @@ struct EnhancedSafeBrowsingActivePromoData
       [self showTabsSettings];
       break;
     case SettingsItemTypeSafariDataImport: {
-      CHECK(base::FeatureList::IsEnabled(kImportPasswordsFromSafari));
+      CHECK(ShouldShowSafariImportWorkflow());
       base::RecordAction(base::UserMetricsAction("Settings.SafariImport"));
       id<ApplicationCommands> handler = HandlerForProtocol(
           _browser->GetCommandDispatcher(), ApplicationCommands);
-      [handler displaySafariDataImportEntryPointWithUIHandler:nil];
+      [handler displaySafariDataImportFromEntryPoint:
+                   SafariDataImportEntryPoint::kSetting
+                                       withUIHandler:nil];
       break;
     }
     case SettingsItemTypeBandwidth:
@@ -1367,6 +1409,13 @@ struct EnhancedSafeBrowsingActivePromoData
       [self.navigationController
           pushViewController:[[TableCellCatalogViewController alloc] init]
                     animated:YES];
+      break;
+    case SettingsItemTypeBWGSettings:
+      base::RecordAction(base::UserMetricsAction("Settings.BWGSettings"));
+      [self showBWGSettings];
+      // Sets the "new" IPH badge shown count to max so it's not shown again.
+      GetApplicationContext()->GetLocalState()->SetInteger(
+          prefs::kBWGSettingsNewBadgeShownCount, INT_MAX);
       break;
     default:
       break;
@@ -1485,11 +1534,41 @@ struct EnhancedSafeBrowsingActivePromoData
   _manageSyncSettingsCoordinator = nil;
 }
 
+// Stops and cleans up the TabsSettingsCoordinator.
+- (void)stopTabsCoordinator {
+  [_tabsCoordinator stop];
+  _tabsCoordinator.delegate = nil;
+  _tabsCoordinator = nil;
+}
+
+// Show BWG settings.
+- (void)showBWGSettings {
+  // Stop the coordinator before restarting it, if it exists.
+  [_BWGSettingsCoordinator stop];
+  _BWGSettingsCoordinator = [[BWGSettingsCoordinator alloc]
+      initWithBaseNavigationController:self.navigationController
+                               browser:_browser];
+  _BWGSettingsCoordinator.delegate = self;
+  [_BWGSettingsCoordinator start];
+}
+
+- (void)showContentSettings {
+  if (_contentSettingsCoordinator &&
+      self.navigationController.topViewController != self) {
+    base::debug::DumpWithoutCrashing();
+  }
+
+  _contentSettingsCoordinator = [[ContentSettingsCoordinator alloc]
+      initWithBaseNavigationController:self.navigationController
+                               browser:_browser];
+  _contentSettingsCoordinator.delegate = self;
+  [_contentSettingsCoordinator start];
+}
+
 - (void)showGoogleServices {
   if (_googleServicesSettingsCoordinator &&
       self.navigationController.topViewController != self) {
     base::debug::DumpWithoutCrashing();
-    return;
   }
 
   // Stop the coordinator before restarting it, if it exists.
@@ -1506,7 +1585,6 @@ struct EnhancedSafeBrowsingActivePromoData
 - (void)showTabsSettings {
   if (_tabsCoordinator && self.navigationController.topViewController != self) {
     base::debug::DumpWithoutCrashing();
-    return;
   }
 
   // Stop the coordinator before restarting it, if it exists.
@@ -1515,6 +1593,7 @@ struct EnhancedSafeBrowsingActivePromoData
   _tabsCoordinator = [[TabsSettingsCoordinator alloc]
       initWithBaseNavigationController:self.navigationController
                                browser:_browser];
+  _tabsCoordinator.delegate = self;
   [_tabsCoordinator start];
 }
 
@@ -1522,7 +1601,6 @@ struct EnhancedSafeBrowsingActivePromoData
   if (_addressBarPreferenceCoordinator &&
       self.navigationController.topViewController != self) {
     base::debug::DumpWithoutCrashing();
-    return;
   }
 
   // Stop the coordinator before restarting it, if it exists.
@@ -1539,7 +1617,6 @@ struct EnhancedSafeBrowsingActivePromoData
   if (_manageSyncSettingsCoordinator &&
       self.navigationController.topViewController != self) {
     base::debug::DumpWithoutCrashing();
-    return;
   }
 
   // Stop the coordinator before restarting it, if it exists.
@@ -1556,7 +1633,6 @@ struct EnhancedSafeBrowsingActivePromoData
   if (_passwordsCoordinator &&
       self.navigationController.topViewController != self) {
     base::debug::DumpWithoutCrashing();
-    return;
   }
 
   // Stop the coordinator before restarting it, if it exists.
@@ -1574,7 +1650,6 @@ struct EnhancedSafeBrowsingActivePromoData
   if (_safetyCheckCoordinator &&
       self.navigationController.topViewController != self) {
     base::debug::DumpWithoutCrashing();
-    return;
   }
 
   // Stop the coordinator before restarting it, if it exists.
@@ -1635,7 +1710,6 @@ struct EnhancedSafeBrowsingActivePromoData
   if (_notificationsCoordinator &&
       self.navigationController.topViewController != self) {
     base::debug::DumpWithoutCrashing();
-    return;
   }
 
   // Stop the coordinator before restarting it, if it exists.
@@ -1653,7 +1727,6 @@ struct EnhancedSafeBrowsingActivePromoData
   if (_privacyCoordinator &&
       self.navigationController.topViewController != self) {
     base::debug::DumpWithoutCrashing();
-    return;
   }
 
   // Stop the coordinator before restarting it, if it exists.
@@ -1783,6 +1856,7 @@ struct EnhancedSafeBrowsingActivePromoData
 }
 
 - (void)signinIPHDismissed {
+  // TODO(crbug.com/427478234): This event should be fired by the mediator.
   _featureEngagementTracker->Dismissed(
       feature_engagement::kIPHiOSReplaceSyncPromosWithSignInPromos);
   _bubblePresenter = nil;
@@ -1865,6 +1939,31 @@ struct EnhancedSafeBrowsingActivePromoData
   }
 }
 
+// Add or remove the "new" IPH badge from the BWG settings row. The
+// badge is shown a maximum of `kMaxShowCountNewIPHBadge` times.
+- (void)updateBWGNewIPHBadge {
+  CHECK(_BWGDetailItem);
+
+  PrefService* prefService = GetApplicationContext()->GetLocalState();
+  NSInteger showCount =
+      prefService->GetInteger(prefs::kBWGSettingsNewBadgeShownCount);
+
+  BadgeType badgeType = BadgeType::kNone;
+
+  const BOOL isFreshInstall = IsFirstRunRecent(kFreshInstallTimeDelta);
+
+  if (!isFreshInstall && showCount < kMaxShowCountNewIPHBadge) {
+    badgeType = BadgeType::kNew;
+    prefService->SetInteger(prefs::kBWGSettingsNewBadgeShownCount,
+                            showCount + 1);
+  }
+
+  if (badgeType != _BWGDetailItem.badgeType) {
+    _BWGDetailItem.badgeType = badgeType;
+    [self reconfigureCellsForItems:@[ _BWGDetailItem ]];
+  }
+}
+
 // Updates the state of the Safety Check notifications button based on whether
 // the user has Safety Check notifications enabled.
 - (void)updateSafetyCheckNotificationsButtonState {
@@ -1912,7 +2011,6 @@ struct EnhancedSafeBrowsingActivePromoData
   if (_downloadsSettingsCoordinator &&
       self.navigationController.topViewController != self) {
     base::debug::DumpWithoutCrashing();
-    return;
   }
 
   // Stop the coordinator before restarting it, if it exists.
@@ -1991,6 +2089,7 @@ struct EnhancedSafeBrowsingActivePromoData
     return NO;
   }
 
+  // TODO(crbug.com/427478234): This event should be fired by the mediator.
   bool promoIsTriggered = tracker->ShouldTriggerHelpUI(
       feature_engagement::kIPHiOSInlineEnhancedSafeBrowsingPromoFeature);
   CHECK(promoIsTriggered);
@@ -2025,16 +2124,53 @@ struct EnhancedSafeBrowsingActivePromoData
   }
 }
 
+// Creates a gradient gemini logo.
+- (UIImage*)createGeminiLogo {
+  UITraitCollection* lightTraitCollection = [UITraitCollection
+      traitCollectionWithUserInterfaceStyle:UIUserInterfaceStyleLight];
+  NSArray<UIColor*>* colors = @[
+    [[UIColor colorNamed:kBlue700Color]
+        resolvedColorWithTraitCollection:lightTraitCollection],
+    [[UIColor colorNamed:kBlue300Color]
+        resolvedColorWithTraitCollection:lightTraitCollection]
+  ];
+
+  NSMutableArray<id>* gradientColorArray = [[NSMutableArray alloc] init];
+  for (UIColor* color in colors) {
+    [gradientColorArray addObject:static_cast<id>(color.CGColor)];
+  }
+
+  UIImage* geminiIcon = GetBrandedGeminiSymbol();
+  CGSize iconSize = [geminiIcon size];
+  CGRect iconFrame = CGRectMake(0, 0, iconSize.width, iconSize.height);
+
+  CAGradientLayer* gradientLayer = [CAGradientLayer layer];
+  gradientLayer.colors = gradientColorArray;
+  gradientLayer.startPoint = CGPointMake(0, 0.5);
+  gradientLayer.endPoint = CGPointMake(0.5, 0.0);
+  gradientLayer.frame = iconFrame;
+
+  UIGraphicsImageRenderer* renderer =
+      [[UIGraphicsImageRenderer alloc] initWithSize:iconSize];
+  UIImage* gradientImage = [renderer
+      imageWithActions:^(UIGraphicsImageRendererContext* rendererContext) {
+        CGContextClipToMask(rendererContext.CGContext, iconFrame,
+                            geminiIcon.CGImage);
+        [gradientLayer renderInContext:rendererContext.CGContext];
+      }];
+
+  return gradientImage;
+}
+
 #pragma mark - Sign in
 
 - (void)showSignIn {
-  if (self.isSigninInProgress) {
+  if (_signinAndHistorySyncCoordinator) {
     // According to crbug.com/1498153, it is possible for the user to tap twice
     // on the sign-in cell from the settings to open the sign-in dialog.
     // If this happens, the second tap should ignored.
     return;
   }
-  self.isSigninInProgress = YES;
   __weak __typeof(self) weakSelf = self;
   ChangeProfileContinuationProvider provider =
       base::BindRepeating(&CreateChangeProfileSettingsContinuation);
@@ -2052,8 +2188,7 @@ struct EnhancedSafeBrowsingActivePromoData
                                                 promoAction:promoAction
                                         optionalHistorySync:YES
                                             fullscreenPromo:NO
-                                       continuationProvider:
-                                           DoNothingContinuationProvider()];
+                                       continuationProvider:provider];
   _signinAndHistorySyncCoordinator.signinCompletion =
       ^(SigninCoordinatorResult result, id<SystemIdentity> identity) {
         [weakSelf didFinishSignin];
@@ -2062,6 +2197,7 @@ struct EnhancedSafeBrowsingActivePromoData
 }
 
 - (void)didFinishSignin {
+  CHECK(_signinAndHistorySyncCoordinator, base::NotFatalUntil::M144);
   [self stopSigninCoordinator];
   if (_settingsAreDismissed) {
     return;
@@ -2069,8 +2205,6 @@ struct EnhancedSafeBrowsingActivePromoData
 
   // The sign-in is done. The sign-in promo cell or account cell can be
   // reloaded.
-  DCHECK(self.isSigninInProgress);
-  self.isSigninInProgress = NO;
   [self reloadData];
 
   // Post the task to show signin IPH so that the UI has had time to refresh
@@ -2100,6 +2234,12 @@ struct EnhancedSafeBrowsingActivePromoData
   [self removeEnhancedSafeBrowsingPromoFETDataIfNeeded];
 
   // Stop children coordinators.
+  [_BWGSettingsCoordinator stop];
+  _BWGSettingsCoordinator = nil;
+
+  [_contentSettingsCoordinator stop];
+  _contentSettingsCoordinator = nil;
+
   [_googleServicesSettingsCoordinator stop];
   _googleServicesSettingsCoordinator.delegate = nil;
   _googleServicesSettingsCoordinator = nil;
@@ -2119,8 +2259,7 @@ struct EnhancedSafeBrowsingActivePromoData
 
   [self stopManageSyncSettingsCoordinator];
 
-  [_tabsCoordinator stop];
-  _tabsCoordinator = nil;
+  [self stopTabsCoordinator];
 
   [_addressBarPreferenceCoordinator stop];
   _addressBarPreferenceCoordinator.delegate = nil;
@@ -2311,6 +2450,10 @@ struct EnhancedSafeBrowsingActivePromoData
 #pragma mark - PrefObserverDelegate
 
 - (void)onPreferenceChanged:(const std::string&)preferenceName {
+  // If the model hasn't been created yet, no need to update anything.
+  if (!self.tableViewModel) {
+    return;
+  }
   if (preferenceName == prefs::kVoiceSearchLocale) {
     voice::SpeechInputLocaleConfig* localeConfig =
         voice::SpeechInputLocaleConfig::GetInstance();
@@ -2358,6 +2501,24 @@ struct EnhancedSafeBrowsingActivePromoData
     // changing.
     [self reloadData];
   }
+}
+
+#pragma mark - BWGSettingsCoordinatorDelegate
+
+- (void)BWGSettingsCoordinatorViewControllerWasRemoved:
+    (BWGSettingsCoordinator*)coordinator {
+  DCHECK_EQ(_BWGSettingsCoordinator, coordinator);
+  [_BWGSettingsCoordinator stop];
+  _BWGSettingsCoordinator = nil;
+}
+
+#pragma mark - ContentSettingsCoordinatorDelegate
+
+- (void)contentSettingsCoordinatorViewControllerWasRemoved:
+    (ContentSettingsCoordinator*)coordinator {
+  DCHECK_EQ(_contentSettingsCoordinator, coordinator);
+  [_contentSettingsCoordinator stop];
+  _contentSettingsCoordinator = nil;
 }
 
 #pragma mark - GoogleServicesSettingsCoordinatorDelegate
@@ -2436,7 +2597,7 @@ struct EnhancedSafeBrowsingActivePromoData
   // in UI is appearing or disappearing. The TableView will be reloaded once
   // the animation is finished.
   // See: -[SettingsTableViewController didFinishSignin].
-  if (self.isSigninInProgress) {
+  if (_signinAndHistorySyncCoordinator) {
     return;
   }
   // Sign in state changes are rare. Just reload the entire table when
@@ -2476,6 +2637,13 @@ struct EnhancedSafeBrowsingActivePromoData
     (ManageSyncSettingsCoordinator*)coordinator {
   DCHECK_EQ(_manageSyncSettingsCoordinator, coordinator);
   [self stopManageSyncSettingsCoordinator];
+}
+
+#pragma mark - TabsSettingsCoordinatorDelegate
+
+- (void)tabsSettingsCoordinatorDidRemove:(TabsSettingsCoordinator*)coordinator {
+  DCHECK_EQ(coordinator, _tabsCoordinator);
+  [self stopTabsCoordinator];
 }
 
 #pragma mark - NotificationsSettingsObserverDelegate

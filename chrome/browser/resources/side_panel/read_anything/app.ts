@@ -172,7 +172,7 @@ export class AppElement extends AppElementBase implements
     // Push ShowUI() callback to the event queue to allow deferred rendering
     // to take place.
     setTimeout(() => chrome.readingMode.shouldShowUi(), 0);
-
+    this.styleUpdater_.setMaxLineWidth();
     this.showLoading();
 
     if (this.isReadAloudEnabled_) {
@@ -236,14 +236,6 @@ export class AppElement extends AppElementBase implements
 
       if (this.isReadAloudEnabled_) {
         this.speechController_.onSelectionChange();
-      }
-    };
-
-    this.$.containerScroller.onscroll = () => {
-      chrome.readingMode.onScroll(this.scrollingOnSelection_);
-      this.scrollingOnSelection_ = false;
-      if (this.isReadAloudEnabled_) {
-        this.speechController_.onScroll();
       }
     };
 
@@ -384,7 +376,8 @@ export class AppElement extends AppElementBase implements
 
     if (url && element.nodeName === 'A') {
       element.setAttribute('href', url);
-      element.onclick = () => {
+      element.onclick = (event: MouseEvent) => {
+        event.preventDefault();
         chrome.readingMode.onLinkClicked(nodeId);
       };
     }
@@ -395,6 +388,14 @@ export class AppElement extends AppElementBase implements
 
     this.appendChildSubtrees_(element, nodeId);
     return element;
+  }
+
+  protected onContainerScroll_() {
+    chrome.readingMode.onScroll(this.scrollingOnSelection_);
+    this.scrollingOnSelection_ = false;
+    if (this.isReadAloudEnabled_) {
+      this.speechController_.onScroll();
+    }
   }
 
   // TODO: crbug.com/40910704- Potentially hide links during distillation.
@@ -550,15 +551,24 @@ export class AppElement extends AppElementBase implements
     this.isDocsLoadMoreButtonVisible_ =
         chrome.readingMode.isDocsLoadMoreButtonVisible;
 
-    container.scrollTop = 0;
     this.hasContent_ = true;
     container.appendChild(node);
     this.updateImages_();
 
     // If the previous reading position still exists and we haven't reached the
     // end of speech, keep that spot.
+    let setPreviousReadingPosition = false;
     if (this.isReadAloudEnabled_) {
-      this.speechController_.setPreviousReadingPositionIfExists();
+      setPreviousReadingPosition =
+          this.speechController_.setPreviousReadingPositionIfExists();
+    }
+
+    if (!setPreviousReadingPosition) {
+      // Scroll back to the top after we've drawn as long as we aren't keeping
+      // the reading position from before.
+      requestAnimationFrame(() => {
+        this.$.containerScroller.scrollTop = 0;
+      });
     }
   }
 

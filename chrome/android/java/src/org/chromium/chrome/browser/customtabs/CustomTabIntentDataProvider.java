@@ -52,6 +52,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.Px;
 import androidx.annotation.VisibleForTesting;
+import androidx.browser.customtabs.CustomContentAction;
 import androidx.browser.customtabs.CustomTabsIntent;
 import androidx.browser.customtabs.CustomTabsIntent.ActivityHeightResizeBehavior;
 import androidx.browser.customtabs.CustomTabsIntent.ActivitySideSheetDecorationType;
@@ -59,6 +60,7 @@ import androidx.browser.customtabs.CustomTabsIntent.ActivitySideSheetRoundedCorn
 import androidx.browser.customtabs.CustomTabsIntent.CloseButtonPosition;
 import androidx.browser.customtabs.CustomTabsIntent.OpenInBrowserState;
 import androidx.browser.customtabs.CustomTabsSessionToken;
+import androidx.browser.customtabs.ExperimentalCustomContentAction;
 import androidx.browser.customtabs.ExperimentalOpenInBrowser;
 import androidx.browser.customtabs.TrustedWebUtils;
 import androidx.browser.trusted.FileHandlingData;
@@ -196,6 +198,9 @@ public class CustomTabIntentDataProvider extends BrowserServicesIntentDataProvid
     @VisibleForTesting
     static final String EXTRA_OPEN_IN_BROWSER_BUTTON_ALLOWED =
             "androidx.browser.customtabs.extra.OPEN_IN_BROWSER_BUTTON_ALLOWED";
+
+    static final String EXTRA_CUSTOM_CONTENT_ACTIONS =
+            "androidx.browser.customtabs.extra.CUSTOM_CONTENT_ACTIONS";
 
     @IntDef({
         CustomTabsButtonState.BUTTON_STATE_OFF,
@@ -675,8 +680,6 @@ public class CustomTabIntentDataProvider extends BrowserServicesIntentDataProvid
                                 ScreenOrientation.DEFAULT));
 
         mGsaExperimentIds = IntentUtils.safeGetIntArrayExtra(intent, EXPERIMENT_IDS);
-        boolean usingDynamicFeatures =
-                CustomTabsConnection.getInstance().setupDynamicFeatures(intent);
 
         mBreakPointDp = getActivityBreakPointFromIntent(intent);
         mInitialActivityHeight = getInitialActivityHeightFromIntent(intent);
@@ -703,7 +706,7 @@ public class CustomTabIntentDataProvider extends BrowserServicesIntentDataProvid
         mSideSheetRoundedCornersPosition =
                 getActivitySideSheetRoundedCornersPositionFromIntent(intent);
 
-        logCustomTabFeatures(intent, colorScheme, usingDynamicFeatures);
+        logCustomTabFeatures(intent, colorScheme);
         String packageName = getClientPackageNameFromSessionOrCallingActivity(mIntent, mSession);
         RecordHistogram.recordBooleanHistogram(
                 "CustomTabs.HasNonSpoofablePackageName", !TextUtils.isEmpty(packageName));
@@ -1069,11 +1072,8 @@ public class CustomTabIntentDataProvider extends BrowserServicesIntentDataProvid
      *
      * @param intent The intent used to launch the CCT.
      * @param colorScheme The requested color scheme to use with the CCT.
-     * @param isUsingDynamicFeatures Whether the intent specified Features to dynamically enable or
-     *     disable.
      */
-    private void logCustomTabFeatures(
-            Intent intent, int colorScheme, boolean isUsingDynamicFeatures) {
+    private void logCustomTabFeatures(Intent intent, int colorScheme) {
         CustomTabsFeatureUsage featureUsage = new CustomTabsFeatureUsage();
 
         // Ordering: Log all the features ordered by CustomTabsFeature enum, when they apply.
@@ -1191,9 +1191,6 @@ public class CustomTabIntentDataProvider extends BrowserServicesIntentDataProvid
             featureUsage.log(CustomTabsFeature.EXTRA_ADDITIONAL_TRUSTED_ORIGINS);
         }
         if (mEnableUrlBarHiding) featureUsage.log(CustomTabsFeature.EXTRA_ENABLE_URLBAR_HIDING);
-        if (isUsingDynamicFeatures) {
-            featureUsage.log(CustomTabsFeature.EXTRA_INTENT_FEATURE_OVERRIDES);
-        }
         if (showSideSheetMaximizeButton()) {
             featureUsage.log(CustomTabsFeature.EXTRA_ACTIVITY_SIDE_SHEET_ENABLE_MAXIMIZATION);
         }
@@ -1220,6 +1217,9 @@ public class CustomTabIntentDataProvider extends BrowserServicesIntentDataProvid
         if (IntentUtils.safeHasExtra(
                 intent, TrustedWebActivityIntentBuilder.EXTRA_FILE_HANDLING_DATA)) {
             featureUsage.log(CustomTabsFeature.EXTRA_FILE_HANDLERS);
+        }
+        if (IntentUtils.safeHasExtra(intent, EXTRA_CUSTOM_CONTENT_ACTIONS)) {
+            featureUsage.log(CustomTabsFeature.EXTRA_CUSTOM_CONTENT_ACTIONS);
         }
     }
 
@@ -1734,6 +1734,15 @@ public class CustomTabIntentDataProvider extends BrowserServicesIntentDataProvid
         return mShareState;
     }
 
+    @ExperimentalCustomContentAction
+    @Override
+    public List<CustomContentAction> getCustomContentActions() {
+        if (ChromeFeatureList.sCctContextualMenuItems.isEnabled()) {
+            return CustomTabsIntent.getCustomContentActions(mIntent);
+        }
+        return List.of();
+    }
+
     @Override
     public boolean isOptionalButtonSupported() {
         return ChromeFeatureList.sCctAdaptiveButton.isEnabled()
@@ -1772,10 +1781,8 @@ public class CustomTabIntentDataProvider extends BrowserServicesIntentDataProvid
     }
 
     @Override
-    public @Nullable Integer getAndroidBrowserHelperVersion() {
-        int value =
-                IntentUtils.safeGetIntExtra(getIntent(), EXTRA_ANDROID_BROWSER_HELPER_VERSION, 0);
-        return value != 0 ? Integer.valueOf(value) : null;
+    public int getAndroidBrowserHelperVersion() {
+        return IntentUtils.safeGetIntExtra(getIntent(), EXTRA_ANDROID_BROWSER_HELPER_VERSION, 0);
     }
 
     private boolean isCpaOnlyOpenInBrowserDefault() {

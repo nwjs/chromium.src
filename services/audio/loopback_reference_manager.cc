@@ -12,6 +12,8 @@
 #include "base/memory/weak_ptr.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/strings/strcat.h"
+#include "base/strings/string_number_conversions.h"
+#include "base/strings/stringprintf.h"
 #include "base/synchronization/lock.h"
 #include "base/task/bind_post_task.h"
 #include "base/time/time.h"
@@ -58,6 +60,13 @@ ReferenceOpenOutcome MapStreamOpenOutcomeToReferenceOpenOutcome(
       return ReferenceOpenOutcome::STREAM_OPEN_ERROR;
   }
 }
+
+ReferenceOpenOutcome ReportOpenResult(ReferenceOpenOutcome outcome) {
+  base::UmaHistogramEnumeration("Media.Audio.LoopbackReference.OpenResult",
+                                outcome);
+  return outcome;
+}
+
 }  // namespace
 
 class LoopbackReferenceStreamIdProvider {
@@ -69,6 +78,11 @@ class LoopbackReferenceStreamIdProvider {
       delete;
   LoopbackReferenceStreamIdProvider& operator=(
       const LoopbackReferenceStreamIdProvider&) = delete;
+
+  int GetId() {
+    DCHECK_CALLED_ON_VALID_SEQUENCE(owning_sequence_);
+    return next_stream_id_;
+  }
 
   int GetNextId() {
     DCHECK_CALLED_ON_VALID_SEQUENCE(owning_sequence_);
@@ -108,11 +122,24 @@ class LoopbackReferenceManagerCore
     DCHECK(task_runner_->RunsTasksInCurrentSequence());
     EnsureLoopbackStreamClosed();
     // If the error callback has been used, there has been an error.
-    if (!on_error_callback_) {
+    bool had_runtime_error = !on_error_callback_;
+    base::UmaHistogramBoolean("Media.Audio.LoopbackReference.HadRuntimeError",
+                              had_runtime_error);
+    if (had_runtime_error) {
       for (ReferenceOutput::Listener* listener : listeners_) {
         listener->OnReferenceStreamError();
       }
     }
+  }
+
+  void SendLogMessage(const std::string& message) {
+    if (!audio_log_) {
+      return;
+    }
+
+    audio_log_->OnLogMessage(base::StringPrintf(
+        "LRMC::%s [id=%u] [this=0x%" PRIXPTR "]", message.c_str(),
+        stream_id_provider_->GetId(), reinterpret_cast<uintptr_t>(this)));
   }
 
   ReferenceOpenOutcome StartListening(ReferenceOutput::Listener* listener,
@@ -142,6 +169,8 @@ class LoopbackReferenceManagerCore
     audio_log_ = audio_manager_->CreateAudioLog(
         media::AudioLogFactory::AudioComponent::kAudioInputController,
         stream_id_provider_->GetNextId());
+    SendLogMessage(
+        base::StrCat({"StartListening(device_id=", loopback_device_id, ")"}));
 
     // Create the stream, and return an error if we fail.
     loopback_stream_ = audio_manager_->MakeAudioInputStream(
@@ -174,6 +203,7 @@ class LoopbackReferenceManagerCore
 
   void StopListening(ReferenceOutput::Listener* listener) {
     DCHECK(task_runner_->RunsTasksInCurrentSequence());
+    SendLogMessage("StopListening()");
     bool is_empty;
     {
       base::AutoLock scoped_lock(lock_);
@@ -219,6 +249,7 @@ class LoopbackReferenceManagerCore
 
   void OnErrorMainSequence() {
     DCHECK(task_runner_->RunsTasksInCurrentSequence());
+    SendLogMessage("OnError()");
     if (on_error_callback_) {
       std::move(on_error_callback_).Run();
     }
@@ -261,15 +292,19 @@ class LoopbackReferenceProvider : public ReferenceSignalProvider {
   LoopbackReferenceProvider(base::WeakPtr<LoopbackReferenceManagerCore> core)
       : core_(core) {}
 
+  ReferenceSignalProvider::Type GetType() const final {
+    return ReferenceSignalProvider::Type::kLoopbackReference;
+  }
+
   ReferenceOpenOutcome StartListening(ReferenceOutput::Listener* listener,
                                       const std::string& device_id) final {
     DCHECK_CALLED_ON_VALID_SEQUENCE(owning_sequence_);
     if (core_) {
-      return core_->StartListening(listener, device_id);
+      return ReportOpenResult(core_->StartListening(listener, device_id));
     }
     // If the core no longer exists, it must have been destroyed due to an
     // error.
-    return ReferenceOpenOutcome::STREAM_PREVIOUS_ERROR;
+    return ReportOpenResult(ReferenceOpenOutcome::STREAM_PREVIOUS_ERROR);
   }
 
   void StopListening(ReferenceOutput::Listener* listener) final {

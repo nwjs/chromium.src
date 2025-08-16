@@ -95,7 +95,7 @@ class CONTENT_EXPORT BackingStore : public indexed_db::BackingStore,
 
     // indexed_db::BackingStore::Database:
     const blink::IndexedDBDatabaseMetadata& GetMetadata() override;
-    PartitionedLockId GetLockId(int64_t object_store_id) const override;
+    std::string GetObjectStoreLockIdKey(int64_t object_store_id) const override;
     std::unique_ptr<Transaction> CreateTransaction(
         blink::mojom::IDBTransactionDurability durability,
         blink::mojom::IDBTransactionMode mode) override;
@@ -365,6 +365,8 @@ class CONTENT_EXPORT BackingStore : public indexed_db::BackingStore,
     StatusOr<bool> Continue(const blink::IndexedDBKey& key,
                             const blink::IndexedDBKey& primary_key) override;
     StatusOr<bool> Advance(uint32_t count) override;
+    void SavePosition() override;
+    bool TryResetToLastSavedPosition() override;
 
     StatusOr<bool> Continue(const blink::IndexedDBKey& key,
                             const blink::IndexedDBKey& primary_key,
@@ -375,9 +377,6 @@ class CONTENT_EXPORT BackingStore : public indexed_db::BackingStore,
     Cursor(base::WeakPtr<Transaction> transaction,
            int64_t database_id,
            const CursorOptions& cursor_options);
-
-    explicit Cursor(const Cursor* other,
-                    std::unique_ptr<TransactionalLevelDBIterator> iterator);
 
     // May return nullptr.
     static std::unique_ptr<TransactionalLevelDBIterator> CloneIterator(
@@ -405,7 +404,6 @@ class CONTENT_EXPORT BackingStore : public indexed_db::BackingStore,
     const CursorOptions cursor_options_;
     std::unique_ptr<TransactionalLevelDBIterator> iterator_;
     blink::IndexedDBKey current_key_;
-    RecordIdentifier record_identifier_;
 
    private:
     enum class ContinueResult { DONE, OUT_OF_BOUNDS };
@@ -424,6 +422,10 @@ class CONTENT_EXPORT BackingStore : public indexed_db::BackingStore,
         IteratorState state);
 
     int tombstones_count_ = 0;
+    // `iterator_` and `current_key_` are saved when `SavePosition()` is called.
+    std::optional<std::tuple<std::unique_ptr<TransactionalLevelDBIterator>,
+                             blink::IndexedDBKey>>
+        saved_members_;
     base::WeakPtrFactory<Cursor> weak_factory_{this};
   };
 
@@ -475,6 +477,7 @@ class CONTENT_EXPORT BackingStore : public indexed_db::BackingStore,
                                const std::string& message);
 
   // BackingStore:
+  bool CanOpportunisticallyClose() const override;
   void TearDown(base::WaitableEvent* signal_on_destruction) override;
   void InvalidateBlobReferences() override;
   void StartPreCloseTasks(base::OnceClosure on_done) override;
@@ -485,7 +488,8 @@ class CONTENT_EXPORT BackingStore : public indexed_db::BackingStore,
   uintptr_t GetIdentifierForMemoryDump() override;
   void FlushForTesting() override;
 
-  StatusOr<std::vector<std::u16string>> GetDatabaseNames() override;
+  StatusOr<bool> DatabaseExists(std::u16string_view database_name) override;
+
   StatusOr<std::vector<blink::mojom::IDBNameAndVersionPtr>>
   GetDatabaseNamesAndVersions() override;
 
@@ -558,6 +562,8 @@ class CONTENT_EXPORT BackingStore : public indexed_db::BackingStore,
   // Fills in metadata for the database specified by `metadata->name` by reading
   // from disk. If no database is found, `metadata->id` will remain null.
   Status ReadMetadataForDatabaseName(DatabaseMetadata& metadata);
+
+  StatusOr<std::vector<std::u16string>> GetDatabaseNames();
 
   // LevelDBCleanupScheduler::Delegate:
   // This function updates the next run timestamp for the

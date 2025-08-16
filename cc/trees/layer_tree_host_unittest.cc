@@ -38,7 +38,6 @@
 #include "cc/metrics/begin_main_frame_metrics.h"
 #include "cc/metrics/events_metrics_manager.h"
 #include "cc/metrics/ukm_dropped_frames_data.h"
-#include "cc/metrics/ukm_smoothness_data.h"
 #include "cc/paint/image_animation_count.h"
 #include "cc/resources/ui_resource_manager.h"
 #include "cc/test/fake_content_layer_client.h"
@@ -2984,7 +2983,8 @@ class LayerTreeHostTestSetNeedsCommitWithForcedRedraw
   void CommitCompleteOnThread(LayerTreeHostImpl* host_impl) override {
     if (num_draws_ == 3) {
       host_impl->SetViewportDamage(invalid_rect_);
-      host_impl->SetNeedsRedraw();
+      host_impl->SetNeedsRedraw(/*animation_only=*/false,
+                                /*skip_if_inside_draw=*/false);
     }
   }
 
@@ -3368,7 +3368,8 @@ class LayerTreeHostTestFrameTimeUpdatesAfterDraw : public LayerTreeHostTest {
     frame_++;
     if (frame_ == 1) {
       first_frame_time_ = impl->CurrentBeginFrameArgs().frame_time;
-      impl->SetNeedsRedraw();
+      impl->SetNeedsRedraw(/*animation_only=*/false,
+                           /*skip_if_inside_draw=*/false);
 
       // Since we might use a low-resolution clock on Windows, we need to
       // make sure that the clock has incremented past first_frame_time_.
@@ -8818,7 +8819,7 @@ class LayerTreeHostTestRequestForceSendMetadata
       target_->OnRenderFrameSubmission(render_frame_metadata,
                                        compositor_frame_metadata, force_send);
     }
-#if BUILDFLAG(IS_ANDROID)
+#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
     void DidEndScroll() override { target_->DidEndScroll(); }
 #endif
 
@@ -8873,7 +8874,7 @@ class LayerTreeHostTestRequestForceSendMetadata
     if (force_send)
       num_force_sends_++;
   }
-#if BUILDFLAG(IS_ANDROID)
+#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
   void DidEndScroll() override {}
 #endif
 
@@ -9076,7 +9077,7 @@ class LayerTreeHostTestDelegatedInkMetadataBase
       target_->OnRenderFrameSubmission(render_frame_metadata,
                                        compositor_frame_metadata, force_send);
     }
-#if BUILDFLAG(IS_ANDROID)
+#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
     void DidEndScroll() override { target_->DidEndScroll(); }
 #endif
 
@@ -9153,7 +9154,7 @@ class LayerTreeHostTestDelegatedInkMetadataBase
     ExpectMetadata(render_frame_metadata.delegated_ink_metadata,
                    compositor_frame_metadata->delegated_ink_metadata.get());
   }
-#if BUILDFLAG(IS_ANDROID)
+#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
   void DidEndScroll() override {}
 #endif
 
@@ -9240,7 +9241,8 @@ class LayerTreeHostTestDelegatedInkMetadataCompositorOnlyFrame
     } else if (begin_frame_count_ == 4) {
       PostIssueBeginFrame(false);
     }
-    host_impl->SetNeedsRedraw();
+    host_impl->SetNeedsRedraw(/*animation_only=*/false,
+                              /*skip_if_inside_draw=*/false);
     host_impl->SetViewportDamage(gfx::Rect(1, 1));
   }
 
@@ -9750,13 +9752,9 @@ class LayerTreeHostUkmSmoothnessMemoryOwnership : public LayerTreeTest {
     // Delegates to DFC::AddSortedFrame, which calls DFC::OnEndFrame.
     host_impl->frame_sorter_for_testing()->AddFrameResult(
         last_args_, CreateFakeImplDroppedFrameInfo());
-    host_impl->SetNeedsRedraw();
+    host_impl->SetNeedsRedraw(/*animation_only=*/false,
+                              /*skip_if_inside_draw=*/false);
     --frames_counter_;
-  }
-
-  void DidBeginMainFrame() override {
-    // Re-request the shared memory region in each frame.
-    shmem_region_ = layer_tree_host()->CreateSharedMemoryForSmoothnessUkm();
   }
 
  private:
@@ -9764,7 +9762,6 @@ class LayerTreeHostUkmSmoothnessMemoryOwnership : public LayerTreeTest {
   uint32_t frames_counter_ = kTotalFramesForTest;
   bool fcp_sent_ = false;
   viz::BeginFrameArgs last_args_;
-  base::ReadOnlySharedMemoryRegion shmem_region_;
 };
 
 MULTI_THREAD_TEST_F(LayerTreeHostUkmSmoothnessMemoryOwnership);
@@ -10148,7 +10145,8 @@ class LayerTreeHostTestDelayRecreateTiling
       host_impl->pending_tree()->set_needs_update_draw_properties();
 
       // to make sure Draw happen
-      host_impl->SetNeedsRedraw();
+      host_impl->SetNeedsRedraw(/*animation_only=*/false,
+                                /*skip_if_inside_draw=*/false);
     }
   }
 
@@ -10302,7 +10300,8 @@ class LayerTreeHostTestInvalidateImplSideForRerasterTiling
         // implside will be requested for rerastering tiling.
         ClearAnimationForLayer(host_impl->active_tree(), target_layer);
         ClearAnimationForLayer(host_impl->recycle_tree(), target_layer);
-        host_impl->SetNeedsRedraw();
+        host_impl->SetNeedsRedraw(/*animation_only=*/false,
+                                  /*skip_if_inside_draw=*/false);
       }
     }
   }
@@ -10330,7 +10329,8 @@ class LayerTreeHostTestInvalidateImplSideForRerasterTiling
 
           // trigger draw to check if invalidating implside is not triggered
           // if animation is still active.
-          host_impl->SetNeedsRedraw();
+          host_impl->SetNeedsRedraw(/*animation_only=*/false,
+                                    /*skip_if_inside_draw=*/false);
         } else {
           // check if invalidation implside was requested successfully.
           // new tiling should be created.
@@ -10980,7 +10980,7 @@ class LayerTreeHostTestDetachInputDelegateAndRenderFrameObserver
         const RenderFrameMetadata& render_frame_metadata,
         viz::CompositorFrameMetadata* compositor_frame_metadata,
         bool force_send) override {}
-#if BUILDFLAG(IS_ANDROID)
+#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
     void DidEndScroll() override {}
 #endif
 

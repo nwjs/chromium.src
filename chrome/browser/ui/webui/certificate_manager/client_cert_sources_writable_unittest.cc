@@ -145,14 +145,10 @@ class FakeCertificateManagerPage
 
 class ClientCertSourceWritableUnitTest
     : public ChromeRenderViewHostTestHarness,
-#if BUILDFLAG(IS_CHROMEOS)
-      public testing::WithParamInterface<std::tuple<bool, bool, bool>>
-#else
       // In the non-ChromeOS case, the test does not actually need any
       // parameters, but to allow more commonality between the platforms keep
       // it as a parameterized test with a single param that is ignored.
       public testing::WithParamInterface<bool>
-#endif
 {
  public:
   void SetUp() override {
@@ -161,12 +157,6 @@ class ClientCertSourceWritableUnitTest
 #if BUILDFLAG(IS_CHROMEOS)
     ASSERT_TRUE(test_nss_user_.constructed_successfully());
     test_nss_user_.FinishInit();
-
-    feature_list_.InitWithFeatureStates(
-        {{chromeos::features::kEnablePkcs12ToChapsDualWrite,
-          dual_write_enabled()},
-         { ash::features::kUseKcerClientCertStore,
-           kcer_enabled() }});
 
     ash::LoginState::Initialize();
     crosapi_manager_ = std::make_unique<crosapi::CrosapiManager>();
@@ -209,9 +199,7 @@ class ClientCertSourceWritableUnitTest
   }
 
 #if BUILDFLAG(IS_CHROMEOS)
-  bool dual_write_enabled() const { return std::get<0>(GetParam()); }
-  bool kcer_enabled() const { return std::get<1>(GetParam()); }
-  bool use_hardware_backed() const { return std::get<2>(GetParam()); }
+  bool use_hardware_backed() const { return GetParam(); }
 
   std::string username_hash() const {
     return user_manager::FakeUserManager::GetFakeUsernameHash(account_);
@@ -371,9 +359,6 @@ class ClientCertSourceWritableUnitTest
 
 #if BUILDFLAG(IS_CHROMEOS)
 TEST_P(ClientCertSourceWritableUnitTest, TriggerReloadOnKcerDbChange) {
-  if (!kcer_enabled()) {
-    return;
-  }
   base::test::TestFuture<
       std::vector<certificate_manager::mojom::CertificateSource>>
       reload_future;
@@ -438,7 +423,7 @@ TEST_P(ClientCertSourceWritableUnitTest,
   // already gets imported to Chaps so the dual write isn't needed.)
   EXPECT_EQ(
       profile()->GetPrefs()->GetBoolean(prefs::kNssChapsDualWrittenCertsExist),
-      dual_write_enabled() && !use_hardware_backed());
+      !use_hardware_backed());
 #endif
 
   EXPECT_TRUE(NSSContainsCertWithHash(client_1_hash_hex));
@@ -532,16 +517,7 @@ TEST_P(ClientCertSourceWritableUnitTest,
 
   // A client certificate in the system slot should not be deletable.
   EXPECT_TRUE(GetCertificateInfosContainsCertWithHash(client_4_hash_hex));
-  if (kcer_enabled()) {
-    EXPECT_FALSE(GetCertificateInfosIsCertDeletable(client_4_hash_hex));
-  } else {
-    // TODO(crbug.com/40928765): the delete button visibility is not set
-    // properly when kcer is disabled, for system certs with
-    // ClientCertificateManagementAllowed policy set to UserOnly. The policy
-    // should still be enforced correctly when actually attempting to delete
-    // the certificate below.
-    EXPECT_TRUE(GetCertificateInfosIsCertDeletable(client_4_hash_hex));
-  }
+  EXPECT_FALSE(GetCertificateInfosIsCertDeletable(client_4_hash_hex));
 
   {
     fake_page_->set_mocked_confirmation_result(true);
@@ -812,9 +788,7 @@ TEST_P(ClientCertSourceWritableUnitTest, DeleteCertificateNotFound) {
 INSTANTIATE_TEST_SUITE_P(Foo,
                          ClientCertSourceWritableUnitTest,
 #if BUILDFLAG(IS_CHROMEOS)
-                         testing::Combine(testing::Bool(),
-                                          testing::Bool(),
-                                          testing::Bool())
+                         testing::Bool()
 #else
                          testing::Values(true)
 #endif

@@ -23,7 +23,6 @@
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/commerce/shopping_service_factory.h"
 #include "chrome/browser/compose/compose_enabling.h"
-#include "chrome/browser/download/bubble/download_bubble_prefs.h"
 #include "chrome/browser/history_embeddings/history_embeddings_utils.h"
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service.h"
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service_factory.h"
@@ -190,7 +189,7 @@
 
 #if BUILDFLAG(ENABLE_GLIC)
 #include "chrome/browser/glic/glic_enabling.h"
-#include "chrome/browser/glic/glic_keyed_service.h"
+#include "chrome/browser/glic/public/glic_keyed_service.h"
 #include "chrome/browser/ui/webui/settings/glic_handler.h"
 #endif
 
@@ -372,10 +371,13 @@ SettingsUI::SettingsUI(content::WebUI* web_ui)
       compose_enabled && base::FeatureList::IsEnabled(
                              compose::features::kEnableComposeProactiveNudge));
 
-  html_source->AddBoolean(
-      "downloadBubblePartialViewControlledByPref",
-      download::IsDownloadBubbleEnabled() &&
-          download::IsDownloadBubblePartialViewControlledByPref());
+#if BUILDFLAG(IS_CHROMEOS)
+  const bool download_bubble_controlled_by_pref = false;
+#else
+  const bool download_bubble_controlled_by_pref = true;
+#endif
+  html_source->AddBoolean("downloadBubblePartialViewControlledByPref",
+                          download_bubble_controlled_by_pref);
 
   html_source->AddBoolean(
       "extendedReportingRemovePrefDependency",
@@ -486,11 +488,9 @@ SettingsUI::SettingsUI(content::WebUI* web_ui)
       base::FeatureList::IsEnabled(privacy_sandbox::kAlwaysBlock3pcsIncognito));
 
   // ACT UX
-  bool is_canary = chrome::GetChannel() == version_info::Channel::CANARY;
-  bool ipp_ux = is_canary &&
-                base::FeatureList::IsEnabled(privacy_sandbox::kIpProtectionUx);
-  bool fpp_ux = is_canary && base::FeatureList::IsEnabled(
-                                 privacy_sandbox::kFingerprintingProtectionUx);
+  bool ipp_ux = base::FeatureList::IsEnabled(privacy_sandbox::kIpProtectionUx);
+  bool fpp_ux = base::FeatureList::IsEnabled(
+      privacy_sandbox::kFingerprintingProtectionUx);
   html_source->AddBoolean("isIpProtectionUxEnabled", ipp_ux);
   html_source->AddBoolean("isFingerprintingProtectionUxEnabled", fpp_ux);
   html_source->AddBoolean("enableIncognitoTrackingProtections",
@@ -578,7 +578,11 @@ SettingsUI::SettingsUI(content::WebUI* web_ui)
   const auto& autofill_client =
       *autofill::ContentAutofillClient::FromWebContents(
           web_ui->GetWebContents());
-
+  html_source->AddBoolean(
+      "showAutofillAiControl",
+      autofill::MayPerformAutofillAiAction(
+          autofill_client,
+          autofill::AutofillAiAction::kListEntityInstancesInSettings));
   std::pair<const std::string_view, bool> optimization_guide_features[] = {
       {"showTabOrganizationControl",
        use_is_setting_visible
@@ -594,20 +598,9 @@ SettingsUI::SettingsUI(content::WebUI* web_ui)
                               : commerce::CanFetchProductSpecificationsData(
                                     shopping_service->GetAccountChecker())},
       {"showPasswordChangeControl",
-       // TODO(crbug.com/391131625): Update accordingly to enterprise
-       // requirements.
        PasswordChangeServiceFactory::GetForProfile(profile) &&
            PasswordChangeServiceFactory::GetForProfile(profile)
-               ->IsPasswordChangeAvailable()},
-      // The code checks only once, when setting is loaded, whether the
-      // Autofill Ai section should be shown.
-      // The code cannot dynamically check whether the Autofill Ai section
-      // should be shown, because otherwise the user could reach weird states,
-      // such as navigating to the Ai Page when the Ai Page has 0 entries.
-      {"showAutofillAiControl",
-       autofill::MayPerformAutofillAiAction(
-           autofill_client,
-           autofill::AutofillAiAction::kListEntityInstancesInSettings)},
+               ->UserIsActivePasswordChangeUser()},
   };
 
   const bool show_ai_settings_for_testing = base::FeatureList::IsEnabled(
@@ -636,11 +629,21 @@ SettingsUI::SettingsUI(content::WebUI* web_ui)
   html_source->AddBoolean(
       "enableDeleteBrowsingDataRevamp",
       base::FeatureList::IsEnabled(browsing_data::features::kDbdRevampDesktop));
+  html_source->AddBoolean(
+      "enableBrowsingHistoryActorIntegrationM1",
+      base::FeatureList::IsEnabled(
+          browsing_data::features::kBrowsingHistoryActorIntegrationM1));
 
   html_source->AddBoolean(
       "enableSupportForHomeAndWork",
       base::FeatureList::IsEnabled(
           autofill::features::kAutofillEnableSupportForHomeAndWork));
+
+#if !BUILDFLAG(IS_CHROMEOS)
+  html_source->AddBoolean(
+      "replaceSyncPromosWithSignInPromos",
+      base::FeatureList::IsEnabled(syncer::kReplaceSyncPromosWithSignInPromos));
+#endif  // !BUILDFLAG(IS_CHROMEOS)
 
   TryShowHatsSurveyWithTimeout();
 }

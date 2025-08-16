@@ -118,6 +118,25 @@ struct CalcProvider : Config<CalcProvider> {
   size_t num_non_calc_inputs;
 };
 
+// Chromium-side tweaks to accommodate AI mode echo matches from the server.
+// Disabling this won't actually disable AI mode echo matches altogether; that's
+// controlled server side. This just changes client side behavior to allow them
+// to work well.
+struct AiModeEchoMatch : Config<AiModeEchoMatch> {
+  DECLARE_FEATURE(kAiModeEchoMatch);
+
+  AiModeEchoMatch();
+
+  bool enabled;
+
+  // Deduping doesn't consider extra query params like `udm=50`.
+  // `google.com/?q=query&udm=50` and `google.com/?q=query` would usually be
+  // deduped. This param makes `udm=50` in the match's suggest template a
+  // differentiating signal in deduping. Does not apply to `udm=50` in normal
+  // URLs. Does not apply to e.g. `udm=49` in the suggest template.
+  bool do_not_dedupe_aim_suggestions = true;
+};
+
 // A config struct for features related to contextual search in omnibox.
 struct ContextualSearch : Config<ContextualSearch> {
   ContextualSearch();
@@ -139,6 +158,7 @@ struct ContextualSearch : Config<ContextualSearch> {
   DECLARE_FEATURE(kContextualSearchAlternativeActionLabel);
   DECLARE_FEATURE(kUseApcPaywallSignal);
   DECLARE_FEATURE(kShowSuggestionsOnNoApc);
+  DECLARE_FEATURE(kOpenLensActionUITweaks);
 
   // Whether to use contextual search features, for example the lens action.
   bool IsContextualSearchEnabled() const;
@@ -212,6 +232,9 @@ struct ContextualSearch : Config<ContextualSearch> {
   // Whether to show contextual suggestions when the user focuses the omnibox
   // but APC is not yet available.
   bool show_suggestions_on_no_apc;
+
+  // Whether to show the Lens entrypoint action with the new UI tweaks.
+  bool open_lens_action_ui_tweaks;
 };
 
 // If enabled, allows MIA zero-prefix suggestions in NTP omnibox and realbox.
@@ -230,6 +253,9 @@ struct Toolbelt : Config<Toolbelt> {
   DECLARE_FEATURE(kOmniboxToolbelt);
 
   Toolbelt();
+  Toolbelt(const Toolbelt&);
+  Toolbelt& operator=(const Toolbelt&);
+  ~Toolbelt();
 
   // Whether the toolbelt is to be included in the omnibox.
   bool enabled;
@@ -237,6 +263,9 @@ struct Toolbelt : Config<Toolbelt> {
   // Whether the toolbelt will be preserved after user types (after
   // input clears the zero suggest).
   bool keep_toolbelt_after_input;
+
+  // Whether the toolbelt is preserved after entering keyword mode.
+  bool keep_toolbelt_in_keyword_mode;
 
   // Whether the lens entrypoint action should stay unconditionally on the
   // toolbelt. When this is false, the regular triggering conditions apply
@@ -258,6 +287,21 @@ struct Toolbelt : Config<Toolbelt> {
   bool show_bookmarks_action_on_ntp;
   bool show_tabs_action_on_non_ntp;
   bool show_tabs_action_on_ntp;
+
+  // Whether to rebuild button row views for the toolbelt without checking
+  // the row's action count. This defaults to true and is just a kill switch
+  // in case of an unexpected performance regression (safer to merge).
+  bool rebuild_button_row_views;
+
+  // Whether to set the location bar `OmniboxView` icon to the selected
+  // toolbelt action's icon, when a toolbelt action is selected via keyboard.
+  bool use_action_icons_in_location_bar;
+
+  // Whether to select the toolbelt match before opening one of its actions.
+  // This has the effect of taking the toolbelt match's fill into edit, the
+  // verbatim user input text, instead of any text that might have been selected
+  // or inline autocompleted previously.
+  bool select_toolbelt_before_opening;
 };
 
 // If enabled, adjusts the indentation of the omnibox input and matches to fix

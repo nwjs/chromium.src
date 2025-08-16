@@ -120,12 +120,12 @@ interface AnimationTimeline
     method getCurrentTime
 interface AnimationTrigger
     attribute @@toStringTag
+    getter behavior
     getter exitRangeEnd
     getter exitRangeStart
     getter rangeEnd
     getter rangeStart
     getter timeline
-    getter type
     method addAnimation
     method constructor
     method removeAnimation
@@ -377,6 +377,11 @@ interface AuthenticatorResponse
     attribute @@toStringTag
     getter clientDataJSON
     method constructor
+interface AutomationDelegate
+    attribute @@toStringTag
+    method constructor
+    method registerTool
+    method unregisterTool
 interface BackForwardCacheRestoration : PerformanceEntry
     attribute @@toStringTag
     getter pageshowEventEnd
@@ -623,6 +628,11 @@ interface CSSCounterStyleRule : CSSRule
     setter suffix
     setter symbols
     setter system
+interface CSSCustomMediaRule : CSSRule
+    attribute @@toStringTag
+    getter name
+    getter query
+    method constructor
 interface CSSFontFaceRule : CSSRule
     attribute @@toStringTag
     getter style
@@ -989,6 +999,13 @@ interface CSSPropertyRule : CSSRule
     getter name
     getter syntax
     method constructor
+interface CSSPseudoElement : EventTarget
+    attribute @@toStringTag
+    getter element
+    getter parent
+    getter type
+    method constructor
+    method pseudo
 interface CSSRGB : CSSColorValue
     attribute @@toStringTag
     getter alpha
@@ -1228,6 +1245,7 @@ interface CanvasRenderingContext2D
     getter fontVariantCaps
     getter globalAlpha
     getter globalCompositeOperation
+    getter globalHDRHeadroom
     getter imageSmoothingEnabled
     getter imageSmoothingQuality
     getter lang
@@ -1314,6 +1332,7 @@ interface CanvasRenderingContext2D
     setter fontVariantCaps
     setter globalAlpha
     setter globalCompositeOperation
+    setter globalHDRHeadroom
     setter imageSmoothingEnabled
     setter imageSmoothingQuality
     setter lang
@@ -1511,6 +1530,12 @@ interface CountQueuingStrategy
     getter highWaterMark
     getter size
     method constructor
+interface CrashReportStorage
+    attribute @@toStringTag
+    method constructor
+    method initialize
+    method remove
+    method set
 interface CreateMonitor : EventTarget
     attribute @@toStringTag
     getter ondownloadprogress
@@ -1896,10 +1921,12 @@ interface DevicePosture : EventTarget
     method constructor
     setter onchange
 interface DigitalCredential : Credential
+    static method userAgentAllowsProtocol
     attribute @@toStringTag
     getter data
     getter protocol
     method constructor
+    method toJSON
 interface Directive
     attribute @@toStringTag
     getter type
@@ -2158,6 +2185,11 @@ interface Document : Node
     method importNode
     method moveBefore
     method open
+    method patchAfter
+    method patchAll
+    method patchBefore
+    method patchBetween
+    method patchSelf
     method prepend
     method queryCommandEnabled
     method queryCommandIndeterm
@@ -2326,6 +2358,11 @@ interface DocumentFragment : Node
     method getElementById
     method getPartRoot
     method moveBefore
+    method patchAfter
+    method patchAll
+    method patchBefore
+    method patchBetween
+    method patchSelf
     method prepend
     method querySelector
     method querySelectorAll
@@ -2469,6 +2506,7 @@ interface Element : Node
     getter containerTiming
     getter containerTimingIgnore
     getter currentCSSZoom
+    getter currentPatch
     getter elementTiming
     getter firstElementChild
     getter headingOffset
@@ -2530,7 +2568,13 @@ interface Element : Node
     method insertAdjacentText
     method matches
     method moveBefore
+    method patchAfter
+    method patchAll
+    method patchBefore
+    method patchBetween
+    method patchSelf
     method prepend
+    method pseudo
     method querySelector
     method querySelectorAll
     method releasePointerCapture
@@ -2694,6 +2738,7 @@ interface ElementInternals
     getter role
     getter shadowRoot
     getter states
+    getter type
     getter validationMessage
     getter validity
     getter willValidate
@@ -2755,6 +2800,7 @@ interface ElementInternals
     setter ariaValueText
     setter ariaVirtualContent
     setter role
+    setter type
 interface EncodedAudioChunk
     attribute @@toStringTag
     getter byteLength
@@ -2990,6 +3036,7 @@ interface FontFace
     getter style
     getter unicodeRange
     getter variant
+    getter variationSettings
     getter weight
     method constructor
     method load
@@ -3004,6 +3051,7 @@ interface FontFace
     setter style
     setter unicodeRange
     setter variant
+    setter variationSettings
     setter weight
 interface FontFaceSetLoadEvent : Event
     attribute @@toStringTag
@@ -3042,7 +3090,6 @@ interface GPUAdapter
     attribute @@toStringTag
     getter features
     getter info
-    getter isFallbackAdapter
     getter limits
     method constructor
     method requestDevice
@@ -3503,7 +3550,7 @@ interface HTMLAnchorElement : HTMLElement
     getter href
     getter hrefTranslate
     getter hreflang
-    getter interestTargetElement
+    getter interestForElement
     getter name
     getter origin
     getter password
@@ -3533,7 +3580,7 @@ interface HTMLAnchorElement : HTMLElement
     setter href
     setter hrefTranslate
     setter hreflang
-    setter interestTargetElement
+    setter interestForElement
     setter name
     setter password
     setter pathname
@@ -3560,7 +3607,7 @@ interface HTMLAreaElement : HTMLElement
     getter host
     getter hostname
     getter href
-    getter interestTargetElement
+    getter interestForElement
     getter noHref
     getter origin
     getter password
@@ -3585,7 +3632,7 @@ interface HTMLAreaElement : HTMLElement
     setter host
     setter hostname
     setter href
-    setter interestTargetElement
+    setter interestForElement
     setter noHref
     setter password
     setter pathname
@@ -3688,7 +3735,7 @@ interface HTMLButtonElement : HTMLElement
     getter formMethod
     getter formNoValidate
     getter formTarget
-    getter interestTargetElement
+    getter interestForElement
     getter labels
     getter name
     getter popoverTargetAction
@@ -3710,7 +3757,7 @@ interface HTMLButtonElement : HTMLElement
     setter formMethod
     setter formNoValidate
     setter formTarget
-    setter interestTargetElement
+    setter interestForElement
     setter name
     setter popoverTargetAction
     setter popoverTargetElement
@@ -4233,6 +4280,19 @@ interface HTMLFrameSetElement : HTMLElement
     setter onunhandledrejection
     setter onunload
     setter rows
+interface HTMLGeolocationElement : HTMLPermissionElement
+    attribute @@toStringTag
+    getter autolocate
+    getter error
+    getter onlocation
+    getter position
+    getter precise
+    getter watch
+    method constructor
+    setter autolocate
+    setter onlocation
+    setter precise
+    setter watch
 interface HTMLHRElement : HTMLElement
     attribute @@toStringTag
     getter align
@@ -6679,7 +6739,6 @@ interface Navigator
     getter gpu
     getter hardwareConcurrency
     getter hid
-    getter identity
     getter ink
     getter keyboard
     getter language
@@ -6976,6 +7035,7 @@ interface OffscreenCanvasRenderingContext2D
     getter fontVariantCaps
     getter globalAlpha
     getter globalCompositeOperation
+    getter globalHDRHeadroom
     getter imageSmoothingEnabled
     getter imageSmoothingQuality
     getter lang
@@ -7059,6 +7119,7 @@ interface OffscreenCanvasRenderingContext2D
     setter fontVariantCaps
     setter globalAlpha
     setter globalCompositeOperation
+    setter globalHDRHeadroom
     setter imageSmoothingEnabled
     setter imageSmoothingQuality
     setter lang
@@ -7099,6 +7160,16 @@ interface OrientationSensor : Sensor
     getter quaternion
     method constructor
     method populateMatrix
+interface Origin
+    static method fromURL
+    static method parse
+    attribute @@toStringTag
+    getter opaque
+    method constructor
+    method isSameOrigin
+    method isSameSite
+    method toJSON
+    method toString
 interface OscillatorNode : AudioScheduledSourceNode
     attribute @@toStringTag
     getter detune
@@ -7167,6 +7238,15 @@ interface PasswordCredential : Credential
     getter iconURL
     getter name
     getter password
+    method constructor
+interface PatchEvent : Event
+    attribute @@toStringTag
+    getter patch
+    method constructor
+interface PatchStatus
+    attribute @@toStringTag
+    getter finished
+    getter source
     method constructor
 interface Path2D
     attribute @@toStringTag
@@ -7408,6 +7488,10 @@ interface PerformanceResourceTiming : PerformanceEntry
     getter secureConnectionStart
     getter serverTiming
     getter transferSize
+    getter workerCacheLookupStart
+    getter workerFinalSourceType
+    getter workerMatchedSourceType
+    getter workerRouterEvaluationStart
     getter workerStart
     method constructor
     method toJSON
@@ -8239,12 +8323,12 @@ interface Rewriter
 interface SVGAElement : SVGGraphicsElement
     attribute @@toStringTag
     getter href
-    getter interestTargetElement
+    getter interestForElement
     getter rel
     getter relList
     getter target
     method constructor
-    setter interestTargetElement
+    setter interestForElement
     setter rel
     setter relList
 interface SVGAngle
@@ -9453,17 +9537,20 @@ interface ScreenDetailed : Screen
     getter devicePixelRatio
     getter greenPrimaryX
     getter greenPrimaryY
+    getter hdrHeadroom
     getter highDynamicRangeHeadroom
     getter isInternal
     getter isPrimary
     getter label
     getter left
+    getter onhdrheadroomchange
     getter redPrimaryX
     getter redPrimaryY
     getter top
     getter whitePointX
     getter whitePointY
     method constructor
+    setter onhdrheadroomchange
 interface ScreenDetails : EventTarget
     attribute @@toStringTag
     getter currentScreen
@@ -9814,11 +9901,6 @@ interface SpeechRecognition : EventTarget
     setter onstart
     setter phrases
     setter processLocally
-interface SpeechRecognitionContext
-    attribute @@toStringTag
-    getter phrases
-    method constructor
-    setter phrases
 interface SpeechRecognitionErrorEvent : Event
     attribute @@toStringTag
     getter error
@@ -9834,13 +9916,6 @@ interface SpeechRecognitionPhrase
     getter boost
     getter phrase
     method constructor
-interface SpeechRecognitionPhraseList
-    attribute @@toStringTag
-    getter length
-    method addItem
-    method constructor
-    method item
-    method removeItem
 interface SpeechSynthesis : EventTarget
     attribute @@toStringTag
     getter onvoiceschanged
@@ -11387,7 +11462,6 @@ interface WebGL2RenderingContext
     method clearStencil
     method clientWaitSync
     method colorMask
-    method commit
     method compileShader
     method compressedTexImage2D
     method compressedTexImage3D
@@ -11940,7 +12014,6 @@ interface WebGLRenderingContext
     method clearDepth
     method clearStencil
     method colorMask
-    method commit
     method compileShader
     method compressedTexImage2D
     method compressedTexSubImage2D
@@ -13110,10 +13183,12 @@ namespace console
     attribute propertyNamesInGlobal
     attribute testRunner
     attribute textInputController
+    getter automationDelegate
     getter caches
     getter clientInformation
     getter closed
     getter cookieStore
+    getter crashReport
     getter credentialless
     getter crossOriginEmbedderPolicy
     getter crossOriginIsolated
@@ -13361,6 +13436,7 @@ namespace console
     method webkitRequestAnimationFrame
     method webkitRequestFileSystem
     method webkitResolveLocalFileSystemURL
+    setter automationDelegate
     setter clientInformation
     setter devicePixelRatio
     setter event

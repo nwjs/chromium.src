@@ -10,6 +10,7 @@ import static org.junit.Assert.assertTrue;
 
 import static org.chromium.base.test.util.Restriction.RESTRICTION_TYPE_NON_LOW_END_DEVICE;
 import static org.chromium.chrome.browser.multiwindow.MultiWindowTestHelper.moveActivityToFront;
+import static org.chromium.ui.test.util.DeviceRestriction.RESTRICTION_TYPE_NON_AUTO;
 
 import androidx.test.filters.MediumTest;
 import androidx.test.platform.app.InstrumentationRegistry;
@@ -41,7 +42,7 @@ import org.chromium.chrome.test.R;
 import org.chromium.chrome.test.transit.AutoResetCtaTransitTestRule;
 import org.chromium.chrome.test.transit.ChromeTransitTestRules;
 import org.chromium.chrome.test.transit.hub.RegularTabSwitcherStation;
-import org.chromium.chrome.test.transit.page.PageStation;
+import org.chromium.chrome.test.transit.page.CtaPageStation;
 import org.chromium.chrome.test.transit.page.WebPageStation;
 import org.chromium.chrome.test.util.ChromeTabUtils;
 import org.chromium.chrome.test.util.MenuUtils;
@@ -59,7 +60,7 @@ import java.util.concurrent.TimeoutException;
     ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE,
     ChromeSwitches.DISABLE_TAB_MERGING_FOR_TESTING
 })
-@Restriction({RESTRICTION_TYPE_NON_LOW_END_DEVICE})
+@Restriction({RESTRICTION_TYPE_NON_AUTO, RESTRICTION_TYPE_NON_LOW_END_DEVICE})
 @Batch(Batch.PER_CLASS)
 public class AutoPiPTabModelObserverHelperTest {
     @Rule
@@ -110,8 +111,7 @@ public class AutoPiPTabModelObserverHelperTest {
 
     @After
     public void tearDown() {
-        ThreadUtils.runOnUiThreadBlocking(
-                () -> AutoPiPTabModelObserverHelperTestUtils.destroy(mObservedWebContents));
+        ThreadUtils.runOnUiThreadBlocking(() -> AutoPiPTabModelObserverHelperTestUtils.destroy());
 
         if (mSecondActivity != null) {
             ApplicationTestUtils.finishActivity(mSecondActivity);
@@ -127,7 +127,7 @@ public class AutoPiPTabModelObserverHelperTest {
     public void testTriggersOnTabActivationChanged() throws TimeoutException {
         int callCount = startObservingAndAssertInitialCallback(/* expectedIsActivated= */ true);
 
-        PageStation page = mInitialPage.openNewTabFast();
+        CtaPageStation page = mInitialPage.openNewTabFast();
         mOnActivationChangedCallbackHelper.waitForCallback(callCount++);
         assertFalse(mOnActivationChangedCallbackHelper.isActivated());
 
@@ -142,8 +142,8 @@ public class AutoPiPTabModelObserverHelperTest {
     public void testStopAndStartObserving() throws TimeoutException {
         int callCount = startObservingAndAssertInitialCallback(/* expectedIsActivated= */ true);
 
-        AutoPiPTabModelObserverHelperTestUtils.stopObserving(mObservedWebContents);
-        PageStation page = mInitialPage.openNewTabFast();
+        AutoPiPTabModelObserverHelperTestUtils.stopObserving();
+        CtaPageStation page = mInitialPage.openNewTabFast();
         assertEquals(
                 "Callback should not have fired after stopping observation.",
                 callCount,
@@ -201,7 +201,7 @@ public class AutoPiPTabModelObserverHelperTest {
         int callCount = startObservingAndAssertInitialCallback(/* expectedIsActivated= */ true);
 
         // Open a second tab and switch to it
-        PageStation page = mInitialPage.openNewTabFast();
+        CtaPageStation page = mInitialPage.openNewTabFast();
         mOnActivationChangedCallbackHelper.waitForCallback(callCount++);
         assertFalse(mOnActivationChangedCallbackHelper.isActivated());
 
@@ -255,7 +255,7 @@ public class AutoPiPTabModelObserverHelperTest {
         }
         int callCount = startObservingAndAssertInitialCallback(/* expectedIsActivated= */ true);
         // Open a new tab
-        PageStation page = mInitialPage.openNewTabFast();
+        CtaPageStation page = mInitialPage.openNewTabFast();
         mOnActivationChangedCallbackHelper.waitForCallback(callCount++);
         assertFalse(mOnActivationChangedCallbackHelper.isActivated());
         // Switch back to the original tab
@@ -320,7 +320,7 @@ public class AutoPiPTabModelObserverHelperTest {
             throws TimeoutException {
         int callCount = mOnActivationChangedCallbackHelper.getCallCount();
 
-        AutoPiPTabModelObserverHelperTestUtils.startObserving(mObservedWebContents);
+        AutoPiPTabModelObserverHelperTestUtils.startObserving();
         mOnActivationChangedCallbackHelper.waitForCallback(callCount);
         assertEquals(expectedIsActivated, mOnActivationChangedCallbackHelper.isActivated());
 

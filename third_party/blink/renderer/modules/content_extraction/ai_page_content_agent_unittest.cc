@@ -10,6 +10,8 @@
 #include "mojo/public/cpp/test_support/test_utils.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/common/input/web_mouse_event.h"
+#include "third_party/blink/renderer/core/accessibility/ax_context.h"
+#include "third_party/blink/renderer/core/accessibility/ax_object_cache.h"
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/dom/dom_node_ids.h"
 #include "third_party/blink/renderer/core/frame/frame_test_helpers.h"
@@ -18,12 +20,17 @@
 #include "third_party/blink/renderer/core/input/event_handler.h"
 #include "third_party/blink/renderer/core/layout/layout_object.h"
 #include "third_party/blink/renderer/core/layout/layout_view.h"
+#include "third_party/blink/renderer/modules/accessibility/ax_object_cache_impl.h"
 #include "third_party/blink/renderer/platform/testing/task_environment.h"
 #include "third_party/blink/renderer/platform/testing/unit_test_helpers.h"
 #include "third_party/blink/renderer/platform/testing/url_test_helpers.h"
 #include "third_party/blink/renderer/platform/wtf/text/atomic_string.h"
+#include "ui/accessibility/ax_action_data.h"
+#include "ui/accessibility/ax_mode.h"
 
 namespace blink {
+using ClickabilityReason = mojom::blink::AIPageContentClickabilityReason;
+
 namespace {
 
 constexpr gfx::Size kWindowSize{1000, 1000};
@@ -315,7 +322,19 @@ class AIPageContentAgentTest : public testing::Test {
     CHECK(node.content_attributes->node_interaction_info);
     EXPECT_TRUE(node.content_attributes->node_interaction_info
                     ->document_scoped_z_order);
-    EXPECT_FALSE(node.content_attributes->node_interaction_info->is_clickable);
+    EXPECT_TRUE(node.content_attributes->node_interaction_info
+                    ->clickability_reasons.empty());
+  }
+
+  void CheckHitTestableAndInteractive(
+      const mojom::blink::AIPageContentNode& node,
+      base::span<const ClickabilityReason> expected_reasons) {
+    CHECK(node.content_attributes->node_interaction_info);
+    EXPECT_TRUE(node.content_attributes->node_interaction_info
+                    ->document_scoped_z_order);
+    EXPECT_THAT(
+        node.content_attributes->node_interaction_info->clickability_reasons,
+        testing::UnorderedElementsAreArray(expected_reasons));
   }
 
   const mojom::blink::AIPageContentPtr& Content() { return last_content_; }
@@ -603,7 +622,8 @@ TEST_F(AIPageContentAgentTest, IFrameWithContent) {
   auto* iframe_doc = iframe_element->contentDocument();
   ASSERT_TRUE(iframe_doc);
 
-  iframe_doc->body()->setInnerHTML("<body>inside iframe</body>");
+  iframe_doc->body()->SetInnerHTMLWithoutTrustedTypes(
+      "<body>inside iframe</body>");
 
   GetAIPageContent();
 
@@ -2067,57 +2087,19 @@ TEST_F(AIPageContentAgentTest, InteractiveElementsTextArea) {
 
   const auto& text_area = *root.children_nodes[0];
   CheckFormControlNode(text_area, mojom::blink::FormControlType::kTextArea);
-  EXPECT_TRUE(
-      text_area.content_attributes->node_interaction_info->is_selectable);
-  EXPECT_FALSE(
-      text_area.content_attributes->node_interaction_info->is_editable);
-  EXPECT_TRUE(
-      text_area.content_attributes->node_interaction_info->is_focusable);
-  EXPECT_FALSE(
-      text_area.content_attributes->node_interaction_info->is_draggable);
-  EXPECT_TRUE(
-      text_area.content_attributes->node_interaction_info->is_clickable);
-  EXPECT_TRUE(
-      text_area.content_attributes->node_interaction_info->can_resize_vertical);
-  EXPECT_TRUE(text_area.content_attributes->node_interaction_info
-                  ->can_resize_horizontal);
+  CheckHitTestableAndInteractive(text_area,
+                                 {ClickabilityReason::kClickableControl});
 
   // Text area uses a UA shadow DOM internally to create an editable box.
   const auto& shadow_div = *text_area.children_nodes[0];
   EXPECT_EQ(shadow_div.children_nodes.size(), 1u);
   CheckContainerNode(shadow_div);
-  EXPECT_TRUE(
-      shadow_div.content_attributes->node_interaction_info->is_selectable);
-  EXPECT_TRUE(
-      shadow_div.content_attributes->node_interaction_info->is_editable);
-  EXPECT_FALSE(
-      shadow_div.content_attributes->node_interaction_info->is_focusable);
-  EXPECT_FALSE(
-      shadow_div.content_attributes->node_interaction_info->is_draggable);
-  EXPECT_TRUE(
-      shadow_div.content_attributes->node_interaction_info->is_clickable);
-  EXPECT_FALSE(shadow_div.content_attributes->node_interaction_info
-                   ->can_resize_vertical);
-  EXPECT_FALSE(shadow_div.content_attributes->node_interaction_info
-                   ->can_resize_horizontal);
+  CheckHitTestableAndInteractive(shadow_div, {ClickabilityReason::kEditable});
 
   EXPECT_EQ(shadow_div.children_nodes.size(), 1u);
   const auto& text_area_text = *shadow_div.children_nodes[0];
   CheckTextNode(text_area_text, "text");
-  EXPECT_TRUE(
-      text_area_text.content_attributes->node_interaction_info->is_selectable);
-  EXPECT_TRUE(
-      text_area_text.content_attributes->node_interaction_info->is_editable);
-  EXPECT_FALSE(
-      text_area_text.content_attributes->node_interaction_info->is_focusable);
-  EXPECT_FALSE(
-      text_area_text.content_attributes->node_interaction_info->is_draggable);
-  EXPECT_FALSE(
-      text_area_text.content_attributes->node_interaction_info->is_clickable);
-  EXPECT_FALSE(text_area_text.content_attributes->node_interaction_info
-                   ->can_resize_vertical);
-  EXPECT_FALSE(text_area_text.content_attributes->node_interaction_info
-                   ->can_resize_horizontal);
+  CheckHitTestableButNotInteractive(text_area_text);
 }
 
 TEST_F(AIPageContentAgentTest, InteractiveElementsButton) {
@@ -2135,22 +2117,15 @@ TEST_F(AIPageContentAgentTest, InteractiveElementsButton) {
 
   const auto& button = *root.children_nodes[0];
   CheckFormControlNode(button, mojom::blink::FormControlType::kButtonSubmit);
-  EXPECT_TRUE(button.content_attributes->node_interaction_info->is_selectable);
-  EXPECT_FALSE(button.content_attributes->node_interaction_info->is_editable);
+  CheckHitTestableAndInteractive(button,
+                                 {ClickabilityReason::kClickableControl});
   EXPECT_TRUE(button.content_attributes->node_interaction_info->is_focusable);
-  EXPECT_FALSE(button.content_attributes->node_interaction_info->is_draggable);
-  EXPECT_TRUE(button.content_attributes->node_interaction_info->is_clickable);
-  EXPECT_FALSE(
-      button.content_attributes->node_interaction_info->can_resize_vertical);
-  EXPECT_FALSE(
-      button.content_attributes->node_interaction_info->can_resize_horizontal);
 
   ASSERT_EQ(button.children_nodes.size(), 1u);
   const auto& button_text = *button.children_nodes[0];
   CheckTextNode(button_text, "button");
   EXPECT_TRUE(button_text.content_attributes->node_interaction_info);
-  EXPECT_FALSE(
-      button_text.content_attributes->node_interaction_info->is_clickable);
+  CheckHitTestableButNotInteractive(button_text);
 }
 
 TEST_F(AIPageContentAgentTest, InteractiveElementsResizableDiv) {
@@ -2175,22 +2150,13 @@ TEST_F(AIPageContentAgentTest, InteractiveElementsResizableDiv) {
   CheckContainerNode(resize);
   ASSERT_TRUE(resize.content_attributes->node_interaction_info);
   EXPECT_FALSE(resize.content_attributes->node_interaction_info->scroller_info);
-  EXPECT_TRUE(resize.content_attributes->node_interaction_info->is_selectable);
-  EXPECT_FALSE(resize.content_attributes->node_interaction_info->is_editable);
-  EXPECT_FALSE(resize.content_attributes->node_interaction_info->is_focusable);
-  EXPECT_FALSE(resize.content_attributes->node_interaction_info->is_draggable);
-  EXPECT_FALSE(resize.content_attributes->node_interaction_info->is_clickable);
-  EXPECT_TRUE(
-      resize.content_attributes->node_interaction_info->can_resize_vertical);
-  EXPECT_TRUE(
-      resize.content_attributes->node_interaction_info->can_resize_horizontal);
+  CheckHitTestableButNotInteractive(resize);
 
   ASSERT_EQ(resize.children_nodes.size(), 1u);
   const auto& resize_text = *resize.children_nodes[0];
   CheckTextNode(resize_text, "resize");
   EXPECT_TRUE(resize_text.content_attributes->node_interaction_info);
-  EXPECT_FALSE(
-      resize_text.content_attributes->node_interaction_info->is_clickable);
+  CheckHitTestableButNotInteractive(resize_text);
 }
 
 TEST_F(AIPageContentAgentTest, Selection) {
@@ -2325,6 +2291,55 @@ TEST_F(AIPageContentAgentTest, Focus) {
             button.content_attributes->dom_node_id);
 }
 
+TEST_F(AIPageContentAgentTest, AccessibilityFocus) {
+  frame_test_helpers::LoadHTMLString(
+      helper_.LocalMainFrame(),
+      "<body>"
+      "  <style>"
+      "    #button1 {"
+      "      position: absolute;"
+      "      top: -10px;"
+      "      left: -20px;"
+      "      width: 30px;"
+      "      height: 40px;"
+      "    }"
+      "  </style>"
+      "  <button id='button1'>button1</button>"
+      "  <div id='div2'>div2</div>"
+      "</body>",
+      url_test_helpers::ToKURL("http://foobar.com"));
+
+  // Enable accessibility.
+  ui::AXMode ax_mode = ui::kAXModeComplete;
+  Document* document = helper_.LocalMainFrame()->GetFrame()->GetDocument();
+  auto context = std::make_unique<AXContext>(*document, ax_mode);
+  EXPECT_TRUE(document->ExistingAXObjectCache());
+  auto* ax_object_cache =
+      To<AXObjectCacheImpl>(document->ExistingAXObjectCache());
+  EXPECT_EQ(ax_mode, ax_object_cache->GetAXMode());
+  ax_object_cache->UpdateAXForAllDocuments();
+
+  // Set accessibility focus to the button.
+  auto* button_element = document->getElementById(AtomicString("button1"));
+  auto* button_ax_object = ax_object_cache->Get(button_element);
+  ui::AXActionData action_data;
+  action_data.action = ax::mojom::blink::Action::kSetAccessibilityFocus;
+  button_ax_object->PerformAction(action_data);
+
+  GetAIPageContent();
+
+  const auto& root = ContentRootNode();
+  EXPECT_EQ(root.children_nodes.size(), 2u);
+
+  const auto& button = *root.children_nodes[0];
+  const auto& div2 = *root.children_nodes[1];
+  const auto& page_interaction_info = Content()->page_interaction_info;
+  EXPECT_EQ(page_interaction_info->accessibility_focused_dom_node_id,
+            button.content_attributes->dom_node_id);
+  CheckGeometry(button, gfx::Rect(-20, -10, 30, 40), gfx::Rect(0, 0, 10, 30));
+  EXPECT_FALSE(div2.content_attributes->geometry);
+}
+
 TEST_F(AIPageContentAgentTest, MousePosition) {
   frame_test_helpers::LoadHTMLString(
       helper_.LocalMainFrame(),
@@ -2385,7 +2400,7 @@ TEST_F(AIPageContentAgentTest, MetaTags) {
   // test this case.
   auto& document = *helper_.LocalMainFrame()->GetFrame()->GetDocument();
   document.getElementById(AtomicString("nullcontent"))
-      ->setAttribute(html_names::kContentAttr, WTF::g_null_atom);
+      ->setAttribute(html_names::kContentAttr, g_null_atom);
 
   mojom::blink::AIPageContentOptions options;
   options.max_meta_elements = 32;
@@ -3135,7 +3150,7 @@ TEST_F(AIPageContentAgentTest, HitTestElementsOffscreen) {
   const auto& p1 = *root.children_nodes.at(0);
   ASSERT_TRUE(p1.content_attributes->node_interaction_info);
   const auto& interaction_info = *p1.content_attributes->node_interaction_info;
-  EXPECT_TRUE(interaction_info.is_clickable);
+  EXPECT_FALSE(interaction_info.clickability_reasons.empty());
   EXPECT_FALSE(interaction_info.document_scoped_z_order);
 }
 
@@ -3340,20 +3355,19 @@ TEST_F(AIPageContentAgentTest, CursorForClickability) {
 
   const auto& cursor = *ContentRootNode().children_nodes[0];
   EXPECT_TRUE(cursor.content_attributes->node_interaction_info);
-  EXPECT_TRUE(cursor.content_attributes->node_interaction_info->is_clickable);
+  CheckHitTestableAndInteractive(cursor, {ClickabilityReason::kCursorPointer});
 
   const auto& no_click = *cursor.children_nodes[0];
   EXPECT_TRUE(no_click.content_attributes->node_interaction_info);
-  EXPECT_FALSE(
-      no_click.content_attributes->node_interaction_info->is_clickable);
+  CheckHitTestableButNotInteractive(no_click);
 
   const auto& click = *cursor.children_nodes[1];
   EXPECT_TRUE(click.content_attributes->node_interaction_info);
-  EXPECT_TRUE(click.content_attributes->node_interaction_info->is_clickable);
+  CheckHitTestableAndInteractive(click, {ClickabilityReason::kCursorPointer});
 
   const auto& article = *ContentRootNode().children_nodes[1];
   EXPECT_TRUE(article.content_attributes->node_interaction_info);
-  EXPECT_FALSE(article.content_attributes->node_interaction_info->is_clickable);
+  CheckHitTestableButNotInteractive(article);
 }
 
 TEST_F(AIPageContentAgentTest, LinkForClickability) {
@@ -3371,11 +3385,11 @@ TEST_F(AIPageContentAgentTest, LinkForClickability) {
 
   const auto& valid = *ContentRootNode().children_nodes[0];
   EXPECT_TRUE(valid.content_attributes->node_interaction_info);
-  EXPECT_TRUE(valid.content_attributes->node_interaction_info->is_clickable);
+  CheckHitTestableAndInteractive(valid, {ClickabilityReason::kCursorPointer});
 
   const auto& invalid = *ContentRootNode().children_nodes[1];
   EXPECT_TRUE(invalid.content_attributes->node_interaction_info);
-  EXPECT_FALSE(invalid.content_attributes->node_interaction_info->is_clickable);
+  CheckHitTestableButNotInteractive(invalid);
 }
 
 TEST_F(AIPageContentAgentTest, LabelWithForSibling) {
@@ -3395,12 +3409,14 @@ TEST_F(AIPageContentAgentTest, LabelWithForSibling) {
   const auto& input = *root.children_nodes[0];
   CheckFormControlNode(input, mojom::blink::FormControlType::kInputCheckbox);
   ASSERT_TRUE(input.content_attributes->node_interaction_info);
-  EXPECT_TRUE(input.content_attributes->node_interaction_info->is_clickable);
+  CheckHitTestableAndInteractive(input,
+                                 {ClickabilityReason::kClickableControl});
 
   const auto& label = *root.children_nodes[1];
   CheckContainerNode(label);
   ASSERT_TRUE(label.content_attributes->node_interaction_info);
-  EXPECT_TRUE(label.content_attributes->node_interaction_info->is_clickable);
+  EXPECT_TRUE(label.content_attributes->node_interaction_info
+                  ->clickability_reasons.empty());
   EXPECT_EQ(label.content_attributes->label_for_dom_node_id,
             input.content_attributes->dom_node_id);
 }
@@ -3425,12 +3441,13 @@ TEST_F(AIPageContentAgentTest, LabelWithForDescendant) {
   EXPECT_EQ(label.children_nodes.size(), 2u);
   CheckContainerNode(label);
   ASSERT_TRUE(label.content_attributes->node_interaction_info);
-  EXPECT_TRUE(label.content_attributes->node_interaction_info->is_clickable);
+  CheckHitTestableButNotInteractive(label);
 
   const auto& input = *label.children_nodes[0];
   CheckFormControlNode(input, mojom::blink::FormControlType::kInputCheckbox);
   ASSERT_TRUE(input.content_attributes->node_interaction_info);
-  EXPECT_TRUE(input.content_attributes->node_interaction_info->is_clickable);
+  CheckHitTestableAndInteractive(input,
+                                 {ClickabilityReason::kClickableControl});
   EXPECT_EQ(label.content_attributes->label_for_dom_node_id,
             input.content_attributes->dom_node_id);
 
@@ -3548,6 +3565,24 @@ TEST_F(AIPageContentAgentTest, DisabledButton) {
   CheckHitTestableButNotInteractive(button);
 }
 
+TEST_F(AIPageContentAgentTest, InertButton) {
+  frame_test_helpers::LoadHTMLString(
+      helper_.LocalMainFrame(),
+      R"HTML(
+        <body>
+         <button inert>Text</button>
+        </body>
+      )HTML",
+      url_test_helpers::ToKURL("http://foobar.com"));
+
+  GetAIPageContentWithActionableElements();
+
+  const auto& root = ContentRootNode();
+  ASSERT_EQ(root.children_nodes.size(), 1u);
+  const auto& button = *root.children_nodes.at(0);
+  EXPECT_FALSE(button.content_attributes->node_interaction_info);
+}
+
 TEST_F(AIPageContentAgentTest, ActionablePseudoElements) {
   frame_test_helpers::LoadHTMLString(
       helper_.LocalMainFrame(),
@@ -3562,16 +3597,12 @@ TEST_F(AIPageContentAgentTest, ActionablePseudoElements) {
   EXPECT_EQ(ContentRootNode().children_nodes.size(), 1u);
   const auto& a = *ContentRootNode().children_nodes[0];
   ASSERT_TRUE(a.content_attributes->node_interaction_info);
-  EXPECT_TRUE(a.content_attributes->node_interaction_info->is_clickable);
-  EXPECT_TRUE(
-      a.content_attributes->node_interaction_info->document_scoped_z_order);
+  CheckHitTestableAndInteractive(a, {ClickabilityReason::kCursorPointer});
 
   EXPECT_EQ(a.children_nodes.size(), 1u);
   const auto& before = *a.children_nodes[0];
   ASSERT_TRUE(before.content_attributes->node_interaction_info);
-  EXPECT_TRUE(before.content_attributes->node_interaction_info->is_clickable);
-  EXPECT_TRUE(before.content_attributes->node_interaction_info
-                  ->document_scoped_z_order);
+  CheckHitTestableAndInteractive(before, {ClickabilityReason::kCursorPointer});
 }
 
 TEST_F(AIPageContentAgentTest, PseudoElementNotActionable) {
@@ -3589,16 +3620,12 @@ TEST_F(AIPageContentAgentTest, PseudoElementNotActionable) {
 
   const auto& a = *ContentRootNode().children_nodes[0];
   ASSERT_TRUE(a.content_attributes->node_interaction_info);
-  EXPECT_TRUE(a.content_attributes->node_interaction_info->is_clickable);
-  EXPECT_TRUE(
-      a.content_attributes->node_interaction_info->document_scoped_z_order);
+  CheckHitTestableAndInteractive(a, {ClickabilityReason::kCursorPointer});
 
   EXPECT_EQ(a.children_nodes.size(), 1u);
   const auto& before = *a.children_nodes[0];
   ASSERT_TRUE(before.content_attributes->node_interaction_info);
-  EXPECT_FALSE(before.content_attributes->node_interaction_info->is_clickable);
-  EXPECT_TRUE(before.content_attributes->node_interaction_info
-                  ->document_scoped_z_order);
+  CheckHitTestableButNotInteractive(before);
 }
 
 TEST_F(AIPageContentAgentTest, PseudoElementNoPointerEvents) {
@@ -3616,13 +3643,12 @@ TEST_F(AIPageContentAgentTest, PseudoElementNoPointerEvents) {
 
   const auto& a = *ContentRootNode().children_nodes[0];
   ASSERT_TRUE(a.content_attributes->node_interaction_info);
-  EXPECT_TRUE(a.content_attributes->node_interaction_info->is_clickable);
-  EXPECT_TRUE(
-      a.content_attributes->node_interaction_info->document_scoped_z_order);
+  CheckHitTestableAndInteractive(a, {ClickabilityReason::kCursorPointer});
 
   EXPECT_EQ(a.children_nodes.size(), 1u);
   const auto& text = *a.children_nodes[0];
   CheckTextNode(text, "hello");
+  EXPECT_FALSE(text.content_attributes->node_interaction_info);
 }
 
 TEST_F(AIPageContentAgentTest, AriaDisabled) {
@@ -3682,6 +3708,56 @@ TEST_F(AIPageContentAgentTest, DisabledInheritance) {
   CheckHitTestableButNotInteractive(button);
 }
 
+TEST_F(AIPageContentAgentTest, Fieldset) {
+  frame_test_helpers::LoadHTMLString(
+      helper_.LocalMainFrame(),
+      R"HTML(
+      <body>
+        <form>
+          <fieldset>
+            <button type="submit"></button>
+          </fieldset>
+        </form>
+      </body>
+      )HTML",
+      url_test_helpers::ToKURL("http://foobar.com"));
+
+  GetAIPageContentWithActionableElements();
+  const auto& root = ContentRootNode();
+  ASSERT_EQ(root.children_nodes.size(), 1u);
+
+  const auto& form = *root.children_nodes.at(0);
+  CheckHitTestableButNotInteractive(form);
+  ASSERT_EQ(form.children_nodes.size(), 1u);
+
+  const auto& fieldset = *form.children_nodes.at(0);
+  CheckHitTestableButNotInteractive(fieldset);
+}
+
+TEST_F(AIPageContentAgentTest, ShadowDOMInInput) {
+  frame_test_helpers::LoadHTMLString(
+      helper_.LocalMainFrame(),
+      R"HTML(
+      <body>
+        <input type=range></input>
+      </body>
+      )HTML",
+      url_test_helpers::ToKURL("http://foobar.com"));
+
+  GetAIPageContentWithActionableElements();
+  const auto& root = ContentRootNode();
+  ASSERT_EQ(root.children_nodes.size(), 1u);
+
+  const auto& input = *root.children_nodes.at(0);
+  ASSERT_TRUE(input.content_attributes->node_interaction_info);
+  CheckHitTestableAndInteractive(input,
+                                 {ClickabilityReason::kClickableControl});
+
+  EXPECT_NE(input.children_nodes.size(), 0u);
+  const auto& shadow_div = *input.children_nodes.at(0);
+  CheckHitTestableButNotInteractive(shadow_div);
+}
+
 TEST_F(AIPageContentAgentTest, DisabledOption) {
   frame_test_helpers::LoadHTMLString(
       helper_.LocalMainFrame(),
@@ -3720,7 +3796,7 @@ TEST_F(AIPageContentAgentTest, AriaRole) {
       helper_.LocalMainFrame(),
       R"HTML(
       <body>
-        <div role="button"></div>
+        <div role="button">hello</div>
       </body>
       )HTML",
       url_test_helpers::ToKURL("http://foobar.com"));
@@ -3731,7 +3807,7 @@ TEST_F(AIPageContentAgentTest, AriaRole) {
 
   const auto& button = *root.children_nodes.at(0);
   ASSERT_TRUE(button.content_attributes->node_interaction_info);
-  EXPECT_TRUE(button.content_attributes->node_interaction_info->is_clickable);
+  CheckHitTestableAndInteractive(button, {ClickabilityReason::kAriaRole});
   EXPECT_EQ(button.content_attributes->aria_role,
             ax::mojom::blink::Role::kButton);
 }
@@ -3753,7 +3829,8 @@ TEST_F(AIPageContentAgentTest, LabelNotActionable) {
 
   const auto& button = *root.children_nodes.at(0);
   ASSERT_TRUE(button.content_attributes->node_interaction_info);
-  EXPECT_TRUE(button.content_attributes->node_interaction_info->is_clickable);
+  CheckHitTestableAndInteractive(button,
+                                 {ClickabilityReason::kClickableControl});
 
   const auto& label = *root.children_nodes.at(1);
   EXPECT_FALSE(label.content_attributes->node_interaction_info);
@@ -3782,11 +3859,12 @@ TEST_F(AIPageContentAgentTest, SelectLabelNotActionable) {
 
   const auto& label = *root.children_nodes.at(0);
   ASSERT_TRUE(label.content_attributes->node_interaction_info);
-  EXPECT_FALSE(label.content_attributes->node_interaction_info->is_clickable);
+  CheckHitTestableButNotInteractive(label);
 
   const auto& select = *root.children_nodes.at(1);
   ASSERT_TRUE(select.content_attributes->node_interaction_info);
-  EXPECT_TRUE(select.content_attributes->node_interaction_info->is_clickable);
+  CheckHitTestableAndInteractive(select,
+                                 {ClickabilityReason::kClickableControl});
 }
 
 TEST_F(AIPageContentAgentTest, ClickabilityReasonClickableControl) {
@@ -3801,7 +3879,7 @@ TEST_F(AIPageContentAgentTest, ClickabilityReasonClickableControl) {
   ASSERT_TRUE(button_node.content_attributes->node_interaction_info);
   EXPECT_THAT(
       button_node.content_attributes->node_interaction_info
-          ->debug_clickability_reasons,
+          ->clickability_reasons,
       testing::Contains(
           mojom::blink::AIPageContentClickabilityReason::kClickableControl));
 }
@@ -3819,10 +3897,10 @@ TEST_F(AIPageContentAgentTest, ClickabilityReasonClickEvents) {
 
   const auto& div_node = *ContentRootNode().children_nodes[0];
   ASSERT_TRUE(div_node.content_attributes->node_interaction_info);
-  EXPECT_THAT(div_node.content_attributes->node_interaction_info
-                  ->debug_clickability_reasons,
-              testing::Contains(
-                  mojom::blink::AIPageContentClickabilityReason::kClickEvents));
+  EXPECT_THAT(
+      div_node.content_attributes->node_interaction_info->clickability_reasons,
+      testing::Contains(
+          mojom::blink::AIPageContentClickabilityReason::kClickEvents));
 }
 
 TEST_F(AIPageContentAgentTest, ClickabilityReasonMouseEvents) {
@@ -3841,10 +3919,10 @@ TEST_F(AIPageContentAgentTest, ClickabilityReasonMouseEvents) {
 
   const auto& div_node = *ContentRootNode().children_nodes[0];
   ASSERT_TRUE(div_node.content_attributes->node_interaction_info);
-  EXPECT_THAT(div_node.content_attributes->node_interaction_info
-                  ->debug_clickability_reasons,
-              testing::Contains(
-                  mojom::blink::AIPageContentClickabilityReason::kMouseEvents));
+  EXPECT_THAT(
+      div_node.content_attributes->node_interaction_info->clickability_reasons,
+      testing::Contains(
+          mojom::blink::AIPageContentClickabilityReason::kMouseEvents));
 }
 
 TEST_F(AIPageContentAgentTest, ClickabilityReasonKeyEvents) {
@@ -3864,7 +3942,7 @@ TEST_F(AIPageContentAgentTest, ClickabilityReasonKeyEvents) {
   const auto& input_node = *ContentRootNode().children_nodes[0];
   ASSERT_TRUE(input_node.content_attributes->node_interaction_info);
   EXPECT_THAT(input_node.content_attributes->node_interaction_info
-                  ->debug_clickability_reasons,
+                  ->clickability_reasons,
               testing::Contains(
                   mojom::blink::AIPageContentClickabilityReason::kKeyEvents));
 }
@@ -3880,11 +3958,10 @@ TEST_F(AIPageContentAgentTest, ClickabilityReasonEditable) {
 
   const auto& div_node = *ContentRootNode().children_nodes[0];
   ASSERT_TRUE(div_node.content_attributes->node_interaction_info);
-  EXPECT_TRUE(div_node.content_attributes->node_interaction_info->is_editable);
-  EXPECT_THAT(div_node.content_attributes->node_interaction_info
-                  ->debug_clickability_reasons,
-              testing::Contains(
-                  mojom::blink::AIPageContentClickabilityReason::kEditable));
+  EXPECT_THAT(
+      div_node.content_attributes->node_interaction_info->clickability_reasons,
+      testing::Contains(
+          mojom::blink::AIPageContentClickabilityReason::kEditable));
 }
 
 TEST_F(AIPageContentAgentTest, ClickabilityReasonCursorPointer) {
@@ -3898,8 +3975,7 @@ TEST_F(AIPageContentAgentTest, ClickabilityReasonCursorPointer) {
   const auto& div_node = *ContentRootNode().children_nodes[0];
   ASSERT_TRUE(div_node.content_attributes->node_interaction_info);
   EXPECT_THAT(
-      div_node.content_attributes->node_interaction_info
-          ->debug_clickability_reasons,
+      div_node.content_attributes->node_interaction_info->clickability_reasons,
       testing::Contains(
           mojom::blink::AIPageContentClickabilityReason::kCursorPointer));
 }
@@ -3915,10 +3991,10 @@ TEST_F(AIPageContentAgentTest, ClickabilityReasonAriaRole) {
   ASSERT_TRUE(div_node.content_attributes->node_interaction_info);
   EXPECT_EQ(div_node.content_attributes->aria_role,
             ax::mojom::blink::Role::kLink);
-  EXPECT_THAT(div_node.content_attributes->node_interaction_info
-                  ->debug_clickability_reasons,
-              testing::Contains(
-                  mojom::blink::AIPageContentClickabilityReason::kAriaRole));
+  EXPECT_THAT(
+      div_node.content_attributes->node_interaction_info->clickability_reasons,
+      testing::Contains(
+          mojom::blink::AIPageContentClickabilityReason::kAriaRole));
 }
 
 TEST_F(AIPageContentAgentTest, ClickabilityReasonMultipleReasons) {
@@ -3944,7 +4020,7 @@ TEST_F(AIPageContentAgentTest, ClickabilityReasonMultipleReasons) {
   ASSERT_TRUE(button_node.content_attributes->node_interaction_info);
   EXPECT_THAT(
       button_node.content_attributes->node_interaction_info
-          ->debug_clickability_reasons,
+          ->clickability_reasons,
       testing::UnorderedElementsAre(
           mojom::blink::AIPageContentClickabilityReason::kClickableControl,
           mojom::blink::AIPageContentClickabilityReason::kClickEvents,
@@ -3965,7 +4041,118 @@ TEST_F(AIPageContentAgentTest, ClickabilityReasonNoReasons) {
   const auto& div_node = *ContentRootNode().children_nodes[0];
   ASSERT_TRUE(div_node.content_attributes->node_interaction_info);
   EXPECT_TRUE(div_node.content_attributes->node_interaction_info
-                  ->debug_clickability_reasons.empty());
+                  ->clickability_reasons.empty());
+}
+
+TEST_F(AIPageContentAgentTest, AriaHasPopup) {
+  frame_test_helpers::LoadHTMLString(
+      helper_.LocalMainFrame(),
+      "<body><div aria-haspopup=true>Plain Div</div></body>",
+      url_test_helpers::ToKURL("http://foobar.com"));
+
+  GetAIPageContentWithActionableElements();
+  const auto& div_node = *ContentRootNode().children_nodes[0];
+  ASSERT_TRUE(div_node.content_attributes->node_interaction_info);
+
+  const auto& interaction_info =
+      *div_node.content_attributes->node_interaction_info;
+  EXPECT_THAT(
+      interaction_info.clickability_reasons,
+      testing::Contains(
+          mojom::blink::AIPageContentClickabilityReason::kAriaHasPopup));
+}
+
+TEST_F(AIPageContentAgentTest, AriaExpandedTrue) {
+  frame_test_helpers::LoadHTMLString(
+      helper_.LocalMainFrame(),
+      "<body><div aria-expanded=true>Plain Div</div></body>",
+      url_test_helpers::ToKURL("http://foobar.com"));
+
+  GetAIPageContentWithActionableElements();
+  const auto& div_node = *ContentRootNode().children_nodes[0];
+  ASSERT_TRUE(div_node.content_attributes->node_interaction_info);
+
+  const auto& interaction_info =
+      *div_node.content_attributes->node_interaction_info;
+  EXPECT_THAT(
+      interaction_info.clickability_reasons,
+      testing::Contains(
+          mojom::blink::AIPageContentClickabilityReason::kAriaExpandedTrue));
+}
+
+TEST_F(AIPageContentAgentTest, AriaExpandedFalse) {
+  frame_test_helpers::LoadHTMLString(
+      helper_.LocalMainFrame(),
+      "<body><div aria-expanded=false>Plain Div</div></body>",
+      url_test_helpers::ToKURL("http://foobar.com"));
+
+  GetAIPageContentWithActionableElements();
+  const auto& div_node = *ContentRootNode().children_nodes[0];
+  ASSERT_TRUE(div_node.content_attributes->node_interaction_info);
+
+  const auto& interaction_info =
+      *div_node.content_attributes->node_interaction_info;
+  EXPECT_THAT(
+      interaction_info.clickability_reasons,
+      testing::Contains(
+          mojom::blink::AIPageContentClickabilityReason::kAriaExpandedFalse));
+}
+
+TEST_F(AIPageContentAgentTest, Autocomplete) {
+  frame_test_helpers::LoadHTMLString(
+      helper_.LocalMainFrame(), R"(<body>
+      <input>
+      <input autocomplete=off>
+      <input autocomplete=on>
+      <input aria-autocomplete>
+      <input aria-autocomplete=none>
+      <input aria-autocomplete=list>
+      </body>)",
+      url_test_helpers::ToKURL("http://foobar.com"));
+
+  const bool kExpected[] = {
+      false,  // no attribute
+      false,  // disabled
+      true,
+      false,  // empty
+      false,  // disabled
+      true,
+  };
+
+  GetAIPageContentWithActionableElements();
+
+  for (int i = 0; bool expected : kExpected) {
+    SCOPED_TRACE(i);
+
+    const auto& input_node = *ContentRootNode().children_nodes[i];
+    ASSERT_TRUE(input_node.content_attributes->node_interaction_info);
+    const auto& interaction_info =
+        *input_node.content_attributes->node_interaction_info;
+
+    EXPECT_THAT(
+        interaction_info.clickability_reasons,
+        testing::Contains(
+            mojom::blink::AIPageContentClickabilityReason::kAutocomplete)
+            .Times(expected));
+
+    ++i;
+  }
+}
+
+TEST_F(AIPageContentAgentTest, TabIndex) {
+  frame_test_helpers::LoadHTMLString(
+      helper_.LocalMainFrame(), "<body><div tabindex=0>Plain Div</div></body>",
+      url_test_helpers::ToKURL("http://foobar.com"));
+
+  GetAIPageContentWithActionableElements();
+  const auto& div_node = *ContentRootNode().children_nodes[0];
+  ASSERT_TRUE(div_node.content_attributes->node_interaction_info);
+
+  const auto& interaction_info =
+      *div_node.content_attributes->node_interaction_info;
+  EXPECT_THAT(interaction_info.clickability_reasons,
+              testing::Contains(
+                  mojom::blink::AIPageContentClickabilityReason::kTabIndex));
 }
 
 }  // namespace

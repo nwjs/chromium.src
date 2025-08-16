@@ -30,7 +30,6 @@
 #include "base/time/time.h"
 #include "base/trace_event/trace_event.h"
 #include "base/unguessable_token.h"
-#include "chrome/browser/content_extraction/inner_text.h"
 #include "chrome/browser/history_embeddings/history_embeddings_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser_finder.h"
@@ -43,6 +42,7 @@
 #include "components/autofill/core/common/form_data.h"
 #include "components/autofill/core/common/unique_ids.h"
 #include "components/compose/buildflags.h"
+#include "components/content_extraction/content/browser/inner_text.h"
 #include "components/history_embeddings/history_embeddings_service.h"
 #include "components/optimization_guide/content/browser/page_content_proto_provider.h"
 #include "components/optimization_guide/core/optimization_guide_proto_util.h"
@@ -780,7 +780,9 @@ bool AiDataKeyedService::IsExtensionAllowlistedForData(
                                        // https://issues.chromium.org/403366603
                                        "abdciamfdmknaeggbnmafmbdfdmhfgfa",
                                        // https://issues.chromium.org/414437025
-                                       "fiamdfnbelfkjlacoaeiclobkdmckaoa"});
+                                       "fiamdfnbelfkjlacoaeiclobkdmckaoa",
+                                       // https://issues.chromium.org/427296150
+                                       "mofldjifenhadohlkkngamgbifiofbnd"});
   if (base::Contains(*kHardcodedAllowlistedExtensions, extension_id)) {
     return true;
   }
@@ -805,7 +807,11 @@ bool AiDataKeyedService::IsExtensionAllowlistedForActions(
   }
 
   static const base::NoDestructor<std::vector<std::string>>
-      kHardcodedAllowlistedExtensions({});
+      kHardcodedAllowlistedExtensions({
+          // For testing for
+          // api_test/experimental_actor/manifest.json
+          "kbanhggbnnaciicfpdkheonkpkeakfal",
+      });
   if (base::Contains(*kHardcodedAllowlistedExtensions, extension_id)) {
     return true;
   }
@@ -830,6 +836,7 @@ bool AiDataKeyedService::IsExtensionAllowlistedForStable(
 
   // And the extension must be on this list.
   static const base::NoDestructor<std::vector<std::string>>
-      kStableChannelAllowlistedIds({});
+      kStableChannelAllowlistedIds({// https://issues.chromium.org/427296150
+                                    "mofldjifenhadohlkkngamgbifiofbnd"});
   return base::Contains(*kStableChannelAllowlistedIds, extension_id);
 }

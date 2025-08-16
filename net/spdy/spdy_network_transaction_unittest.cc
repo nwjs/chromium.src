@@ -2,11 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifdef UNSAFE_BUFFERS_BUILD
-// TODO(crbug.com/40284755): Remove this and spanify to fix the errors.
-#pragma allow_unsafe_buffers
-#endif
-
+#include <algorithm>
 #include <cmath>
 #include <string_view>
 #include <utility>
@@ -481,7 +477,7 @@ class SpdyNetworkTransactionTest
     HttpNetworkSession* session = helper.session();
     base::WeakPtr<SpdySession> spdy_session =
         session->spdy_session_pool()->FindAvailableSession(
-            key, /* enable_ip_based_pooling = */ true,
+            key, /* enable_ip_based_pooling_for_h2 = */ true,
             /* is_websocket = */ false, log_);
     ASSERT_TRUE(spdy_session);
     EXPECT_EQ(0u, num_active_streams(spdy_session));
@@ -2082,14 +2078,15 @@ TEST_P(SpdyNetworkTransactionTest, SocketWriteReturnsZero) {
       spdy_util_.ConstructSpdyRstStream(1, spdy::ERROR_CODE_CANCEL));
   MockWrite writes[] = {
       CreateMockWrite(req, 0, SYNCHRONOUS),
-      MockWrite(SYNCHRONOUS, nullptr, 0, 2),
+      MockWrite(SYNCHRONOUS, 2, std::string_view()),
       CreateMockWrite(rst, 3, SYNCHRONOUS),
   };
 
   spdy::SpdySerializedFrame resp(spdy_util_.ConstructSpdyGetReply(
       base::span<const std::string_view>(), 1));
   MockRead reads[] = {
-      CreateMockRead(resp, 1, ASYNC), MockRead(ASYNC, nullptr, 0, 4)  // EOF
+      CreateMockRead(resp, 1, ASYNC),
+      MockRead(ASYNC, 4, std::string_view())  // EOF
   };
 
   SequencedSocketData data(reads, writes);
@@ -2257,7 +2254,8 @@ TEST_P(SpdyNetworkTransactionTest, CancelledTransactionSendRst) {
   spdy::SpdySerializedFrame resp(spdy_util_.ConstructSpdyGetReply(
       base::span<const std::string_view>(), 1));
   MockRead reads[] = {
-      CreateMockRead(resp, 1, ASYNC), MockRead(ASYNC, nullptr, 0, 3)  // EOF
+      CreateMockRead(resp, 1, ASYNC),
+      MockRead(ASYNC, 3, std::string_view())  // EOF
   };
 
   SequencedSocketData data(reads, writes);
@@ -2301,13 +2299,12 @@ TEST_P(SpdyNetworkTransactionTest, StartTransactionOnReadCallback) {
   MockRead reads[] = {
       CreateMockRead(resp, 1),
       MockRead(ASYNC, ERR_IO_PENDING, 2),  // Force a pause
-      MockRead(ASYNC, reinterpret_cast<const char*>(kGetBodyFrame2),
-               std::size(kGetBodyFrame2), 3),
-      MockRead(ASYNC, ERR_IO_PENDING, 4),  // Force a pause
-      MockRead(ASYNC, nullptr, 0, 5),      // EOF
+      MockRead(ASYNC, 3, base::span(kGetBodyFrame2)),
+      MockRead(ASYNC, ERR_IO_PENDING, 4),      // Force a pause
+      MockRead(ASYNC, 5, std::string_view()),  // EOF
   };
   MockRead reads2[] = {
-      CreateMockRead(resp, 1), MockRead(ASYNC, nullptr, 0, 2),  // EOF
+      CreateMockRead(resp, 1), MockRead(ASYNC, 2, std::string_view()),  // EOF
   };
 
   SequencedSocketData data(reads, writes);
@@ -2355,8 +2352,8 @@ TEST_P(SpdyNetworkTransactionTest, DeleteSessionOnReadCallback) {
   spdy::SpdySerializedFrame body(spdy_util_.ConstructSpdyDataFrame(1, true));
   MockRead reads[] = {
       CreateMockRead(resp, 1),
-      MockRead(ASYNC, ERR_IO_PENDING, 2),                       // Force a pause
-      CreateMockRead(body, 3), MockRead(ASYNC, nullptr, 0, 4),  // EOF
+      MockRead(ASYNC, ERR_IO_PENDING, 2),  // Force a pause
+      CreateMockRead(body, 3), MockRead(ASYNC, 4, std::string_view()),  // EOF
   };
 
   SequencedSocketData data(reads, writes);
@@ -2554,8 +2551,8 @@ TEST_P(SpdyNetworkTransactionTest, NoConnectionPoolingOverTunnel) {
       /*disable_cert_verification_network_fetches=*/false);
   base::WeakPtr<SpdySession> session1 =
       helper.session()->spdy_session_pool()->FindAvailableSession(
-          key1, true /* enable_ip_based_pooling */, false /* is_websocket */,
-          NetLogWithSource());
+          key1, true /* enable_ip_based_pooling_for_h2 */,
+          false /* is_websocket */, NetLogWithSource());
   ASSERT_TRUE(session1);
 
   // The second request uses a second connection.
@@ -2617,8 +2614,8 @@ TEST_P(SpdyNetworkTransactionTest, NoConnectionPoolingOverTunnel) {
                       /*disable_cert_verification_network_fetches=*/false);
   base::WeakPtr<SpdySession> session2 =
       helper.session()->spdy_session_pool()->FindAvailableSession(
-          key2, true /* enable_ip_based_pooling */, false /* is_websocket */,
-          NetLogWithSource());
+          key2, true /* enable_ip_based_pooling_for_h2 */,
+          false /* is_websocket */, NetLogWithSource());
   ASSERT_TRUE(session2);
   ASSERT_TRUE(session1);
   EXPECT_NE(session1.get(), session2.get());
@@ -2660,7 +2657,7 @@ TEST_P(SpdyNetworkTransactionTest, ConnectionPoolingSessionClosedBeforeUse) {
                       NetworkAnonymizationKey(), SecureDnsPolicy::kAllow,
                       /*disable_cert_verification_network_fetches=*/false);
   EXPECT_TRUE(helper.session()->spdy_session_pool()->FindAvailableSession(
-      key1, true /* enable_ip_based_pooling */, false /* is_websocket */,
+      key1, true /* enable_ip_based_pooling_for_h2 */, false /* is_websocket */,
       NetLogWithSource()));
 
   // The second request uses a second connection.
@@ -2709,8 +2706,8 @@ TEST_P(SpdyNetworkTransactionTest, ConnectionPoolingSessionClosedBeforeUse) {
                       /*disable_cert_verification_network_fetches=*/false);
   base::WeakPtr<SpdySession> session1 =
       helper.session()->spdy_session_pool()->FindAvailableSession(
-          key2, true /* enable_ip_based_pooling */, false /* is_websocket */,
-          NetLogWithSource());
+          key2, true /* enable_ip_based_pooling_for_h2 */,
+          false /* is_websocket */, NetLogWithSource());
   ASSERT_TRUE(session1);
   EXPECT_EQ(key1, session1->spdy_session_key());
   // Remove the session before the second request can try to use it.
@@ -2733,8 +2730,8 @@ TEST_P(SpdyNetworkTransactionTest, ConnectionPoolingSessionClosedBeforeUse) {
   // Inspect the new session.
   base::WeakPtr<SpdySession> session2 =
       helper.session()->spdy_session_pool()->FindAvailableSession(
-          key2, true /* enable_ip_based_pooling */, false /* is_websocket */,
-          NetLogWithSource());
+          key2, true /* enable_ip_based_pooling_for_h2 */,
+          false /* is_websocket */, NetLogWithSource());
   ASSERT_TRUE(session2);
   EXPECT_EQ(key2, session2->spdy_session_key());
   helper.VerifyDataConsumed();
@@ -2775,7 +2772,7 @@ TEST_P(SpdyNetworkTransactionTest,
                       NetworkAnonymizationKey(), SecureDnsPolicy::kAllow,
                       /*disable_cert_verification_network_fetches=*/true);
   EXPECT_TRUE(helper.session()->spdy_session_pool()->FindAvailableSession(
-      key1, /*enable_ip_based_pooling=*/true, /*is_websocket=*/false,
+      key1, /*enable_ip_based_pooling_for_h2=*/true, /*is_websocket=*/false,
       NetLogWithSource()));
 
   // There should be no session with the same key, except with
@@ -2786,7 +2783,7 @@ TEST_P(SpdyNetworkTransactionTest,
                       NetworkAnonymizationKey(), SecureDnsPolicy::kAllow,
                       /*disable_cert_verification_network_fetches=*/false);
   EXPECT_FALSE(helper.session()->spdy_session_pool()->FindAvailableSession(
-      key2, /*enable_ip_based_pooling=*/true, /*is_websocket=*/false,
+      key2, /*enable_ip_based_pooling_for_h2=*/true, /*is_websocket=*/false,
       NetLogWithSource()));
 
   // Set up and run a second transaction without
@@ -2834,11 +2831,11 @@ TEST_P(SpdyNetworkTransactionTest,
   // There should now be two sessions, with different values of
   // `disable_cert_verification_network_fetches`.
   auto session1 = helper.session()->spdy_session_pool()->FindAvailableSession(
-      key1, /*enable_ip_based_pooling=*/true, /*is_websocket=*/false,
+      key1, /*enable_ip_based_pooling_for_h2=*/true, /*is_websocket=*/false,
       NetLogWithSource());
   EXPECT_TRUE(session1);
   auto session2 = helper.session()->spdy_session_pool()->FindAvailableSession(
-      key2, /*enable_ip_based_pooling=*/true, /*is_websocket=*/false,
+      key2, /*enable_ip_based_pooling_for_h2=*/true, /*is_websocket=*/false,
       NetLogWithSource());
   EXPECT_TRUE(session2);
   // Make sure the sessions are distinct.
@@ -2929,7 +2926,7 @@ TEST_P(SpdyNetworkTransactionTest, ConnectionPoolingMultipleSocketTags) {
                       NetworkAnonymizationKey(), SecureDnsPolicy::kAllow,
                       /*disable_cert_verification_network_fetches=*/false);
   EXPECT_TRUE(helper.session()->spdy_session_pool()->FindAvailableSession(
-      key1, true /* enable_ip_based_pooling */, false /* is_websocket */,
+      key1, true /* enable_ip_based_pooling_for_h2 */, false /* is_websocket */,
       NetLogWithSource()));
 
   // Set on-demand mode for the next two requests.
@@ -3082,7 +3079,7 @@ TEST_P(SpdyNetworkTransactionTest, SocketTagChangeSessionTagWithDnsAliases) {
                       SecureDnsPolicy::kAllow,
                       /*disable_cert_verification_network_fetches=*/false);
   EXPECT_TRUE(helper.session()->spdy_session_pool()->FindAvailableSession(
-      key1, true /* enable_ip_based_pooling */, false /* is_websocket */,
+      key1, true /* enable_ip_based_pooling_for_h2 */, false /* is_websocket */,
       NetLogWithSource()));
   EXPECT_EQ(
       dns_aliases,
@@ -3117,14 +3114,14 @@ TEST_P(SpdyNetworkTransactionTest, SocketTagChangeSessionTagWithDnsAliases) {
 
   EXPECT_EQ(1u, helper.GetSpdySessionCount());
   EXPECT_FALSE(helper.session()->spdy_session_pool()->FindAvailableSession(
-      key1, true /* enable_ip_based_pooling */, false /* is_websocket */,
+      key1, true /* enable_ip_based_pooling_for_h2 */, false /* is_websocket */,
       NetLogWithSource()));
   EXPECT_TRUE(helper.session()
                   ->spdy_session_pool()
                   ->GetDnsAliasesForSessionKey(key1)
                   .empty());
   EXPECT_TRUE(helper.session()->spdy_session_pool()->FindAvailableSession(
-      key2, true /* enable_ip_based_pooling */, false /* is_websocket */,
+      key2, true /* enable_ip_based_pooling_for_h2 */, false /* is_websocket */,
       NetLogWithSource()));
   EXPECT_EQ(
       dns_aliases,
@@ -3233,7 +3230,7 @@ TEST_P(SpdyNetworkTransactionTest,
                       SecureDnsPolicy::kAllow,
                       /*disable_cert_verification_network_fetches=*/false);
   EXPECT_TRUE(helper.session()->spdy_session_pool()->FindAvailableSession(
-      key1, true /* enable_ip_based_pooling */, false /* is_websocket */,
+      key1, true /* enable_ip_based_pooling_for_h2 */, false /* is_websocket */,
       NetLogWithSource()));
   EXPECT_EQ(
       dns_aliases1,
@@ -3264,7 +3261,7 @@ TEST_P(SpdyNetworkTransactionTest,
 
   EXPECT_EQ(1u, helper.GetSpdySessionCount());
   EXPECT_TRUE(helper.session()->spdy_session_pool()->FindAvailableSession(
-      key2, true /* enable_ip_based_pooling */, false /* is_websocket */,
+      key2, true /* enable_ip_based_pooling_for_h2 */, false /* is_websocket */,
       NetLogWithSource()));
   EXPECT_EQ(
       dns_aliases2,
@@ -3310,14 +3307,14 @@ TEST_P(SpdyNetworkTransactionTest,
 
   EXPECT_EQ(1u, helper.GetSpdySessionCount());
   EXPECT_FALSE(helper.session()->spdy_session_pool()->FindAvailableSession(
-      key2, true /* enable_ip_based_pooling */, false /* is_websocket */,
+      key2, true /* enable_ip_based_pooling_for_h2 */, false /* is_websocket */,
       NetLogWithSource()));
   EXPECT_TRUE(helper.session()
                   ->spdy_session_pool()
                   ->GetDnsAliasesForSessionKey(key2)
                   .empty());
   EXPECT_TRUE(helper.session()->spdy_session_pool()->FindAvailableSession(
-      key3, true /* enable_ip_based_pooling */, false /* is_websocket */,
+      key3, true /* enable_ip_based_pooling_for_h2 */, false /* is_websocket */,
       NetLogWithSource()));
   EXPECT_EQ(
       dns_aliases2,
@@ -3359,14 +3356,14 @@ TEST_P(SpdyNetworkTransactionTest,
 
   EXPECT_EQ(1u, helper.GetSpdySessionCount());
   EXPECT_FALSE(helper.session()->spdy_session_pool()->FindAvailableSession(
-      key1, true /* enable_ip_based_pooling */, false /* is_websocket */,
+      key1, true /* enable_ip_based_pooling_for_h2 */, false /* is_websocket */,
       NetLogWithSource()));
   EXPECT_TRUE(helper.session()
                   ->spdy_session_pool()
                   ->GetDnsAliasesForSessionKey(key1)
                   .empty());
   EXPECT_TRUE(helper.session()->spdy_session_pool()->FindAvailableSession(
-      key4, true /* enable_ip_based_pooling */, false /* is_websocket */,
+      key4, true /* enable_ip_based_pooling_for_h2 */, false /* is_websocket */,
       NetLogWithSource()));
   EXPECT_EQ(
       dns_aliases1,
@@ -3390,28 +3387,27 @@ TEST_P(SpdyNetworkTransactionTest,
 TEST_P(SpdyNetworkTransactionTest, ResponseHeaders) {
   struct ResponseHeadersTests {
     std::vector<std::string_view> extra_headers;
-    size_t expected_header_count;
-    std::string_view expected_headers[8];
-  } test_cases[] = {
-      // No extra headers.
-      {{}, 1, {"hello", "bye"}},
-      // Comma-separated header value.
-      {{"cookie", "val1, val2"}, 2, {"hello", "bye", "cookie", "val1, val2"}},
-      // Multiple headers are preserved: they are joined with \0 separator in
-      // quiche::HttpHeaderBlock.AppendValueOrAddHeader(), then split up in
-      // HpackEncoder, then joined with \0 separator when
-      // spdy::HpackDecoderAdapter::ListenerAdapter::OnHeader() calls
-      // quiche::HttpHeaderBlock.AppendValueOrAddHeader(), then split up again
-      // in
-      // HttpResponseHeaders.
-      {{"content-encoding", "val1", "content-encoding", "val2"},
-       3,
-       {"hello", "bye", "content-encoding", "val1", "content-encoding",
-        "val2"}},
-      // Cookie header is not split up by HttpResponseHeaders.
-      {{"cookie", "val1", "cookie", "val2"},
-       2,
-       {"hello", "bye", "cookie", "val1; val2"}}};
+    std::vector<std::string_view> expected_headers;
+  };
+
+  auto test_cases = std::to_array<ResponseHeadersTests>(
+      {// No extra headers.
+       {{}, {"hello", "bye"}},
+       // Comma-separated header value.
+       {{"cookie", "val1, val2"}, {"hello", "bye", "cookie", "val1, val2"}},
+       // Multiple headers are preserved: they are joined with \0 separator in
+       // quiche::HttpHeaderBlock.AppendValueOrAddHeader(), then split up in
+       // HpackEncoder, then joined with \0 separator when
+       // spdy::HpackDecoderAdapter::ListenerAdapter::OnHeader() calls
+       // quiche::HttpHeaderBlock.AppendValueOrAddHeader(), then split up again
+       // in
+       // HttpResponseHeaders.
+       {{"content-encoding", "val1", "content-encoding", "val2"},
+        {"hello", "bye", "content-encoding", "val1", "content-encoding",
+         "val2"}},
+       // Cookie header is not split up by HttpResponseHeaders.
+       {{"cookie", "val1", "cookie", "val2"},
+        {"hello", "bye", "cookie", "val1; val2"}}});
 
   for (size_t i = 0; i < std::size(test_cases); ++i) {
     SCOPED_TRACE(i);
@@ -3446,14 +3442,15 @@ TEST_P(SpdyNetworkTransactionTest, ResponseHeaders) {
     std::string name, value;
     size_t expected_header_index = 0;
     while (headers->EnumerateHeaderLines(&iter, &name, &value)) {
-      ASSERT_LT(expected_header_index, test_cases[i].expected_header_count);
+      ASSERT_LT(expected_header_index,
+                test_cases[i].expected_headers.size() / 2);
       EXPECT_EQ(name,
                 test_cases[i].expected_headers[2 * expected_header_index]);
       EXPECT_EQ(value,
                 test_cases[i].expected_headers[2 * expected_header_index + 1]);
       ++expected_header_index;
     }
-    EXPECT_EQ(expected_header_index, test_cases[i].expected_header_count);
+    EXPECT_EQ(expected_header_index * 2, test_cases[i].expected_headers.size());
   }
 }
 
@@ -3461,10 +3458,13 @@ TEST_P(SpdyNetworkTransactionTest, ResponseHeaders) {
 TEST_P(SpdyNetworkTransactionTest, InvalidResponseHeaders) {
   struct InvalidResponseHeadersTests {
     std::vector<std::string_view> headers;
-  } test_cases[] = {// Response headers missing status header
-                    {{"cookie", "val1", "cookie", "val2"}},
-                    // Response headers with no headers
-                    {{}}};
+  };
+
+  auto test_cases = std::to_array<InvalidResponseHeadersTests>(
+      {// Response headers missing status header
+       {{"cookie", "val1", "cookie", "val2"}},
+       // Response headers with no headers
+       {{}}});
 
   for (size_t i = 0; i < std::size(test_cases); ++i) {
     SCOPED_TRACE(i);
@@ -3512,9 +3512,11 @@ TEST_P(SpdyNetworkTransactionTest, CorruptFrameSessionError) {
   size_t wrong_size = right_size - 4;
   spdy::test::SetFrameLength(&reply_wrong_length, wrong_size);
 
+  std::string_view reply_wrong_length_view(reply_wrong_length);
   MockRead reads[] = {
-      MockRead(ASYNC, reply_wrong_length.data(), reply_wrong_length.size() - 4,
-               1),
+      MockRead(
+          ASYNC, 1,
+          reply_wrong_length_view.substr(0, reply_wrong_length.size() - 4)),
   };
 
   SequencedSocketData data(reads, writes);
@@ -3535,7 +3537,7 @@ TEST_P(SpdyNetworkTransactionTest, GoAwayOnDecompressionFailure) {
   // Read HEADERS with corrupted payload.
   spdy::SpdySerializedFrame resp(spdy_util_.ConstructSpdyGetReply(
       base::span<const std::string_view>(), 1));
-  memset(resp.data() + 12, 0xcf, resp.size() - 12);
+  std::ranges::fill(base::as_writable_byte_span(resp).subspan(12u), 0xcf);
   MockRead reads[] = {CreateMockRead(resp, 1)};
 
   SequencedSocketData data(reads, writes);
@@ -3570,9 +3572,10 @@ TEST_P(SpdyNetworkTransactionTest, GoAwayOnFrameSizeError) {
 TEST_P(SpdyNetworkTransactionTest, WriteError) {
   spdy::SpdySerializedFrame req(spdy_util_.ConstructSpdyGet(
       base::span<const std::string_view>(), 1, LOWEST));
+  std::string_view req_view(req);
   MockWrite writes[] = {
       // We'll write 10 bytes successfully
-      MockWrite(ASYNC, req.data(), 10, 1),
+      MockWrite(ASYNC, 1, req_view.substr(0, 10)),
       // Followed by ERROR!
       MockWrite(ASYNC, ERR_FAILED, 2),
       // Session drains and attempts to write a GOAWAY: Another ERROR!
@@ -3600,7 +3603,8 @@ TEST_P(SpdyNetworkTransactionTest, PartialWrite) {
   spdy::SpdySerializedFrame req(spdy_util_.ConstructSpdyGet(
       base::span<const std::string_view>(), 1, LOWEST));
   const size_t kChunks = 5u;
-  std::unique_ptr<MockWrite[]> writes = ChopWriteFrame(req, kChunks);
+  std::vector<MockWrite> writes = ChopWriteFrame(req, kChunks);
+  ASSERT_EQ(kChunks, writes.size());
   for (size_t i = 0; i < kChunks; ++i) {
     writes[i].sequence_number = i;
   }
@@ -3613,7 +3617,7 @@ TEST_P(SpdyNetworkTransactionTest, PartialWrite) {
       MockRead(ASYNC, 0, kChunks + 2)  // EOF
   };
 
-  SequencedSocketData data(reads, base::span(writes.get(), kChunks));
+  SequencedSocketData data(reads, writes);
   NormalSpdyTransactionHelper helper(request_, DEFAULT_PRIORITY, log_, nullptr);
   helper.RunToCompletion(&data);
   TransactionHelperResult out = helper.output();
@@ -4253,14 +4257,15 @@ TEST_P(SpdyNetworkTransactionTest, GracefulGoaway) {
                      SocketTag(), NetworkAnonymizationKey(),
                      SecureDnsPolicy::kAllow,
                      /*disable_cert_verification_network_fetches=*/false);
-  EXPECT_TRUE(
-      spdy_session_pool->HasAvailableSession(key,
-                                             /*enable_ip_based_pooling=*/true,
-                                             /*is_websocket=*/false));
+  EXPECT_TRUE(spdy_session_pool->HasAvailableSession(
+      key,
+      /*enable_ip_based_pooling_for_h2=*/true,
+      /*is_websocket=*/false));
   base::WeakPtr<SpdySession> spdy_session =
-      spdy_session_pool->FindAvailableSession(key,
-                                              /*enable_ip_based_pooling=*/true,
-                                              /*is_websocket=*/false, log_);
+      spdy_session_pool->FindAvailableSession(
+          key,
+          /*enable_ip_based_pooling_for_h2=*/true,
+          /*is_websocket=*/false, log_);
   EXPECT_TRUE(spdy_session);
 
   // Start second transaction.
@@ -4292,12 +4297,12 @@ TEST_P(SpdyNetworkTransactionTest, GracefulGoaway) {
   EXPECT_EQ("hello!", response_data);
 
   // Graceful GOAWAY was received, SpdySession should be unavailable.
-  EXPECT_FALSE(
-      spdy_session_pool->HasAvailableSession(key,
-                                             /*enable_ip_based_pooling=*/true,
-                                             /*is_websocket=*/false));
+  EXPECT_FALSE(spdy_session_pool->HasAvailableSession(
+      key,
+      /*enable_ip_based_pooling_for_h2=*/true,
+      /*is_websocket=*/false));
   spdy_session = spdy_session_pool->FindAvailableSession(
-      key, /* enable_ip_based_pooling = */ true,
+      key, /* enable_ip_based_pooling_for_h2 = */ true,
       /* is_websocket = */ false, log_);
   EXPECT_FALSE(spdy_session);
 
@@ -4481,8 +4486,8 @@ TEST_P(SpdyNetworkTransactionTest,
   const NetworkIsolationKey kNetworkIsolationKey1(kSite1, kSite1);
   const NetworkIsolationKey kNetworkIsolationKey2(kSite2, kSite2);
 
-  const NetworkIsolationKey kNetworkIsolationKeys[] = {
-      kNetworkIsolationKey1, kNetworkIsolationKey2, NetworkIsolationKey()};
+  const auto kNetworkIsolationKeys = std::to_array(
+      {kNetworkIsolationKey1, kNetworkIsolationKey2, NetworkIsolationKey()});
 
   base::test::ScopedFeatureList feature_list;
   // Need to partition connections by NetworkAnonymizationKey for
@@ -4695,11 +4700,11 @@ TEST_P(SpdyNetworkTransactionTest,
   const NetworkIsolationKey kNetworkIsolationKey1(kSite1, kSite1);
   const NetworkIsolationKey kNetworkIsolationKey2(kSite2, kSite2);
 
-  const NetworkAnonymizationKey kNetworkAnonymizationKeys[] = {
-      kNetworkAnonymizationKey1, kNetworkAnonymizationKey2,
-      NetworkAnonymizationKey()};
-  const NetworkIsolationKey kNetworkIsolationKeys[] = {
-      kNetworkIsolationKey1, kNetworkIsolationKey2, NetworkIsolationKey()};
+  const auto kNetworkAnonymizationKeys =
+      std::to_array({kNetworkAnonymizationKey1, kNetworkAnonymizationKey2,
+                     NetworkAnonymizationKey()});
+  const auto kNetworkIsolationKeys = std::to_array(
+      {kNetworkIsolationKey1, kNetworkIsolationKey2, NetworkIsolationKey()});
 
   base::test::ScopedFeatureList feature_list;
   // Need to partition connections by NetworkAnonymizationKey for
@@ -5135,14 +5140,14 @@ TEST_P(SpdyNetworkTransactionTest, ProxyConnect) {
   spdy::SpdySerializedFrame body(spdy_util_.ConstructSpdyDataFrame(1, true));
 
   MockWrite writes[] = {
-      MockWrite(SYNCHRONOUS, kConnect443, std::size(kConnect443) - 1, 0),
+      MockWrite(SYNCHRONOUS, 0, base::byte_span_from_cstring(kConnect443)),
       CreateMockWrite(req, 2),
   };
   MockRead reads[] = {
-      MockRead(SYNCHRONOUS, kHTTP200, std::size(kHTTP200) - 1, 1),
+      MockRead(SYNCHRONOUS, 1, base::byte_span_from_cstring(kHTTP200)),
       CreateMockRead(resp, 3),
       CreateMockRead(body, 4),
-      MockRead(ASYNC, nullptr, 0, 5),
+      MockRead(ASYNC, 5, std::string_view()),
   };
   SequencedSocketData data(reads, writes);
 
@@ -5253,11 +5258,11 @@ TEST_P(SpdyNetworkTransactionTest, DirectConnectProxyReconnect) {
   spdy::SpdySerializedFrame body2(spdy_util_2.ConstructSpdyDataFrame(1, true));
 
   MockWrite writes2[] = {
-      MockWrite(SYNCHRONOUS, kConnect443, std::size(kConnect443) - 1, 0),
+      MockWrite(SYNCHRONOUS, 0, base::byte_span_from_cstring(kConnect443)),
       CreateMockWrite(req2, 2),
   };
   MockRead reads2[] = {
-      MockRead(SYNCHRONOUS, kHTTP200, std::size(kHTTP200) - 1, 1),
+      MockRead(SYNCHRONOUS, 1, base::byte_span_from_cstring(kHTTP200)),
       CreateMockRead(resp2, 3), CreateMockRead(body2, 4),
       MockRead(ASYNC, 0, 5)  // EOF
   };
@@ -6850,12 +6855,11 @@ TEST_P(SpdyNetworkTransactionTest, IgnoreUnsupportedOriginFrame) {
   spdy::SpdySerializedFrame resp(spdy_util_.ConstructSpdyGetReply(
       base::span<const std::string_view>(), 1));
   spdy::SpdySerializedFrame body(spdy_util_.ConstructSpdyDataFrame(1, true));
-  MockRead reads[] = {MockRead(ASYNC, origin_frame_on_stream_zero,
-                               std::size(origin_frame_on_stream_zero), 1),
-                      CreateMockRead(resp, 2),
-                      MockRead(ASYNC, origin_frame_on_stream_one,
-                               std::size(origin_frame_on_stream_one), 3),
-                      CreateMockRead(body, 4), MockRead(ASYNC, 0, 5)};
+  MockRead reads[] = {
+      MockRead(ASYNC, 1, base::span(origin_frame_on_stream_zero)),
+      CreateMockRead(resp, 2),
+      MockRead(ASYNC, 3, base::span(origin_frame_on_stream_one)),
+      CreateMockRead(body, 4), MockRead(ASYNC, 0, 5)};
 
   SequencedSocketData data(reads, writes);
   NormalSpdyTransactionHelper helper(request_, DEFAULT_PRIORITY, log_, nullptr);
@@ -7040,7 +7044,7 @@ TEST_P(SpdyNetworkTransactionTest, WebSocketOpensNewConnection) {
                      /*disable_cert_verification_network_fetches=*/false);
   base::WeakPtr<SpdySession> spdy_session =
       helper.session()->spdy_session_pool()->FindAvailableSession(
-          key, /* enable_ip_based_pooling = */ true,
+          key, /* enable_ip_based_pooling_for_h2 = */ true,
           /* is_websocket = */ false, log_);
   ASSERT_TRUE(spdy_session);
   EXPECT_FALSE(spdy_session->support_websocket());
@@ -7189,7 +7193,7 @@ TEST_P(SpdyNetworkTransactionTest,
 
   base::WeakPtr<SpdySession> spdy_session =
       helper.session()->spdy_session_pool()->FindAvailableSession(
-          key, /* enable_ip_based_pooling = */ true,
+          key, /* enable_ip_based_pooling_for_h2 = */ true,
           /* is_websocket = */ false, log_);
   ASSERT_TRUE(spdy_session);
   EXPECT_FALSE(spdy_session->support_websocket());
@@ -7269,7 +7273,7 @@ TEST_P(SpdyNetworkTransactionTest, WebSocketOverHTTP2) {
                      /*disable_cert_verification_network_fetches=*/false);
   base::WeakPtr<SpdySession> spdy_session =
       helper.session()->spdy_session_pool()->FindAvailableSession(
-          key, /* enable_ip_based_pooling = */ true,
+          key, /* enable_ip_based_pooling_for_h2 = */ true,
           /* is_websocket = */ true, log_);
   ASSERT_TRUE(spdy_session);
   EXPECT_TRUE(spdy_session->support_websocket());
@@ -7463,7 +7467,7 @@ TEST_P(SpdyNetworkTransactionTest,
 
   base::WeakPtr<SpdySession> spdy_session =
       helper.session()->spdy_session_pool()->FindAvailableSession(
-          key, /* enable_ip_based_pooling = */ true,
+          key, /* enable_ip_based_pooling_for_h2 = */ true,
           /* is_websocket = */ false, log_);
   ASSERT_TRUE(spdy_session);
   EXPECT_FALSE(spdy_session->support_websocket());
@@ -7577,10 +7581,10 @@ TEST_P(SpdyNetworkTransactionTest,
                       NetworkAnonymizationKey(), SecureDnsPolicy::kAllow,
                       /*disable_cert_verification_network_fetches=*/false);
   EXPECT_TRUE(helper.session()->spdy_session_pool()->HasAvailableSession(
-      key1, /*enable_ip_based_pooling=*/true, /*is_websocket=*/false));
+      key1, /*enable_ip_based_pooling_for_h2=*/true, /*is_websocket=*/false));
   base::WeakPtr<SpdySession> spdy_session1 =
       helper.session()->spdy_session_pool()->FindAvailableSession(
-          key1, /* enable_ip_based_pooling = */ true,
+          key1, /* enable_ip_based_pooling_for_h2 = */ true,
           /* is_websocket = */ false, log_);
   ASSERT_TRUE(spdy_session1);
   EXPECT_TRUE(spdy_session1->support_websocket());
@@ -7595,12 +7599,12 @@ TEST_P(SpdyNetworkTransactionTest,
                       NetworkAnonymizationKey(), SecureDnsPolicy::kAllow,
                       /*disable_cert_verification_network_fetches=*/false);
   EXPECT_TRUE(helper.session()->spdy_session_pool()->HasAvailableSession(
-      key2, /*enable_ip_based_pooling=*/true, /*is_websocket=*/true));
+      key2, /*enable_ip_based_pooling_for_h2=*/true, /*is_websocket=*/true));
   EXPECT_FALSE(helper.session()->spdy_session_pool()->HasAvailableSession(
-      key2, /*enable_ip_based_pooling=*/false, /*is_websocket=*/false));
+      key2, /*enable_ip_based_pooling_for_h2=*/false, /*is_websocket=*/false));
   base::WeakPtr<SpdySession> spdy_session2 =
       helper.session()->spdy_session_pool()->FindAvailableSession(
-          key1, /* enable_ip_based_pooling = */ true,
+          key1, /* enable_ip_based_pooling_for_h2 = */ true,
           /* is_websocket = */ true, log_);
   ASSERT_TRUE(spdy_session2);
   EXPECT_EQ(spdy_session1.get(), spdy_session2.get());
@@ -7742,7 +7746,7 @@ TEST_P(SpdyNetworkTransactionTest,
                       /*disable_cert_verification_network_fetches=*/false);
   base::WeakPtr<SpdySession> spdy_session1 =
       helper.session()->spdy_session_pool()->FindAvailableSession(
-          key1, /* enable_ip_based_pooling = */ true,
+          key1, /* enable_ip_based_pooling_for_h2 = */ true,
           /* is_websocket = */ false, log_);
   ASSERT_TRUE(spdy_session1);
   EXPECT_TRUE(spdy_session1->support_websocket());
@@ -7759,7 +7763,7 @@ TEST_P(SpdyNetworkTransactionTest,
                       /*disable_cert_verification_network_fetches=*/false);
   base::WeakPtr<SpdySession> spdy_session2 =
       helper.session()->spdy_session_pool()->FindAvailableSession(
-          key1, /* enable_ip_based_pooling = */ true,
+          key1, /* enable_ip_based_pooling_for_h2 = */ true,
           /* is_websocket = */ true, log_);
   ASSERT_TRUE(spdy_session2);
   EXPECT_EQ(spdy_session1.get(), spdy_session2.get());
@@ -7907,7 +7911,7 @@ TEST_P(SpdyNetworkTransactionTest, WebSocketHttp11Required) {
                      /*disable_cert_verification_network_fetches=*/false);
   base::WeakPtr<SpdySession> spdy_session =
       helper.session()->spdy_session_pool()->FindAvailableSession(
-          key, /* enable_ip_based_pooling = */ true,
+          key, /* enable_ip_based_pooling_for_h2 = */ true,
           /* is_websocket = */ true, log_);
   ASSERT_TRUE(spdy_session);
   EXPECT_TRUE(spdy_session->support_websocket());
@@ -8131,7 +8135,7 @@ TEST_P(SpdyNetworkTransactionTest, SecureWebSocketOverH2OverH2Proxy) {
       /*disable_cert_verification_network_fetches=*/false);
   base::WeakPtr<SpdySession> spdy_session =
       helper.session()->spdy_session_pool()->FindAvailableSession(
-          key, /* enable_ip_based_pooling = */ true,
+          key, /* enable_ip_based_pooling_for_h2 = */ true,
           /* is_websocket = */ true, log_);
   ASSERT_TRUE(spdy_session);
   EXPECT_TRUE(spdy_session->support_websocket());

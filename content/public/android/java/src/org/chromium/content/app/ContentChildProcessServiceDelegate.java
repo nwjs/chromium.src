@@ -47,9 +47,6 @@ import java.util.List;
 public class ContentChildProcessServiceDelegate implements ChildProcessServiceDelegate {
     private static final String TAG = "ContentCPSDelegate";
 
-    // The binder box passed to us by the browser. May be null.
-    private @Nullable IBinder mBinderBox;
-
     private @Nullable IGpuProcessCallback mGpuCallback;
 
     private int mCpuCount;
@@ -76,9 +73,7 @@ public class ContentChildProcessServiceDelegate implements ChildProcessServiceDe
     }
 
     @Override
-    public void onConnectionSetup(
-            IChildProcessArgs args, List<IBinder> clientInterfaces, IBinder binderBox) {
-        mBinderBox = binderBox;
+    public void onConnectionSetup(IChildProcessArgs args, List<IBinder> clientInterfaces) {
         mGpuCallback =
                 clientInterfaces != null && !clientInterfaces.isEmpty()
                         ? IGpuProcessCallback.Stub.asInterface(clientInterfaces.get(0))
@@ -118,8 +113,7 @@ public class ContentChildProcessServiceDelegate implements ChildProcessServiceDe
         // Now that the library is loaded, get the FD map,
         // TODO(jcivelli): can this be done in onBeforeMain? We would have to mode onBeforeMain
         // so it's called before FDs are registered.
-        ContentChildProcessServiceDelegateJni.get()
-                .retrieveFileDescriptorsIdsToKeys(ContentChildProcessServiceDelegate.this);
+        ContentChildProcessServiceDelegateJni.get().retrieveFileDescriptorsIdsToKeys(this);
     }
 
     @Override
@@ -138,8 +132,7 @@ public class ContentChildProcessServiceDelegate implements ChildProcessServiceDe
 
     @Override
     public void onBeforeMain() {
-        ContentChildProcessServiceDelegateJni.get()
-                .initChildProcess(ContentChildProcessServiceDelegate.this, mCpuCount, mCpuFeatures);
+        ContentChildProcessServiceDelegateJni.get().initChildProcess(this, mCpuCount, mCpuFeatures);
         ThreadUtils.getUiThreadHandler()
                 .post(
                         () -> {
@@ -151,7 +144,6 @@ public class ContentChildProcessServiceDelegate implements ChildProcessServiceDe
 
     @Override
     public void runMain() {
-        ContentMain.setBindersFromParent(mBinderBox);
         ContentMain.start(false);
     }
 
@@ -206,15 +198,14 @@ public class ContentChildProcessServiceDelegate implements ChildProcessServiceDe
          * @param cpuFeatures The CPU features.
          */
         void initChildProcess(
-                ContentChildProcessServiceDelegate caller, int cpuCount, long cpuFeatures);
+                ContentChildProcessServiceDelegate self, int cpuCount, long cpuFeatures);
 
         /**
-         * Initializes the MemoryPressureListener on the same thread callbacks will be
-         * received on.
+         * Initializes the MemoryPressureListener on the same thread callbacks will be received on.
          */
         void initMemoryPressureListener();
 
         // Retrieves the FD IDs to keys map and set it by calling setFileDescriptorsIdsToKeys().
-        void retrieveFileDescriptorsIdsToKeys(ContentChildProcessServiceDelegate caller);
+        void retrieveFileDescriptorsIdsToKeys(ContentChildProcessServiceDelegate self);
     }
 }

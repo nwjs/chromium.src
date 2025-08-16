@@ -50,6 +50,7 @@
 #include "chrome/browser/ui/views/send_tab_to_self/send_tab_to_self_bubble_controller.h"
 #include "chrome/browser/ui/views/user_education/browser_help_bubble.h"
 #include "chrome/grit/branded_strings.h"
+#include "chrome/grit/generated_resources.h"
 #include "components/lens/lens_features.h"
 #include "components/omnibox/browser/autocomplete_input.h"
 #include "components/omnibox/browser/autocomplete_match.h"
@@ -538,6 +539,10 @@ void OmniboxViewViews::SetFocus(bool is_user_initiated) {
   // re-pressed. This occurs even if the omnibox is already focused and we
   // re-request focus (e.g. pressing ctrl-l twice).
   model()->ConsumeCtrlKey();
+}
+
+void OmniboxViewViews::RequestViewFocus() {
+  RequestFocus();
 }
 
 int OmniboxViewViews::GetTextWidth() const {
@@ -1456,6 +1461,14 @@ bool OmniboxViewViews::HandleAccessibleAction(
 void OmniboxViewViews::OnFocus() {
   views::Textfield::OnFocus();
 
+  // If focus is returning from the AIM button, there is no need for any of the
+  // usual bookkeeping, since the omnibox was logically considered to have
+  // retained focus.
+  if (model()->FocusIsReturningFromAimButton()) {
+    model()->SetFocusIsReturningFromAimButton(false);
+    return;
+  }
+
   // TODO(tommycli): This does not seem like it should be necessary.
   // Investigate why it's needed and see if we can remove it.
   model()->ResetDisplayTexts();
@@ -1487,6 +1500,16 @@ void OmniboxViewViews::OnFocus() {
 }
 
 void OmniboxViewViews::OnBlur() {
+  views::Textfield::OnBlur();
+
+  // If focus is going to the AIM button, there is no need for any of the usual
+  // bookkeeping, since the omnibox will logically be considered to have
+  // retained focus.
+  if (model()->FocusIsGoingToAimButton()) {
+    model()->SetFocusIsGoingToAimButton(false);
+    return;
+  }
+
   // Save the user's existing selection to restore it later.
   saved_selection_for_focus_change_ = GetSelectedRange();
 
@@ -1512,7 +1535,6 @@ void OmniboxViewViews::OnBlur() {
     RevertAll();
   }
 
-  views::Textfield::OnBlur();
   model()->OnWillKillFocus();
 
   // If ZeroSuggest is active, and there is evidence that there is a text
@@ -1633,12 +1655,6 @@ std::u16string OmniboxViewViews::GetSelectionClipboardText() const {
 }
 
 void OmniboxViewViews::DoInsertChar(char16_t ch) {
-  // Note: Using `Textfield::GetText()` instead of the `OmniboxView`
-  // implementation because the latter makes full string copies of the former.
-  if (model()->MaybeAccelerateKeywordSelection(Textfield::GetText(), ch)) {
-    return;
-  }
-
   // When the fakebox is focused, ignore whitespace input because if the
   // fakebox is hidden and there's only whitespace in the omnibox, it's
   // difficult for the user to see that the focus moved to the omnibox.

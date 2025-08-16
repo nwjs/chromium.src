@@ -215,9 +215,6 @@ UseCounterMetricsRecorder::GetAllowedUkmFeatures() {
           WebFeature::kHidDeviceOpen,
           WebFeature::kControlledNonBlobURLWorkerWillBeUncontrolled,
           WebFeature::kSameSiteCookieInclusionChangedByCrossSiteRedirect,
-          WebFeature::
-              kBlobStoreAccessAcrossAgentClustersInResolveAsURLLoaderFactory,
-          WebFeature::kBlobStoreAccessAcrossAgentClustersInResolveForNavigation,
           WebFeature::kSearchEventFired,
           WebFeature::kReadOrWriteWebDatabase,
           WebFeature::kExternalProtocolBlockedBySandbox,
@@ -230,7 +227,6 @@ UseCounterMetricsRecorder::GetAllowedUkmFeatures() {
           WebFeature::kWebCodecsVideoFrameFromImage,
           WebFeature::kWebCodecsVideoFrameFromBuffer,
           WebFeature::kPrivateNetworkAccessPreflightWarning,
-          WebFeature::kPrivateNetworkAccessPermissionPrompt,
           WebFeature::kWebBluetoothGetAvailability,
           WebFeature::kCookieHasNotBeenRefreshedIn201To300Days,
           WebFeature::kCookieHasNotBeenRefreshedIn301To350Days,
@@ -473,6 +469,8 @@ UseCounterMetricsRecorder::GetAllowedUkmFeatures() {
           WebFeature::kCredentialManagerStoreFederatedCredential,
           WebFeature::kCredentialManagerGetLegacyFederatedCredential,
           WebFeature::kClearSiteData,
+          WebFeature::kXSLProcessingInstruction,
+          WebFeature::kXSLTProcessor,
           // NOTE: before adding new use counters here, verify in UMA that their
           // emissions are very rare, e.g. <1% of page loads.
       }));

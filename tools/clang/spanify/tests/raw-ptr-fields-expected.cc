@@ -10,23 +10,21 @@
 struct S {
   S(base::span<int> ptr) : ptr_(ptr) {}
   base::span<int> get();
-  // TODO: Currently return type is rewritten to: const base::span<int>
   // Expected rewrite:
   // static inline base::span<const int>
   // SetWrapperInInlineStorage(base::span<int> isolate, int* object);
   template <bool entered_context = true>
-  static inline const base::span<int> SetWrapperInInlineStorage(
+  static inline base::span<const int> SetWrapperInInlineStorage(
       base::span<int> isolate,
       int* object);
   base::raw_span<int> ptr_;
 };
 
-// TODO: Currently return type is rewritten to: const base::span<int>
 // Expected rewrite:
 // base::span<const int> SetWrapperInInlineStorage(base::span<int> isolate, int*
 // object);
 template <bool entered_context>
-const base::span<int> S::SetWrapperInInlineStorage(base::span<int> isolate,
+base::span<const int> S::SetWrapperInInlineStorage(base::span<int> isolate,
                                                    int* object) {
   (void)isolate[0];
   return isolate;
@@ -85,8 +83,8 @@ struct S2 {
 
   int* get_and_advance() {
     // Expected rewrite:
-    // return base::postIncrementSpan(ptr_).data();
-    return base::postIncrementSpan(ptr_).data();
+    // return base::PostIncrementSpan(ptr_).data();
+    return base::PostIncrementSpan(ptr_).data();
   }
 
   // Expected rewrite:

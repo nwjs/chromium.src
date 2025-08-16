@@ -15,7 +15,6 @@ All changes to this list should go through Blink's feature review process: http:
     -webkit-box-reflect
     -webkit-font-smoothing
     -webkit-line-break
-    -webkit-line-clamp
     -webkit-locale
     -webkit-mask-box-image-outset
     -webkit-mask-box-image-repeat
@@ -62,12 +61,7 @@ All changes to this list should go through Blink's feature review process: http:
     animation-range-start
     animation-timeline
     animation-timing-function
-    animation-trigger-exit-range-end
-    animation-trigger-exit-range-start
-    animation-trigger-range-end
-    animation-trigger-range-start
-    animation-trigger-timeline
-    animation-trigger-type
+    animation-trigger
     app-region
     appearance
     aspect-ratio
@@ -167,6 +161,7 @@ All changes to this list should go through Blink's feature review process: http:
     container-type
     content
     content-visibility
+    continue
     corner-bottom-left-shape
     corner-bottom-right-shape
     corner-end-end-shape
@@ -246,8 +241,8 @@ All changes to this list should go through Blink's feature review process: http:
     inset-inline-end
     inset-inline-start
     interactivity
-    interest-target-hide-delay
-    interest-target-show-delay
+    interest-hide-delay
+    interest-show-delay
     interpolate-size
     isolation
     item-tolerance
@@ -258,7 +253,6 @@ All changes to this list should go through Blink's feature review process: http:
     letter-spacing
     lighting-color
     line-break
-    line-clamp
     line-height
     list-style-image
     list-style-position
@@ -290,6 +284,7 @@ All changes to this list should go through Blink's feature review process: http:
     max-block-size
     max-height
     max-inline-size
+    max-lines
     max-width
     min-block-size
     min-height
@@ -442,6 +437,13 @@ All changes to this list should go through Blink's feature review process: http:
     text-wrap-mode
     text-wrap-style
     timeline-scope
+    timeline-trigger-behavior
+    timeline-trigger-exit-range-end
+    timeline-trigger-exit-range-start
+    timeline-trigger-name
+    timeline-trigger-range-end
+    timeline-trigger-range-start
+    timeline-trigger-timeline
     top
     touch-action
     transform
@@ -484,6 +486,9 @@ All changes to this list should go through Blink's feature review process: http:
         break-before
     -webkit-column-break-inside
         break-inside
+    -webkit-line-clamp
+        continue
+        max-lines
     -webkit-mask-box-image
         -webkit-mask-box-image-outset
         -webkit-mask-box-image-repeat
@@ -508,19 +513,6 @@ All changes to this list should go through Blink's feature review process: http:
     animation-range
         animation-range-end
         animation-range-start
-    animation-trigger
-        animation-trigger-exit-range-end
-        animation-trigger-exit-range-start
-        animation-trigger-range-end
-        animation-trigger-range-start
-        animation-trigger-timeline
-        animation-trigger-type
-    animation-trigger-exit-range
-        animation-trigger-exit-range-end
-        animation-trigger-exit-range-start
-    animation-trigger-range
-        animation-trigger-range-end
-        animation-trigger-range-start
     background
         background-attachment
         background-clip
@@ -770,9 +762,12 @@ All changes to this list should go through Blink's feature review process: http:
     inset-inline
         inset-inline-end
         inset-inline-start
-    interest-target-delay
-        interest-target-hide-delay
-        interest-target-show-delay
+    interest-delay
+        interest-hide-delay
+        interest-show-delay
+    line-clamp
+        continue
+        max-lines
     list-style
         list-style-image
         list-style-position
@@ -805,6 +800,11 @@ All changes to this list should go through Blink's feature review process: http:
     mask-position
         -webkit-mask-position-x
         -webkit-mask-position-y
+    masonry
+        grid-template-areas
+        grid-template-columns
+        masonry-direction
+        masonry-fill
     masonry-flow
         masonry-direction
         masonry-fill
@@ -918,6 +918,14 @@ All changes to this list should go through Blink's feature review process: http:
     text-wrap
         text-wrap-mode
         text-wrap-style
+    timeline-trigger
+        timeline-trigger-behavior
+        timeline-trigger-exit-range-end
+        timeline-trigger-exit-range-start
+        timeline-trigger-name
+        timeline-trigger-range-end
+        timeline-trigger-range-start
+        timeline-trigger-timeline
     transition
         transition-behavior
         transition-delay

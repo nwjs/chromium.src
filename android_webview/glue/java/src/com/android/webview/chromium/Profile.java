@@ -18,6 +18,7 @@ import org.chromium.android_webview.AwBrowserContext;
 import org.chromium.android_webview.common.Lifetime;
 import org.chromium.base.ThreadUtils;
 import org.chromium.base.TraceEvent;
+import org.chromium.url.GURL;
 
 import java.util.Set;
 import java.util.concurrent.Executor;
@@ -48,30 +49,32 @@ public class Profile {
             ThreadUtils.checkUiThread();
             mBrowserContext = browserContext;
             mName = browserContext.getName();
-
             WebViewChromiumFactoryProvider factory = WebViewChromiumFactoryProvider.getSingleton();
             if (browserContext.isDefaultAwBrowserContext()) {
-                mCookieManager = factory.getCookieManager();
-                mWebStorage = factory.getWebStorage();
-                mGeolocationPermissions = factory.getGeolocationPermissions();
-                mServiceWorkerController = factory.getServiceWorkerController();
+                mCookieManager = CookieManager.getInstance();
             } else {
                 mCookieManager = new CookieManagerAdapter(browserContext.getCookieManager());
-                mWebStorage =
-                        new WebStorageAdapter(factory, browserContext.getQuotaManagerBridge());
-                mGeolocationPermissions =
-                        new GeolocationPermissionsAdapter(
-                                factory, browserContext.getGeolocationPermissions());
-                mServiceWorkerController =
-                        new ServiceWorkerControllerAdapter(
-                                browserContext.getServiceWorkerController());
             }
+            mWebStorage = new WebStorageAdapter(factory, browserContext.getQuotaManagerBridge());
+            mGeolocationPermissions =
+                    new GeolocationPermissionsAdapter(
+                            factory, browserContext.getGeolocationPermissions());
+            mServiceWorkerController =
+                    new ServiceWorkerControllerAdapter(browserContext.getServiceWorkerController());
         }
+    }
+
+    public AwBrowserContext getBrowserContext() {
+        return mBrowserContext;
     }
 
     @NonNull
     public String getName() {
         return mName;
+    }
+
+    public void preconnect(String url) {
+        mBrowserContext.getPreconnector().preconnect(new GURL(url));
     }
 
     @NonNull
@@ -146,7 +149,7 @@ public class Profile {
 
     @UiThread
     public void cancelPrefetch(int prefetchKey) {
-        // TODO(334016945): do the actual implementation
+        mBrowserContext.getPrefetchManager().cancelPrefetch(prefetchKey);
     }
 
     @UiThread

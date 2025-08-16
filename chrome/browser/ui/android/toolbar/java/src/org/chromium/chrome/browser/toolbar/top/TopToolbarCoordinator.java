@@ -4,7 +4,6 @@
 
 package org.chromium.chrome.browser.toolbar.top;
 
-import android.content.Context;
 import android.graphics.Rect;
 import android.graphics.drawable.Drawable;
 import android.view.View;
@@ -27,6 +26,7 @@ import org.chromium.chrome.browser.browser_controls.BrowserStateBrowserControlsV
 import org.chromium.chrome.browser.device.DeviceClassManager;
 import org.chromium.chrome.browser.feature_engagement.TrackerFactory;
 import org.chromium.chrome.browser.fullscreen.FullscreenManager;
+import org.chromium.chrome.browser.hub.NewTabAnimationUtils;
 import org.chromium.chrome.browser.layouts.LayoutManager;
 import org.chromium.chrome.browser.layouts.LayoutStateProvider;
 import org.chromium.chrome.browser.layouts.LayoutType;
@@ -36,7 +36,6 @@ import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabObscuringHandler;
 import org.chromium.chrome.browser.tabmodel.IncognitoStateProvider;
-import org.chromium.chrome.browser.tabmodel.IncognitoStateProvider.IncognitoStateObserver;
 import org.chromium.chrome.browser.theme.ThemeColorProvider;
 import org.chromium.chrome.browser.theme.TopUiThemeColorProvider;
 import org.chromium.chrome.browser.toolbar.R;
@@ -45,6 +44,7 @@ import org.chromium.chrome.browser.toolbar.ToolbarProgressBar;
 import org.chromium.chrome.browser.toolbar.ToolbarTabController;
 import org.chromium.chrome.browser.toolbar.adaptive.AdaptiveToolbarButtonVariant;
 import org.chromium.chrome.browser.toolbar.back_button.BackButtonCoordinator;
+import org.chromium.chrome.browser.toolbar.extensions.ExtensionToolbarCoordinator;
 import org.chromium.chrome.browser.toolbar.menu_button.MenuButton;
 import org.chromium.chrome.browser.toolbar.menu_button.MenuButtonCoordinator;
 import org.chromium.chrome.browser.toolbar.optional_button.ButtonDataProvider;
@@ -56,11 +56,11 @@ import org.chromium.chrome.browser.toolbar.top.tab_strip.TabStripTransitionCoord
 import org.chromium.chrome.browser.ui.appmenu.AppMenuButtonHelper;
 import org.chromium.chrome.browser.user_education.UserEducationHelper;
 import org.chromium.components.browser_ui.desktop_windowing.DesktopWindowStateManager;
-import org.chromium.components.browser_ui.styles.ChromeColors;
 import org.chromium.components.browser_ui.widget.ClipDrawableProgressBar.DrawingInfo;
 import org.chromium.components.feature_engagement.Tracker;
 import org.chromium.ui.resources.ResourceManager;
 import org.chromium.ui.util.TokenHolder;
+import org.chromium.ui.util.XrUtils;
 
 import java.util.List;
 
@@ -100,9 +100,6 @@ public class TopToolbarCoordinator implements Toolbar {
      */
     private final ToolbarColorObserverManager mToolbarColorObserverManager;
 
-    private @Nullable IncognitoStateProvider mIncognitoStateProvider;
-    private @Nullable IncognitoStateObserver mIncognitoStateObserver;
-
     private final TabObscuringHandler mTabObscuringHandler;
     private final @Nullable DesktopWindowStateManager mDesktopWindowStateManager;
     private final OneshotSupplier<TabStripTransitionDelegate> mTabStripTransitionDelegateSupplier;
@@ -118,8 +115,6 @@ public class TopToolbarCoordinator implements Toolbar {
     /**
      * Creates a new {@link TopToolbarCoordinator}.
      *
-     * @param reloadButtonCoordinator Component that encapsulates interactions with a reload button.
-     *     It only presents on tablet.
      * @param controlContainer The {@link ToolbarControlContainer} for the containing activity.
      * @param toolbarLayout The {@link ToolbarLayout}.
      * @param toolbarDataProvider The provider for toolbar data.
@@ -129,6 +124,8 @@ public class TopToolbarCoordinator implements Toolbar {
      *     browsing mode toolbar.
      * @param layoutStateProviderSupplier Supplier of the {@link LayoutStateProvider}.
      * @param normalThemeColorProvider The {@link ThemeColorProvider} for normal mode.
+     * @param incognitoStateProvider The {@link IncognitoStateProvider} for observering incognito
+     *     state.
      * @param browsingModeMenuButtonCoordinator Root component for app menu.
      * @param appMenuButtonHelperSupplier For specific handling of the app menu button.
      * @param tabCountSupplier Supplier of {@link
@@ -162,6 +159,7 @@ public class TopToolbarCoordinator implements Toolbar {
             List<ButtonDataProvider> buttonDataProviders,
             OneshotSupplier<LayoutStateProvider> layoutStateProviderSupplier,
             ThemeColorProvider normalThemeColorProvider,
+            IncognitoStateProvider incognitoStateProvider,
             MenuButtonCoordinator browsingModeMenuButtonCoordinator,
             ObservableSupplier<AppMenuButtonHelper> appMenuButtonHelperSupplier,
             ToggleTabStackButtonCoordinator tabSwitcherButtonCoordinator,
@@ -184,7 +182,8 @@ public class TopToolbarCoordinator implements Toolbar {
             ObservableSupplier<@Nullable Tab> tabSupplier,
             ObservableSupplier<Boolean> toolbarNavControlsEnabledSupplier,
             @Nullable BackButtonCoordinator backButtonCoordinator,
-            @Nullable HomeButtonDisplay homeButtonDisplay) {
+            @Nullable HomeButtonDisplay homeButtonDisplay,
+            @Nullable ExtensionToolbarCoordinator extensionToolbarCoordinator) {
         mToolbarLayout = toolbarLayout;
         mMenuButtonCoordinator = browsingModeMenuButtonCoordinator;
         mControlContainer = controlContainer;
@@ -249,8 +248,10 @@ public class TopToolbarCoordinator implements Toolbar {
                 progressBar,
                 mReloadButtonCoordinator,
                 mBackButtonCoordinator,
-                homeButtonDisplay);
-        mToolbarLayout.setThemeColorProvider(normalThemeColorProvider);
+                homeButtonDisplay,
+                extensionToolbarCoordinator,
+                normalThemeColorProvider,
+                incognitoStateProvider);
         mAppMenuButtonHelperSupplier = appMenuButtonHelperSupplier;
         new OneShotCallback<>(mAppMenuButtonHelperSupplier, this::setAppMenuButtonHelper);
         homepageEnabledSupplier.addObserver(
@@ -312,7 +313,15 @@ public class TopToolbarCoordinator implements Toolbar {
 
         // If fullscreen is disabled, don't bother creating this overlay; only the android view will
         // ever be shown.
-        if (DeviceClassManager.enableFullscreen()) {
+        // TODO: Without the overlay, the toolbar will somehow have a 1 pixel transparent border
+        // which will become a visible artifact when the web contents background has a big
+        // difference with the toolbar background color defined by system color theme. So we still
+        // enable the overlay on XR devices. See https://crbug.com/377982076.
+        if (DeviceClassManager.enableFullscreen() || XrUtils.isXrDevice()) {
+            int layoutsToShowOn = LayoutType.BROWSING | LayoutType.TAB_SWITCHER;
+            if (!NewTabAnimationUtils.isNewTabAnimationEnabled()) {
+                layoutsToShowOn |= LayoutType.SIMPLE_ANIMATION;
+            }
             mOverlayCoordinator =
                     new TopToolbarOverlayCoordinator(
                             mToolbarLayout.getContext(),
@@ -324,9 +333,7 @@ public class TopToolbarCoordinator implements Toolbar {
                             topUiThemeColorProvider,
                             bottomToolbarControlsOffsetSupplier,
                             suppressToolbarSceneLayerSupplier,
-                            LayoutType.BROWSING
-                                    | LayoutType.SIMPLE_ANIMATION
-                                    | LayoutType.TAB_SWITCHER,
+                            layoutsToShowOn,
                             /* isVisibilityManuallyControlled= */ false,
                             captureResourceIdSupplier);
             layoutManager.addSceneOverlay(mOverlayCoordinator);
@@ -421,7 +428,6 @@ public class TopToolbarCoordinator implements Toolbar {
             mTabStripTransitionCoordinator.destroy();
             mTabStripTransitionCoordinator = null;
         }
-        cleanUpIncognitoStateObserver();
     }
 
     /**
@@ -654,30 +660,6 @@ public class TopToolbarCoordinator implements Toolbar {
     }
 
     /**
-     * @param provider The provider used to determine incognito state.
-     * @param overviewColorSupplier Optional override for toolbar color, otherwise it is derived
-     *     from incognito state.
-     */
-    public void setIncognitoStateProvider(
-            IncognitoStateProvider provider,
-            @Nullable ObservableSupplier<Integer> overviewColorSupplier) {
-        if (overviewColorSupplier == null) {
-            assert mToolbarLayout != null;
-            cleanUpIncognitoStateObserver();
-            ObservableSupplierImpl<Integer> supplierImpl = new ObservableSupplierImpl<>();
-            Context context = mToolbarLayout.getContext();
-            mIncognitoStateObserver =
-                    (boolean isIncognito) -> {
-                        @ColorInt
-                        int color = ChromeColors.getPrimaryBackgroundColor(context, isIncognito);
-                        supplierImpl.set(color);
-                    };
-            mIncognitoStateProvider = provider;
-            provider.addIncognitoStateObserverAndTrigger(mIncognitoStateObserver);
-        }
-    }
-
-    /**
      * Gives inheriting classes the chance to update themselves based on default search engine
      * changes.
      */
@@ -738,17 +720,23 @@ public class TopToolbarCoordinator implements Toolbar {
         return mToolbarLayout.getLocationBar();
     }
 
-    private void cleanUpIncognitoStateObserver() {
-        if (mIncognitoStateProvider != null && mIncognitoStateObserver != null) {
-            mIncognitoStateProvider.removeObserver(mIncognitoStateObserver);
-            mIncognitoStateProvider = null;
-            mIncognitoStateObserver = null;
-        }
-    }
-
     @Override
     public int getHeight() {
         return mToolbarLayout.getHeight();
+    }
+
+    /**
+     * Sets the id of a view after which the toolbar should be visited in accessibility traversal.
+     *
+     * @param viewId The view id which the toolbar should be traversed after.
+     */
+    public void setAccessibilityTraversalAfter(int viewId) {
+        mToolbarLayout.setAccessibilityTraversalAfter(viewId);
+    }
+
+    /** Gets the id of a view after which the toolbar is visited in accessibility traversal. */
+    public int getAccessibilityTraversalAfter() {
+        return mToolbarLayout.getAccessibilityTraversalAfter();
     }
 
     /** Returns the {@link OptionalBrowsingModeButtonController}. */

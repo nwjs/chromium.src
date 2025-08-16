@@ -887,14 +887,6 @@ class IntegrationTest : public ::testing::Test {
     test_commands_->InstallEnterpriseCompanionApp();
   }
 
-  void InstallBrokenEnterpriseCompanionApp() {
-    test_commands_->InstallBrokenEnterpriseCompanionApp();
-  }
-
-  void UninstallBrokenEnterpriseCompanionApp() {
-    test_commands_->UninstallBrokenEnterpriseCompanionApp();
-  }
-
   void InstallEnterpriseCompanionAppOverrides(
       const base::Value::Dict& external_overrides) {
     test_commands_->InstallEnterpriseCompanionAppOverrides(external_overrides);
@@ -1121,6 +1113,7 @@ TEST_P(IntegrationLowerVersionTest, ForceInstallBrokenAndInstallUpdaterAndApp) {
   ASSERT_NO_FATAL_FAILURE(Uninstall());
 
   // Cleanup the broken older version by reinstalling and uninstalling.
+  ExpectInstallEvent(test_server, kUpdaterAppId);
   ASSERT_NO_FATAL_FAILURE(SetupRealUpdater(GetParam().updater_setup_path));
   ASSERT_TRUE(WaitForUpdaterExit());
   ASSERT_NO_FATAL_FAILURE(Install());
@@ -2059,6 +2052,9 @@ TEST_P(IntegrationSansInstallIdTest, Test) {
                  << GetParam().updater_setup_path << " is not valid";
   }
 
+  ASSERT_NO_FATAL_FAILURE(SetupRealUpdater(GetParam().updater_setup_path));
+  ASSERT_TRUE(WaitForUpdaterExit());
+
   ScopedServer test_server(test_commands_);
   const std::string kAppId("test");
 
@@ -2073,7 +2069,7 @@ TEST_P(IntegrationSansInstallIdTest, Test) {
       /*verify_app_logo_loaded=*/false, /*expect_success=*/true,
       /*wait_for_the_installer=*/true,
       /*expected_exit_code=*/{},
-      /*additional_switches=*/{}, GetParam().updater_setup_path));
+      /*additional_switches=*/{}));
 
   ASSERT_NO_FATAL_FAILURE(ExpectUninstallPing(&test_server));
 
@@ -2285,6 +2281,7 @@ TEST_F(IntegrationTest, RotateLog) {
 TEST_P(IntegrationLowerVersionTest, SelfUpdateFromOldReal) {
   ScopedServer test_server(test_commands_);
 
+  ExpectInstallEvent(test_server, kUpdaterAppId);
   ASSERT_NO_FATAL_FAILURE(SetupRealUpdater(GetParam().updater_setup_path));
   ASSERT_NO_FATAL_FAILURE(ExpectVersionNotActive(kUpdaterVersion));
 
@@ -2313,6 +2310,7 @@ TEST_P(IntegrationLowerVersionTest, SelfUpdateFromOldReal) {
 TEST_P(IntegrationLowerVersionTest, UninstallIfUnusedSelfAndOldReal) {
   ScopedServer test_server(test_commands_);
 
+  ExpectInstallEvent(test_server, kUpdaterAppId);
   ASSERT_NO_FATAL_FAILURE(SetupRealUpdater(GetParam().updater_setup_path));
   ASSERT_NO_FATAL_FAILURE(ExpectVersionNotActive(kUpdaterVersion));
 
@@ -2624,16 +2622,6 @@ class IntegrationTestDeviceManagement : public IntegrationTest {
 #endif  // BUILDFLAG(IS_WIN)
   }
 
-  // It is difficult to create a valid app registration when installing the
-  // broken enterprise companion app, especially before the updater is
-  // installed. Instead, provide the 'do nothing' CRX for the OTA installation.
-  void ExpectBrokenEnterpriseCompanionAppOTAInstallSequence() {
-    ASSERT_NO_FATAL_FAILURE(ExpectInstallSequence(
-        test_server_.get(), enterprise_companion::kCompanionAppId,
-        /*install_data_index=*/{}, UpdateService::Priority::kForeground,
-        base::Version({0, 0, 0, 0}), base::Version({0, 1, 0, 0})));
-  }
-
   std::unique_ptr<ScopedServer> test_server_;
   // A test server that is not configured with any expectations or interesting
   // responses. This is useful for providing addresses to the enterprise
@@ -2731,7 +2719,6 @@ TEST_F(IntegrationTestDeviceManagement,
   ASSERT_NO_FATAL_FAILURE(InstallAppViaService(kApp1.appid));
   ASSERT_NO_FATAL_FAILURE(ExpectRegistered(kApp1.appid));
   ASSERT_NO_FATAL_FAILURE(ExpectUninstallPing(test_server_.get()));
-  ASSERT_NO_FATAL_FAILURE(UninstallBrokenEnterpriseCompanionApp());
   ASSERT_NO_FATAL_FAILURE(Uninstall());
 }
 
@@ -2764,7 +2751,6 @@ TEST_F(IntegrationTestDeviceManagement, PolicyFetchFailedButAppUpdatedAnyway) {
 
   ASSERT_NO_FATAL_FAILURE(ExpectAppVersion(kApp1.appid, kApp1.v2));
   ASSERT_NO_FATAL_FAILURE(ExpectUninstallPing(test_server_.get()));
-  ASSERT_NO_FATAL_FAILURE(UninstallBrokenEnterpriseCompanionApp());
   ASSERT_NO_FATAL_FAILURE(Uninstall());
 }
 
@@ -2869,11 +2855,27 @@ TEST_F(IntegrationTestDeviceManagement, QualifyUpdaterWhenUpdateDisabled) {
   // This test depends on the companion app to provide CBCM policies. On macOS
   // the companion app requires a valid ksadmin to install, which the fake
   // updater does not provide.
+  ExpectInstallEvent(*test_server_, kUpdaterAppId);
   ASSERT_NO_FATAL_FAILURE(SetupRealUpdater(
       GetRealUpdaterLowerVersions().back().updater_setup_path));
   // Install an app to ensure that when the real updater is overinstalled, it
   // does not uninstall all updaters due to appearing unused.
+  ExpectInstallEvent(*test_server_, kApp1.appid);
   ASSERT_NO_FATAL_FAILURE(InstallTestApp(kApp1, /*install_v1=*/true));
+
+// Register the companion app, to avoid the qualifying app from registering it
+// for the first time. Once GetRealUpdaterLowerVersions.back() is new enough,
+// the old updater won't send an install ping for the registration and this
+// block can be safely deleted. If this started failing after an autoroll,
+// it's probably time to delete this block.
+#if BUILDFLAG(IS_MAC)
+  ExpectInstallEvent(*test_server_, enterprise_companion::kCompanionAppId);
+  RegistrationRequest registration;
+  registration.app_id = enterprise_companion::kCompanionAppId;
+  registration.version = base::Version("0.0.0.2919");
+  registration.existence_checker_path = base::FilePath::FromUTF8Unsafe("/tmp");
+  ASSERT_NO_FATAL_FAILURE(test_commands_->RegisterApp(registration));
+#endif
 
   ASSERT_NO_FATAL_FAILURE(Install());
   ASSERT_NO_FATAL_FAILURE(ExpectInstalled());
@@ -2919,11 +2921,27 @@ TEST_F(IntegrationTestDeviceManagement,
   // This test depends on the companion app to provide CBCM policies. On macOS
   // the companion app requires a valid ksadmin to install, which the fake
   // updater does not provide.
+  ExpectInstallEvent(*test_server_, kUpdaterAppId);
   ASSERT_NO_FATAL_FAILURE(SetupRealUpdater(
       GetRealUpdaterLowerVersions().back().updater_setup_path));
   // Install an app to ensure that when the real updater is overinstalled, it
   // does not uninstall all updaters due to appearing unused.
+  ExpectInstallEvent(*test_server_, kApp1.appid);
   ASSERT_NO_FATAL_FAILURE(InstallTestApp(kApp1, /*install_v1=*/true));
+
+// Register the companion app, to avoid the qualifying app from registering it
+// for the first time. Once GetRealUpdaterLowerVersions.back() is new enough,
+// the old updater won't send an install ping for the registration and this
+// block can be safely deleted. If this started failing after an autoroll,
+// it's probably time to delete this block.
+#if BUILDFLAG(IS_MAC)
+  ExpectInstallEvent(*test_server_, enterprise_companion::kCompanionAppId);
+  RegistrationRequest registration;
+  registration.app_id = enterprise_companion::kCompanionAppId;
+  registration.version = base::Version("0.0.0.2919");
+  registration.existence_checker_path = base::FilePath::FromUTF8Unsafe("/tmp");
+  ASSERT_NO_FATAL_FAILURE(test_commands_->RegisterApp(registration));
+#endif
 
   ASSERT_NO_FATAL_FAILURE(Install());
   ASSERT_NO_FATAL_FAILURE(ExpectInstalled());
@@ -2997,13 +3015,6 @@ TEST_F(IntegrationTestDeviceManagement,
       /*expected_exit_code=*/{},
       /*additional_switches=*/{}));
   ASSERT_TRUE(WaitForUpdaterExit());
-
-#if BUILDFLAG(IS_MAC)
-  // On macOS only, InstallEnterpriseCompanionApp() generates an install event.
-  // This is a quirk of the test helper; when O4 auto-installs the companion
-  // app, it sends an install event on all platforms.
-  ExpectInstallEvent(*test_server_, enterprise_companion::kCompanionAppId);
-#endif
   ASSERT_NO_FATAL_FAILURE(InstallEnterpriseCompanionApp());
 
   // Uninstall ping for the app.
@@ -3330,7 +3341,6 @@ TEST_P(IntegrationTestCloudPolicyOverridesPlatformPolicy, UseCloudPolicy) {
   ASSERT_NO_FATAL_FAILURE(UninstallApp(kApp1.appid));
   ASSERT_NO_FATAL_FAILURE(UninstallApp(kApp2.appid));
   ASSERT_NO_FATAL_FAILURE(UninstallApp(kApp3.appid));
-  ASSERT_NO_FATAL_FAILURE(UninstallBrokenEnterpriseCompanionApp());
   ASSERT_NO_FATAL_FAILURE(Uninstall());
 }
 

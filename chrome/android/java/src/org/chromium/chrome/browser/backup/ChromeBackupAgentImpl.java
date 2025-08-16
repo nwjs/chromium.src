@@ -41,7 +41,6 @@ import org.chromium.chrome.browser.profiles.ProfileManager;
 import org.chromium.chrome.browser.signin.services.IdentityServicesProvider;
 import org.chromium.chrome.browser.signin.services.SigninManager;
 import org.chromium.components.prefs.PrefService;
-import org.chromium.components.signin.AccountManagerFacade;
 import org.chromium.components.signin.AccountManagerFacadeProvider;
 import org.chromium.components.signin.AccountUtils;
 import org.chromium.components.signin.base.AccountInfo;
@@ -103,6 +102,7 @@ public class ChromeBackupAgentImpl extends ChromeBackupAgent.Impl {
         RestoreStatus.SIGNIN_TIMED_OUT,
         RestoreStatus.RESTORE_STARTED_NOT_FINISHED,
         RestoreStatus.NO_SIGNED_IN_ACCOUNT_IN_BACKUP,
+        RestoreStatus.ALREADY_SIGNED_IN,
     })
     @Retention(RetentionPolicy.SOURCE)
     public @interface RestoreStatus {
@@ -133,7 +133,10 @@ public class ChromeBackupAgentImpl extends ChromeBackupAgent.Impl {
         // No record found in the backup for the previous signed-in account.
         int NO_SIGNED_IN_ACCOUNT_IN_BACKUP = 9;
 
-        int NUM_ENTRIES = NO_SIGNED_IN_ACCOUNT_IN_BACKUP;
+        // User already signed-in with an account.
+        int ALREADY_SIGNED_IN = 10;
+
+        int NUM_ENTRIES = ALREADY_SIGNED_IN;
     }
 
     // LINT.ThenChange(/tools/metrics/histograms/metadata/android/enums.xml:AndroidRestoreResult)
@@ -558,14 +561,28 @@ public class ChromeBackupAgentImpl extends ChromeBackupAgent.Impl {
             }
         }
 
-        if (signedInAccountInfo != null) {
-            editor.apply();
-            signInAndWaitForResult(signedInAccountInfo);
+        boolean hasPrimaryAccount =
+                PostTask.runSynchronously(
+                        TaskTraits.UI_DEFAULT,
+                        () -> {
+                            Profile profile = ProfileManager.getLastUsedRegularProfile();
+                            return assertNonNull(
+                                            IdentityServicesProvider.get()
+                                                    .getIdentityManager(profile))
+                                    .hasPrimaryAccount(ConsentLevel.SIGNIN);
+                        });
+        if (!hasPrimaryAccount) {
+            if (signedInAccountInfo != null) {
+                editor.apply();
+                signInAndWaitForResult(signedInAccountInfo);
+            } else {
+                // syncAccountInfo must be non-null at this point.
+                assertNonNull(syncAccountInfo);
+                editor.apply();
+                signInAndWaitForResult(syncAccountInfo);
+            }
         } else {
-            // syncAccountInfo must be non-null at this point.
-            assumeNonNull(syncAccountInfo);
-            editor.apply();
-            signInAndWaitForResult(syncAccountInfo);
+            setRestoreStatus(RestoreStatus.ALREADY_SIGNED_IN);
         }
         Log.i(TAG, "Restore complete");
     }
@@ -720,12 +737,18 @@ public class ChromeBackupAgentImpl extends ChromeBackupAgent.Impl {
         PostTask.runSynchronously(
                 TaskTraits.UI_DEFAULT,
                 () -> {
+                    Profile profile = ProfileManager.getLastUsedRegularProfile();
                     SigninManager signinManager =
-                            IdentityServicesProvider.get()
-                                    .getSigninManager(ProfileManager.getLastUsedRegularProfile());
-                    assertNonNull(signinManager);
-                    final AccountManagerFacade accountManagerFacade =
-                            AccountManagerFacadeProvider.getInstance();
+                            assertNonNull(IdentityServicesProvider.get().getSigninManager(profile));
+                    IdentityManager identityManager =
+                            assertNonNull(
+                                    IdentityServicesProvider.get().getIdentityManager(profile));
+                    if (identityManager.hasPrimaryAccount(ConsentLevel.SIGNIN)) {
+                        // This may happen if the user is supervised as they will be signed in via
+                        // {@link SigninChecker}.
+                        callback.onSignInAborted();
+                        return;
+                    }
 
                     Callback<Boolean> accountManagedCallback =
                             (isManaged) -> {
@@ -743,22 +766,7 @@ public class ChromeBackupAgentImpl extends ChromeBackupAgent.Impl {
                                         });
                             };
 
-                    AccountManagerFacade.ChildAccountStatusListener listener =
-                            (isChild, unused) -> {
-                                if (isChild) {
-                                    // TODO(crbug.com/40835324):
-                                    // Pre-AllowSyncOffForChildAccounts, the backup sign-in for
-                                    // child accounts would happen in SigninChecker anyways.
-                                    // Maybe it should be handled by this  class once the
-                                    // feature launches.
-                                    callback.onSignInAborted();
-                                    return;
-                                }
-                                signinManager.isAccountManaged(accountInfo, accountManagedCallback);
-                            };
-
-                    AccountUtils.checkIsSubjectToParentalControls(
-                            accountManagerFacade, getAccounts(), listener);
+                    signinManager.isAccountManaged(accountInfo, accountManagedCallback);
                 });
     }
 
@@ -838,6 +846,6 @@ public class ChromeBackupAgentImpl extends ChromeBackupAgent.Impl {
         // Calls syncer::MigrateGlobalDataTypePrefsToAccount() to migrate global boolean sync prefs
         // to account settings.
         void migrateGlobalDataTypePrefsToAccount(
-                @JniType("PrefService*") PrefService prefService, GaiaId gaiaId);
+                @JniType("PrefService*") PrefService prefService, @JniType("GaiaId") GaiaId gaiaId);
     }
 }

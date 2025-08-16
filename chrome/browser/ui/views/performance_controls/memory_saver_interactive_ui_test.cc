@@ -183,7 +183,7 @@ IN_PROC_BROWSER_TEST_P(MemorySaverDiscardPolicyInteractiveTest,
   base::CallbackListSubscription subscription =
       RecentlyAudibleHelper::FromWebContents(
           browser()->tab_strip_model()->GetWebContentsAt(0))
-          ->RegisterCallbackForTesting(
+          ->RegisterRecentlyAudibleChangedCallback(
               base::BindRepeating(&MemorySaverDiscardPolicyInteractiveTest::
                                       OnRecentlyAudibleCallback,
                                   base::Unretained(this), kFirstTabContents));
@@ -334,11 +334,7 @@ class MemorySaverChipInteractiveTest
 
   auto WaitForPageActionButtonVisible() {
     MultiStep steps;
-    if (IsPageActionMigrationEnabled()) {
-      steps += WaitForPageActionButtonVisible(kActionShowMemorySaverChip);
-    } else {
-      steps += WaitForShow(kMemorySaverChipElementId);
-    }
+    steps += WaitForPageActionButtonVisible(kActionShowMemorySaverChip);
     return steps;
   }
 
@@ -478,6 +474,30 @@ IN_PROC_BROWSER_TEST_P(MemorySaverChipInteractiveTest,
       CheckChipIsExpandedState(false));
 }
 
+// Page Action chip is hidden when omnibox popup is open and shows after the
+// popup is closed
+IN_PROC_BROWSER_TEST_P(MemorySaverChipInteractiveTest,
+                       ChipShowsAfterOmniboxPopupIsClosed) {
+  RunTestSequence(InstrumentTab(kFirstTabContents, 0),
+                  NavigateWebContents(kFirstTabContents, GetURL()),
+                  AddInstrumentedTab(kSecondTabContents, GetURL()),
+                  EnsureNotPresent(kMemorySaverChipElementId),
+                  DiscardAndReloadTab(0, kFirstTabContents),
+                  SelectTab(kTabStripElementId, 1),
+                  EnsureNotPresent(kMemorySaverChipElementId),
+                  SelectTab(kTabStripElementId, 0),
+                  WaitForShow(kMemorySaverChipElementId),
+                  FocusElement(kOmniboxElementId),
+                  // Start typing into the omnibox.
+                  EnterText(kOmniboxElementId, u"query"),
+                  WaitForHide(kMemorySaverChipElementId),
+                  // Clear the input.
+                  SendKeyPress(kOmniboxElementId, ui::VKEY_ESCAPE),
+                  // Exit the editing mode.
+                  SendKeyPress(kOmniboxElementId, ui::VKEY_ESCAPE),
+                  WaitForShow(kMemorySaverChipElementId));
+}
+
 // Page Action chip should only show on discarded non-chrome pages
 IN_PROC_BROWSER_TEST_P(MemorySaverChipInteractiveTest,
                        ChipShowsOnNonChromeSites) {
@@ -490,7 +510,6 @@ IN_PROC_BROWSER_TEST_P(MemorySaverChipInteractiveTest,
   RunTestSequence(InstrumentTab(kFirstTabContents, 0),
                   NavigateWebContents(kFirstTabContents, GetURL()),
                   AddInstrumentedTab(kSecondTabContents,
-
                                      GURL(kDiscardableInternalPage)),
 
                   // Discards tab on non-chrome page
@@ -804,7 +823,7 @@ IN_PROC_BROWSER_TEST_P(MemorySaverImprovedFaviconTreatmentTest,
       discard_ring_treatment_setting = {
           "settings-ui",
           "settings-main",
-          "settings-basic-page",
+          "settings-performance-page-index",
           "settings-performance-page",
           "settings-toggle-button#discardRingTreatmentToggleButton",
           "cr-toggle#control"};

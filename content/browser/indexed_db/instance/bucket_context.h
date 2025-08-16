@@ -9,9 +9,11 @@
 
 #include <list>
 #include <memory>
+#include <optional>
 #include <queue>
 #include <string>
 
+#include "base/auto_reset.h"
 #include "base/containers/flat_map.h"
 #include "base/feature_list.h"
 #include "base/files/file_path.h"
@@ -155,8 +157,12 @@ class CONTENT_EXPORT BucketContext
 
   ~BucketContext() override;
 
-  // True if the backing store is SQLite, or would be SQLite if it existed.
-  bool ShouldUseSqlite() const;
+  // All `BucketContext` instances created during the lifetime of the returned
+  // object will use SQLite iff `use_sqlite` is true.
+  static base::AutoReset<std::optional<bool>> OverrideShouldUseSqliteForTesting(
+      bool use_sqlite);
+
+  bool ShouldUseSqlite() const { return should_use_sqlite_; }
 
   void QueueRunTasks();
 
@@ -341,8 +347,7 @@ class CONTENT_EXPORT BucketContext
         client_state_checker_remote;
   };
 
-  Database* AddDatabase(const std::u16string& name,
-                        std::unique_ptr<Database> database);
+  Database* CreateAndAddDatabase(const std::u16string& name);
 
   void OnHandleCreated();
   void OnHandleDestruction();
@@ -400,6 +405,9 @@ class CONTENT_EXPORT BucketContext
   // Base directory for blobs and backing store files.
   const base::FilePath data_path_;
 
+  // True if the backing store is SQLite, or would be SQLite if it existed.
+  bool should_use_sqlite_ = false;
+
   // True if there are blobs referencing this backing store that are still
   // alive. This is used as closing criteria for this object, see CanClose.
   bool has_blobs_outstanding_ = false;
@@ -416,6 +424,7 @@ class CONTENT_EXPORT BucketContext
   // Databases in the backing store which are already loaded/represented by
   // Database objects. The backing store may have other databases which
   // have not yet been loaded.
+  uint32_t next_database_id_for_locks_ = 0;
   DBMap databases_;
   // This is the refcount for the number of BucketContextHandle's given out for
   // this bucket context using OpenReference. This is used as closing criteria

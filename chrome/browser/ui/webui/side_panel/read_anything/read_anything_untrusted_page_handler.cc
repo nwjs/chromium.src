@@ -97,6 +97,12 @@ namespace {
 constexpr ui::AXMode kReadAnythingAXMode =
     ui::kAXModeWebContentsOnly | ui::AXMode::kHTML;
 
+// The amount of time reading mode should wait after getting the DidStopLoading
+// callback before checking if the current page is a pdf. It's possible to
+// receive the callback for the page before the pdf has finished loading, which
+// results in the last committed origin being invalid.
+constexpr int PDF_LOAD_DELAY_MS = 1000;
+
 #if BUILDFLAG(IS_CHROMEOS)
 
 InstallationState GetInstallationStateFromStatusCode(
@@ -431,6 +437,25 @@ void ReadAnythingUntrustedPageHandler::PrimaryPageChanged() {
 }
 
 void ReadAnythingUntrustedPageHandler::DidStopLoading() {
+  // It's possible for the value of GetLastCommittedOrigin to be invalid when
+  // DidStopLoading is first received, but because of how rapidly the last
+  // committed origin changes, reading mode would never receive the correct
+  // callback from WebContentsObserver, even if it listened for
+  // LastCommittedOrigin change events. Therefore, if the main page is not
+  // recognized as a pdf after the page finishes loading, check again after
+  // a small delay. This will allow PDFs to be more reliably distilled when
+  // they're opened while reading mode is already opened.
+  if (!CheckForPdfContentAfterLoad()) {
+    timer_.Start(
+        FROM_HERE, base::Milliseconds(PDF_LOAD_DELAY_MS),
+        base::BindOnce(
+            base::IgnoreResult(
+                &ReadAnythingUntrustedPageHandler::CheckForPdfContentAfterLoad),
+            base::Unretained(this)));
+  }
+}
+
+bool ReadAnythingUntrustedPageHandler::CheckForPdfContentAfterLoad() {
 #if BUILDFLAG(ENABLE_PDF)
   content::WebContents* main_contents = main_observer_->web_contents();
   if (!chrome_pdf::features::IsOopifPdfEnabled()) {
@@ -442,9 +467,11 @@ void ReadAnythingUntrustedPageHandler::DidStopLoading() {
     // page has finished loaded, call PrimaryPageChanged() again to redistill.
     if (!is_pdf_ && AreInnerContentsPdfContent(inner_contents)) {
       PrimaryPageChanged();
+      return true;
     }
   }
 #endif
+  return false;
 }
 
 void ReadAnythingUntrustedPageHandler::DidUpdateAudioMutingState(bool muted) {
@@ -522,9 +549,23 @@ void ReadAnythingUntrustedPageHandler::GetDependencyParserModel(
 
 #if !BUILDFLAG(IS_CHROMEOS)
 void ReadAnythingUntrustedPageHandler::OnUpdateLanguageStatus(
+    content::BrowserContext* browser_context,
     const std::string& language,
     content::LanguageInstallStatus install_status,
     const std::string& error) {
+  // Language status is profile-dependent so only send the update if the status
+  // is for this profile. Incognito profiles download the language to the main
+  // profile, so we need to always send the language updates for incognito.
+  // Guest profiles don't have matching IDs, so if this profile is a guest and
+  // the profile sending the language status is a guest, then we do send the
+  // status update.
+  Profile* statusProfile = Profile::FromBrowserContext(browser_context);
+  const bool shouldSendGuestStatus =
+      statusProfile->IsGuestSession() && profile_->IsGuestSession();
+  if (!shouldSendGuestStatus && !profile_->IsIncognitoProfile() &&
+      statusProfile->UniqueId() != profile_->UniqueId()) {
+    return;
+  }
   auto voicePackInfo = read_anything::mojom::VoicePackInfo::New();
   voicePackInfo->language = language;
   voicePackInfo->pack_state = VoicePackInstallationState::NewInstallationState(
@@ -536,9 +577,7 @@ void ReadAnythingUntrustedPageHandler::OnExtensionReady(
     content::BrowserContext* browser_context,
     const extensions::Extension* extension) {
   const auto& extensionId =
-      features::IsWasmTtsComponentUpdaterEnabled()
-          ? extension_misc::kComponentUpdaterTTSEngineExtensionId
-          : extension_misc::kTTSEngineExtensionId;
+      extension_misc::kComponentUpdaterTTSEngineExtensionId;
   if (extension->id() != extensionId || extension_installed_) {
     return;
   }
@@ -880,6 +919,7 @@ void ReadAnythingUntrustedPageHandler::SetUpPdfObserver() {
 void ReadAnythingUntrustedPageHandler::OnActiveAXTreeIDChanged() {
   is_pdf_ = false;
   if (!active_) {
+    VLOG(1) << "Sending unknown tree because not active";
     page_->OnActiveAXTreeIDChanged(ui::AXTreeIDUnknown(), ukm::kInvalidSourceId,
                                    /*is_pdf=*/false);
     return;
@@ -889,6 +929,8 @@ void ReadAnythingUntrustedPageHandler::OnActiveAXTreeIDChanged() {
                                        ? pdf_observer_->web_contents()
                                        : main_observer_->web_contents();
   if (!contents) {
+    VLOG(1) << "Sending unknown tree because no contents. Used pdf: "
+            << !!pdf_observer_;
     page_->OnActiveAXTreeIDChanged(ui::AXTreeIDUnknown(), ukm::kInvalidSourceId,
                                    /*is_pdf=*/false);
     return;
@@ -930,6 +972,7 @@ void ReadAnythingUntrustedPageHandler::OnActiveAXTreeIDChanged() {
     contents->ForEachRenderFrameHost([this](content::RenderFrameHost* rfh) {
       if (rfh->GetProcess()->IsPdf()) {
         is_pdf_ = true;
+        VLOG(1) << "Sending pdf tree with id " << rfh->GetAXTreeID();
         page_->OnActiveAXTreeIDChanged(rfh->GetAXTreeID(),
                                        rfh->GetPageUkmSourceId(),
                                        /*is_pdf=*/true);
@@ -940,6 +983,7 @@ void ReadAnythingUntrustedPageHandler::OnActiveAXTreeIDChanged() {
 #endif  // BUILDFLAG(ENABLE_PDF)
 
   content::RenderFrameHost* rfh = contents->GetPrimaryMainFrame();
+  VLOG(1) << "Sending non-pdf tree with id " << rfh->GetAXTreeID();
   page_->OnActiveAXTreeIDChanged(rfh->GetAXTreeID(), rfh->GetPageUkmSourceId(),
                                  /*is_pdf=*/false);
 }

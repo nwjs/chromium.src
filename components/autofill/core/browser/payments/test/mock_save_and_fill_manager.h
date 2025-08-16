@@ -5,6 +5,7 @@
 #ifndef COMPONENTS_AUTOFILL_CORE_BROWSER_PAYMENTS_TEST_MOCK_SAVE_AND_FILL_MANAGER_H_
 #define COMPONENTS_AUTOFILL_CORE_BROWSER_PAYMENTS_TEST_MOCK_SAVE_AND_FILL_MANAGER_H_
 
+#include "components/autofill/core/browser/payments/payments_autofill_client.h"
 #include "components/autofill/core/browser/payments/save_and_fill_manager.h"
 #include "testing/gmock/include/gmock/gmock.h"
 
@@ -15,7 +16,11 @@ class MockSaveAndFillManager : public payments::SaveAndFillManager {
   MockSaveAndFillManager();
   ~MockSaveAndFillManager() override;
 
-  MOCK_METHOD(void, OnDidAcceptCreditCardSaveAndFillSuggestion, (), (override));
+  MOCK_METHOD(void,
+              OnDidAcceptCreditCardSaveAndFillSuggestion,
+              (FillCardCallback fill_card_callback),
+              (override));
+  MOCK_METHOD(bool, IsMaxStrikesLimitReached, (), (override));
 };
 
 }  // namespace autofill

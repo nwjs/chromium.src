@@ -184,7 +184,7 @@
     "linux-libfuzzer-asan-rel": "try/linux-libfuzzer-asan-rel/gn-args.json",
     "linux-rel": "try/linux-rel/gn-args.json",
     "linux-wayland-mutter-rel": "try/linux-wayland-mutter-rel/gn-args.json",
-    "linux-wayland-rel": "try/linux-wayland-rel/gn-args.json",
+    "linux-wayland-weston-rel": "try/linux-wayland-weston-rel/gn-args.json",
     "linux_chromium_asan_rel_ng": "try/linux_chromium_asan_rel_ng/gn-args.json",
     "linux_chromium_compile_dbg_ng": "try/linux_chromium_compile_dbg_ng/gn-args.json",
     "linux_chromium_dbg_ng": "try/linux_chromium_dbg_ng/gn-args.json",

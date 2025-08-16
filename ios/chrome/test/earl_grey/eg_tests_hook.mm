@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/40285824): Remove this and convert code to safer constructs.
+#pragma allow_unsafe_buffers
+#endif
+
 #import <MaterialComponents/MaterialSnackbar.h>
 
 #import "base/command_line.h"
@@ -42,7 +47,6 @@
 #import "ios/chrome/browser/shared/model/browser/browser_list.h"
 #import "ios/chrome/browser/shared/model/browser/browser_list_factory.h"
 #import "ios/chrome/browser/shared/model/profile/profile_ios.h"
-#import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/signin/model/fake_system_identity.h"
 #import "ios/chrome/browser/signin/model/fake_system_identity_manager.h"
 #import "ios/chrome/browser/signin/model/identity_manager_factory.h"
@@ -190,8 +194,7 @@ std::unique_ptr<tab_groups::TabGroupSyncService> CreateTabGroupSyncService(
     ProfileIOS* profile) {
   base::CommandLine* command_line = base::CommandLine::ForCurrentProcess();
 
-  if (!IsTabGroupSyncEnabled() ||
-      !command_line->HasSwitch(test_switches::kEnableFakeTabGroupSyncService)) {
+  if (!command_line->HasSwitch(test_switches::kEnableFakeTabGroupSyncService)) {
     return nullptr;
   }
 

@@ -79,9 +79,11 @@ source_set("impl") {
     "//chrome/browser/task_manager",
     "//chrome/browser/ui/hats",
     "//chrome/browser/ui/prefs",
+    "//chrome/browser/ui/profiles",
     "//chrome/browser/ui/safety_hub",
     "//chrome/browser/ui/search_engines",
     "//chrome/browser/ui/side_search",
+    "//chrome/browser/ui/startup",
     "//chrome/browser/ui/startup:startup_tab",
     "//chrome/browser/ui/toolbar",
     "//chrome/browser/ui/toolbar/chrome_labs",
@@ -105,7 +107,7 @@ source_set("impl") {
     "//components/fingerprinting_protection_filter/common:prefs",
     "//components/history_clusters/core",
     "//components/image_fetcher/core/cache",
-    "//components/invalidation/impl",
+    "//components/invalidation:legacy_topics_cleanup",
     "//components/language/content/browser",
     "//components/language/content/browser/ulp_language_code_locator",
     "//components/language/core/browser",
@@ -156,7 +158,7 @@ source_set("impl") {
   }
 
   if (enable_background_mode) {
-    deps += [ "//chrome/browser/background/extensions:extensions" ]
+    deps += [ "//chrome/browser/background/extensions" ]
   }
 
   if (is_chromeos) {
@@ -291,6 +293,7 @@ source_set("impl") {
     ]
   } else {
     deps += [
+      "//chrome/browser/actor/ui",
       "//chrome/browser/contextual_cueing",
       "//chrome/browser/promos:utils",
       "//chrome/browser/screen_ai:prefs",
@@ -300,10 +303,12 @@ source_set("impl") {
       "//chrome/browser/sharing_hub",
       "//chrome/browser/ui/commerce",
       "//chrome/browser/ui/extensions",
+      "//chrome/browser/ui/performance_controls",
       "//chrome/browser/ui/send_tab_to_self",
       "//chrome/browser/ui/tabs",
       "//chrome/browser/ui/tabs:tab_strip",
       "//chrome/browser/ui/views/side_panel",
+      "//chrome/browser/user_education",
       "//components/headless/policy",
       "//components/live_caption",
       "//components/live_caption:live_translate",
@@ -330,7 +335,7 @@ source_set("impl") {
   }
 
   if (enable_on_device_translation) {
-    deps += [ "//chrome/browser/on_device_translation:prefs" ]
+    deps += [ "//chrome/browser/on_device_translation" ]
   }
 
   if (enterprise_data_controls) {
@@ -354,6 +359,10 @@ source_set("impl") {
       "//chrome/browser/background/glic",
       "//chrome/browser/glic",
     ]
+  }
+
+  if (!is_android && !is_chromeos) {
+    deps += [ "//chrome/browser/ui/startup/default_browser_prompt" ]
   }
 }
 
@@ -461,6 +470,10 @@ source_set("unit_tests") {
   if (!is_android) {
     sources += [ "persistent_renderer_prefs_unittest.cc" ]
   }
+
+  # TODO(crbug.com/40031409): Fix code that adds exit-time destructors and
+  # enable the diagnostic by removing this line.
+  configs += [ "//build/config/compiler:no_exit_time_destructors" ]
 }
 
 if (!is_android) {
@@ -479,6 +492,7 @@ if (!is_android) {
       "//chrome/browser/preloading:prefs",
       "//chrome/browser/search_engines",
       "//chrome/browser/ui",
+      "//chrome/browser/ui/browser_window",
       "//chrome/browser/ui/tabs:tab_strip",
       "//chrome/common:constants",
       "//chrome/common:non_code_constants",

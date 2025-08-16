@@ -802,10 +802,10 @@ void TextControlElement::setMaxLength(int new_value,
                                       ExceptionState& exception_state) {
   int min = minLength();
   if (new_value < 0) {
-    exception_state.ThrowDOMException(DOMExceptionCode::kIndexSizeError,
-                                      "The value provided (" +
-                                          String::Number(new_value) +
-                                          ") is not positive or 0.");
+    exception_state.ThrowDOMException(
+        DOMExceptionCode::kIndexSizeError,
+        StrCat({"The value provided (", String::Number(new_value),
+                ") is not positive or 0."}));
   } else if (min >= 0 && new_value < min) {
     exception_state.ThrowDOMException(
         DOMExceptionCode::kIndexSizeError,
@@ -820,10 +820,10 @@ void TextControlElement::setMinLength(int new_value,
                                       ExceptionState& exception_state) {
   int max = maxLength();
   if (new_value < 0) {
-    exception_state.ThrowDOMException(DOMExceptionCode::kIndexSizeError,
-                                      "The value provided (" +
-                                          String::Number(new_value) +
-                                          ") is not positive or 0.");
+    exception_state.ThrowDOMException(
+        DOMExceptionCode::kIndexSizeError,
+        StrCat({"The value provided (", String::Number(new_value),
+                ") is not positive or 0."}));
   } else if (max >= 0 && new_value > max) {
     exception_state.ThrowDOMException(
         DOMExceptionCode::kIndexSizeError,
@@ -1015,7 +1015,7 @@ void TextControlElement::AppendTextOrBr(const String& value,
   wtf_size_t start = 0;
   while (start < value.length()) {
     wtf_size_t i = value.find('\n', start);
-    if (i == WTF::kNotFound) {
+    if (i == kNotFound) {
       AppendText(value, start, value.length(), container);
       break;
     }
@@ -1336,9 +1336,10 @@ void TextControlElement::CloneNonAttributePropertiesFrom(
   HTMLFormControlElement::CloneNonAttributePropertiesFrom(source, data);
 }
 
-ETextOverflow TextControlElement::ValueForTextOverflow() const {
-  if (GetDocument().FocusedElement() == this)
-    return ETextOverflow::kClip;
+TextOverflowData TextControlElement::ValueForTextOverflow() const {
+  if (GetDocument().FocusedElement() == this) {
+    return TextOverflowData(TextOverflowData::Type::kClip);
+  }
   return ComputedStyleRef().TextOverflow();
 }
 

@@ -89,6 +89,9 @@ class PrerenderHostObserver {
   // True if the PrerenderHost was activated to be the primary page.
   bool was_activated() const;
 
+  // Returns true if the PrerenderHost is reused.
+  bool WasHostReused() const;
+
  private:
   std::unique_ptr<PrerenderHostObserverImpl> impl_;
 };
@@ -209,6 +212,7 @@ class PrerenderTestHelper {
       const std::string& target_hint,
       std::optional<std::string> ruleset_tag = std::nullopt,
       int32_t world_id = ISOLATED_WORLD_ID_GLOBAL);
+  void AddPrerenderUntilScriptAsync(const GURL& url);
 
   void AddPrefetchAsync(const GURL& prefetch_url);
 

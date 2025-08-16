@@ -94,11 +94,9 @@ public class AutofillTestHelper {
                 () -> getPersonalDataManagerForLastUsedProfile().getProfile(guid));
     }
 
-    List<AutofillProfile> getProfilesToSuggest(final boolean includeNameInLabel) {
+    List<AutofillProfile> getProfilesToSuggest() {
         return runOnUiThreadBlocking(
-                () ->
-                        getPersonalDataManagerForLastUsedProfile()
-                                .getProfilesToSuggest(includeNameInLabel));
+                () -> getPersonalDataManagerForLastUsedProfile().getProfilesToSuggest());
     }
 
     List<AutofillProfile> getProfilesForSettings() {
@@ -106,8 +104,15 @@ public class AutofillTestHelper {
                 () -> getPersonalDataManagerForLastUsedProfile().getProfilesForSettings());
     }
 
+    String getProfileDescriptionForEditor(String guid) {
+        return runOnUiThreadBlocking(
+                () ->
+                        getPersonalDataManagerForLastUsedProfile()
+                                .getProfileDescriptionForEditor(guid));
+    }
+
     int getNumberOfProfilesToSuggest() {
-        return getProfilesToSuggest(false).size();
+        return getProfilesToSuggest().size();
     }
 
     int getNumberOfProfilesForSettings() {
@@ -439,6 +444,7 @@ public class AutofillTestHelper {
                 /* obfuscatedLastFourDigits= */ obfuscatedLastFourDigits,
                 /* cvc= */ "",
                 /* issuerId= */ "",
+                /* benefitSource= */ "",
                 /* productTermsUrl= */ null);
     }
 
@@ -476,6 +482,7 @@ public class AutofillTestHelper {
                 /* obfuscatedLastFourDigits= */ obfuscatedLastFourDigits,
                 /* cvc= */ "",
                 /* issuerId= */ "",
+                /* benefitSource= */ "",
                 /* productTermsUrl= */ null);
     }
 

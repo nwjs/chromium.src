@@ -7,10 +7,9 @@ source_set("ui") {
     "bwg_consent_mutator.h",
     "bwg_consent_view_controller.h",
     "bwg_consent_view_controller.mm",
-    "bwg_navigation_controller.h",
-    "bwg_navigation_controller.mm",
-    "bwg_promo_display_handler.h",
-    "bwg_promo_display_handler.mm",
+    "bwg_fre_view_controller_protocol.h",
+    "bwg_fre_wrapper_view_controller.h",
+    "bwg_fre_wrapper_view_controller.mm",
     "bwg_promo_view_controller.h",
     "bwg_promo_view_controller.mm",
     "bwg_promo_view_controller_delegate.h",
@@ -18,31 +17,25 @@ source_set("ui") {
     "bwg_ui_utils.mm",
   ]
   deps = [
-    ":constants",
     "//base",
     "//build:branding_buildflags",
     "//components/feature_engagement/public",
     "//components/feature_engagement/public:feature_constants",
     "//ios/chrome/app/strings:ios_strings_grit",
     "//ios/chrome/browser/intelligence/bwg/metrics",
+    "//ios/chrome/browser/intelligence/bwg/utils:constants",
     "//ios/chrome/browser/promos_manager/model:types",
     "//ios/chrome/browser/promos_manager/ui_bundled:promos",
     "//ios/chrome/browser/shared/ui/symbols",
     "//ios/chrome/browser/shared/ui/util",
+    "//ios/chrome/common:string_util",
     "//ios/chrome/common/ui/colors",
-    "//ios/chrome/common/ui/promo_style",
     "//ios/chrome/common/ui/util",
+    "//ios/public/provider/chrome/browser/font:font_api",
     "//ios/public/provider/chrome/browser/lottie:lottie_animation_api",
   ]
   public_deps = [ ":bwg_lottie_resources" ]
   frameworks = [ "UIKit.framework" ]
-}
-
-source_set("constants") {
-  sources = [
-    "bwg_constants.h",
-    "bwg_constants.mm",
-  ]
 }
 
 bundle_data("bwg_lottie_resources") {

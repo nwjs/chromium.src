@@ -36,7 +36,6 @@
 #import "ios/chrome/browser/shared/public/commands/load_query_commands.h"
 #import "ios/chrome/browser/shared/public/commands/qr_scanner_commands.h"
 #import "ios/chrome/browser/shared/public/commands/settings_commands.h"
-#import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/toolbar/ui_bundled/test/toolbar_test_navigation_manager.h"
 #import "ios/chrome/browser/toolbar/ui_bundled/toolbar_consumer.h"
 #import "ios/chrome/browser/web/model/web_navigation_browser_agent.h"
@@ -91,8 +90,6 @@ class AdaptiveToolbarMediatorTest : public PlatformTest {
     scoped_feature_list_.InitWithFeatures(
         /*enabled_features=*/
         {
-            kTabGroupSync,
-            kTabGroupIndicator,
             data_sharing::features::kDataSharingFeature,
         },
         /*disable_features=*/{});
@@ -565,7 +562,7 @@ TEST_F(AdaptiveToolbarMediatorTest, MenuElementsBackForward) {
 
 // Tests adding a message for a group update while not in a group.
 TEST_F(AdaptiveToolbarMediatorTest, MessageOnNonGroupAtStartup) {
-  CloseAllWebStates(*web_state_list_, WebStateList::CLOSE_NO_FLAGS);
+  CloseAllWebStates(*web_state_list_, WebStateList::ClosingReason::kDefault);
   WebStateListBuilderFromDescription builder(web_state_list_.get());
   ASSERT_TRUE(
       builder.BuildWebStateListFromDescription("| [0 a b] c* [1 d] e f"));
@@ -587,7 +584,7 @@ TEST_F(AdaptiveToolbarMediatorTest, MessageOnNonGroupAtStartup) {
 // Tests adding a message for a group update while not in a group, the backend
 // not being initialized.
 TEST_F(AdaptiveToolbarMediatorTest, MessageOnNonGroupNotInitialized) {
-  CloseAllWebStates(*web_state_list_, WebStateList::CLOSE_NO_FLAGS);
+  CloseAllWebStates(*web_state_list_, WebStateList::ClosingReason::kDefault);
   WebStateListBuilderFromDescription builder(web_state_list_.get());
   ASSERT_TRUE(
       builder.BuildWebStateListFromDescription("| [0 a b] c* [1 d] e f"));
@@ -613,7 +610,7 @@ TEST_F(AdaptiveToolbarMediatorTest, MessageOnNonGroupNotInitialized) {
 // Tests adding a message for a group update while not in a group, receiving the
 // update after startup.
 TEST_F(AdaptiveToolbarMediatorTest, MessageOnNonGroupNotification) {
-  CloseAllWebStates(*web_state_list_, WebStateList::CLOSE_NO_FLAGS);
+  CloseAllWebStates(*web_state_list_, WebStateList::ClosingReason::kDefault);
   WebStateListBuilderFromDescription builder(web_state_list_.get());
   ASSERT_TRUE(
       builder.BuildWebStateListFromDescription("| [0 a b] c* [1 d] e f"));
@@ -639,7 +636,7 @@ TEST_F(AdaptiveToolbarMediatorTest, MessageOnNonGroupNotification) {
 // Tests adding a message for a group update while in a group, receiving the
 // update for this group after startup.
 TEST_F(AdaptiveToolbarMediatorTest, MessageForGroupInGroupNotification) {
-  CloseAllWebStates(*web_state_list_, WebStateList::CLOSE_NO_FLAGS);
+  CloseAllWebStates(*web_state_list_, WebStateList::ClosingReason::kDefault);
   WebStateListBuilderFromDescription builder(web_state_list_.get());
   ASSERT_TRUE(
       builder.BuildWebStateListFromDescription("| [0 a b*] c [1 d] e f"));
@@ -665,7 +662,7 @@ TEST_F(AdaptiveToolbarMediatorTest, MessageForGroupInGroupNotification) {
 // Tests adding a message for a group update while in a group, receiving the
 // update for another group after startup.
 TEST_F(AdaptiveToolbarMediatorTest, MessageForOtherGroupInGroupNotification) {
-  CloseAllWebStates(*web_state_list_, WebStateList::CLOSE_NO_FLAGS);
+  CloseAllWebStates(*web_state_list_, WebStateList::ClosingReason::kDefault);
   WebStateListBuilderFromDescription builder(web_state_list_.get());
   ASSERT_TRUE(
       builder.BuildWebStateListFromDescription("| [0 a b] c [1 d*] e f"));

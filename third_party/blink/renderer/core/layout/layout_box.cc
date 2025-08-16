@@ -361,6 +361,16 @@ LayoutUnit MenuListIntrinsicInlineSize(const HTMLSelectElement& select,
     }
   }
 
+  if (select.IsMultiple()) {
+    // For <select multiple size=1>, we also need to account for the "x
+    // selected" text when 0, 2, or more options are selected. Only
+    // considering the max number of options is probably good enough.
+    max_option_width = std::max(
+        max_option_width,
+        ComputeTextWidth(select.MultipleOptionsSelectedText(select.length()),
+                         style));
+  }
+
   LayoutTheme& theme = LayoutTheme::GetTheme();
   int paddings = theme.PopupInternalPaddingStart(style) +
                  theme.PopupInternalPaddingEnd(box.GetFrame(), style);
@@ -494,6 +504,19 @@ PaintLayerType LayoutBox::LayerTypeRequired() const {
   }
 
   return kNoPaintLayer;
+}
+
+bool LayoutBox::TransformsChangeMayRequireLayout() const {
+  if (!RuntimeEnabledFeatures::CSSAnchorWithTransformsEnabled()) {
+    return false;
+  }
+
+  for (const PhysicalBoxFragment& fragment : PhysicalFragments()) {
+    if (fragment.HasAnchorQueryToPropagate()) {
+      return true;
+    }
+  }
+  return false;
 }
 
 void LayoutBox::WillBeDestroyed() {
@@ -691,6 +714,8 @@ void LayoutBox::StyleDidChange(StyleDifference diff,
       // For some controls, it depends on paddings.
       if (!old_style->BorderSizeEquals(new_style) ||
           diff.BorderRadiusChanged() ||
+          (diff.BorderShapeChanged() &&
+           (new_style.HasBorderShape() || old_style->HasBorderShape())) ||
           (HasControlClip() && !old_style->PaddingEqual(new_style))) {
         SetNeedsPaintPropertyUpdate();
       }
@@ -719,6 +744,11 @@ void LayoutBox::StyleDidChange(StyleDifference diff,
             old_style->BackgroundLayers().Clip()) {
       SetNeedsPaintPropertyUpdate();
     }
+  }
+
+  if (diff.TransformChanged() && TransformsChangeMayRequireLayout()) {
+    SetNeedsLayoutAndFullPaintInvalidation(
+        layout_invalidation_reason::kStyleChange);
   }
 
   // Update the script style map, from the new computed style.
@@ -1120,7 +1150,7 @@ PhysicalBoxStrut LayoutBox::MarginBoxOutsets() const {
 
 LayoutBlock* LayoutBox::GetScrollMarkerGroup() {
   NOT_DESTROYED();
-  if (Style()->ScrollMarkerGroup() == EScrollMarkerGroup::kNone) {
+  if (Style()->ScrollMarkerGroupNone()) {
     return nullptr;
   }
   LayoutBox* content_box = ContentLayoutBox();
@@ -1866,8 +1896,7 @@ bool LayoutBox::MapVisualRectToContainer(
     transform.PostTranslate(offset.left, offset.top);
   }
 
-  bool has_perspective = container_object && container_object->HasLayer() &&
-                         container_object->StyleRef().HasPerspective();
+  bool has_perspective = container_object && container_object->HasPerspective();
   if (has_perspective && container_object != NearestAncestorForElement()) {
     has_perspective = false;
 
@@ -2721,7 +2750,7 @@ void LayoutBox::SetLayoutResult(const LayoutResult* result, wtf_size_t index) {
   const auto& box_fragment =
       To<PhysicalBoxFragment>(result->GetPhysicalFragment());
 
-  if (index != WTF::kNotFound && layout_results_.size() > index) {
+  if (index != kNotFound && layout_results_.size() > index) {
     if (layout_results_.size() > index + 1) {
       // If we have reached the end, remove surplus results from previous
       // layout.

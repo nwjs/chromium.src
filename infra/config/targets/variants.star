@@ -2,7 +2,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-load("//lib/targets.star", "targets")
+load("@chromium-luci//targets.star", "targets")
 
 targets.variant(
     name = "AMD_RADEON_RX_5500_XT",
@@ -258,6 +258,21 @@ targets.variant(
 )
 
 targets.variant(
+    name = "SIM_APPLE_TV_4K_3RD_GENERATION_18_5",
+    identifier = "Apple TV 4K (3rd generation) 18.5",
+    generate_pyl_entry = False,
+    mixins = [
+        "tvos_runtime_cache_18_5",
+    ],
+    args = [
+        "--platform",
+        "Apple TV 4K (3rd generation)",
+        "--version",
+        "18.5",
+    ],
+)
+
+targets.variant(
     name = "SIM_IPAD_AIR_5TH_GEN_17_5",
     identifier = "iPad Air (5th generation) 17.5",
     generate_pyl_entry = False,
@@ -497,17 +512,17 @@ targets.variant(
 )
 
 targets.variant(
-    name = "SIM_IPHONE_15_18_4",
-    identifier = "iPhone 15 18.4",
+    name = "SIM_IPHONE_15_26_0",
+    identifier = "iPhone 15 26.0",
     generate_pyl_entry = False,
     mixins = [
-        "ios_runtime_cache_18_4",
+        "ios_runtime_cache_26_0",
     ],
     args = [
         "--platform",
         "iPhone 15",
         "--version",
-        "18.4",
+        "26.0",
     ],
 )
 

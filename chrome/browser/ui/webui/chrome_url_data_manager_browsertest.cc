@@ -22,9 +22,9 @@
 #include "chrome/common/webui_url_constants.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
+#include "components/collaboration/public/features.h"
 #include "components/enterprise/browser/controller/fake_browser_dm_token_storage.h"
 #include "components/history_clusters/core/features.h"
-#include "components/nacl/common/buildflags.h"
 #include "components/optimization_guide/core/optimization_guide_features.h"
 #include "components/password_manager/core/common/password_manager_features.h"
 #include "components/regional_capabilities/regional_capabilities_switches.h"
@@ -199,6 +199,7 @@ class ChromeURLDataManagerWebUITrustedTypesTest
     enabled_features.push_back(ntp_features::kCustomizeChromeWallpaperSearch);
     enabled_features.push_back(
         optimization_guide::features::kOptimizationGuideModelExecution);
+    enabled_features.push_back(collaboration::features::kCollaborationComments);
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
     enabled_features.push_back(whats_new::kForceEnabled);
@@ -344,6 +345,7 @@ static constexpr const char* const kChromeUrls[] = {
     "chrome://autofill-internals",
     "chrome://bookmarks",
     "chrome://bookmarks-side-panel.top-chrome",
+    "chrome://comments-side-panel.top-chrome",
     "chrome://chrome-urls",
     "chrome://components",
     "chrome://connection-help",
@@ -520,9 +522,6 @@ static constexpr const char* const kChromeUrls[] = {
 #if !BUILDFLAG(IS_MAC)
     "chrome://sandbox",
 #endif  // !BUILDFLAG(IS_MAC)
-#if BUILDFLAG(ENABLE_NACL)
-    "chrome://nacl",
-#endif
 #if !BUILDFLAG(IS_MAC)
     // TODO(crbug.com/40772380): this test is flaky on mac.
     "chrome://bluetooth-internals",

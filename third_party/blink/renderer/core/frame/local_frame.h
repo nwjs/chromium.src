@@ -59,7 +59,6 @@
 #include "third_party/blink/public/mojom/frame/sudden_termination_disabler_type.mojom-blink-forward.h"
 #include "third_party/blink/public/mojom/frame/viewport_intersection_state.mojom-blink.h"
 #include "third_party/blink/public/mojom/input/focus_type.mojom-blink-forward.h"
-#include "third_party/blink/public/mojom/lcp_critical_path_predictor/lcp_critical_path_predictor.mojom-blink.h"
 #include "third_party/blink/public/mojom/link_to_text/link_to_text.mojom-blink-forward.h"
 #include "third_party/blink/public/mojom/loader/pause_subresource_loading_handle.mojom-blink-forward.h"
 #include "third_party/blink/public/mojom/navigation/renderer_content_settings.mojom.h"
@@ -126,7 +125,6 @@ class BoxShadowPaintImageGenerator;
 class ClipPathPaintImageGenerator;
 class Color;
 class ContentCaptureManager;
-class ContextMenuInsetsChangedObserver;
 class CoreProbeSink;
 class Document;
 class Editor;
@@ -378,15 +376,8 @@ class CORE_EXPORT LocalFrame final
   // rect has changed.
   void NotifyVirtualKeyboardOverlayRectObservers(const gfx::Rect&) const;
 
-  void RegisterContextMenuInsetsChangedObserver(
-      ContextMenuInsetsChangedObserver*);
-
-  // Notify observers that the context menu insets have changes. If the passed
-  // rect is empty, the insets should be removed.
-  void NotifyContextMenuInsetsObservers(const gfx::Rect&) const;
-
   // This call will "show interest" in the Element with the provided DOMNodeID,
-  // which is presumed to have an `interesttarget` attribute.
+  // which is presumed to have an `interestfor` attribute.
   void ShowInterestInElement(int) const;
 
   // Bubbles a logical scroll to the parent frame, if one exists. For a local
@@ -900,12 +891,11 @@ class CORE_EXPORT LocalFrame final
 
   // Take a snapshot for relevant scrollers at the beginning of a frame update.
   // https://drafts.csswg.org/scroll-animations-1/#avoiding-cycles
-  void UpdateScrollSnapshots();
-
+  //
   // Each ScrollSnapshotClients has their internal state updated at
   // a specific point in the lifecycle (see call to UpdateSnapshot).
   // Since this call takes place *before* layout, ScrollSnapshotClients also
-  // get an additional opportunity to update their state (see ValidateSnapshot).
+  // get an additional opportunity to update their state (see UpdateSnapshot).
   //
   // The lifecycle update will call this function after style and layout has
   // completed. The function will then go though all clients, and compare the
@@ -917,7 +907,11 @@ class CORE_EXPORT LocalFrame final
   // Returns true if all client states are valid, otherwise returns false.
   //
   // https://github.com/w3c/csswg-drafts/issues/5261
-  bool ValidateScrollSnapshotClients();
+  bool UpdateScrollSnapshotClients();
+  // Separate invocation for UpdateScrollSnapshotClients when called for
+  // ServiceScrollAnimations(). See documentation for
+  // ScrollSnapshotClient::UpdateSnapshotForServiceAnimations().
+  void UpdateScrollSnapshotClientsForServiceAnimations();
 
   void ClearScrollSnapshotClients();
 
@@ -1074,10 +1068,6 @@ class CORE_EXPORT LocalFrame final
   // Keeps track of all the registered VK observers.
   HeapHashSet<WeakMember<VirtualKeyboardOverlayChangedObserver>>
       virtual_keyboard_overlay_changed_observers_;
-
-  // Keeps track of all the registered context menu insets observers.
-  HeapHashSet<WeakMember<ContextMenuInsetsChangedObserver>>
-      context_menu_insets_changed_observers_;
 
   HeapHashSet<WeakMember<WidgetCreationObserver>> widget_creation_observers_;
 

@@ -38,13 +38,10 @@
 #include "chrome/browser/browsing_data/chrome_browsing_data_remover_delegate_factory.h"
 #include "chrome/browser/ui/web_applications/test/isolated_web_app_test_utils.h"
 #include "chrome/browser/web_applications/isolated_web_apps/commands/isolated_web_app_apply_update_command.h"
-#include "chrome/browser/web_applications/isolated_web_apps/isolated_web_app_source.h"
-#include "chrome/browser/web_applications/isolated_web_apps/isolated_web_app_storage_location.h"
 #include "chrome/browser/web_applications/isolated_web_apps/isolated_web_app_trust_checker.h"
 #include "chrome/browser/web_applications/isolated_web_apps/isolated_web_app_update_discovery_task.h"
 #include "chrome/browser/web_applications/isolated_web_apps/isolated_web_app_url_info.h"
 #include "chrome/browser/web_applications/isolated_web_apps/isolation_data.h"
-#include "chrome/browser/web_applications/isolated_web_apps/iwa_identity_validator.h"
 #include "chrome/browser/web_applications/isolated_web_apps/policy/isolated_web_app_installer.h"
 #include "chrome/browser/web_applications/isolated_web_apps/policy/isolated_web_app_policy_constants.h"
 #include "chrome/browser/web_applications/isolated_web_apps/policy/isolated_web_app_policy_manager.h"
@@ -71,7 +68,6 @@
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/common/url_constants.h"
-#include "components/nacl/common/buildflags.h"
 #include "components/web_package/signed_web_bundles/ed25519_public_key.h"
 #include "components/web_package/signed_web_bundles/signed_web_bundle_id.h"
 #include "components/web_package/test_support/signed_web_bundles/ed25519_key_pair.h"
@@ -79,7 +75,9 @@
 #include "components/webapps/browser/uninstall_result_code.h"
 #include "components/webapps/common/web_app_id.h"
 #include "components/webapps/isolated_web_apps/iwa_key_distribution_info_provider.h"
-#include "components/webapps/isolated_web_apps/update_channel.h"
+#include "components/webapps/isolated_web_apps/types/source.h"
+#include "components/webapps/isolated_web_apps/types/storage_location.h"
+#include "components/webapps/isolated_web_apps/types/update_channel.h"
 #include "content/public/common/content_features.h"
 #include "net/http/http_status_code.h"
 #include "services/data_decoder/public/cpp/test_support/in_process_data_decoder.h"
@@ -87,11 +85,6 @@
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "url/origin.h"
-
-#if BUILDFLAG(ENABLE_NACL)
-#include "chrome/browser/nacl_host/nacl_browser_delegate_impl.h"
-#include "components/nacl/browser/nacl_browser.h"
-#endif  // BUILDFLAG(ENABLE_NACL)
 
 namespace web_app {
 namespace {
@@ -190,18 +183,6 @@ class MockCommandScheduler : public WebAppCommandScheduler {
             });
   }
 };
-
-#if BUILDFLAG(ENABLE_NACL)
-class ScopedNaClBrowserDelegate {
- public:
-  ~ScopedNaClBrowserDelegate() { nacl::NaClBrowser::ClearAndDeleteDelegate(); }
-
-  void Init(ProfileManager* profile_manager) {
-    nacl::NaClBrowser::SetDelegate(
-        std::make_unique<NaClBrowserDelegateImpl>(profile_manager));
-  }
-};
-#endif  // BUILDFLAG(ENABLE_NACL)
 
 class IsolatedWebAppUpdateManagerTest : public IsolatedWebAppTest {
  public:
@@ -540,7 +521,9 @@ TEST_F(IsolatedWebAppUpdateManagerUpdateMockTimeTest,
   EXPECT_THAT(
       UpdateDiscoveryLog(),
       UnorderedElementsAre(DictionaryHasValue(
-          "result", base::Value("Success::kUpdateFoundAndDryRunSuccessful"))));
+          "result",
+          base::Value(
+              "Success::kPinnedVersionUpdateFoundAndSavedInDatabase"))));
   EXPECT_THAT(UpdateApplyLog(), UnorderedElementsAre(DictionaryHasValue(
                                     "result", base::Value("Success"))));
 
@@ -621,7 +604,8 @@ TEST_F(IsolatedWebAppUpdateManagerUpdateMockTimeTest,
   EXPECT_THAT(
       UpdateDiscoveryLog(),
       UnorderedElementsAre(DictionaryHasValue(
-          "result", base::Value("Error::kUpdateManifestNoApplicableVersion"))));
+          "result",
+          base::Value("Error::kPinnedVersionNotFoundInUpdateManifest"))));
   EXPECT_THAT(UpdateDiscoveryLog(), SizeIs(1));
   EXPECT_THAT(UpdateApplyLog(), IsEmpty());
 }
@@ -650,7 +634,8 @@ TEST_F(IsolatedWebAppUpdateManagerUpdateMockTimeTest,
   EXPECT_THAT(
       UpdateDiscoveryLog(),
       UnorderedElementsAre(DictionaryHasValue(
-          "result", base::Value("Success::kUpdateFoundAndDryRunSuccessful"))));
+          "result",
+          base::Value("Success::kDowngradeVersionFoundAndSavedInDatabase"))));
   EXPECT_THAT(UpdateDiscoveryLog(), SizeIs(1));
   EXPECT_THAT(UpdateApplyLog(), SizeIs(1));
 }

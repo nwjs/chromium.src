@@ -161,7 +161,7 @@ public class TabStripSceneLayerTest {
     @Test
     public void testSetContentTree() {
         mTabStripSceneLayer.setContentTree(mSceneLayer);
-        verify(mTabStripSceneMock).setContentTree(1L, mTabStripSceneLayer, mSceneLayer);
+        verify(mTabStripSceneMock).setContentTree(1L, mSceneLayer);
     }
 
     @Test
@@ -188,15 +188,10 @@ public class TabStripSceneLayerTest {
         // Verify JNI calls.
         verify(mTabStripSceneMock)
                 .beginBuildingFrame(
-                        eq(1L),
-                        eq(mTabStripSceneLayer),
-                        anyBoolean(),
-                        eq(mResourceManager),
-                        eq(mLayerTitleCache));
+                        eq(1L), anyBoolean(), eq(mResourceManager), eq(mLayerTitleCache));
         verify(mTabStripSceneMock)
                 .updateModelSelectorButton(
                         1L,
-                        mTabStripSceneLayer,
                         mModelSelectorButton.getResourceId(),
                         ((TintedCompositorButton) mModelSelectorButton).getBackgroundResourceId(),
                         mModelSelectorButton.getDrawX(),
@@ -213,7 +208,6 @@ public class TabStripSceneLayerTest {
         verify(mTabStripSceneMock)
                 .updateNewTabButton(
                         eq(1L),
-                        eq(mTabStripSceneLayer),
                         /* resourceId= */ anyInt(),
                         /* backgroundResourceId= */ anyInt(),
                         /* x= */ eq(mNewTabButton.getDrawX() * DP_TO_PX),
@@ -229,14 +223,11 @@ public class TabStripSceneLayerTest {
                         /* keyboardFocusRingColor= */ eq(
                                 MaterialColors.getColor(
                                         mContext, R.attr.colorPrimary, /* defaultValue= */ 0)));
-        verify(mTabStripSceneMock)
-                .updateTabStripLeftFade(1L, mTabStripSceneLayer, 0, 0.f, 0, leftPadding);
-        verify(mTabStripSceneMock)
-                .updateTabStripRightFade(1L, mTabStripSceneLayer, 0, 0.f, 0, rightPadding);
+        verify(mTabStripSceneMock).updateTabStripLeftFade(1L, 0, 0.f, 0, leftPadding);
+        verify(mTabStripSceneMock).updateTabStripRightFade(1L, 0, 0.f, 0, rightPadding);
         verify(mTabStripSceneMock)
                 .updateTabStripLayer(
                         eq(1L),
-                        eq(mTabStripSceneLayer),
                         anyInt(),
                         anyInt(),
                         /* yOffset= */ eq(1.f),
@@ -246,7 +237,7 @@ public class TabStripSceneLayerTest {
                         eq(leftPadding),
                         eq(rightPadding),
                         eq(topPadding));
-        verify(mTabStripSceneMock).finishBuildingFrame(1L, mTabStripSceneLayer);
+        verify(mTabStripSceneMock).finishBuildingFrame(1L);
     }
 
     @Test
@@ -256,12 +247,10 @@ public class TabStripSceneLayerTest {
                 mStripLayoutHelperManager,
                 mLayerTitleCache,
                 new StripLayoutTab[] {mStripLayoutTab},
-                0,
-                -1);
+                0);
         verify(mTabStripSceneMock, times(1))
                 .putStripTabLayer(
                         eq(1L),
-                        eq(mTabStripSceneLayer),
                         anyInt(),
                         anyInt(),
                         anyInt(),
@@ -278,6 +267,8 @@ public class TabStripSceneLayerTest {
                         anyBoolean(),
                         eq(false),
                         eq(false),
+                        anyBoolean(),
+                        anyFloat(),
                         anyFloat(),
                         anyFloat(),
                         anyFloat(),
@@ -318,12 +309,10 @@ public class TabStripSceneLayerTest {
                 mStripLayoutHelperManager,
                 mLayerTitleCache,
                 new StripLayoutTab[] {mStripLayoutTab},
-                0,
-                -1);
+                0);
         verify(mTabStripSceneMock, times(1))
                 .putStripTabLayer(
                         eq(1L),
-                        eq(mTabStripSceneLayer),
                         anyInt(),
                         anyInt(),
                         anyInt(),
@@ -340,6 +329,8 @@ public class TabStripSceneLayerTest {
                         anyBoolean(),
                         eq(false),
                         eq(false),
+                        anyBoolean(),
+                        anyFloat(),
                         anyFloat(),
                         anyFloat(),
                         anyFloat(),
@@ -378,12 +369,10 @@ public class TabStripSceneLayerTest {
                 mStripLayoutHelperManager,
                 mLayerTitleCache,
                 new StripLayoutTab[] {mStripLayoutTab},
-                mStripLayoutTab.getTabId(),
-                -1);
+                mStripLayoutTab.getTabId());
         verify(mTabStripSceneMock, times(1))
                 .putStripTabLayer(
                         eq(1L),
-                        eq(mTabStripSceneLayer),
                         anyInt(),
                         anyInt(),
                         anyInt(),
@@ -400,6 +389,8 @@ public class TabStripSceneLayerTest {
                         anyBoolean(),
                         eq(true),
                         eq(false),
+                        anyBoolean(),
+                        anyFloat(),
                         anyFloat(),
                         anyFloat(),
                         anyFloat(),
@@ -439,12 +430,10 @@ public class TabStripSceneLayerTest {
                 mStripLayoutHelperManager,
                 mLayerTitleCache,
                 new StripLayoutTab[] {mStripLayoutTab},
-                0,
-                -1);
+                0);
         verify(mTabStripSceneMock, times(1))
                 .putStripTabLayer(
                         eq(1L),
-                        eq(mTabStripSceneLayer),
                         anyInt(),
                         anyInt(),
                         anyInt(),
@@ -461,6 +450,8 @@ public class TabStripSceneLayerTest {
                         anyBoolean(),
                         eq(false),
                         eq(false),
+                        anyBoolean(),
+                        anyFloat(),
                         anyFloat(),
                         anyFloat(),
                         anyFloat(),
@@ -500,7 +491,6 @@ public class TabStripSceneLayerTest {
         verify(mTabStripSceneMock, times(1))
                 .putGroupIndicatorLayer(
                         eq(1L),
-                        eq(mTabStripSceneLayer),
                         anyBoolean(),
                         anyBoolean(),
                         anyBoolean(),
@@ -541,7 +531,6 @@ public class TabStripSceneLayerTest {
         verify(mTabStripSceneMock, times(1))
                 .updateNewTabButton(
                         eq(1L),
-                        eq(mTabStripSceneLayer),
                         anyInt(),
                         anyInt(),
                         anyFloat(),
@@ -567,7 +556,6 @@ public class TabStripSceneLayerTest {
         verify(mTabStripSceneMock, times(1))
                 .updateModelSelectorButton(
                         eq(1L),
-                        eq(mTabStripSceneLayer),
                         anyInt(),
                         anyInt(),
                         anyFloat(),

@@ -36,9 +36,12 @@
 #include "third_party/blink/renderer/core/html/canvas/canvas_context_creation_attributes_core.h"
 #include "third_party/blink/renderer/core/html/canvas/canvas_image_source.h"
 #include "third_party/blink/renderer/core/html/canvas/html_canvas_element.h"
+#include "third_party/blink/renderer/core/layout/layout_box.h"
+#include "third_party/blink/renderer/core/layout/layout_object.h"
 #include "third_party/blink/renderer/core/workers/worker_global_scope.h"
 #include "third_party/blink/renderer/platform/graphics/static_bitmap_image.h"
 #include "third_party/blink/renderer/platform/weborigin/security_origin.h"
+#include "third_party/blink/renderer/platform/wtf/text/string_builder.h"
 
 namespace blink {
 
@@ -96,11 +99,31 @@ bool CanvasRenderingContext::IsDrawElementEligible(
     return builder.ToString();
   };
 
-  if (element->parentElement() != canvas_element) {
-    exception_state.ThrowTypeError(
-        build_error("Only immediate children of the <canvas> element can be "
-                    "passed to %s."));
-    return false;
+  if (!RuntimeEnabledFeatures::CanvasDrawElementInSubtreeEnabled()) {
+    if (element->parentElement() != canvas_element) {
+      exception_state.ThrowTypeError(
+          build_error("Only immediate children of the <canvas> element can be "
+                      "passed to %s."));
+      return false;
+    }
+  } else {
+    if (!element->IsDescendantOf(canvas_element)) {
+      exception_state.ThrowTypeError(build_error(
+          "Only descendants of the <canvas> element can be passed to %s."));
+      return false;
+    }
+    // TODO(pdr): Update these checks to point to the updated spec. These are
+    // currently copied from element capture, which has similar paint reqs:
+    // https://screen-share.github.io/element-capture/#elements-eligible-for-restriction
+    auto* object = element->GetLayoutObject();
+    if (!object || !object->IsStackingContext() || !object->CreatesGroup() ||
+        !object->IsBox() ||
+        To<LayoutBox>(object)->PhysicalFragmentCount() > 1) {
+      exception_state.ThrowTypeError(
+          build_error("Only elements with certain requirements (stacking "
+                      "context, etc) can be passed to %s."));
+      return false;
+    }
   }
 
   if (!canvas_element->layoutSubtree()) {
@@ -189,9 +212,7 @@ void CanvasRenderingContext::DidProcessTask(
 
   // The end of a script task that drew content to the canvas is the point
   // at which the current frame may be considered complete.
-  if (CanvasRenderingContextHost* host = Host()) [[likely]] {
-    host->PreFinalizeFrame();
-  }
+  PreFinalizeFrame();
   FlushReason reason = did_print_in_current_task_
                            ? FlushReason::kCanvasPushFrameWhilePrinting
                            : FlushReason::kCanvasPushFrame;

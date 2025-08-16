@@ -20,6 +20,7 @@
 #include "content/browser/process_lock.h"
 #include "content/browser/renderer_host/debug_urls.h"
 #include "content/browser/renderer_host/navigation_controller_impl.h"
+#include "content/browser/renderer_host/navigation_throttle_runner.h"
 #include "content/browser/renderer_host/render_frame_host_impl.h"
 #include "content/browser/site_instance_impl.h"
 #include "content/browser/web_contents/web_contents_impl.h"
@@ -2700,22 +2701,24 @@ IN_PROC_BROWSER_TEST_F(NavigationRequestBrowserTest,
   TestNavigationManager manager(shell()->web_contents(), simple_url);
   shell()->LoadURL(simple_url);
   auto* handle = manager.GetNavigationHandle();
-  auto* runner =
-      NavigationRequest::From(handle)->GetNavigationThrottleRunnerForTesting();
+  auto* registry = NavigationRequest::From(handle)
+                     ->GetNavigationThrottleRegistryForTesting();
 
   // The navigation should have been deferred by one of our throttles. Ensure
   // it's the client throttle since we explicitly want test throttles to
   // execute after all others.
   ASSERT_TRUE(handle->IsDeferredForTesting());
   ASSERT_NE(client_throttle, nullptr);
-  EXPECT_EQ(runner->GetDeferringThrottle(), client_throttle);
+  EXPECT_EQ(registry->GetDeferringThrottles().size(), 1u);
+  EXPECT_TRUE(registry->GetDeferringThrottles().contains(client_throttle));
 
   // Now when we resume we should get deferred by the other throttle. This
   // should be the throttle installed via RegisterThrottleForTesting.
   client_throttle->ResumeNavigation();
   ASSERT_TRUE(handle->IsDeferredForTesting());
-  EXPECT_EQ(runner->GetDeferringThrottle(),
-            test_throttle_installer.navigation_throttle());
+  EXPECT_EQ(registry->GetDeferringThrottles().size(), 1u);
+  EXPECT_TRUE(registry->GetDeferringThrottles().contains(
+      test_throttle_installer.navigation_throttle()));
 
   // Finish the navigation.
   test_throttle_installer.navigation_throttle()->ResumeNavigation();
@@ -2908,6 +2911,61 @@ IN_PROC_BROWSER_TEST_F(NavigationRequestBrowserTest,
     }
   }
 }
+
+class NavigationRequestUpdateHistoryBrowserTest
+    : public NavigationRequestBrowserTest,
+      public testing::WithParamInterface<bool> {
+ public:
+  NavigationRequestUpdateHistoryBrowserTest() {
+    const bool should_update_history_for_404_navigations = GetParam();
+    if (should_update_history_for_404_navigations) {
+      scoped_feature_list_.InitAndEnableFeature(
+          blink::features::kVisitedLinksOnErrorNavigation);
+    } else {
+      scoped_feature_list_.InitAndDisableFeature(
+          blink::features::kVisitedLinksOnErrorNavigation);
+    }
+  }
+
+ protected:
+  base::test::ScopedFeatureList scoped_feature_list_;
+};
+
+IN_PROC_BROWSER_TEST_P(NavigationRequestUpdateHistoryBrowserTest,
+                       Reachable404) {
+  ASSERT_EQ(base::FeatureList::IsEnabled(
+                blink::features::kVisitedLinksOnErrorNavigation),
+            GetParam());
+
+  base::RunLoop did_finish_navigation_run_loop;
+  DidFinishNavigationObserver observer(
+      shell()->web_contents(),
+      base::BindLambdaForTesting([&did_finish_navigation_run_loop](
+                                     NavigationHandle* navigation_handle) {
+        ASSERT_EQ(navigation_handle->GetNavigatingFrameType(),
+                  FrameType::kPrimaryMainFrame);
+        ASSERT_TRUE(navigation_handle->GetResponseHeaders());
+        ASSERT_EQ(navigation_handle->GetResponseHeaders()->response_code(),
+                  404);
+        // If `blink::features::kVisitedLinksOnErrorNavigation` is enabled,
+        // history should be updated even for 404 navigations. If disabled,
+        // history should not be updated for navigations resulting in a 404.
+        EXPECT_EQ(navigation_handle->ShouldUpdateHistory(),
+                  base::FeatureList::IsEnabled(
+                      blink::features::kVisitedLinksOnErrorNavigation));
+        did_finish_navigation_run_loop.Quit();
+      }));
+
+  // Navigate to a reachable URL that 404s.
+  ASSERT_TRUE(
+      NavigateToURL(shell(), embedded_test_server()->GetURL("/page404.html")));
+
+  did_finish_navigation_run_loop.Run();
+}
+
+INSTANTIATE_TEST_SUITE_P(All,
+                         NavigationRequestUpdateHistoryBrowserTest,
+                         ::testing::Bool());
 
 IN_PROC_BROWSER_TEST_F(NavigationRequestBrowserTest_IsolateAllSites,
                        StartToCommitMetrics) {
@@ -5180,7 +5238,7 @@ IN_PROC_BROWSER_TEST_F(NavigationRequestBrowserTest,
                 ~network::mojom::WebSandboxFlags::kAutomaticFeatures);
   EXPECT_EQ(
       manager.GetNavigationHandle()->SandboxFlagsInherited(),
-      //`allow-scripts allow-popups`:
+      // `allow-scripts allow-popups`:
       network::mojom::WebSandboxFlags::kAll &
           ~network::mojom::WebSandboxFlags::kScripts &
           ~network::mojom::WebSandboxFlags::kPopups &

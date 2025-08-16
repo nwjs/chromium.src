@@ -27,7 +27,10 @@
 #include "chrome/browser/password_manager/password_change_delegate.h"
 #include "chrome/browser/password_manager/password_change_delegate_mock.h"
 #include "chrome/browser/password_manager/password_change_service_factory.h"
+#include "chrome/browser/ui/hats/hats_service_factory.h"
+#include "chrome/browser/ui/hats/mock_hats_service.h"
 #include "chrome/browser/ui/hats/mock_trust_safety_sentiment_service.h"
+#include "chrome/browser/ui/hats/survey_config.h"
 #include "chrome/browser/ui/hats/trust_safety_sentiment_service_factory.h"
 #include "chrome/browser/ui/passwords/credential_leak_dialog_controller.h"
 #include "chrome/browser/ui/passwords/credential_manager_dialog_controller.h"
@@ -39,6 +42,7 @@
 #include "components/affiliations/core/browser/mock_affiliation_service.h"
 #include "components/device_reauth/device_authenticator.h"
 #include "components/password_manager/core/browser/features/password_features.h"
+#include "components/password_manager/core/browser/leak_detection_dialog_utils.h"
 #include "components/password_manager/core/browser/mock_password_form_manager_for_ui.h"
 #include "components/password_manager/core/browser/move_password_to_account_store_helper.h"
 #include "components/password_manager/core/browser/password_bubble_experiment.h"
@@ -49,6 +53,7 @@
 #include "components/password_manager/core/browser/password_store/interactions_stats.h"
 #include "components/password_manager/core/browser/password_store/mock_password_store_interface.h"
 #include "components/password_manager/core/browser/stub_password_manager_client.h"
+#include "components/password_manager/core/browser/undo_password_change_controller.h"
 #include "components/password_manager/core/common/password_manager_features.h"
 #include "components/password_manager/core/common/password_manager_pref_names.h"
 #include "components/password_manager/core/common/password_manager_ui.h"
@@ -258,7 +263,7 @@ std::unique_ptr<MockPasswordFormManagerForUI> CreateFormManagerWithBestMatches(
   auto form_manager =
       std::make_unique<testing::StrictMock<MockPasswordFormManagerForUI>>();
   EXPECT_CALL(*form_manager, GetBestMatches())
-      .Times(AtMost(2))
+      .Times(AtMost(3))
       .WillRepeatedly(Return(best_matches));
   EXPECT_CALL(*form_manager, GetFederatedMatches())
       .Times(AtMost(2))
@@ -286,9 +291,12 @@ std::unique_ptr<MockPasswordFormManagerForUI> CreateFormManagerWithBestMatches(
 class MockPasswordChangeService : public ChromePasswordChangeService {
  public:
   MockPasswordChangeService()
-      : ChromePasswordChangeService(/*affiliation_service=*/nullptr,
+      : ChromePasswordChangeService(/*pref_service*/ nullptr,
+                                    /*affiliation_service=*/nullptr,
                                     /*optimization_keyed_service=*/nullptr,
-                                    /*feature_manager=*/nullptr) {}
+                                    /*settings_service=*/nullptr,
+                                    /*feature_manager=*/nullptr,
+                                    /*log_router*/ nullptr) {}
 
   MOCK_METHOD(void,
               OfferPasswordChangeUi,
@@ -307,6 +315,10 @@ class MockPasswordChangeService : public ChromePasswordChangeService {
 
 class ManagePasswordsUIControllerTest : public ChromeRenderViewHostTestHarness {
  public:
+  ManagePasswordsUIControllerTest()
+      : ChromeRenderViewHostTestHarness(
+            base::test::TaskEnvironment::TimeSource::MOCK_TIME) {}
+
   void SetUp() override;
 
   TestPasswordManagerClient& client() { return client_; }
@@ -551,6 +563,65 @@ TEST_F(ManagePasswordsUIControllerTest, PasswordSaved) {
   controller()->SavePassword(submitted_form().username_value,
                              submitted_form().password_value);
   ExpectIconAndControllerStateIs(password_manager::ui::MANAGE_STATE);
+  histogram_tester.ExpectTotalCount(
+      "PasswordManager.PasswordChangeRecoveryFlow", 0);
+}
+
+TEST_F(ManagePasswordsUIControllerTest, BackupPasswordSaved) {
+  using UkmEntry = ukm::builders::PasswordManager_ChangeRecovery;
+  base::HistogramTester histogram_tester;
+  ukm::TestAutoSetUkmRecorder test_ukm_recorder;
+  auto* mock_sentiment_service_ = static_cast<MockTrustSafetySentimentService*>(
+      TrustSafetySentimentServiceFactory::GetInstance()
+          ->SetTestingFactoryAndUse(
+              profile(),
+              base::BindRepeating(&BuildMockTrustSafetySentimentService)));
+  EXPECT_CALL(*mock_sentiment_service_, SavedPassword());
+  MockHatsService* mock_hats_service = static_cast<MockHatsService*>(
+      HatsServiceFactory::GetInstance()->SetTestingFactoryAndUse(
+          profile(), base::BindRepeating(&BuildMockHatsService)));
+  EXPECT_CALL(*mock_hats_service, CanShowAnySurvey)
+      .WillRepeatedly(Return(true));
+  const std::u16string backup_password = u"backup";
+  PasswordForm submitted_form;
+  submitted_form.username_value = kExampleUsername;
+  submitted_form.password_value = backup_password;
+  PasswordForm stored_matching_form;
+  stored_matching_form.username_value = kExampleUsername;
+  stored_matching_form.password_value = kExamplePassword;
+  stored_matching_form.SetPasswordBackupNote(backup_password);
+  stored_matching_form.type =
+      password_manager::PasswordForm::Type::kChangeSubmission;
+  auto test_form_manager = CreateFormManagerWithBestMatches(
+      /*best_matches=*/{stored_matching_form}, &submitted_form);
+
+  EXPECT_CALL(*test_form_manager, OnRemovePasswordBackupNote()).Times(1);
+  EXPECT_CALL(*test_form_manager, Save());
+  controller()->OnUpdatePasswordSubmitted(std::move(test_form_manager));
+
+  EXPECT_CALL(*mock_hats_service, LaunchDelayedSurveyForWebContents(
+                                      kHatsSurveyTriggerPasswordChangeDelayed,
+                                      _, _, _, _, _, _, _, _, _));
+  controller()->SavePassword(submitted_form.username_value,
+                             submitted_form.password_value);
+  // Advance the clock to trigger the delayed survey task and wait until it
+  // actually launches.
+  task_environment()->AdvanceClock(base::Seconds(2));
+  task_environment()->RunUntilIdle();
+
+  ExpectIconAndControllerStateIs(password_manager::ui::MANAGE_STATE);
+  histogram_tester.ExpectUniqueSample(
+      "PasswordManager.PasswordChangeRecoveryFlow",
+      password_manager::metrics_util::PasswordChangeRecoveryFlowState::
+          kPrimaryPasswordUpdated,
+      1);
+  auto ukm_entries = test_ukm_recorder.GetEntriesByName(UkmEntry::kEntryName);
+  EXPECT_EQ(1u, ukm_entries.size());
+  ukm::TestUkmRecorder::ExpectEntryMetric(
+      ukm_entries[0], UkmEntry::kPasswordChangeRecoveryFlowName,
+      static_cast<int>(
+          password_manager::metrics_util::PasswordChangeRecoveryFlowState::
+              kPrimaryPasswordUpdated));
 }
 
 TEST_F(ManagePasswordsUIControllerTest, PhishedPasswordUpdated) {
@@ -1600,6 +1671,47 @@ TEST_F(ManagePasswordsUIControllerTest, UpdateBubbleAfterLeakCheck) {
       password_manager::ui::PENDING_PASSWORD_UPDATE_STATE);
 }
 
+// If the leaked password is the backup password of the login credentials, we
+// should not offer password change and instead, we will show the old leak
+// warning dialogue.
+TEST_F(ManagePasswordsUIControllerTest,
+       PasswordChangeDialogueIsSupressedForBackupPassword) {
+  std::vector<PasswordForm> matches = {test_local_form()};
+  auto test_form_manager =
+      CreateFormManagerWithBestMatches(matches, &submitted_form());
+  EXPECT_CALL(*controller(), OnUpdateBubbleAndIconVisibility());
+  controller()->OnUpdatePasswordSubmitted(std::move(test_form_manager));
+  EXPECT_TRUE(controller()->opened_automatic_bubble());
+
+  // Leak detection dialog hides the bubble.
+  auto dialog_prompt = std::make_unique<PasswordLeakDialogMock>();
+  auto* dialog_prompt_ptr = dialog_prompt.get();
+  CredentialLeakDialogController* dialog_controller = nullptr;
+  EXPECT_CALL(*controller(), CreateCredentialLeakPrompt)
+      .WillOnce(DoAll(SaveArg<0>(&dialog_controller),
+                      Return(std::move(dialog_prompt))));
+  EXPECT_CALL(*dialog_prompt_ptr, ShowCredentialLeakPrompt);
+  controller()->OnCredentialLeak(password_manager::LeakedPasswordDetails(
+      password_manager::CreateLeakType(
+          password_manager::IsSaved(true), password_manager::IsReused(false),
+          password_manager::IsSyncing(false),
+          password_manager::HasChangePasswordUrl(true),
+          password_manager::IsSavedAsBackup(true)),
+      GURL(kExampleUrl), kExampleUsername, kExamplePassword,
+      /*in_account_store=*/false));
+  // The bubble is gone.
+  EXPECT_FALSE(controller()->opened_automatic_bubble());
+
+  // Close the dialog.
+  EXPECT_CALL(*controller(), OnUpdateBubbleAndIconVisibility());
+  dialog_controller->OnAcceptDialog();
+
+  // The update bubble is back.
+  EXPECT_TRUE(controller()->opened_automatic_bubble());
+  ExpectIconAndControllerStateIs(
+      password_manager::ui::PENDING_PASSWORD_UPDATE_STATE);
+}
+
 TEST_F(ManagePasswordsUIControllerTest,
        NotifyUnsyncedCredentialsWillBeDeleted) {
   EXPECT_CALL(*controller(), OnUpdateBubbleAndIconVisibility());
@@ -1963,8 +2075,8 @@ TEST_F(ManagePasswordsUIControllerTest, PasswordChangeFinishedSuccessfully) {
   auto test_form_manager =
       CreateFormManagerWithBestMatches(best_matches, &submitted_form());
   controller()->OnPasswordSubmitted(std::move(test_form_manager));
-  ASSERT_EQ(password_manager::ui::PENDING_PASSWORD_STATE,
-            controller()->GetState());
+  ASSERT_EQ(controller()->GetState(),
+            password_manager::ui::PENDING_PASSWORD_STATE);
 
   // Emulate password change flow has started.
   PasswordChangeDelegateMock mock_delegate;
@@ -1973,16 +2085,14 @@ TEST_F(ManagePasswordsUIControllerTest, PasswordChangeFinishedSuccessfully) {
           Return(PasswordChangeDelegate::State::kWaitingForChangePasswordForm));
   EXPECT_CALL(*password_change_service, GetPasswordChangeDelegate)
       .WillOnce(Return(&mock_delegate));
-
-  ASSERT_EQ(password_manager::ui::PENDING_PASSWORD_STATE,
-            controller()->GetState());
+  ASSERT_EQ(controller()->GetState(), password_manager::ui::INACTIVE_STATE);
 
   // Password change flow has finished successfully. The state should change to
   // `MANAGE_STATE`.
   controller()->OnPasswordChangeFinishedSuccessfully();
   EXPECT_CALL(*password_change_service, GetPasswordChangeDelegate)
       .WillOnce(Return(nullptr));
-  ASSERT_EQ(password_manager::ui::MANAGE_STATE, controller()->GetState());
+  ASSERT_EQ(controller()->GetState(), password_manager::ui::MANAGE_STATE);
 }
 
 #if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_CHROMEOS)
@@ -2353,4 +2463,46 @@ TEST_F(ManagePasswordsUIControllerWithBrowserTest,
   // MANAGE_STATE.
   EXPECT_EQ(controller()->GetState(), password_manager::ui::MANAGE_STATE);
   EXPECT_FALSE(controller()->IsAutomaticallyOpeningBubble());
+}
+
+TEST_F(ManagePasswordsUIControllerTest, ShowChangePasswordBubble) {
+  EXPECT_CALL(*controller(), OnUpdateBubbleAndIconVisibility());
+  controller()->ShowChangePasswordBubble(kExampleUsername, kExamplePassword);
+  EXPECT_EQ(controller()->PasswordChangeUsername(), kExampleUsername);
+  EXPECT_EQ(controller()->PasswordChangeNewPassword(), kExamplePassword);
+  EXPECT_TRUE(controller()->opened_automatic_bubble());
+  ExpectIconAndControllerStateIs(password_manager::ui::PASSWORD_CHANGE_STATE);
+
+  EXPECT_CALL(*controller(), OnUpdateBubbleAndIconVisibility());
+  controller()->OnBubbleHidden();
+  ExpectIconAndControllerStateIs(password_manager::ui::INACTIVE_STATE);
+}
+
+TEST_F(ManagePasswordsUIControllerTest,
+       UpdatePasswordBubbleSuppressedDuringPasswordChange) {
+  PasswordChangeServiceFactory::GetInstance()->SetTestingFactory(
+      profile(),
+      base::BindLambdaForTesting([](content::BrowserContext* context)
+                                     -> std::unique_ptr<KeyedService> {
+        return std::make_unique<MockPasswordChangeService>();
+      }));
+  auto* password_change_service = static_cast<MockPasswordChangeService*>(
+      PasswordChangeServiceFactory::GetForProfile(profile()));
+
+  // Emulate password change flow has started.
+  PasswordChangeDelegateMock mock_delegate;
+  EXPECT_CALL(mock_delegate, GetCurrentState)
+      .WillRepeatedly(
+          Return(PasswordChangeDelegate::State::kWaitingForChangePasswordForm));
+  EXPECT_CALL(*password_change_service, GetPasswordChangeDelegate)
+      .WillRepeatedly(Return(&mock_delegate));
+  ASSERT_EQ(controller()->GetState(), password_manager::ui::INACTIVE_STATE);
+
+  // Simulate update password form submitted. Bubble and icon should not be
+  // updated.
+  EXPECT_CALL(*controller(), OnUpdateBubbleAndIconVisibility).Times(0);
+  std::vector<PasswordForm> best_matches;
+  controller()->OnUpdatePasswordSubmitted(
+      CreateFormManagerWithBestMatches(best_matches, &submitted_form()));
+  EXPECT_EQ(controller()->GetState(), password_manager::ui::INACTIVE_STATE);
 }

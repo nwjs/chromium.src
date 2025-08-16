@@ -171,9 +171,29 @@ chromium-metrics-reviews@google.com.
   <int value="6" label="Ambient badge dismissed"/>
 </enum>
 
+<enum name="IsolatedWebAppCleanupBundleCacheError">
+  <int value="0" label="System shutdown"/>
+  <int value="1" label="Could not delete all bundles"/>
+</enum>
+
 <enum name="IsolatedWebAppCleanupOrphanedIWAsError">
   <int value="1" label="Could not delete all orphaned isolated web apps."/>
   <int value="2" label="Skipped execution during system shutdown."/>
+</enum>
+
+<enum name="IsolatedWebAppCopyBundleToCacheError">
+  <int value="0" label="System shutdown"/>
+  <int value="1" label="App not installed"/>
+  <int value="2" label="Not IWA"/>
+  <int value="3" label="Cannot extract owned bundle path"/>
+  <int value="4" label="Failed to create dir"/>
+  <int value="5" label="Failed to copy file"/>
+</enum>
+
+<enum name="IsolatedWebAppGetBundleCachePathError">
+  <int value="0" label="System shutdown"/>
+  <int value="1" label="Provided version not found"/>
+  <int value="2" label="IWA not cached"/>
 </enum>
 
 <enum name="IsolatedWebAppInstallError">
@@ -190,6 +210,13 @@ chromium-metrics-reviews@google.com.
   <int value="1" label="Response head parsing: Internal error"/>
   <int value="2" label="Response head parsing: Format error"/>
   <int value="3" label="Response not found"/>
+</enum>
+
+<enum name="IsolatedWebAppRemoveObsoleteBundleVersionsError">
+  <int value="0" label="System shutdown"/>
+  <int value="1" label="IWA not installed"/>
+  <int value="2" label="Installed version not cached"/>
+  <int value="3" label="Could not delete all versions"/>
 </enum>
 
 <enum name="IsolatedWebAppResponseReaderCacheState">
@@ -224,6 +251,8 @@ chromium-metrics-reviews@google.com.
   <int value="9" label="Update dry run failed"/>
   <int value="10" label="Update apply failed"/>
   <int value="11" label="System shutdown"/>
+  <int value="12" label="Version pinning is not allowed"/>
+  <int value="13" label="Downgrade is not allowed"/>
 </enum>
 
 <enum name="IwaComponentUpdateError">

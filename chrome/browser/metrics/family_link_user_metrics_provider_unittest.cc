@@ -13,6 +13,8 @@
 #include "chrome/browser/content_settings/host_content_settings_map_factory.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/signin/identity_test_environment_profile_adaptor.h"
+#include "chrome/browser/supervised_user/supervised_user_content_filters_service_factory.h"
+#include "chrome/browser/supervised_user/supervised_user_settings_service_factory.h"
 #include "chrome/browser/supervised_user/supervised_user_test_util.h"
 #include "chrome/test/base/testing_browser_process.h"
 #include "chrome/test/base/testing_profile.h"
@@ -23,6 +25,7 @@
 #include "components/prefs/pref_service.h"
 #include "components/signin/public/identity_manager/account_capabilities_test_mutator.h"
 #include "components/signin/public/identity_manager/account_info.h"
+#include "components/supervised_user/core/browser/supervised_user_log_record.h"
 #include "components/supervised_user/core/browser/supervised_user_preferences.h"
 #include "components/supervised_user/core/browser/supervised_user_test_environment.h"
 #include "components/supervised_user/core/browser/supervised_user_utils.h"
@@ -162,7 +165,7 @@ TEST_F(FamilyLinkUserMetricsProviderTest,
 
   histogram_tester.ExpectUniqueSample(
       kFamilyLinkUserLogSegmentHistogramName,
-      FamilyLinkUserLogRecord::Segment::kSupervisionEnabledByFamilyLinkPolicy,
+      SupervisedUserLogRecord::Segment::kSupervisionEnabledByFamilyLinkPolicy,
       /*expected_bucket_count=*/1);
 }
 
@@ -178,7 +181,7 @@ TEST_F(FamilyLinkUserMetricsProviderTest,
 
   histogram_tester.ExpectUniqueSample(
       kFamilyLinkUserLogSegmentHistogramName,
-      FamilyLinkUserLogRecord::Segment::kSupervisionEnabledByFamilyLinkUser,
+      SupervisedUserLogRecord::Segment::kSupervisionEnabledByFamilyLinkUser,
       /*expected_bucket_count=*/1);
 }
 
@@ -194,7 +197,7 @@ TEST_F(FamilyLinkUserMetricsProviderTest,
 
   histogram_tester.ExpectUniqueSample(
       kFamilyLinkUserLogSegmentHistogramName,
-      FamilyLinkUserLogRecord::Segment::kUnsupervised,
+      SupervisedUserLogRecord::Segment::kUnsupervised,
       /*expected_bucket_count=*/1);
 }
 
@@ -214,7 +217,7 @@ TEST_F(
   metrics_provider()->OnDidCreateMetricsLog();
   histogram_tester.ExpectBucketCount(
       kFamilyLinkUserLogSegmentHistogramName,
-      FamilyLinkUserLogRecord::Segment::kMixedProfile,
+      SupervisedUserLogRecord::Segment::kMixedProfile,
       /*expected_count=*/1);
   histogram_tester.ExpectUniqueSample(
       kFamilyLinkUserLogSegmentWebFilterHistogramName,
@@ -244,7 +247,7 @@ TEST_F(
   metrics_provider()->OnDidCreateMetricsLog();
   histogram_tester.ExpectBucketCount(
       kFamilyLinkUserLogSegmentHistogramName,
-      FamilyLinkUserLogRecord::Segment::kMixedProfile,
+      SupervisedUserLogRecord::Segment::kMixedProfile,
       /*expected_count=*/1);
   histogram_tester.ExpectUniqueSample(
       kFamilyLinkUserLogSegmentWebFilterHistogramName,
@@ -405,7 +408,7 @@ TEST_F(FamilyLinkUserMetricsProviderTest,
   metrics_provider()->OnDidCreateMetricsLog();
   histogram_tester.ExpectBucketCount(
       kFamilyLinkUserLogSegmentHistogramName,
-      FamilyLinkUserLogRecord::Segment::kMixedProfile,
+      SupervisedUserLogRecord::Segment::kMixedProfile,
       /*expected_count=*/0);
 }
 
@@ -419,7 +422,7 @@ TEST_F(FamilyLinkUserMetricsProviderTest,
   metrics_provider()->OnDidCreateMetricsLog();
   histogram_tester.ExpectBucketCount(
       kFamilyLinkUserLogSegmentHistogramName,
-      FamilyLinkUserLogRecord::Segment::kUnsupervised,
+      SupervisedUserLogRecord::Segment::kUnsupervised,
       /*expected_count=*/1);
 }
 
@@ -433,7 +436,7 @@ TEST_F(FamilyLinkUserMetricsProviderTest, ParentProfileLoggedAsParent) {
   base::HistogramTester histogram_tester;
   metrics_provider()->OnDidCreateMetricsLog();
   histogram_tester.ExpectBucketCount(kFamilyLinkUserLogSegmentHistogramName,
-                                     FamilyLinkUserLogRecord::Segment::kParent,
+                                     SupervisedUserLogRecord::Segment::kParent,
                                      /*expected_count=*/1);
 }
 
@@ -447,7 +450,7 @@ TEST_F(FamilyLinkUserMetricsProviderTest, FamilyManagerProfileLoggedAsParent) {
   base::HistogramTester histogram_tester;
   metrics_provider()->OnDidCreateMetricsLog();
   histogram_tester.ExpectBucketCount(kFamilyLinkUserLogSegmentHistogramName,
-                                     FamilyLinkUserLogRecord::Segment::kParent,
+                                     SupervisedUserLogRecord::Segment::kParent,
                                      /*expected_count=*/1);
 }
 
@@ -466,7 +469,7 @@ TEST_F(FamilyLinkUserMetricsProviderTest, ParentAndChildProfileLoggedAsMixed) {
   metrics_provider()->OnDidCreateMetricsLog();
   histogram_tester.ExpectBucketCount(
       kFamilyLinkUserLogSegmentHistogramName,
-      FamilyLinkUserLogRecord::Segment::kMixedProfile,
+      SupervisedUserLogRecord::Segment::kMixedProfile,
       /*expected_count=*/1);
 }
 
@@ -486,7 +489,7 @@ TEST_F(FamilyLinkUserMetricsProviderTest, TwoParentProfilesLoggedAsParent) {
   base::HistogramTester histogram_tester;
   metrics_provider()->OnDidCreateMetricsLog();
   histogram_tester.ExpectBucketCount(kFamilyLinkUserLogSegmentHistogramName,
-                                     FamilyLinkUserLogRecord::Segment::kParent,
+                                     SupervisedUserLogRecord::Segment::kParent,
                                      /*expected_count=*/1);
 }
 
@@ -511,7 +514,7 @@ TEST_F(FamilyLinkUserMetricsProviderTest,
   base::HistogramTester histogram_tester;
   metrics_provider()->OnDidCreateMetricsLog();
   histogram_tester.ExpectBucketCount(kFamilyLinkUserLogSegmentHistogramName,
-                                     FamilyLinkUserLogRecord::Segment::kParent,
+                                     SupervisedUserLogRecord::Segment::kParent,
                                      /*expected_count=*/1);
 }
 
@@ -586,6 +589,8 @@ class FamilyLinkUserMetricsProviderWithContentFiltersTest
         *profile->GetPrefs(),
         *SupervisedUserSettingsServiceFactory::GetInstance()->GetForKey(
             profile->GetProfileKey()),
+        SupervisedUserContentFiltersServiceFactory::GetInstance()->GetForKey(
+            profile->GetProfileKey()),
         SyncServiceFactory::GetInstance()->GetForProfile(profile),
         std::make_unique<SupervisedUserURLFilter>(
             *profile->GetPrefs(), std::make_unique<FakeURLFilterDelegate>(),
@@ -645,7 +650,7 @@ TEST_P(FamilyLinkUserMetricsProviderWithContentFiltersTest,
 
   histogram_tester.ExpectBucketCount(
       kFamilyLinkUserLogSegmentHistogramName,
-      FamilyLinkUserLogRecord::Segment::kUnsupervised,
+      SupervisedUserLogRecord::Segment::kUnsupervised,
       /*expected_count=*/1);
   histogram_tester.ExpectTotalCount(
       kFamilyLinkUserLogSegmentWebFilterHistogramName,
@@ -662,7 +667,7 @@ TEST_P(FamilyLinkUserMetricsProviderWithContentFiltersTest,
 
   histogram_tester.ExpectBucketCount(
       kFamilyLinkUserLogSegmentHistogramName,
-      FamilyLinkUserLogRecord::Segment::kSupervisionEnabledLocally,
+      SupervisedUserLogRecord::Segment::kSupervisionEnabledLocally,
       /*expected_count=*/1);
   histogram_tester.ExpectBucketCount(
       kFamilyLinkUserLogSegmentWebFilterHistogramName, WebFilterType::kDisabled,
@@ -679,7 +684,7 @@ TEST_P(FamilyLinkUserMetricsProviderWithContentFiltersTest,
 
   histogram_tester.ExpectBucketCount(
       kFamilyLinkUserLogSegmentHistogramName,
-      FamilyLinkUserLogRecord::Segment::kSupervisionEnabledLocally,
+      SupervisedUserLogRecord::Segment::kSupervisionEnabledLocally,
       /*expected_count=*/1);
   histogram_tester.ExpectUniqueSample(
       kFamilyLinkUserLogSegmentWebFilterHistogramName,
@@ -697,7 +702,7 @@ TEST_P(FamilyLinkUserMetricsProviderWithContentFiltersTest, AllFiltersEnabled) {
 
   histogram_tester.ExpectBucketCount(
       kFamilyLinkUserLogSegmentHistogramName,
-      FamilyLinkUserLogRecord::Segment::kSupervisionEnabledLocally,
+      SupervisedUserLogRecord::Segment::kSupervisionEnabledLocally,
       /*expected_count=*/1);
   histogram_tester.ExpectUniqueSample(
       kFamilyLinkUserLogSegmentWebFilterHistogramName,

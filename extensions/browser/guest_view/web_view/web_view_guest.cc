@@ -82,7 +82,6 @@
 #include "extensions/common/extension_features.h"
 #include "extensions/common/manifest_constants.h"
 #include "extensions/strings/grit/extensions_strings.h"
-#include "ipc/ipc_message_macros.h"
 #include "net/base/net_errors.h"
 #include "net/cookies/canonical_cookie.h"
 #include "services/network/public/mojom/clear_data_filter.mojom.h"
@@ -1208,7 +1207,7 @@ WebViewGuest::WebViewGuest(content::RenderFrameHost* owner_rfh)
               switches::kEnableSpatialNavigation)) {
   if (IsOwnedByControlledFrameEmbedder()) {
     page_load_metrics::MetricsWebContentsObserver::RecordFeatureUsage(
-        owner_rfh, blink::mojom::WebFeature::kControlledFrameElement);
+        owner_rfh, blink::mojom::WebFeature::kHTMLControlledFrameElement);
   }
 }
 

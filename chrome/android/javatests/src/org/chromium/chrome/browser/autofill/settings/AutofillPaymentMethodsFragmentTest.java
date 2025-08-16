@@ -32,6 +32,11 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import static org.chromium.ui.test.util.ViewUtils.clickOnClickableSpan;
+
+import android.content.pm.ActivityInfo;
+import android.content.pm.ResolveInfo;
+
 import androidx.preference.Preference;
 import androidx.preference.PreferenceScreen;
 import androidx.test.espresso.intent.Intents;
@@ -58,6 +63,8 @@ import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.base.test.util.HistogramWatcher;
 import org.chromium.base.test.util.Restriction;
+import org.chromium.chrome.browser.autofill.AndroidAutofillAvailabilityStatus;
+import org.chromium.chrome.browser.autofill.AutofillClientProviderUtils;
 import org.chromium.chrome.browser.autofill.AutofillTestHelper;
 import org.chromium.chrome.browser.autofill.GoogleWalletLauncher;
 import org.chromium.chrome.browser.autofill.PersonalDataManager.CreditCard;
@@ -81,11 +88,14 @@ import org.chromium.components.autofill.payments.Ewallet;
 import org.chromium.components.autofill.payments.PaymentInstrument;
 import org.chromium.components.browser_ui.settings.CardWithButtonPreference;
 import org.chromium.components.browser_ui.settings.ChromeSwitchPreference;
+import org.chromium.components.payments.AndroidPaymentAppFactory;
+import org.chromium.components.payments.PackageManagerDelegate;
 import org.chromium.components.policy.test.annotations.Policies;
 import org.chromium.components.prefs.PrefService;
 import org.chromium.components.user_prefs.UserPrefs;
 import org.chromium.ui.test.util.DeviceRestriction;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.TimeoutException;
@@ -97,7 +107,8 @@ import java.util.concurrent.TimeoutException;
 })
 @DisableFeatures({
     ChromeFeatureList.AUTOFILL_ENABLE_CARD_BENEFITS_FOR_AMERICAN_EXPRESS,
-    ChromeFeatureList.AUTOFILL_ENABLE_CARD_BENEFITS_FOR_BMO
+    ChromeFeatureList.AUTOFILL_ENABLE_CARD_BENEFITS_FOR_BMO,
+    ChromeFeatureList.AUTOFILL_ENABLE_FLAT_RATE_CARD_BENEFITS_FROM_CURINOS,
 })
 @Batch(Batch.PER_CLASS)
 public class AutofillPaymentMethodsFragmentTest {
@@ -114,6 +125,7 @@ public class AutofillPaymentMethodsFragmentTest {
     @Mock private ReauthenticatorBridge mReauthenticatorMock;
     @Mock private AutofillPaymentMethodsDelegate.Natives mNativeMock;
     @Mock private Callback<String> mServerIbanManageLinkOpenerCallback;
+    @Mock private PackageManagerDelegate mPackageManagerDelegate;
 
     // Card Issuer values that map to the browser CreditCard.Issuer enum.
     private static final int CARD_ISSUER_UNKNOWN = 0;
@@ -188,6 +200,7 @@ public class AutofillPaymentMethodsFragmentTest {
                     /* obfuscatedLastFourDigits= */ "",
                     /* cvc= */ "",
                     /* issuerId= */ "",
+                    /* benefitSource= */ "",
                     /* productTermsUrl= */ null);
     private static final CreditCard SAMPLE_VIRTUAL_CARD_ENROLLED =
             new CreditCard(
@@ -214,6 +227,7 @@ public class AutofillPaymentMethodsFragmentTest {
                     /* obfuscatedLastFourDigits= */ "",
                     /* cvc= */ "",
                     /* issuerId= */ "",
+                    /* benefitSource= */ "",
                     /* productTermsUrl= */ null);
     private static final CreditCard SAMPLE_CARD_WITH_CVC =
             new CreditCard(
@@ -241,6 +255,7 @@ public class AutofillPaymentMethodsFragmentTest {
                     /* obfuscatedLastFourDigits= */ "",
                     /* cvc= */ "123",
                     /* issuerId= */ "",
+                    /* benefitSource= */ "",
                     /* productTermsUrl= */ null);
 
     private static final Ewallet EWALLET_ACCOUNT =
@@ -296,6 +311,11 @@ public class AutofillPaymentMethodsFragmentTest {
         mAutofillTestHelper = new AutofillTestHelper();
         ReauthenticatorBridge.setInstanceForTesting(mReauthenticatorMock);
         Intents.init();
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    AutofillClientProviderUtils.setAutofillAvailabilityToUseForTesting(
+                            AndroidAutofillAvailabilityStatus.SETTING_TURNED_OFF);
+                });
     }
 
     @After
@@ -1317,6 +1337,7 @@ public class AutofillPaymentMethodsFragmentTest {
         ChromeFeatureList.AUTOFILL_SYNC_EWALLET_ACCOUNTS,
         ChromeFeatureList.AUTOFILL_ENABLE_SYNCING_OF_PIX_BANK_ACCOUNTS
     })
+    @DisableFeatures({ChromeFeatureList.AUTOFILL_ENABLE_SEPARATE_PIX_PREFERENCE_ITEM})
     public void financialAccountAvailable_showPayWithEwalletPreference() throws Exception {
         AutofillTestHelper.addEwallet(EWALLET_ACCOUNT);
 
@@ -1340,6 +1361,7 @@ public class AutofillPaymentMethodsFragmentTest {
         ChromeFeatureList.AUTOFILL_SYNC_EWALLET_ACCOUNTS,
         ChromeFeatureList.AUTOFILL_ENABLE_SYNCING_OF_PIX_BANK_ACCOUNTS
     })
+    @DisableFeatures({ChromeFeatureList.AUTOFILL_ENABLE_SEPARATE_PIX_PREFERENCE_ITEM})
     public void financialAccountAvailable_showPayWithPixPreference() throws Exception {
         AutofillTestHelper.addMaskedBankAccount(PIX_BANK_ACCOUNT);
 
@@ -1363,6 +1385,7 @@ public class AutofillPaymentMethodsFragmentTest {
         ChromeFeatureList.AUTOFILL_SYNC_EWALLET_ACCOUNTS,
         ChromeFeatureList.AUTOFILL_ENABLE_SYNCING_OF_PIX_BANK_ACCOUNTS
     })
+    @DisableFeatures({ChromeFeatureList.AUTOFILL_ENABLE_SEPARATE_PIX_PREFERENCE_ITEM})
     public void financialAccountAvailable_showPayWithEwalletAndPixPreference() throws Exception {
         AutofillTestHelper.addEwallet(EWALLET_ACCOUNT);
         AutofillTestHelper.addMaskedBankAccount(PIX_BANK_ACCOUNT);
@@ -1385,6 +1408,7 @@ public class AutofillPaymentMethodsFragmentTest {
         ChromeFeatureList.AUTOFILL_ENABLE_SYNCING_OF_PIX_BANK_ACCOUNTS,
         ChromeFeatureList.AUTOFILL_SYNC_EWALLET_ACCOUNTS
     })
+    @DisableFeatures({ChromeFeatureList.AUTOFILL_ENABLE_SEPARATE_PIX_PREFERENCE_ITEM})
     public void financialAccountNotAvailable_doNotShowOtherFinancalPreference() throws Exception {
         SettingsActivity activity = mSettingsActivityTestRule.startSettingsActivity();
 
@@ -1400,7 +1424,8 @@ public class AutofillPaymentMethodsFragmentTest {
     @MediumTest
     @DisableFeatures({
         ChromeFeatureList.AUTOFILL_ENABLE_SYNCING_OF_PIX_BANK_ACCOUNTS,
-        ChromeFeatureList.AUTOFILL_SYNC_EWALLET_ACCOUNTS
+        ChromeFeatureList.AUTOFILL_SYNC_EWALLET_ACCOUNTS,
+        ChromeFeatureList.AUTOFILL_ENABLE_SEPARATE_PIX_PREFERENCE_ITEM
     })
     public void financialAccountAvailable_expOff_doNotShowPayWithEwalletPreference()
             throws Exception {
@@ -1420,6 +1445,7 @@ public class AutofillPaymentMethodsFragmentTest {
     @Test
     @MediumTest
     @EnableFeatures({ChromeFeatureList.AUTOFILL_SYNC_EWALLET_ACCOUNTS})
+    @DisableFeatures({ChromeFeatureList.AUTOFILL_ENABLE_SEPARATE_PIX_PREFERENCE_ITEM})
     public void testEwalletAccountsPreferenceClicked_opensFinancialAccountsManagementFragment()
             throws Exception {
         AutofillTestHelper.addEwallet(EWALLET_ACCOUNT);
@@ -1440,6 +1466,7 @@ public class AutofillPaymentMethodsFragmentTest {
     @Test
     @MediumTest
     @EnableFeatures({ChromeFeatureList.AUTOFILL_ENABLE_SYNCING_OF_PIX_BANK_ACCOUNTS})
+    @DisableFeatures({ChromeFeatureList.AUTOFILL_ENABLE_SEPARATE_PIX_PREFERENCE_ITEM})
     public void testPixAccountsPreferenceClicked_opensFinancialAccountsManagementFragment()
             throws Exception {
         AutofillTestHelper.addMaskedBankAccount(PIX_BANK_ACCOUNT);
@@ -1451,6 +1478,263 @@ public class AutofillPaymentMethodsFragmentTest {
 
         // Simulate click on the preference/.
         ThreadUtils.runOnUiThreadBlocking(otherFinancialAccountsPref::performClick);
+        rule.waitForFragmentToBeShown();
+
+        // Verify that the financial accounts management fragment is opened.
+        assertTrue(rule.getLastestShownFragment() instanceof FinancialAccountsManagementFragment);
+    }
+
+    @Test
+    @MediumTest
+    @EnableFeatures({
+        ChromeFeatureList.AUTOFILL_SYNC_EWALLET_ACCOUNTS,
+        ChromeFeatureList.AUTOFILL_ENABLE_SYNCING_OF_PIX_BANK_ACCOUNTS,
+        ChromeFeatureList.AUTOFILL_ENABLE_SEPARATE_PIX_PREFERENCE_ITEM
+    })
+    public void financialAccountAvailable_separatePixPreferenceItem_showPayWithPixPreferenceOnly()
+            throws Exception {
+        AutofillTestHelper.addMaskedBankAccount(PIX_BANK_ACCOUNT);
+
+        SettingsActivity activity = mSettingsActivityTestRule.startSettingsActivity();
+
+        // Verify that the preference for 'Pay with Pix' is displayed.
+        Preference pixFinancialAccountsPref =
+                getPreferenceScreen(activity)
+                        .findPreference(
+                                AutofillPaymentMethodsFragment.PREF_FINANCIAL_ACCOUNTS_MANAGEMENT);
+        assertThat(pixFinancialAccountsPref).isNotNull();
+        Preference nonCardPaymentMethodsPref =
+                getPreferenceScreen(activity)
+                        .findPreference(
+                                AutofillPaymentMethodsFragment
+                                        .PREF_NON_CARD_PAYMENT_METHODS_MANAGEMENT);
+        assertThat(nonCardPaymentMethodsPref).isNull();
+    }
+
+    @Test
+    @MediumTest
+    @EnableFeatures({
+        ChromeFeatureList.AUTOFILL_SYNC_EWALLET_ACCOUNTS,
+        ChromeFeatureList.AUTOFILL_ENABLE_SYNCING_OF_PIX_BANK_ACCOUNTS,
+        ChromeFeatureList.AUTOFILL_ENABLE_SEPARATE_PIX_PREFERENCE_ITEM
+    })
+    public void
+            financialAccountAvailable_separatePixPreferenceItem_showPayWithNonCardPaymentPreferenceOnly()
+                    throws Exception {
+        AutofillTestHelper.addEwallet(EWALLET_ACCOUNT);
+
+        SettingsActivity activity = mSettingsActivityTestRule.startSettingsActivity();
+
+        // Verify that only the preference for 'Pay with non-card payment methods' is displayed.
+        Preference pixFinancialAccountsPref =
+                getPreferenceScreen(activity)
+                        .findPreference(
+                                AutofillPaymentMethodsFragment.PREF_FINANCIAL_ACCOUNTS_MANAGEMENT);
+        assertThat(pixFinancialAccountsPref).isNull();
+        Preference nonCardPaymentMethodsPref =
+                getPreferenceScreen(activity)
+                        .findPreference(
+                                AutofillPaymentMethodsFragment
+                                        .PREF_NON_CARD_PAYMENT_METHODS_MANAGEMENT);
+        assertThat(nonCardPaymentMethodsPref).isNotNull();
+    }
+
+    @Test
+    @MediumTest
+    @EnableFeatures({
+        ChromeFeatureList.AUTOFILL_SYNC_EWALLET_ACCOUNTS,
+        ChromeFeatureList.AUTOFILL_ENABLE_SYNCING_OF_PIX_BANK_ACCOUNTS,
+        ChromeFeatureList.AUTOFILL_ENABLE_SEPARATE_PIX_PREFERENCE_ITEM
+    })
+    public void
+            financialAccountAvailable_separatePixPreferenceItem_showPayWithPixAndNonCardPaymentPreferences()
+                    throws Exception {
+        AutofillTestHelper.addEwallet(EWALLET_ACCOUNT);
+        AutofillTestHelper.addMaskedBankAccount(PIX_BANK_ACCOUNT);
+
+        SettingsActivity activity = mSettingsActivityTestRule.startSettingsActivity();
+
+        // Verify that both the preferences for 'Pay with Pix' and 'Pay with non-card payment
+        // methods' are displayed.
+        Preference pixFinancialAccountsPref =
+                getPreferenceScreen(activity)
+                        .findPreference(
+                                AutofillPaymentMethodsFragment.PREF_FINANCIAL_ACCOUNTS_MANAGEMENT);
+        assertThat(pixFinancialAccountsPref).isNotNull();
+        Preference nonCardPaymentMethodsPref =
+                getPreferenceScreen(activity)
+                        .findPreference(
+                                AutofillPaymentMethodsFragment
+                                        .PREF_NON_CARD_PAYMENT_METHODS_MANAGEMENT);
+        assertThat(nonCardPaymentMethodsPref).isNotNull();
+        assertThat(pixFinancialAccountsPref).isNotEqualTo(nonCardPaymentMethodsPref);
+    }
+
+    @Test
+    @MediumTest
+    @EnableFeatures({
+        ChromeFeatureList.AUTOFILL_SYNC_EWALLET_ACCOUNTS,
+        ChromeFeatureList.AUTOFILL_ENABLE_SYNCING_OF_PIX_BANK_ACCOUNTS,
+        ChromeFeatureList.AUTOFILL_ENABLE_SEPARATE_PIX_PREFERENCE_ITEM
+    })
+    public void
+            financialAccountAvailable_separatePixPreferenceItem_showNeitherPayWithPixNorNonCardPaymentPreferences()
+                    throws Exception {
+        SettingsActivity activity = mSettingsActivityTestRule.startSettingsActivity();
+
+        // Verify that none of the preferences for 'Pay with Pix' and 'Pay with non-card payment
+        // methods' are displayed.
+        Preference pixFinancialAccountsPref =
+                getPreferenceScreen(activity)
+                        .findPreference(
+                                AutofillPaymentMethodsFragment.PREF_FINANCIAL_ACCOUNTS_MANAGEMENT);
+        assertThat(pixFinancialAccountsPref).isNull();
+        Preference nonCardPaymentMethodsPref =
+                getPreferenceScreen(activity)
+                        .findPreference(
+                                AutofillPaymentMethodsFragment
+                                        .PREF_NON_CARD_PAYMENT_METHODS_MANAGEMENT);
+        assertThat(nonCardPaymentMethodsPref).isNull();
+    }
+
+    // This test verifies that when the A2A flow has been shown at least once (as tracked by the
+    // FACILITATED_PAYMENTS_A2A_TRIGGERED_ONCE pref), the non-card payment preferences are shown.
+    @Test
+    @MediumTest
+    @EnableFeatures({
+        ChromeFeatureList.AUTOFILL_SYNC_EWALLET_ACCOUNTS,
+        ChromeFeatureList.AUTOFILL_ENABLE_SYNCING_OF_PIX_BANK_ACCOUNTS,
+        ChromeFeatureList.AUTOFILL_ENABLE_SEPARATE_PIX_PREFERENCE_ITEM,
+        ChromeFeatureList.FACILITATED_PAYMENTS_ENABLE_A2A_PAYMENT
+    })
+    public void a2aFlowShownAtLeastOnce_noEwalletAdded_showNonCardPaymentPreferences()
+            throws Exception {
+        // Note: no eWallet added.
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    getPrefService().setBoolean(Pref.FACILITATED_PAYMENTS_A2A_TRIGGERED_ONCE, true);
+                });
+
+        SettingsActivity activity = mSettingsActivityTestRule.startSettingsActivity();
+
+        // Verify that the preference for 'Pay with non-card payment methods' is displayed.
+        Preference nonCardPaymentMethodsPref =
+                getPreferenceScreen(activity)
+                        .findPreference(
+                                AutofillPaymentMethodsFragment
+                                        .PREF_NON_CARD_PAYMENT_METHODS_MANAGEMENT);
+        assertThat(nonCardPaymentMethodsPref).isNotNull();
+    }
+
+    // This test verifies that when the A2A flow has never been shown (as tracked by the
+    // FACILITATED_PAYMENTS_A2A_TRIGGERED_ONCE pref), the non-card payment preferences are not
+    // shown.
+    @Test
+    @MediumTest
+    @EnableFeatures({
+        ChromeFeatureList.AUTOFILL_SYNC_EWALLET_ACCOUNTS,
+        ChromeFeatureList.AUTOFILL_ENABLE_SYNCING_OF_PIX_BANK_ACCOUNTS,
+        ChromeFeatureList.AUTOFILL_ENABLE_SEPARATE_PIX_PREFERENCE_ITEM,
+        ChromeFeatureList.FACILITATED_PAYMENTS_ENABLE_A2A_PAYMENT
+    })
+    public void a2aFlowNeverShown_noEwalletAdded_nonCardPaymentPreferencesNotShown()
+            throws Exception {
+        // Note: no eWallet added.
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    getPrefService()
+                            .setBoolean(Pref.FACILITATED_PAYMENTS_A2A_TRIGGERED_ONCE, false);
+                });
+
+        SettingsActivity activity = mSettingsActivityTestRule.startSettingsActivity();
+
+        // Verify that the preference for 'Pay with non-card payment methods' is not displayed.
+        Preference nonCardPaymentMethodsPref =
+                getPreferenceScreen(activity)
+                        .findPreference(
+                                AutofillPaymentMethodsFragment
+                                        .PREF_NON_CARD_PAYMENT_METHODS_MANAGEMENT);
+        assertThat(nonCardPaymentMethodsPref).isNull();
+    }
+
+    @Test
+    @MediumTest
+    @EnableFeatures({
+        ChromeFeatureList.AUTOFILL_SYNC_EWALLET_ACCOUNTS,
+        ChromeFeatureList.AUTOFILL_ENABLE_SYNCING_OF_PIX_BANK_ACCOUNTS,
+        ChromeFeatureList.AUTOFILL_ENABLE_SEPARATE_PIX_PREFERENCE_ITEM
+    })
+    @DisableFeatures({ChromeFeatureList.FACILITATED_PAYMENTS_ENABLE_A2A_PAYMENT})
+    public void
+            a2aShownAtLeastOnce_a2aFlagDisabled_noEwalletAdded_nonCardPaymentPreferencesNotShown()
+                    throws Exception {
+        // Note: no eWallet added.
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    getPrefService().setBoolean(Pref.FACILITATED_PAYMENTS_A2A_TRIGGERED_ONCE, true);
+                });
+
+        SettingsActivity activity = mSettingsActivityTestRule.startSettingsActivity();
+
+        // Verify that the preference for 'Pay with non-card payment methods' is not displayed.
+        Preference nonCardPaymentMethodsPref =
+                getPreferenceScreen(activity)
+                        .findPreference(
+                                AutofillPaymentMethodsFragment
+                                        .PREF_NON_CARD_PAYMENT_METHODS_MANAGEMENT);
+        assertThat(nonCardPaymentMethodsPref).isNull();
+    }
+
+    @Test
+    @MediumTest
+    @EnableFeatures({
+        ChromeFeatureList.AUTOFILL_SYNC_EWALLET_ACCOUNTS,
+        ChromeFeatureList.AUTOFILL_ENABLE_SYNCING_OF_PIX_BANK_ACCOUNTS,
+        ChromeFeatureList.AUTOFILL_ENABLE_SEPARATE_PIX_PREFERENCE_ITEM
+    })
+    public void
+            separatePixPreferenceItem_testNonCardPaymentMethodsPreferenceClicked_opensNonCardPaymentMethodsManagementFragment()
+                    throws Exception {
+        AutofillTestHelper.addEwallet(EWALLET_ACCOUNT);
+        AutofillTestHelper.addMaskedBankAccount(PIX_BANK_ACCOUNT);
+
+        SettingsActivity activity = mSettingsActivityTestRule.startSettingsActivity();
+        Preference nonCardPaymentMethodsPref =
+                getPreferenceScreen(activity)
+                        .findPreference(
+                                AutofillPaymentMethodsFragment
+                                        .PREF_NON_CARD_PAYMENT_METHODS_MANAGEMENT);
+
+        // Simulate click on the preference.
+        ThreadUtils.runOnUiThreadBlocking(nonCardPaymentMethodsPref::performClick);
+        rule.waitForFragmentToBeShown();
+
+        // Verify that the financial accounts management fragment is opened.
+        assertTrue(
+                rule.getLastestShownFragment() instanceof NonCardPaymentMethodsManagementFragment);
+    }
+
+    @Test
+    @MediumTest
+    @EnableFeatures({
+        ChromeFeatureList.AUTOFILL_SYNC_EWALLET_ACCOUNTS,
+        ChromeFeatureList.AUTOFILL_ENABLE_SYNCING_OF_PIX_BANK_ACCOUNTS,
+        ChromeFeatureList.AUTOFILL_ENABLE_SEPARATE_PIX_PREFERENCE_ITEM
+    })
+    public void
+            separatePixPreferenceItem_testPixAccountsPreferenceClicked_opensFinancialAccountsManagementFragment()
+                    throws Exception {
+        AutofillTestHelper.addEwallet(EWALLET_ACCOUNT);
+        AutofillTestHelper.addMaskedBankAccount(PIX_BANK_ACCOUNT);
+
+        SettingsActivity activity = mSettingsActivityTestRule.startSettingsActivity();
+        Preference nonCardPaymentMethodsPref =
+                getPreferenceScreen(activity)
+                        .findPreference(
+                                AutofillPaymentMethodsFragment.PREF_FINANCIAL_ACCOUNTS_MANAGEMENT);
+
+        // Simulate click on the preference.
+        ThreadUtils.runOnUiThreadBlocking(nonCardPaymentMethodsPref::performClick);
         rule.waitForFragmentToBeShown();
 
         // Verify that the financial accounts management fragment is opened.
@@ -1563,6 +1847,350 @@ public class AutofillPaymentMethodsFragmentTest {
         ThreadUtils.runOnUiThreadBlocking(loyaltyCardsPref::performClick);
 
         intended(hasData(GoogleWalletLauncher.GOOGLE_WALLET_PASSES_URL));
+    }
+
+    @Test
+    @MediumTest
+    @Features.EnableFeatures({
+        ChromeFeatureList.THIRD_PARTY_DISABLE_CHROME_AUTOFILL_SETTINGS_SCREEN
+    })
+    public void testSettingsState_SaveAndFillPaymentMethodsDisabledInThirdPartyMode()
+            throws Exception {
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    AutofillClientProviderUtils.setAutofillAvailabilityToUseForTesting(
+                            AndroidAutofillAvailabilityStatus.AVAILABLE);
+                });
+        SettingsActivity activity = mSettingsActivityTestRule.startSettingsActivity();
+
+        // Save and fill payment methods toggle is shown and disabled.
+        ChromeSwitchPreference saveAndFillPaymentMethodsPref =
+                getPreferenceScreen(activity)
+                        .findPreference(
+                                AutofillPaymentMethodsFragment.PREF_SAVE_AND_FILL_PAYMENT_METHODS);
+        assertFalse(saveAndFillPaymentMethodsPref.isEnabled());
+        assertFalse(saveAndFillPaymentMethodsPref.isChecked());
+    }
+
+    @Test
+    @MediumTest
+    @Features.EnableFeatures({
+        ChromeFeatureList.THIRD_PARTY_DISABLE_CHROME_AUTOFILL_SETTINGS_SCREEN
+    })
+    @Restriction(DeviceRestriction.RESTRICTION_TYPE_NON_AUTO)
+    public void testSettingsState_MandatoryReauthDisabledInThirdPartyMode() throws Exception {
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    AutofillClientProviderUtils.setAutofillAvailabilityToUseForTesting(
+                            AndroidAutofillAvailabilityStatus.AVAILABLE);
+                });
+        SettingsActivity activity = mSettingsActivityTestRule.startSettingsActivity();
+
+        // Mandatory reauth toggle is shown and disabled.
+        assertTrue(getMandatoryReauthPreference(activity).isVisible());
+        assertFalse(getMandatoryReauthPreference(activity).isEnabled());
+    }
+
+    @Test
+    @MediumTest
+    @Features.EnableFeatures({
+        ChromeFeatureList.THIRD_PARTY_DISABLE_CHROME_AUTOFILL_SETTINGS_SCREEN
+    })
+    public void testSettingsState_SaveCVCDisabledInThirdPartyMode() throws Exception {
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    AutofillClientProviderUtils.setAutofillAvailabilityToUseForTesting(
+                            AndroidAutofillAvailabilityStatus.AVAILABLE);
+                });
+        SettingsActivity activity = mSettingsActivityTestRule.startSettingsActivity();
+
+        // Save security codes is shown and disabled.
+        ChromeSwitchPreference saveCvcToggle =
+                findPreferenceByKey(activity, AutofillPaymentMethodsFragment.PREF_SAVE_CVC);
+        assertFalse(saveCvcToggle.isEnabled());
+        assertFalse(saveCvcToggle.isChecked());
+    }
+
+    @Test
+    @MediumTest
+    @Features.EnableFeatures({
+        ChromeFeatureList.THIRD_PARTY_DISABLE_CHROME_AUTOFILL_SETTINGS_SCREEN
+    })
+    public void testSettingsState_CardBenefitsHiddenInThirdPartyMode() throws Exception {
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    AutofillClientProviderUtils.setAutofillAvailabilityToUseForTesting(
+                            AndroidAutofillAvailabilityStatus.AVAILABLE);
+                });
+        SettingsActivity activity = mSettingsActivityTestRule.startSettingsActivity();
+
+        // Card benefits is hidden.
+        Preference cardBenefitsPref =
+                getPreferenceScreen(activity)
+                        .findPreference(AutofillPaymentMethodsFragment.PREF_CARD_BENEFITS);
+        assertNull(cardBenefitsPref);
+    }
+
+    @Test
+    @MediumTest
+    @Features.EnableFeatures({
+        ChromeFeatureList.THIRD_PARTY_DISABLE_CHROME_AUTOFILL_SETTINGS_SCREEN
+    })
+    public void testSettingsState_CardsListShownInThirdPartyMode() throws Exception {
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    AutofillClientProviderUtils.setAutofillAvailabilityToUseForTesting(
+                            AndroidAutofillAvailabilityStatus.AVAILABLE);
+                });
+        mAutofillTestHelper.addServerCreditCard(SAMPLE_CARD_VISA);
+        SettingsActivity activity = mSettingsActivityTestRule.startSettingsActivity();
+
+        // List of cards is shown.
+        Preference cardPreference = getPreferenceScreen(activity).getPreference(4);
+        assertEquals(
+                1, getPreferenceCountWithKey(activity, AutofillPaymentMethodsFragment.PREF_CARD));
+    }
+
+    @Test
+    @MediumTest
+    @Features.EnableFeatures({
+        ChromeFeatureList.THIRD_PARTY_DISABLE_CHROME_AUTOFILL_SETTINGS_SCREEN
+    })
+    public void testSettingsState_IbanListShownInThirdPartyMode() throws Exception {
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    AutofillClientProviderUtils.setAutofillAvailabilityToUseForTesting(
+                            AndroidAutofillAvailabilityStatus.AVAILABLE);
+                });
+        mAutofillTestHelper.addServerIban(VALID_SERVER_IBAN);
+        SettingsActivity activity = mSettingsActivityTestRule.startSettingsActivity();
+
+        // List of ibans is shown.
+        Preference ibanPreference = getPreferenceScreen(activity).getPreference(4);
+        assertEquals(
+                1, getPreferenceCountWithKey(activity, AutofillPaymentMethodsFragment.PREF_IBAN));
+    }
+
+    @Test
+    @MediumTest
+    @Features.EnableFeatures({
+        ChromeFeatureList.THIRD_PARTY_DISABLE_CHROME_AUTOFILL_SETTINGS_SCREEN
+    })
+    public void testSettingsState_AddCardHiddenInThirdPartyMode() throws Exception {
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    AutofillClientProviderUtils.setAutofillAvailabilityToUseForTesting(
+                            AndroidAutofillAvailabilityStatus.AVAILABLE);
+                });
+        SettingsActivity activity = mSettingsActivityTestRule.startSettingsActivity();
+
+        // Add card (Check out faster with autofill) is hidden.
+        assertNull(
+                getPreferenceScreen(activity)
+                        .findPreference(AutofillPaymentMethodsFragment.PREF_ADD_CARD));
+    }
+
+    @Test
+    @MediumTest
+    @Features.EnableFeatures({
+        ChromeFeatureList.THIRD_PARTY_DISABLE_CHROME_AUTOFILL_SETTINGS_SCREEN
+    })
+    public void testSettingsState_AddIbanButtonHiddenInthirdPartyMode() throws Exception {
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    AutofillClientProviderUtils.setAutofillAvailabilityToUseForTesting(
+                            AndroidAutofillAvailabilityStatus.AVAILABLE);
+                });
+        mAutofillTestHelper.addServerIban(VALID_SERVER_IBAN);
+        SettingsActivity activity = mSettingsActivityTestRule.startSettingsActivity();
+
+        // Add IBAN button is hidden.
+        assertNull(
+                getPreferenceScreen(activity)
+                        .findPreference(AutofillPaymentMethodsFragment.PREF_ADD_IBAN));
+    }
+
+    @Test
+    @MediumTest
+    @Features.EnableFeatures({
+        ChromeFeatureList.THIRD_PARTY_DISABLE_CHROME_AUTOFILL_SETTINGS_SCREEN
+    })
+    public void testSettingsState_PaymentAppsShownInThirdPartyMode() throws Exception {
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    AutofillClientProviderUtils.setAutofillAvailabilityToUseForTesting(
+                            AndroidAutofillAvailabilityStatus.AVAILABLE);
+                });
+
+        List<ResolveInfo> activities = new ArrayList<>();
+        ResolveInfo alicePay = new ResolveInfo();
+        alicePay.activityInfo = new ActivityInfo();
+        alicePay.activityInfo.packageName = "com.alicepay.app";
+        alicePay.activityInfo.name = "com.alicepay.app.WebPaymentActivity";
+        activities.add(alicePay);
+        when(mPackageManagerDelegate.getActivitiesThatCanRespondToIntent(any()))
+                .thenReturn(activities);
+        AndroidPaymentAppFactory.setPackageManagerDelegateForTest(mPackageManagerDelegate);
+
+        SettingsActivity activity = mSettingsActivityTestRule.startSettingsActivity();
+
+        // Payment apps is shown and enabled.
+        Preference paymentAppsPref =
+                getPreferenceScreen(activity)
+                        .findPreference(AutofillPaymentMethodsFragment.PREF_PAYMENT_APPS);
+        assertNotNull(paymentAppsPref);
+        assertTrue(paymentAppsPref.isEnabled());
+    }
+
+    @Test
+    @MediumTest
+    @Features.EnableFeatures({
+        ChromeFeatureList.THIRD_PARTY_DISABLE_CHROME_AUTOFILL_SETTINGS_SCREEN
+    })
+    public void testSettingsState_LoyaltyCardsDisabledInThirdPartyMode() throws Exception {
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    AutofillClientProviderUtils.setAutofillAvailabilityToUseForTesting(
+                            AndroidAutofillAvailabilityStatus.AVAILABLE);
+                });
+        SettingsActivity activity = mSettingsActivityTestRule.startSettingsActivity();
+
+        // Loyalty cards is shown and disabled.
+        Preference loyaltyCards =
+                getPreferenceScreen(activity)
+                        .findPreference(AutofillPaymentMethodsFragment.PREF_LOYALTY_CARDS);
+        assertNotNull(loyaltyCards);
+        assertFalse(loyaltyCards.isEnabled());
+    }
+
+    @Test
+    @MediumTest
+    @EnableFeatures({
+        ChromeFeatureList.THIRD_PARTY_DISABLE_CHROME_AUTOFILL_SETTINGS_SCREEN,
+        ChromeFeatureList.AUTOFILL_SYNC_EWALLET_ACCOUNTS,
+        ChromeFeatureList.AUTOFILL_ENABLE_SYNCING_OF_PIX_BANK_ACCOUNTS,
+        ChromeFeatureList.AUTOFILL_ENABLE_SEPARATE_PIX_PREFERENCE_ITEM
+    })
+    @DisableFeatures({ChromeFeatureList.AUTOFILL_ENABLE_SEPARATE_PIX_PREFERENCE_ITEM})
+    public void testSettingsState_hidePayWithPixAndEwalletPreferenceInThirdPartyMode()
+            throws Exception {
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    AutofillClientProviderUtils.setAutofillAvailabilityToUseForTesting(
+                            AndroidAutofillAvailabilityStatus.AVAILABLE);
+                });
+        AutofillTestHelper.addEwallet(EWALLET_ACCOUNT);
+        AutofillTestHelper.addMaskedBankAccount(PIX_BANK_ACCOUNT);
+
+        SettingsActivity activity = mSettingsActivityTestRule.startSettingsActivity();
+
+        // Verify that both the preferences for 'Pay with Pix' and 'Pay with non-card payment
+        // methods' are hidden.
+        Preference pixFinancialAccountsPref =
+                getPreferenceScreen(activity)
+                        .findPreference(
+                                AutofillPaymentMethodsFragment.PREF_FINANCIAL_ACCOUNTS_MANAGEMENT);
+        assertNull(pixFinancialAccountsPref);
+
+        Preference nonCardPaymentMethodsPref =
+                getPreferenceScreen(activity)
+                        .findPreference(
+                                AutofillPaymentMethodsFragment
+                                        .PREF_NON_CARD_PAYMENT_METHODS_MANAGEMENT);
+        assertNull(nonCardPaymentMethodsPref);
+    }
+
+    @Test
+    @MediumTest
+    @EnableFeatures({
+        ChromeFeatureList.THIRD_PARTY_DISABLE_CHROME_AUTOFILL_SETTINGS_SCREEN,
+        ChromeFeatureList.AUTOFILL_SYNC_EWALLET_ACCOUNTS,
+        ChromeFeatureList.AUTOFILL_ENABLE_SYNCING_OF_PIX_BANK_ACCOUNTS
+    })
+    @DisableFeatures({ChromeFeatureList.AUTOFILL_ENABLE_SEPARATE_PIX_PREFERENCE_ITEM})
+    public void testSettingsState_hidePayWithEwalletPreferenceInThirdPartyMode() throws Exception {
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    AutofillClientProviderUtils.setAutofillAvailabilityToUseForTesting(
+                            AndroidAutofillAvailabilityStatus.AVAILABLE);
+                });
+        AutofillTestHelper.addEwallet(EWALLET_ACCOUNT);
+
+        SettingsActivity activity = mSettingsActivityTestRule.startSettingsActivity();
+
+        // Verify that the preference for 'Pay with eWallet' is displayed.
+        Preference otherFinancialAccountsPref =
+                getPreferenceScreen(activity)
+                        .findPreference(
+                                AutofillPaymentMethodsFragment.PREF_FINANCIAL_ACCOUNTS_MANAGEMENT);
+        assertNull(otherFinancialAccountsPref);
+    }
+
+    @Test
+    @MediumTest
+    @EnableFeatures({
+        ChromeFeatureList.THIRD_PARTY_DISABLE_CHROME_AUTOFILL_SETTINGS_SCREEN,
+        ChromeFeatureList.AUTOFILL_ENABLE_SYNCING_OF_PIX_BANK_ACCOUNTS,
+        ChromeFeatureList.AUTOFILL_ENABLE_SEPARATE_PIX_PREFERENCE_ITEM
+    })
+    @DisableFeatures({ChromeFeatureList.AUTOFILL_ENABLE_SEPARATE_PIX_PREFERENCE_ITEM})
+    public void testSettingsState_hidePayWithPixPreferenceInThirdPartyMode() throws Exception {
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    AutofillClientProviderUtils.setAutofillAvailabilityToUseForTesting(
+                            AndroidAutofillAvailabilityStatus.AVAILABLE);
+                });
+        AutofillTestHelper.addMaskedBankAccount(PIX_BANK_ACCOUNT);
+
+        SettingsActivity activity = mSettingsActivityTestRule.startSettingsActivity();
+
+        // Financial Accounts Managementis shown and disabled.
+        Preference otherFinancialAccountsPref =
+                getPreferenceScreen(activity)
+                        .findPreference(
+                                AutofillPaymentMethodsFragment.PREF_FINANCIAL_ACCOUNTS_MANAGEMENT);
+        assertNull(otherFinancialAccountsPref);
+    }
+
+    @Test
+    @MediumTest
+    @Features.EnableFeatures({
+        ChromeFeatureList.THIRD_PARTY_DISABLE_CHROME_AUTOFILL_SETTINGS_SCREEN
+    })
+    public void testDisabledSettingsText_shownInThirdPartyMode() throws Exception {
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    AutofillClientProviderUtils.setAutofillAvailabilityToUseForTesting(
+                            AndroidAutofillAvailabilityStatus.AVAILABLE);
+                });
+        SettingsActivity activity = mSettingsActivityTestRule.startSettingsActivity();
+
+        assertNotNull(
+                getPreferenceScreen(activity)
+                        .findPreference(AutofillPaymentMethodsFragment.DISABLED_SETTINGS_INFO));
+    }
+
+    @Test
+    @MediumTest
+    @Features.EnableFeatures({
+        ChromeFeatureList.THIRD_PARTY_DISABLE_CHROME_AUTOFILL_SETTINGS_SCREEN
+    })
+    public void testDisabledSettingsText_linksToAutofillOptionsPage() throws Exception {
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    AutofillClientProviderUtils.setAutofillAvailabilityToUseForTesting(
+                            AndroidAutofillAvailabilityStatus.AVAILABLE);
+                });
+        SettingsActivity activity = mSettingsActivityTestRule.startSettingsActivity();
+
+        String disabledSettingsText =
+                mSettingsActivityTestRule
+                        .getActivity()
+                        .getResources()
+                        .getString(R.string.autofill_disable_settings_explanation);
+        String matcherText = disabledSettingsText.replaceAll("<link>|</link>", "");
+        onView(withText(matcherText)).check(matches(isDisplayed()));
+        onView(withText(matcherText)).perform(clickOnClickableSpan(0));
     }
 
     private void setUpBiometricAuthenticationResult(boolean success) {

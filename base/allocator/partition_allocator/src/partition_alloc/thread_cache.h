@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/40284755): Remove this and spanify to fix the errors.
+#pragma allow_unsafe_buffers
+#endif
+
 #ifndef PARTITION_ALLOC_THREAD_CACHE_H_
 #define PARTITION_ALLOC_THREAD_CACHE_H_
 
@@ -269,6 +274,8 @@ class PA_COMPONENT_EXPORT(PARTITION_ALLOC) ThreadCache {
         internal::PartitionTlsGet(internal::g_thread_cache_key));
 #endif
   }
+
+  static ThreadCache* EnsureAndGet();
 
   static bool IsValid(ThreadCache* tcache) {
     // Do not MTE-untag, as it'd mess up the sentinel value.

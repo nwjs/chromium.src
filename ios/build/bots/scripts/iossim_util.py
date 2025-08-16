@@ -82,11 +82,13 @@ def get_simulator_device_type_by_platform(simulators, platform):
       (platform, simulators['devicetypes']))
 
 
-def get_simulator_runtime_by_version(simulators, version):
-  """Gets runtime based on iOS version.
+def get_simulator_runtime_by_platform_and_version(simulators, platform,
+                                                  version):
+  """Finds the simulator runtime identifier for a given platform and OS version.
 
   Args:
     simulators: (dict) A list of available simulators.
+    platform: (str) A platform name, e.g. "iPhone 11"
     version: (str) A version name, e.g. "13.4"
 
   Returns:
@@ -100,8 +102,10 @@ def get_simulator_runtime_by_version(simulators, version):
     # The output might use version with a patch number (e.g. 17.0.1)
     # but the passed in version does not have a patch number (e.g. 17.0)
     # Therefore, we should use startswith for substring match.
-    if runtime['version'].startswith(version) and 'iOS' in runtime['name']:
-      return runtime['identifier']
+    if runtime['version'].startswith(version):
+      if any(supported_device_type['name'] == platform
+             for supported_device_type in runtime['supportedDeviceTypes']):
+        return runtime['identifier']
   raise test_runner.SimulatorNotFoundError('Not found "%s" SDK in runtimes %s' %
                                            (version, simulators['runtimes']))
 
@@ -131,12 +135,30 @@ def get_simulator_udids_by_platform_and_version(platform, version):
   """
   simulators = get_simulator_list()
   devices = simulators['devices']
-  sdk_id = get_simulator_runtime_by_version(simulators, version)
+  sdk_id = get_simulator_runtime_by_platform_and_version(
+      simulators, platform, version)
   results = []
   for device in devices.get(sdk_id, []):
     if device['name'] == _compose_simulator_name(platform, version):
       results.append(device['udid'])
   return results
+
+
+def get_platform_type_by_platform(platform) -> constants.IOSPlatformType:
+  """Returns the iOS-based target platform (e.g. iOS, tvOS) based on a given
+  platform name.
+
+    Args:
+      platform: (str) A platform name, e.g. "iPhone 11"
+  """
+  device_type = get_simulator_device_type_by_platform(get_simulator_list(),
+                                                      platform)
+  if device_type.startswith('com.apple.CoreSimulator.SimDeviceType.Apple-TV'):
+    return constants.IOSPlatformType.TVOS
+  elif (device_type.startswith('com.apple.CoreSimulator.SimDeviceType.iPad') or
+        device_type.startswith('com.apple.CoreSimulator.SimDeviceType.iPhone')):
+    return constants.IOSPlatformType.IPHONEOS
+  raise test_runner.UnsupportedDeviceTypeError(device_type)
 
 
 def create_device_by_platform_and_version(platform, version):
@@ -150,7 +172,8 @@ def create_device_by_platform_and_version(platform, version):
   LOGGER.info('Creating simulator %s', name)
   simulators = get_simulator_list()
   device_type = get_simulator_device_type_by_platform(simulators, platform)
-  runtime = get_simulator_runtime_by_version(simulators, version)
+  runtime = get_simulator_runtime_by_platform_and_version(
+      simulators, platform, version)
   try:
     udid = subprocess.check_output(
         ['xcrun', 'simctl', 'create', name, device_type,
@@ -341,7 +364,8 @@ def get_simulator_runtime_info_by_build(runtime_build):
   """
   runtimes = get_simulator_runtime_list()
   for runtime in runtimes.values():
-    if runtime['build'].lower() == runtime_build.lower():
+    build = runtime.get('build')
+    if build and build.lower() == runtime_build.lower():
       return runtime
   return None
 
@@ -367,20 +391,23 @@ def get_simulator_runtime_info_by_id(identifier):
   """
   runtimes = get_simulator_runtime_list()
   for runtime in runtimes.values():
-    if runtime['identifier'].lower() == identifier.lower():
+    runtime_id = runtime.get('identifier')
+    if runtime_id and runtime_id.lower() == identifier.lower():
       return runtime
   return None
 
 
-def get_simulator_runtime_info(ios_version):
+def get_simulator_runtime_info(platform_type: constants.IOSPlatformType,
+                               platform_version: str):
   """Gets runtime object based on iOS version.
 
   Args:
-    version: (str) A version name, e.g. "13.4"
+    platform_type: (IOSPlatformType) iOS-based platform in use
+    platform_version: (str) A version name, e.g. "13.4"
 
   Returns:
     a simulator runtime json object that contains all the info of an
-    iOS runtime
+    iOS/tvOS runtime
     e.g.
     {
       "build" : "19F70",
@@ -388,17 +415,27 @@ def get_simulator_runtime_info(ios_version):
       "identifier" : "FD9ED7F9-96A7-4621-B328-4C317893EC8A",
       etc...
     }
-    if no runtime for the corresponding iOS version is found, then
+    if no runtime for the corresponding iOS/tvOS version is found, then
     return None.
   """
+  if platform_type == constants.IOSPlatformType.IPHONEOS:
+    platform_identifier = "com.apple.platform.iphonesimulator"
+  elif platform_type == constants.IOSPlatformType.TVOS:
+    platform_identifier = "com.apple.platform.appletvsimulator"
+  else:
+    raise ValueError('Invalid platform_type value: %s' % platform_type)
+
   runtimes = get_simulator_runtime_list()
   for runtime in runtimes.values():
     # The output might use version with a patch number (e.g. 17.0.1)
     # but the passed in version does not have a patch number (e.g. 17.0)
     # Therefore, we should use startswith for substring match.
-    if runtime['version'].startswith(ios_version):
+    version = runtime.get('version')
+    if version and version.startswith(platform_version) and runtime.get(
+        'platformIdentifier') == platform_identifier:
       return runtime
   return None
+
 
 def is_simulator_runtime_builtin(runtime):
   if (runtime is None or runtime['kind'] not in IOS_SIM_RUNTIME_BUILTIN_STATE):
@@ -502,8 +539,7 @@ def delete_least_recently_used_simulator_runtimes(
                    (runtime_id, value['version']))
       continue
     if keep_count < max_to_keep:
-      LOGGER.debug('Runtime %s with iOS %s should be kept undeleted' %
-                   (runtime_id, value['version']))
+      LOGGER.debug('Runtime %s should be kept undeleted' % value)
       keep_count += 1
     else:
       delete_simulator_runtime(runtime_id, True)

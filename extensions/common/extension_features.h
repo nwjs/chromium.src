@@ -79,15 +79,6 @@ BASE_DECLARE_FEATURE(kApiEnterpriseReportingPrivateOnDataMaskingRulesTriggered);
 // requested host permissions by default.
 BASE_DECLARE_FEATURE(kAllowWithholdingExtensionPermissionsOnInstall);
 
-#if BUILDFLAG(ENABLE_DESKTOP_ANDROID_EXTENSIONS)
-// Blocks installing extensions on Desktop Android (experimental). This feature
-// is available only for Desktop Android builds.
-// This feature should not be added to fieldtrial_testing_config.json, even
-// though it may be enabled via Finch, since that would enable it on ToT for
-// bots, and we don't want that.
-BASE_DECLARE_FEATURE(kBlockInstallingExtensionsOnDesktopAndroid);
-#endif  // BUILDFLAG(ENABLE_DESKTOP_ANDROID_EXTENSIONS)
-
 // When enabled, then bad_message::ReceivedBadMessage will be called when
 // browser receives an IPC from a content script and the IPC that unexpectedly
 // claims to act on behalf of a given extension id, (i.e. even if the browser
@@ -137,9 +128,13 @@ extern const base::FeatureParam<std::string>
 // policy is no longer supported.
 BASE_DECLARE_FEATURE(kAllowLegacyMV2Extensions);
 
-// Controls whether server-side redirects are subject to extensions' web
-// accessible resource restrictions.
-BASE_DECLARE_FEATURE(kExtensionWARForRedirect);
+// If enabled, allows an extension to specify protocol_handlers keys in the
+// Manifest, registering a group of custom handlers so that the browser can
+// handle navigation requests to URLs with unknown schemes. This feature
+// provides similar behavior and capabilities than the one implemented by
+// the 'registerProtocolHandler' Web API, defined in the Custom Handlers
+// section of the HTML specification.
+BASE_DECLARE_FEATURE(kExtensionProtocolHandlers);
 
 // If enabled, only manifest v3 extensions is allowed while v2 will be disabled.
 // Note that this feature is now only checked by `ExtensionManagement` which
@@ -234,17 +229,6 @@ BASE_DECLARE_FEATURE(kUseNewServiceWorkerTaskQueue);
 // Enables declarative net request rules to specify a header substitution action
 // type for modifying headers.
 BASE_DECLARE_FEATURE(kDeclarativeNetRequestHeaderSubstitution);
-
-// Show no warning banner when an extension uses CDP's `chrome.debugger`.
-BASE_DECLARE_FEATURE(kSilentDebuggerExtensionAPI);
-
-// Controls whether the core SiteInstance in ProcessManager is removed. This
-// also requires adjusting when some frames are registered with the
-// ProcessManager, since they are no longer created directly with an
-// extension's SiteInstance (and instead go through a host swap before commit).
-// TODO(https://crbug.com/334991035): Remove this feature after we're confident
-// nothing breaks.
-BASE_DECLARE_FEATURE(kRemoveCoreSiteInstance);
 
 // Disables loading extensions via the `--disable-extensions-except` command
 // line switch.

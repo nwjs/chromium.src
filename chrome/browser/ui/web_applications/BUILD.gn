@@ -41,10 +41,6 @@ source_set("unit_tests") {
     "web_app_launch_utils_unittest.cc",
   ]
 
-  if (is_chromeos) {
-    sources += [ "sub_apps_install_dialog_controller_unittest.cc" ]
-  }
-
   deps = [
     ":web_applications",
     "//chrome/browser",
@@ -104,6 +100,7 @@ source_set("browser_tests") {
 
   deps += [
     ":web_applications",
+    "//base",
     "//chrome/app:command_ids",
     "//chrome/browser:shell_integration",
     "//chrome/browser/apps/app_service",
@@ -122,6 +119,7 @@ source_set("browser_tests") {
     "//chrome/browser/themes",
     "//chrome/browser/ui:ui_features",
     "//chrome/browser/ui/page_info",
+    "//chrome/browser/ui/startup",
     "//chrome/browser/ui/window_sizer",
     "//chrome/browser/web_applications:prevent_close_test_support",
     "//chrome/browser/web_applications:web_applications_test_support",
@@ -148,8 +146,8 @@ source_set("browser_tests") {
       "//chrome/browser/ui/ash/system_web_apps",
       "//chromeos/ash/components/browser_context_helper",
       "//chromeos/constants",
-      "//components/session_manager/core:core",
-      "//components/user_manager:user_manager",
+      "//components/session_manager/core",
+      "//components/user_manager",
     ]
   }
 }

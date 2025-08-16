@@ -6,6 +6,8 @@
 
 #import "base/check.h"
 #import "base/metrics/field_trial_params.h"
+#import "base/time/time.h"
+#import "ios/chrome/browser/shared/public/features/features.h"
 
 BASE_FEATURE(kEnhancedCalendar,
              "EnhancedCalendar",
@@ -23,13 +25,34 @@ const char kPageActionMenuDirectEntryPointParam[] =
     "PageActionMenuDirectEntryPoint";
 
 bool IsPageActionMenuEnabled() {
+  if (IsDiamondPrototypeEnabled()) {
+    return true;
+  }
   return base::FeatureList::IsEnabled(kPageActionMenu);
+}
+
+BASE_FEATURE(kGeminiCrossTab,
+             "GeminiCrossTab",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+bool IsGeminiCrossTabEnabled() {
+  if (!IsPageActionMenuEnabled()) {
+    return false;
+  }
+  return base::FeatureList::IsEnabled(kGeminiCrossTab);
 }
 
 bool IsDirectBWGEntryPoint() {
   CHECK(IsPageActionMenuEnabled());
   return base::GetFieldTrialParamByFeatureAsBool(
       kPageActionMenu, kPageActionMenuDirectEntryPointParam, false);
+}
+
+const char kBWGSessionValidityDurationParam[] = "BWGSessionValidityDuration";
+
+const base::TimeDelta BWGSessionValidityDuration() {
+  return base::Minutes(base::GetFieldTrialParamByFeatureAsInt(
+      kPageActionMenu, kBWGSessionValidityDurationParam, 30));
 }
 
 const char kBWGPromoConsentParams[] = "BWGPromoConsentVariations";
@@ -50,9 +73,14 @@ BWGPromoConsentVariations BWGPromoConsentVariationsParam() {
     return BWGPromoConsentVariations::kSkipConsent;
   }
   if (param == 4) {
-    return BWGPromoConsentVariations::kForceConsent;
+    return BWGPromoConsentVariations::kForceFRE;
   }
   return BWGPromoConsentVariations::kDisabled;
+}
+
+bool ShouldForceBWGPromo() {
+  return BWGPromoConsentVariationsParam() ==
+         BWGPromoConsentVariations::kForceFRE;
 }
 
 BASE_FEATURE(kBWGPromoConsent,
@@ -76,3 +104,20 @@ PositionForExplainGeminiEditMenu ExplainGeminiEditMenuPosition() {
 BASE_FEATURE(kExplainGeminiEditMenu,
              "ExplainGeminiEditMenu",
              base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kBWGPreciseLocation,
+             "BWGPreciseLocation",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+bool IsBWGPreciseLocationEnabled() {
+  CHECK(IsPageActionMenuEnabled());
+  return base::FeatureList::IsEnabled(kBWGPreciseLocation);
+}
+
+BASE_FEATURE(kPageContextAnchorTags,
+             "PageContextAnchorTags",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+bool IsPageContextAnchorTagsEnabled() {
+  return base::FeatureList::IsEnabled(kPageContextAnchorTags);
+}

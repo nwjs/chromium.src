@@ -9,11 +9,11 @@
 #include "base/feature_list.h"
 #include "base/features.h"
 #include "base/no_destructor.h"
-#include "components/embedder_support/android/metrics/features.h"
 #include "components/safe_browsing/core/common/features.h"
 #include "components/sensitive_content/features.h"
 #include "components/viz/common/features.h"
 #include "content/public/common/content_features.h"
+#include "third_party/blink/public/common/features.h"
 
 // Must come after all headers that specialize FromJniType() / ToJniType().
 #include "android_webview/common_jni/AwFeatureMap_jni.h"
@@ -28,8 +28,9 @@ namespace {
 const base::Feature* const kFeaturesExposedToJava[] = {
     // Ordered alphabetically on feature name.
     // keep-sorted start allow_yaml_lists=yes by_regex=['\w+,']
-    &metrics::kAndroidMetricsAsyncMetricLogging,
+    &features::kAndroidMetricsAsyncMetricLogging,
     &base::features::kCollectAndroidFrameTimelineMetrics,
+    &blink::features::kForceOffTextAutosizing,
     &safe_browsing::kHashPrefixRealTimeLookups,
     &base::features::kPostGetMyMemoryStateToBackground,
     &::features::kPrefetchBrowserInitiatedTriggers,
@@ -53,15 +54,19 @@ const base::Feature* const kFeaturesExposedToJava[] = {
     &features::kWebViewQuicConnectionTimeout,
     &features::kWebViewRecordAppCacheHistograms,
     &features::kWebViewReduceUAAndroidVersionDeviceModel,
+    &features::kWebViewReportImeInsets,
     &features::kWebViewSafeAreaIncludesSystemBars,
     &features::kWebViewSeparateResourceContext,
     &features::kWebViewShortCircuitShouldInterceptRequest,
     &features::kWebViewSkipInterceptsForPrefetch,
+    &features::kWebViewStartupTasksYieldToNative,
     &features::kWebViewTestFeature,
     &features::kWebViewUseInitialNetworkStateAtStartup,
     &features::kWebViewUseMetricsUploadService,
     &features::kWebViewUseMetricsUploadServiceOnlySdkRuntime,
+    &features::kWebViewUseRenderingHeuristic,
     &features::kWebViewUseStartupTasksLogic,
+    &features::kWebViewUseStartupTasksLogicP2,
     &features::kWebViewWebauthn,
     &features::kWebViewXRequestedWithHeaderControl,
     // keep-sorted end

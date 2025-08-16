@@ -87,10 +87,11 @@ class NET_EXPORT SessionServiceImpl : public SessionService {
       base::OnceCallback<void(const std::vector<SessionKey>&)> callback)
       override;
   void DeleteSessionAndNotify(
-      const SchemefulSite& site,
-      const Session::Id& id,
+      DeletionReason reason,
+      const SessionKey& session_key,
       SessionService::OnAccessCallback per_request_callback) override;
   void DeleteAllSessions(
+      DeletionReason reason,
       std::optional<base::Time> created_after_time,
       std::optional<base::Time> created_before_time,
       base::RepeatingCallback<bool(const url::Origin&,
@@ -100,8 +101,7 @@ class NET_EXPORT SessionServiceImpl : public SessionService {
   base::ScopedClosureRunner AddObserver(
       const GURL& url,
       base::RepeatingCallback<void(const SessionAccess&)> callback) override;
-  Session* GetSession(const SchemefulSite& site,
-                      const Session::Id& session_id) const;
+  Session* GetSession(const SessionKey& session_key) const;
 
  private:
   friend class SessionServiceImplWithStoreTest;
@@ -133,15 +133,16 @@ class NET_EXPORT SessionServiceImpl : public SessionService {
 
   void OnRegistrationComplete(
       OnAccessCallback on_access_callback,
+      RegistrationFetcher* fetcher,
       base::expected<SessionParams, SessionError> params_or_error);
   void OnRefreshRequestCompletion(
       OnAccessCallback on_access_callback,
-      SchemefulSite site,
-      Session::Id session_id,
+      SessionKey session_key,
+      RegistrationFetcher* fetcher,
       base::expected<SessionParams, SessionError> params_or_error);
 
   void AddSession(const SchemefulSite& site, std::unique_ptr<Session> session);
-  void UnblockDeferredRequests(const Session::Id& session_id,
+  void UnblockDeferredRequests(const SessionKey& session_key,
                                RefreshResult result);
 
   // Get all the unexpired sessions for a given site. This also removes
@@ -153,6 +154,7 @@ class NET_EXPORT SessionServiceImpl : public SessionService {
   // from `session_store_` and notifies any observers (including
   // `per_request_callback`) about the termination.
   void DeleteSessionAndNotifyInternal(
+      DeletionReason reason,
       SessionsMap::iterator it,
       SessionService::OnAccessCallback per_request_callback);
 
@@ -162,7 +164,7 @@ class NET_EXPORT SessionServiceImpl : public SessionService {
   void NotifySessionAccess(
       SessionService::OnAccessCallback per_request_callback,
       SessionAccess::AccessType access_type,
-      const SchemefulSite& site,
+      const SessionKey& session_key,
       const Session& session);
 
   // Remove an observer by site and pointer.
@@ -171,27 +173,27 @@ class NET_EXPORT SessionServiceImpl : public SessionService {
   // Helper function encapsulating the processing of registration
   SessionError::ErrorType OnRegistrationCompleteInternal(
       OnAccessCallback on_access_callback,
+      RegistrationFetcher* fetcher,
       base::expected<SessionParams, SessionError> params_or_error);
 
   // Helper function encapsulating the processing of refresh
   SessionError::ErrorType OnRefreshRequestCompletionInternal(
       OnAccessCallback on_access_callback,
-      const SchemefulSite& site,
-      const Session::Id& session_id,
+      const SessionKey& session_key,
+      RegistrationFetcher* fetcher,
       base::expected<SessionParams, SessionError> params_or_error);
 
   // Callback after unwrapping a session key. `on_access_callback` is
   // used to notify the browser that this request led to usage of a
   // session.
   void OnSessionKeyRestored(URLRequest* request,
-                            const SchemefulSite& site,
-                            const Session::Id& session_id,
+                            const SessionKey& session_key,
                             OnAccessCallback on_access_callback,
                             Session::KeyIdOrError key_id_or_error);
 
   // Helper function for starting a refresh
   void RefreshSessionInternal(URLRequest* request,
-                              const SchemefulSite& site,
+                              const SessionKey& session_key,
                               Session* session,
                               unexportable_keys::UnexportableKeyId key_id);
 
@@ -201,6 +203,10 @@ class NET_EXPORT SessionServiceImpl : public SessionService {
   // Add a header to `request` indicating which sessions should have
   // applied, but did not due to error conditions.
   void AddDebugHeader(URLRequest* request);
+
+  // Removes `fetcher` from the set of active fetchers. If `fetcher` is
+  // null, does nothing.
+  void RemoveFetcher(RegistrationFetcher* fetcher);
 
   // Whether we are waiting on the initial load of saved sessions to complete.
   bool pending_initialization_ = false;
@@ -229,6 +235,10 @@ class NET_EXPORT SessionServiceImpl : public SessionService {
   // Per-site session refresh quota. In order to be robust across
   // session parameter changes, we enforce refresh quota for a site.
   std::map<net::SchemefulSite, std::vector<base::TimeTicks>> refresh_times_;
+
+  // Holds all currently live registration fetchers.
+  std::set<std::unique_ptr<RegistrationFetcher>, base::UniquePtrComparator>
+      registration_fetchers_;
 
   base::WeakPtrFactory<SessionServiceImpl> weak_factory_{this};
 };

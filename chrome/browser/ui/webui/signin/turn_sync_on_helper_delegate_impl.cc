@@ -40,6 +40,7 @@
 #include "components/policy/core/browser/signin/profile_separation_policies.h"
 #include "components/policy/core/browser/signin/user_cloud_signin_restriction_policy_fetcher.h"
 #include "components/policy/core/common/policy_utils.h"
+#include "components/prefs/pref_service.h"
 #include "components/signin/public/base/signin_pref_names.h"
 #include "google_apis/gaia/gaia_auth_util.h"
 #include "third_party/skia/include/core/SkColor.h"
@@ -88,11 +89,11 @@ void OnEmailConfirmation(signin::SigninChoiceCallback callback,
 TurnSyncOnHelperDelegateImpl::TurnSyncOnHelperDelegateImpl(
     Browser* browser,
     bool is_sync_promo,
-    bool turn_sync_on_signed_profile)
+    bool user_already_signed_in)
     : browser_(browser),
       profile_(browser_->profile()),
       is_sync_promo_(is_sync_promo),
-      turn_sync_on_signed_profile_(turn_sync_on_signed_profile) {
+      user_already_signed_in_(user_already_signed_in) {
   DCHECK(browser);
   DCHECK(profile_);
   BrowserList::AddObserver(this);
@@ -122,12 +123,7 @@ void TurnSyncOnHelperDelegateImpl::
     ShouldEnterpriseConfirmationPromptForNewProfile(
         Profile* profile,
         base::OnceCallback<void(bool)> callback) {
-  if (base::FeatureList::IsEnabled(
-          features::kEnterpriseUpdatedProfileCreationScreen)) {
     std::move(callback).Run(/*prompt_for_new_profile=*/true);
-    return;
-  }
-  ui::CheckShouldPromptForNewProfile(profile, std::move(callback));
 }
 
 void TurnSyncOnHelperDelegateImpl::ShowEnterpriseAccountConfirmation(
@@ -221,7 +217,7 @@ void TurnSyncOnHelperDelegateImpl::OnBrowserRemoved(Browser* browser) {
 void TurnSyncOnHelperDelegateImpl::OnProfileSigninRestrictionsFetched(
     const AccountInfo& account_info,
     signin::SigninChoiceCallback callback,
-    const policy::ProfileSeparationPolicies& profile_separation_policies) {
+    policy::ProfileSeparationPolicies profile_separation_policies) {
   if (!browser_) {
     std::move(callback).Run(signin::SIGNIN_CHOICE_CANCEL);
     return;
@@ -239,7 +235,7 @@ void TurnSyncOnHelperDelegateImpl::OnProfileSigninRestrictionsFetched(
       ->ShowModalManagedUserNoticeDialog(
           std::make_unique<signin::EnterpriseProfileCreationDialogParams>(
               account_info, /*is_oidc_account=*/false,
-              /*turn_sync_on_signed_profile=*/turn_sync_on_signed_profile_,
+              /*user_already_signed_in=*/user_already_signed_in_,
               profile_creation_required_by_policy_, show_link_data_option,
               std::move(callback),
               base::BindOnce(&SigninViewController::CloseModalSignin,
@@ -283,7 +279,7 @@ void TurnSyncOnHelperDelegateImpl::OnProfileCheckComplete(
       ->ShowModalManagedUserNoticeDialog(
           std::make_unique<signin::EnterpriseProfileCreationDialogParams>(
               account_info, /*is_oidc_account=*/false,
-              /*turn_sync_on_signed_profile=*/turn_sync_on_signed_profile_,
+              /*user_already_signed_in=*/user_already_signed_in_,
               /*profile_creation_required_by_policy=*/false,
               /*show_link_data_option=*/false,
               base::BindOnce(

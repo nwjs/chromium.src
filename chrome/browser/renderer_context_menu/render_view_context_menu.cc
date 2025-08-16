@@ -47,6 +47,7 @@
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/custom_handlers/protocol_handler_registry_factory.h"
 #include "chrome/browser/devtools/devtools_window.h"
+#include "chrome/browser/devtools/features.h"
 #include "chrome/browser/download/download_prefs.h"
 #include "chrome/browser/download/download_stats.h"
 #include "chrome/browser/glic/glic_enabling.h"
@@ -97,6 +98,7 @@
 #include "chrome/browser/ui/exclusive_access/keyboard_lock_controller.h"
 #include "chrome/browser/ui/lens/lens_overlay_entry_point_controller.h"
 #include "chrome/browser/ui/lens/lens_search_controller.h"
+#include "chrome/browser/ui/lens/lens_string_utils.h"
 #include "chrome/browser/ui/passwords/ui_utils.h"
 #include "chrome/browser/ui/profiles/profile_colors_util.h"
 #include "chrome/browser/ui/profiles/profile_view_utils.h"
@@ -104,14 +106,17 @@
 #include "chrome/browser/ui/send_tab_to_self/send_tab_to_self_bubble.h"
 #include "chrome/browser/ui/tab_contents/core_tab_helper.h"
 #include "chrome/browser/ui/tabs/public/tab_features.h"
+#include "chrome/browser/ui/tabs/split_tab_metrics.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/translate/partial_translate_bubble_model.h"
 #include "chrome/browser/ui/ui_features.h"
+#include "chrome/browser/ui/user_education/browser_user_education_interface.h"
 #include "chrome/browser/ui/views/side_panel/read_anything/read_anything_side_panel_controller_utils.h"
 #include "chrome/browser/ui/web_applications/app_browser_controller.h"
 #include "chrome/browser/ui/webauthn/context_menu_helper.h"
 #include "chrome/browser/ui/webui/history/foreign_session_handler.h"
 #include "chrome/browser/user_education/user_education_service.h"
+#include "chrome/browser/user_education/user_education_service_factory.h"
 #include "chrome/browser/web_applications/mojom/user_display_mode.mojom.h"
 #include "chrome/browser/web_applications/web_app_helpers.h"
 #include "chrome/browser/web_applications/web_app_icon_manager.h"
@@ -195,6 +200,7 @@
 #include "content/public/browser/spare_render_process_host_manager.h"
 #include "content/public/browser/ssl_status.h"
 #include "content/public/browser/web_contents.h"
+#include "content/public/common/buildflags.h"
 #include "content/public/common/referrer.h"
 #include "content/public/common/url_constants.h"
 #include "content/public/common/url_utils.h"
@@ -204,7 +210,6 @@
 #include "net/base/network_anonymization_key.h"
 #include "net/traffic_annotation/network_traffic_annotation.h"
 #include "pdf/buildflags.h"
-#include "ppapi/buildflags/buildflags.h"
 #include "printing/buildflags/buildflags.h"
 #include "services/metrics/public/cpp/ukm_builders.h"
 #include "services/metrics/public/cpp/ukm_recorder.h"
@@ -264,8 +269,8 @@
 #endif
 
 #if BUILDFLAG(ENABLE_GLIC)
-#include "chrome/browser/glic/glic_keyed_service.h"
-#include "chrome/browser/glic/glic_keyed_service_factory.h"
+#include "chrome/browser/glic/public/glic_keyed_service.h"
+#include "chrome/browser/glic/public/glic_keyed_service_factory.h"
 #endif  // BUILDFLAG(ENABLE_GLIC)
 
 #if BUILDFLAG(ENABLE_PDF)
@@ -1018,6 +1023,22 @@ void RenderViewContextMenu::IssuePreconnectionToUrl(
   loading_predictor->PreconnectURLIfAllowed(GURL(preconnect_url),
                                             /*allow_credentials=*/true,
                                             network_anonymization_key);
+}
+
+ui::IsNewFeatureAtValue RenderViewContextMenu::GetIsNewFeatureAtValue(
+    const std::string& feature_name) const {
+  Profile* profile = Profile::FromBrowserContext(browser_context_);
+  auto& feature_data =
+      UserEducationServiceFactory::GetForBrowserContext(profile)
+          ->new_badge_registry()
+          ->feature_data();
+  for (const auto& [feature, spec] : feature_data) {
+    if (feature_name == feature->name) {
+      return UserEducationService::MaybeShowNewBadge(browser_context_,
+                                                     *feature);
+    }
+  }
+  return ui::IsNewFeatureAtValue();
 }
 
 bool RenderViewContextMenu::IsInProgressiveWebApp() const {
@@ -1997,7 +2018,9 @@ void RenderViewContextMenu::AppendSearchWebForImageItems() {
         vector_icons::kSearchChromeRefreshIcon;
 #endif
     menu_model_.AddItemWithStringIdAndIcon(
-        search_for_image_idc, IDS_CONTENT_CONTEXT_LENS_OVERLAY,
+        search_for_image_idc,
+        lens::GetLensOverlayImageEntrypointLabelAltIds(
+            IDS_CONTENT_CONTEXT_LENS_OVERLAY),
         ui::ImageModel::FromVectorIcon(icon));
   } else {
     menu_model_.AddItem(
@@ -2074,7 +2097,9 @@ void RenderViewContextMenu::AppendVideoItems() {
           vector_icons::kSearchChromeRefreshIcon;
 #endif
       menu_model_.AddItemWithStringIdAndIcon(
-          search_for_video_frame_idc, IDS_CONTENT_CONTEXT_LENS_OVERLAY,
+          search_for_video_frame_idc,
+          lens::GetLensOverlayVideoEntrypointLabelAltIds(
+              IDS_CONTENT_CONTEXT_LENS_OVERLAY),
           ui::ImageModel::FromVectorIcon(icon));
     } else {
       const auto* provider = GetImageSearchProvider();
@@ -2674,7 +2699,9 @@ void RenderViewContextMenu::AppendRegionSearchItem() {
 #endif
     menu_model_.AddItemWithStringIdAndIcon(
         IDC_CONTENT_CONTEXT_LENS_REGION_SEARCH,
-        IDS_CONTENT_CONTEXT_LENS_OVERLAY, ui::ImageModel::FromVectorIcon(icon));
+        lens::GetLensOverlayEntrypointLabelAltIds(
+            IDS_CONTENT_CONTEXT_LENS_OVERLAY),
+        ui::ImageModel::FromVectorIcon(icon));
     const int command_index =
         menu_model_.GetIndexOfCommandId(IDC_CONTENT_CONTEXT_LENS_REGION_SEARCH)
             .value();
@@ -3463,6 +3490,12 @@ void RenderViewContextMenu::ExecuteCommand(int id, int event_flags) {
     case IDC_CONTENT_CONTEXT_SEARCHWEBFOR: {
       RecordAmbientSearchQuery(
           lens::AmbientSearchEntryPoint::CONTEXT_MENU_SEARCH_WEB_FOR);
+#if BUILDFLAG(ENABLE_LENS_DESKTOP_GOOGLE_BRANDED_FEATURES)
+      if (ShouldOpenTextQueryInLens()) {
+        OpenTextQueryInLens();
+        break;
+      }
+#endif  // BUILDFLAG(ENABLE_LENS_DESKTOP_GOOGLE_BRANDED_FEATURES)
       [[fallthrough]];
     }
     case IDC_CONTENT_CONTEXT_SEARCHWEBFORNEWTAB:
@@ -3645,6 +3678,15 @@ bool RenderViewContextMenu::IsSaveAsItemAllowedByPolicy(
 bool RenderViewContextMenu::IsUntrustedNetworkDisabled() const {
   return GetRenderFrameHost() &&
          GetRenderFrameHost()->IsUntrustedNetworkDisabled();
+}
+
+bool RenderViewContextMenu::ShouldOpenTextQueryInLens() const {
+  return lens::features::
+             IsLensOverlayTextSelectionContextMenuEntrypointEnabled() &&
+         GetBrowser()
+             ->GetFeatures()
+             .lens_overlay_entry_point_controller()
+             ->IsEnabled();
 }
 
 // Controller functions --------------------------------------------------------
@@ -4075,8 +4117,8 @@ void RenderViewContextMenu::ExecOpenCompose() {
         autofill::FieldGlobalId(
             frame_token, autofill::FieldRendererId(params_.field_renderer_id)),
         compose::ComposeManagerImpl::UiEntryPoint::kContextMenu);
-    GetBrowser()->window()->NotifyNewBadgeFeatureUsed(
-        compose::features::kEnableCompose);
+    BrowserUserEducationInterface::From(GetBrowser())
+        ->NotifyNewBadgeFeatureUsed(compose::features::kEnableCompose);
   } else {
     compose::LogOpenComposeDialogResult(
         compose::OpenComposeDialogResult::kNoContentAutofillDriver);
@@ -4754,6 +4796,20 @@ void RenderViewContextMenu::PluginActionAt(
   }
 }
 
+void RenderViewContextMenu::OpenTextQueryInLens() {
+  auto* const controller =
+      LensSearchController::FromTabWebContents(source_web_contents_);
+  CHECK(controller);
+  controller->IssueContextualSearchRequestWithQuery(
+      lens::LensOverlayInvocationSource::kContentAreaContextMenuText,
+      base::UTF16ToUTF8(params_.selection_text),
+      /*additional_query_parameters=*/{},
+      // TODO(crbug.com/432490312): Match type here is likely not ideal.
+      // Investigate removing match type from this function.
+      AutocompleteMatchType::Type::SEARCH_WHAT_YOU_TYPED,
+      /*is_zero_prefix_suggestion=*/false);
+}
+
 Browser* RenderViewContextMenu::GetBrowser() const {
   return chrome::FindBrowserWithTab(embedder_web_contents_);
 }
@@ -4871,8 +4927,9 @@ void RenderViewContextMenu::OpenLinkInSplitView() {
         params_.link_url, new_tab_index, false,
         tab_strip_model->GetTabGroupForTab(active_index));
     tabs::TabInterface* new_tab = tab_strip_model->GetTabAtIndex(new_tab_index);
-    tab_strip_model->AddToNewSplit({new_tab_index},
-                                   split_tabs::SplitTabVisualData());
+    tab_strip_model->AddToNewSplit(
+        {new_tab_index}, split_tabs::SplitTabVisualData(),
+        split_tabs::SplitTabCreatedSource::kLinkContextMenu);
     tab_strip_model->ActivateTabAt(tab_strip_model->GetIndexOfTab(new_tab));
   }
 }

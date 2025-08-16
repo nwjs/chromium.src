@@ -10,6 +10,7 @@ import "ui/accessibility/ax_enums.mojom";
 import "ui/gfx/geometry/mojom/geometry.mojom";
 import "url/mojom/origin.mojom";
 import "url/mojom/url.mojom";
+import "third_party/blink/public/mojom/content_extraction/script_tools.mojom";
 
 // This is a mojom representation of the corresponding AnnotatedPageContent
 // proto.
@@ -140,6 +141,27 @@ enum AIPageContentClickabilityReason {
 
   // The node has a clickable aria role.
   kAriaRole,
+
+  // The node has the aria-haspopup attribute indicating it opens a popup on
+  // activation.
+  kAriaHasPopup,
+
+  // The node has the aria-expanded attribute indicating it controls the
+  // visibility of other elements. This reason implies that the associated
+  // control is currently expanded.
+  kAriaExpandedTrue,
+
+  // The node has the aria-expanded attribute indicating it controls the
+  // visibility of other elements. This reason implies that the associated
+  // control is currently collapsed.
+  kAriaExpandedFalse,
+
+  // The node has the tabIndex attribute set to a valid value.
+  kTabIndex,
+
+  // The node has autocomplete, as indicated by the same-named attribute or
+  // aria-autocomplete.
+  kAutocomplete,
 };
 
 struct AIPageContentNodeInteractionInfo {
@@ -147,28 +169,11 @@ struct AIPageContentNodeInteractionInfo {
   // state.
   AIPageContentScrollerInfo? scroller_info;
 
-  // Whether the content node is selectable.
-  bool is_selectable;
-
-  // Whether the content node is editable; i.e. whether the user can type into
-  // it. This refers to the text actually being editable, not whether the
-  // content node is a text field.
-  bool is_editable;
-
-  // Whether the content node can be resized. This is relevant for scroll
-  // containers and iframes which have the CSS resize behavior.
-  bool can_resize_horizontal;
-  bool can_resize_vertical;
-
   // Whether the content node is focusable.
   bool is_focusable;
 
-  // Whether the content node is draggable.
-  bool is_draggable;
-
-  // Whether the content node is clickable. This checks for whether the node is
-  // a clickable control (e.g. form control elements) or has activation
-  // behavior. It also checks for whether the node has a click handler.
+  // [Deprecated] Use `clickability_reasons` instead.
+  // Indicates whether the node is actionable.
   bool is_clickable;
 
   // The z-order of the content node relative to other nodes in the same
@@ -182,10 +187,9 @@ struct AIPageContentNodeInteractionInfo {
   // Note: This value is only set for nodes in the viewport.
   int32? document_scoped_z_order;
 
-  // If this node is detected to be is_clickable, provides the reason which
-  // caused that.
-  // Note: This may not capture all the reasons.
-  array<AIPageContentClickabilityReason> debug_clickability_reasons;
+  // Provides signals which indicate whether the node is actionable. The action
+  // may be triggered by clicking or hovering on the element.
+  array<AIPageContentClickabilityReason> clickability_reasons;
 };
 
 // The coordinate space for the dimensions here is physical coordinates (not
@@ -300,6 +304,9 @@ struct AIPageContentFrameData {
   // Whether the frame contains paid content. The value exists
   // if the document was checked.
   bool? contains_paid_content;
+
+  // The set of tools supported by this Document.
+  array<ScriptTool> script_tools;
 };
 
 // Provides metadata for frames (local and remote) accessible from the

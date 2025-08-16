@@ -116,7 +116,7 @@ public class AdaptiveToolbarUiCoordinator {
         mScrimSupplier = scrimSupplier;
         mTabModelSelectorSupplier = tabModelSelectorSupplier;
         IdentityDiscController identityDiscController =
-                new IdentityDiscController(mContext, activityLifecycleDispatcher, profileSupplier);
+                new IdentityDiscController(mContext, profileSupplier);
         mCurrentTabPriceTrackingStateSupplier =
                 new CurrentTabPriceTrackingStateSupplier(mActivityTabProvider, profileSupplier);
 
@@ -146,7 +146,11 @@ public class AdaptiveToolbarUiCoordinator {
                         mCurrentTabPriceTrackingStateSupplier);
         ReaderModeToolbarButtonController readerModeToolbarButtonController =
                 new ReaderModeToolbarButtonController(
-                        mContext, mActivityTabProvider, mModalDialogManagerSupplier.get());
+                        mContext,
+                        mProfileSupplier,
+                        mActivityTabProvider,
+                        mModalDialogManagerSupplier.get(),
+                        mBottomSheetController);
         ReadAloudToolbarButtonController readAloudButtonController =
                 new ReadAloudToolbarButtonController(
                         mContext,

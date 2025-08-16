@@ -33,6 +33,32 @@ FieldTypeSet AttributeType::storable_field_types(
 std::u16string AttributeType::GetNameForI18n() const {
   return l10n_util::GetStringUTF16([&] {
     switch (name()) {
+      case AttributeTypeName::kDriversLicenseName:
+        return IDS_AUTOFILL_AI_DRIVERS_LICENSE_NAME_ATTRIBUTE_NAME;
+      case AttributeTypeName::kDriversLicenseState:
+        return IDS_AUTOFILL_AI_DRIVERS_LICENSE_STATE_ATTRIBUTE_NAME;
+      case AttributeTypeName::kDriversLicenseNumber:
+        return IDS_AUTOFILL_AI_DRIVERS_LICENSE_NUMBER_ATTRIBUTE_NAME;
+      case AttributeTypeName::kDriversLicenseExpirationDate:
+        return IDS_AUTOFILL_AI_DRIVERS_LICENSE_EXPIRATION_DATE_ATTRIBUTE_NAME;
+      case AttributeTypeName::kDriversLicenseIssueDate:
+        return IDS_AUTOFILL_AI_DRIVERS_LICENSE_ISSUE_DATE_ATTRIBUTE_NAME;
+      case AttributeTypeName::kKnownTravelerNumberName:
+        return IDS_AUTOFILL_AI_KNOWN_TRAVELER_NUMBER_NAME_ATTRIBUTE_NAME;
+      case AttributeTypeName::kKnownTravelerNumberNumber:
+        return IDS_AUTOFILL_AI_KNOWN_TRAVELER_NUMBER_ATTRIBUTE_NAME;
+      case AttributeTypeName::kKnownTravelerNumberExpirationDate:
+        return IDS_AUTOFILL_AI_KNOWN_TRAVELER_NUMBER_EXPIRATION_DATE_ATTRIBUTE_NAME;
+      case AttributeTypeName::kNationalIdCardName:
+        return IDS_AUTOFILL_AI_NATIONAL_ID_CARD_NAME_ATTRIBUTE_NAME;
+      case AttributeTypeName::kNationalIdCardCountry:
+        return IDS_AUTOFILL_AI_NATIONAL_ID_CARD_COUNTRY_ATTRIBUTE_NAME;
+      case AttributeTypeName::kNationalIdCardNumber:
+        return IDS_AUTOFILL_AI_NATIONAL_ID_CARD_NUMBER_ATTRIBUTE_NAME;
+      case AttributeTypeName::kNationalIdCardIssueDate:
+        return IDS_AUTOFILL_AI_NATIONAL_ID_CARD_ISSUE_DATE_ATTRIBUTE_NAME;
+      case AttributeTypeName::kNationalIdCardExpirationDate:
+        return IDS_AUTOFILL_AI_NATIONAL_ID_CARD_EXPIRATION_DATE_ATTRIBUTE_NAME;
       case AttributeTypeName::kPassportName:
         return IDS_AUTOFILL_AI_PASSPORT_NAME_ATTRIBUTE_NAME;
       case AttributeTypeName::kPassportNumber:
@@ -43,6 +69,10 @@ std::u16string AttributeType::GetNameForI18n() const {
         return IDS_AUTOFILL_AI_PASSPORT_EXPIRATION_DATE_ATTRIBUTE_NAME;
       case AttributeTypeName::kPassportIssueDate:
         return IDS_AUTOFILL_AI_PASSPORT_ISSUE_DATE_ATTRIBUTE_NAME;
+      case AttributeTypeName::kRedressNumberName:
+        return IDS_AUTOFILL_AI_REDRESS_NUMBER_NAME_ATTRIBUTE_NAME;
+      case AttributeTypeName::kRedressNumberNumber:
+        return IDS_AUTOFILL_AI_REDRESS_NUMBER_ATTRIBUTE_NAME;
       case AttributeTypeName::kVehicleOwner:
         return IDS_AUTOFILL_AI_VEHICLE_OWNER_ATTRIBUTE_NAME;
       case AttributeTypeName::kVehiclePlateNumber:
@@ -57,16 +87,6 @@ std::u16string AttributeType::GetNameForI18n() const {
         return IDS_AUTOFILL_AI_VEHICLE_MODEL_ATTRIBUTE_NAME;
       case AttributeTypeName::kVehicleYear:
         return IDS_AUTOFILL_AI_VEHICLE_YEAR_ATTRIBUTE_NAME;
-      case AttributeTypeName::kDriversLicenseName:
-        return IDS_AUTOFILL_AI_DRIVERS_LICENSE_NAME_ATTRIBUTE_NAME;
-      case AttributeTypeName::kDriversLicenseState:
-        return IDS_AUTOFILL_AI_DRIVERS_LICENSE_STATE_ATTRIBUTE_NAME;
-      case AttributeTypeName::kDriversLicenseNumber:
-        return IDS_AUTOFILL_AI_DRIVERS_LICENSE_NUMBER_ATTRIBUTE_NAME;
-      case AttributeTypeName::kDriversLicenseExpirationDate:
-        return IDS_AUTOFILL_AI_DRIVERS_LICENSE_EXPIRATION_DATE_ATTRIBUTE_NAME;
-      case AttributeTypeName::kDriversLicenseIssueDate:
-        return IDS_AUTOFILL_AI_DRIVERS_LICENSE_ISSUE_DATE_ATTRIBUTE_NAME;
     }
     NOTREACHED();
   }());
@@ -76,31 +96,54 @@ std::u16string AttributeType::GetNameForI18n() const {
 bool EntityType::ImportOrder(const EntityType& lhs, const EntityType& rhs) {
   auto rank = [](const EntityType& t) constexpr {
     // Lower values indicate a higher priority.
-    // For a deterministic behavior, distinct types should have distinct ranks.
     switch (t.name()) {
+      case EntityTypeName::kDriversLicense:
+        return 4;
+      case EntityTypeName::kKnownTravelerNumber:
+        return 5;
+      case EntityTypeName::kNationalIdCard:
+        return 2;
       case EntityTypeName::kPassport:
         return 1;
+      case EntityTypeName::kRedressNumber:
+        return 6;
       case EntityTypeName::kVehicle:
-        return 2;
-      case EntityTypeName::kDriversLicense:
         return 3;
     }
   };
+  // For a deterministic behavior, distinct types should have distinct ranks.
+  static_assert(
+      std::ranges::all_of(DenseSet<EntityType>::all(), [&](EntityType a) {
+        return std::ranges::all_of(
+            DenseSet<EntityType>::all(),
+            [&](EntityType b) { return a == b || rank(a) != rank(b); });
+      }));
   return rank(lhs) < rank(rhs);
 }
 
+// LINT.IfChange(EntityType)
 std::u16string EntityType::GetNameForI18n() const {
   switch (name()) {
-    case EntityTypeName::kPassport:
-      return l10n_util::GetStringUTF16(IDS_AUTOFILL_AI_PASSPORT_ENTITY_NAME);
-    case EntityTypeName::kVehicle:
-      return l10n_util::GetStringUTF16(IDS_AUTOFILL_AI_VEHICLE_ENTITY_NAME);
     case EntityTypeName::kDriversLicense:
       return l10n_util::GetStringUTF16(
           IDS_AUTOFILL_AI_DRIVERS_LICENSE_ENTITY_NAME);
+    case EntityTypeName::kKnownTravelerNumber:
+      return l10n_util::GetStringUTF16(
+          IDS_AUTOFILL_AI_KNOWN_TRAVELER_NUMBER_ENTITY_NAME);
+    case EntityTypeName::kNationalIdCard:
+      return l10n_util::GetStringUTF16(
+          IDS_AUTOFILL_AI_NATIONAL_ID_CARD_ENTITY_NAME);
+    case EntityTypeName::kPassport:
+      return l10n_util::GetStringUTF16(IDS_AUTOFILL_AI_PASSPORT_ENTITY_NAME);
+    case EntityTypeName::kRedressNumber:
+      return l10n_util::GetStringUTF16(
+          IDS_AUTOFILL_AI_REDRESS_NUMBER_ENTITY_NAME);
+    case EntityTypeName::kVehicle:
+      return l10n_util::GetStringUTF16(IDS_AUTOFILL_AI_VEHICLE_ENTITY_NAME);
   }
   NOTREACHED();
 }
+// LINT.ThenChange(/tools/metrics/histograms/metadata/autofill/enums.xml:AutofillAiEntityType)
 
 std::optional<EntityTypeName> ToSafeEntityTypeName(
     std::underlying_type_t<EntityTypeName> raw_value) {

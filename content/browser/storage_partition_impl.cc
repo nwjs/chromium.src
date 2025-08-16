@@ -98,6 +98,7 @@
 #include "content/browser/renderer_host/navigation_request.h"
 #include "content/browser/renderer_host/navigation_state_keep_alive.h"
 #include "content/browser/service_worker/service_worker_client.h"
+#include "content/browser/service_worker/service_worker_context_core.h"
 #include "content/browser/service_worker/service_worker_context_wrapper.h"
 #include "content/browser/shared_storage/shared_storage_header_observer.h"
 #include "content/browser/shared_storage/shared_storage_runtime_manager.h"
@@ -120,7 +121,6 @@
 #include "content/public/browser/permission_descriptor_util.h"
 #include "content/public/browser/permission_result.h"
 #include "content/public/browser/private_aggregation_data_model.h"
-#include "content/public/browser/private_network_device_delegate.h"
 #include "content/public/browser/runtime_feature_state/runtime_feature_state_document_data.h"
 #include "content/public/browser/service_process_host.h"
 #include "content/public/browser/session_storage_usage_info.h"
@@ -140,7 +140,6 @@
 #include "net/base/net_errors.h"
 #include "net/cookies/cookie_setting_override.h"
 #include "net/ssl/client_cert_store.h"
-#include "ppapi/buildflags/buildflags.h"
 #include "services/cert_verifier/public/mojom/cert_verifier_service_factory.mojom.h"
 #include "services/network/public/cpp/cors/origin_access_list.h"
 #include "services/network/public/cpp/features.h"
@@ -155,6 +154,7 @@
 #include "services/network/public/mojom/shared_dictionary_access_observer.mojom.h"
 #include "services/network/public/mojom/trust_tokens.mojom.h"
 #include "services/network/public/mojom/url_loader_network_service_observer.mojom.h"
+#include "storage/browser/blob/blob_url_registry.h"
 #include "storage/browser/quota/quota_client_type.h"
 #include "storage/browser/quota/quota_manager.h"
 #include "storage/browser/quota/quota_manager_impl.h"
@@ -164,7 +164,6 @@
 #include "third_party/blink/public/common/permissions/permission_utils.h"
 #include "third_party/blink/public/common/storage_key/storage_key.h"
 #include "third_party/blink/public/mojom/devtools/inspector_issue.mojom-shared.h"
-#include "third_party/blink/public/mojom/private_network_device/private_network_device.mojom.h"
 #include "third_party/blink/public/mojom/use_counter/metrics/web_feature.mojom.h"
 #include "url/scheme_host_port.h"
 
@@ -2161,50 +2160,6 @@ void StoragePartitionImpl::OnAuthRequired(
       first_auth_attempt, frame_tree_node_id);  // deletes self
 }
 
-void StoragePartitionImpl::OnPrivateNetworkAccessPermissionRequired(
-    const GURL& url,
-    const net::IPAddress& ip_address,
-    const std::optional<std::string>& private_network_device_id,
-    const std::optional<std::string>& private_network_device_name,
-    OnPrivateNetworkAccessPermissionRequiredCallback callback) {
-  if (!base::FeatureList::IsEnabled(
-          network::features::kPrivateNetworkAccessPermissionPrompt)) {
-    std::move(callback).Run(false);
-    return;
-  }
-
-  if (url_loader_network_observers_.empty()) {
-    std::move(callback).Run(false);
-    return;
-  }
-  const URLLoaderNetworkContext& context =
-      url_loader_network_observers_.current_context();
-
-  if (context.type() != ContextType::kRenderFrameHostContext ||
-      !context.navigation_or_document()) {
-    std::move(callback).Run(false);
-    return;
-  }
-  RenderFrameHost* render_frame_host =
-      context.navigation_or_document()->GetDocument();
-  if (!render_frame_host) {
-    std::move(callback).Run(false);
-    return;
-  }
-  auto device = blink::mojom::PrivateNetworkDevice::New(
-      private_network_device_id, private_network_device_name, ip_address);
-
-  PrivateNetworkDeviceDelegate* delegate =
-      GetContentClient()->browser()->GetPrivateNetworkDeviceDelegate();
-  if (!delegate) {
-    std::move(callback).Run(false);
-    return;
-  }
-
-  delegate->RequestPermission(*render_frame_host, std::move(device),
-                              std::move(callback));
-}
-
 void StoragePartitionImpl::OnLocalNetworkAccessPermissionRequired(
     OnLocalNetworkAccessPermissionRequiredCallback callback) {
   if (!base::FeatureList::IsEnabled(
@@ -2228,10 +2183,10 @@ void StoragePartitionImpl::OnLocalNetworkAccessPermissionRequired(
   //      state, and if the state is ASK trigger the permission prompt. These
   //      should also handle being delegated into subframe documents.
   //   2. Navigation context (ContextType::kNavigationRequestContext) covers
-  //      subframe navigations. These should check for existing permission
-  //      state, and if the state is ASK trigger the permission prompt. Nested
-  //      subframes should be allowed iff permission policy delegated the
-  //      permission into the embedding frame.
+  //      all navigations. If the navigation is in a subframe, these should
+  //      check for existing permission state, and if the state is ASK trigger
+  //      the permission prompt. Nested subframes should be allowed iff
+  //      permission policy delegated the permission into the embedding frame.
   //   3. Worker context (ContextType::kServiceWorkerContext) covers requests
   //      from workers. These may not have an existing document around. These
   //      should check for the permission state, but NOT trigger the permission
@@ -2252,10 +2207,51 @@ void StoragePartitionImpl::OnLocalNetworkAccessPermissionRequired(
       // Get the document that is making the request.
       rfh = context.navigation_or_document()->GetDocument();
     } else if (context.navigation_or_document()->GetNavigationRequest()) {
-      // Get the document that is embedding the frame being navigated.
-      rfh = context.navigation_or_document()
-                ->GetNavigationRequest()
-                ->GetParentFrameOrOuterDocument();
+      // Currently the LNA permission only applies to subframe navigations.
+      // See content/browser/renderer_host/private_network_access_util.cc for
+      // current feature state to policy mapping logic.
+      //
+      // For other types of navigation, we either default-allow or default-block
+      // local network requests:
+      //  - Primary main frame: default-allow.
+      //  - Guest view main frame: default-allow.
+      //  - Prerender: default-block.
+      //  - Fenced frame: default-block. (See crbug.com/409303581.)
+      auto* request = context.navigation_or_document()->GetNavigationRequest();
+      switch (request->GetNavigatingFrameType()) {
+        case FrameType::kPrimaryMainFrame:
+        case FrameType::kGuestMainFrame:
+          std::move(callback).Run(true);
+          return;
+        case FrameType::kFencedFrameRoot:
+        case FrameType::kPrerenderMainFrame:
+          std::move(callback).Run(false);
+          return;
+        case FrameType::kSubframe:
+          // Get the document that initiated the navigation. Can be nullptr if
+          // the initiator has gone away, in which case we should just block the
+          // navigation.
+          RenderFrameHost* initiating_rfh =
+              request->GetInitiatorFrameToken().has_value()
+                  ? RenderFrameHost::FromFrameToken(
+                        content::GlobalRenderFrameHostToken(
+                            request->GetInitiatorProcessId(),
+                            request->GetInitiatorFrameToken().value()))
+                  : nullptr;
+          // We additionally check that the initiator is a frame ancestor of the
+          // frame that is navigating, so that we don't try to pop up a
+          // permission prompt on a different tab/window than the one where the
+          // navigation is occurring.
+          RenderFrameHostImpl* current_frame = request->GetParentFrame();
+          while (current_frame) {
+            if (current_frame == initiating_rfh) {
+              rfh = initiating_rfh;
+              break;
+            }
+            current_frame = current_frame->GetParent();
+          }
+          break;
+      }
     }
     if (!rfh) {
       std::move(callback).Run(false);
@@ -3113,7 +3109,15 @@ void StoragePartitionImpl::DataDeletionHelper::ClearDataOnUIThread(
     }
   }
 
-  if (remove_mask_ & REMOVE_DATA_MASK_SHADER_CACHE) {
+  if ((remove_mask_ & REMOVE_DATA_MASK_SHADER_CACHE) &&
+      // Old behavior: Always execute the code block below.
+      // New behavior: If kDisablePartialStorageCleanupForGPUDiskCache == true
+      // then consider the behavior of perform_storage_cleanup
+      // in executing the code. Note that the feature flag is only relevant
+      // when perform_storage_cleanup is false.
+      (!base::FeatureList::IsEnabled(
+           features::kDisablePartialStorageCleanupForGPUDiskCache) ||
+       perform_storage_cleanup)) {
     gpu::GpuDiskCacheFactory* gpu_cache_factory =
         GetGpuDiskCacheFactorySingleton();
     // May be null in tests where it is difficult to plumb through a test
@@ -3205,6 +3209,7 @@ void StoragePartitionImpl::DataDeletionHelper::ClearDataOnUIThread(
   if (remove_mask_ & REMOVE_DATA_MASK_DEVICE_BOUND_SESSIONS &&
       device_bound_session_manager) {
     device_bound_session_manager->DeleteAllSessions(
+        net::device_bound_sessions::DeletionReason::kStoragePartitionCleared,
         begin, end,
         filter_builder ? filter_builder->BuildNetworkServiceFilter() : nullptr,
         mojo::WrapCallbackWithDefaultInvokeIfNotRun(CreateTaskCompletionClosure(

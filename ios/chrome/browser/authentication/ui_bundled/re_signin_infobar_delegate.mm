@@ -33,22 +33,15 @@ std::unique_ptr<ReSignInInfoBarDelegate> ReSignInInfoBarDelegate::Create(
     return nullptr;
   }
 
-  switch (authentication_service->GetServiceStatus()) {
-    case AuthenticationService::ServiceStatus::SigninDisabledByUser:
-    case AuthenticationService::ServiceStatus::SigninDisabledByPolicy:
-    case AuthenticationService::ServiceStatus::SigninDisabledByInternal:
-      return nullptr;
-    case AuthenticationService::ServiceStatus::SigninForcedByPolicy:
-    case AuthenticationService::ServiceStatus::SigninAllowed:
-      break;
+  if (!authentication_service->SigninEnabled()) {
+    return nullptr;
   }
 
   if (!authentication_service->ShouldReauthPromptForSignInAndSync()) {
     return nullptr;
   }
 
-  if (authentication_service->HasPrimaryIdentity(
-          signin::ConsentLevel::kSignin)) {
+  if (identity_manager->HasPrimaryAccount(signin::ConsentLevel::kSignin)) {
     authentication_service->ResetReauthPromptForSignInAndSync();
     return nullptr;
   }

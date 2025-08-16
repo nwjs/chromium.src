@@ -942,7 +942,7 @@ IN_PROC_BROWSER_TEST_F(PointerLockBrowserTest,
       "request are not supported on this platform.\"\n",
       EvalJs(child,
              "document.body.requestPointerLock({unadjustedMovement:true})")
-          .error);
+          .ExtractError());
 
   // The change errored out but the original lock should still be in place.
   EXPECT_TRUE(child_view->IsPointerLocked());
@@ -986,7 +986,7 @@ IN_PROC_BROWSER_TEST_F(PointerLockBrowserTest,
 
   // Request to change pointer lock options and wait for return.
   EXPECT_EQ(
-      nullptr,
+      base::Value(),
       EvalJs(child,
              "document.body.requestPointerLock({unadjustedMovement:true})"));
 

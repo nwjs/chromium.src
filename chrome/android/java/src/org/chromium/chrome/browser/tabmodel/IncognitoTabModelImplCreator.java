@@ -6,7 +6,9 @@ package org.chromium.chrome.browser.tabmodel;
 
 import static org.chromium.build.NullUtil.assumeNonNull;
 
+import org.chromium.base.Holder;
 import org.chromium.build.annotations.NullMarked;
+import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.flags.ActivityType;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.profiles.ProfileProvider;
@@ -26,6 +28,7 @@ class IncognitoTabModelImplCreator implements IncognitoTabModelDelegate {
     private final AsyncTabParamsManager mAsyncTabParamsManager;
     private final TabModelDelegate mModelDelegate;
     private final TabRemover mTabRemover;
+    private final TabUngrouperFactory mTabUngrouperFactory;
 
     private final @ActivityType int mActivityType;
 
@@ -46,6 +49,7 @@ class IncognitoTabModelImplCreator implements IncognitoTabModelDelegate {
      * @param activityType Type of the activity for the tab model.
      * @param modelDelegate Delegate to handle external dependencies and interactions.
      * @param tabRemover Delegate to handle removing tabs tabs.
+     * @param tabUngrouperFactory Factory to create a {@link TabUngrouper}.
      */
     IncognitoTabModelImplCreator(
             ProfileProvider profileProvider,
@@ -57,7 +61,8 @@ class IncognitoTabModelImplCreator implements IncognitoTabModelDelegate {
             AsyncTabParamsManager asyncTabParamsManager,
             @ActivityType int activityType,
             TabModelDelegate modelDelegate,
-            TabRemover tabRemover) {
+            TabRemover tabRemover,
+            TabUngrouperFactory tabUngrouperFactory) {
         mProfileProvider = profileProvider;
         mRegularTabCreator = regularTabCreator;
         mIncognitoTabCreator = incognitoTabCreator;
@@ -68,21 +73,31 @@ class IncognitoTabModelImplCreator implements IncognitoTabModelDelegate {
         mActivityType = activityType;
         mModelDelegate = modelDelegate;
         mTabRemover = tabRemover;
+        mTabUngrouperFactory = tabUngrouperFactory;
     }
 
     @Override
     public TabModelInternal createTabModel() {
         if (ChromeFeatureList.sTabCollectionAndroid.isEnabled()) {
-            return new TabCollectionTabModelImpl(
-                    assumeNonNull(mProfileProvider.getOffTheRecordProfile(true)),
-                    mActivityType,
-                    /* isArchivedTabModel= */ false,
-                    mRegularTabCreator,
-                    mIncognitoTabCreator,
-                    mOrderController,
-                    mModelDelegate,
-                    mAsyncTabParamsManager,
-                    mTabRemover);
+            Holder<@Nullable TabGroupModelFilter> filterHolder = new Holder<>(null);
+            TabUngrouper tabUngrouper =
+                    mTabUngrouperFactory.create(/* isIncognitoBranded= */ true, filterHolder);
+            TabCollectionTabModelImpl model =
+                    new TabCollectionTabModelImpl(
+                            assumeNonNull(mProfileProvider.getOffTheRecordProfile(true)),
+                            mActivityType,
+                            /* isArchivedTabModel= */ false,
+                            mRegularTabCreator,
+                            mIncognitoTabCreator,
+                            mOrderController,
+                            mTabContentManager,
+                            mNextTabPolicySupplier,
+                            mModelDelegate,
+                            mAsyncTabParamsManager,
+                            mTabRemover,
+                            tabUngrouper);
+            filterHolder.value = model;
+            return model;
         }
         return new TabModelImpl(
                 assumeNonNull(mProfileProvider.getOffTheRecordProfile(true)),

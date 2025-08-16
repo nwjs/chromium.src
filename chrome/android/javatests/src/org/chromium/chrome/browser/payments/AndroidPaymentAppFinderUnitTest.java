@@ -51,8 +51,8 @@ import org.chromium.components.payments.PaymentAppFactoryParams;
 import org.chromium.components.payments.PaymentFeatureList;
 import org.chromium.components.payments.PaymentManifestDownloader;
 import org.chromium.components.payments.PaymentManifestParser;
-import org.chromium.components.payments.PaymentManifestWebDataService;
 import org.chromium.components.payments.WebAppManifestSection;
+import org.chromium.components.payments.WebPaymentsWebDataService;
 import org.chromium.components.payments.intent.WebPaymentIntentHelper;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.content_public.browser.test.NativeLibraryTestUtils;
@@ -90,7 +90,7 @@ public class AndroidPaymentAppFinderUnitTest {
     @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
     @Rule public ChromeBrowserTestRule mTestRule = new ChromeBrowserTestRule();
 
-    @Mock private PaymentManifestWebDataService mPaymentManifestWebDataService;
+    @Mock private WebPaymentsWebDataService mWebPaymentsWebDataService;
     @Mock private PaymentManifestDownloader mPaymentManifestDownloader;
     @Mock private PaymentManifestParser mPaymentManifestParser;
     @Mock private PackageManagerDelegate mPackageManagerDelegate;
@@ -125,6 +125,8 @@ public class AndroidPaymentAppFinderUnitTest {
 
     @After
     public void tearDown() throws Exception {
+        AndroidPaymentAppFinder.bypassIsReadyToPayServiceInTest(false);
+
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     mWindowAndroid.destroy();
@@ -155,6 +157,20 @@ public class AndroidPaymentAppFinderUnitTest {
             PaymentManifestDownloader downloader,
             PaymentManifestParser parser,
             PackageManagerDelegate packageManagerDelegate) {
+        return findApps(
+                methodNames,
+                downloader,
+                parser,
+                packageManagerDelegate,
+                /* bypassIsReadyToPayService= */ true);
+    }
+
+    private PaymentAppFactoryDelegate findApps(
+            String[] methodNames,
+            PaymentManifestDownloader downloader,
+            PaymentManifestParser parser,
+            PackageManagerDelegate packageManagerDelegate,
+            boolean bypassIsReadyToPayService) {
         Map<String, PaymentMethodData> methodData = new HashMap<>();
         for (String methodName : methodNames) {
             PaymentMethodData data = new PaymentMethodData();
@@ -183,13 +199,13 @@ public class AndroidPaymentAppFinderUnitTest {
                                 }));
         AndroidPaymentAppFinder finder =
                 new AndroidPaymentAppFinder(
-                        mPaymentManifestWebDataService,
+                        mWebPaymentsWebDataService,
                         downloader,
                         parser,
                         packageManagerDelegate,
                         mDelegate,
                         /* factory= */ null);
-        AndroidPaymentAppFinder.bypassIsReadyToPayServiceInTest();
+        AndroidPaymentAppFinder.bypassIsReadyToPayServiceInTest(bypassIsReadyToPayService);
         finder.findAndroidPaymentApps();
         return mDelegate;
     }
@@ -516,7 +532,31 @@ public class AndroidPaymentAppFinderUnitTest {
         runTestForQueryBobPayWithOneAppThatHasIsReadyToPayService();
     }
 
+    @SmallTest
+    @Test
+    @UiThreadTest
+    @Features.EnableFeatures({PaymentFeatureList.ALLOW_SHOW_WITHOUT_READY_TO_PAY})
+    public void testQueryBobPayWithOneAppThatHasBrokenIsReadyToPayService() {
+        runTestForQueryBobPayWithOneApp(
+                /* bypassIsReadyToPayService= */ false, /* expectAppCreated= */ true);
+    }
+
+    @SmallTest
+    @Test
+    @UiThreadTest
+    @Features.DisableFeatures({PaymentFeatureList.ALLOW_SHOW_WITHOUT_READY_TO_PAY})
+    public void testQueryBobPayWithOneAppThatHasBrokenIsReadyToPayServiceAndDoesntCreateApp() {
+        runTestForQueryBobPayWithOneApp(
+                /* bypassIsReadyToPayService= */ false, /* expectAppCreated= */ false);
+    }
+
     public void runTestForQueryBobPayWithOneAppThatHasIsReadyToPayService() {
+        runTestForQueryBobPayWithOneApp(
+                /* bypassIsReadyToPayService= */ true, /* expectAppCreated= */ true);
+    }
+
+    public void runTestForQueryBobPayWithOneApp(
+            boolean bypassIsReadyToPayService, boolean expectAppCreated) {
         List<ResolveInfo> activities = new ArrayList<>();
         ResolveInfo bobPay = new ResolveInfo();
         bobPay.activityInfo = new ActivityInfo();
@@ -629,9 +669,10 @@ public class AndroidPaymentAppFinderUnitTest {
                         new String[] {"https://bobpay.test"},
                         downloader,
                         parser,
-                        mPackageManagerDelegate);
+                        mPackageManagerDelegate,
+                        bypassIsReadyToPayService);
 
-        Mockito.verify(delegate)
+        Mockito.verify(delegate, Mockito.times(expectAppCreated ? 1 : 0))
                 .onPaymentAppCreated(
                         ArgumentMatchers.argThat(Matches.paymentAppIdentifier("com.bobpay.app")));
         Mockito.verify(delegate).onDoneCreatingPaymentApps(/* factory= */ null);

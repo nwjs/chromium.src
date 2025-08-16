@@ -23,6 +23,7 @@ import org.robolectric.Robolectric;
 import org.chromium.base.Token;
 import org.chromium.base.supplier.ObservableSupplierImpl;
 import org.chromium.base.supplier.Supplier;
+import org.chromium.chrome.R;
 import org.chromium.chrome.browser.compositor.overlays.strip.AnimationHost;
 import org.chromium.chrome.browser.compositor.overlays.strip.ScrollDelegate;
 import org.chromium.chrome.browser.compositor.overlays.strip.StripLayoutGroupTitle;
@@ -72,7 +73,7 @@ public abstract class ReorderStrategyTestBase {
     @Mock protected StripUpdateDelegate mStripUpdateDelegate;
     @Mock protected ScrollDelegate mScrollDelegate;
     @Mock protected View mContainerView;
-    @Mock protected ObservableSupplierImpl<Integer> mGroupIdToHideSupplier;
+    @Mock protected ObservableSupplierImpl<Token> mGroupIdToHideSupplier;
     @Mock protected TabGroupModelFilter mTabGroupModelFilter;
     @Mock protected ReorderDelegate mReorderDelegate;
     @Mock protected Supplier<Float> mTabWidthSupplier;
@@ -91,7 +92,7 @@ public abstract class ReorderStrategyTestBase {
     protected void setup() {
         mActivity = Robolectric.setupActivity(Activity.class);
         // StripLayoutViews need styles during initializations.
-        mActivity.setTheme(org.chromium.chrome.R.style.Theme_BrowserUI);
+        mActivity.setTheme(R.style.Theme_BrowserUI_DayNight);
         mModel = spy(new MockTabModel(mProfile, /* delegate= */ null));
         for (int id : TAB_IDS) mModel.addTab(id);
         mModel.setIndex(0, TabSelectionType.FROM_USER);
@@ -107,7 +108,7 @@ public abstract class ReorderStrategyTestBase {
 
     protected StripLayoutGroupTitle buildGroupTitle(Integer rootId, Token groupId, int x) {
         StripLayoutGroupTitle title =
-                new StripLayoutGroupTitle(mActivity, null, null, false, rootId, groupId);
+                new StripLayoutGroupTitle(mActivity, null, null, false, groupId);
         setDrawProperties(title, x);
         return title;
     }
@@ -134,10 +135,13 @@ public abstract class ReorderStrategyTestBase {
         for (Tab tab : tabList) {
             when(mTabGroupModelFilter.isTabInTabGroup(tab)).thenReturn(true);
             when(mTabGroupModelFilter.getRelatedTabList(tab.getId())).thenReturn(tabList);
+            when(mTabGroupModelFilter.getTabsInGroup(groupId)).thenReturn(tabList);
             tab.setTabGroupId(groupId);
             tab.setRootId(rootId);
         }
         when(mTabGroupModelFilter.getTabCountForGroup(groupId)).thenReturn(tabList.size());
+        when(mTabGroupModelFilter.getGroupLastShownTabId(groupId))
+                .thenReturn(tabList.get(0).getId());
     }
 
     private static class TestAnimationHost implements AnimationHost {
@@ -173,6 +177,11 @@ public abstract class ReorderStrategyTestBase {
             mRunningAnimations.start();
             // Immediately end to be able to verify end state.
             finishAnimations();
+        }
+
+        @Override
+        public void queueAnimations(List<Animator> animationList, AnimatorListener listener) {
+            startAnimations(animationList, listener);
         }
     }
 }

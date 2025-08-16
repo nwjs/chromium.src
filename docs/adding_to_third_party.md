@@ -71,8 +71,10 @@ library already in Chromium? If introducing a library with similar functionality
 as existing, will it be easy for another developer to understand which should be
 used where? Will you commit to consolidating uses in Chromium and remove the
 alternative libraries?
-* Is the library memory safe? If not, is there an alternative library
-available that is memory safe and meets Chromium's needs?
+* Is the library written in a [memory safe
+  language](security/rule-of-2.md#unsafe-implementation-languages)? If not, is
+  there an alternative library available that is memory safe and meets
+  Chromium's needs?
   * You will be responsible for [owning the library](#add-owners), which
     includes updating it for security and stability fixes. For C/C++, this is
     your responsibility.  For [Rust](#rust), minor version updates are regularly
@@ -287,14 +289,14 @@ that can't with an [exception](https://issues.chromium.org/issues/new?component=
 
 The `Update Mechanism:` field specifies how this dependency is kept
 up-to-date. You will use one of the exact string formats listed below,
-replacing `(crbug.com/BUG_ID)` with the actual bug link where required.
-The format is `Primary[.SubsetSpecifier] (crbug.com/BUG_ID)`.
+replacing `(https://crbug.com/BUG_ID)` with the actual bug link where required.
+The format is `Primary[.SubsetSpecifier] (https://crbug.com/BUG_ID)`.
 
 **Accepted Values:**
 * `Autoroll`
-* `Manual (crbug.com/BUG_ID)`
-* `Static (crbug.com/BUG_ID)`
-* `Static.HardFork (crbug.com/BUG_ID)`
+* `Manual (https://crbug.com/BUG_ID)`
+* `Static (https://crbug.com/BUG_ID)`
+* `Static.HardFork (https://crbug.com/BUG_ID)`
 
 |||---||| 3,3,6
 ### Autoroll
@@ -488,6 +490,17 @@ line to separate the data for each package:
 ```
 -------------------- DEPENDENCY DIVIDER --------------------
 ```
+
+# Vulnerability Cover {#vulnerability-cover}
+
+All dependencies _must_ provide sufficient metadata to enable vulnerability scanning:
+* `URL` and (`Version` or `Revision`) match upstream identifiers (git, package manager, etc); or
+* `CPEPrefix` and `Version`.
+
+There are limited exceptions for dependencies matching:
+* `Update Mechanism: Static[.HardFork]`
+* `URL: Google Internal`
+* `URL: This is the canonical public repository`
 
 # Get a review
 

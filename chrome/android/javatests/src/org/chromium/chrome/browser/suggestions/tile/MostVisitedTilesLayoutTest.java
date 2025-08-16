@@ -40,7 +40,6 @@ import org.chromium.base.test.util.CallbackHelper;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.Criteria;
 import org.chromium.base.test.util.CriteriaHelper;
-import org.chromium.base.test.util.DisabledTest;
 import org.chromium.base.test.util.Feature;
 import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
@@ -215,10 +214,6 @@ public class MostVisitedTilesLayoutTest {
     @Test
     @MediumTest
     @Feature({"NewTabPage", "RenderTest"})
-    @DisabledTest(
-            message =
-                    "This test is flaky not only on the Nougat emulator but also on Ubuntu-22.04"
-                            + " when building android-x86-rel., see crbug.com/1450693")
     public void testModernTilesLayoutAppearance_Two() throws IOException, InterruptedException {
         ThreadUtils.runOnUiThreadBlocking(
                 () ->
@@ -309,10 +304,7 @@ public class MostVisitedTilesLayoutTest {
                     ViewGroup containerLayout =
                             (ViewGroup)
                                     LayoutInflater.from(contentView.getContext())
-                                            .inflate(
-                                                    R.layout.mv_tiles_container,
-                                                    contentView,
-                                                    false);
+                                            .inflate(R.layout.mv_tiles_layout, contentView, false);
                     containerLayout.setVisibility(View.VISIBLE);
                     contentView.addView(containerLayout);
                     initializeCoordinator(containerLayout);

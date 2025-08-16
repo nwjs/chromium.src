@@ -20,7 +20,6 @@
 #include "content/public/common/buildflags.h"
 #include "extensions/buildflags/buildflags.h"
 #include "pdf/buildflags.h"
-#include "ppapi/buildflags/buildflags.h"
 #include "printing/buildflags/buildflags.h"
 #include "rlz/buildflags/buildflags.h"
 
@@ -961,11 +960,6 @@ inline constexpr char kSecondEolWarningDismissed[] =
 inline constexpr char kEolNotificationDismissed[] =
     "eol_notification_dismissed";
 
-inline constexpr char kEolApproachingIncentiveNotificationDismissed[] =
-    "approaching_eol_incentive_dismissed";
-inline constexpr char kEolPassedFinalIncentiveDismissed[] =
-    "passed_eol_incentive_dismissed";
-
 // A boolean pref that controls whether the PIN autosubmit feature is enabled.
 // This feature, when enabled, exposes the user's PIN length by showing how many
 // digits are necessary to unlock the device. Can be recommended.
@@ -1292,6 +1286,11 @@ inline constexpr char kFloatingSsoDomainBlocklistExceptions[] =
 // cookies from the previous device onto another, on ChromeOS.
 inline constexpr char kFloatingSsoEnabled[] = "floating_sso_enabled";
 
+// Boolean pref that determine whether session cookies will be included or not
+// when user switches between ChromeOS devices.
+inline constexpr char kFloatingSsoSessionCookiesIncluded[] =
+    "floating_sso_session_cookies_included";
+
 // This boolean controls whether the first window shown on first run should be
 // unconditionally maximized, overriding the heuristic that normally chooses the
 // window size.
@@ -1531,7 +1530,7 @@ inline constexpr char kPartitionPerHostZoomLevels[] =
 inline constexpr char kPinnedTabs[] = "pinned_tabs";
 #endif  // !BUILDFLAG(IS_ANDROID)
 
-// Preference to disable 3D APIs (WebGL, Pepper 3D).
+// Preference to disable 3D APIs (WebGL).
 inline constexpr char kDisable3DAPIs[] = "disable_3d_apis";
 
 // Preference to enable SwiftShader for WebGL fallback.
@@ -1842,6 +1841,10 @@ inline constexpr char kWebRTCIPHandlingPolicy[] = "webrtc.ip_handling_policy";
 // When no URL pattern matches, WebRTC will default to the policy
 // WebRTCIPHandlingPolicy above.
 inline constexpr char kWebRTCIPHandlingUrl[] = "webrtc.ip_handling_url";
+// Define the WebRTCPostQuantumKeyAgreement policy that controls enabling
+// post-quantum key agreement for WebRTC.
+inline constexpr char kWebRTCPostQuantumKeyAgreement[] =
+    "webrtc.post_quantum_key_agreement";
 // Define range of UDP ports allowed to be used by WebRTC PeerConnections.
 inline constexpr char kWebRTCUDPPortRange[] = "webrtc.udp_port_range";
 // Whether WebRTC event log collection by Google domains is allowed.
@@ -1936,6 +1939,9 @@ inline constexpr char kGoogleSearchSidePanelEnabled[] =
 // True when the tab search button is on the right side of the tab strip even in
 // RTL.
 inline constexpr char kTabSearchRightAligned[] = "tab_search.is_right_aligned";
+
+// Boolean determining whether vertical tabs are enabled.
+inline constexpr char kVerticalTabsEnabled[] = "vertical_tabs.enabled";
 #endif  // !BUILDFLAG(IS_ANDROID)
 
 #if BUILDFLAG(ENABLE_COMPOSE)
@@ -2092,6 +2098,15 @@ inline constexpr char kBrowserSuppressDefaultBrowserPrompt[] =
 // Used to implement the sticky experiment tracking.
 inline constexpr char kDefaultBrowserPromptRefreshStudyGroup[] =
     "browser.default_browser_prompt_refresh_study_group";
+
+#if BUILDFLAG(IS_WIN)
+// The time at which the pin-to-taskbar infobar was last shown.
+inline constexpr char kPinInfoBarLastShown[] = "browser.pin_infobar_last_shown";
+
+// How many times the pin-to-taskbar infobar has been shown.
+inline constexpr char kPinInfoBarTimesShown[] =
+    "browser.pin_infobar_times_shown";
+#endif  // BUILDFLAG(IS_WIN)
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
 // The time at which the default-PDF-viewer infobar was last shown.
@@ -2650,6 +2665,13 @@ inline constexpr char kMediaCdmOriginData[] = "media.cdm.origin_data";
 inline constexpr char kNetworkServiceSandboxEnabled[] =
     "net.network_service_sandbox";
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_LINUX)
+
+// If non-zero, then the last major version of Chrome where a failed launch of
+// the network service occurred. A failed launch is defined as either the
+// sandboxed network service process failed to launch entirely, or the network
+// service process was unable to reach UtilityMain to bootstrap IPC and mojo.
+inline constexpr char kNetworkServiceFailedLaunchMajorVersion[] =
+    "net.network_service_failed_launch_major_version";
 
 #if BUILDFLAG(IS_LINUX)
 // Records whether the user has seen an HTTP auth "negotiate" header.
@@ -3609,6 +3631,9 @@ inline constexpr char kWebShareVisitedTargets[] =
 inline constexpr char kRendererCodeIntegrityEnabled[] =
     "renderer_code_integrity_enabled";
 
+inline constexpr char kRestrictCoreSharingOnRenderer[] =
+    "restrict_core_sharing_on_renderer";
+
 // A boolean value, controlling whether Chrome renderer processes should have
 // Renderer App Container enabled or not. If this pref is set to false then
 // Renderer App Container is disabled, otherwise Renderer App Container is
@@ -3949,13 +3974,6 @@ inline constexpr char kMediaAppLensEnabled[] = "media_app.enable_lens";
 inline constexpr char kExplicitlyAllowedNetworkPorts[] =
     "net.explicitly_allowed_network_ports";
 
-#if !BUILDFLAG(IS_ANDROID)
-// Pref name for whether force-installed web apps (origins) are able to query
-// device attributes.
-inline constexpr char kDeviceAttributesAllowedForOrigins[] =
-    "policy.device_attributes_allowed_for_origins";
-#endif
-
 #if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_CHROMEOS)
 // A boolean indicating whether the desktop sharing hub is enabled by enterprise
 // policy.
@@ -4134,7 +4152,8 @@ inline constexpr char kReadAloudVoiceSettings[] = "readaloud.voices";
 // is 2.0, etc.
 inline constexpr char kReadAloudSpeed[] = "readaloud.speed";
 
-// Integer indicating Read Aloud playback mode (enum). Default is 0 (UNSPECIFIED).
+// Integer indicating Read Aloud playback mode (enum). Default is 0
+// (UNSPECIFIED).
 inline constexpr char kReadAloudPlaybackMode[] = "readaloud.playback_mode";
 
 // Boolean that specifies whether Read Aloud highlights words on the page during
@@ -4268,6 +4287,22 @@ inline constexpr char kManagedLocalNetworkAccessRestrictionsEnabled[] =
 // ServiceWorker-controlled URLs.
 inline constexpr char kPrefetchWithServiceWorkerEnabled[] =
     "preloading.prefetch_with_service_worker_enabled";
+
+// Boolean that specifies whether ServiceWorkerAutoPreload is enabled.
+inline constexpr char kServiceWorkerAutoPreloadEnabled[] =
+    "worker.service_worker_auto_preload_enabled";
+
+#if !BUILDFLAG(IS_ANDROID)
+// Boolean that specifies whether OriginKeyedProcessesByDefault is enabled.
+inline constexpr char kOriginKeyedProcessesEnabled[] =
+    "site_isolation.origin_keyed_processes_enabled";
+
+// Version string in MAJOR.MINOR.BUILD.PATCH format for the last shown non
+// milestone update toast version. If there's new non milestone update a toast
+// will be shown and this pref will set to the new version.
+inline constexpr char kNonMilestoneUpdateToastVersion[] =
+    "toast.non_milestone_update_toast_version";
+#endif  // !BUILDFLAG(IS_ANDROID)
 
 }  // namespace prefs
 

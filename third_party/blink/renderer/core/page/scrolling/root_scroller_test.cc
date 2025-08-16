@@ -548,7 +548,7 @@ TEST_F(RootScrollerTest, RemoveRootScrollerFromDom) {
 
     ASSERT_EQ(iframe, EffectiveRootScroller(MainFrame()->GetDocument()));
 
-    iframe->contentDocument()->body()->setInnerHTML("");
+    iframe->contentDocument()->body()->SetInnerHTMLWithoutTrustedTypes("");
 
     // If the root scroller wasn't updated by the DOM removal above, this
     // will touch the disposed root scroller's ScrollableArea.
@@ -2005,7 +2005,7 @@ TEST_F(ImplicitRootScrollerSimTest, ScrollRestorationIgnoresImplicit) {
   EXPECT_EQ(ScrollOffset(0, 0),
             GetDocument().View()->GetScrollableArea()->GetScrollOffset());
 
-  GetDocument().domWindow()->scrollTo(0, 20);
+  GetDocument().domWindow()->scrollToForTesting(0, 20);
   GetDocument().View()->ScheduleAnimation();
   // Check that an implicit scroll offset is not saved.
   // TODO(chrishtr): probably it should?

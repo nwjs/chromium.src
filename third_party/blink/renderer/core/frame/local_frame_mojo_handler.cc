@@ -126,7 +126,7 @@ base::Value GetJavaScriptExecutionResult(v8::Local<v8::Value> result,
 v8::MaybeLocal<v8::Value> GetProperty(v8::Local<v8::Context> context,
                                       v8::Local<v8::Value> object,
                                       const String& name) {
-  v8::Isolate* isolate = context->GetIsolate();
+  v8::Isolate* isolate = v8::Isolate::GetCurrent();
   v8::Local<v8::String> name_str = V8String(isolate, name);
   v8::Local<v8::Object> object_obj;
   if (!object->ToObject(context).ToLocal(&object_obj)) {
@@ -143,7 +143,7 @@ v8::MaybeLocal<v8::Value> CallMethodOnFrame(LocalFrame* local_frame,
   v8::Local<v8::Context> context = MainWorldScriptContext(local_frame);
 
   v8::Context::Scope context_scope(context);
-  v8::LocalVector<v8::Value> args(context->GetIsolate());
+  v8::LocalVector<v8::Value> args(v8::Isolate::GetCurrent());
   for (const auto& argument : arguments) {
     args.push_back(converter->ToV8Value(argument, context));
   }
@@ -570,11 +570,6 @@ void LocalFrameMojoHandler::NotifyVirtualKeyboardOverlayRect(
   frame_->NotifyVirtualKeyboardOverlayRectObservers(scaled_rect);
 }
 
-void LocalFrameMojoHandler::NotifyContextMenuInsetsObservers(
-    const gfx::Rect& safe_area) {
-  frame_->NotifyContextMenuInsetsObservers(safe_area);
-}
-
 void LocalFrameMojoHandler::ShowInterestInElement(int nodeID) {
   frame_->ShowInterestInElement(nodeID);
 }
@@ -996,19 +991,14 @@ void LocalFrameMojoHandler::GetFirstRectForRange(const gfx::Range& range) {
     // Pepper-free PDF will reach here.
     rect = plugin_container->Plugin()->GetPluginCaretBounds();
   } else {
-    // TODO(crbug.com/40511450): Remove `pepper_has_caret` once PPAPI is gone.
-    bool pepper_has_caret = client->GetCaretBoundsFromFocusedPlugin(rect);
-    if (!pepper_has_caret) {
-      // When request range is invalid we will try to obtain it from current
-      // frame selection. The fallback value will be 0.
-      size_t start = range.IsValid()
-                           ? range.start()
-                           : GetCurrentCursorPositionInFrame(frame_);
+    // When request range is invalid we will try to obtain it from current
+    // frame selection. The fallback value will be 0.
+    size_t start = range.IsValid() ? range.start()
+                                   : GetCurrentCursorPositionInFrame(frame_);
 
-      WebLocalFrameImpl::FromFrame(frame_)->FirstRectForCharacterRange(
-          base::checked_cast<uint32_t>(start),
-          base::checked_cast<uint32_t>(range.length()), rect);
-    }
+    WebLocalFrameImpl::FromFrame(frame_)->FirstRectForCharacterRange(
+        base::checked_cast<uint32_t>(start),
+        base::checked_cast<uint32_t>(range.length()), rect);
   }
 
   TextInputHost().GotFirstRectForRange(rect);
@@ -1021,8 +1011,8 @@ void LocalFrameMojoHandler::GetStringForRange(
   ui::mojom::blink::AttributedStringPtr attributed_string = nullptr;
   base::apple::ScopedCFTypeRef<CFAttributedStringRef> string =
       SubstringUtil::AttributedSubstringInRange(
-          frame_, base::checked_cast<WTF::wtf_size_t>(range.start()),
-          base::checked_cast<WTF::wtf_size_t>(range.length()), baseline_point);
+          frame_, base::checked_cast<wtf_size_t>(range.start()),
+          base::checked_cast<wtf_size_t>(range.length()), baseline_point);
   if (string) {
     attributed_string = ui::mojom::blink::AttributedString::From(string.get());
   }
@@ -1235,6 +1225,9 @@ void LocalFrameMojoHandler::ClosePage(
   // when unloading itself.
   IgnoreOpensDuringUnloadCountIncrementer ignore_opens_during_unload(
       frame_->GetDocument());
+  // Don't allow navigations to be triggered from the unload events below.
+  FrameNavigationDisabler navigation_disabler(*frame_);
+
   frame_->Loader().DispatchUnloadEventAndFillOldDocumentInfoIfNeeded(
       false /* need_unload_info_for_new_document */);
 
@@ -1334,8 +1327,10 @@ void LocalFrameMojoHandler::UpdateBrowserControlsState(
       constraints, current, animate, offset_tag_modifications);
 }
 
-void LocalFrameMojoHandler::Discard() {
+void LocalFrameMojoHandler::Discard(
+    mojom::blink::LocalMainFrame::DiscardCallback completion_callback) {
   frame_->Discard();
+  std::move(completion_callback).Run();
 }
 
 void LocalFrameMojoHandler::FinalizeNavigationConfidence(
@@ -1346,7 +1341,6 @@ void LocalFrameMojoHandler::FinalizeNavigationConfidence(
 
 void LocalFrameMojoHandler::SetV8CompileHints(
     base::ReadOnlySharedMemoryRegion data) {
-  CHECK(base::FeatureList::IsEnabled(blink::features::kConsumeCompileHints));
   Page* page = GetPage();
   if (page == nullptr) {
     return;

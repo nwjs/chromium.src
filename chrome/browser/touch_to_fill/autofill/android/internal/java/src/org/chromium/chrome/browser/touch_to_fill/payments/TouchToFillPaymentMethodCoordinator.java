@@ -6,8 +6,10 @@ package org.chromium.chrome.browser.touch_to_fill.payments;
 
 import static org.chromium.chrome.browser.autofill.AutofillUiUtils.getCardIcon;
 import static org.chromium.chrome.browser.autofill.AutofillUiUtils.getValuableIcon;
+import static org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaymentMethodProperties.BACK_PRESS_HANDLER;
 import static org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaymentMethodProperties.CURRENT_SCREEN;
 import static org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaymentMethodProperties.DISMISS_HANDLER;
+import static org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaymentMethodProperties.FOCUSED_VIEW_ID_FOR_ACCESSIBILITY;
 import static org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaymentMethodProperties.ItemType.ALL_LOYALTY_CARDS;
 import static org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaymentMethodProperties.ItemType.CREDIT_CARD;
 import static org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaymentMethodProperties.ItemType.FILL_BUTTON;
@@ -111,6 +113,7 @@ public class TouchToFillPaymentMethodCoordinator implements TouchToFillPaymentMe
 
     /**
      * Connects the given model with the given view using Model Change Processors.
+     *
      * @param model A {@link PropertyModel} built with {@link TouchToFillPaymentMethodProperties}.
      * @param view A {@link TouchToFillPaymentMethodView}.
      */
@@ -120,7 +123,7 @@ public class TouchToFillPaymentMethodCoordinator implements TouchToFillPaymentMe
                 model, view, TouchToFillPaymentMethodViewBinder::bindTouchToFillPaymentMethodView);
     }
 
-    static void setUpCardItems(PropertyModel model, TouchToFillPaymentMethodView view) {
+    static void setUpSheetItems(PropertyModel model, TouchToFillPaymentMethodView view) {
         SimpleRecyclerViewAdapter adapter = new SimpleRecyclerViewAdapter(model.get(SHEET_ITEMS));
         adapter.registerType(
                 CREDIT_CARD,
@@ -165,7 +168,9 @@ public class TouchToFillPaymentMethodCoordinator implements TouchToFillPaymentMe
         return new PropertyModel.Builder(TouchToFillPaymentMethodProperties.ALL_KEYS)
                 .with(VISIBLE, false)
                 .with(CURRENT_SCREEN, HOME_SCREEN)
+                .with(FOCUSED_VIEW_ID_FOR_ACCESSIBILITY, 0)
                 .with(SHEET_ITEMS, new ModelList())
+                .with(BACK_PRESS_HANDLER, mediator::showHomeScreen)
                 .with(DISMISS_HANDLER, mediator::onDismissed)
                 .build();
     }

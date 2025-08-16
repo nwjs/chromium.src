@@ -258,7 +258,8 @@ class CertGenerator {
   inline GURL GetGurl();
   inline net::IPAddress GetIpAddress();
   std::vector<bssl::KeyUsageBit> GetKeyUsages();
-  inline bssl::SignatureAlgorithm GetSignatureAlgorithm();
+  inline bssl::SignatureAlgorithm GetSignatureAlgorithm(
+      bool issuer_uses_rsa_key);
   std::string GetValidOid();
 
   void GenerateCert();
@@ -369,18 +370,21 @@ std::vector<bssl::KeyUsageBit> CertGenerator::GetKeyUsages() {
   return result;
 }
 
-bssl::SignatureAlgorithm CertGenerator::GetSignatureAlgorithm() {
-  SupportedSignatureAlgorithm algorithm =
-      data_provider_->ConsumeEnum<SupportedSignatureAlgorithm>();
-  switch (algorithm) {
-    case SupportedSignatureAlgorithm::kRsaPkcs1Sha1:
+// Picks a supported algorithm for the currently used key.
+bssl::SignatureAlgorithm CertGenerator::GetSignatureAlgorithm(
+    bool issuer_uses_rsa_key) {
+  if (issuer_uses_rsa_key) {
+    if (GetBool()) {
       return bssl::SignatureAlgorithm::kRsaPkcs1Sha1;
-    case SupportedSignatureAlgorithm::kRsaPkcs1Sha256:
+    } else {
       return bssl::SignatureAlgorithm::kRsaPkcs1Sha256;
-    case SupportedSignatureAlgorithm::kEcdsaSha1:
+    }
+  } else {
+    if (GetBool()) {
       return bssl::SignatureAlgorithm::kEcdsaSha1;
-    case SupportedSignatureAlgorithm::kEcdsaSha256:
+    } else {
       return bssl::SignatureAlgorithm::kEcdsaSha256;
+    }
   }
 }
 
@@ -558,8 +562,13 @@ void CertGenerator::GenerateCert() {
     cert_builder_->SetInhibitAnyPolicy(/*skip_certs=*/GetUint64());
   }
   if (GetBool()) {
+    base::Time max_time;
+    ASSERT_TRUE(base::Time::FromString("31 Dec 9999 23:59:59 GMT", &max_time));
     base::Time not_before = base::Time() + base::Microseconds(GetUint64());
     base::Time not_after = base::Time() + base::Microseconds(GetUint64());
+    // BoringSSL doesn't allow setting the validity time above the year 9999.
+    not_before = std::min(max_time, not_before);
+    not_after = std::min(max_time, not_after);
     cert_builder_->SetValidity(not_before, not_after);
   }
   if (GetBool()) {
@@ -569,16 +578,8 @@ void CertGenerator::GenerateCert() {
     cert_builder_->SetAuthorityKeyIdentifier(GetString());
   }
   if (GetBool()) {
-    cert_builder_->SetSignatureAlgorithm(GetSignatureAlgorithm());
-  }
-  if (GetBool()) {
-    cert_builder_->SetSignatureAlgorithmTLV(GetString());
-  }
-  if (GetBool()) {
-    cert_builder_->SetOuterSignatureAlgorithmTLV(GetString());
-  }
-  if (GetBool()) {
-    cert_builder_->SetTBSSignatureAlgorithmTLV(GetString());
+    cert_builder_->SetSignatureAlgorithm(
+        GetSignatureAlgorithm(issuer_uses_rsa_key));
   }
 }
 

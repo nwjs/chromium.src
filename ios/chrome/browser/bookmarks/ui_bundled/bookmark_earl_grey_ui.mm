@@ -46,6 +46,7 @@ using chrome_test_util::EditButton;
 using chrome_test_util::MoveButton;
 using chrome_test_util::OpenLinkInIncognitoButton;
 using chrome_test_util::OpenLinkInNewTabButton;
+using chrome_test_util::SearchBar;
 using chrome_test_util::ShareButton;
 using chrome_test_util::TabGridEditButton;
 using chrome_test_util::TappableBookmarkNodeWithLabel;
@@ -305,9 +306,9 @@ id<GREYMatcher> SearchIconButton() {
       performAction:grey_tap()];
 
   // Tap on Open All.
-  [[EarlGrey
-      selectElementWithMatcher:ButtonWithAccessibilityLabelId(buttonLabelId)]
-      performAction:grey_tap()];
+  [[EarlGrey selectElementWithMatcher:
+                 chrome_test_util::AlertItemWithAccessibilityLabelId(
+                     buttonLabelId)] performAction:grey_tap()];
 }
 
 - (void)verifyContextMenuForSingleURLWithEditEnabled:(BOOL)editEnabled {
@@ -427,10 +428,12 @@ id<GREYMatcher> SearchIconButton() {
 
 - (void)verifyContextBarInDefaultStateWithSelectEnabled:(BOOL)selectEnabled
                                        newFolderEnabled:(BOOL)newFolderEnabled {
-  // Verify the context bar is shown.
-  [[EarlGrey selectElementWithMatcher:grey_accessibilityID(
-                                          kBookmarksHomeUIToolbarIdentifier)]
-      assertWithMatcher:grey_notNil()];
+  if (!iOS26_OR_ABOVE()) {
+    // Verify the context bar is shown.
+    [[EarlGrey selectElementWithMatcher:grey_accessibilityID(
+                                            kBookmarksHomeUIToolbarIdentifier)]
+        assertWithMatcher:grey_notNil()];
+  }
 
   // Verify context bar shows enabled "New Folder" and enabled "Select".
   [[EarlGrey selectElementWithMatcher:ContextBarLeadingButtonWithLabel(
@@ -458,10 +461,12 @@ id<GREYMatcher> SearchIconButton() {
 }
 
 - (void)verifyContextBarInEditMode {
-  // Verify the context bar is shown.
-  [[EarlGrey selectElementWithMatcher:grey_accessibilityID(
-                                          kBookmarksHomeUIToolbarIdentifier)]
-      assertWithMatcher:grey_notNil()];
+  if (!iOS26_OR_ABOVE()) {
+    // Verify the context bar is shown.
+    [[EarlGrey selectElementWithMatcher:grey_accessibilityID(
+                                            kBookmarksHomeUIToolbarIdentifier)]
+        assertWithMatcher:grey_notNil()];
+  }
 
   [[EarlGrey
       selectElementWithMatcher:ContextBarCenterButtonWithLabel(
@@ -530,8 +535,7 @@ id<GREYMatcher> SearchIconButton() {
 
   // The search bar should not be visible when the illustrated empty state is
   // shown.
-  [[EarlGrey selectElementWithMatcher:grey_accessibilityTrait(
-                                          UIAccessibilityTraitSearchField)]
+  [[EarlGrey selectElementWithMatcher:SearchBar()]
       assertWithMatcher:grey_nil()];
 }
 
@@ -596,9 +600,9 @@ id<GREYMatcher> SearchIconButton() {
                                    [BookmarkEarlGreyUI contextBarMoreString])]
       performAction:grey_tap()];
 
-  [[EarlGrey
-      selectElementWithMatcher:ButtonWithAccessibilityLabelId(menuButtonId)]
-      performAction:grey_tap()];
+  [[EarlGrey selectElementWithMatcher:
+                 chrome_test_util::ActionSheetItemWithAccessibilityLabelId(
+                     menuButtonId)] performAction:grey_tap()];
 
   // Verify that the edit page (editor) is present.
   [[EarlGrey selectElementWithMatcher:grey_accessibilityID(editorId)]

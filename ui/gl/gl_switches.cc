@@ -159,6 +159,17 @@ const char kEnableUnsafeSwiftShader[] = "enable-unsafe-swiftshader";
 const char kDirectCompositionVideoSwapChainFormat[] =
     "direct-composition-video-swap-chain-format";
 
+// Tint `SwapChainPresenter` with the following colors:
+//
+// - Decode swap chain: blue
+// - VP blit: magenta
+// - VP blit w/ staging texture: orange
+// - MF proxy surface: green
+//
+// This is similar to `HKLM\Software\Microsoft\Windows\DWM` `OverlayTestMode=1`
+// in DWM, but to help understand `SwapChainPresenter` state.
+const char kTintDcLayer[] = "tint-dc-layer";
+
 // This is the list of switches passed from this file that are passed from the
 // GpuProcessHost to the GPU Process. Add your switch to this list if you need
 // to read it in the GPU process, else don't add it.
@@ -176,6 +187,7 @@ const char* const kGLSwitchesCopiedFromGpuProcessHost[] = {
     kDisableDirectComposition,
     kEnableDirectCompositionVideoOverlays,
     kDirectCompositionVideoSwapChainFormat,
+    kTintDcLayer,
     kEnableUnsafeSwiftShader,
 };
 const size_t kGLSwitchesCopiedFromGpuProcessHostNumSwitches =
@@ -205,11 +217,6 @@ BASE_FEATURE(kDCompDebugVisualization,
              "DCompDebugVisualization",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-// Use BufferCount of 3 for the direct composition root swap chain.
-BASE_FEATURE(kDCompTripleBufferRootSwapChain,
-             "DCompTripleBufferRootSwapChain",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
 // Use BufferCount of 3 for direct composition video swap chains.
 BASE_FEATURE(kDCompTripleBufferVideoSwapChain,
              "DCompTripleBufferVideoSwapChain",
@@ -221,11 +228,24 @@ BASE_FEATURE(kDirectCompositionSoftwareOverlays,
              "DirectCompositionSoftwareOverlays",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
+// Detect and mark a single full screen video during overlay processing.
+BASE_FEATURE(kEarlyFullScreenVideoOptimization,
+             "EarlyFullScreenVideoOptimization",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // Adjust the letterbox video size and position to the center of the screen so
 // that DWM power optimization can be turned on.
 BASE_FEATURE(kDirectCompositionLetterboxVideoOptimization,
              "DirectCompositionLetterboxVideoOptimization",
              base::FEATURE_ENABLED_BY_DEFAULT);
+
+// Remove the topmost desktop plane for Media Foundation full screen
+// letterboxing. This is a kill switch for the desktop plane removal
+// optimization for Media Foundation Renderer, which should be enabled by
+// default when crbug.com/406175378 is resolved.
+BASE_FEATURE(kDesktopPlaneRemovalForMFFullScreenLetterbox,
+             "DesktopPlaneRemovalForMFFullScreenLetterbox",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Do not consider hardware YUV overlay count when promoting quads to DComp
 // visuals. If there are more videos than hardware overlay planes, there may be
@@ -249,21 +269,6 @@ BASE_FEATURE(kEGLDualGPURendering,
 // Allow overlay swapchain to use Intel video processor for super resolution.
 BASE_FEATURE(kIntelVpSuperResolution,
              "IntelVpSuperResolution",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
-// Allow overlay swapchain to use NVIDIA video processor for super resolution.
-BASE_FEATURE(kNvidiaVpSuperResolution,
-             "NvidiaVpSuperResolution",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-// Allow overlay swapchain to use NVIDIA video processor for trueHDR.
-BASE_FEATURE(kNvidiaVpTrueHDR,
-             "NvidiaVpTrueHDR",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-// Default to using ANGLE's OpenGL backend
-BASE_FEATURE(kDefaultANGLEOpenGL,
-             "DefaultANGLEOpenGL",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Default to using ANGLE's Metal backend.

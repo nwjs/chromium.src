@@ -56,6 +56,8 @@ class RealtimeReportingClient : public RealtimeReportingClientBase {
 
   // RealtimeReportingClientBase overrides:
   std::string GetProfileUserName() override;
+  std::string GetProfileIdentifier() override;
+  std::string GetContentAreaAccountEmail(const GURL& url) override;
   base::WeakPtr<RealtimeReportingClientBase> AsWeakPtr() override;
   std::optional<ReportingSettings> GetReportingSettings() override;
 
@@ -92,7 +94,6 @@ class RealtimeReportingClient : public RealtimeReportingClientBase {
 
  private:
   // RealtimeReportingClientBase overrides (all overrides below):
-  std::string GetProfileIdentifier() override;
   std::string GetBrowserClientId() override;
   base::Value::Dict GetContext() override;
   ::chrome::cros::reporting::proto::UploadEventsRequest

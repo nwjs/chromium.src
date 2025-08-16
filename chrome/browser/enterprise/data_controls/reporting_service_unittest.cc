@@ -15,6 +15,7 @@
 #include "components/enterprise/data_controls/core/browser/verdict.h"
 #include "components/policy/core/common/cloud/mock_cloud_policy_client.h"
 #include "components/policy/core/common/policy_types.h"
+#include "components/prefs/pref_service.h"
 #include "content/public/browser/clipboard_types.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/test/browser_task_environment.h"
@@ -269,6 +270,8 @@ TEST_F(DataControlsReportingServiceTest,
        PasteInManagedProfile_OSClipboardSource) {
   Verdict::TriggeredRules triggered_rules = {{0, {"1", "rule_1_name"}}};
   auto validator = helper_->CreateValidator();
+  base::RunLoop validator_run_loop;
+  validator.SetDoneClosure(validator_run_loop.QuitClosure());
   validator.ExpectDataControlsSensitiveDataEvent(
       /*expected_url=*/
       kChromiumUrl,
@@ -298,12 +301,15 @@ TEST_F(DataControlsReportingServiceTest,
           .format_type = ui::ClipboardFormatType::PlainTextType(),
       },
       Verdict::Warn(triggered_rules));
+  validator_run_loop.Run();
 }
 
 TEST_F(DataControlsReportingServiceTest,
        PasteInManagedProfile_IncognitoOSClipboardSource) {
   Verdict::TriggeredRules triggered_rules = {{0, {"1", "rule_1_name"}}};
   auto validator = helper_->CreateValidator();
+  base::RunLoop validator_run_loop;
+  validator.SetDoneClosure(validator_run_loop.QuitClosure());
   validator.ExpectDataControlsSensitiveDataEvent(
       /*expected_url=*/
       kChromiumUrl,
@@ -333,12 +339,15 @@ TEST_F(DataControlsReportingServiceTest,
           .format_type = ui::ClipboardFormatType::PlainTextType(),
       },
       Verdict::Warn(triggered_rules));
+  validator_run_loop.Run();
 }
 
 TEST_F(DataControlsReportingServiceTest,
        PasteInManagedProfile_ManagedSourceProfile) {
   Verdict::TriggeredRules triggered_rules = {{0, {"1", "rule_1_name"}}};
   auto validator = helper_->CreateValidator();
+  base::RunLoop validator_run_loop;
+  validator.SetDoneClosure(validator_run_loop.QuitClosure());
   validator.ExpectDataControlsSensitiveDataEvent(
       /*expected_url=*/
       kChromiumUrl,
@@ -366,6 +375,7 @@ TEST_F(DataControlsReportingServiceTest,
           .format_type = ui::ClipboardFormatType::PlainTextType(),
       },
       Verdict::Warn(triggered_rules));
+  validator_run_loop.Run();
 }
 
 TEST_F(DataControlsReportingServiceTest,
@@ -375,6 +385,8 @@ TEST_F(DataControlsReportingServiceTest,
       {1, {"2", "rule_2_name"}},
   };
   auto validator = helper_->CreateValidator();
+  base::RunLoop validator_run_loop;
+  validator.SetDoneClosure(validator_run_loop.QuitClosure());
   validator.ExpectDataControlsSensitiveDataEvent(
       /*expected_url=*/
       kChromiumUrl,
@@ -403,12 +415,15 @@ TEST_F(DataControlsReportingServiceTest,
           .format_type = ui::ClipboardFormatType::HtmlType(),
       },
       Verdict::Block(triggered_rules));
+  validator_run_loop.Run();
 }
 
 TEST_F(DataControlsReportingServiceTest,
        PasteInManagedProfile_UnmanagedSourceProfile) {
   Verdict::TriggeredRules triggered_rules = {{0, {"1", "rule_1_name"}}};
   auto validator = helper_->CreateValidator();
+  base::RunLoop validator_run_loop;
+  validator.SetDoneClosure(validator_run_loop.QuitClosure());
   validator.ExpectDataControlsSensitiveDataEvent(
       /*expected_url=*/
       kChromiumUrl,
@@ -436,6 +451,7 @@ TEST_F(DataControlsReportingServiceTest,
                            .format_type = ui::ClipboardFormatType::SvgType(),
                        },
                        Verdict::Report(triggered_rules));
+  validator_run_loop.Run();
 }
 
 TEST_F(DataControlsReportingServiceTest,
@@ -448,6 +464,8 @@ TEST_F(DataControlsReportingServiceTest,
 
   Verdict::TriggeredRules triggered_rules = {{0, {"1", "rule_1_name"}}};
   auto validator = helper_->CreateValidator();
+  base::RunLoop validator_run_loop;
+  validator.SetDoneClosure(validator_run_loop.QuitClosure());
   validator.ExpectDataControlsSensitiveDataEvent(
       /*expected_url=*/
       kChromiumUrl,
@@ -475,6 +493,7 @@ TEST_F(DataControlsReportingServiceTest,
                            .format_type = ui::ClipboardFormatType::RtfType(),
                        },
                        Verdict::Block(triggered_rules));
+  validator_run_loop.Run();
 }
 
 TEST_F(DataControlsReportingServiceTest, CopyInManagedProfile) {
@@ -484,6 +503,8 @@ TEST_F(DataControlsReportingServiceTest, CopyInManagedProfile) {
 
   {
     auto validator = helper_->CreateValidator();
+    base::RunLoop validator_run_loop;
+    validator.SetDoneClosure(validator_run_loop.QuitClosure());
     validator.ExpectDataControlsSensitiveDataEvent(
         /*expected_url=*/
         kChromiumUrl,
@@ -509,9 +530,12 @@ TEST_F(DataControlsReportingServiceTest, CopyInManagedProfile) {
             .format_type = ui::ClipboardFormatType::PlainTextType(),
         },
         Verdict::Warn(triggered_rules));
+    validator_run_loop.Run();
   }
   {
     auto validator = helper_->CreateValidator();
+    base::RunLoop validator_run_loop;
+    validator.SetDoneClosure(validator_run_loop.QuitClosure());
     validator.ExpectDataControlsSensitiveDataEvent(
         /*expected_url=*/
         kChromiumUrl,
@@ -537,9 +561,12 @@ TEST_F(DataControlsReportingServiceTest, CopyInManagedProfile) {
             .format_type = ui::ClipboardFormatType::PngType(),
         },
         Verdict::Block(triggered_rules));
+    validator_run_loop.Run();
   }
   {
     auto validator = helper_->CreateValidator();
+    base::RunLoop validator_run_loop;
+    validator.SetDoneClosure(validator_run_loop.QuitClosure());
     validator.ExpectDataControlsSensitiveDataEvent(
         /*expected_url=*/
         kChromiumUrl,
@@ -564,9 +591,12 @@ TEST_F(DataControlsReportingServiceTest, CopyInManagedProfile) {
                             .format_type = ui::ClipboardFormatType::SvgType(),
                         },
                         Verdict::Block(triggered_rules));
+    validator_run_loop.Run();
   }
   {
     auto validator = helper_->CreateValidator();
+    base::RunLoop validator_run_loop;
+    validator.SetDoneClosure(validator_run_loop.QuitClosure());
     validator.ExpectDataControlsSensitiveDataEvent(
         /*expected_url=*/
         kChromiumUrl,
@@ -591,6 +621,7 @@ TEST_F(DataControlsReportingServiceTest, CopyInManagedProfile) {
                             .format_type = ui::ClipboardFormatType::RtfType(),
                         },
                         Verdict::Report(triggered_rules));
+    validator_run_loop.Run();
   }
 }
 

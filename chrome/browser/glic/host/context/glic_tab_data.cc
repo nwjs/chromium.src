@@ -13,10 +13,12 @@
 #include "base/containers/span.h"
 #include "base/memory/weak_ptr.h"
 #include "base/strings/utf_string_conversions.h"
+#include "chrome/common/chrome_features.h"
 #include "components/favicon/content/content_favicon_driver.h"
 #include "components/favicon/core/favicon_driver_observer.h"
 #include "components/sessions/content/session_tab_helper.h"
 #include "content/public/browser/web_contents.h"
+#include "skia/ext/codec_utils.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "ui/gfx/image/image_skia.h"
 #include "ui/gfx/image/image_skia_rep.h"
@@ -34,6 +36,16 @@ bool IsForeground(content::Visibility visibility) {
 TabDataObserver::TabDataObserver(
     content::WebContents* web_contents,
     base::RepeatingCallback<void(glic::mojom::TabDataPtr)> tab_data_changed)
+    : TabDataObserver(web_contents
+                          ? tabs::TabInterface::GetFromContents(web_contents)
+                          : nullptr,
+                      web_contents,
+                      std::move(tab_data_changed)) {}
+
+TabDataObserver::TabDataObserver(
+    tabs::TabInterface* tab,
+    content::WebContents* web_contents,
+    base::RepeatingCallback<void(glic::mojom::TabDataPtr)> tab_data_changed)
     : content::WebContentsObserver(web_contents),
       tab_data_changed_(std::move(tab_data_changed)) {
   if (web_contents) {
@@ -42,10 +54,8 @@ TabDataObserver::TabDataObserver(
     if (favicon_driver) {
       favicon_driver->AddObserver(this);
     }
-    tab_detach_subscription_ =
-        tabs::TabInterface::GetFromContents(web_contents)
-            ->RegisterWillDetach(base::BindRepeating(
-                &TabDataObserver::OnTabWillDetach, base::Unretained(this)));
+    tab_detach_subscription_ = tab->RegisterWillDetach(base::BindRepeating(
+        &TabDataObserver::OnTabWillDetach, base::Unretained(this)));
   }
 }
 
@@ -122,23 +132,30 @@ glic::mojom::TabDataPtr CreateTabData(content::WebContents* web_contents) {
   SkBitmap favicon;
   auto* favicon_driver =
       favicon::ContentFaviconDriver::FromWebContents(web_contents);
+  std::optional<GURL> favicon_url;
   if (favicon_driver && favicon_driver->FaviconIsValid()) {
     // Attempt to get a 32x32 favicon by default (16x16 DIP at 2x scale).
     favicon = favicon_driver->GetFavicon()
                   .ToImageSkia()
                   ->GetRepresentation(2.0f)
                   .GetBitmap();
+    if (base::FeatureList::IsEnabled(features::kGlicFaviconDataUrls)) {
+      favicon_url = GURL(skia::EncodePngAsDataUri(favicon.pixmap()));
+    }
   }
+
   // TODO(b/426644734): investigate triggering updates due to changes to
   // observability for focused tab data.
   bool is_audible = web_contents->IsCurrentlyAudible();
+  bool is_tab_content_captured = web_contents->IsBeingCaptured();
   bool is_foreground = IsForeground(web_contents->GetVisibility());
   bool is_observable = is_audible || is_foreground;
   return glic::mojom::TabData::New(
       GetTabId(web_contents),
       sessions::SessionTabHelper::IdForWindowContainingTab(web_contents).id(),
       GetTabUrl(web_contents), base::UTF16ToUTF8(web_contents->GetTitle()),
-      favicon, web_contents->GetContentsMimeType(), is_observable);
+      favicon, favicon_url, web_contents->GetContentsMimeType(), is_observable,
+      is_audible, is_tab_content_captured);
 }
 
 // CreateFocusedTabData Implementation:

@@ -44,8 +44,8 @@
                                    IdentityManagerObserverBridgeDelegate,
                                    SyncObserverModelBridge>
 
-// Whether the account menu’s interaction is blocked.
-@property(nonatomic, assign) BOOL userInteractionsBlocked;
+// Redefine as readwrite.
+@property(nonatomic, assign, readwrite) BOOL userInteractionsBlocked;
 
 @end
 
@@ -323,6 +323,7 @@
     case syncer::SyncService::UserActionableError::kNeedsPassphrase:
       base::RecordAction(
           base::UserMetricsAction("Signin_AccountMenu_ErrorButton_Passphrase"));
+      self.userInteractionsBlocked = YES;
       [self.syncErrorSettingsCommandHandler
           openPassphraseDialogWithModalPresentation:YES];
       break;
@@ -375,14 +376,19 @@
   if (self.userInteractionsBlocked) {
     return;
   }
-  self.userInteractionsBlocked = YES;
+  if (@available(iOS 26, *)) {
+    self.userInteractionsBlocked = YES;
+  }
+  // The interaction should not be blocked, because, up to iOS 18, the Add
+  // Account view may disappear without the signinCompletion to be called. See
+  // crbug.com/395959814.
   [self.delegate didTapAddAccount];
 }
 
 #pragma mark - Callbacks
 
 // Callback for didTapAddAccount
-- (void)accountAddedIsDone {
+- (void)accountMenuIsUsable {
   [self restartUpdates];
   self.userInteractionsBlocked = NO;
 }

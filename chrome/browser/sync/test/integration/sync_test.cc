@@ -123,6 +123,10 @@
 #include "components/trusted_vault/command_line_switches.h"
 #endif  // BUILDFLAG(IS_ANDROID)
 
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+#include "chrome/browser/enterprise/util/managed_browser_utils.h"
+#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+
 using syncer::SyncServiceImpl;
 
 namespace {
@@ -615,6 +619,11 @@ bool SyncTest::SetupSyncInternal(SetupSyncMode setup_mode,
 
   // Sync each of the profiles.
   for (int client_index = 0; client_index < num_clients_; client_index++) {
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+    auto resetter =
+        enterprise_util::DisableAutomaticManagementDisclaimerUntilReset(
+            GetProfile(client_index));
+#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
     SyncServiceImplHarness* client = GetClient(client_index);
     DVLOG(1) << "Setting up " << client_index << " client";
     if (!client->SetupSyncNoWaitForCompletion(account)) {
@@ -1079,7 +1088,7 @@ void SyncTest::ExcludeDataTypesFromCheckForDataTypeFailures(
 // enabled by default, e.g. HISTORY requires a dedicated opt-in via
 // SyncUserSettings::SetSelectedTypes().
 syncer::DataTypeSet AllowedTypesInStandaloneTransportMode() {
-  static_assert(55 == syncer::GetNumDataTypes(),
+  static_assert(56 == syncer::GetNumDataTypes(),
                 "Add new types below if they can run in transport mode");
 
 #if BUILDFLAG(IS_ANDROID)
@@ -1132,6 +1141,10 @@ syncer::DataTypeSet AllowedTypesInStandaloneTransportMode() {
     allowed_types.Put(syncer::SESSIONS);
     allowed_types.Put(syncer::USER_EVENTS);
 
+#if BUILDFLAG(ENABLE_EXTENSIONS) && !BUILDFLAG(IS_CHROMEOS)
+    allowed_types.Put(syncer::WEB_APPS);
+#endif  // BUILDFLAG(ENABLE_EXTENSIONS) && !BUILDFLAG(IS_CHROMEOS)
+
     if (data_sharing::features::IsDataSharingFunctionalityEnabled()) {
       allowed_types.Put(syncer::SHARED_TAB_GROUP_DATA);
       allowed_types.Put(syncer::COLLABORATION_GROUP);
@@ -1139,6 +1152,10 @@ syncer::DataTypeSet AllowedTypesInStandaloneTransportMode() {
       if (base::FeatureList::IsEnabled(
               syncer::kSyncSharedTabGroupAccountData)) {
         allowed_types.Put(syncer::SHARED_TAB_GROUP_ACCOUNT_DATA);
+      }
+
+      if (base::FeatureList::IsEnabled(syncer::kSyncSharedComment)) {
+        allowed_types.Put(syncer::SHARED_COMMENT);
       }
     }
 
@@ -1169,8 +1186,9 @@ syncer::DataTypeSet AllowedTypesInStandaloneTransportMode() {
 #endif  // BUILDFLAG(IS_ANDROID) && !BUILDFLAG(USE_LOGIN_DATABASE_AS_BACKEND)
 
 #if BUILDFLAG(IS_ANDROID)
-  // TODO(crbug.com/420912307): Allow `syncer::WEB_APKS` if
-  // `syncer::kWebApkBackupAndRestoreBackend` is enabled.
+  if (base::FeatureList::IsEnabled(syncer::kWebApkBackupAndRestoreBackend)) {
+    allowed_types.Put(syncer::WEB_APKS);
+  }
 #else   // BUILDFLAG(IS_ANDROID)
   if (base::FeatureList::IsEnabled(syncer::kSeparateLocalAndAccountThemes)) {
     allowed_types.Put(syncer::THEMES);

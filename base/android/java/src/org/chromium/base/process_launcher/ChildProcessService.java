@@ -65,7 +65,7 @@ import javax.annotation.concurrent.GuardedBy;
  * responsible for loading native libraries and running the main entry point of the service.
  *
  * <p>This class does not directly inherit from Service because the logic may be used by a Service
- * implementation which cannot directly inherit from this class (e.g. for WebLayer child services).
+ * implementation which cannot directly inherit from this class.
  */
 @JNINamespace("base::android")
 @SuppressWarnings("SynchronizeOnNonFinalField") // mMainThread assigned in onCreate().
@@ -86,10 +86,6 @@ public class ChildProcessService {
 
     private final Object mBinderLock = new Object();
     private final Object mLibraryInitializedLock = new Object();
-
-    // True if we should enforce that bindToCaller() is called before setupConnection().
-    // Only set once in bind(), does not require synchronization.
-    private boolean mBindToCallerCheck;
 
     // PID of the client of this service, set in bindToCaller(), if mBindToCallerCheck is true.
     @GuardedBy("mBinderLock")
@@ -138,7 +134,6 @@ public class ChildProcessService {
                 // NOTE: Implement any IChildProcessService methods here.
                 @Override
                 public boolean bindToCaller(String clazz) {
-                    assert mBindToCallerCheck;
                     assert mServiceBound;
                     synchronized (mBinderLock) {
                         int callingPid = Binder.getCallingPid();
@@ -174,12 +169,11 @@ public class ChildProcessService {
                 public void setupConnection(
                         IChildProcessArgs args,
                         IParentProcess parentProcess,
-                        List<IBinder> callbacks,
-                        IBinder binderBox)
+                        List<IBinder> callbacks)
                         throws RemoteException {
                     assert mServiceBound;
                     synchronized (mBinderLock) {
-                        if (mBindToCallerCheck && mBoundCallingPid == 0) {
+                        if (args.bindToCaller && mBoundCallingPid == 0) {
                             Log.e(TAG, "Service has not been bound with bindToCaller()");
                             parentProcess.finishSetupConnection(-1, 0, 0, null);
                             return;
@@ -206,7 +200,7 @@ public class ChildProcessService {
                     parentProcess.finishSetupConnection(
                             pid, zygotePid, startupTimeMillis, relroInfo);
                     mParentProcess = parentProcess;
-                    processConnectionArgs(args, callbacks, binderBox);
+                    processConnectionArgs(args, callbacks);
                 }
 
                 @Override
@@ -399,11 +393,12 @@ public class ChildProcessService {
         System.exit(0);
     }
 
-    /*
+    /**
      * Returns the communication channel to the service. Note that even if multiple clients were to
      * connect, we should only get one call to this method. So there is no need to synchronize
      * member variables that are only set in this method and accessed from binder methods, as binder
      * methods can't be called until this method returns.
+     *
      * @param intent The intent that was used to bind to the service.
      * @return the binder used by the client to setup the connection.
      */
@@ -416,8 +411,6 @@ public class ChildProcessService {
         // time.
         mService.stopSelf();
 
-        mBindToCallerCheck =
-                intent.getBooleanExtra(ChildProcessConstants.EXTRA_BIND_TO_CALLER, false);
         mServiceBound = true;
         mDelegate.onServiceBound(intent);
 
@@ -439,11 +432,10 @@ public class ChildProcessService {
         sZygoteStartupTimeMillis = zygoteStartupTimeMillis;
     }
 
-    private void processConnectionArgs(
-            IChildProcessArgs args, List<IBinder> clientInterfaces, IBinder binderBox) {
+    private void processConnectionArgs(IChildProcessArgs args, List<IBinder> clientInterfaces) {
         synchronized (mMainThread) {
             mChildProcessArgs = args;
-            mDelegate.onConnectionSetup(args, clientInterfaces, binderBox);
+            mDelegate.onConnectionSetup(args, clientInterfaces);
             mMainThread.notifyAll();
         }
     }

@@ -30,7 +30,7 @@
 #include "base/check_op.h"
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/layout/layout_box.h"
-#include "third_party/blink/renderer/core/layout/physical_box_fragment.h"
+#include "third_party/blink/renderer/core/paint/fragment_data.h"
 #include "third_party/blink/renderer/core/paint/paint_flags.h"
 #include "third_party/blink/renderer/core/paint/paint_phase.h"
 #include "third_party/blink/renderer/platform/graphics/graphics_context.h"
@@ -116,6 +116,9 @@ struct CORE_EXPORT PaintInfo {
   }
   bool IsRenderingResourceSubtree() const {
     return paint_flags_ & PaintFlag::kPaintingResourceSubtree;
+  }
+  bool IsPrivacyPreserving() const {
+    return paint_flags_ & PaintFlag::kPrivacyPreserving;
   }
 
   bool ShouldSkipBackground() const { return skips_background_; }

@@ -54,13 +54,10 @@ inline constexpr char kToolbeltModeParameterKey[] = "tbm";
 inline constexpr char kShoppingModeParameterValue[] = "28";
 inline constexpr char kUnimodalModeParameterValue[] = "26";
 inline constexpr char kMultimodalModeParameterValue[] = "24";
-inline constexpr char kMGTModeParameterValue[] = "50";
+inline constexpr char kAimModeParameterValue[] = "50";
 
 // Query parameter for the language code.
 inline constexpr char kLanguageCodeParameterKey[] = "hl";
-
-// Query parameter for the video context.
-inline constexpr char kVideoContextParameterKey[] = "vidcip";
 
 // Query parameter for the lens mode.
 inline constexpr char kLensModeParameterKey[] = "lns_mode";
@@ -78,6 +75,8 @@ inline constexpr char kInvocationSourcePageSearchContextMenu[] =
     "chrome.cr.ctxp";
 inline constexpr char kInvocationSourceImageSearchContextMenu[] =
     "chrome.cr.ctxi";
+inline constexpr char kInvocationSourceTextSearchContextMenu[] =
+    "chrome.cr.ctxt";
 inline constexpr char kInvocationSourceFindInPage[] = "chrome.cr.find";
 inline constexpr char kInvocationSourceToolbarIcon[] = "chrome.cr.tbic";
 inline constexpr char kInvocationSourceOmniboxIcon[] = "chrome.cr.obic";
@@ -220,28 +219,6 @@ GURL AppendCommonSearchParametersToURL(const GURL& url_to_modify,
   return new_url;
 }
 
-GURL AppendVideoContextParamToURL(const GURL& url_to_modify,
-                                  std::optional<GURL> page_url) {
-  if (!page_url.has_value()) {
-    return url_to_modify;
-  }
-
-  lens::LensOverlayVideoParams video_params;
-  video_params.mutable_video_context_input_params()->set_url(page_url->spec());
-  std::string serialized_video_params;
-  if (!video_params.SerializeToString(&serialized_video_params)) {
-    return url_to_modify;
-  }
-  std::string encoded_video_params;
-  base::Base64UrlEncode(serialized_video_params,
-                        base::Base64UrlEncodePolicy::OMIT_PADDING,
-                        &encoded_video_params);
-  GURL new_url = url_to_modify;
-  new_url = net::AppendOrReplaceQueryParameter(
-      new_url, kVideoContextParameterKey, encoded_video_params);
-  return new_url;
-}
-
 GURL AppendInvocationSourceParamToURL(
     const GURL& url_to_modify,
     lens::LensOverlayInvocationSource invocation_source) {
@@ -255,6 +232,9 @@ GURL AppendInvocationSourceParamToURL(
       break;
     case lens::LensOverlayInvocationSource::kContentAreaContextMenuImage:
       param_value = kInvocationSourceImageSearchContextMenu;
+      break;
+    case lens::LensOverlayInvocationSource::kContentAreaContextMenuText:
+      param_value = kInvocationSourceTextSearchContextMenu;
       break;
     case lens::LensOverlayInvocationSource::kToolbar:
       param_value = kInvocationSourceToolbarIcon;
@@ -362,13 +342,6 @@ GURL BuildLensSearchURL(
       url_with_query_params, additional_search_query_params);
   url_with_query_params =
       AppendCommonSearchParametersToURL(url_with_query_params, use_dark_mode);
-  if (text_query.has_value() &&
-      lens::features::UseVideoContextForMultimodalLensOverlayRequests()) {
-    // All pages use the video context param to report page context information
-    // even if the page does not contain a video.
-    url_with_query_params =
-        AppendVideoContextParamToURL(url_with_query_params, page_url);
-  }
   url_with_query_params = net::AppendOrReplaceQueryParameter(
       url_with_query_params, kTextQueryParameterKey,
       text_query.has_value() ? *text_query : "");
@@ -407,13 +380,13 @@ GURL BuildLensSearchURL(
   return url_with_query_params;
 }
 
-const std::string GetTextQueryParameterValue(const GURL& url) {
+const std::string ExtractTextQueryParameterValue(const GURL& url) {
   std::string param_value = "";
   net::GetValueForKeyInQuery(url, kTextQueryParameterKey, &param_value);
   return param_value;
 }
 
-const std::string GetLensModeParameterValue(const GURL& url) {
+const std::string ExtractLensModeParameterValue(const GURL& url) {
   std::string param_value = "";
   net::GetValueForKeyInQuery(url, kLensModeParameterKey, &param_value);
   return param_value;
@@ -469,10 +442,10 @@ bool ShouldOpenSearchURLInNewTab(const GURL& url) {
   std::string param_value;
   net::GetValueForKeyInQuery(url, kModeParameterKey, &param_value);
   const bool is_shopping_mode = param_value == kShoppingModeParameterValue;
-  const bool is_mgt_mode = param_value == kMGTModeParameterValue;
+  const bool is_aim_mode = param_value == kAimModeParameterValue;
   return IsValidSearchResultsUrl(url) &&
          (is_shopping_mode ||
-          (is_mgt_mode && !lens::features::ShouldShowMGTInSidePanel()));
+          (is_aim_mode && !lens::features::ShouldShowAimInSidePanel()));
 }
 
 GURL GetSearchResultsUrlFromRedirectUrl(const GURL& url) {
@@ -581,6 +554,21 @@ GURL AddPDFScrollToParametersToUrl(
   }
 
   return net::AppendOrReplaceRef(url, ref);
+}
+
+std::map<std::string, std::string> GetParametersMapWithoutQuery(
+    const GURL& url) {
+  std::map<std::string, std::string> additional_query_parameters;
+  net::QueryIterator query_iterator(url);
+  while (!query_iterator.IsAtEnd()) {
+    std::string_view key = query_iterator.GetKey();
+    if (kTextQueryParameterKey != key) {
+      additional_query_parameters.insert(std::make_pair(
+          query_iterator.GetKey(), query_iterator.GetUnescapedValue()));
+    }
+    query_iterator.Advance();
+  }
+  return additional_query_parameters;
 }
 
 }  // namespace lens

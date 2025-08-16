@@ -71,9 +71,7 @@ import java.io.IOException;
 @MinAndroidSdkLevel(Build.VERSION_CODES.R)
 @EnableFeatures({
     ChromeFeatureList.DRAW_CUTOUT_EDGE_TO_EDGE,
-    ChromeFeatureList.DRAW_KEY_NATIVE_EDGE_TO_EDGE,
-    ChromeFeatureList.EDGE_TO_EDGE_BOTTOM_CHIN,
-    ChromeFeatureList.EDGE_TO_EDGE_WEB_OPT_IN
+    ChromeFeatureList.EDGE_TO_EDGE_BOTTOM_CHIN
 })
 public class EdgeToEdgeInstrumentationTest {
     @Rule
@@ -397,7 +395,6 @@ public class EdgeToEdgeInstrumentationTest {
 
     @Test
     @MediumTest
-    @EnableFeatures(ChromeFeatureList.EDGE_TO_EDGE_SAFE_AREA_CONSTRAINT)
     public void testSafeAreaConstraint() {
         loadSafeAreaConstrainPage();
 
@@ -454,12 +451,12 @@ public class EdgeToEdgeInstrumentationTest {
     }
 
     private void assertNavigationBarColor(int color) {
-        assertEquals(
-                "Nav bar color is different.",
-                color,
-                mActivity
-                        .getEdgeToEdgeManager()
-                        .getEdgeToEdgeSystemBarColorHelper()
-                        .getNavigationBarColor());
+        CriteriaHelper.pollUiThread(
+                () ->
+                        color
+                                == mActivity
+                                        .getEdgeToEdgeManager()
+                                        .getEdgeToEdgeSystemBarColorHelper()
+                                        .getNavigationBarColor());
     }
 }

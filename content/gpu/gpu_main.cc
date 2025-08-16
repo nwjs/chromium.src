@@ -17,6 +17,7 @@
 #include "base/functional/bind.h"
 #include "base/memory/raw_ptr.h"
 #include "base/message_loop/message_pump_type.h"
+#include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/numerics/clamped_math.h"
 #include "base/process/current_process.h"
@@ -28,12 +29,14 @@
 #include "base/task/current_thread.h"
 #include "base/task/single_thread_task_executor.h"
 #include "base/task/thread_pool/thread_pool_instance.h"
+#include "base/threading/hang_watcher.h"
 #include "base/threading/platform_thread.h"
 #include "base/threading/thread.h"
 #include "base/time/time.h"
 #include "base/timer/hi_res_timer_manager.h"
 #include "base/trace_event/trace_event.h"
 #include "build/build_config.h"
+#include "components/viz/common/features.h"
 #include "components/viz/service/gl/gpu_log_message_manager.h"
 #include "components/viz/service/main/viz_main_impl.h"
 #include "content/child/child_process.h"
@@ -60,6 +63,7 @@
 #include "gpu/ipc/service/gpu_init.h"
 #include "gpu/ipc/service/gpu_watchdog_thread.h"
 #include "media/gpu/buildflags.h"
+#include "mojo/public/cpp/bindings/direct_receiver.h"
 #include "mojo/public/cpp/bindings/interface_endpoint_client.h"
 #include "mojo/public/cpp/bindings/sync_call_restrictions.h"
 #include "services/tracing/public/cpp/perfetto/perfetto_traced_process.h"
@@ -381,6 +385,29 @@ int GpuMain(MainFunctionParams parameters) {
     client->PostSandboxInitialized();
   }
 
+  // Start the HangWatcher now that the sandbox is engaged, if it hasn't already
+  // been started.
+  if (base::HangWatcher::IsEnabled() &&
+      !base::HangWatcher::GetInstance()->IsStarted()) {
+    DCHECK(parameters.hang_watcher_not_started_time.has_value());
+    base::TimeDelta uncovered_hang_watcher_time =
+        base::TimeTicks::Now() -
+        parameters.hang_watcher_not_started_time.value();
+    base::UmaHistogramTimes("HangWatcher.GpuProcess.UncoveredStartupTime",
+                            uncovered_hang_watcher_time);
+    base::HangWatcher::GetInstance()->Start();
+  }
+
+  // Startup tracing creates a tracing thread, which is incompatible on
+  // platforms that require single-threaded sandbox initialization. In these
+  // cases, startup tracing is either initialized right after sandbox
+  // initialization, or we restart the tracing thread during sandbox
+  // initialization.
+  if (parameters.needs_startup_tracing_after_sandbox_init) {
+    tracing::InitTracingPostFeatureList(/*enable_consumer=*/false,
+                                        /*will_trace_thread_restart=*/false);
+  }
+
   GetContentClient()->SetGpuInfo(gpu_init->gpu_info());
 
   base::ThreadType io_thread_type = base::ThreadType::kDisplayCritical;
@@ -399,13 +426,6 @@ int GpuMain(MainFunctionParams parameters) {
   child_thread->Init(start_time);
 
   gpu_process.set_main_thread(child_thread);
-
-  // Mojo IPC support is brought up by GpuChildThread, so startup tracing is
-  // enabled here if it needs to start after mojo init (normally so the mojo
-  // broker can bypass the sandbox to allocate startup tracing's SMB).
-  if (parameters.needs_startup_tracing_after_mojo_init) {
-    tracing::EnableStartupTracingIfNeeded();
-  }
 
 #if BUILDFLAG(IS_MAC)
   // A GPUEjectPolicy of 'wait' is set in the Info.plist of the browser
@@ -563,6 +583,12 @@ bool StartSandboxAndroid(gpu::GpuWatchdogThread* watchdog_thread) {
 bool StartSandboxWindows(const sandbox::SandboxInterfaceInfo* sandbox_info) {
   TRACE_EVENT("gpu,startup", "Lower token");
 
+  // Set up DirectReceiver before the sandbox is enabled.
+  if (features::IsVizDirectCompositorThreadIpcNonRootEnabled()) {
+    // This pre-initializes a transport to be used for direct receiver since a
+    // feature that will use it is enabled.
+    mojo::CreateDirectReceiverTransportBeforeSandbox();
+  }
   // For Windows, if the target_services interface is not zero, the process
   // is sandboxed and we must call LowerToken() before rendering untrusted
   // content.

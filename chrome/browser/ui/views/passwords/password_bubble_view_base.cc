@@ -18,6 +18,7 @@
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/frame/toolbar_button_provider.h"
 #include "chrome/browser/ui/views/location_bar/location_bar_view.h"
+#include "chrome/browser/ui/views/page_action/page_action_view.h"
 #include "chrome/browser/ui/views/passwords/manage_passwords_icon_views.h"
 #include "chrome/browser/ui/views/passwords/manage_passwords_view.h"
 #include "chrome/browser/ui/views/passwords/move_to_account_store_bubble_view.h"
@@ -86,8 +87,7 @@ void PasswordBubbleViewBase::ShowBubble(content::WebContents* web_contents,
   // icon as the highlighted button here.
   if (!views::Button::AsButton(anchor_view)) {
     g_manage_passwords_bubble_->SetHighlightedButton(
-        button_provider->GetPageActionIconView(
-            PageActionIconType::kManagePasswords));
+        button_provider->GetPageActionView(kActionShowPasswordsBubbleOrPage));
   }
 
   views::BubbleDialogDelegateView::CreateBubble(g_manage_passwords_bubble_);
@@ -268,7 +268,25 @@ void PasswordBubbleViewBase::SetBubbleHeader(int light_image_id,
 
   gfx::Size preferred_size = image_view->GetPreferredSize();
   if (preferred_size.width()) {
-    float scale =
+    const float scale =
+        static_cast<float>(ChromeLayoutProvider::Get()->GetDistanceMetric(
+            views::DISTANCE_BUBBLE_PREFERRED_WIDTH)) /
+        preferred_size.width();
+    preferred_size = gfx::ScaleToRoundedSize(preferred_size, scale);
+    image_view->SetImageSize(preferred_size);
+  }
+  GetBubbleFrameView()->SetHeaderView(std::move(image_view));
+}
+
+void PasswordBubbleViewBase::SetBubbleHeaderLottie(int lottie_image_id) {
+  ui::ResourceBundle& bundle = ui::ResourceBundle::GetSharedInstance();
+  auto image_view = std::make_unique<views::ImageView>(
+      bundle.GetThemedLottieImageNamed(lottie_image_id));
+  image_view->GetViewAccessibility().SetIsInvisible(true);
+
+  gfx::Size preferred_size = image_view->GetPreferredSize();
+  if (preferred_size.width()) {
+    const float scale =
         static_cast<float>(ChromeLayoutProvider::Get()->GetDistanceMetric(
             views::DISTANCE_BUBBLE_PREFERRED_WIDTH)) /
         preferred_size.width();

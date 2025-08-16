@@ -273,7 +273,8 @@ bool D3D12VideoEncodeH264Delegate::ReportsAverageQp() const {
 bool D3D12VideoEncodeH264Delegate::UpdateRateControl(const Bitrate& bitrate,
                                                      uint32_t framerate) {
   if (software_rate_controller_) {
-    if (bitrate.mode() != Bitrate::Mode::kConstant) {
+    if (bitrate.mode() != Bitrate::Mode::kConstant &&
+        bitrate.mode() != Bitrate::Mode::kVariable) {
       return false;
     }
 
@@ -288,7 +289,9 @@ bool D3D12VideoEncodeH264Delegate::UpdateRateControl(const Bitrate& bitrate,
       layer_settings.avg_bitrate = bitrate.target_bps();
       // Bitrate::Mode::kConstant only has target_bps. Using the target_bps for
       // peak_bitrate.
-      layer_settings.peak_bitrate = bitrate.target_bps();
+      layer_settings.peak_bitrate = bitrate.mode() == Bitrate::Mode::kConstant
+                                        ? bitrate.target_bps()
+                                        : bitrate.peak_bps();
       layer_settings.frame_rate = framerate;
       software_rate_controller_.emplace(rate_controller_settings_);
     } else {
@@ -308,7 +311,8 @@ EncoderStatus::Or<BitstreamBufferMetadata>
 D3D12VideoEncodeH264Delegate::EncodeImpl(
     ID3D12Resource* input_frame,
     UINT input_frame_subresource,
-    const VideoEncoder::EncodeOptions& options) {
+    const VideoEncoder::EncodeOptions& options,
+    const gfx::ColorSpace& input_color_space) {
   // Filling the |input_arguments_| according to
   // https://github.com/microsoft/DirectX-Specs/blob/master/d3d/D3D12VideoEncoding.md#6120-struct-d3d12_video_encoder_input_arguments
 
@@ -448,6 +452,8 @@ D3D12VideoEncodeH264Delegate::EncodeImpl(
           0, rate_controller_timestamp_);
     }
     qp = software_rate_controller_->temporal_layers(0).curr_frame_qp();
+  } else if (options.quantizer.has_value()) {
+    qp = options.quantizer.value();
   }
   if (qp != -1) {
     CHECK_EQ(input_arguments_.SequenceControlDesc.RateControl.Mode,
@@ -503,7 +509,38 @@ EncoderStatus D3D12VideoEncodeH264Delegate::InitializeVideoEncoder(
   CHECK_EQ(VideoCodecProfileToVideoCodec(config.output_profile),
            VideoCodec::kH264);
 
-  if (config.bitrate.mode() == Bitrate::Mode::kConstant) {
+  D3D12_VIDEO_ENCODER_CODEC_PICTURE_CONTROL_SUPPORT_H264
+  picture_control_support_h264{};
+  D3D12_FEATURE_DATA_VIDEO_ENCODER_CODEC_PICTURE_CONTROL_SUPPORT
+  picture_control_support{
+      .Codec = D3D12_VIDEO_ENCODER_CODEC_H264,
+      .Profile = {.DataSize = sizeof(h264_profile_),
+                  .pH264Profile = &h264_profile_},
+      .PictureSupport = {.DataSize = sizeof(picture_control_support_h264),
+                         .pH264Support = &picture_control_support_h264},
+  };
+  EncoderStatus status = CheckD3D12VideoEncoderCodecPictureControlSupport(
+      video_device_.Get(), &picture_control_support);
+  if (!status.is_ok()) {
+    return status;
+  }
+
+  if (picture_control_support_h264.MaxLongTermReferences < 1) {
+    return {EncoderStatus::Codes::kEncoderUnsupportedConfig,
+            "D3D12VideoEncoder doesn't support long term reference for H264"};
+  }
+
+  max_num_ref_frames_ = 1;
+  if (picture_control_support_h264.MaxDPBCapacity < max_num_ref_frames_) {
+    return {
+        EncoderStatus::Codes::kEncoderUnsupportedConfig,
+        base::StringPrintf(
+            "D3D12VideoEncoder only support DPB capacity %u, got %u",
+            picture_control_support_h264.MaxDPBCapacity, max_num_ref_frames_)};
+  }
+
+  if (config.bitrate.mode() == Bitrate::Mode::kConstant ||
+      config.bitrate.mode() == Bitrate::Mode::kVariable) {
     constexpr uint32_t kDefaultQp = 26;
     rate_control_ = D3D12VideoEncoderRateControl::CreateCqp(
         kDefaultQp, kDefaultQp, kDefaultQp);
@@ -519,7 +556,10 @@ EncoderStatus D3D12VideoEncodeH264Delegate::InitializeVideoEncoder(
     layer_settings.avg_bitrate = config.bitrate.target_bps();
     // Bitrate::Mode::kConstant only has target_bps. Using the target_bps for
     // peak_bitrate.
-    layer_settings.peak_bitrate = config.bitrate.target_bps();
+    layer_settings.peak_bitrate =
+        config.bitrate.mode() == Bitrate::Mode::kConstant
+            ? config.bitrate.target_bps()
+            : config.bitrate.peak_bps();
     constexpr size_t kHRDBufferSize = 40000;
     layer_settings.hrd_buffer_size = kHRDBufferSize;
     layer_settings.min_qp = kH264MinQuantizer;
@@ -531,8 +571,7 @@ EncoderStatus D3D12VideoEncodeH264Delegate::InitializeVideoEncoder(
 
   D3D12_FEATURE_DATA_VIDEO_ENCODER_CODEC codec{
       .Codec = D3D12_VIDEO_ENCODER_CODEC_H264};
-  EncoderStatus status =
-      CheckD3D12VideoEncoderCodec(video_device_.Get(), &codec);
+  status = CheckD3D12VideoEncoderCodec(video_device_.Get(), &codec);
   if (!status.is_ok()) {
     return status;
   }

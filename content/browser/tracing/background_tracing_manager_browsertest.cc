@@ -42,6 +42,7 @@
 #include "content/browser/tracing/background_tracing_rule.h"
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browser_thread.h"
+#include "content/public/browser/web_contents.h"
 #include "content/public/common/content_switches.h"
 #include "content/public/test/back_forward_cache_util.h"
 #include "content/public/test/background_tracing_test_support.h"
@@ -62,8 +63,6 @@
 #include "third_party/re2/src/re2/re2.h"
 #include "third_party/zlib/google/compression_utils.h"
 #include "third_party/zlib/zlib.h"
-
-using base::trace_event::TraceLog;
 
 namespace content {
 namespace {

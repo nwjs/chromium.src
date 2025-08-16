@@ -8,10 +8,9 @@
 #import "components/strings/grit/components_strings.h"
 #import "ios/chrome/browser/infobars/model/infobar_ios.h"
 #import "ios/chrome/browser/infobars/model/infobar_manager_impl.h"
-#import "ios/chrome/browser/shared/coordinator/scene/scene_state.h"
 #import "ios/chrome/browser/shared/model/browser/browser.h"
-#import "ios/chrome/browser/shared/model/browser/browser_list.h"
 #import "ios/chrome/browser/shared/model/browser/browser_list_factory.h"
+#import "ios/chrome/browser/shared/model/browser/browser_list_utils.h"
 #import "ios/chrome/browser/shared/model/web_state_list/web_state_list.h"
 #import "ios/chrome/browser/shared/public/commands/application_commands.h"
 #import "ios/chrome/browser/shared/public/commands/command_dispatcher.h"
@@ -21,40 +20,11 @@
 #import "ui/base/models/image_model.h"
 #import "ui/gfx/image/image.h"
 
-namespace {
-
-// Returns the most recently foregrounded regular browser from `browser_list`.
-// If no regular browser is foregrounded, it returns the most recently
-// foregrounded regular browser in the background. If no regular browser
-// exists, it returns `nullptr`.
-Browser* GetMostActiveSceneBrowser(BrowserList* browser_list) {
-  std::set<Browser*> all_browsers =
-      browser_list->BrowsersOfType(BrowserList::BrowserType::kRegular);
-
-  Browser* most_active_browser = nullptr;
-  for (Browser* browser_to_check : all_browsers) {
-    // The pointer to the scene state is weak, so it could be nil. In that case,
-    // the activation level will be 0 (lowest).
-    if (most_active_browser &&
-        most_active_browser->GetSceneState().activationLevel >=
-            browser_to_check->GetSceneState().activationLevel) {
-      continue;
-    }
-    most_active_browser = browser_to_check;
-    if (browser_to_check->GetSceneState().activationLevel ==
-        SceneActivationLevelForegroundActive) {
-      break;
-    }
-  }
-  return most_active_browser;
-}
-
-}  // namespace
-
 // static
 bool CollaborationOutOfDateInfoBarDelegate::Create(ProfileIOS* profile) {
   BrowserList* browser_list = BrowserListFactory::GetForProfile(profile);
-  Browser* browser = GetMostActiveSceneBrowser(browser_list);
+  Browser* browser =
+      browser_list_utils::GetMostActiveSceneBrowser(browser_list);
   if (!browser) {
     return false;
   }

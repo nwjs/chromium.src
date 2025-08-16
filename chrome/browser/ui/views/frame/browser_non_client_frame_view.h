@@ -43,10 +43,6 @@ class BrowserNonClientFrameView : public views::NonClientFrameView {
   METADATA_HEADER(BrowserNonClientFrameView, views::NonClientFrameView)
 
  public:
-  // The minimum height of the region at the top of the frame that should be
-  // draggable to move the window.
-  static constexpr int kMinimumDragHeight = 8;
-
   BrowserNonClientFrameView(BrowserFrame* frame, BrowserView* browser_view);
   BrowserNonClientFrameView(const BrowserNonClientFrameView&) = delete;
   BrowserNonClientFrameView& operator=(const BrowserNonClientFrameView&) =
@@ -118,7 +114,7 @@ class BrowserNonClientFrameView : public views::NonClientFrameView {
   // Returns true if strokes (outlines/separators) should be drawn around tabs.
   // This is generally true, but false for some web apps that don't have a tab
   // strip.
-  virtual bool CanDrawStrokes() const;
+  bool CanDrawStrokes() const;
 
   // Returns the color that should be used for text and icons in the title bar
   // (e.g., the window title and caption button icons).
@@ -169,10 +165,8 @@ class BrowserNonClientFrameView : public views::NonClientFrameView {
   // 0 if the frame is opaque (not transparent) or in fullscreen.
   virtual int GetTranslucentTopAreaHeight() const;
 
-#if BUILDFLAG(IS_MAC)
   // Used by TabContainerOverlayView to paint tab strip background.
   virtual void PaintThemedFrame(gfx::Canvas* canvas) {}
-#endif
 
   // Sets the bounds of `frame_`.
   virtual void SetFrameBounds(const gfx::Rect& bounds);

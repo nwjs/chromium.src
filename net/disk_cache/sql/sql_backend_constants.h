@@ -9,6 +9,7 @@
 #include <string_view>
 
 #include "base/files/file_path.h"
+#include "base/time/time.h"
 
 namespace disk_cache {
 
@@ -31,6 +32,17 @@ inline constexpr std::string_view kSqlBackendMetaTableKeyTotalSize =
 inline constexpr base::FilePath::CharType kSqlBackendDatabaseFileName[] =
     FILE_PATH_LITERAL("sqldb");
 
+// The name of the fake index file. This file is created to signal the presence
+// of the SQL backend and to prevent other backends from trying to use the same
+// directory.
+inline constexpr base::FilePath::CharType kSqlBackendFakeIndexFileName[] =
+    FILE_PATH_LITERAL("index");
+
+// The magic number for the fake index file. This is "SQLCache" in
+// little-endian.
+inline constexpr uint64_t kSqlBackendFakeIndexMagicNumber =
+    UINT64_C(0x65686361434c5153);
+
 // The oldest database schema version that the current code can read.
 // A database with a version older than this will be razed as it's considered
 // obsolete and the code no longer supports migrating from it.
@@ -52,10 +64,27 @@ inline constexpr int kSqlBackendCompatibleDatabaseVersion = 1;
 // miscellaneous metadata. The
 // `SqlPersistentStoreTest.StaticResourceSizeEstimation` test provides a basic
 // validation of this constant against the actual file size.
-// TODO(crbug.com/422065015): Re-evaluate this constant when head and body
-// writing is implemented and new indexes are added, as the storage pattern may
-// affect overhead.
-inline constexpr int kSqlBackendStaticResourceSize = 100;
+inline constexpr int kSqlBackendStaticResourceSize = 300;
+
+// Defines the number of streams supported by the SQL backend.
+// The SQL backend only supports stream 0 and stream 1.
+static const int kSqlBackendStreamCount = 2;
+
+// Divisor used to calculate the high and low watermarks for cache eviction.
+// The high watermark is `max_size - (max_size / divisor)`, and the low
+// watermark is `max_size - 2 * (max_size / divisor)`. Eviction is triggered
+// when the cache size exceeds the high watermark and continues until it is
+// below the low watermark.
+inline constexpr int kSqlBackendEvictionMarginDivisor = 20;
+
+// The delay after backend initialization before running a one-time cleanup task
+// to delete doomed entries. This task removes entries that were doomed in a
+// previous session but not fully deleted (e.g., due to a crash), ensuring
+// that their disk space is reclaimed.
+// Note: This value is set assuming use with HTTP Cache, but if the SQL backend
+// is used with Cache Storage, it should be a shorter value.
+inline constexpr base::TimeDelta kSqlBackendDeleteDoomedEntriesDelay =
+    base::Minutes(10);
 
 }  // namespace disk_cache
 

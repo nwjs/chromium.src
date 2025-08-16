@@ -559,6 +559,21 @@ TEST(VideoFrame, WrapMappableSharedImage) {
   EXPECT_EQ(frame->HasSharedImage(), true);
   EXPECT_EQ(frame->HasReleaseMailboxCB(), true);
   EXPECT_EQ(frame->shared_image()->mailbox(), mailbox);
+  EXPECT_TRUE(frame->is_mappable_si_enabled());
+
+  // Wrapped MappableSI frames must propagate the information of the wrappee.
+  auto wrapped_frame = VideoFrame::WrapVideoFrame(
+      frame, frame->format(), visible_rect, visible_rect.size());
+  ASSERT_NE(wrapped_frame, nullptr);
+  EXPECT_EQ(wrapped_frame->storage_type(),
+            VideoFrame::STORAGE_GPU_MEMORY_BUFFER);
+  EXPECT_EQ(wrapped_frame->coded_size(), coded_size);
+  EXPECT_EQ(wrapped_frame->visible_rect(), visible_rect);
+  EXPECT_EQ(wrapped_frame->timestamp(), timestamp);
+  EXPECT_EQ(wrapped_frame->HasSharedImage(), true);
+  EXPECT_EQ(wrapped_frame->HasReleaseMailboxCB(), true);
+  EXPECT_EQ(wrapped_frame->shared_image()->mailbox(), mailbox);
+  EXPECT_TRUE(wrapped_frame->is_mappable_si_enabled());
 }
 
 #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
@@ -648,14 +663,22 @@ TEST(VideoFrame, TextureNoLongerNeededCallbackIsCalled) {
                                    gpu::CommandBufferId::FromUnsafeValue(1), 1);
 
   {
+    auto si_size = gfx::Size(10, 10);
+    gpu::SharedImageMetadata metadata;
+    metadata.format = viz::SinglePlaneFormat::kRGBA_8888;
+    metadata.size = si_size;
+    metadata.color_space = gfx::ColorSpace::CreateSRGB();
+    metadata.surface_origin = kTopLeft_GrSurfaceOrigin;
+    metadata.alpha_type = kOpaque_SkAlphaType;
+    metadata.usage = gpu::SharedImageUsageSet();
     scoped_refptr<gpu::ClientSharedImage> shared_image =
-        gpu::ClientSharedImage::CreateForTesting();
+        gpu::ClientSharedImage::CreateForTesting(metadata);
     scoped_refptr<VideoFrame> frame = VideoFrame::WrapSharedImage(
         PIXEL_FORMAT_ARGB, shared_image, gpu::SyncToken(),
         base::BindOnce(&TextureCallback, &called_sync_token),
-        gfx::Size(10, 10),   // coded_size
-        gfx::Rect(10, 10),   // visible_rect
-        gfx::Size(10, 10),   // natural_size
+        si_size,             // coded_size
+        gfx::Rect(si_size),  // visible_rect
+        si_size,             // natural_size
         base::TimeDelta());  // timestamp
     EXPECT_EQ(PIXEL_FORMAT_ARGB, frame->format());
     EXPECT_EQ(VideoFrame::STORAGE_OPAQUE, frame->storage_type());
@@ -675,8 +698,16 @@ TEST(VideoFrame,
       gpu::CommandBufferNamespace::GPU_IO;
   const gpu::CommandBufferId kCommandBufferId =
       gpu::CommandBufferId::FromUnsafeValue(0x123);
+  auto si_size = gfx::Size(10, 10);
+  gpu::SharedImageMetadata metadata;
+  metadata.format = viz::SinglePlaneFormat::kRGBA_8888;
+  metadata.size = si_size;
+  metadata.color_space = gfx::ColorSpace::CreateSRGB();
+  metadata.surface_origin = kTopLeft_GrSurfaceOrigin;
+  metadata.alpha_type = kOpaque_SkAlphaType;
+  metadata.usage = gpu::SharedImageUsageSet();
   scoped_refptr<gpu::ClientSharedImage> shared_image =
-      gpu::ClientSharedImage::CreateForTesting();
+      gpu::ClientSharedImage::CreateForTesting(metadata);
 
   gpu::SyncToken sync_token(kNamespace, kCommandBufferId, 7);
   sync_token.SetVerifyFlush();
@@ -689,9 +720,9 @@ TEST(VideoFrame,
     scoped_refptr<VideoFrame> frame = VideoFrame::WrapSharedImage(
         PIXEL_FORMAT_I420, shared_image, sync_token,
         base::BindOnce(&TextureCallback, &called_sync_token),
-        gfx::Size(10, 10),   // coded_size
-        gfx::Rect(10, 10),   // visible_rect
-        gfx::Size(10, 10),   // natural_size
+        si_size,             // coded_size
+        gfx::Rect(si_size),  // visible_rect
+        si_size,             // natural_size
         base::TimeDelta());  // timestamp
 
     EXPECT_EQ(VideoFrame::STORAGE_OPAQUE, frame->storage_type());
@@ -882,24 +913,27 @@ TEST(VideoFrame, WrapExternalDataWithInvalidLayout) {
   ASSERT_TRUE(layout.has_value());
 
   // Validate single plane size exceeds data size.
-  uint8_t data = 0;
+  std::vector<uint8_t> small_data(1);
   auto frame = VideoFrame::WrapExternalDataWithLayout(
-      *layout, gfx::Rect(coded_size), coded_size, &data, sizeof(data),
+      *layout, gfx::Rect(coded_size), coded_size, small_data,
       base::TimeDelta());
   ASSERT_FALSE(frame);
 
   // Validate sum of planes exceeds data size.
-  frame = VideoFrame::WrapExternalDataWithLayout(
-      *layout, gfx::Rect(coded_size), coded_size, &data, sizes[0] + sizes[1],
-      base::TimeDelta());
+  std::vector<uint8_t> medium_data(sizes[0] + sizes[1]);
+  frame = VideoFrame::WrapExternalDataWithLayout(*layout, gfx::Rect(coded_size),
+                                                 coded_size, medium_data,
+                                                 base::TimeDelta());
   ASSERT_FALSE(frame);
 
   // Validate offset exceeds plane size.
   planes[0].offset = 201;
   layout =
       VideoFrameLayout::CreateWithPlanes(PIXEL_FORMAT_I420, coded_size, planes);
+  ASSERT_TRUE(layout.has_value());
+  std::vector<uint8_t> other_data(sizes[0]);
   frame = VideoFrame::WrapExternalDataWithLayout(*layout, gfx::Rect(coded_size),
-                                                 coded_size, &data, sizes[0],
+                                                 coded_size, other_data,
                                                  base::TimeDelta());
   ASSERT_FALSE(frame);
 }

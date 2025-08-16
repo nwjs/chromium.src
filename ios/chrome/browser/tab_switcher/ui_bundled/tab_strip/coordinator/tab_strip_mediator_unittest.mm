@@ -37,7 +37,6 @@
 #import "ios/chrome/browser/shared/model/web_state_list/web_state_opener.h"
 #import "ios/chrome/browser/shared/public/commands/tab_strip_commands.h"
 #import "ios/chrome/browser/shared/public/commands/tab_strip_last_tab_dragged_alert_command.h"
-#import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/snapshots/model/snapshot_browser_agent.h"
 #import "ios/chrome/browser/snapshots/model/snapshot_tab_helper.h"
 #import "ios/chrome/browser/tab_insertion/model/tab_insertion_browser_agent.h"
@@ -79,6 +78,11 @@ class TabStripFakeWebStateListDelegate : public FakeWebStateListDelegate {
   // WebStateListDelegate implementation.
   void WillAddWebState(web::WebState* web_state) override {
     SnapshotTabHelper::CreateForWebState(web_state);
+    favicon::WebFaviconDriver::CreateForWebState(
+        web_state,
+        ios::FaviconServiceFactory::GetForProfile(
+            ProfileIOS::FromBrowserState(web_state->GetBrowserState()),
+            ServiceAccessType::IMPLICIT_ACCESS));
   }
 };
 
@@ -108,7 +112,7 @@ class TabStripMediatorTest : public PlatformTest {
  public:
   TabStripMediatorTest() {
     feature_list_.InitWithFeatures(
-        {kTabGroupSync, data_sharing::features::kDataSharingFeature}, {});
+        {data_sharing::features::kDataSharingFeature}, {});
     TestProfileIOS::Builder profile_builder;
     profile_builder.AddTestingFactory(
         ios::FaviconServiceFactory::GetInstance(),
@@ -174,16 +178,15 @@ class TabStripMediatorTest : public PlatformTest {
     mediator_.URLLoader = loader_;
   }
 
-  void AddWebState(bool pinned = false) {
+  std::unique_ptr<web::FakeWebState> CreateWebState() {
     auto web_state = std::make_unique<web::FakeWebState>();
     web_state->SetBrowserState(profile_.get());
-    favicon::WebFaviconDriver::CreateForWebState(
-        web_state.get(),
-        ios::FaviconServiceFactory::GetForProfile(
-            profile_.get(), ServiceAccessType::IMPLICIT_ACCESS));
+    return web_state;
+  }
 
+  void AddWebState(bool pinned = false) {
     web_state_list_->InsertWebState(
-        std::move(web_state),
+        CreateWebState(),
         WebStateList::InsertionParams::Automatic().Activate().Pinned(pinned));
   }
 
@@ -252,7 +255,7 @@ TEST_F(TabStripMediatorTest, ConsumerPopulated) {
 
   // Check that the webstate is correctly removed from the consumer.
   web_state_list_->CloseWebStateAt(web_state_list_->active_index(),
-                                   WebStateList::CLOSE_USER_ACTION);
+                                   WebStateList::ClosingReason::kUserAction);
 
   ASSERT_NE(nil, consumer_.selectedItem);
   EXPECT_EQ(web_state_list_->GetActiveWebState()->GetUniqueIdentifier(),
@@ -282,7 +285,7 @@ TEST_F(TabStripMediatorTest, ConsumerPopulated) {
   EXPECT_NSEQ(nil, consumer_.itemData[consumer_.items[2]].groupStrokeColor);
 
   // Check that the closed tab and its group are removed from the consumer.
-  web_state_list_->CloseWebStateAt(0, WebStateList::CLOSE_USER_ACTION);
+  web_state_list_->CloseWebStateAt(0, WebStateList::ClosingReason::kUserAction);
 
   ASSERT_NE(nil, consumer_.selectedItem);
   EXPECT_EQ(web_state_list_->GetActiveWebState()->GetUniqueIdentifier(),
@@ -296,7 +299,7 @@ TEST_F(TabStripMediatorTest, ConsumerPopulated) {
 TEST_F(TabStripMediatorTest, TabStripItemDataUpdated) {
   WebStateListBuilderFromDescription builder(web_state_list_);
   ASSERT_TRUE(builder.BuildWebStateListFromDescription(
-      "a b | c* [ 0 d e ] f [ 1 g h ]"));
+      "a b | c* [ 0 d e ] f [ 1 g h ]", browser_->GetProfile()));
   for (int i = 0; i < web_state_list_->count(); ++i) {
     web::FakeWebState* web_state =
         static_cast<web::FakeWebState*>(web_state_list_->GetWebStateAt(i));
@@ -480,7 +483,7 @@ TEST_F(TabStripMediatorTest, TabStripItemDataUpdated) {
 TEST_F(TabStripMediatorTest, ItemParentsUpdated) {
   WebStateListBuilderFromDescription builder(web_state_list_);
   ASSERT_TRUE(builder.BuildWebStateListFromDescription(
-      "a b | c* [ 0 d e ] f [ 1 g h ]"));
+      "a b | c* [ 0 d e ] f [ 1 g h ]", browser_->GetProfile()));
   for (int i = 0; i < web_state_list_->count(); ++i) {
     web::FakeWebState* web_state =
         static_cast<web::FakeWebState*>(web_state_list_->GetWebStateAt(i));
@@ -611,7 +614,7 @@ TEST_F(TabStripMediatorTest, ReplacedTab) {
 
   ASSERT_EQ(1, web_state_list_->active_index());
 
-  auto web_state = std::make_unique<web::FakeWebState>();
+  auto web_state = CreateWebState();
   web::WebStateID web_state_id = web_state->GetUniqueIdentifier();
   web_state_list_->ReplaceWebStateAt(1, std::move(web_state));
 
@@ -686,13 +689,7 @@ TEST_F(TabStripMediatorTest, AddTab) {
   EXPECT_EQ(web_state_list_->GetWebStateAt(2)->GetUniqueIdentifier(),
             consumer_.selectedItem.identifier);
 
-  auto web_state = std::make_unique<web::FakeWebState>();
-  web_state->SetBrowserState(profile_.get());
-  favicon::WebFaviconDriver::CreateForWebState(
-      web_state.get(), ios::FaviconServiceFactory::GetForProfile(
-                           profile_.get(), ServiceAccessType::IMPLICIT_ACCESS));
-
-  web_state_list_->InsertWebState(std::move(web_state),
+  web_state_list_->InsertWebState(CreateWebState(),
                                   WebStateList::InsertionParams::AtIndex(1));
 
   for (int index = 0; index < web_state_list_->count(); index++) {
@@ -916,7 +913,7 @@ TEST_F(TabStripMediatorTest, DeleteAllWebState) {
 
   InitializeMediator();
 
-  CloseAllWebStates(*web_state_list_, WebStateList::CLOSE_NO_FLAGS);
+  CloseAllWebStates(*web_state_list_, WebStateList::ClosingReason::kDefault);
 
   AddWebState();
   AddWebState();
@@ -1147,7 +1144,7 @@ TEST_F(TabStripMediatorTest, AddTabToGroup) {
 // Tests dropping an interal URL (e.g. drag from omnibox).
 TEST_F(TabStripMediatorTest, DropInternalURL) {
   WebStateList* web_state_list = browser_->GetWebStateList();
-  CloseAllWebStates(*web_state_list, WebStateList::CLOSE_NO_FLAGS);
+  CloseAllWebStates(*web_state_list, WebStateList::ClosingReason::kDefault);
   WebStateListBuilderFromDescription builder(web_state_list);
   ASSERT_TRUE(builder.BuildWebStateListFromDescription("| a* b c ",
                                                        browser_->GetProfile()));
@@ -1175,7 +1172,7 @@ TEST_F(TabStripMediatorTest, DropInternalURL) {
 // Tests dropping an external URL.
 TEST_F(TabStripMediatorTest, DropExternalURL) {
   WebStateList* web_state_list = browser_->GetWebStateList();
-  CloseAllWebStates(*web_state_list, WebStateList::CLOSE_NO_FLAGS);
+  CloseAllWebStates(*web_state_list, WebStateList::ClosingReason::kDefault);
   WebStateListBuilderFromDescription builder(web_state_list);
   ASSERT_TRUE(builder.BuildWebStateListFromDescription("| a* b c ",
                                                        browser_->GetProfile()));
@@ -1205,7 +1202,7 @@ TEST_F(TabStripMediatorTest, DropExternalURL) {
 // Tests dropping a tab.
 TEST_F(TabStripMediatorTest, DropTab) {
   WebStateList* web_state_list = browser_->GetWebStateList();
-  CloseAllWebStates(*web_state_list, WebStateList::CLOSE_NO_FLAGS);
+  CloseAllWebStates(*web_state_list, WebStateList::ClosingReason::kDefault);
   WebStateListBuilderFromDescription builder(web_state_list);
   ASSERT_TRUE(builder.BuildWebStateListFromDescription("| a* b c ",
                                                        browser_->GetProfile()));
@@ -1232,7 +1229,7 @@ TEST_F(TabStripMediatorTest, DropTab) {
 // Tests dragging the last tab out of a group.
 TEST_F(TabStripMediatorTest, DropLastTabOfGroup) {
   WebStateList* web_state_list = browser_->GetWebStateList();
-  CloseAllWebStates(*web_state_list, WebStateList::CLOSE_NO_FLAGS);
+  CloseAllWebStates(*web_state_list, WebStateList::ClosingReason::kDefault);
   WebStateListBuilderFromDescription builder(web_state_list);
   ASSERT_TRUE(builder.BuildWebStateListFromDescription("| a* b [ 0 c ]",
                                                        browser_->GetProfile()));
@@ -1279,7 +1276,7 @@ TEST_F(TabStripMediatorTest, DropLastTabOfGroup) {
 // Tests dragging the last tab out of a group from another browser.
 TEST_F(TabStripMediatorTest, DropLastTabOfGroupDifferentBrowser) {
   WebStateList* web_state_list = browser_->GetWebStateList();
-  CloseAllWebStates(*web_state_list, WebStateList::CLOSE_NO_FLAGS);
+  CloseAllWebStates(*web_state_list, WebStateList::ClosingReason::kDefault);
   WebStateListBuilderFromDescription builder(web_state_list);
   ASSERT_TRUE(builder.BuildWebStateListFromDescription("| a* b",
                                                        browser_->GetProfile()));
@@ -1333,7 +1330,7 @@ TEST_F(TabStripMediatorTest, DropLastTabOfGroupDifferentBrowser) {
 // Tests dragging the a tab out of a group containing several tabs.
 TEST_F(TabStripMediatorTest, DropTabOutOfGroup) {
   WebStateList* web_state_list = browser_->GetWebStateList();
-  CloseAllWebStates(*web_state_list, WebStateList::CLOSE_NO_FLAGS);
+  CloseAllWebStates(*web_state_list, WebStateList::ClosingReason::kDefault);
   WebStateListBuilderFromDescription builder(web_state_list);
   ASSERT_TRUE(builder.BuildWebStateListFromDescription("| a* [ 0 b c ]",
                                                        browser_->GetProfile()));
@@ -1380,7 +1377,7 @@ TEST_F(TabStripMediatorTest, DeleteTabGroup) {
 // Tests cancelling a tab move on the same browser.
 TEST_F(TabStripMediatorTest, CancelTabMoveSameBrowser) {
   WebStateList* web_state_list = browser_->GetWebStateList();
-  CloseAllWebStates(*web_state_list, WebStateList::CLOSE_NO_FLAGS);
+  CloseAllWebStates(*web_state_list, WebStateList::ClosingReason::kDefault);
   WebStateListBuilderFromDescription builder(web_state_list);
   ASSERT_TRUE(builder.BuildWebStateListFromDescription("| a* b c ",
                                                        browser_->GetProfile()));
@@ -1438,7 +1435,7 @@ TEST_F(TabStripMediatorTest, CancelTabMoveSameBrowser) {
 // been associated with another local group.
 TEST_F(TabStripMediatorTest, CancelTabMoveSameBrowserModifiedGroup) {
   WebStateList* web_state_list = browser_->GetWebStateList();
-  CloseAllWebStates(*web_state_list, WebStateList::CLOSE_NO_FLAGS);
+  CloseAllWebStates(*web_state_list, WebStateList::ClosingReason::kDefault);
   WebStateListBuilderFromDescription builder(web_state_list);
   ASSERT_TRUE(builder.BuildWebStateListFromDescription("| a* b c ",
                                                        browser_->GetProfile()));
@@ -1485,7 +1482,7 @@ TEST_F(TabStripMediatorTest, CancelTabMoveSameBrowserModifiedGroup) {
 // exist anymore.
 TEST_F(TabStripMediatorTest, CancelTabMoveSameBrowserLargeIndex) {
   WebStateList* web_state_list = browser_->GetWebStateList();
-  CloseAllWebStates(*web_state_list, WebStateList::CLOSE_NO_FLAGS);
+  CloseAllWebStates(*web_state_list, WebStateList::ClosingReason::kDefault);
   WebStateListBuilderFromDescription builder(web_state_list);
   ASSERT_TRUE(builder.BuildWebStateListFromDescription("| a* b c ",
                                                        browser_->GetProfile()));
@@ -1543,7 +1540,7 @@ TEST_F(TabStripMediatorTest, CancelTabMoveSameBrowserLargeIndex) {
 // Tests cancelling a tab move on another browser.
 TEST_F(TabStripMediatorTest, CancelTabMoveDifferentBrowser) {
   WebStateList* web_state_list = browser_->GetWebStateList();
-  CloseAllWebStates(*web_state_list, WebStateList::CLOSE_NO_FLAGS);
+  CloseAllWebStates(*web_state_list, WebStateList::ClosingReason::kDefault);
   WebStateListBuilderFromDescription builder(web_state_list);
   ASSERT_TRUE(builder.BuildWebStateListFromDescription("| a* b c ",
                                                        browser_->GetProfile()));
@@ -1612,7 +1609,7 @@ TEST_F(TabStripMediatorTest, CancelTabMoveDifferentBrowser) {
 // Tests that the group item in the tab strip has the notification dot in its
 // item data.
 TEST_F(TabStripMediatorTest, TabGroupItemHasNotificationDot) {
-  CloseAllWebStates(*web_state_list_, WebStateList::CLOSE_NO_FLAGS);
+  CloseAllWebStates(*web_state_list_, WebStateList::ClosingReason::kDefault);
   WebStateListBuilderFromDescription builder(web_state_list_);
   ASSERT_TRUE(builder.BuildWebStateListFromDescription("| [ 0 a* b ] c ",
                                                        browser_->GetProfile()));
@@ -1647,7 +1644,7 @@ TEST_F(TabStripMediatorTest, TabGroupItemHasNotificationDot) {
 
 // Tests that the tab strip has the notification dot in its item data.
 TEST_F(TabStripMediatorTest, TabStripItemHasNotificationDot) {
-  CloseAllWebStates(*web_state_list_, WebStateList::CLOSE_NO_FLAGS);
+  CloseAllWebStates(*web_state_list_, WebStateList::ClosingReason::kDefault);
   WebStateListBuilderFromDescription builder(web_state_list_);
   ASSERT_TRUE(builder.BuildWebStateListFromDescription("|[ 0 a* b ] c ",
                                                        browser_->GetProfile()));
@@ -1682,10 +1679,10 @@ TEST_F(TabStripMediatorTest, TabStripItemHasNotificationDot) {
 // Tests that `fetchTabSnapshotAndFavicon:completion:` is calling `completion`
 // once.
 TEST_F(TabStripMediatorTest, FetchTabSnapshotAndFavicon) {
-  auto fake_web_state = std::make_unique<web::FakeWebState>();
-  web::FakeWebState* web_state = fake_web_state.get();
-  SnapshotTabHelper::CreateForWebState(web_state);
-  TabStripTabItem* item = [[TabStripTabItem alloc] initWithWebState:web_state];
+  auto web_state = CreateWebState();
+  SnapshotTabHelper::CreateForWebState(web_state.get());
+  TabStripTabItem* item =
+      [[TabStripTabItem alloc] initWithWebState:web_state.get()];
   __block int completion_block_called = 0;
   auto completion_block = ^(TabSwitcherItem* inner_item,
                             TabSnapshotAndFavicon* tab_snapshot_and_favicon) {

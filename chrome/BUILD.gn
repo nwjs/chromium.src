@@ -24,7 +24,7 @@ import("//chrome/process_version_rc_template.gni")
 import("//components/optimization_guide/features.gni")
 import("//extensions/buildflags/buildflags.gni")
 import("//media/media_options.gni")
-import("//ppapi/buildflags/buildflags.gni")
+import("//services/shape_detection/features.gni")
 import("//third_party/angle/gni/angle.gni")
 import("//third_party/blink/public/public_features.gni")
 import("//third_party/widevine/cdm/widevine.gni")
@@ -175,7 +175,6 @@ if (!is_android && !is_mac) {
 
     if (is_chromeos) {
       data_deps += [
-        "//components/variations/cros_evaluate_seed:evaluate_seed",
         "//sandbox/linux:chrome_sandbox",
       ]
       if (build_mojo_proxy) {
@@ -461,7 +460,6 @@ if (is_win || (is_linux && !is_component_build)) {
         "//headless:headless_non_renderer",
         "//headless:headless_shell_lib",
         "//net:net_resources",
-        "//ppapi/buildflags",
         "//sandbox/win:sandbox",
         "//third_party/wtl",
         "//ui/views",
@@ -674,16 +672,21 @@ if (is_win || (is_linux && !is_component_build)) {
     outputs = [ "{{bundle_resources_dir}}/{{source_file_part}}" ]
   }
 
+  bundle_data("chrome_asset_catalog") {
+    sources = [ "app/theme/$branding_path_component/mac/Assets.car" ]
+    outputs = [ "{{bundle_resources_dir}}/{{source_file_part}}" ]
+  }
+
   bundle_data("chrome_resources") {
     sources = [
       "$root_out_dir/$chrome_mac_bundle_id.manifest",
-      "app/theme/$branding_path_component/mac/document.icns",
       "browser/ui/cocoa/applescript/scripting.sdef",
     ]
     outputs = [ "{{bundle_resources_dir}}/{{source_file_part}}" ]
     public_deps = [
       ":chrome_app_icon",
       ":chrome_app_strings",
+      ":chrome_asset_catalog",
       "//components/policy:chrome_manifest_bundle",
     ]
   }
@@ -898,6 +901,7 @@ if (is_win || (is_linux && !is_component_build)) {
     info_plist_target = ":chrome_helper_app_alerts_plist"
     deps = [
       ":chrome_app_icon",
+      ":chrome_asset_catalog",
       ":chrome_helper_app_alerts_resources",
     ]
   }
@@ -1498,7 +1502,7 @@ group("dependencies") {
     "//components/memory_system",
     "//components/startup_metric_utils",
     "//components/sync",
-    "//components/upload_list:upload_list",
+    "//components/upload_list",
     "//components/webui/about",
     "//content/public/child",
     "//pdf",
@@ -1507,10 +1511,6 @@ group("dependencies") {
     "//third_party/blink/public:blink_devtools_inspector_resources",
     "//v8:v8_headers",
   ]
-
-  if (enable_ppapi) {
-    public_deps += [ "//ppapi/host" ]
-  }
 
   if (enable_printing) {
     public_deps += [ "//printing" ]
@@ -1585,7 +1585,7 @@ group("resources") {
 group("extra_resources") {
   # Deps should be same as those in chrome_extra_paks() within chrome_paks.gni.
   public_deps = [
-    "//chrome/browser/resources:resources",
+    "//chrome/browser/resources",
     "//components/autofill/core/browser:autofill_address_rewriter_resources",
   ]
 }
@@ -1770,6 +1770,9 @@ if (is_linux || is_chromeos) {
       if (build_with_internal_optimization_guide) {
         deps += [ ":optimization_guide_symbols" ]
       }
+      if (build_with_internal_shape_detection) {
+        deps += [ ":shape_detection_symbols" ]
+      }
       if (!use_static_angle) {
         deps += [
           ":angle_egl_symbols",
@@ -1866,6 +1869,21 @@ if (is_linux || is_chromeos) {
         }
 
         deps = [ "//components/optimization_guide/internal:optimization_guide_internal" ]
+      }
+    }
+    if (build_with_internal_shape_detection) {
+      extract_symbols("shape_detection_symbols") {
+        binary = "$root_out_dir/libshape_detection_internal.so"
+        if (current_cpu == "x86") {
+          # GYP used "ia32" so keep that naming for back-compat.
+          symbol_file = "$root_out_dir/shape_detection_internal.breakpad.ia32"
+        } else {
+          symbol_file =
+              "$root_out_dir/shape_detection_internal.breakpad.$current_cpu"
+        }
+
+        deps =
+            [ "//services/shape_detection/internal:shape_detection_internal" ]
       }
     }
   }

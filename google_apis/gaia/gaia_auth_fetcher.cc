@@ -136,24 +136,6 @@ GaiaAuthConsumer::ReAuthProofTokenStatus ErrorMessageToReAuthProofTokenStatus(
   return GaiaAuthConsumer::ReAuthProofTokenStatus::kUnknownError;
 }
 
-std::string CreateMultiBearerAuthorizationHeader(
-    const std::vector<gaia::MultiloginAccountAuthCredentials>& accounts) {
-  std::vector<std::string> authorization_header_parts;
-  std::ranges::transform(
-      accounts, std::back_inserter(authorization_header_parts),
-      [](const auto& account) {
-        return base::StrCat({account.token, ":", account.gaia_id.ToString()});
-      });
-
-  return "Authorization: MultiBearer " +
-         base::JoinString(authorization_header_parts, ",");
-}
-
-std::string CreateMultiOAuthAuthorizationHeader(
-    const std::vector<gaia::MultiloginAccountAuthCredentials>& accounts) {
-  return "Authorization: MultiOAuth " + gaia::CreateMultiOAuthHeader(accounts);
-}
-
 }  // namespace
 
 namespace gaia {
@@ -245,7 +227,7 @@ bool GaiaAuthFetcher::IsListAccountsUrl(const GURL& url) {
 void GaiaAuthFetcher::CreateAndStartGaiaFetcher(
     const std::string& body,
     const std::string& body_content_type,
-    const std::string& headers,
+    const net::HttpRequestHeaders& request_headers,
     const GURL& gaia_gurl,
     network::mojom::CredentialsMode credentials_mode,
     const net::NetworkTrafficAnnotationTag& traffic_annotation) {
@@ -273,8 +255,7 @@ void GaiaAuthFetcher::CreateAndStartGaiaFetcher(
   if (!body.empty())
     resource_request->method = "POST";
 
-  if (!headers.empty())
-    resource_request->headers.AddHeadersFromString(headers);
+  resource_request->headers = request_headers;
 
   resource_request->credentials_mode = credentials_mode;
 
@@ -288,7 +269,7 @@ void GaiaAuthFetcher::CreateAndStartGaiaFetcher(
   url_loader_->SetAllowHttpErrorResults(true);
 
   VLOG(2) << "Gaia fetcher URL: " << gaia_gurl.spec();
-  VLOG(2) << "Gaia fetcher headers: " << headers;
+  VLOG(2) << "Gaia fetcher headers: " << request_headers.ToString();
   VLOG(2) << "Gaia fetcher body: " << body;
 
   // Fetchers are sometimes cancelled because a network change was detected,
@@ -388,7 +369,7 @@ void GaiaAuthFetcher::StartRevokeOAuth2Token(const std::string& auth_token) {
           }
         })");
   CreateAndStartGaiaFetcher(
-      request_body_, kFormEncodedContentType, std::string(),
+      request_body_, kFormEncodedContentType, net::HttpRequestHeaders(),
       oauth2_revoke_gurl_, google_apis::GetOmitCredentialsModeForGaiaRequests(),
       traffic_annotation);
 }
@@ -411,10 +392,10 @@ void GaiaAuthFetcher::StartAuthCodeForOAuth2TokenExchangeWithDeviceId(
 
   VLOG(1) << "Starting OAuth token pair fetch";
 
-  std::string user_agent_full_version_list_header;
+  net::HttpRequestHeaders headers;
   if (!user_agent_full_version_list.empty()) {
-    user_agent_full_version_list_header = base::StrCat(
-        {"Sec-CH-UA-Full-Version-List: ", user_agent_full_version_list});
+    headers.SetHeader("Sec-CH-UA-Full-Version-List",
+                      user_agent_full_version_list);
   }
 
   request_body_ =
@@ -450,7 +431,7 @@ void GaiaAuthFetcher::StartAuthCodeForOAuth2TokenExchangeWithDeviceId(
         })");
   CreateAndStartGaiaFetcher(
       request_body_, kFormEncodedContentType,
-      user_agent_full_version_list_header, oauth2_token_gurl_,
+      headers, oauth2_token_gurl_,
       google_apis::GetOmitCredentialsModeForGaiaRequests(), traffic_annotation);
 }
 
@@ -484,9 +465,11 @@ void GaiaAuthFetcher::StartListAccounts() {
             }
           }
         })");
+  net::HttpRequestHeaders headers;
+  headers.SetHeader("Origin", "https://www.google.com");
   CreateAndStartGaiaFetcher(
       " ",  // To force an HTTP POST.
-      kFormEncodedContentType, "Origin: https://www.google.com",
+      kFormEncodedContentType, headers,
       list_accounts_gurl_, network::mojom::CredentialsMode::kInclude,
       traffic_annotation);
 }
@@ -505,9 +488,21 @@ void GaiaAuthFetcher::StartOAuthMultilogin(
       accounts, [](const gaia::MultiloginAccountAuthCredentials& account) {
         return !account.token_binding_assertion.empty();
       });
-  std::string authorization_header =
-      has_binding_assertion ? CreateMultiOAuthAuthorizationHeader(accounts)
-                            : CreateMultiBearerAuthorizationHeader(accounts);
+  net::HttpRequestHeaders headers;
+  if (has_binding_assertion) {
+    headers.SetHeader("Authorization",
+                      "MultiOAuth " + gaia::CreateMultiOAuthHeader(accounts));
+  } else {
+    std::vector<std::string> authorization_header_parts;
+    std::ranges::transform(
+        accounts, std::back_inserter(authorization_header_parts),
+        [](const auto& account) {
+          return base::StrCat({account.token, ":", account.gaia_id.ToString()});
+        });
+    headers.SetHeader(
+        "Authorization",
+        "MultiBearer " + base::JoinString(authorization_header_parts, ","));
+  }
 
   std::string source_string = base::EscapeUrlEncodedData(source_, true);
   std::string parameters = base::StringPrintf(
@@ -551,7 +546,7 @@ void GaiaAuthFetcher::StartOAuthMultilogin(
           }
         })");
   CreateAndStartGaiaFetcher(" ",  // Non-empty to force a POST
-                            kFormEncodedContentType, authorization_header,
+                            kFormEncodedContentType, headers,
                             oauth_multilogin_gurl_.Resolve(parameters),
                             network::mojom::CredentialsMode::kInclude,
                             traffic_annotation);
@@ -588,7 +583,7 @@ void GaiaAuthFetcher::StartLogOut() {
           }
         })");
   CreateAndStartGaiaFetcher(
-      std::string(), std::string(), std::string(), logout_gurl_,
+      std::string(), std::string(), net::HttpRequestHeaders(), logout_gurl_,
       network::mojom::CredentialsMode::kInclude, traffic_annotation);
 }
 
@@ -605,9 +600,9 @@ void GaiaAuthFetcher::StartCreateReAuthProofTokenForParent(
   DCHECK(write_success);
 
   // Create the Authorization header.
-  std::string auth_header = "Bearer " + child_oauth_access_token;
-  std::string headers = "Authorization: " + auth_header + "\r\n" +
-                        "Content-Type: " + kJsonContentType;
+  net::HttpRequestHeaders headers;
+  headers.SetHeader("Authorization", "Bearer " + child_oauth_access_token);
+  headers.SetHeader("Content-Type", kJsonContentType);
 
   // Create the traffic annotation.
   net::NetworkTrafficAnnotationTag traffic_annotation(
@@ -684,7 +679,7 @@ void GaiaAuthFetcher::StartGetCheckConnectionInfo() {
           }
         })");
   CreateAndStartGaiaFetcher(
-      std::string(), std::string(), std::string(),
+      std::string(), std::string(), net::HttpRequestHeaders(),
       get_check_connection_info_url_,
       google_apis::GetOmitCredentialsModeForGaiaRequests(), traffic_annotation);
 }

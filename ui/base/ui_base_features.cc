@@ -22,11 +22,6 @@
 namespace features {
 
 #if BUILDFLAG(IS_WIN)
-// If enabled, the occluded region of the HWND is supplied to WindowTracker.
-BASE_FEATURE(kApplyNativeOccludedRegionToWindowTracker,
-             "ApplyNativeOccludedRegionToWindowTracker",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
 // If enabled, calculate native window occlusion - Windows-only.
 BASE_FEATURE(kCalculateNativeWinOcclusion,
              "CalculateNativeWinOcclusion",
@@ -108,13 +103,12 @@ bool AreF11AndF12ShortcutsEnabled() {
 #if BUILDFLAG(IS_OZONE)
 BASE_FEATURE(kOzoneBubblesUsePlatformWidgets,
              "OzoneBubblesUsePlatformWidgets",
-             base::FEATURE_DISABLED_BY_DEFAULT
-);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Controls whether support for Wayland's linux-drm-syncobj is enabled.
 BASE_FEATURE(kWaylandLinuxDrmSyncobj,
              "WaylandLinuxDrmSyncobj",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Controls whether support for Wayland's per-surface scaling is enabled.
 BASE_FEATURE(kWaylandPerSurfaceScale,
@@ -142,36 +136,6 @@ BASE_FEATURE(kWaylandSessionManagement,
              "WaylandSessionManagement",
              base::FEATURE_DISABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(IS_OZONE)
-
-#if BUILDFLAG(IS_LINUX)
-// If this feature is enabled, users not specify --ozone-platform-hint switch
-// will get --ozone-platform-hint=auto treatment. https://crbug.com/40250220.
-COMPONENT_EXPORT(UI_BASE_FEATURES)
-BASE_FEATURE(kOverrideDefaultOzonePlatformHintToAuto,
-             "OverrideDefaultOzonePlatformHintToAuto",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-#endif  // BUILDFLAG(IS_LINUX)
-
-// Chrome for Linux should eventually use XInput2 key events.
-// See https://crbug.com/412608405 for context.
-BASE_FEATURE(kXInput2KeyEvents,
-             "XInput2KeyEvents",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-// Update of the virtual keyboard settings UI as described in
-// https://crbug.com/876901.
-BASE_FEATURE(kInputMethodSettingsUiUpdate,
-             "InputMethodSettingsUiUpdate",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
-// Uses a stylus-specific tap slop region parameter for gestures.  Stylus taps
-// tend to slip more than touch taps (presumably because the user doesn't feel
-// the movement friction with a stylus).  As a result, it is harder to tap with
-// a stylus. This feature makes the slop region for stylus input bigger than the
-// touch slop.
-BASE_FEATURE(kStylusSpecificTapSlop,
-             "StylusSpecificTapSlop",
-             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // When enabled, the feature will query the OS for a default cursor size,
 // to be used in determining the concrete object size of a custom cursor in
@@ -238,7 +202,7 @@ BASE_FEATURE(kExperimentalFlingAnimation,
 #endif
 );
 
-#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_WIN)
+#if !BUILDFLAG(IS_APPLE)
 // Cached in Java as well, make sure defaults are updated together.
 BASE_FEATURE(kElasticOverscroll,
              "ElasticOverscroll",
@@ -248,7 +212,13 @@ BASE_FEATURE(kElasticOverscroll,
              base::FEATURE_DISABLED_BY_DEFAULT
 #endif
 );
-#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_ANDROID)
+#endif
+
+// Limits the scroll delta to the size of the scroller when scrolled using the
+// mouse wheel only.
+BASE_FEATURE(kLimitScrollDeltaToScrollerSize,
+             "LimitScrollDeltaToScrollerSize",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Enables focus follow follow cursor (sloppyfocus).
 BASE_FEATURE(kFocusFollowsCursor,
@@ -483,10 +453,10 @@ BASE_FEATURE(kAsyncFullscreenWindowState,
              "AsyncFullscreenWindowState",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-// Feature flag for enabling the clipboardchange event.
-BASE_FEATURE(kClipboardChangeEvent,
-             "ClipboardChangeEvent",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+// Feature flag for enabling platform clipboard monitoring.
+BASE_FEATURE(kPlatformClipboardMonitor,
+             "PlatformClipboardMonitor",
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // If enabled, all draw commands recorded on canvas are done in pixel aligned
 // measurements. This also enables scaling of all elements in views and layers
@@ -502,6 +472,15 @@ BASE_FEATURE(kEnablePixelCanvasRecording,
 
 bool IsPixelCanvasRecordingEnabled() {
   return base::FeatureList::IsEnabled(features::kEnablePixelCanvasRecording);
+}
+
+BASE_FEATURE(kHandleIMESpanChangesOnUpdateComposition,
+             "HandleIMESpanChangesOnUpdateComposition",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+bool IsHandleIMESpanChangesOnUpdateCompositionEnabled() {
+  return base::FeatureList::IsEnabled(
+      features::kHandleIMESpanChangesOnUpdateComposition);
 }
 
 }  // namespace features

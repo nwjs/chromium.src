@@ -13,6 +13,7 @@
 #include "base/strings/utf_string_conversions.h"
 #include "chrome/browser/enterprise/connectors/analysis/content_analysis_info.h"
 #include "chrome/browser/enterprise/data_controls/chrome_rules_service.h"
+#include "chrome/browser/enterprise/data_protection/content_area_user_provider.h"
 #include "chrome/browser/enterprise/data_protection/paste_allowed_request.h"
 #include "chrome/browser/profiles/profile.h"
 #include "components/enterprise/common/files_scan_data.h"
@@ -107,7 +108,7 @@ void HandleFileData(
             std::move(callback).Run(std::move(clipboard_paste_data));
           },
           std::move(callback)),
-      safe_browsing::DeepScanAccessPoint::PASTE);
+      enterprise_connectors::DeepScanAccessPoint::PASTE);
 }
 
 void HandleStringData(
@@ -142,7 +143,7 @@ void HandleStringData(
             std::move(callback).Run(std::move(clipboard_paste_data));
           },
           std::move(clipboard_paste_data), std::move(callback)),
-      safe_browsing::DeepScanAccessPoint::PASTE);
+      enterprise_connectors::DeepScanAccessPoint::PASTE);
 }
 
 void PasteIfAllowedByContentAnalysis(
@@ -190,7 +191,7 @@ void PasteIfAllowedByContentAnalysis(
           source, destination,
           enterprise_connectors::kOnBulkDataEntryScopePref);
   dialog_data.source_content_area_email =
-      enterprise_connectors::ContentAreaUserProvider::GetUser(source);
+      enterprise_data_protection::GetActiveContentAreaUser(source);
 
   if (is_files) {
     dialog_data.paths = std::move(clipboard_paste_data.file_paths);
@@ -277,6 +278,17 @@ void OnDataControlsPasteWarning(
   if (bypassed && verdict.level() == data_controls::Rule::Level::kWarn) {
     MaybeReportDataControlsPaste(source, destination, metadata, verdict,
                                  /*bypassed=*/true);
+  }
+
+  // If the data currently being pasted was replaced when it was initially
+  // copied from Chrome, replace it back since the warn rule was bypassed. Only do this if
+  // `source` has a known browser context to ensure we're not letting through
+  // data that was replaced by policies that are no longer applicable due to the
+  // profile being closed.
+  if (source.browser_context() &&
+      metadata.seqno == data_controls::GetLastReplacedClipboardData().seqno) {
+    clipboard_paste_data =
+        data_controls::GetLastReplacedClipboardData().clipboard_paste_data;
   }
 
 #if BUILDFLAG(IS_ANDROID) || !BUILDFLAG(ENTERPRISE_CONTENT_ANALYSIS)

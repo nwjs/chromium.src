@@ -39,6 +39,7 @@
 #include "content/public/browser/web_contents_observer.h"
 #include "content/public/common/content_client.h"
 #include "media/audio/audio_device_description.h"
+#include "media/base/limits.h"
 #include "media/mojo/mojom/speech_recognition.mojom.h"
 #include "media/mojo/mojom/speech_recognition_audio_forwarder.mojom.h"
 #include "media/mojo/mojom/speech_recognition_error.mojom.h"
@@ -561,6 +562,17 @@ int SpeechRecognitionManagerImpl::CreateSession(
     }
   }
 
+  if (audio_forwarder_config.has_value() &&
+      (audio_forwarder_config.value().sample_rate >
+           media::limits::kMaxSampleRate ||
+       audio_forwarder_config.value().sample_rate <
+           media::limits::kMinSampleRate ||
+       audio_forwarder_config.value().channel_count <= 0 ||
+       audio_forwarder_config.value().channel_count >
+           media::limits::kMaxChannels)) {
+    error = media::mojom::SpeechRecognitionErrorCode::kAudioCapture;
+  }
+
   // Throw the error and do not create the session if error is found.
   if (error != media::mojom::SpeechRecognitionErrorCode::kNone) {
     mojo::Remote<media::mojom::SpeechRecognitionSessionClient> client(
@@ -613,7 +625,7 @@ int SpeechRecognitionManagerImpl::CreateSession(
           speech_recognition_context_receiver =
               speech_recognition_context_.BindNewPipeAndPassReceiver();
       speech_recognition_mgr_delegate->BindSpeechRecognitionContext(
-          std::move(speech_recognition_context_receiver));
+          std::move(speech_recognition_context_receiver), config.language);
     }
 
     media::mojom::SpeechRecognitionOptionsPtr options =

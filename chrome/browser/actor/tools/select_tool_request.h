@@ -13,15 +13,18 @@
 #include "chrome/common/actor.mojom-forward.h"
 
 namespace actor {
+class ToolRequestVisitorFunctor;
 
 // Chooses an option in a <select> box on the page based on the value attribute
 // of the <option> children.
 class SelectToolRequest : public PageToolRequest {
  public:
   SelectToolRequest(tabs::TabHandle tab_handle,
-                    const Target& target,
+                    const PageTarget& target,
                     std::string_view value);
   ~SelectToolRequest() override;
+
+  void Apply(ToolRequestVisitorFunctor& f) const override;
 
   // ToolRequest
   std::string JournalEvent() const override;

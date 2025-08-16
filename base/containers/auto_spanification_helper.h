@@ -12,6 +12,57 @@
 
 namespace base {
 
+// SpanificationArray{Begin,End,CBegin,CEnd} were introduced temporarily in
+// order to help the auto spanification tool (//tools/clang/spanify), and not
+// meant to be used widely.
+template <typename Element, size_t N>
+constexpr span<Element> SpanificationArrayBegin(
+    Element (&array LIFETIME_BOUND)[N]) {
+  return span(array);
+}
+
+template <typename Element, size_t N>
+constexpr span<Element> SpanificationArrayEnd(
+    Element (&array LIFETIME_BOUND)[N]) {
+  return span(array).last(0u);
+}
+
+template <typename Element, size_t N>
+constexpr span<const Element> SpanificationArrayCBegin(
+    const Element (&array LIFETIME_BOUND)[N]) {
+  return span(array);
+}
+
+template <typename Element, size_t N>
+constexpr span<const Element> SpanificationArrayCEnd(
+    const Element (&array LIFETIME_BOUND)[N]) {
+  return span(array).last(0u);
+}
+
+template <typename Element, size_t N>
+constexpr span<Element> SpanificationArrayBegin(
+    std::array<Element, N>& array LIFETIME_BOUND) {
+  return span(array);
+}
+
+template <typename Element, size_t N>
+constexpr span<Element> SpanificationArrayEnd(
+    std::array<Element, N>& array LIFETIME_BOUND) {
+  return span(array).last(0u);
+}
+
+template <typename Element, size_t N>
+constexpr span<const Element> SpanificationArrayCBegin(
+    const std::array<Element, N>& array LIFETIME_BOUND) {
+  return span(array);
+}
+
+template <typename Element, size_t N>
+constexpr span<const Element> SpanificationArrayCEnd(
+    const std::array<Element, N>& array LIFETIME_BOUND) {
+  return span(array).last(0u);
+}
+
 // SpanificationSizeofForStdArray was introduced temporarily in order to help
 // the auto spanification tool (//tools/clang/spanify), and not meant to be
 // used widely.
@@ -22,19 +73,6 @@ namespace base {
 template <typename Element, size_t N>
 constexpr size_t SpanificationSizeofForStdArray(const std::array<Element, N>&) {
   return sizeof(Element) * N;
-}
-
-// This helper is used to rewrite code that passes the address of a single
-// variable or object member (e.g. `&my_var` or `&obj.member`) to a function
-// that expects a `span` representing a single element.
-//
-// WARNING: This function should only be used by the auto-spanification tool.
-// Do not use this helper outside of the tool.
-template <typename T>
-span<T, 1> SpanFromSingleElement(T& ref) {
-  // This is a single element and the address is always valid as long as the
-  // reference is valid.
-  return UNSAFE_TODO(span<T, 1u>(&ref, 1u));
 }
 
 // Modifies the input span by removing its first element (if not empty)

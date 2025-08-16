@@ -17,6 +17,7 @@
 #include "chrome/browser/ui/views/page_action/page_action_enums.h"
 #include "chrome/browser/ui/views/page_action/page_action_model.h"
 #include "chrome/browser/ui/views/page_action/page_action_model_observer.h"
+#include "chrome/browser/ui/views/page_action/page_action_view.h"
 #include "chrome/browser/ui/views/page_action/test_support/fake_tab_interface.h"
 #include "chrome/browser/ui/views/page_action/test_support/mock_page_action_model.h"
 #include "chrome/browser/ui/views/page_action/test_support/test_page_action_properties_provider.h"
@@ -61,6 +62,7 @@ const std::u16string kTooltip = u"Tooltip";
 
 using ::actions::ActionItem;
 using ::testing::_;
+using ::testing::Mock;
 
 using TestPageActionModelObservation =
     ::base::ScopedObservation<PageActionModelInterface,
@@ -388,8 +390,14 @@ TEST_F(PageActionControllerTest, ClearOverrideText) {
 TEST_F(PageActionControllerTest, NotifyActionClickedLogsHistogram) {
   base::HistogramTester histogram_tester;
 
+  auto observer = PageActionTestObserver();
+  TestPageActionModelObservation observation(&observer);
   controller()->Initialize(*tab_interface(), {kFirstActionItemId},
                            properties_provider_);
+  auto action_item = BuildActionItem(kFirstActionItemId);
+  base::CallbackListSubscription subscription =
+      controller()->CreateActionItemSubscription(action_item.get());
+  controller()->AddObserver(0, observation);
 
   const std::string general_histogram = "PageActionController.Icon.CTR2";
   const std::string specific_histogram = base::StrCat(
@@ -400,25 +408,31 @@ TEST_F(PageActionControllerTest, NotifyActionClickedLogsHistogram) {
   histogram_tester.ExpectTotalCount(general_histogram, 0);
   histogram_tester.ExpectTotalCount(specific_histogram, 0);
 
+  // Show the page icon first: Hidden → IconOnly transition (logs one kShown
+  // sample).
+  controller()->Show(kFirstActionItemId);
+
   controller()
-      ->GetClickCallback(kFirstActionItemId)
+      ->GetClickCallback(PageActionView::PassKeyForTesting(),
+                         kFirstActionItemId)
       .Run(PageActionTrigger::kMouse);
-
-  histogram_tester.ExpectTotalCount(general_histogram, 1);
-  histogram_tester.ExpectUniqueSample(general_histogram,
-                                      PageActionCTREvent::kClicked, 1);
-  histogram_tester.ExpectTotalCount(specific_histogram, 1);
-  histogram_tester.ExpectUniqueSample(specific_histogram,
-                                      PageActionCTREvent::kClicked, 1);
-
-  controller()
-      ->GetClickCallback(kFirstActionItemId)
-      .Run(PageActionTrigger::kKeyboard);
 
   histogram_tester.ExpectTotalCount(general_histogram, 2);
   histogram_tester.ExpectBucketCount(general_histogram,
-                                     PageActionCTREvent::kClicked, 2);
+                                     PageActionCTREvent::kClicked, 1);
   histogram_tester.ExpectTotalCount(specific_histogram, 2);
+  histogram_tester.ExpectBucketCount(specific_histogram,
+                                     PageActionCTREvent::kClicked, 1);
+
+  controller()
+      ->GetClickCallback(PageActionView::PassKeyForTesting(),
+                         kFirstActionItemId)
+      .Run(PageActionTrigger::kKeyboard);
+
+  histogram_tester.ExpectTotalCount(general_histogram, 3);
+  histogram_tester.ExpectBucketCount(general_histogram,
+                                     PageActionCTREvent::kClicked, 2);
+  histogram_tester.ExpectTotalCount(specific_histogram, 3);
   histogram_tester.ExpectBucketCount(specific_histogram,
                                      PageActionCTREvent::kClicked, 2);
 }
@@ -506,7 +520,8 @@ TEST_F(PageActionControllerMockModelTest, ShowSuggestionChip) {
   controller().Initialize(tab_interface(), {kFirstActionItemId},
                           properties_provider_);
 
-  EXPECT_CALL(models().Get(kFirstActionItemId), SetShowSuggestionChip(_, true))
+  EXPECT_CALL(models().Get(kFirstActionItemId),
+              SetShouldShowSuggestionChip(_, true))
       .Times(1);
   EXPECT_CALL(models().Get(kFirstActionItemId),
               SetSuggestionChipConfig(_,
@@ -517,7 +532,8 @@ TEST_F(PageActionControllerMockModelTest, ShowSuggestionChip) {
       .Times(1);
   controller().ShowSuggestionChip(kFirstActionItemId);
 
-  EXPECT_CALL(models().Get(kFirstActionItemId), SetShowSuggestionChip(_, true))
+  EXPECT_CALL(models().Get(kFirstActionItemId),
+              SetShouldShowSuggestionChip(_, true))
       .Times(1);
   EXPECT_CALL(models().Get(kFirstActionItemId),
               SetSuggestionChipConfig(_,
@@ -530,7 +546,8 @@ TEST_F(PageActionControllerMockModelTest, ShowSuggestionChip) {
       kFirstActionItemId,
       {.should_animate = false, .should_announce_chip = true});
 
-  EXPECT_CALL(models().Get(kFirstActionItemId), SetShowSuggestionChip(_, false))
+  EXPECT_CALL(models().Get(kFirstActionItemId),
+              SetShouldShowSuggestionChip(_, false))
       .Times(1);
   controller().HideSuggestionChip(kFirstActionItemId);
 }
@@ -586,6 +603,143 @@ TEST_F(PageActionControllerMockModelTest, ShouldForciblyHidePageActions) {
       .Times(1);
 
   controller().SetShouldHidePageActions(false);
+}
+
+TEST_F(PageActionControllerMockModelTest, ActivityCounter) {
+  controller().Initialize(tab_interface(), {kFirstActionItemId},
+                          properties_provider_);
+
+  // Add first activity scope. Model becomes active.
+  EXPECT_CALL(models().Get(kFirstActionItemId), SetActionActive(_, true))
+      .Times(1);
+  auto activity1 = std::make_unique<ScopedPageActionActivity>(
+      controller().AddActivity(kFirstActionItemId));
+  Mock::VerifyAndClearExpectations(&models().Get(kFirstActionItemId));
+
+  // Add second activity scope. Model remains active.
+  EXPECT_CALL(models().Get(kFirstActionItemId), SetActionActive(_, true))
+      .Times(1);
+  auto activity2 = std::make_unique<ScopedPageActionActivity>(
+      controller().AddActivity(kFirstActionItemId));
+  Mock::VerifyAndClearExpectations(&models().Get(kFirstActionItemId));
+
+  // Destroy first activity scope. Model remains active.
+  EXPECT_CALL(models().Get(kFirstActionItemId), SetActionActive(_, _)).Times(0);
+  activity1.reset();
+  Mock::VerifyAndClearExpectations(&models().Get(kFirstActionItemId));
+
+  // Destroy second activity scope. Model becomes inactive.
+  EXPECT_CALL(models().Get(kFirstActionItemId), SetActionActive(_, false))
+      .Times(1);
+  activity2.reset();
+  Mock::VerifyAndClearExpectations(&models().Get(kFirstActionItemId));
+}
+
+TEST_F(PageActionControllerMockModelTest, ActivityCounterMultipleActions) {
+  controller().Initialize(tab_interface(),
+                          {kFirstActionItemId, kSecondActionItemId},
+                          properties_provider_);
+
+  EXPECT_CALL(models().Get(kFirstActionItemId), SetActionActive(_, true))
+      .Times(1);
+  EXPECT_CALL(models().Get(kSecondActionItemId), SetActionActive(_, _))
+      .Times(0);
+  auto activity1 = std::make_unique<ScopedPageActionActivity>(
+      controller().AddActivity(kFirstActionItemId));
+  Mock::VerifyAndClearExpectations(&models().Get(kFirstActionItemId));
+  Mock::VerifyAndClearExpectations(&models().Get(kSecondActionItemId));
+
+  // Add activity for second action.
+  EXPECT_CALL(models().Get(kSecondActionItemId), SetActionActive(_, true))
+      .Times(1);
+  EXPECT_CALL(models().Get(kFirstActionItemId), SetActionActive(_, _)).Times(0);
+  auto activity2 = std::make_unique<ScopedPageActionActivity>(
+      controller().AddActivity(kSecondActionItemId));
+  Mock::VerifyAndClearExpectations(&models().Get(kFirstActionItemId));
+  Mock::VerifyAndClearExpectations(&models().Get(kSecondActionItemId));
+
+  // Destroy activity for second action.
+  EXPECT_CALL(models().Get(kSecondActionItemId), SetActionActive(_, false))
+      .Times(1);
+  EXPECT_CALL(models().Get(kFirstActionItemId), SetActionActive(_, _)).Times(0);
+  activity2.reset();
+  Mock::VerifyAndClearExpectations(&models().Get(kFirstActionItemId));
+  Mock::VerifyAndClearExpectations(&models().Get(kSecondActionItemId));
+
+  // Destroy one activity for first action.
+  EXPECT_CALL(models().Get(kFirstActionItemId), SetActionActive(_, false))
+      .Times(1);
+  EXPECT_CALL(models().Get(kSecondActionItemId), SetActionActive(_, _))
+      .Times(0);
+  activity1.reset();
+  Mock::VerifyAndClearExpectations(&models().Get(kFirstActionItemId));
+  Mock::VerifyAndClearExpectations(&models().Get(kSecondActionItemId));
+}
+
+TEST_F(PageActionControllerMockModelTest, ActivityCounterAssignmentOperator) {
+  controller().Initialize(tab_interface(),
+                          {kFirstActionItemId, kSecondActionItemId},
+                          properties_provider_);
+  EXPECT_CALL(models().Get(kFirstActionItemId), SetActionActive(_, true))
+      .Times(1);
+  EXPECT_CALL(models().Get(kSecondActionItemId), SetActionActive(_, _))
+      .Times(0);
+  ScopedPageActionActivity activity1 =
+      controller().AddActivity(kFirstActionItemId);
+  Mock::VerifyAndClearExpectations(&models().Get(kFirstActionItemId));
+  Mock::VerifyAndClearExpectations(&models().Get(kSecondActionItemId));
+
+  // Add activity for second action.
+  EXPECT_CALL(models().Get(kSecondActionItemId), SetActionActive(_, true))
+      .Times(1);
+  EXPECT_CALL(models().Get(kFirstActionItemId), SetActionActive(_, _)).Times(0);
+  std::optional<ScopedPageActionActivity> activity2 =
+      controller().AddActivity(kSecondActionItemId);
+  Mock::VerifyAndClearExpectations(&models().Get(kFirstActionItemId));
+  Mock::VerifyAndClearExpectations(&models().Get(kSecondActionItemId));
+
+  EXPECT_CALL(models().Get(kSecondActionItemId), SetActionActive(_, false))
+      .Times(1);
+  EXPECT_CALL(models().Get(kFirstActionItemId), SetActionActive(_, _)).Times(0);
+  activity2 = std::move(activity1);
+  Mock::VerifyAndClearExpectations(&models().Get(kFirstActionItemId));
+  Mock::VerifyAndClearExpectations(&models().Get(kSecondActionItemId));
+
+  EXPECT_CALL(models().Get(kFirstActionItemId), SetActionActive(_, false))
+      .Times(1);
+  activity2.reset();
+  Mock::VerifyAndClearExpectations(&models().Get(kFirstActionItemId));
+}
+
+TEST_F(PageActionControllerMockModelTest,
+       ActivityResetsOnControllerDestruction) {
+  controller().Initialize(tab_interface(), {kFirstActionItemId},
+                          properties_provider_);
+
+  // Add first activity scope. Model becomes active.
+  EXPECT_CALL(models().Get(kFirstActionItemId), SetActionActive(_, true))
+      .Times(1);
+  auto activity1 = std::make_unique<ScopedPageActionActivity>(
+      controller().AddActivity(kFirstActionItemId));
+  Mock::VerifyAndClearExpectations(&models().Get(kFirstActionItemId));
+
+  // Add second activity scope. Model remains active.
+  EXPECT_CALL(models().Get(kFirstActionItemId), SetActionActive(_, true))
+      .Times(1);
+  auto activity2 = std::make_unique<ScopedPageActionActivity>(
+      controller().AddActivity(kFirstActionItemId));
+  Mock::VerifyAndClearExpectations(&models().Get(kFirstActionItemId));
+
+  // Destroy first activity scope. Model remains active.
+  EXPECT_CALL(models().Get(kFirstActionItemId), SetActionActive(_, _)).Times(0);
+  activity1.reset();
+  Mock::VerifyAndClearExpectations(&models().Get(kFirstActionItemId));
+
+  // Destroy second activity scope. Model becomes inactive.
+  EXPECT_CALL(models().Get(kFirstActionItemId), SetActionActive(_, false))
+      .Times(1);
+  activity2.reset();
+  Mock::VerifyAndClearExpectations(&models().Get(kFirstActionItemId));
 }
 
 }  // namespace

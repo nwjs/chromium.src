@@ -2,11 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifdef UNSAFE_BUFFERS_BUILD
-// TODO(crbug.com/40284755): Remove this and spanify to fix the errors.
-#pragma allow_unsafe_buffers
-#endif
-
 #include "net/spdy/spdy_session.h"
 
 #include <algorithm>
@@ -18,6 +13,7 @@
 
 #include "base/base64.h"
 #include "base/containers/contains.h"
+#include "base/containers/heap_array.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
 #include "base/memory/raw_ptr.h"
@@ -30,6 +26,7 @@
 #include "base/time/time.h"
 #include "build/build_config.h"
 #include "net/base/features.h"
+#include "net/base/hash_value.h"
 #include "net/base/hex_utils.h"
 #include "net/base/host_port_pair.h"
 #include "net/base/io_buffer.h"
@@ -109,10 +106,11 @@ base::TimeTicks InstantaneousReads() {
 
 class MockRequireCTDelegate : public RequireCTDelegate {
  public:
-  MOCK_CONST_METHOD3(IsCTRequiredForHost,
-                     CTRequirementLevel(std::string_view host,
-                                        const X509Certificate* chain,
-                                        const HashValueVector& hashes));
+  MOCK_CONST_METHOD3(
+      IsCTRequiredForHost,
+      CTRequirementLevel(std::string_view host,
+                         const X509Certificate* chain,
+                         const std::vector<SHA256HashValue>& hashes));
 
  protected:
   ~MockRequireCTDelegate() override = default;
@@ -804,19 +802,16 @@ TEST_F(SpdySessionTest, GoAwayWhileDraining) {
   size_t joint_size = goaway.size() * 2 + body.size();
 
   // Compose interleaved |goaway| and |body| frames into a single read.
-  auto buffer = std::make_unique<char[]>(joint_size);
+  auto buffer = base::HeapArray<char>::Uninit(joint_size);
   {
-    size_t out = 0;
-    memcpy(&buffer[out], goaway.data(), goaway.size());
-    out += goaway.size();
-    memcpy(&buffer[out], body.data(), body.size());
-    out += body.size();
-    memcpy(&buffer[out], goaway.data(), goaway.size());
-    out += goaway.size();
-    ASSERT_EQ(out, joint_size);
+    base::span<char> out_span = buffer.as_span();
+    out_span.take_first(goaway.size()).copy_from(goaway);
+    out_span.take_first(body.size()).copy_from(body);
+    out_span.take_first(goaway.size()).copy_from(goaway);
+    ASSERT_EQ(out_span.size(), 0u);
   }
   spdy::SpdySerializedFrame joint_frames(
-      spdy::test::MakeSerializedFrame(buffer.get(), joint_size));
+      spdy::test::MakeSerializedFrame(buffer.data(), buffer.size()));
 
   MockRead reads[] = {
       CreateMockRead(resp, 1), CreateMockRead(joint_frames, 2),
@@ -3401,18 +3396,18 @@ TEST_F(SpdySessionTest, CloseOneIdleConnectionWithAlias) {
       ::net::CreateSpdySession(http_session_.get(), key1, NetLogWithSource());
   EXPECT_FALSE(pool->IsStalled());
   EXPECT_TRUE(http_session_->spdy_session_pool()->HasAvailableSession(
-      key1, /*enable_ip_based_pooling=*/true, /*is_websocket=*/false));
+      key1, /*enable_ip_based_pooling_for_h2=*/true, /*is_websocket=*/false));
   EXPECT_FALSE(http_session_->spdy_session_pool()->HasAvailableSession(
-      key2, /*enable_ip_based_pooling=*/true, /*is_websocket=*/false));
+      key2, /*enable_ip_based_pooling_for_h2=*/true, /*is_websocket=*/false));
   EXPECT_FALSE(http_session_->spdy_session_pool()->HasAvailableSession(
-      key2, /*enable_ip_based_pooling=*/false, /*is_websocket=*/false));
+      key2, /*enable_ip_based_pooling_for_h2=*/false, /*is_websocket=*/false));
 
   // Set up an alias for the idle SPDY session, increasing its ref count to 2.
   std::unique_ptr<SpdySessionPool::SpdySessionRequest> request;
   bool is_blocking_request_for_session = false;
   SpdySessionRequestDelegate request_delegate;
   EXPECT_FALSE(spdy_session_pool_->RequestSession(
-      key2, /* enable_ip_based_pooling = */ true,
+      key2, /* enable_ip_based_pooling_for_h2 = */ true,
       /* is_websocket = */ false, NetLogWithSource(),
       /* on_blocking_request_destroyed_callback = */ base::RepeatingClosure(),
       &request_delegate, &request, &is_blocking_request_for_session));
@@ -3429,17 +3424,17 @@ TEST_F(SpdySessionTest, CloseOneIdleConnectionWithAlias) {
   // Get a session for |key2|, which should return the session created earlier.
   base::WeakPtr<SpdySession> session2 =
       spdy_session_pool_->FindAvailableSession(
-          key2, /* enable_ip_based_pooling = */ true,
+          key2, /* enable_ip_based_pooling_for_h2 = */ true,
           /* is_websocket = */ false, NetLogWithSource());
   EXPECT_TRUE(session2);
   ASSERT_EQ(session1.get(), session2.get());
   EXPECT_FALSE(pool->IsStalled());
   EXPECT_TRUE(http_session_->spdy_session_pool()->HasAvailableSession(
-      key1, /*enable_ip_based_pooling=*/true, /*is_websocket=*/false));
+      key1, /*enable_ip_based_pooling_for_h2=*/true, /*is_websocket=*/false));
   EXPECT_TRUE(http_session_->spdy_session_pool()->HasAvailableSession(
-      key2, /*enable_ip_based_pooling=*/true, /*is_websocket=*/false));
+      key2, /*enable_ip_based_pooling_for_h2=*/true, /*is_websocket=*/false));
   EXPECT_FALSE(http_session_->spdy_session_pool()->HasAvailableSession(
-      key2, /*enable_ip_based_pooling=*/false, /*is_websocket=*/false));
+      key2, /*enable_ip_based_pooling_for_h2=*/false, /*is_websocket=*/false));
 
   // Trying to create a new connection should cause the pool to be stalled, and
   // post a task asynchronously to try and close the session.
@@ -3467,11 +3462,11 @@ TEST_F(SpdySessionTest, CloseOneIdleConnectionWithAlias) {
   EXPECT_FALSE(session1);
   EXPECT_FALSE(session2);
   EXPECT_FALSE(http_session_->spdy_session_pool()->HasAvailableSession(
-      key1, /*enable_ip_based_pooling=*/true, /*is_websocket=*/false));
+      key1, /*enable_ip_based_pooling_for_h2=*/true, /*is_websocket=*/false));
   EXPECT_FALSE(http_session_->spdy_session_pool()->HasAvailableSession(
-      key2, /*enable_ip_based_pooling=*/true, /*is_websocket=*/false));
+      key2, /*enable_ip_based_pooling_for_h2=*/true, /*is_websocket=*/false));
   EXPECT_FALSE(http_session_->spdy_session_pool()->HasAvailableSession(
-      key2, /*enable_ip_based_pooling=*/false, /*is_websocket=*/false));
+      key2, /*enable_ip_based_pooling_for_h2=*/false, /*is_websocket=*/false));
 }
 
 // Tests that when a SPDY session becomes idle, it closes itself if there is
@@ -6344,11 +6339,11 @@ TEST(CanPoolTest, CanPoolWithAcceptablePins) {
   ssl_info.cert = ImportCertFromFile(GetTestCertsDirectory(),
                                      "spdy_pooling.pem");
   ssl_info.is_issued_by_known_root = true;
-  HashValue hash;
+  HashValue hash_value;
   // The expected value of GoodPin1 used by |scoped_security_state_source|.
-  ASSERT_TRUE(
-      hash.FromString("sha256/Nn8jk5By4Vkq6BeOVZ7R7AC6XUUBZsWmUbJR1f1Y5FY="));
-  ssl_info.public_key_hashes.push_back(hash);
+  ASSERT_TRUE(hash_value.FromString(
+      "sha256/Nn8jk5By4Vkq6BeOVZ7R7AC6XUUBZsWmUbJR1f1Y5FY="));
+  ssl_info.public_key_hashes.push_back(hash_value.sha256hashvalue());
 
   EXPECT_TRUE(SpdySession::CanPool(&tss, ssl_info, ssl_config_service,
                                    "www.example.org", "mail.example.org"));

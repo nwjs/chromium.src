@@ -18,6 +18,7 @@
 #include "chrome/browser/ai/ai_proofreader.h"
 #include "chrome/browser/ai/ai_summarizer.h"
 #include "chrome/browser/ai/ai_utils.h"
+#include "components/component_updater/component_updater_service.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/render_widget_host.h"
 #include "content/public/browser/render_widget_host_observer.h"
@@ -25,7 +26,6 @@
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "mojo/public/cpp/bindings/receiver_set.h"
 #include "mojo/public/cpp/bindings/remote_set.h"
-#include "third_party/blink/public/mojom/ai/ai_common.mojom-forward.h"
 #include "third_party/blink/public/mojom/ai/ai_common.mojom.h"
 #include "third_party/blink/public/mojom/ai/ai_language_model.mojom-forward.h"
 #include "third_party/blink/public/mojom/ai/ai_manager.mojom.h"
@@ -68,23 +68,6 @@ class AIManager : public base::SupportsUserData::Data,
   size_t GetDownloadProgressObserversSizeForTesting() {
     return model_download_progress_manager_.GetNumberOfReporters();
   }
-
-  // Return the max top k value for the LanguageModel API. Note that this value
-  // won't exceed the max top k defined by the underlying on-device model.
-  uint32_t GetLanguageModelMaxTopK();
-  // Return the max temperature for the LanguageModel API.
-  float GetLanguageModelMaxTemperature();
-
-  // Returns if all of the language codes in `languages` are supported.
-  static bool IsLanguagesSupported(
-      const std::vector<AILanguageCodePtr>& languages);
-
-  // Returns if `output` and all of the language codes in `input` and `context`
-  // are supported.
-  static bool IsLanguagesSupported(
-      const std::vector<AILanguageCodePtr>& input,
-      const std::vector<AILanguageCodePtr>& context,
-      const AILanguageCodePtr& output);
 
   // Return the default and max sampling params for the LanguageModel API.
   blink::mojom::AILanguageModelParamsPtr GetLanguageModelParams();
@@ -131,8 +114,15 @@ class AIManager : public base::SupportsUserData::Data,
 
   bool IsBuiltInAIAPIsEnabledByPolicy();
 
+  // Returns true if `options` uses only `supported` languages, false otherwise.
+  // Logs errors and warnings and initializes empty output languages as needed.
+  template <typename OptionsPtrType>
+  bool CheckAndFixLanguages(OptionsPtrType& options,
+                            std::string_view api_name,
+                            const base::flat_set<std::string_view>& supported);
+
  private:
-  void OnModelPathValidationComplete(const std::string& model_path,
+  void OnModelPathValidationComplete(const base::FilePath& model_path,
                                      bool is_valid_path);
 
   // Creates an `AILanguageModel`, as a new session. Clones are created
@@ -155,9 +145,12 @@ class AIManager : public base::SupportsUserData::Data,
       CanCreateLanguageModelCallback callback,
       optimization_guide::OnDeviceModelEligibilityReason eligibility);
 
-  void AddMessageToConsoleForUnexpectedLanguage(
-      blink::mojom::ConsoleMessageLevel level,
-      std::string message);
+  void MaybeLogMissingOutputLanguageWarning(
+      const std::string_view api_name,
+      const base::flat_set<std::string_view>& supported_languages);
+  void MaybeLogUnsupportedLanguageError(
+      const std::string_view api_name,
+      const base::flat_set<std::string_view>& supported_languages);
 
   mojo::ReceiverSet<blink::mojom::AIManager> receivers_;
 
@@ -175,8 +168,8 @@ class AIManager : public base::SupportsUserData::Data,
 
   content::WeakDocumentPtr rfh_;
 
-  bool did_add_warning_console_message_for_unexpected_language_ = false;
-  bool did_add_error_console_message_for_unexpected_language_ = false;
+  bool did_log_missing_output_language_warning_ = false;
+  bool did_log_unsupported_language_error_ = false;
 
   base::WeakPtrFactory<AIManager> weak_factory_{this};
 };

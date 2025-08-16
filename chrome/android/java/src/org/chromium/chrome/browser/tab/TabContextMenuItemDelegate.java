@@ -34,6 +34,7 @@ import org.chromium.chrome.browser.download.ChromeDownloadDelegate;
 import org.chromium.chrome.browser.download.DownloadUtils;
 import org.chromium.chrome.browser.ephemeraltab.EphemeralTabCoordinator;
 import org.chromium.chrome.browser.feature_engagement.TrackerFactory;
+import org.chromium.chrome.browser.flags.ActivityType;
 import org.chromium.chrome.browser.incognito.IncognitoUtils;
 import org.chromium.chrome.browser.multiwindow.MultiWindowUtils;
 import org.chromium.chrome.browser.offlinepages.OfflinePageBridge;
@@ -67,6 +68,7 @@ import org.chromium.url.GURL;
 @NullMarked
 public class TabContextMenuItemDelegate implements ContextMenuItemDelegate {
     private final Activity mActivity;
+    private final @ActivityType int mActivityType;
     private final TabImpl mTab;
     private final TabModelSelector mTabModelSelector;
     private final Supplier<EphemeralTabCoordinator> mEphemeralTabCoordinatorSupplier;
@@ -77,6 +79,7 @@ public class TabContextMenuItemDelegate implements ContextMenuItemDelegate {
     /** Builds a {@link TabContextMenuItemDelegate} instance. */
     public TabContextMenuItemDelegate(
             Activity activity,
+            @ActivityType int activityType,
             Tab tab,
             TabModelSelector tabModelSelector,
             Supplier<EphemeralTabCoordinator> ephemeralTabCoordinatorSupplier,
@@ -84,6 +87,7 @@ public class TabContextMenuItemDelegate implements ContextMenuItemDelegate {
             Supplier<SnackbarManager> snackbarManagerSupplier,
             Supplier<BottomSheetController> bottomSheetControllerSupplier) {
         mActivity = activity;
+        mActivityType = activityType;
         mTab = (TabImpl) tab;
         mTabModelSelector = tabModelSelector;
         mEphemeralTabCoordinatorSupplier = ephemeralTabCoordinatorSupplier;
@@ -132,7 +136,7 @@ public class TabContextMenuItemDelegate implements ContextMenuItemDelegate {
 
     @Override
     public boolean canEnterMultiWindowMode() {
-        return MultiWindowUtils.getInstance().canEnterMultiWindowMode(TabUtils.getActivity(mTab));
+        return MultiWindowUtils.getInstance().canEnterMultiWindowMode();
     }
 
     @Override
@@ -271,7 +275,7 @@ public class TabContextMenuItemDelegate implements ContextMenuItemDelegate {
      *
      * @param url The URL to open.
      */
-    public void onOpenInOtherWindow(GURL url, Referrer referrer) {
+    public void onOpenInOtherWindow(GURL url, @Nullable Referrer referrer) {
         ChromeAsyncTabLauncher chromeAsyncTabLauncher =
                 new ChromeAsyncTabLauncher(mTab.isIncognito());
         LoadUrlParams loadUrlParams = new LoadUrlParams(url.getSpec());
@@ -281,7 +285,7 @@ public class TabContextMenuItemDelegate implements ContextMenuItemDelegate {
                 loadUrlParams,
                 assumeNonNull(activity),
                 mTab.getParentId(),
-                MultiWindowUtils.getAdjacentWindowActivity(activity));
+                MultiWindowUtils.getForegroundWindowActivity(activity));
     }
 
     /**
@@ -296,7 +300,7 @@ public class TabContextMenuItemDelegate implements ContextMenuItemDelegate {
      */
     public void onOpenInNewTab(
             GURL url,
-            Referrer referrer,
+            @Nullable Referrer referrer,
             boolean navigateToTab,
             @Nullable AdditionalNavigationParams additionalNavigationParams) {
         RecordUserAction.record("MobileNewTabOpened");
@@ -318,7 +322,7 @@ public class TabContextMenuItemDelegate implements ContextMenuItemDelegate {
      *
      * @param url The URL to open.
      */
-    public void onOpenInNewTabInGroup(GURL url, Referrer referrer) {
+    public void onOpenInNewTabInGroup(GURL url, @Nullable Referrer referrer) {
         RecordUserAction.record("MobileNewTabOpened");
         RecordUserAction.record("LinkOpenedInNewTab");
         LoadUrlParams loadUrlParams = new LoadUrlParams(url.getSpec());
@@ -354,7 +358,7 @@ public class TabContextMenuItemDelegate implements ContextMenuItemDelegate {
      *
      * @param url The image URL to open.
      */
-    public void onOpenImageUrl(GURL url, Referrer referrer) {
+    public void onOpenImageUrl(GURL url, @Nullable Referrer referrer) {
         LoadUrlParams loadUrlParams = new LoadUrlParams(url.getSpec());
         loadUrlParams.setTransitionType(PageTransition.LINK);
         loadUrlParams.setReferrer(referrer);
@@ -366,7 +370,7 @@ public class TabContextMenuItemDelegate implements ContextMenuItemDelegate {
      *
      * @param url The image URL to open.
      */
-    public void onOpenImageInNewTab(GURL url, Referrer referrer) {
+    public void onOpenImageInNewTab(GURL url, @Nullable Referrer referrer) {
         LoadUrlParams loadUrlParams = new LoadUrlParams(url.getSpec());
         loadUrlParams.setReferrer(referrer);
         mTabModelSelector.openNewTab(
@@ -384,7 +388,15 @@ public class TabContextMenuItemDelegate implements ContextMenuItemDelegate {
                 || mEphemeralTabCoordinatorSupplier.get() == null) {
             return;
         }
-        mEphemeralTabCoordinatorSupplier.get().requestOpenSheet(url, title, mTab.getProfile());
+        mEphemeralTabCoordinatorSupplier
+                .get()
+                .requestOpenSheet(
+                        url,
+                        null,
+                        title,
+                        mTab.getProfile(),
+                        mActivityType == ActivityType.TABBED
+                                || mActivityType == ActivityType.CUSTOM_TAB);
     }
 
     /**

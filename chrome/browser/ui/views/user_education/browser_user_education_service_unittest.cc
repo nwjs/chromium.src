@@ -18,6 +18,7 @@
 #include "components/feature_engagement/public/feature_constants.h"
 #include "components/user_education/common/feature_promo/feature_promo_registry.h"
 #include "components/user_education/common/tutorial/tutorial_registry.h"
+#include "components/user_education/common/user_education_data.h"
 #include "components/user_education/common/user_education_metadata.h"
 #include "testing/gtest/include/gtest/gtest.h"
 

@@ -8,6 +8,8 @@ import android.annotation.SuppressLint;
 
 import com.google.errorprone.annotations.CheckReturnValue;
 
+import org.chromium.base.Log;
+import org.chromium.base.ThreadUtils;
 import org.chromium.base.test.transit.ConditionalState.Phase;
 import org.chromium.base.test.transit.Transition.TransitionOptions;
 import org.chromium.base.test.transit.Transition.Trigger;
@@ -23,6 +25,8 @@ import java.util.List;
  */
 @SuppressLint("CheckResult")
 public class TripBuilder {
+    private static final String TAG = "Transit";
+
     private final List<Facility<?>> mFacilitiesToEnter = new ArrayList<>();
     private final List<Facility<?>> mFacilitiesToExit = new ArrayList<>();
     private final List<CarryOn> mCarryOnsToPickUp = new ArrayList<>();
@@ -279,7 +283,7 @@ public class TripBuilder {
     }
 
     /** Build and perform the Transition synchronously. */
-    public void complete() {
+    public Trip complete() {
         assert !mIsComplete : "Transition already completed";
         assert mTrigger != null : "Trigger not set";
         assert !mInNewTask || mDestinationStation != null
@@ -324,7 +328,12 @@ public class TripBuilder {
         }
 
         if (mOriginStation != null) {
-            mFacilitiesToExit.addAll(mOriginStation.getFacilitiesWithPhase(Phase.ACTIVE));
+            for (Facility<?> facility : mOriginStation.getFacilitiesWithPhase(Phase.ACTIVE)) {
+                // Avoid trying to exit the same facility multiple times.
+                if (!mFacilitiesToExit.contains(facility)) {
+                    mFacilitiesToExit.add(facility);
+                }
+            }
         }
 
         if (!mConditions.isEmpty()) {
@@ -334,7 +343,7 @@ public class TripBuilder {
                             mOptions);
         }
 
-        Transition trip =
+        Trip trip =
                 new Trip(
                         mOriginStation,
                         mDestinationStation,
@@ -347,5 +356,46 @@ public class TripBuilder {
         trip.transitionSync();
 
         mIsComplete = true;
+        return trip;
+    }
+
+    /**
+     * Build and perform the Transition synchronously.
+     *
+     * @return the entered ConditionalState of type |stateClass|.
+     */
+    public <StateT extends ConditionalState> StateT completeAndGet(Class<StateT> stateClass) {
+        return complete().get(stateClass);
+    }
+
+    /**
+     * Execute the trigger without waiting for any Conditions.
+     *
+     * @throws AssertionError if there are any Conditions to wait for already set.
+     */
+    public void executeTriggerWithoutTransition() {
+        assert mTrigger != null : "Trigger not set";
+        String justRunErrorMessage =
+                "justRun() will not enter or leave any ConditionalStates or check any Conditions";
+        assert mOriginStation == null : justRunErrorMessage;
+        assert mDestinationStation == null : justRunErrorMessage;
+        assert mFacilitiesToExit.isEmpty() : justRunErrorMessage;
+        assert mFacilitiesToEnter.isEmpty() : justRunErrorMessage;
+        assert mCarryOnsToDrop.isEmpty() : justRunErrorMessage;
+        assert mCarryOnsToPickUp.isEmpty() : justRunErrorMessage;
+        assert mConditions.isEmpty() : justRunErrorMessage;
+
+        try {
+            if (mOptions.getRunTriggerOnUiThread()) {
+                Log.i(TAG, "Will run trigger on UI thread");
+                ThreadUtils.runOnUiThread(mTrigger::triggerTransition);
+            } else {
+                Log.i(TAG, "Will run trigger on Instrumentation thread");
+                mTrigger.triggerTransition();
+            }
+            Log.i(TAG, "Finished running trigger");
+        } catch (Throwable e) {
+            throw TravelException.newTravelException(String.format("Trigger threw "), e);
+        }
     }
 }

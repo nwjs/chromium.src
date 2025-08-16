@@ -175,18 +175,14 @@
 #include "ui/gfx/geometry/point.h"
 #endif
 
-namespace WTF {
+namespace blink {
 
 template <>
-struct CrossThreadCopier<blink::WebFrameWidgetImpl::PromiseCallbacks>
+struct CrossThreadCopier<WebFrameWidgetImpl::PromiseCallbacks>
     : public CrossThreadCopierByValuePassThrough<
-          blink::WebFrameWidgetImpl::PromiseCallbacks> {
+          WebFrameWidgetImpl::PromiseCallbacks> {
   STATIC_ONLY(CrossThreadCopier);
 };
-
-}  // namespace WTF
-
-namespace blink {
 
 namespace {
 
@@ -454,6 +450,12 @@ void WebFrameWidgetImpl::Close(DetachReason detach_reason) {
   // prevent delaying the navigation commit, as releasing the LayerTreeView
   // resources blocks on the compositor thread.
   bool delay_release =
+#if BUILDFLAG(IS_ANDROID)
+      // Don't delay if synchronous compositing is enabled, since it doesn't
+      // expect async deletion.
+      !Platform::Current()
+           ->IsSynchronousCompositingEnabledForAndroidWebView() &&
+#endif
       (base::FeatureList::IsEnabled(
            blink::features::kDelayLayerTreeViewDeletionOnLocalSwap) &&
        detach_reason == DetachReason::kNavigation);
@@ -1420,44 +1422,6 @@ void WebFrameWidgetImpl::SendOverscrollEventFromImplSide(
   }
 }
 
-void WebFrameWidgetImpl::SendEndOfScrollEventsDeprecated(
-    bool affects_outer_viewport,
-    bool affects_inner_viewport,
-    cc::ElementId scroll_latched_element_id) {
-  Node* target_node = View()->FindNodeFromScrollableCompositorElementId(
-      scroll_latched_element_id);
-  if (!target_node) {
-    return;
-  }
-  if (ScrollableArea* scrollable_area =
-          ScrollableArea::GetForScrolling(target_node->GetLayoutBox())) {
-    scrollable_area->UpdateSnappedTargetsAndEnqueueScrollSnapChange();
-    scrollable_area->SetImplSnapStrategy(nullptr);
-  }
-
-  if (auto* viewport_position_tracker =
-          AnchorElementViewportPositionTracker::MaybeGetOrCreateFor(
-              target_node->GetDocument())) {
-    viewport_position_tracker->OnScrollEnd();
-  }
-
-  if (RuntimeEnabledFeatures::ScrollEndEventsEnabled()) {
-    Node* document_node = View()->MainFrameImpl()
-                              ? View()->MainFrameImpl()->GetDocument()
-                              : nullptr;
-    if (affects_inner_viewport) {
-      target_node->GetDocument().EnqueueVisualViewportScrollEndEvent();
-    }
-    // A scroll gesture that causes the browser controls to show/hide would be
-    // associated with the document but may not have actually caused the
-    // document/outer viewport to scroll. In this case the document should
-    // not receive a scrollend event.
-    if (affects_outer_viewport || target_node != document_node) {
-      target_node->GetDocument().EnqueueScrollEndEventForNode(target_node);
-    }
-  }
-}
-
 void WebFrameWidgetImpl::SendEndOfScrollEvents(
     const cc::CompositorCommitData& commit_data) {
   HeapHashSet<Member<AnchorElementViewportPositionTracker>> handled_trackers;
@@ -1482,12 +1446,10 @@ void WebFrameWidgetImpl::SendEndOfScrollEvents(
       scrollable_area->SetImplSnapStrategy(nullptr);
     }
 
-    if (RuntimeEnabledFeatures::ScrollEndEventsEnabled()) {
-      if (GetPage()->GetVisualViewport().GetScrollElementId() == id) {
-        target_node->GetDocument().EnqueueVisualViewportScrollEndEvent();
-      } else {
-        target_node->GetDocument().EnqueueScrollEndEventForNode(target_node);
-      }
+    if (GetPage()->GetVisualViewport().GetScrollElementId() == id) {
+      target_node->GetDocument().EnqueueVisualViewportScrollEndEvent();
+    } else {
+      target_node->GetDocument().EnqueueScrollEndEventForNode(target_node);
     }
   }
 }
@@ -1546,25 +1508,8 @@ void WebFrameWidgetImpl::UpdateCompositorScrollState(
     NotifyLatchedScrollMarkerGroup(commit_data);
   }
 
-  // TODO(bokan): If a scroll ended and a new one began in the same Blink frame
-  // (e.g. during a long running main thread task), this will erroneously
-  // dispatch the scroll end to the latter (still-scrolling) element.
-  // https://crbug.com/1116780.
-  // With MultiImplyOnlyScrollAnimations support, a non-latched scroll
-  // container might have finished its snap animation, so we don't check that we
-  // have a latched id.
-  if (::features::MultiImplOnlyScrollAnimationsSupported()) {
-    if (commit_data.scroll_end_data.done_containers.size()) {
-      SendEndOfScrollEvents(commit_data);
-    }
-  } else {
-    if (commit_data.scroll_latched_element_id != cc::ElementId() &&
-        commit_data.scroll_end_data.scroll_gesture_did_end) {
-      SendEndOfScrollEventsDeprecated(
-          commit_data.scroll_end_data.gesture_affects_outer_viewport_scroll,
-          commit_data.scroll_end_data.gesture_affects_inner_viewport_scroll,
-          commit_data.scroll_latched_element_id);
-    }
+  if (commit_data.scroll_end_data.done_containers.size()) {
+    SendEndOfScrollEvents(commit_data);
   }
 }
 
@@ -1677,19 +1622,6 @@ void WebFrameWidgetImpl::StartPageScaleAnimation(const gfx::Point& destination,
                                                  base::TimeDelta duration) {
   widget_base_->LayerTreeHost()->StartPageScaleAnimation(
       destination, use_anchor, new_page_scale, duration);
-}
-
-void WebFrameWidgetImpl::RequestBeginMainFrameNotExpected(bool request) {
-  if (!View()->does_composite())
-    return;
-  widget_base_->LayerTreeHost()->RequestBeginMainFrameNotExpected(request);
-}
-
-void WebFrameWidgetImpl::DidCommitAndDrawCompositorFrame() {
-  ForEachLocalFrameControlledByWidget(
-      local_root_->GetFrame(), [](WebLocalFrameImpl* local_frame) {
-        local_frame->Client()->DidCommitAndDrawCompositorFrame();
-      });
 }
 
 void WebFrameWidgetImpl::DidObserveFirstScrollDelay(
@@ -2025,8 +1957,8 @@ void WebFrameWidgetImpl::ApplyVisualPropertiesSizing(
       View()->CancelPagePopup();
     }
 
-    if (auto* device_emulator = DeviceEmulator()) {
-      device_emulator->UpdateVisualProperties(visual_properties);
+    if (DeviceEmulator() && widget_base_ && !widget_base_->WillBeDestroyed()) {
+      DeviceEmulator()->UpdateVisualProperties(visual_properties);
       return;
     }
 
@@ -2368,6 +2300,9 @@ void WebFrameWidgetImpl::EnableDeviceEmulation(
     const DeviceEmulationParams& parameters) {
   // Device Emaulation is only supported for the main frame.
   DCHECK(ForMainFrame());
+  if (!widget_base_ || widget_base_->WillBeDestroyed()) {
+    return;
+  }
   if (!device_emulator_) {
     gfx::Size size_in_dips = widget_base_->BlinkSpaceToFlooredDIPs(Size());
 
@@ -2380,9 +2315,9 @@ void WebFrameWidgetImpl::EnableDeviceEmulation(
 }
 
 void WebFrameWidgetImpl::DisableDeviceEmulation() {
-  if (!device_emulator_)
-    return;
-  device_emulator_->DisableAndApply();
+  if (device_emulator_ && widget_base_ && !widget_base_->WillBeDestroyed()) {
+    device_emulator_->DisableAndApply();
+  }
   device_emulator_ = nullptr;
 }
 
@@ -3362,14 +3297,16 @@ const display::ScreenInfos& WebFrameWidgetImpl::GetScreenInfos() {
 }
 
 const display::ScreenInfo& WebFrameWidgetImpl::GetOriginalScreenInfo() {
-  if (device_emulator_)
+  if (device_emulator_ && !widget_base_->WillBeDestroyed()) {
     return device_emulator_->GetOriginalScreenInfo();
+  }
   return widget_base_->GetScreenInfo();
 }
 
 const display::ScreenInfos& WebFrameWidgetImpl::GetOriginalScreenInfos() {
-  if (device_emulator_)
+  if (device_emulator_ && !widget_base_->WillBeDestroyed()) {
     return device_emulator_->original_screen_infos();
+  }
   return widget_base_->screen_infos();
 }
 
@@ -3412,8 +3349,9 @@ WebString WebFrameWidgetImpl::GetLastToolTipTextForTesting() const {
 }
 
 float WebFrameWidgetImpl::GetEmulatorScale() {
-  if (device_emulator_)
+  if (device_emulator_ && widget_base_ && !widget_base_->WillBeDestroyed()) {
     return device_emulator_->scale();
+  }
   return 1.0f;
 }
 
@@ -4882,8 +4820,7 @@ void WebFrameWidgetImpl::UpdateViewportDescription(
 bool WebFrameWidgetImpl::UpdateScreenRects(
     const gfx::Rect& widget_screen_rect,
     const gfx::Rect& window_screen_rect) {
-
-  if (device_emulator_) {
+  if (device_emulator_ && widget_base_ && !widget_base_->WillBeDestroyed()) {
     device_emulator_->OnUpdateScreenRects(widget_screen_rect,
                                           window_screen_rect);
   }
@@ -4899,7 +4836,8 @@ bool WebFrameWidgetImpl::UpdateScreenRects(
 }
 
 void WebFrameWidgetImpl::EnqueueMoveEvent() {
-  if (!RuntimeEnabledFeatures::WindowOnMoveEventEnabled()) {
+  if (!RuntimeEnabledFeatures::
+          DesktopPWAsAdditionalWindowingControlsEnabled()) {
     return;
   }
 
@@ -5292,11 +5230,6 @@ void WebFrameWidgetImpl::PropagateHistorySequenceNumberToCompositor() {
   CHECK(loader->GetHistoryItem());
   LayerTreeHost()->SetPrimaryMainFrameItemSequenceNumber(
       loader->GetHistoryItem()->ItemSequenceNumber());
-}
-
-base::ReadOnlySharedMemoryRegion
-WebFrameWidgetImpl::CreateSharedMemoryForSmoothnessUkm() {
-  return LayerTreeHost()->CreateSharedMemoryForSmoothnessUkm();
 }
 
 base::ReadOnlySharedMemoryRegion

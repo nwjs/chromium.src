@@ -104,11 +104,6 @@ bool CanAssignToSelectSlot(const Node& node) {
 }
 
 bool CanAssignToCustomizableSelectSlot(const Node& node) {
-  if (RuntimeEnabledFeatures::SelectListBoxSlotAnythingEnabled() &&
-      HTMLSelectElement::SelectParserRelaxationEnabled(&node)) {
-    DCHECK(HTMLSelectElement::SelectParserRelaxationEnabled(&node));
-    return IsA<Element>(node) && !IsA<HTMLFormControlElement>(node);
-  }
   // Elements which are valid in <select>'s new content model as proposed for
   // customizable select.
   return IsA<HTMLOptionElement>(node) || IsA<HTMLOptGroupElement>(node) ||
@@ -180,12 +175,16 @@ class PopoverElementForAppearanceBase : public HTMLDivElement {
     }
   }
 
-  void HidePopoverInternal(Element* invoker,
-                           HidePopoverFocusBehavior focus_behavior,
-                           HidePopoverTransitionBehavior event_firing,
-                           ExceptionState* exception_state) override {
-    HTMLDivElement::HidePopoverInternal(invoker, focus_behavior, event_firing,
-                                        exception_state);
+  PopoverHideResult HidePopoverInternal(
+      Element* invoker,
+      HidePopoverFocusBehavior focus_behavior,
+      HidePopoverTransitionBehavior event_firing,
+      ExceptionState* exception_state) override {
+    if (HTMLDivElement::HidePopoverInternal(invoker, focus_behavior,
+                                            event_firing, exception_state) ==
+        PopoverHideResult::kForcedOpenByInspector) {
+      return PopoverHideResult::kForcedOpenByInspector;
+    }
     if (auto* select = ParentSelect()) {
       // Focus the select when the popover is hidden.
       if (focus_behavior == HidePopoverFocusBehavior::kFocusPreviousElement) {
@@ -197,6 +196,7 @@ class PopoverElementForAppearanceBase : public HTMLDivElement {
         cache->DidHideMenuListPopup(select);
       }
     }
+    return PopoverHideResult::kHidden;
   }
 
   InsertionNotificationRequest InsertedInto(ContainerNode& container) override {
@@ -824,10 +824,8 @@ void MenuListSelectType::ShowPopup(PopupMenu::ShowEventType type) {
   // We also need to update style before calling OpenPopupMenu in order to avoid
   // an expensive call to popup_->UpdateFromElement in DidRecalcStyle.
   SetNativePopupIsVisible(true);
-  if (RuntimeEnabledFeatures::CSSPseudoOpenEnabled()) {
-    select_->GetDocument().UpdateStyleAndLayoutForNode(
-        select_, DocumentUpdateReason::kPagePopup);
-  }
+  select_->GetDocument().UpdateStyleAndLayoutForNode(
+      select_, DocumentUpdateReason::kPagePopup);
 
   if (!popup_) {
     popup_ = document.GetPage()->GetChromeClient().OpenPopupMenu(
@@ -886,9 +884,7 @@ bool MenuListSelectType::PopupIsVisible() const {
 
 void MenuListSelectType::SetNativePopupIsVisible(bool popup_is_visible) {
   native_popup_is_visible_ = popup_is_visible;
-  if (RuntimeEnabledFeatures::CSSPseudoOpenEnabled()) {
-    select_->PseudoStateChanged(CSSSelector::kPseudoOpen);
-  }
+  select_->PseudoStateChanged(CSSSelector::kPseudoOpen);
   if (auto* layout_object = select_->GetLayoutObject()) {
     // Invalidate paint to ensure that the focus ring is updated.
     layout_object->SetShouldDoFullPaintInvalidation();
@@ -1057,11 +1053,7 @@ String MenuListSelectType::UpdateTextStyleInternal() {
       text = selected_option_element->TextIndentedToRespectGroupLabel();
       option_style = selected_option_element->GetComputedStyle();
     } else {
-      Locale& locale = select_->GetLocale();
-      String localized_number_string =
-          locale.ConvertToLocalizedNumber(String::Number(selected_count));
-      text = locale.QueryString(IDS_FORM_SELECT_MENU_LIST_TEXT,
-                                localized_number_string);
+      text = select_->MultipleOptionsSelectedText(selected_count);
       DCHECK(!option_style);
     }
   } else {
@@ -1775,28 +1767,24 @@ void ListBoxSelectType::UpdateSelectedState(HTMLOptionElement* clicked_option,
   // dispatching change events during mouseup, or after autoscroll finishes.
   SaveLastSelection();
 
+  active_selection_state_ = true;
+
   if (!select_->is_multiple_)
     mode = SelectionMode::kDeselectOthers;
 
   // Keep track of whether an active selection (like during drag selection),
   // should select or deselect.
-  active_selection_state_ =
-      !(clicked_option->Selected() && mode == SelectionMode::kNotChangeOthers);
+  if (clicked_option->Selected() && mode == SelectionMode::kNotChangeOthers) {
+    active_selection_state_ = false;
+    clicked_option->SetSelectedState(false);
+    clicked_option->SetDirty(true);
+  }
 
   // If we're not in any special multiple selection mode, then deselect all
-  // other items, excluding the clicked OPTION. If no option was clicked,
-  // then this will deselect all items in the list.
-  if (mode == SelectionMode::kDeselectOthers) {
-    bool did_deselect_others =
-        select_->DeselectItemsWithoutValidation(clicked_option);
-    // In a multi-select, if nothing else could be deselected,
-    // deselect the (already selected) clicked option instead.
-    if (select_->is_multiple_ && !did_deselect_others &&
-        clicked_option->Selected() &&
-        RuntimeEnabledFeatures::MultiSelectDeselectWhenOnlyOptionEnabled()) {
-      active_selection_state_ = false;
-    }
-  }
+  // other items, excluding the clicked OPTION. If no option was clicked, then
+  // this will deselect all items in the list.
+  if (mode == SelectionMode::kDeselectOthers)
+    select_->DeselectItemsWithoutValidation(clicked_option);
 
   // If the anchor hasn't been set, and we're doing kDeselectOthers or kRange,
   // then initialize the anchor to the first selected OPTION.
@@ -1805,7 +1793,7 @@ void ListBoxSelectType::UpdateSelectedState(HTMLOptionElement* clicked_option,
 
   // Set the selection state of the clicked OPTION.
   if (!clicked_option->IsDisabledFormControl()) {
-    clicked_option->SetSelectedState(active_selection_state_);
+    clicked_option->SetSelectedState(true);
     clicked_option->SetDirty(true);
   }
 
@@ -1934,9 +1922,6 @@ void ListBoxSelectType::ManuallyAssignSlots() {
   }
   CHECK(option_slot_);
   option_slot_->Assign(option_nodes);
-  if (HTMLSelectElement::CustomizableSelectEnabled(select_)) {
-    select_->GetShadowRoot()->SetDelegatesFocus(false);
-  }
 }
 
 HTMLButtonElement* ListBoxSelectType::SlottedButton() const {

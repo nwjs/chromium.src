@@ -95,14 +95,17 @@ void LayerContextImplTest::SetUp() {
   compositor_frame_sink_support_ = std::make_unique<CompositorFrameSinkSupport>(
       &dummy_client_, &frame_sink_manager_, kDefaultFrameSinkId,
       /*is_root=*/true);
+  auto settings = mojom::LayerContextSettings::New();
+  settings->draw_mode_is_gpu = true;
+  settings->enable_edge_anti_aliasing = true;
   layer_context_impl_ = LayerContextImpl::CreateForTesting(
-      compositor_frame_sink_support_.get(), /*draw_mode_is_gpu=*/true);
+      compositor_frame_sink_support_.get(), std::move(settings));
 }
 
-void LayerContextImplTest::RecreateLayerContextImplWithParams(
-    bool draw_mode_is_gpu) {
+void LayerContextImplTest::RecreateLayerContextImplWithSettings(
+    mojom::LayerContextSettingsPtr settings) {
   layer_context_impl_ = LayerContextImpl::CreateForTesting(
-      compositor_frame_sink_support_.get(), draw_mode_is_gpu);
+      compositor_frame_sink_support_.get(), std::move(settings));
 }
 
 void LayerContextImplTest::ResetTestState() {
@@ -139,6 +142,10 @@ void LayerContextImplTest::AddDefaultPropertyUpdates(
   update->device_scale_factor = kDefaultDeviceScaleFactor;
   update->painted_device_scale_factor = kDefaultPaintedDeviceScaleFactor;
 
+  update->top_controls_shown_ratio =
+      LayerContextImplTest::kDefaultTopControlsShownRatio;
+  update->bottom_controls_shown_ratio = kDefaultBottomControlsShownRatio;
+
   update->num_transform_nodes = next_transform_id_;
   update->num_clip_nodes = next_clip_id_;
   update->num_effect_nodes = next_effect_id_;
@@ -155,6 +162,8 @@ void LayerContextImplTest::AddDefaultPropertyUpdates(
   // Other defaults
   update->display_color_spaces = gfx::DisplayColorSpaces();
   update->local_surface_id_from_parent = kDefaultLocalSurfaceId;
+  update->current_local_surface_id = kDefaultLocalSurfaceId;
+  update->next_frame_token = 1;
 
   base::TimeTicks now = base::TimeTicks::Now();
   base::TimeDelta interval = base::Milliseconds(16);

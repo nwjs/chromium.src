@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/40284755): Remove this and spanify to fix the errors.
+#pragma allow_unsafe_buffers
+#endif
+
 #include "partition_alloc/thread_cache.h"
 
 #include <sys/types.h>
@@ -382,9 +387,6 @@ void ThreadCache::RemoveTombstoneForTesting() {
 
 // static
 void ThreadCache::Init(PartitionRoot* root) {
-#if PA_BUILDFLAG(IS_NACL)
-  static_assert(false, "PartitionAlloc isn't supported for NaCl");
-#endif
   PA_CHECK(root->buckets[kBucketCount - 1].slot_size ==
            ThreadCache::kLargeSizeThreshold);
   PA_CHECK(root->buckets[largest_active_bucket_index_].slot_size ==
@@ -406,6 +408,15 @@ void ThreadCache::Init(PartitionRoot* root) {
 #endif
 
   SetGlobalLimits(root, kDefaultMultiplier);
+}
+
+// static
+ThreadCache* ThreadCache::EnsureAndGet() {
+  PartitionRoot* root = g_thread_cache_root.load(std::memory_order_relaxed);
+  if (root) {
+    return root->EnsureThreadCache();
+  }
+  return nullptr;
 }
 
 // static

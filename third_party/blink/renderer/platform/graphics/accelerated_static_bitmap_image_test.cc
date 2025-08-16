@@ -2,13 +2,9 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifdef UNSAFE_BUFFERS_BUILD
-// TODO(crbug.com/351564777): Remove this and convert code to safer constructs.
-#pragma allow_unsafe_buffers
-#endif
-
 #include "third_party/blink/renderer/platform/graphics/accelerated_static_bitmap_image.h"
 
+#include "base/compiler_specific.h"
 #include "base/functional/callback_helpers.h"
 #include "base/test/null_task_runner.h"
 #include "base/test/task_environment.h"
@@ -59,9 +55,8 @@ scoped_refptr<StaticBitmapImage> CreateBitmap(
   auto client_si = gpu::ClientSharedImage::CreateForTesting(usage);
 
   return AcceleratedStaticBitmapImage::CreateFromCanvasSharedImage(
-      std::move(client_si), GenTestSyncToken(100), 0, gfx::Size(100, 100),
-      GetN32FormatForCanvas(), kPremul_SkAlphaType,
-      gfx::ColorSpace::CreateSRGB(), SharedGpuContext::ContextProviderWrapper(),
+      std::move(client_si), GenTestSyncToken(100), 0, kPremul_SkAlphaType,
+      SharedGpuContext::ContextProviderWrapper(),
       base::PlatformThread::CurrentRef(),
       base::MakeRefCounted<base::NullTaskRunner>(), base::DoNothing());
 }
@@ -117,7 +112,7 @@ TEST_F(AcceleratedStaticBitmapImageTest, CopyToTextureSynchronization) {
   EXPECT_CALL(destination_gl, GenUnverifiedSyncTokenCHROMIUM(_))
       .WillOnce(SetArrayArgument<0>(
           sync_token2.GetConstData(),
-          sync_token2.GetConstData() + sizeof(gpu::SyncToken)));
+          UNSAFE_TODO(sync_token2.GetConstData() + sizeof(gpu::SyncToken))));
 
   gfx::Point dest_point(0, 0);
   gfx::Rect source_sub_rectangle(0, 0, 10, 10);

@@ -476,7 +476,7 @@ void CompositorFrameSinkSupport::DoReturnResources(
   // When we attempt to return resources in DidReceiveCompositorFrameAck.
   // However if there are no pending frames then we don't expect that signal
   // soon. In which case we return the resources to the `client_` now.
-  if (pending_frames_.empty() && client_) {
+  if (!pending_frames_ && client_) {
     client_->ReclaimResources(std::move(resources));
     return;
   }
@@ -584,9 +584,9 @@ bool CompositorFrameSinkSupport::WantsAnimateOnlyBeginFrames() const {
 
 void CompositorFrameSinkSupport::BindLayerContext(
     mojom::PendingLayerContext& context,
-    bool draw_mode_is_gpu) {
+    mojom::LayerContextSettingsPtr settings) {
   layer_context_ =
-      std::make_unique<LayerContextImpl>(this, context, draw_mode_is_gpu);
+      std::make_unique<LayerContextImpl>(this, context, std::move(settings));
 }
 
 void CompositorFrameSinkSupport::SetThreads(
@@ -664,10 +664,9 @@ void CompositorFrameSinkSupport::SubmitCompositorFrame(
     CompositorFrame frame,
     std::optional<HitTestRegionList> hit_test_region_list,
     uint64_t submit_time) {
-  const auto result = MaybeSubmitCompositorFrame(
-      local_surface_id, std::move(frame), std::move(hit_test_region_list),
-      submit_time,
-      mojom::CompositorFrameSink::SubmitCompositorFrameSyncCallback());
+  const auto result =
+      MaybeSubmitCompositorFrame(local_surface_id, std::move(frame),
+                                 std::move(hit_test_region_list), submit_time);
   DCHECK_EQ(result, SubmitResult::ACCEPTED);
 }
 
@@ -675,8 +674,7 @@ SubmitResult CompositorFrameSinkSupport::MaybeSubmitCompositorFrame(
     const LocalSurfaceId& local_surface_id,
     CompositorFrame frame,
     std::optional<HitTestRegionList> hit_test_region_list,
-    uint64_t submit_time,
-    mojom::CompositorFrameSink::SubmitCompositorFrameSyncCallback callback) {
+    uint64_t submit_time) {
   if (!client_needs_begin_frame_ && auto_needs_begin_frame_) {
     // SetNeedsBeginFrame(true) below may cause `last_begin_frame_args_` to be
     // updated.
@@ -721,14 +719,7 @@ SubmitResult CompositorFrameSinkSupport::MaybeSubmitCompositorFrame(
   CHECK(callback_received_receive_ack_);
 
   begin_frame_tracker_.ReceivedAck(frame.metadata.begin_frame_ack);
-  pending_frames_.push_back(FrameData{.local_frame = false});
-
-  compositor_frame_callback_ = std::move(callback);
-  if (compositor_frame_callback_) {
-    callback_received_begin_frame_ = false;
-    callback_received_receive_ack_ = false;
-    UpdateNeedsBeginFramesInternal();
-  }
+  pending_frames_++;
 
   base::TimeTicks now_time = base::TimeTicks::Now();
   pending_received_frame_times_.emplace(
@@ -969,40 +960,18 @@ SurfaceReference CompositorFrameSinkSupport::MakeTopLevelRootReference(
   return SurfaceReference(surface_manager_->GetRootSurfaceId(), surface_id);
 }
 
-void CompositorFrameSinkSupport::HandleCallback() {
-  if (!compositor_frame_callback_ || !callback_received_begin_frame_ ||
-      !callback_received_receive_ack_) {
-    return;
-  }
-
-  std::move(compositor_frame_callback_)
-      .Run(std::move(surface_returned_resources_));
-  surface_returned_resources_.clear();
-}
-
 void CompositorFrameSinkSupport::DidReceiveCompositorFrameAck() {
-  DCHECK(!pending_frames_.empty());
-  // TODO(https://crbug.com/40902503): Drawing from a layer context is indeed
-  // local, but we'll likely want to use a different resource return policy.
-  bool was_local_frame = pending_frames_.front().local_frame || layer_context_;
-  pending_frames_.pop_front();
+  DCHECK_GT(pending_frames_, 0u);
+  pending_frames_--;
 
   if (!client_)
     return;
 
-  // If this frame came from viz directly and not from the client, don't send
-  // the client an ack, since it didn't do anything. Just return the resources.
-  if (was_local_frame) {
+  // TODO(https://crbug.com/40902503): Drawing from a layer context is indeed
+  // local, but we'll likely want to use a different resource return policy.
+  if (layer_context_) {
     client_->ReclaimResources(std::move(surface_returned_resources_));
     surface_returned_resources_.clear();
-    return;
-  }
-
-  // If we have a callback, we only return the resource on onBeginFrame.
-  if (compositor_frame_callback_) {
-    callback_received_receive_ack_ = true;
-    UpdateNeedsBeginFramesInternal();
-    HandleCallback();
     return;
   }
 
@@ -1121,12 +1090,6 @@ void CompositorFrameSinkSupport::OnBeginFrame(const BeginFrameArgs& args) {
         }
       });
 
-  if (compositor_frame_callback_) {
-    callback_received_begin_frame_ = true;
-    UpdateNeedsBeginFramesInternal();
-    HandleCallback();
-  }
-
   CheckPendingSurfaces();
 
   BeginFrameArgs adjusted_args = args;
@@ -1213,8 +1176,7 @@ void CompositorFrameSinkSupport::UpdateNeedsBeginFramesInternal() {
   // return.
   needs_begin_frame_ =
       (client_needs_begin_frame_ || !frame_timing_details_.empty() ||
-       !pending_surfaces_.empty() || layer_context_wants_begin_frames_ ||
-       (compositor_frame_callback_ && !callback_received_begin_frame_));
+       !pending_surfaces_.empty() || layer_context_wants_begin_frames_);
 
   if (bundle_id_.has_value()) {
     // When bundled with other sinks, observation of BeginFrame notifications is

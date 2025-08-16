@@ -20,8 +20,8 @@
 #include "base/unguessable_token.h"
 #include "base/version_info/channel.h"
 #include "chrome/browser/search_engines/template_url_service_factory.h"
-#include "chrome/browser/ui/webui/new_tab_page/composebox/composebox.mojom.h"
-#include "chrome/browser/ui/webui/new_tab_page/composebox/composebox_fieldtrial.h"
+#include "chrome/browser/ui/webui/new_tab_page/composebox/variations/composebox_fieldtrial.h"
+#include "chrome/browser/ui/webui/searchbox/searchbox_test_utils.h"
 #include "chrome/test/base/chrome_render_view_host_test_harness.h"
 #include "chrome/test/base/testing_profile.h"
 #include "components/omnibox/composebox/composebox_query.mojom.h"
@@ -39,6 +39,7 @@
 #include "services/network/test/test_url_loader_factory.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "ui/webui/resources/cr_components/composebox/composebox.mojom.h"
 
 namespace {
 constexpr int kImageCompressionQuality = 30;
@@ -172,9 +173,12 @@ class ComposeboxHandlerTest : public ChromeRenderViewHostTestHarness {
     metrics_recorder_ = metrics_recorder_ptr.get();
     handler_ = std::make_unique<ComposeboxHandler>(
         mojo::PendingReceiver<composebox::mojom::PageHandler>(),
-        mock_page_.BindAndGetRemote(), std::move(query_controller_ptr),
-        std::move(metrics_recorder_ptr), web_contents());
+        mock_page_.BindAndGetRemote(),
+        mojo::PendingReceiver<searchbox::mojom::PageHandler>(),
+        std::move(query_controller_ptr), std::move(metrics_recorder_ptr),
+        profile(), web_contents(), /*metrics_reporter=*/nullptr);
 
+    handler_->SetPage(mock_searchbox_page_.BindAndGetRemote());
     // Set all the feature params here to keep the test consistent if future
     // default values are changed.
     scoped_config_.Get().enabled = true;
@@ -235,13 +239,13 @@ class ComposeboxHandlerTest : public ChromeRenderViewHostTestHarness {
     result_url = net::AppendOrReplaceQueryParameter(
         result_url, kQuerySubmissionTimeQueryParameter, std::nullopt);
     result_url = net::AppendOrReplaceQueryParameter(
-        result_url, kClientUploadDurationQueryParameter,
-        std::nullopt);
+        result_url, kClientUploadDurationQueryParameter, std::nullopt);
     return result_url;
   }
 
  protected:
   testing::NiceMock<MockPage> mock_page_;
+  testing::NiceMock<MockSearchboxPage> mock_searchbox_page_;
 
  private:
   ntp_composebox::ScopedFeatureConfigForTesting scoped_config_;

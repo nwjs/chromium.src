@@ -13,7 +13,8 @@ import {isRTL} from 'chrome://resources/js/util.js';
 
 import type {AlertIndicatorsElement} from '../alert_indicators.js';
 import {getTemplate} from '../tab.html.js';
-import type {Tab, NodeId} from '../tab_strip_api.mojom-webui.js';
+import type {Tab} from '../tab_strip_api_data_model.mojom-webui.js';
+import type {NodeId} from '../tab_strip_api_types.mojom-webui.js';
 import {TabNetworkState} from '../tabs.mojom-webui.js';
 
 import type {TabStripApiProxy} from './tab_strip_api.js';
@@ -134,7 +135,7 @@ export class TabElement extends CustomElement {
     }
 
     // Expose the ID to an attribute to allow easy querySelector use
-    this.setAttribute('data-tab-id', tab.id.id.toString());
+    this.setAttribute('data-tab-id', tab.id);
 
     this.alertIndicatorsEl_.updateAlertStates(tab.alertStates)
         .then((alertIndicatorsCount) => {

@@ -150,6 +150,9 @@ class TabImpl implements Tab {
     /** The tab model this tab is currently attached to. */
     private @Nullable ObservableSupplier<@Nullable Tab> mCurrentTabSupplier;
 
+    /** Whether or not this tab is a part of multi selection. */
+    private @Nullable SelectionStateSupplier mSelectionStateSupplier;
+
     /**
      * An Application {@link Context}. Unlike {@link #mActivity}, this is the only one that is
      * publicly exposed to help prevent leaking the {@link Activity}.
@@ -188,9 +191,8 @@ class TabImpl implements Tab {
      */
     private final TabViewManagerImpl mTabViewManager;
 
-    /** A list of Tab observers.  These are used to broadcast Tab events to listeners. */
-    @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
-    protected final ObserverList<TabObserver> mObservers = new ObserverList<>();
+    /** A list of Tab observers. These are used to broadcast Tab events to listeners. */
+    @VisibleForTesting protected final ObserverList<TabObserver> mObservers = new ObserverList<>();
 
     // Content layer Delegates
     private @Nullable TabWebContentsDelegateAndroidImpl mWebContentsDelegate;
@@ -273,6 +275,7 @@ class TabImpl implements Tab {
     private @Nullable Token mTabGroupId;
     private boolean mTabHasSensitiveContent;
     private boolean mIsPinned;
+    private @MediaState int mMediaState;
     private @TabUserAgent int mUserAgent = TabUserAgent.DEFAULT;
 
     /**
@@ -440,9 +443,12 @@ class TabImpl implements Tab {
         assert !(window == null && tabDelegateFactory != null);
 
         if (window != null) {
-            updateWindowAndroid(window);
-
+            // Firstly updating the delegates as the fullscreen state is now checked by the delegate
             if (tabDelegateFactory != null) setDelegateFactory(tabDelegateFactory);
+
+            // Updating window as the WebContentsDelegate is now set and delegate can validate the
+            // full screen state.
+            updateWindowAndroid(window);
 
             // Reload the NativePage (if any), since the old NativePage has a reference to the old
             // activity.
@@ -585,13 +591,11 @@ class TabImpl implements Tab {
 
     @Override
     public int getBackgroundColor() {
-        if (ChromeFeatureList.sNavBarColorMatchesTabBackground.isEnabled()) {
-            if (mCustomView != null && mCustomViewBackgroundColor != null) {
-                return mCustomViewBackgroundColor;
-            }
-            if (mNativePage != null) {
-                return mNativePage.getBackgroundColor();
-            }
+        if (mCustomView != null && mCustomViewBackgroundColor != null) {
+            return mCustomViewBackgroundColor;
+        }
+        if (mNativePage != null) {
+            return mNativePage.getBackgroundColor();
         }
         return mWebContentBackgroundColor;
     }
@@ -915,6 +919,8 @@ class TabImpl implements Tab {
             return;
         }
 
+        if (getWebContents() == null) return;
+
         // TODO(dtrainor): Should we try to rebuild the ContentView if it's frozen?
         if (OfflinePageUtils.isOfflinePage(this)) {
             // If current page is an offline page, reload it with custom behavior defined in extra
@@ -926,7 +932,6 @@ class TabImpl implements Tab {
             return;
         }
 
-        if (getWebContents() == null) return;
         switchUserAgentIfNeeded(UseDesktopUserAgentCaller.RELOAD);
         getWebContents().getNavigationController().reload(true);
     }
@@ -1217,7 +1222,8 @@ class TabImpl implements Tab {
             TabDelegateFactory delegateFactory,
             boolean initiallyHidden,
             @Nullable TabState tabState,
-            boolean initializeRenderer) {
+            boolean initializeRenderer,
+            boolean isPinned) {
         try {
             TraceEvent.begin("Tab.initialize");
 
@@ -1227,6 +1233,7 @@ class TabImpl implements Tab {
 
             mTabLaunchTypeAtCreation = mLaunchType;
             mCreationState = creationState;
+            mIsPinned = isPinned;
 
             // If applicable set up for a lazy background tab load.
             mPendingLoadParams = loadUrlParams;
@@ -1360,7 +1367,7 @@ class TabImpl implements Tab {
             // the page importance.
             return;
         }
-        webContents.setPrimaryMainFrameImportance(importance);
+        webContents.setPrimaryPageImportance(importance, ChildProcessImportance.NORMAL);
     }
 
     /** Hides the current {@link NativePage}, if any, and shows the {@link WebContents}'s view. */
@@ -1779,8 +1786,7 @@ class TabImpl implements Tab {
 
     /** Called to notify when the page had painted something non-empty. */
     void notifyDidFirstVisuallyNonEmptyPaint() {
-        if (ChromeFeatureList.sNavBarColorMatchesTabBackground.isEnabled()
-                && mWaitingOnBgColorAfterHidingNativePage) {
+        if (mWaitingOnBgColorAfterHidingNativePage) {
             onBackgroundColorChanged(
                     BackgroundColorChangeOrigin.BG_COLOR_UPDATE_AFTER_HIDING_NATIVE_PAGE);
         }
@@ -1801,8 +1807,7 @@ class TabImpl implements Tab {
 
         int newBackgroundColor = getBackgroundColor();
         // Avoid notifying the observers if the background color hasn't actually changed.
-        if (mTabBackgroundColor == newBackgroundColor
-                && ChromeFeatureList.sNavBarColorMatchesTabBackground.isEnabled()) return;
+        if (mTabBackgroundColor == newBackgroundColor) return;
 
         mTabBackgroundColor = newBackgroundColor;
 
@@ -2061,10 +2066,7 @@ class TabImpl implements Tab {
                         mNativePageSmoothTransitionDelegate.prepare();
                     }
                     pushNativePageStateToNavigationEntry();
-
-                    if (ChromeFeatureList.sNavBarColorMatchesTabBackground.isEnabled()) {
-                        onBackgroundColorChanged(BackgroundColorChangeOrigin.NATIVE_PAGE_SHOWN);
-                    }
+                    onBackgroundColorChanged(BackgroundColorChangeOrigin.NATIVE_PAGE_SHOWN);
                     updateThemeColor(TabState.UNSPECIFIED_THEME_COLOR);
                 });
     }
@@ -2371,7 +2373,7 @@ class TabImpl implements Tab {
 
     @Override
     @CalledByNative
-    public @Nullable Token getTabGroupId() {
+    public @JniType("std::optional<base::Token>") @Nullable Token getTabGroupId() {
         return mTabGroupId;
     }
 
@@ -2677,6 +2679,21 @@ class TabImpl implements Tab {
     }
 
     @Override
+    public @MediaState int getMediaState() {
+        return mMediaState;
+    }
+
+    @Override
+    public void setMediaState(@MediaState int mediaState) {
+        mMediaState = mediaState;
+        if (ChromeFeatureList.sMediaIndicatorsAndroid.isEnabled()) {
+            for (TabObserver observer : mObservers) {
+                observer.onMediaStateChanged(this, mediaState);
+            }
+        }
+    }
+
+    @Override
     public void onTabRestoredFromArchivedTabModel() {
         for (TabObserver observer : mObservers) {
             observer.onTabUnarchived(this);
@@ -2684,11 +2701,14 @@ class TabImpl implements Tab {
     }
 
     @Override
-    public void onAddedToTabModel(ObservableSupplier<@Nullable Tab> currentTabSupplier) {
+    public void onAddedToTabModel(
+            ObservableSupplier<@Nullable Tab> currentTabSupplier,
+            SelectionStateSupplier selectionStateSupplier) {
         // Tabs should not be attached to multiple tab models.
         assert mCurrentTabSupplier == null;
 
         mCurrentTabSupplier = currentTabSupplier;
+        mSelectionStateSupplier = selectionStateSupplier;
     }
 
     @Override
@@ -2698,8 +2718,15 @@ class TabImpl implements Tab {
         // not removed from the original TabModel before being added to the new TabModel. In these
         // cases, mCurrentTabSupplier will be null as a result of the logic in updateAttachment().
         assert mCurrentTabSupplier == null || mCurrentTabSupplier == currentTabSupplier;
-
         mCurrentTabSupplier = null;
+        mSelectionStateSupplier = null;
+    }
+
+    @Override
+    @CalledByNative
+    public boolean isMultiSelected() {
+        if (mSelectionStateSupplier == null) return false;
+        return mSelectionStateSupplier.isTabMultiSelected(mId);
     }
 
     @CalledByNative
@@ -2717,7 +2744,7 @@ class TabImpl implements Tab {
     @NativeMethods
     @VisibleForTesting(otherwise = VisibleForTesting.PACKAGE_PRIVATE)
     public interface Natives {
-        TabImpl fromWebContents(WebContents webContents);
+        TabImpl fromWebContents(@Nullable WebContents webContents);
 
         void init(TabImpl caller, @JniType("Profile*") Profile profile, int id);
 

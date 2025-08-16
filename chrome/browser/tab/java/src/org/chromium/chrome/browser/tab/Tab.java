@@ -27,8 +27,10 @@ import org.chromium.content_public.browser.WebContents;
 import org.chromium.ui.base.WindowAndroid;
 import org.chromium.url.GURL;
 
+import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 
 /**
  * Tab is a visual/functional unit that encapsulates the content (not just web site content from
@@ -47,6 +49,24 @@ public interface Tab extends TabLifecycle {
         int DEFAULT_PAGE_LOAD = 1;
     }
 
+    /** Tracks the media indicator state of the tab. */
+    @IntDef({
+        MediaState.NONE,
+        MediaState.AUDIBLE,
+        MediaState.MUTED,
+        MediaState.RECORDING,
+        MediaState.SHARING
+    })
+    @Target(ElementType.TYPE_USE)
+    @Retention(RetentionPolicy.SOURCE)
+    public @interface MediaState {
+        int NONE = 0;
+        int AUDIBLE = 1;
+        int MUTED = 2;
+        int RECORDING = 3;
+        int SHARING = 4;
+    }
+
     /** The result of the loadUrl. */
     class LoadUrlResult {
         /** Tab load status. */
@@ -63,8 +83,18 @@ public interface Tab extends TabLifecycle {
         }
     }
 
+    @FunctionalInterface
+    public interface SelectionStateSupplier {
+        /**
+         * @param tabId The ID of the tab to check.
+         * @return True if the tab is selected.
+         */
+        boolean isTabMultiSelected(int tabId);
+    }
+
     /**
      * Adds a {@link TabObserver} to be notified on {@link Tab} changes.
+     *
      * @param observer The {@link TabObserver} to add.
      */
     void addObserver(TabObserver observer);
@@ -481,12 +511,27 @@ public interface Tab extends TabLifecycle {
      */
     void setIsPinned(boolean isPinned);
 
+    /** Returns the media state of the tab. */
+    @MediaState
+    int getMediaState();
+
+    /**
+     * Sets the media state of the tab.
+     *
+     * @param mediaState The {@link MediaState} of the tab.
+     */
+    void setMediaState(@MediaState int mediaState);
+
     /** Called when the tab is restored from the archived tab model. */
     void onTabRestoredFromArchivedTabModel();
 
     /** Called when the tab is added to a tab model. */
-    void onAddedToTabModel(ObservableSupplier<@Nullable Tab> currentTabSupplier);
+    void onAddedToTabModel(
+            ObservableSupplier<@Nullable Tab> currentTabSupplier,
+            SelectionStateSupplier selectionStateSupplier);
 
     /** Called when the tab is removed from a tab model. */
     void onRemovedFromTabModel(ObservableSupplier<@Nullable Tab> currentTabSupplier);
+
+    boolean isMultiSelected();
 }

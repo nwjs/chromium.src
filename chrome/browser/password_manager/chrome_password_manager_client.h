@@ -52,7 +52,6 @@
 #include "chrome/browser/password_manager/android/cct_password_saving_metrics_recorder_bridge.h"
 #include "chrome/browser/password_manager/android/cred_man_controller.h"
 #include "chrome/browser/password_manager/android/generated_password_saved_message_delegate.h"
-#include "chrome/browser/password_manager/android/password_access_loss_warning_startup_launcher.h"
 #include "chrome/browser/password_manager/android/password_manager_error_message_delegate.h"
 #include "chrome/browser/password_manager/android/save_update_password_message_delegate.h"
 #include "chrome/browser/touch_to_fill/password_manager/touch_to_fill_controller.h"
@@ -245,6 +244,7 @@ class ChromePasswordManagerClient
   const password_manager::PasswordFeatureManager* GetPasswordFeatureManager()
       const override;
   password_manager::HttpAuthManager* GetHttpAuthManager() override;
+  password_manager::OtpManager* GetOtpManager() override;
   autofill::AutofillCrowdsourcingManager* GetAutofillCrowdsourcingManager()
       override;
   bool IsCommittedMainFrameSecure() const override;
@@ -308,7 +308,6 @@ class ChromePasswordManagerClient
   void UpdateFormManagers() override;
   void NavigateToManagePasswordsPage(
       password_manager::ManagePasswordsReferrer referrer) override;
-  void InformPasswordChangeServiceOfOtpPresent() override;
 
 #if BUILDFLAG(IS_ANDROID)
   void NavigateToManagePasskeysPage(
@@ -409,6 +408,9 @@ class ChromePasswordManagerClient
   credential_management::ContentCredentialManager*
   GetContentCredentialManager();
 
+  password_manager::UndoPasswordChangeController*
+  GetUndoPasswordChangeController() override;
+
  protected:
   // Callable for tests.
   explicit ChromePasswordManagerClient(content::WebContents* web_contents);
@@ -434,8 +436,10 @@ class ChromePasswordManagerClient
 #endif
 
   // content::WebContentsObserver overrides.
+  void RenderFrameDeleted(content::RenderFrameHost* render_frame_host) override;
   void PrimaryPageChanged(content::Page& page) override;
   void WebContentsDestroyed() override;
+  void DidFinishNavigation(content::NavigationHandle* navigation) override;
   void ResourceLoadComplete(
       content::RenderFrameHost* render_frame_host,
       const content::GlobalRequestID& request_id,
@@ -486,13 +490,6 @@ class ChromePasswordManagerClient
 
 #if BUILDFLAG(IS_ANDROID)
   void ResetErrorMessageDelegate();
-
-  // Called on startup. It will show the post password migration sheet if
-  // needed.
-  void TryToShowPostPasswordMigrationSheet();
-
-  // Called on startup. It will show the access loss warning sheet if needed.
-  void TryToShowAccessLossWarningSheet();
 
   password_manager::CredManController* GetOrCreateCredManController();
 
@@ -590,11 +587,6 @@ class ChromePasswordManagerClient
   std::optional<std::pair<std::u16string, base::Time>>
       username_filled_by_touch_to_fill_ = std::nullopt;
 
-  // Launcher used to trigger the password access loss warning once passwords
-  // have been fetched. Only invoked once on startup.
-  std::unique_ptr<PasswordAccessLossWarningStartupLauncher>
-      password_access_loss_warning_startup_launcher_;
-
   // Recorder of metrics that is associated with the first page loaded by a
   // CCT. Created only if the WebContents corresponds to a CCT. Records
   // metrics on destruction, which happens on navigation.
@@ -620,6 +612,9 @@ class ChromePasswordManagerClient
   // some views specific initializations.
   CrossDomainConfirmationPopupFactory
       cross_domain_confirmation_popup_factory_for_testing_;
+
+  password_manager::UndoPasswordChangeController
+      undo_password_change_controller_;
 
   base::WeakPtrFactory<ChromePasswordManagerClient> weak_ptr_factory_{this};
 

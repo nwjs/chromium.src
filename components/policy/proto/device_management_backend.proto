@@ -828,11 +828,15 @@ message PolicyData {
 
   // Invalidation topic for devices. Clients register for FCM messages using
   // this topic in order to receive notifications for device policy changes.
+  // TODO(crbug.com/341377023): Deprecate once no clients use topic
+  // invalidations.
   optional string policy_invalidation_topic = 26;
 
   // Invalidation topic for commands. Clients register for FCM messages using
   // this topic in order to receive notifications that one or more commands are
   // available for execution.
+  // TODO(crbug.com/341377023): Deprecate once no clients use topic
+  // invalidations.
   optional string command_invalidation_topic = 27;
 
   // Whether the device needs to upload an enrollment identifier to the cloud.
@@ -2386,6 +2390,12 @@ enum SettingValue {
   ENABLED = 2;
 }
 
+// Agents installed on a device.
+enum Agent {
+  UNKNOWN_AGENT = 0;
+  CROWDSTRIKE_FALCON = 1;
+}
+
 // Report Operating system related information.
 message OSReport {
   // A string contains OS name.
@@ -2395,6 +2405,7 @@ message OSReport {
   optional string arch = 2;
 
   // A string contains OS version.
+  // On Linux, this represents the kernel version.
   optional string version = 3;
 
   enum VersionType {
@@ -2454,6 +2465,13 @@ message OSReport {
   // A string contains the Windows domain that the current OS user has joined.
   // Windows only.
   optional string windows_user_domain = 18;
+
+  // List of enums that represents agents installed on a device.
+  repeated Agent detected_agents = 19;
+
+  // A string representing the Linux distribution VERSION_ID contained in
+  // /etc/os-release.
+  optional string distribution_version = 20;
 }
 
 // Report the status of a Chrome installation on non-Chrome OS platform.
@@ -3582,6 +3600,7 @@ message TpmVersionInfo {
     GSC_VERSION_NOT_GSC = 1;
     GSC_VERSION_CR50 = 2;
     GSC_VERSION_TI50 = 3;
+    GSC_VERSION_NT = 4;
   }
   optional uint32 family = 1;
   optional uint64 spec_level = 2;
@@ -3728,6 +3747,7 @@ message ExtensionInstallReportLogEvent {
     USER_TYPE_ACTIVE_DIRECTORY = 8;
     USER_TYPE_WEB_KIOSK_APP = 9;
     USER_TYPE_KIOSK_IWA = 10;
+    USER_TYPE_KIOSK_ARCVM_APP = 11;
   }
   // LINT.ThenChange(//components/user_manager/user_type.h:UserType)
 
@@ -4420,6 +4440,8 @@ message StartCsrRequest {}
 message StartCsrResponse {
   // The client should register for FCM messages using this topic in order to
   // receive notifications for the certificate provisioning process.
+  // TODO(crbug.com/341377023): Deprecate once no clients use topic
+  // invalidations.
   optional string invalidation_topic = 1;
 
   // The verified access challenge.
@@ -4462,6 +4484,8 @@ message CertProvStartRequest {}
 message CertProvStartResponse {
   // The client should register for FCM messages using this topic in order to
   // receive notifications for the certificate provisioning process.
+  // TODO(crbug.com/341377023): Deprecate once no clients use topic
+  // invalidations.
   optional string invalidation_topic = 1;
 }
 

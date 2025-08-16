@@ -34,7 +34,6 @@
 #include "components/safe_browsing/content/browser/password_protection/mock_password_protection_service.h"
 #include "components/safe_browsing/content/browser/password_protection/password_protection_commit_deferring_condition.h"
 #include "components/safe_browsing/content/browser/password_protection/password_protection_request_content.h"
-#include "components/safe_browsing/content/common/safe_browsing.mojom-forward.h"
 #include "components/safe_browsing/content/common/safe_browsing.mojom.h"
 #include "components/safe_browsing/core/browser/db/test_database_manager.h"
 #include "components/safe_browsing/core/browser/password_protection/metrics_util.h"
@@ -1126,7 +1125,7 @@ TEST_P(PasswordProtectionServiceBaseTest,
   account_info.gaia = GaiaId("gaia");
   account_info.hosted_domain = "example.com";
   AccountCapabilitiesTestMutator(&account_info.capabilities)
-      .set_is_subject_to_enterprise_policies(true);
+      .set_is_subject_to_enterprise_features(true);
   EXPECT_CALL(*password_protection_service_, GetAccountInfoForUsername(_))
       .WillRepeatedly(Return(account_info));
 

@@ -4,8 +4,11 @@
 
 package org.chromium.chrome.browser.tab;
 
+import static org.junit.Assert.assertFalse;
+
 import android.widget.Button;
 
+import androidx.test.filters.LargeTest;
 import androidx.test.filters.MediumTest;
 import androidx.test.filters.SmallTest;
 import androidx.test.platform.app.InstrumentationRegistry;
@@ -21,8 +24,8 @@ import org.chromium.base.CallbackUtils;
 import org.chromium.base.ThreadUtils;
 import org.chromium.base.test.util.Batch;
 import org.chromium.base.test.util.CommandLineFlags;
-import org.chromium.base.test.util.DisabledTest;
 import org.chromium.base.test.util.Feature;
+import org.chromium.base.test.util.Restriction;
 import org.chromium.base.test.util.UrlUtils;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.fullscreen.FullscreenManagerTestUtils;
@@ -33,6 +36,7 @@ import org.chromium.chrome.test.transit.ChromeTransitTestRules;
 import org.chromium.chrome.test.transit.page.WebPageStation;
 import org.chromium.chrome.test.util.ChromeTabUtils;
 import org.chromium.net.test.util.TestWebServer;
+import org.chromium.ui.test.util.DeviceRestriction;
 
 /** Tests related to the sad tab logic. */
 @RunWith(ChromeJUnit4ClassRunner.class)
@@ -67,6 +71,14 @@ public class SadTabTest {
                     SadTab sadTab = SadTab.from(tab);
                     sadTab.removeIfPresent();
                 });
+    }
+
+    @Test
+    @LargeTest
+    @Feature({"SadTab"})
+    public void testNoRendererCrashOnBlankPage() throws InterruptedException {
+        Thread.sleep(3000);
+        assertFalse(isShowingSadTab(mInitialPage.getTab()));
     }
 
     /** Verify that the sad tab is shown when the renderer crashes. */
@@ -181,20 +193,18 @@ public class SadTabTest {
     @Test
     @MediumTest
     @Feature({"SadTab"})
-    @DisabledTest(message = "https://crbug.com/1447840")
+    @Restriction(DeviceRestriction.RESTRICTION_TYPE_NON_AUTO) // Browser controls don't move in auto
     public void testSadTabBrowserControlsVisibility() {
         ThreadUtils.runOnUiThreadBlocking(
                 TabStateBrowserControlsVisibilityDelegate::disablePageLoadDelayForTests);
         FullscreenManagerTestUtils.disableBrowserOverrides();
         mActivityTestRule.loadUrl(LONG_HTML_TEST_PAGE);
         FullscreenManagerTestUtils.waitForBrowserControlsToBeMoveable(
-                mActivityTestRule.getActivityTestRule(),
-                mActivityTestRule.getActivity().getActivityTab());
-        FullscreenManagerTestUtils.scrollBrowserControls(
-                mActivityTestRule.getActivityTestRule(), false);
+                mActivityTestRule.getActivity());
+        FullscreenManagerTestUtils.scrollBrowserControls(mActivityTestRule.getActivity(), false);
         simulateRendererKilled(mActivityTestRule.getActivity().getActivityTab(), true);
         FullscreenManagerTestUtils.waitForBrowserControlsPosition(
-                mActivityTestRule.getActivityTestRule(), 0);
+                mActivityTestRule.getActivity(), 0);
     }
 
     /** Helper method that kills the renderer on a UI thread. */

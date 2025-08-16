@@ -219,6 +219,11 @@ base::TimeDelta PrefetchBlockUntilHeadTimeout(
       case blink::mojom::SpeculationEagerness::kImmediate:
         timeout_in_milliseconds = base::GetFieldTrialParamByFeatureAsInt(
             features::kPrefetchUseContentRefactor,
+            "block_until_head_timeout_immediate_prefetch", 1000);
+        break;
+      case blink::mojom::SpeculationEagerness::kEager:
+        timeout_in_milliseconds = base::GetFieldTrialParamByFeatureAsInt(
+            features::kPrefetchUseContentRefactor,
             "block_until_head_timeout_eager_prefetch", 1000);
         break;
       case blink::mojom::SpeculationEagerness::kModerate:
@@ -241,7 +246,7 @@ base::TimeDelta PrefetchBlockUntilHeadTimeout(
 }
 
 // These strings (including `embedder_histogram_suffix`) are persisted to logs.
-// LINT.IfChange
+// LINT.IfChange(GetMetricsSuffixTriggerTypeAndEagerness)
 std::string GetMetricsSuffixTriggerTypeAndEagerness(
     const PrefetchType prefetch_type,
     const std::optional<std::string>& embedder_histogram_suffix) {
@@ -249,7 +254,9 @@ std::string GetMetricsSuffixTriggerTypeAndEagerness(
     case PreloadingTriggerType::kSpeculationRule:
       switch (prefetch_type.GetEagerness()) {
         case blink::mojom::SpeculationEagerness::kImmediate:
-          return "SpeculationRule_Immediate";
+          return "SpeculationRule_Immediate2";
+        case blink::mojom::SpeculationEagerness::kEager:
+          return "SpeculationRule_Eager2";
         case blink::mojom::SpeculationEagerness::kModerate:
           return "SpeculationRule_Moderate";
         case blink::mojom::SpeculationEagerness::kConservative:
@@ -258,7 +265,9 @@ std::string GetMetricsSuffixTriggerTypeAndEagerness(
     case PreloadingTriggerType::kSpeculationRuleFromIsolatedWorld:
       switch (prefetch_type.GetEagerness()) {
         case blink::mojom::SpeculationEagerness::kImmediate:
-          return "SpeculationRuleFromIsolatedWorld_Immediate";
+          return "SpeculationRule_Immediate2";
+        case blink::mojom::SpeculationEagerness::kEager:
+          return "SpeculationRule_Eager2";
         case blink::mojom::SpeculationEagerness::kModerate:
           return "SpeculationRuleFromIsolatedWorld_Moderate";
         case blink::mojom::SpeculationEagerness::kConservative:
@@ -267,7 +276,9 @@ std::string GetMetricsSuffixTriggerTypeAndEagerness(
     case PreloadingTriggerType::kSpeculationRuleFromAutoSpeculationRules:
       switch (prefetch_type.GetEagerness()) {
         case blink::mojom::SpeculationEagerness::kImmediate:
-          return "SpeculationRuleFromAutoSpeculationRules_Immediate";
+          return "SpeculationRule_Immediate2";
+        case blink::mojom::SpeculationEagerness::kEager:
+          return "SpeculationRule_Eager2";
         case blink::mojom::SpeculationEagerness::kModerate:
           return "SpeculationRuleFromAutoSpeculationRules_Moderate";
         case blink::mojom::SpeculationEagerness::kConservative:
@@ -290,9 +301,7 @@ bool PrefetchBrowserInitiatedTriggersEnabled() {
 }
 
 size_t GetPrefetchDataPipeTeeBodySizeLimit() {
-  return std::max(
-      static_cast<size_t>(features::kPrefetchReusableBodySizeLimit.Get()),
-      features::kPrerender2FallbackBodySizeLimit.Get());
+  return static_cast<size_t>(features::kPrefetchReusableBodySizeLimit.Get());
 }
 
 bool UsePrefetchScheduler() {

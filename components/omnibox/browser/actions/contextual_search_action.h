@@ -9,7 +9,9 @@
 #include "components/omnibox/browser/actions/omnibox_action_concepts.h"
 #include "url/gurl.h"
 
-// An action that fulfills a contextual search via Lens.
+// An action that fulfills a contextual search via the Lens CSB flow.
+// This action is specified as the `takeover_action` for contextual search
+// matches in order to trigger fulfillment via the Lens CSB flow.
 class ContextualSearchFulfillmentAction : public OmniboxAction {
  public:
   ContextualSearchFulfillmentAction(const GURL& url,
@@ -17,23 +19,30 @@ class ContextualSearchFulfillmentAction : public OmniboxAction {
                                     bool is_zero_prefix_suggestion);
 
   // OmniboxAction:
+  OmniboxActionId ActionId() const override;
   void RecordActionShown(size_t position, bool executed) const override;
   void Execute(ExecutionContext& context) const override;
-  OmniboxActionId ActionId() const override;
+#if defined(SUPPORT_PEDALS_VECTOR_ICONS)
+  const gfx::VectorIcon& GetVectorIcon() const override;
+#endif
 
- private:
+ protected:
   ~ContextualSearchFulfillmentAction() override;
 
   AutocompleteMatchType::Type match_type_;
   bool is_zero_prefix_suggestion_;
 };
 
+// An action that invokes the Lens overlay UI for the current page.
+// This action will be shown as either a standalone suggestion in the Omnibox
+// popup or a dedicated action in the Omnibox toolbelt.
 class ContextualSearchOpenLensAction : public OmniboxAction {
  public:
   ContextualSearchOpenLensAction();
 
   // OmniboxAction:
   OmniboxActionId ActionId() const override;
+  void RecordActionShown(size_t position, bool executed) const override;
   void Execute(ExecutionContext& context) const override;
 #if defined(SUPPORT_PEDALS_VECTOR_ICONS)
   const gfx::VectorIcon& GetVectorIcon() const override;
@@ -49,6 +58,7 @@ class StarterPackBookmarksAction : public OmniboxAction {
 
   // OmniboxAction:
   OmniboxActionId ActionId() const override;
+  void RecordActionShown(size_t position, bool executed) const override;
   void Execute(ExecutionContext& context) const override;
 #if defined(SUPPORT_PEDALS_VECTOR_ICONS)
   const gfx::VectorIcon& GetVectorIcon() const override;
@@ -64,6 +74,7 @@ class StarterPackHistoryAction : public OmniboxAction {
 
   // OmniboxAction:
   OmniboxActionId ActionId() const override;
+  void RecordActionShown(size_t position, bool executed) const override;
   void Execute(ExecutionContext& context) const override;
 #if defined(SUPPORT_PEDALS_VECTOR_ICONS)
   const gfx::VectorIcon& GetVectorIcon() const override;
@@ -79,6 +90,7 @@ class StarterPackTabsAction : public OmniboxAction {
 
   // OmniboxAction:
   OmniboxActionId ActionId() const override;
+  void RecordActionShown(size_t position, bool executed) const override;
   void Execute(ExecutionContext& context) const override;
 #if defined(SUPPORT_PEDALS_VECTOR_ICONS)
   const gfx::VectorIcon& GetVectorIcon() const override;
@@ -94,6 +106,7 @@ class StarterPackAiModeAction : public OmniboxAction {
 
   // OmniboxAction:
   OmniboxActionId ActionId() const override;
+  void RecordActionShown(size_t position, bool executed) const override;
   void Execute(ExecutionContext& context) const override;
 #if defined(SUPPORT_PEDALS_VECTOR_ICONS)
   const gfx::VectorIcon& GetVectorIcon() const override;

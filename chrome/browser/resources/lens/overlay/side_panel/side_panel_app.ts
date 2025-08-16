@@ -78,10 +78,20 @@ export class LensSidePanelAppElement extends LensSidePanelAppElementBase {
         type: Boolean,
         value: false,
       },
+      enableAimSearchbox: {
+        reflectToAttribute: true,
+        type: Boolean,
+        value: () => loadTimeData.getBoolean('enableAimSearchbox'),
+      },
       enableCsbMotionTweaks: {
         reflectToAttribute: true,
         type: Boolean,
         value: () => loadTimeData.getBoolean('enableCsbMotionTweaks'),
+      },
+      enableVisualSelectionUpdates: {
+        reflectToAttribute: true,
+        type: Boolean,
+        value: () => loadTimeData.getBoolean('enableVisualSelectionUpdates'),
       },
       isBackArrowVisible: {
         type: Boolean,
@@ -181,6 +191,8 @@ export class LensSidePanelAppElement extends LensSidePanelAppElementBase {
 
   // Whether CSB motion tweaks are enabled via feature flag.
   declare private enableCsbMotionTweaks: boolean;
+  // Whether the visual selection updates are enabled via feature flag.
+  declare private enableVisualSelectionUpdates: boolean;
   // Public for use in browser tests.
   declare isBackArrowVisible: boolean;
   // Whether the user is currently focused into the searchbox.
@@ -202,6 +214,8 @@ export class LensSidePanelAppElement extends LensSidePanelAppElementBase {
   declare private pageContentType: PageContentType;
   // Whether this is an in flight request to autocomplete.
   declare private autocompleteRequestStarted: boolean;
+  // Whether the AIM searchbox is enabled via feature flag.
+  declare private enableAimSearchbox: boolean;
   declare private isErrorPageVisible: boolean;
   // Whether the results iframe is currently loading. This needs to be done via
   // browser because the iframe is cross-origin. Default true since the side

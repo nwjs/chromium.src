@@ -6,18 +6,23 @@
 
 #include "base/files/file_enumerator.h"
 #include "base/files/file_util.h"
+#include "base/strings/string_number_conversions.h"
 #include "base/task/thread_pool.h"
 #include "base/types/expected.h"
 #include "base/types/expected_macros.h"
 #include "chrome/browser/web_applications/commands/web_app_command.h"
 #include "chrome/browser/web_applications/web_app.h"
 #include "chrome/browser/web_applications/web_app_registrar.h"
+#include "components/webapps/isolated_web_apps/error/uma_logging.h"
 
 namespace web_app {
 
 namespace {
 
 using SessionType = IwaCacheClient::SessionType;
+
+constexpr char kRemoveObsoleteBundleVersionsMetric[] =
+    "WebApp.Isolated.RemoveObsoleteBundleVersions";
 
 RemoveObsoleteBundleVersionsResult RemoveObsoleteBundleVersionsCacheCommandImpl(
     const web_package::SignedWebBundleId& web_bundle_id,
@@ -78,22 +83,42 @@ base::expected<base::Version, RemoveObsoleteBundleVersionsError> GetIwaVersion(
   return app->isolation_data()->version();
 }
 
+RemoveObsoleteBundleVersionsResult RecordMetric(
+    RemoveObsoleteBundleVersionsResult result) {
+  web_app::UmaLogExpectedStatus(
+      kRemoveObsoleteBundleVersionsMetric,
+      result.transform_error(&RemoveObsoleteBundleVersionsError::type));
+  return result;
+}
+
 }  // namespace
 
-std::string RemoveObsoleteBundleVersionsErrorToString(
-    RemoveObsoleteBundleVersionsError error) {
-  switch (error.type()) {
+std::string RemoveObsoleteBundleVersionsSuccess::ToString() const {
+  return "Successfully finished versions cleanup, number of removed obsolete "
+         "versions: " +
+         base::NumberToString(number_of_removed_versions_);
+}
+
+std::string RemoveObsoleteBundleVersionsError::ToString() const {
+  std::string result = "Failed to finish versions cleanup: ";
+  switch (type_) {
     case RemoveObsoleteBundleVersionsError::Type::kSystemShutdown:
-      return "System is shutting down";
+      result += "System is shutting down";
+      break;
     case RemoveObsoleteBundleVersionsError::Type::kAppNotInstalled:
-      return "IWA is not installed";
+      result += "IWA is not installed";
+      break;
     case RemoveObsoleteBundleVersionsError::Type::kInstalledVersionNotCached:
-      return "Installed version not cached";
+      result += "Installed version not cached";
+      break;
     case RemoveObsoleteBundleVersionsError::Type::kCouldNotDeleteAllVersions:
-      return "Could not delete all previous versions, number of failed "
-             "versions to delete: " +
-             base::NumberToString(error.number_of_failed_remove_versions());
+      result +=
+          "Could not delete all previous versions, number of failed versions "
+          "to delete: " +
+          base::NumberToString(number_of_failed_to_remove_versions_);
+      break;
   }
+  return result;
 }
 
 RemoveObsoleteBundleVersionsCacheCommand::
@@ -104,7 +129,7 @@ RemoveObsoleteBundleVersionsCacheCommand::
     : WebAppCommand<AppLock, RemoveObsoleteBundleVersionsResult>(
           "RemoveObsoleteBundleVersionsCacheCommand",
           AppLockDescription(url_info.app_id()),
-          std::move(callback),
+          base::BindOnce(&RecordMetric).Then(std::move(callback)),
           /*args_for_shutdown=*/
           base::unexpected(RemoveObsoleteBundleVersionsError{
               RemoveObsoleteBundleVersionsError::Type::kSystemShutdown})),

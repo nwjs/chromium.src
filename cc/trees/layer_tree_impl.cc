@@ -261,7 +261,9 @@ void LayerTreeImpl::DidUpdateScrollOffset(
     transform_node->SetTransformChanged(DamageReason::kCompositorScroll);
     property_trees()->set_changed(true);
     set_needs_update_draw_properties();
-  } else if (can_realize_on_pending_tree) {
+  }
+
+  if (can_realize_on_pending_tree) {
     host_impl_->RequestImplSideInvalidationForRasterInducingScroll(id);
   }
 
@@ -483,35 +485,32 @@ void LayerTreeImpl::UpdateViewportContainerSizes() {
   // The delta to be added to transform matrix if dynamic safe area is
   // supported.
   auto* property_trees = this->property_trees();
-  if (base::FeatureList::IsEnabled(
-          features::kDynamicSafeAreaInsetsSupportedByCC)) {
-    float blink_bottom_content_offset;
-    if (settings().dynamic_safe_area_insets_on_scroll_enabled) {
-      // Blink SAI is based on bottom controls shown ratio. Subtract the delta
-      // added by Blink SAI.
-      blink_bottom_content_offset =
-          bottom_content_offset -
-          bottom_controls_height() * bottom_controls_shown_ratio_->Delta();
-    } else {
-      // Blink did NOT update SAI based on bottom controls shown ratio.
-      blink_bottom_content_offset = bottom_controls_layout_height;
-    }
+  float blink_bottom_content_offset;
+  if (settings().dynamic_safe_area_insets_on_scroll_enabled) {
+    // Blink SAI is based on bottom controls shown ratio. Subtract the delta
+    // added by Blink SAI.
+    blink_bottom_content_offset =
+        bottom_content_offset -
+        bottom_controls_height() * bottom_controls_shown_ratio_->Delta();
+  } else {
+    // Blink did NOT update SAI based on bottom controls shown ratio.
+    blink_bottom_content_offset = bottom_controls_layout_height;
+  }
 
-    const float real_saib =
-        std::max(0.0f, max_safe_area_inset_bottom() - bottom_content_offset);
-    const float blink_saib = std::max(
-        0.0f, max_safe_area_inset_bottom() - blink_bottom_content_offset);
-    const float transform_delta_by_safe_area_inset_bottom =
-        -(real_saib - blink_saib);
+  const float real_saib =
+      std::max(0.0f, max_safe_area_inset_bottom() - bottom_content_offset);
+  const float blink_saib = std::max(
+      0.0f, max_safe_area_inset_bottom() - blink_bottom_content_offset);
+  const float transform_delta_by_safe_area_inset_bottom =
+      -(real_saib - blink_saib);
 
-    const float scaled_transform_delta_by_safe_area_inset_bottom =
-        transform_delta_by_safe_area_inset_bottom / min_page_scale_factor();
+  const float scaled_transform_delta_by_safe_area_inset_bottom =
+      transform_delta_by_safe_area_inset_bottom / min_page_scale_factor();
 
-    if (property_trees->transform_delta_by_safe_area_inset_bottom() !=
-        scaled_transform_delta_by_safe_area_inset_bottom) {
-      property_trees->SetTransformDeltaBySafeAreaInsetBottom(
-          scaled_transform_delta_by_safe_area_inset_bottom);
-    }
+  if (property_trees->transform_delta_by_safe_area_inset_bottom() !=
+      scaled_transform_delta_by_safe_area_inset_bottom) {
+    property_trees->SetTransformDeltaBySafeAreaInsetBottom(
+        scaled_transform_delta_by_safe_area_inset_bottom);
   }
 
   // Adjust the viewport layers by shrinking/expanding the container to account
@@ -603,6 +602,11 @@ gfx::PointF LayerTreeImpl::TotalMaxScrollOffset() const {
 OwnedLayerImplList LayerTreeImpl::DetachLayers() {
   render_surface_list_.clear();
   set_needs_update_draw_properties();
+  // Clear the HUD layer pointer since we're detaching all layers. If there is a
+  // HUD layer, it will be reset during PullLayerTreePropertiesFrom. But we must
+  // clear the ptr before then in case the HUD layer is destroyed, which would
+  // leave a dangling pointer.
+  hud_layer_ = nullptr;
   OwnedLayerImplList result = std::move(layer_list_);
   // TODO(crbug.com/40778609): remove diagnostic CHECK
   CHECK(!layer_list_.size());
@@ -1500,26 +1504,12 @@ void LayerTreeImpl::SetLocalSurfaceIdFromParent(
 
 void LayerTreeImpl::RequestNewLocalSurfaceId() {
   new_local_surface_id_request_ = true;
-  if (settings().TreesInVizInClientProcess()) {
-    // |new_local_surface_id_request_| will be cleared before
-    // preparing LayerTreeImpl mojo data, but the flag
-    // needs to be passed to the viz process, so LayerTreeImpl
-    // on the viz side will generate its LocalSurfaceId.
-    new_local_surface_id_request_for_viz_process_ = true;
-  }
 }
 
 bool LayerTreeImpl::TakeNewLocalSurfaceIdRequest() {
   bool new_local_surface_id_request = new_local_surface_id_request_;
   new_local_surface_id_request_ = false;
   return new_local_surface_id_request;
-}
-
-bool LayerTreeImpl::TakeNewLocalSurfaceIdRequestForVizProcess() {
-  bool new_local_surface_id_request_for_viz_process =
-      new_local_surface_id_request_for_viz_process_;
-  new_local_surface_id_request_for_viz_process_ = false;
-  return new_local_surface_id_request_for_viz_process;
 }
 
 void LayerTreeImpl::SetScreenshotDestinationToken(
@@ -2091,7 +2081,8 @@ bool LayerTreeImpl::use_gpu_rasterization() const {
 }
 
 void LayerTreeImpl::SetNeedsRedraw() {
-  host_impl_->SetNeedsRedraw();
+  host_impl_->SetNeedsRedraw(/*animation_only=*/false,
+                             /*skip_if_inside_draw=*/false);
 }
 
 void LayerTreeImpl::GetAllPrioritizedTilesForTracing(
@@ -2105,14 +2096,14 @@ void LayerTreeImpl::GetAllPrioritizedTilesForTracing(
 
 void LayerTreeImpl::AsValueInto(base::trace_event::TracedValue* state) const {
   viz::TracedValue::MakeDictIntoImplicitSnapshot(state, "cc::LayerTreeImpl",
-                                                 this);
+                                                 viz::TracedValue::Id(this));
   state->SetInteger("source_frame_number", source_frame_number_);
 
   state->BeginArray("render_surface_layer_list");
   for (auto* layer : base::Reversed(*this)) {
     if (layer->contributes_to_drawn_render_surface())
       continue;
-    viz::TracedValue::AppendIDRef(layer, state);
+    viz::TracedValue::AppendIDRef(viz::TracedValue::Id(layer), state);
   }
   state->EndArray();
 

@@ -2,19 +2,21 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import './composebox/composebox.js';
 import './iframe.js';
 import './logo.js';
 import '/strings.m.js';
 import 'chrome://new-tab-page/shared/customize_buttons/customize_buttons.js';
 import 'chrome://resources/cr_components/searchbox/searchbox.js';
 import 'chrome://resources/cr_elements/cr_button/cr_button.js';
+import 'chrome://resources/cr_components/composebox/composebox.js';
 
 import type {CustomizeButtonsElement} from 'chrome://new-tab-page/shared/customize_buttons/customize_buttons.js';
 import {ColorChangeUpdater} from 'chrome://resources/cr_components/color_change_listener/colors_css_updater.js';
+import type {ComposeboxElement} from 'chrome://resources/cr_components/composebox/composebox.js';
 import {HelpBubbleMixinLit} from 'chrome://resources/cr_components/help_bubble/help_bubble_mixin_lit.js';
 import type {SearchboxElement} from 'chrome://resources/cr_components/searchbox/searchbox.js';
 import type {CrToastElement} from 'chrome://resources/cr_elements/cr_toast/cr_toast.js';
+import {assert} from 'chrome://resources/js/assert.js';
 import type {ClickInfo} from 'chrome://resources/js/browser_command.mojom-webui.js';
 import {Command} from 'chrome://resources/js/browser_command.mojom-webui.js';
 import {BrowserCommandProxy} from 'chrome://resources/js/browser_command/browser_command_proxy.js';
@@ -30,8 +32,6 @@ import type {SkColor} from 'chrome://resources/mojo/skia/public/mojom/skcolor.mo
 import {getCss} from './app.css.js';
 import {getHtml} from './app.html.js';
 import {BackgroundManager} from './background_manager.js';
-import type {ComposeboxElement} from './composebox/composebox.js';
-import {ComposeboxProxyImpl} from './composebox/composebox_proxy.js';
 import type {CustomizeButtonsDocumentCallbackRouter, CustomizeButtonsHandlerRemote} from './customize_buttons.mojom-webui.js';
 import {CustomizeChromeSection, SidePanelOpenTrigger} from './customize_buttons.mojom-webui.js';
 import {CustomizeButtonsProxy} from './customize_buttons_proxy.js';
@@ -207,10 +207,15 @@ export class AppElement extends AppElementBase {
         notify: true,
       },
 
+      closingComposebox: {
+        type: Boolean,
+        reflect: true,
+      },
       composeboxCloseByClickOutside_: {type: Boolean},
       composeboxEnabled: {type: Boolean},
       composeButtonEnabled: {type: Boolean},
 
+      browserPromosEnabled_: {type: Boolean},
       realboxShown_: {type: Boolean},
       logoEnabled_: {type: Boolean},
       oneGoogleBarEnabled_: {type: Boolean},
@@ -255,6 +260,11 @@ export class AppElement extends AppElementBase {
       wallpaperSearchButtonEnabled_: {type: Boolean},
 
       showWallpaperSearchButton_: {type: Boolean},
+
+      /**
+       * Whether the composebox has been opened at least once.
+       */
+      wasComposeboxOpened_: {type: Boolean},
     };
   }
 
@@ -277,6 +287,7 @@ export class AppElement extends AppElementBase {
   accessor realboxCanShowSecondarySide: boolean = false;
   accessor realboxHadSecondarySide: boolean = false;
   protected accessor realboxShown_: boolean = false;
+  protected accessor wasComposeboxOpened_: boolean = false;
   protected accessor showLensUploadDialog_: boolean = false;
   protected accessor showComposebox_: boolean = false;
   protected accessor logoEnabled_: boolean =
@@ -289,6 +300,8 @@ export class AppElement extends AppElementBase {
       loadTimeData.getBoolean('middleSlotPromoEnabled');
   protected accessor modulesEnabled_: boolean =
       loadTimeData.getBoolean('modulesEnabled');
+  protected accessor browserPromosEnabled_: boolean =
+      loadTimeData.getBoolean('browserPromosEnabled');
   private accessor middleSlotPromoLoaded_: boolean = false;
   private accessor modulesLoaded_: boolean = false;
   protected accessor modulesShownToUser: boolean = false;
@@ -304,6 +317,7 @@ export class AppElement extends AppElementBase {
   protected accessor wallpaperSearchButtonEnabled_: boolean =
       loadTimeData.getBoolean('wallpaperSearchButtonEnabled');
   protected accessor showWallpaperSearchButton_: boolean = false;
+  accessor closingComposebox: boolean = false;
   accessor composeButtonEnabled: boolean =
       loadTimeData.getBoolean('searchboxShowComposeEntrypoint');
   protected accessor composeboxCloseByClickOutside_: boolean =
@@ -589,13 +603,26 @@ export class AppElement extends AppElementBase {
         changedPrivateProperties.has('showComposebox_')) {
       this.updateOneGoogleBarAppearance_();
     }
+
+    if (changedPrivateProperties.has('showComposebox_')) {
+      if (this.showComposebox_) {
+        // Set Timeout since browser needs time to render the initial
+        // state before the final state is applied to run the transition.
+        setTimeout(() => {
+          const composeboxScrim =
+              this.shadowRoot.querySelector<HTMLElement>('#composeboxScrim');
+          assert(composeboxScrim);
+          composeboxScrim.classList.add('fade');
+        }, 0);
+      }
+    }
   }
 
   // Called to update the OGB of relevant NTP state changes.
   private updateOneGoogleBarAppearance_() {
     if (this.oneGoogleBarLoaded_) {
       let isNtpDarkTheme;
-      if (this.showComposebox_) {
+      if (this.isComposeboxVisible_()) {
         isNtpDarkTheme = this.theme_ && this.theme_.isDark;
       } else {
         isNtpDarkTheme = this.theme_ &&
@@ -633,7 +660,7 @@ export class AppElement extends AppElementBase {
   private computeRealboxShown_(): boolean {
     // Do not show the realbox if the upload dialog is showing.
     return !!this.theme_ && !this.showLensUploadDialog_ &&
-        !this.showComposebox_;
+        !this.isComposeboxVisible_();
   }
 
   private computePromoAndModulesLoaded_(): boolean {
@@ -661,28 +688,62 @@ export class AppElement extends AppElementBase {
 
   protected toggleComposebox_() {
     this.showComposebox_ = !this.showComposebox_;
+    if (!this.wasComposeboxOpened_) {
+      recordLoadDuration(
+          'NewTabPage.Composebox.FromNTPLoadToSessionStart',
+          WindowProxy.getInstance().now());
+      this.wasComposeboxOpened_ = true;
+    }
   }
 
   protected onComposeboxClickOutside_() {
-    this.closeComposebox_(this.$.composebox.getText());
+    const composebox =
+        this.shadowRoot.querySelector<ComposeboxElement>('#composebox');
+    assert(composebox);
+    const closeComposebox = new CustomEvent('closeComposebox', {
+      detail: {composeboxText: composebox.getText()},
+      bubbles: true,
+      cancelable: true,
+    });
+
+    this.closeComposebox_(closeComposebox);
   }
 
-  protected closeComposebox_(e: CustomEvent|string) {
-    let composeboxText: string;
-
-    if (typeof e === 'string') {
-      composeboxText = e;
-    } else {
-      composeboxText = e.detail.uuid;
-    }
+  protected closeComposebox_(e: CustomEvent) {
+    const composeboxText = e.detail.composeboxText;
 
     if (composeboxText && composeboxText.trim()) {
       this.$.searchbox.setInputText(composeboxText);
     }
-    this.$.composebox.resetText();
-    this.toggleComposebox_();
-    const composeboxHandler = ComposeboxProxyImpl.getInstance().handler;
-    composeboxHandler.notifySessionAbandoned();
+    const composebox =
+        this.shadowRoot.querySelector<ComposeboxElement>('#composebox');
+    assert(composebox);
+    composebox.resetText();
+    this.fadeoutScrim_();
+  }
+
+  private fadeoutScrim_() {
+    const composeboxScrim =
+        this.shadowRoot.querySelector<HTMLElement>('#composeboxScrim');
+    assert(composeboxScrim);
+    composeboxScrim.addEventListener('transitionend', (e: TransitionEvent) => {
+      if (e.propertyName === 'opacity') {  // Match the animation name
+        this.toggleComposebox_();
+        this.closingComposebox = false;
+      }
+    });
+    composeboxScrim.classList.remove('fade');
+    const composebox = this.shadowRoot.querySelector('#composebox');
+    assert(composebox);
+    composebox.classList.add('fade-out');
+    this.closingComposebox = true;
+    this.logoColor_ = this.computeLogoColor_();
+    this.singleColoredLogo_ = this.computeSingleColoredLogo_();
+    this.updateOneGoogleBarAppearance_();
+  }
+
+  private isComposeboxVisible_() {
+    return this.showComposebox_ && !this.closingComposebox;
   }
 
   protected onOpenVoiceSearch_() {
@@ -846,7 +907,7 @@ export class AppElement extends AppElementBase {
       return null;
     }
 
-    if (this.showComposebox_) {
+    if (this.isComposeboxVisible_()) {
       return this.theme_.isDark ? hexColorToSkColor('#ffffff') : null;
     }
 
@@ -855,7 +916,7 @@ export class AppElement extends AppElementBase {
   }
 
   private computeSingleColoredLogo_(): boolean {
-    if (this.showComposebox_) {
+    if (this.isComposeboxVisible_()) {
       return !!this.theme_ && this.theme_.isDark;
     }
     return !!this.theme_ && (!!this.theme_.logoColor || this.theme_.isDark);

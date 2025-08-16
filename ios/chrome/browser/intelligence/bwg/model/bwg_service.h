@@ -5,46 +5,48 @@
 #ifndef IOS_CHROME_BROWSER_INTELLIGENCE_BWG_MODEL_BWG_SERVICE_H_
 #define IOS_CHROME_BROWSER_INTELLIGENCE_BWG_MODEL_BWG_SERVICE_H_
 
-#import <UIKit/UIKit.h>
-
 #import "base/memory/raw_ptr.h"
-#import "base/types/expected.h"
 #import "components/keyed_service/core/keyed_service.h"
+#import "components/signin/public/identity_manager/identity_manager.h"
 
 class AuthenticationService;
-
-enum class PageContextWrapperError;
-
-namespace optimization_guide::proto {
-class PageContext;
-}  // namespace optimization_guide::proto
-
 namespace signin {
 class IdentityManager;
 }  // namespace signin
 class PrefService;
+class ProfileIOS;
+namespace web {
+class WebState;
+}
 
 // A browser-context keyed service for BWG.
-class BwgService : public KeyedService {
+class BwgService : public KeyedService,
+                   public signin::IdentityManager::Observer {
  public:
-  BwgService(AuthenticationService* auth_service,
+  BwgService(ProfileIOS* profile,
+             AuthenticationService* auth_service,
              signin::IdentityManager* identity_manager,
              PrefService* pref_service);
   ~BwgService() override;
-
-  // Presents the overlay on a given view controller for a given expected
-  // PageContext.
-  void PresentOverlayOnViewController(
-      UIViewController* base_view_controller,
-      base::expected<std::unique_ptr<optimization_guide::proto::PageContext>,
-                     PageContextWrapperError> expected_page_context);
+  void Shutdown() override;
 
   // Returns whether the current profile is eligible for BWG.
-  // TODO(crbug.com/419066154): Use this function to show the entry point.
-  bool IsEligibleForBWG();
+  bool IsProfileEligibleForBwg();
+
+  // Whether BWG is available for a given web state.
+  bool IsBwgAvailableForWebState(web::WebState* web_state);
+
+  // signin::IdentityManager::Observer:
+  void OnPrimaryAccountChanged(
+      const signin::PrimaryAccountChangeEvent& event) override;
+  void OnIdentityManagerShutdown(
+      signin::IdentityManager* identity_manager) override;
 
  private:
-  // AuthenticationService used to check if a user is signed in or not.
+  // The associated profile.
+  raw_ptr<ProfileIOS> profile_;
+
+  // AuthenticationService used to check the user's account status.
   raw_ptr<AuthenticationService> auth_service_ = nullptr;
 
   // Identity manager used to check account capabilities.
@@ -52,6 +54,14 @@ class BwgService : public KeyedService {
 
   // The PrefService associated with the Profile.
   raw_ptr<PrefService> pref_service_ = nullptr;
+
+  // Whether the user is ineligible by the Gemini Enterprise policy (not Chrome
+  // Enterprise).
+  bool is_disabled_by_gemini_policy_ = false;
+
+  // Checks if the account is eligible for Gemini Enterprise and populates
+  // `is_disabled_by_gemini_policy_`.
+  void CheckGeminiEnterpriseEligibility();
 };
 
 #endif  // IOS_CHROME_BROWSER_INTELLIGENCE_BWG_MODEL_BWG_SERVICE_H_

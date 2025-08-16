@@ -453,7 +453,9 @@ class ChromePrintContext : public PrintContext {
 
     auto* frame_view = GetFrame()->View();
     DCHECK(frame_view);
-    frame_view->UpdateLifecyclePhasesForPrinting();
+    if (!frame_view->UpdateLifecyclePhasesForPrinting()) {
+      return;
+    }
 
     if (!IsFrameValid() || page_index >= PageCount()) {
       // TODO(crbug.com/452672): The number of pages may change after layout for
@@ -577,7 +579,9 @@ class PaintPreviewContext : public PrintContext {
     if (!GetFrame()->GetDocument() ||
         !GetFrame()->GetDocument()->GetLayoutView())
       return false;
-    GetFrame()->View()->UpdateLifecyclePhasesForPrinting();
+    if (!GetFrame()->View()->UpdateLifecyclePhasesForPrinting()) {
+      return false;
+    }
     if (!GetFrame()->GetDocument() ||
         !GetFrame()->GetDocument()->GetLayoutView())
       return false;
@@ -1153,7 +1157,7 @@ v8::Local<v8::Context> WebLocalFrameImpl::MainWorldScriptContext() const {
 int32_t WebLocalFrameImpl::GetScriptContextWorldId(
     v8::Local<v8::Context> script_context) const {
   DCHECK_EQ(this, FrameForContext(script_context));
-  v8::Isolate* isolate = script_context->GetIsolate();
+  v8::Isolate* isolate = v8::Isolate::GetCurrent();
   return DOMWrapperWorld::World(isolate, script_context).GetWorldId();
 }
 

@@ -27,6 +27,7 @@
 class Browser;
 class BrowserWindow;
 class Profile;
+class SkBitmap;
 
 namespace base {
 class FilePath;
@@ -207,21 +208,12 @@ class WebAppUiManager {
   // windows if configured by the launch handlers, etc. See
   // `web_app::LaunchWebApp` and `WebAppLaunchProcess` for more info.
   // If the app_id is invalid, an empty browser window is opened.
-  // Note: this function should typically be run after the completion of the
-  // `WebAppUiManager::WaitForFirstRunService` function.
   // Any lock that locks apps will extend the `WithAppResources` mixin.
   virtual void LaunchWebApp(apps::AppLaunchParams params,
                             LaunchWebAppWindowSetting launch_setting,
                             Profile& profile,
                             LaunchWebAppDebugValueCallback callback,
                             WithAppResources& app_resources) = 0;
-
-  // This function calls the callback as soon as first run service is completed.
-  // Note: The callback will be called synchronously on platforms that do not
-  // have a first-run service.
-  virtual void WaitForFirstRunService(
-      Profile& profile,
-      FirstRunServiceCompletedCallback callback) = 0;
 
 #if BUILDFLAG(IS_CHROMEOS)
   // Migrates launcher state, such as parent folder id, position in App Launcher
@@ -285,6 +277,7 @@ class WebAppUiManager {
       const webapps::AppId& app_id,
       Profile* profile,
       const std::string& app_name,
+      const SkBitmap& icon,
       WebInstallAppLaunchAcceptanceCallback callback) = 0;
 
   // The uninstall dialog will be modal to |parent_window|, or a non-modal if

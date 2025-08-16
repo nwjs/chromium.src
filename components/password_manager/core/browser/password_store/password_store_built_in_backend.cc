@@ -101,14 +101,6 @@ PasswordStoreBuiltInBackend::PasswordStoreBuiltInBackend(
     : pref_service_(prefs), os_crypt_async_(os_crypt_async) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 
-#if BUILDFLAG(IS_ANDROID) && !BUILDFLAG(USE_LOGIN_DATABASE_AS_BACKEND)
-  // This backend shouldn't be created for the users migrated to UPM with
-  // split stores.
-  CHECK_NE(prefs->GetInteger(
-               password_manager::prefs::kPasswordsUseUPMLocalAndSeparateStores),
-           static_cast<int>(prefs::UseUpmLocalAndSeparateStoresState::kOn));
-#endif  // BUILDFLAG(IS_ANDROID) && !BUILDFLAG(USE_LOGIN_DATABASE_AS_BACKEND)
-
   background_task_runner_ = base::ThreadPool::CreateSequencedTaskRunner(
       {base::MayBlock(), base::TaskPriority::USER_VISIBLE});
   DCHECK(background_task_runner_);
@@ -163,23 +155,8 @@ bool PasswordStoreBuiltInBackend::IsAbleToSavePasswords() {
   return is_database_initialized_successfully_;
 #else
   CHECK(pref_service_);
-  if (base::FeatureList::IsEnabled(
-          password_manager::features::kLoginDbDeprecationAndroid)) {
-    // The login database is being deprecated on Android.
-    // The built-in backend should no longer allow saving passwords to it.
-    return false;
-  }
-  // Database was not initialized siccessfully, disable saving.
-  if (!is_database_initialized_successfully_) {
-    return false;
-  }
-
-  // Login database is not empty continue saving passwords.
-  if (!pref_service_->GetBoolean(prefs::kEmptyProfileStoreLoginDatabase)) {
-    return true;
-  }
-
-  // Login database is empty, disable saving.
+  // The login database is being deprecated on Android.
+  // The built-in backend should no longer allow saving passwords to it.
   return false;
 #endif
 }

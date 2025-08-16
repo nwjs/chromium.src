@@ -13,8 +13,10 @@
 #include "base/strings/stringprintf.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/values.h"
+#include "net/base/features.h"
 #include "net/base/load_timing_info.h"
 #include "net/base/net_errors.h"
+#include "net/base/task/task_runner.h"
 #include "net/http/http_log_util.h"
 #include "net/http/http_raw_request_headers.h"
 #include "net/http/http_response_headers.h"
@@ -26,6 +28,16 @@
 #include "net/url_request/url_request_job.h"
 
 namespace net {
+
+namespace {
+const scoped_refptr<base::SingleThreadTaskRunner>& TaskRunner(
+    net::RequestPriority priority) {
+  if (features::kNetTaskSchedulerURLRequestRedirectJob.Get()) {
+    return net::GetTaskRunner(priority);
+  }
+  return base::SingleThreadTaskRunner::GetCurrentDefault();
+}
+}  // namespace
 
 URLRequestRedirectJob::URLRequestRedirectJob(
     URLRequest* request,
@@ -66,9 +78,9 @@ void URLRequestRedirectJob::GetLoadTimingInfo(
 void URLRequestRedirectJob::Start() {
   request()->net_log().AddEventWithStringParams(
       NetLogEventType::URL_REQUEST_REDIRECT_JOB, "reason", redirect_reason_);
-  base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
-      FROM_HERE, base::BindOnce(&URLRequestRedirectJob::StartAsync,
-                                weak_factory_.GetWeakPtr()));
+  TaskRunner(request_->priority())
+      ->PostTask(FROM_HERE, base::BindOnce(&URLRequestRedirectJob::StartAsync,
+                                           weak_factory_.GetWeakPtr()));
 }
 
 void URLRequestRedirectJob::Kill() {

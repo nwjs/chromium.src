@@ -5,6 +5,7 @@
 #include "components/services/storage/storage_service_impl.h"
 
 #include "base/functional/bind.h"
+#include "base/not_fatal_until.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/task/thread_pool.h"
 #include "build/build_config.h"
@@ -133,11 +134,10 @@ void StorageServiceImpl::BindLocalStorageControl(
       return;
     }
 
-    auto iter = persistent_local_storage_map_.find(*path);
-    bool found = iter != persistent_local_storage_map_.end();
     // TODO(crbug.com/396030877): Remove this workaround to remove the
     // pre-existing LocalStorage once the issue is resolved.
-    if (found) {
+    auto iter = persistent_local_storage_map_.find(*path);
+    if (iter != persistent_local_storage_map_.end()) {
       ShutDownAndRemoveLocalStorage(iter->second);
     }
   }
@@ -163,11 +163,10 @@ void StorageServiceImpl::BindSessionStorageControl(
       return;
     }
 
-    auto iter = persistent_session_storage_map_.find(*path);
-    bool found = iter != persistent_session_storage_map_.end();
     // TODO(crbug.com/396030877): Remove this workaround to remove the
     // pre-existing SessionStorage once the issue is resolved.
-    if (found) {
+    auto iter = persistent_session_storage_map_.find(*path);
+    if (iter != persistent_session_storage_map_.end()) {
       ShutDownAndRemoveSessionStorage(iter->second);
     }
   }

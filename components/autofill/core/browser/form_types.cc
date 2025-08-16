@@ -33,6 +33,7 @@ FormType FieldTypeGroupToFormType(FieldTypeGroup field_type_group) {
     case FieldTypeGroup::kTransaction:
     case FieldTypeGroup::kUnfillable:
     case FieldTypeGroup::kAutofillAi:
+    case FieldTypeGroup::kOneTimePassword:
       return FormType::kUnknownFormType;
   }
 }
@@ -86,7 +87,7 @@ std::string_view FormTypeNameForLoggingToStringView(
 bool FormHasAllCreditCardFields(const FormStructure& form_structure) {
   bool has_card_number_field = std::ranges::any_of(
       form_structure, [](const std::unique_ptr<AutofillField>& autofill_field) {
-        return autofill_field->Type().GetStorableType() ==
+        return autofill_field->Type().GetCreditCardType() ==
                FieldType::CREDIT_CARD_NUMBER;
       });
 

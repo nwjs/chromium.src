@@ -201,7 +201,7 @@ public class LocationBarModel implements ToolbarDataProvider, LocationBarDataPro
 
     /** Handle any initialization that must occur after native has been initialized. */
     public void initializeWithNative() {
-        mNativeLocationBarModelAndroid = LocationBarModelJni.get().init(LocationBarModel.this);
+        mNativeLocationBarModelAndroid = LocationBarModelJni.get().init(this);
         mSpannableDisplayTextCache = new LruCache<>(LRU_CACHE_SIZE);
     }
 
@@ -224,7 +224,7 @@ public class LocationBarModel implements ToolbarDataProvider, LocationBarDataPro
             mChromeAutocompleteSchemeClassifier = null;
         }
         if (mNativeLocationBarModelAndroid == 0) return;
-        LocationBarModelJni.get().destroy(mNativeLocationBarModelAndroid, LocationBarModel.this);
+        LocationBarModelJni.get().destroy(mNativeLocationBarModelAndroid);
         mNativeLocationBarModelAndroid = 0;
     }
 
@@ -248,6 +248,8 @@ public class LocationBarModel implements ToolbarDataProvider, LocationBarDataPro
         assert tab == null || tab.getProfile() == profile;
         assert profile != null;
 
+        boolean isTabChanging = mTab != tab;
+        Tab previousTab = mTab;
         mTab = tab;
         mProfile = profile;
         performProfileDependentInitializationIfRequired();
@@ -263,7 +265,10 @@ public class LocationBarModel implements ToolbarDataProvider, LocationBarDataPro
 
         updateUsingBrandColor();
         notifyTitleChanged();
-        notifyUrlChanged();
+        if (isTabChanging) {
+            notifyTabChanged(previousTab);
+        }
+        notifyUrlChanged(isTabChanging);
         notifyPrimaryColorChanged();
         notifySecurityStateChanged();
     }
@@ -332,14 +337,21 @@ public class LocationBarModel implements ToolbarDataProvider, LocationBarDataPro
         return false;
     }
 
-    public void notifyUrlChanged() {
-        if ((mIsInSameDocNav && mAlreadyUpdatedUrlBarForSameDocNav) || !updateVisibleGurl()) {
+    public void notifyTabChanged(@Nullable Tab previousTab) {
+        for (LocationBarDataProvider.Observer observer : mLocationBarDataObservers) {
+            observer.onTabChanged(previousTab);
+        }
+    }
+
+    public void notifyUrlChanged(boolean isTabChanging) {
+        if (((mIsInSameDocNav && mAlreadyUpdatedUrlBarForSameDocNav) || !updateVisibleGurl())
+                && !isTabChanging) {
             return;
         }
 
-        // Url has changed, propagate it.
+        // Url or tab has changed, propagate it.
         for (LocationBarDataProvider.Observer observer : mLocationBarDataObservers) {
-            observer.onUrlChanged();
+            observer.onUrlChanged(isTabChanging);
         }
 
         mAlreadyUpdatedUrlBarForSameDocNav = mIsInSameDocNav;
@@ -446,7 +458,7 @@ public class LocationBarModel implements ToolbarDataProvider, LocationBarDataPro
         final @ColorInt int secureColor =
                 OmniboxResourceProvider.getUrlBarSecureColor(mContext, brandedColorScheme);
 
-        int securityLevel = getSecurityLevel(getTab(), isOfflinePage);
+        int securityLevel = getSecurityLevel(getTab(), isOfflinePage, isReaderModePage());
         SpannableDisplayTextCacheKey cacheKey =
                 new SpannableDisplayTextCacheKey(
                         url.getSpec(),
@@ -602,9 +614,14 @@ public class LocationBarModel implements ToolbarDataProvider, LocationBarDataPro
         return PdfUtils.getPdfPageType(mTab.getNativePage());
     }
 
+    private boolean isReaderModePage() {
+        if (!hasTab()) return false;
+        return DomDistillerUrlUtils.isDistilledPage(assumeNonNull(getTab()).getUrl());
+    }
+
     @Override
     public int getSecurityLevel() {
-        return getSecurityLevel(getTab(), isOfflinePage());
+        return getSecurityLevel(getTab(), isOfflinePage(), isReaderModePage());
     }
 
     @Override
@@ -618,11 +635,13 @@ public class LocationBarModel implements ToolbarDataProvider, LocationBarDataPro
     @Override
     public @DrawableRes int getSecurityIconResource(boolean isTablet) {
         boolean isOfflinePage = isOfflinePage();
+        boolean isReaderModePage = isReaderModePage();
         return getSecurityIconResource(
-                getSecurityLevel(getTab(), isOfflinePage),
+                getSecurityLevel(getTab(), isOfflinePage, isReaderModePage),
                 !isTablet,
                 isOfflinePage,
                 isPaintPreview(),
+                isReaderModePage,
                 getPdfPageType());
     }
 
@@ -633,7 +652,7 @@ public class LocationBarModel implements ToolbarDataProvider, LocationBarDataPro
 
     @VisibleForTesting
     @ConnectionSecurityLevel
-    int getSecurityLevel(@Nullable Tab tab, boolean isOfflinePage) {
+    int getSecurityLevel(@Nullable Tab tab, boolean isOfflinePage, boolean isReaderModePage) {
         if (tab == null || isOfflinePage) {
             return ConnectionSecurityLevel.NONE;
         }
@@ -664,6 +683,7 @@ public class LocationBarModel implements ToolbarDataProvider, LocationBarDataPro
             boolean isSmallDevice,
             boolean isOfflinePage,
             boolean isPaintPreview,
+            boolean isReaderModePage,
             int pdfPageType) {
         // Paint Preview appears on top of WebContents and shows a visual representation of the page
         // that has been previously stored locally.
@@ -673,6 +693,12 @@ public class LocationBarModel implements ToolbarDataProvider, LocationBarDataPro
         // on a slow connection. In this case, the previews UI takes precedence.
         if (isOfflinePage) {
             return R.drawable.ic_offline_pin_24dp;
+        }
+
+        // Reader mode is when chrome is viewing distilled content. In this case, a reader mode icon
+        // is shown.
+        if (isReaderModePage) {
+            return R.drawable.ic_reader_mode_24dp;
         }
 
         // Pdf page is a native page used to render downloaded pdf files.
@@ -781,18 +807,20 @@ public class LocationBarModel implements ToolbarDataProvider, LocationBarDataPro
         return mUrlForDisplay;
     }
 
-    /** @return The formatted URL suitable for editing. */
+    /**
+     * @return The formatted URL suitable for editing.
+     */
     protected String calculateFormattedFullUrl() {
         if (mNativeLocationBarModelAndroid == 0) return "";
-        return LocationBarModelJni.get()
-                .getFormattedFullURL(mNativeLocationBarModelAndroid, LocationBarModel.this);
+        return LocationBarModelJni.get().getFormattedFullURL(mNativeLocationBarModelAndroid);
     }
 
-    /** @return The formatted URL suitable for display only. */
+    /**
+     * @return The formatted URL suitable for display only.
+     */
     protected String calculateUrlForDisplay() {
         if (mNativeLocationBarModelAndroid == 0) return "";
-        return LocationBarModelJni.get()
-                .getURLForDisplay(mNativeLocationBarModelAndroid, LocationBarModel.this);
+        return LocationBarModelJni.get().getURLForDisplay(mNativeLocationBarModelAndroid);
     }
 
     @SuppressWarnings("NullAway")
@@ -803,14 +831,13 @@ public class LocationBarModel implements ToolbarDataProvider, LocationBarDataPro
         }
 
         return LocationBarModelJni.get()
-                .getUrlOfVisibleNavigationEntry(
-                        mNativeLocationBarModelAndroid, LocationBarModel.this);
+                .getUrlOfVisibleNavigationEntry(mNativeLocationBarModelAndroid);
     }
 
     /** Notify changes for non static layout. */
     public void updateForNonStaticLayout() {
         notifyTitleChanged();
-        notifyUrlChanged();
+        notifyUrlChanged(false);
         notifyPrimaryColorChanged();
         notifySecurityStateChanged();
     }
@@ -847,16 +874,15 @@ public class LocationBarModel implements ToolbarDataProvider, LocationBarDataPro
 
     @NativeMethods
     interface Natives {
-        long init(LocationBarModel caller);
+        long init(LocationBarModel self);
 
-        void destroy(long nativeLocationBarModelAndroid, LocationBarModel caller);
+        void destroy(long nativeLocationBarModelAndroid);
 
-        String getFormattedFullURL(long nativeLocationBarModelAndroid, LocationBarModel caller);
+        String getFormattedFullURL(long nativeLocationBarModelAndroid);
 
-        String getURLForDisplay(long nativeLocationBarModelAndroid, LocationBarModel caller);
+        String getURLForDisplay(long nativeLocationBarModelAndroid);
 
-        GURL getUrlOfVisibleNavigationEntry(
-                long nativeLocationBarModelAndroid, LocationBarModel caller);
+        GURL getUrlOfVisibleNavigationEntry(long nativeLocationBarModelAndroid);
 
         int getPageClassification(long nativeLocationBarModelAndroid, boolean isPrefetch);
     }

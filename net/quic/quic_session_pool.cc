@@ -29,6 +29,7 @@
 #include "base/strings/stringprintf.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/task/single_thread_task_runner.h"
+#include "base/trace_event/trace_event.h"
 #include "base/values.h"
 #include "crypto/openssl_util.h"
 #include "net/base/address_list.h"
@@ -43,7 +44,6 @@
 #include "net/base/reconnect_notifier.h"
 #include "net/base/session_usage.h"
 #include "net/base/trace_constants.h"
-#include "net/base/tracing.h"
 #include "net/base/url_util.h"
 #include "net/cert/cert_verifier.h"
 #include "net/dns/host_resolver.h"
@@ -64,6 +64,7 @@
 #include "net/quic/quic_context.h"
 #include "net/quic/quic_crypto_client_stream_factory.h"
 #include "net/quic/quic_server_info.h"
+#include "net/quic/quic_session_attempt_manager.h"
 #include "net/quic/quic_session_key.h"
 #include "net/quic/quic_session_pool_direct_job.h"
 #include "net/quic/quic_session_pool_job.h"
@@ -520,23 +521,6 @@ void QuicSessionRequest::SetSession(
   session_ = std::move(session);
 }
 
-QuicEndpoint::QuicEndpoint(quic::ParsedQuicVersion quic_version,
-                           IPEndPoint ip_endpoint,
-                           ConnectionEndpointMetadata metadata)
-    : quic_version(quic_version),
-      ip_endpoint(ip_endpoint),
-      metadata(metadata) {}
-
-QuicEndpoint::~QuicEndpoint() = default;
-
-base::Value::Dict QuicEndpoint::ToValue() const {
-  base::Value::Dict dict;
-  dict.Set("quic_version", quic::ParsedQuicVersionToString(quic_version));
-  dict.Set("ip_endpoint", ip_endpoint.ToString());
-  dict.Set("metadata", metadata.ToValue());
-  return dict;
-}
-
 QuicSessionPool::QuicCryptoClientConfigOwner::QuicCryptoClientConfigOwner(
     std::unique_ptr<quic::ProofVerifier> proof_verifier,
     std::unique_ptr<quic::QuicClientSessionCache> session_cache,
@@ -673,7 +657,9 @@ QuicSessionPool::QuicSessionPool(
           quic_context->params()->skip_dns_with_origin_frame),
       ignore_ip_matching_when_finding_existing_sessions_(
           quic_context->params()
-              ->ignore_ip_matching_when_finding_existing_sessions) {
+              ->ignore_ip_matching_when_finding_existing_sessions),
+      session_attempt_manager_(
+          std::make_unique<QuicSessionAttemptManager>(this)) {
   DCHECK(transport_security_state_);
   DCHECK(http_server_properties_);
   if (params_.disable_tls_zero_rtt) {
@@ -689,6 +675,10 @@ QuicSessionPool::~QuicSessionPool() {
                             all_sessions_.size());
   CloseAllSessions(ERR_ABORTED, quic::QUIC_CONNECTION_CANCELLED);
   all_sessions_.clear();
+
+  // Reset session attempt manager to ensure there is no active crypto config
+  // map.
+  session_attempt_manager_.reset();
 
   // Clear the active jobs, first moving out of the instance variable so that
   // calls to CancelRequest for any pending requests do not cause recursion.
@@ -1638,7 +1628,6 @@ void QuicSessionPool::OnJobComplete(
     Job* job,
     std::optional<base::TimeTicks> proxy_connect_start_time,
     int rv) {
-  auto iter = active_jobs_.find(job->key().session_key());
   if (proxy_connect_start_time) {
     HttpProxyConnectJob::EmitConnectLatency(
         NextProto::kProtoQUIC, ProxyServer::Scheme::SCHEME_QUIC,
@@ -1647,7 +1636,16 @@ void QuicSessionPool::OnJobComplete(
         base::TimeTicks::Now() - *proxy_connect_start_time);
   }
 
-  CHECK(iter != active_jobs_.end());
+  auto job_iter = active_jobs_.find(job->key().session_key());
+  CHECK(job_iter != active_jobs_.end());
+  CHECK_EQ(job_iter->second.get(), job);
+  // Remove the job so it doesn't get reused by any new requests that are
+  // added synchronously by QuicSessionRequest::OnRequestComplete() below.
+  std::unique_ptr<Job> completed_job = std::move(job_iter->second);
+  active_jobs_.erase(job_iter);
+
+  job->set_is_deleting();
+
   if (rv == OK) {
     if (!has_quic_ever_worked_on_current_network_) {
       set_has_quic_ever_worked_on_current_network(true);
@@ -1656,7 +1654,7 @@ void QuicSessionPool::OnJobComplete(
     auto session_it = active_sessions_.find(job->key().session_key());
     CHECK(session_it != active_sessions_.end());
     QuicChromiumClientSession* session = session_it->second;
-    for (QuicSessionRequest* request : iter->second->requests()) {
+    for (QuicSessionRequest* request : job->requests()) {
       // Do not notify |request| yet.
       request->SetSession(session->CreateHandle(job->key().destination()));
     }
@@ -1664,7 +1662,7 @@ void QuicSessionPool::OnJobComplete(
     NotifyOnConnectionFailure(job->key().session_key());
   }
 
-  for (QuicSessionRequest* request : iter->second->requests()) {
+  for (QuicSessionRequest* request : job->requests()) {
     // Even though we're invoking callbacks here, we don't need to worry
     // about |this| being deleted, because the pool is owned by the
     // profile which can not be deleted via callbacks.
@@ -1673,7 +1671,6 @@ void QuicSessionPool::OnJobComplete(
     }
     request->OnRequestComplete(rv);
   }
-  active_jobs_.erase(iter);
 }
 
 bool QuicSessionPool::HasActiveSession(

@@ -119,33 +119,6 @@ found in the LICENSE file.
     border-color: green;
   }
 
-  .fitWindow html {
-    height: unset;
-  }
-
-  .fitWindow body {
-    display: flex;
-    flex-direction: column;
-  }
-
-  .fitWindow #contentSizingTest {
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    flex-grow: 1;
-  }
-
-  .fitWindow #contentSizingTest .section {
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-  }
-
-  .fitWindow #dump {
-    overflow-y: scroll;
-    flex-grow: 1;
-  }
-
   *:disabled {
     pointer-events: none;
     opacity: 0.6;
@@ -354,6 +327,7 @@ found in the LICENSE file.
   <div>
     <button id="copyAPCToClipboardBtn">Copy APC to Clipboard</button>
   </div>
+  <span id="APCResult"></span>
 </div>
 <div class="section">
   <h1>Test Location Access</h1>
@@ -448,6 +422,7 @@ found in the LICENSE file.
   <div>
     <button id="scrollToFetchAPCBn">Fetch AnnotatedPageContent</button>
     <div style="margin-top:4px;">Document ID: <span id="scrollToDocumentId">null</span></div>
+    <div>URL: <span id="scrollToURL">null</span></div>
   </div>
   <div class="scrollToSelector">
     <h2>
@@ -511,23 +486,26 @@ found in the LICENSE file.
   </div>
 </div>
 <div class="section">
-  <h1>Test actInFocusedTab()</h1>
+  <h1>Test performActions()</h1>
   <div>
-    <button id="executeAction">Execute Action</button>
+    <label for="actorTaskId">Task ID</label>
+    <input id="actorTaskId" type="number" style="width: 8ch;" />
+    <button id="createActorTask">New</button>
+    <button id="stopActorTask">Stop</button>
+  </div>
+  <div>
     <label> <input type="text" id="actionProtoEncodedText" />
-      Action Proto, base64-encoded from http://shortn/_Iyf96Pob5S
+      Action Proto, base64-encoded from http://shortn/_pPzGXm1TZR
     </label>
+    <button id="executeAction">Perform Actions</button>
   </div>
-  <div id="actionUpdatedScreenshot">
-    <img id="actionUpdatedScreenshotImg" />
-  </div>
-  <span id="actionUpdatedContextResult"></span>
   <span id="actionStatus"></span>
 </div>
 <div class="section" id="multiTabSection">
   <h1>Multi-Tab</h1>
   <button id="pinFocusedTab">Share Current</button>
   <button id="fetchPinned">⬆️ </button>
+  <label>Fetch Screenshot?<input id="multiTabFetchScreenshot" type="checkbox"/></label>
   <button id="unpin">❌</button>
   <p>Shared</p>
   <ul id="pinnedTabs">
@@ -539,32 +517,25 @@ found in the LICENSE file.
       <button>⬆️ </button>
     </li>
   </ul>
+  <input type="text" id="shareCandidateQuery"/>
+  <ul id="shareCandidates">
+  </ul>
+</div>
+<div class="section">
+  <h1>View Change</h1>
+  <select id="viewChangedCurrentView">
+    <!-- options will be populated by view.ts -->
+  </select>
+  <button id="viewChangedBtn">View Changed</button>
+  <input type="checkbox" id="viewChangedAutomaticallyAccept" checked/>
+  <label for="viewChangedAutomaticallyAccept">Automatically accept requested changes</label>
+</div>
+<div class="section">
+  <h1>MQLS Client ID</h1>
+  <button id="mqlsClientIdBtn">Get and log ID</button>
 </div>
 <br />
 <div id="status"></div>
-</div>
-<div id="contentSizingTest" hidden>
-<div class="section">
-  <h1>Sizing</h1>
-  <button id="disableTestSizingMode">Exit Test Sizing</button>
-  <br />
-  <form>
-    <fieldset>
-      <legend>Sizing mode:</legend>
-      <div>
-        <input type="radio" id="fitWindow" name="resizeOption" value="fitWindow" checked disabled>
-        <label for="fitWindow">Content fits window</label>
-      </div>
-      <div>
-        <input type="radio" id="naturalSizing" name="resizeOption" value="naturalSizing" disabled>
-        <label for="naturalSize">Content uses natural size</label>
-      </div>
-    </fieldset>
-  </form>
-  <button id="growHeight">Grow height</button>
-  <button id="resetHeight">Reset height</button>
-  <div id="dump"></div>
-</div>
 </div>
 <script src="./test_client.js" type="module">
 </script>

@@ -259,6 +259,7 @@ source_set("unit_tests") {
     "//chrome/browser/ash/settings:test_support",
     "//chrome/browser/ash/wallpaper_handlers:test_support",
     "//chrome/browser/profiles:profile",
+    "//chrome/browser/signin",
     "//chrome/browser/ui/ash/wallpaper",
     "//chrome/browser/ui/ash/wallpaper:test_support",
     "//chrome/common:constants",
@@ -297,4 +298,8 @@ source_set("unit_tests") {
     "//ui/gfx/codec",
     "//url",
   ]
+
+  # TODO(crbug.com/40031409): Fix code that adds exit-time destructors and
+  # enable the diagnostic by removing this line.
+  configs += [ "//build/config/compiler:no_exit_time_destructors" ]
 }

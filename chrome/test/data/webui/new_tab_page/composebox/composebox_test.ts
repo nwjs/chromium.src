@@ -2,12 +2,13 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import {PageCallbackRouter, PageHandlerRemote} from 'chrome://new-tab-page/composebox.mojom-webui.js';
-import type {PageRemote} from 'chrome://new-tab-page/composebox.mojom-webui.js';
-import {FileUploadErrorType, FileUploadStatus} from 'chrome://new-tab-page/composebox_query.mojom-webui.js';
 import {ComposeboxElement, ComposeboxProxyImpl} from 'chrome://new-tab-page/lazy_load.js';
 import {$$} from 'chrome://new-tab-page/new_tab_page.js';
+import {PageCallbackRouter, PageHandlerRemote} from 'chrome://resources/cr_components/composebox/composebox.mojom-webui.js';
+import type {PageRemote} from 'chrome://resources/cr_components/composebox/composebox.mojom-webui.js';
+import {FileUploadErrorType, FileUploadStatus} from 'chrome://resources/cr_components/composebox/composebox_query.mojom-webui.js';
 import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
+import {PageCallbackRouter as SearchboxPageCallbackRouter, PageHandlerRemote as SearchboxPageHandlerRemote} from 'chrome://resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
 import {assertDeepEquals, assertEquals, assertFalse, assertTrue} from 'chrome://webui-test/chai_assert.js';
 import type {MetricsTracker} from 'chrome://webui-test/metrics_test_support.js';
 import {fakeMetricsPrivate} from 'chrome://webui-test/metrics_test_support.js';
@@ -26,6 +27,7 @@ function generateZeroId(): string {
 suite('NewTabPageComposeboxTest', () => {
   let composeboxElement: ComposeboxElement;
   let handler: TestMock<PageHandlerRemote>;
+  let searchboxHandler: TestMock<SearchboxPageHandlerRemote>;
   let callbackRouterRemote: PageRemote;
   let metrics: MetricsTracker;
 
@@ -33,10 +35,14 @@ suite('NewTabPageComposeboxTest', () => {
     document.body.innerHTML = window.trustedTypes!.emptyHTML;
     handler = installMock(
         PageHandlerRemote,
-        mock => ComposeboxProxyImpl.setInstance(
-            new ComposeboxProxyImpl(mock, new PageCallbackRouter())));
+        mock => ComposeboxProxyImpl.setInstance(new ComposeboxProxyImpl(
+            mock, new PageCallbackRouter(), new SearchboxPageHandlerRemote(),
+            new SearchboxPageCallbackRouter())));
     callbackRouterRemote = ComposeboxProxyImpl.getInstance()
                                .callbackRouter.$.bindNewPipeAndPassRemote();
+    searchboxHandler = installMock(
+        SearchboxPageHandlerRemote,
+        mock => ComposeboxProxyImpl.getInstance().searchboxHandler = mock);
     metrics = fakeMetricsPrivate();
   });
 
@@ -568,5 +574,17 @@ suite('NewTabPageComposeboxTest', () => {
     assertEquals(
         composeboxElement.$.cancelIcon.getAttribute('title'),
         loadTimeData.getString('composeboxCancelButtonTitleInput'));
+  });
+
+  test('composebox queries autocomplete on load', async () => {
+    loadTimeData.overrideValues({composeboxShowZps: true});
+    createComposeboxElement();
+    await microtasksFinished();
+
+    // Autocomplete should be queried when the composebox is created.
+    assertEquals(searchboxHandler.getCallCount('queryAutocomplete'), 1);
+
+    // Restore.
+    loadTimeData.overrideValues({composeboxShowZps: false});
   });
 });

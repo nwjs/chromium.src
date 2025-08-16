@@ -12,6 +12,7 @@ namespace tabs {
 class TabInterface;
 }
 
+class GURL;
 class Profile;
 
 namespace actor {
@@ -27,6 +28,17 @@ using DecisionCallback = base::OnceCallback<void(/*may_act=*/bool)>;
 // last committed document and URL. Invokes the callback with true if it is
 // allowed.
 void MayActOnTab(const tabs::TabInterface& tab,
+                 AggregatedJournal& journal,
+                 TaskId task_id,
+                 DecisionCallback callback);
+
+// Like MayActOnTab, but considers a URL on its own.
+// This can optionally allow insecure HTTP URLs as in practice sites may have
+// HTTP links that will get upgraded. Rejecting HTTP URLs before this can happen
+// would be too serious of an impediment.
+void MayActOnUrl(const GURL& url,
+                 bool allow_insecure_http,
+                 Profile* profile,
                  AggregatedJournal& journal,
                  TaskId task_id,
                  DecisionCallback callback);

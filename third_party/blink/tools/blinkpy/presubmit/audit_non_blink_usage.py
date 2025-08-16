@@ -197,7 +197,7 @@ _CONFIG = [
             'base::SplitOnceCallback',
 
             # //base/functional/callback.h is allowed, but you need to use
-            # WTF::Bind or WTF::BindRepeating to create callbacks in
+            # blink::BindOnce or blink::BindRepeating to create callbacks in
             # //third_party/blink/renderer.
             'base::BarrierCallback',
             'base::BarrierClosure',
@@ -215,6 +215,9 @@ _CONFIG = [
 
             # //base/memory/ptr_util.h.
             'base::WrapUnique',
+
+            # //base/memory/safety_checks.h
+            'base::ScopedSafetyChecksExclusion',
 
             # //base/containers/adapters.h
             'base::Reversed',
@@ -442,6 +445,10 @@ _CONFIG = [
             # Conversion functions from/to WebURL for non-blink code.
             'GURL',
         ],
+    },
+    {
+        'paths': ['third_party/blink/public/platform/web_url_response.h'],
+        'allowed': ['network::IntegrityMetadata']
     },
     {
         'paths': ['third_party/blink/renderer/'],
@@ -777,8 +784,17 @@ _CONFIG = [
             'net::CookieSameSite',
             'net::CookieSourceScheme',
 
+            # Cookie prefix feature flags.
+            'net::features::kPrefixCookieHttp',
+            'net::features::kPrefixCookieHostHttp',
+
             # HTTP status codes
+            'net::OK',
+
+            # Net error codes
             'net::ERR_.*',
+
+            # HTTP status codes
             'net::HTTP_.+',
 
             # For ConnectionInfo enumeration
@@ -916,8 +932,8 @@ _CONFIG = [
             'hw::.+',
         ],
         'disallowed': [
-            ('base::Bind(Once|Repeating)',
-             'Use WTF::BindOnce or WTF::BindRepeating.'),
+            ('(base|WTF)::Bind(Once|Repeating)',
+             'Use blink::BindOnce or blink::BindRepeating.'),
             'base::BindPostTaskToCurrentDefault',
             _DISALLOW_NON_BLINK_MOJOM,
             _DISALLOW_CONTINUATION_DATA_,
@@ -1378,6 +1394,7 @@ _CONFIG = [
         ],
         'allowed': [
             'network::mojom::IntegrityAlgorithm',
+            'network::IntegrityMetadata',
         ],
     },
     {
@@ -1647,9 +1664,13 @@ _CONFIG = [
         'paths': [
             'third_party/blink/renderer/modules/webgl/webgl_rendering_context_base.cc',
         ],
-        # This class needs access to a GPU driver bug workaround entry.
+        # This class needs access to various GPU-related functionality.
         'allowed': [
+            'gfx::BufferFormat',
             'gpu::ENABLE_WEBGL_TIMER_QUERY_EXTENSIONS',
+            'gpu::IsImageFromGpuMemoryBufferFormatSupported',
+            'gpu::IsImageSizeValidForGpuMemoryBufferFormat',
+            'viz::SinglePlaneSharedImageFormatToBufferFormat',
         ],
     },
     {
@@ -1954,8 +1975,8 @@ _CONFIG = [
         # Suppress almost all checks on platform since code in this directory is
         # meant to be a bridge between Blink and non-Blink code. However,
         # base::RefCounted and base::RefCountedThreadSafe should still be
-        # explicitly blocked.
-        # WTF::RefCounted and WTF::ThreadSafeRefCounted should be used instead.
+        # explicitly blocked. blink::RefCounted and blink::ThreadSafeRefCounted
+        # should be used instead.
         'allowed': ['.+'],
         'inclass_allowed': ['.+'],
         'disallowed': [
@@ -1971,11 +1992,9 @@ _CONFIG = [
             'third_party/blink/renderer/platform/media/',
         ],
         'allowed': [
-            # TODO(crbug.com/40760651): migrate to Blink variant.
-            'media::mojom::MediaMetricsProvider',
-            'media::mojom::PlaybackPropertiesPtr',
-            'media::mojom::SecondaryPlaybackPropertiesPtr',
-            'media::mojom::WatchTimeRecorder',
+            # For interoperability with non-Blink code.
+            'learning::mojom::LearningTaskControllerInterfaceBase',
+            'media::mojom::MediaMetricsProviderInterfaceBase',
         ],
     },
     {
@@ -2055,7 +2074,7 @@ _CONFIG = [
             # liburlpattern API.
             "base::IsStringASCII",
 
-            # Needed to use part of the StringUTF8Adaptor API.
+            # Needed to use part of the StringUtf8Adaptor API.
             "base::StringPiece",
 
             # //third_party/liburlpattern
@@ -2145,7 +2164,6 @@ _CONFIG = [
             # base::OnceClosure, base::RepeatingClosure, base::CurrentThread and
             # base::RetainedRef.
             'base::Bind.*',
-            'base::MD5.*',
             'base::CurrentThread',
             'base::.*Closure',
             'base::PowerObserver',
@@ -2156,6 +2174,7 @@ _CONFIG = [
             # TODO(crbug.com/787254): Replace base::Thread with the appropriate Blink class.
             'base::Thread',
             'base::WrapRefCounted',
+            'crypto::hash::Sha256',
             'cricket::.*',
             'webrtc::ThreadWrapper',
             # TODO(crbug.com/787254): Remove GURL usage.
@@ -2712,11 +2731,12 @@ _COMPILED_CONFIG = _precompile_config()
 # GURL isn't namespace qualified and wouldn't match otherwise.
 # ContinuationPreservedEmbedder data is similarly hardcoded to restrict access
 # to the v8 APIs which would not otherwise match.
+# "WTF::" is hardcoded because the namespace is not lowercased.
 #
 # An example of an identifier that will be matched with this RE is
 # "base::BindOnce" or "performance_manager::policies::WorkingSetTrimData".
 _IDENTIFIER_WITH_NAMESPACE_RE = re.compile(
-    r'\b(?:(?:[a-z_][a-z0-9_]*::)+[A-Za-z_][A-Za-z0-9_]*|GURL|.*ContinuationPreservedEmbedderData.*)\b'
+    r'\b(?:(?:[a-z_][a-z0-9_]*::|WTF::)+[A-Za-z_][A-Za-z0-9_]*|GURL|.*ContinuationPreservedEmbedderData.*)\b'
 )
 
 # Different check which matches a non-empty sequence of lower-case

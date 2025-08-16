@@ -22,6 +22,7 @@
 #include "base/test/bind.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
+#include "base/test/with_feature_override.h"
 #include "base/threading/thread_restrictions.h"
 #include "base/values.h"
 #include "build/build_config.h"
@@ -95,6 +96,7 @@
 #include "net/test/embedded_test_server/embedded_test_server.h"
 #include "services/network/public/cpp/is_potentially_trustworthy.h"
 #include "testing/gmock/include/gmock/gmock.h"
+#include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/common/service_worker/service_worker_status_code.h"
 #include "third_party/blink/public/common/storage_key/storage_key.h"
 #include "ui/message_center/public/cpp/notification.h"
@@ -1049,7 +1051,7 @@ IN_PROC_BROWSER_TEST_F(ServiceWorkerTest, UpdateWithoutSkipWaiting) {
   ExtensionTestMessageListener listener1("Pong from version 1");
   listener1.set_failure_message("FAILURE");
   content::WebContents* web_contents = browsertest_util::AddTab(
-      browser(), extension->ResolveExtensionURL("page.html"));
+      browser(), extension->GetResourceURL("page.html"));
   EXPECT_TRUE(listener1.WaitUntilSatisfied());
 
   // Update to version 2.0.
@@ -1064,7 +1066,7 @@ IN_PROC_BROWSER_TEST_F(ServiceWorkerTest, UpdateWithoutSkipWaiting) {
   ExtensionTestMessageListener listener2("Pong from version 1");
   listener2.set_failure_message("FAILURE");
   web_contents = browsertest_util::AddTab(
-      browser(), extension_after_update->ResolveExtensionURL("page.html"));
+      browser(), extension_after_update->GetResourceURL("page.html"));
   EXPECT_TRUE(listener2.WaitUntilSatisfied());
 
   // Navigate the tab away from the extension page so that no clients are
@@ -1081,7 +1083,7 @@ IN_PROC_BROWSER_TEST_F(ServiceWorkerTest, UpdateWithoutSkipWaiting) {
   ExtensionTestMessageListener listener3("Pong from version 2");
   listener3.set_failure_message("FAILURE");
   web_contents = browsertest_util::AddTab(
-      browser(), extension_after_update->ResolveExtensionURL("page.html"));
+      browser(), extension_after_update->GetResourceURL("page.html"));
   EXPECT_TRUE(listener3.WaitUntilSatisfied());
 }
 
@@ -1129,18 +1131,18 @@ IN_PROC_BROWSER_TEST_F(ServiceWorkerTest, FetchArbitraryPaths) {
 
   // Open some arbitrary paths. Their contents should be what the service worker
   // responds with, which in this case is the path of the fetch.
-  EXPECT_EQ("Caught a fetch for /index.html",
-            NavigateAndExtractInnerText(
-                extension->ResolveExtensionURL("index.html")));
+  EXPECT_EQ(
+      "Caught a fetch for /index.html",
+      NavigateAndExtractInnerText(extension->GetResourceURL("index.html")));
   EXPECT_EQ("Caught a fetch for /path/to/other.html",
             NavigateAndExtractInnerText(
-                extension->ResolveExtensionURL("path/to/other.html")));
+                extension->GetResourceURL("path/to/other.html")));
   EXPECT_EQ("Caught a fetch for /some/text/file.txt",
             NavigateAndExtractInnerText(
-                extension->ResolveExtensionURL("some/text/file.txt")));
+                extension->GetResourceURL("some/text/file.txt")));
   EXPECT_EQ("Caught a fetch for /no/file/extension",
             NavigateAndExtractInnerText(
-                extension->ResolveExtensionURL("no/file/extension")));
+                extension->GetResourceURL("no/file/extension")));
   EXPECT_EQ("Caught a fetch for /",
             NavigateAndExtractInnerText(extension->url()));
 }
@@ -1223,7 +1225,7 @@ IN_PROC_BROWSER_TEST_F(ServiceWorkerTest, SWServedBackgroundPageReceivesEvent) {
   ExtensionTestMessageListener listener("onMessage/SW BG.");
   listener.set_failure_message("onMessage/original BG.");
   content::WebContents* web_contents = browsertest_util::AddTab(
-      browser(), extension->ResolveExtensionURL("page.html"));
+      browser(), extension->GetResourceURL("page.html"));
   ASSERT_TRUE(web_contents);
   EXPECT_TRUE(listener.WaitUntilSatisfied());
 }
@@ -1310,7 +1312,7 @@ IN_PROC_BROWSER_TEST_F(ServiceWorkerTest,
     extension_url = extension->url();
   }
   auto get_resource_url = [&extension_url](const std::string& path) {
-    return Extension::ResolveExtensionURL(extension_url, path);
+    return Extension::GetResourceURL(extension_url, path);
   };
 
   // Fetch should route to the service worker.
@@ -1365,9 +1367,12 @@ IN_PROC_BROWSER_TEST_F(ServiceWorkerTest, WebAccessibleResourcesFetch) {
                                {.extension_url = "page.html"}));
 }
 
-class ServiceWorkerFetchTest : public ServiceWorkerTest {
+class ServiceWorkerFetchTest : public ServiceWorkerTest,
+                               public base::test::WithFeatureOverride {
  public:
-  ServiceWorkerFetchTest() = default;
+  ServiceWorkerFetchTest()
+      : WithFeatureOverride(
+            blink::features::kBypassRequestForbiddenHeadersCheck) {}
 
   ServiceWorkerFetchTest(const ServiceWorkerFetchTest&) = delete;
   ServiceWorkerFetchTest& operator=(const ServiceWorkerFetchTest&) = delete;
@@ -1448,9 +1453,9 @@ class ServiceWorkerFetchTest : public ServiceWorkerTest {
     wait_for_request_run_loop_.reset();
   }
 
-  // Gets the headers for `url_request` that was seen during the test. If the
-  // request wasn't recorded, or the header isn't present on the request then
-  // return an empty string.
+  // Gets the request headers for `url_request` that was seen during the test.
+  // If the request wasn't recorded, or the header isn't present on the request
+  // then return an empty string.
   std::string GetHeaderValueFromRequest(const GURL& url_request,
                                         const char* header_name) {
     base::AutoLock lock(requests_to_server_lock_);
@@ -1470,6 +1475,7 @@ class ServiceWorkerFetchTest : public ServiceWorkerTest {
     return header->second;
   }
 
+ private:
   // Requests observed by the EmbeddedTestServer. This is accessed on both the
   // UI and the EmbeddedTestServer's IO thread. Access is protected by
   // `requests_to_server_lock_`.
@@ -1480,12 +1486,18 @@ class ServiceWorkerFetchTest : public ServiceWorkerTest {
   // RunLoop to quit when a request for `url_to_wait_for_` is observed.
   std::unique_ptr<base::RunLoop> wait_for_request_run_loop_;
   base::Lock requests_to_server_lock_;
+  base::test::ScopedFeatureList feature_list_;
 };
+
+// TODO(crbug.com/418811955): The SetFetchHeaders* tests are confirming that the
+// renderer can set forbidden headers, but they don't confirm that the browser
+// will actually send the forbidden headers outbound on the wire. Let's create
+// test cases for that when the browser side component is completed.
 
 // Tests the behavior of a privileged (background) context when it
 // attempts to set forbidden and non-forbidden headers on fetch() requests to a
 // URL for which the extension has host_permissions.
-IN_PROC_BROWSER_TEST_F(ServiceWorkerFetchTest,
+IN_PROC_BROWSER_TEST_P(ServiceWorkerFetchTest,
                        SetFetchHeadersFromExtensionBackground) {
   SetCustomArg("run_background_tests");
   // Run fetch() header setting tests from the (privileged) background context.
@@ -1503,15 +1515,14 @@ IN_PROC_BROWSER_TEST_F(ServiceWorkerFetchTest,
   EXPECT_TRUE(WaitForRequestAndCheckHeaderValue(
       embedded_test_server()->GetURL("/fetch/fetch_forbidden.html"),
       /*header_name=*/"Accept-Encoding",
-      // TODO(crbug.com/418811955): Set this to "fakeencoding, fakeencoding2"
-      // when this capability is allowed.
-      /*expected_header_value=*/"gzip, deflate, br, zstd"));
+      /*expected_header_value=*/
+      GetParam() ? "fakeencoding, fakeencoding2" : "gzip, deflate, br, zstd"));
 }
 
 // Tests the behavior of a privileged (extension resource) context when it
 // attempts to set forbidden and non-forbidden headers on fetch() requests to a
 // URL for which the extension has host_permissions.
-IN_PROC_BROWSER_TEST_F(ServiceWorkerFetchTest,
+IN_PROC_BROWSER_TEST_P(ServiceWorkerFetchTest,
                        SetFetchHeadersFromExtensionResource) {
   const Extension* extension = LoadExtension(test_data_dir_.AppendASCII(
       "service_worker/worker_fetch_headers/test_extension"));
@@ -1540,15 +1551,14 @@ IN_PROC_BROWSER_TEST_F(ServiceWorkerFetchTest,
   EXPECT_TRUE(WaitForRequestAndCheckHeaderValue(
       embedded_test_server()->GetURL("/fetch/fetch_forbidden.html"),
       /*header_name=*/"Accept-Encoding",
-      // TODO(crbug.com/418811955): Set this to "fakeencoding, fakeencoding2"
-      // when this capability is allowed.
-      /*expected_header_value=*/"gzip, deflate, br, zstd"));
+      /*expected_header_value=*/
+      GetParam() ? "fakeencoding, fakeencoding2" : "gzip, deflate, br, zstd"));
 }
 
 // Tests the behavior of an unprivileged (content script) context when it
 // attempts to set forbidden and non-forbidden headers on fetch() requests to a
 // URL for which the extension has host_permissions.
-IN_PROC_BROWSER_TEST_F(ServiceWorkerFetchTest,
+IN_PROC_BROWSER_TEST_P(ServiceWorkerFetchTest,
                        SetFetchHeadersFromExtensionContentScript) {
   const Extension* extension = LoadExtension(test_data_dir_.AppendASCII(
       "service_worker/worker_fetch_headers/test_extension"));
@@ -1584,6 +1594,10 @@ IN_PROC_BROWSER_TEST_F(ServiceWorkerFetchTest,
       /*header_name=*/"Accept-Encoding",
       /*expected_header_value=*/"gzip, deflate, br, zstd"));
 }
+
+// Toggle `blink::features::kBypassRequestForbiddenHeadersCheck`.
+INSTANTIATE_FEATURE_OVERRIDE_TEST_SUITE(ServiceWorkerFetchTest);
+
 // Tests that updating a packed extension with modified scripts works
 // properly -- we expect that the new script will execute, rather than the
 // previous one.
@@ -1833,7 +1847,7 @@ IN_PROC_BROWSER_TEST_F(ServiceWorkerBasedBackgroundTest, VerifyNoApiBindings) {
       test_data_dir_.AppendASCII("service_worker/verify_no_api_bindings"));
   ASSERT_TRUE(extension);
   ASSERT_TRUE(ui_test_utils::NavigateToURL(
-      browser(), extension->ResolveExtensionURL("page.html")));
+      browser(), extension->GetResourceURL("page.html")));
   content::WebContents* web_contents =
       browser()->tab_strip_model()->GetActiveWebContents();
 
@@ -1857,7 +1871,7 @@ IN_PROC_BROWSER_TEST_F(ServiceWorkerBackgroundSyncTest, Sync) {
       LoadExtension(test_data_dir_.AppendASCII("service_worker/sync"));
   ASSERT_TRUE(extension);
   ASSERT_TRUE(ui_test_utils::NavigateToURL(
-      browser(), extension->ResolveExtensionURL("page.html")));
+      browser(), extension->GetResourceURL("page.html")));
   content::WebContents* web_contents =
       browser()->tab_strip_model()->GetActiveWebContents();
 
@@ -1901,7 +1915,7 @@ IN_PROC_BROWSER_TEST_F(ServiceWorkerPushMessagingTest, OnPush) {
 
   GrantNotificationPermissionForTest(extension_url);
 
-  GURL url = extension->ResolveExtensionURL("page.html");
+  GURL url = extension->GetResourceURL("page.html");
   ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), url));
 
   content::WebContents* web_contents =
@@ -1965,7 +1979,7 @@ IN_PROC_BROWSER_TEST_F(ServiceWorkerBasedBackgroundTest,
   // Navigate to a URL, which should wake up the service worker.
   ExtensionTestMessageListener finished_listener("finished");
   ASSERT_TRUE(ui_test_utils::NavigateToURL(
-      browser(), extension->ResolveExtensionURL("page.html")));
+      browser(), extension->GetResourceURL("page.html")));
   EXPECT_TRUE(finished_listener.WaitUntilSatisfied());
 }
 
@@ -2483,7 +2497,7 @@ IN_PROC_BROWSER_TEST_F(ServiceWorkerBasedBackgroundTest, WorkerRefCount) {
   ASSERT_TRUE(worker_start_listener.WaitUntilSatisfied());
 
   ASSERT_TRUE(ui_test_utils::NavigateToURL(
-      browser(), extension->ResolveExtensionURL("page.html")));
+      browser(), extension->GetResourceURL("page.html")));
   content::WebContents* web_contents =
       browser()->tab_strip_model()->GetActiveWebContents();
 
@@ -2926,7 +2940,7 @@ IN_PROC_BROWSER_TEST_P(ServiceWorkerWithManifestVersionTest,
   ExtensionTestMessageListener csp_modified_listener(kDefaultCSP);
   csp_modified_listener.set_extension_id(extension_id);
   ASSERT_TRUE(ui_test_utils::NavigateToURL(
-      browser(), extension->ResolveExtensionURL("extension_page.html")));
+      browser(), extension->GetResourceURL("extension_page.html")));
   EXPECT_TRUE(csp_modified_listener.WaitUntilSatisfied());
 
   // Ensure the inline script is not executed because we ensure that the

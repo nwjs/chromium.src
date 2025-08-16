@@ -80,6 +80,7 @@ BASE_DECLARE_FEATURE(kNtpMobilePromo);
 BASE_DECLARE_FEATURE(kNtpMicrosoftAuthenticationModule);
 BASE_DECLARE_FEATURE(kNtpOneGoogleBarAsyncBarParts);
 BASE_DECLARE_FEATURE(kNtpFooter);
+BASE_DECLARE_FEATURE(kNtpTabGroupsModule);
 
 // Parameter for controlling the luminosity difference for NTP elements on light
 // backgrounds.
@@ -148,6 +149,8 @@ extern const char kNtpMostRelevantTabResumptionModuleDataParam[];
 // Parameter determining the max visits to show.
 extern const char kNtpMostRelevantTabResumptionModuleMaxVisitsParam[];
 extern const char kNtpRealboxWidthBehaviorParam[];
+// Parameter determining the type of tab groups data to render.
+extern const char kNtpTabGroupsModuleDataParam[];
 // Parameter for determining the categories a tab must not fall into
 // to be shown.
 extern const char kNtpTabResumptionModuleCategoriesBlocklistParam[];

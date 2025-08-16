@@ -52,7 +52,6 @@ NextProtoSet CalculateAllowedAlpns(HttpStreamPool::Job::Delegate* delegate,
   if (!group->pool()->CanUseQuic(
           group->stream_key().destination(),
           group->stream_key().network_anonymization_key(),
-          delegate->enable_ip_based_pooling(),
           delegate->enable_alternative_services())) {
     allowed_alpns.Remove(NextProto::kProtoQUIC);
   }
@@ -77,13 +76,15 @@ quic::ParsedQuicVersion CalculateQuicVersion(
 }  // namespace
 
 HttpStreamPool::Job::Job(Delegate* delegate,
+                         JobType type,
                          Group* group,
                          quic::ParsedQuicVersion quic_version,
                          NextProto expected_protocol,
                          const NetLogWithSource& request_net_log,
                          size_t num_streams)
     : delegate_(delegate),
-      attempt_manager_(group->EnsureAttemptManager()),
+      type_(type),
+      attempt_manager_(group->GetAttemptManagerForJob(this)),
       quic_version_(CalculateQuicVersion(quic_version, group)),
       allowed_alpns_(
           CalculateAllowedAlpns(delegate_, group, expected_protocol)),
@@ -93,6 +94,7 @@ HttpStreamPool::Job::Job(Delegate* delegate,
                                  NetLogSourceType::HTTP_STREAM_POOL_JOB)),
       num_streams_(num_streams),
       create_time_(base::TimeTicks::Now()) {
+  CHECK(attempt_manager_);
   job_net_log_.BeginEvent(NetLogEventType::HTTP_STREAM_POOL_JOB_ALIVE, [&] {
     base::Value::Dict dict;
     dict.Set("stream_key", group->stream_key().ToValue());
@@ -102,6 +104,7 @@ HttpStreamPool::Job::Job(Delegate* delegate,
       allowed_alpn_list.Append(NextProtoToString(alpn));
     }
     dict.Set("allowed_alpns", std::move(allowed_alpn_list));
+    dict.Set("type", static_cast<int>(type_));
     dict.Set("num_streams", static_cast<int>(num_streams_));
     delegate_->net_log().source().AddToEventParameters(dict);
     return dict;
@@ -154,10 +157,14 @@ void HttpStreamPool::Job::Start() {
   CHECK(attempt_manager_);
   CHECK(!attempt_manager_->is_shutting_down());
 
-  if (IsPreconnect()) {
-    attempt_manager_->Preconnect(this);
-  } else {
-    attempt_manager_->RequestStream(this);
+  switch (type_) {
+    case JobType::kRequest:
+      attempt_manager_->RequestStream(this);
+      break;
+    case JobType::kPreconnect:
+    case JobType::kAltSvcQuicPreconnect:
+      attempt_manager_->Preconnect(this);
+      break;
   }
 }
 

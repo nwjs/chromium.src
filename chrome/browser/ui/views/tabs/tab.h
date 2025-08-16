@@ -29,10 +29,6 @@
 #include "ui/views/masked_targeter_delegate.h"
 #include "ui/views/view_observer.h"
 
-#if BUILDFLAG(ENABLE_GLIC)
-#include "chrome/browser/glic/browser_ui/glic_border_view.h"
-#endif
-
 class AlertIndicatorButton;
 class TabCloseButton;
 class TabSlotController;
@@ -51,6 +47,12 @@ class View;
 namespace tabs {
 enum class TabAlert;
 }
+
+#if BUILDFLAG(ENABLE_GLIC)
+namespace glic {
+class GlicTabUnderlineView;
+}  // namespace glic
+#endif
 
 ///////////////////////////////////////////////////////////////////////////////
 //
@@ -210,6 +212,12 @@ class Tab : public gfx::AnimationDelegate,
 
   void UpdateInsets();
 
+#if BUILDFLAG(ENABLE_GLIC)
+  glic::GlicTabUnderlineView* glic_underline() const {
+    return glic_tab_underline_view_;
+  }
+#endif
+
  private:
   class TabCloseButtonObserver;
   friend class TabContentsTest;
@@ -269,7 +277,7 @@ class Tab : public gfx::AnimationDelegate,
   bool closing_ = false;
 
 #if BUILDFLAG(ENABLE_GLIC)
-  raw_ptr<glic::GlicBorderView> glic_border_view_ = nullptr;
+  raw_ptr<glic::GlicTabUnderlineView> glic_tab_underline_view_ = nullptr;
 #endif
 
   raw_ptr<TabIcon> icon_ = nullptr;

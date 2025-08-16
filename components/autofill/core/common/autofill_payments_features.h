@@ -18,8 +18,6 @@ COMPONENT_EXPORT(AUTOFILL)
 BASE_DECLARE_FEATURE(kAutofillDisableDefaultSaveCardFixFlowDetection);
 #endif
 COMPONENT_EXPORT(AUTOFILL)
-BASE_DECLARE_FEATURE(kAutofillDropNamesWithInvalidCharactersForCardUpload);
-COMPONENT_EXPORT(AUTOFILL)
 BASE_DECLARE_FEATURE(kAutofillEnableAllowlistForBmoCardCategoryBenefits);
 COMPONENT_EXPORT(AUTOFILL)
 BASE_DECLARE_FEATURE(kAutofillEnableAmountExtractionAllowlistDesktop);
@@ -30,11 +28,11 @@ BASE_DECLARE_FEATURE(kAutofillEnableAmountExtractionTesting);
 COMPONENT_EXPORT(AUTOFILL)
 BASE_DECLARE_FEATURE(kAutofillEnableBuyNowPayLater);
 COMPONENT_EXPORT(AUTOFILL)
+BASE_DECLARE_FEATURE(kAutofillEnableBuyNowPayLaterForExternallyLinked);
+COMPONENT_EXPORT(AUTOFILL)
 BASE_DECLARE_FEATURE(kAutofillEnableBuyNowPayLaterForKlarna);
 COMPONENT_EXPORT(AUTOFILL)
 BASE_DECLARE_FEATURE(kAutofillEnableBuyNowPayLaterSyncing);
-COMPONENT_EXPORT(AUTOFILL)
-BASE_DECLARE_FEATURE(kAutofillEnableBuyNowPayLaterSyncingForKlarna);
 COMPONENT_EXPORT(AUTOFILL)
 BASE_DECLARE_FEATURE(kAutofillEnableCardBenefitsForAmericanExpress);
 COMPONENT_EXPORT(AUTOFILL)
@@ -88,7 +86,7 @@ COMPONENT_EXPORT(AUTOFILL)
 BASE_DECLARE_FEATURE(kAutofillEnableSaveAndFill);
 #if BUILDFLAG(IS_ANDROID)
 COMPONENT_EXPORT(AUTOFILL)
-BASE_DECLARE_FEATURE(kAutofillEnableShowSaveCardSecurelyMessage);
+BASE_DECLARE_FEATURE(kAutofillEnableSeparatePixPreferenceItem);
 COMPONENT_EXPORT(AUTOFILL)
 BASE_DECLARE_FEATURE(kAutofillEnableSyncingOfPixBankAccounts);
 #endif
@@ -133,12 +131,6 @@ extern const base::FeatureParam<int>
     kAutofillUploadCardRequestTimeoutMilliseconds;
 
 COMPONENT_EXPORT(AUTOFILL) BASE_DECLARE_FEATURE(kAutofillUpstream);
-
-COMPONENT_EXPORT(AUTOFILL)
-BASE_DECLARE_FEATURE(kAutofillVcnEnrollRequestTimeout);
-COMPONENT_EXPORT(AUTOFILL)
-extern const base::FeatureParam<int>
-    kAutofillVcnEnrollRequestTimeoutMilliseconds;
 
 COMPONENT_EXPORT(AUTOFILL)
 BASE_DECLARE_FEATURE(kAutofillVcnEnrollStrikeExpiryTime);

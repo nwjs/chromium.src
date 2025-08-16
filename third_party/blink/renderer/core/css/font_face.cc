@@ -42,6 +42,7 @@
 #include "third_party/blink/renderer/core/css/css_font_feature_value.h"
 #include "third_party/blink/renderer/core/css/css_font_selector.h"
 #include "third_party/blink/renderer/core/css/css_font_style_range_value.h"
+#include "third_party/blink/renderer/core/css/css_font_variation_value.h"
 #include "third_party/blink/renderer/core/css/css_identifier_value.h"
 #include "third_party/blink/renderer/core/css/css_property_value_set.h"
 #include "third_party/blink/renderer/core/css/css_unicode_range_value.h"
@@ -55,6 +56,7 @@
 #include "third_party/blink/renderer/core/css/parser/at_rule_descriptor_parser.h"
 #include "third_party/blink/renderer/core/css/parser/css_parser.h"
 #include "third_party/blink/renderer/core/css/remote_font_face_source.h"
+#include "third_party/blink/renderer/core/css/resolver/style_builder_converter.h"
 #include "third_party/blink/renderer/core/css/style_engine.h"
 #include "third_party/blink/renderer/core/css/style_rule.h"
 #include "third_party/blink/renderer/core/css_value_keywords.h"
@@ -213,6 +215,8 @@ FontFace* FontFace::Create(Document* document,
                                       AtRuleDescriptorID::FontVariant) &&
       font_face->SetPropertyFromStyle(
           properties, AtRuleDescriptorID::FontFeatureSettings) &&
+      font_face->SetPropertyFromStyle(
+          properties, AtRuleDescriptorID::FontVariationSettings) &&
       font_face->SetPropertyFromStyle(properties,
                                       AtRuleDescriptorID::FontDisplay) &&
       font_face->SetPropertyFromStyle(properties,
@@ -258,6 +262,10 @@ FontFace::FontFace(ExecutionContext* context,
                         AtRuleDescriptorID::FontVariant);
   SetPropertyFromString(context, descriptors->featureSettings(),
                         AtRuleDescriptorID::FontFeatureSettings);
+  if (RuntimeEnabledFeatures::FontVariationSettingsDescriptorEnabled()) {
+    SetPropertyFromString(context, descriptors->variationSettings(),
+                          AtRuleDescriptorID::FontVariationSettings);
+  }
   SetPropertyFromString(context, descriptors->display(),
                         AtRuleDescriptorID::FontDisplay);
   SetPropertyFromString(context, descriptors->ascentOverride(),
@@ -294,6 +302,10 @@ String FontFace::variant() const {
 
 String FontFace::featureSettings() const {
   return feature_settings_ ? feature_settings_->CssText() : "normal";
+}
+
+String FontFace::variationSettings() const {
+  return variation_settings_ ? variation_settings_->CssText() : "normal";
 }
 
 String FontFace::display() const {
@@ -355,6 +367,13 @@ void FontFace::setFeatureSettings(ExecutionContext* context,
                                   const String& s,
                                   ExceptionState& exception_state) {
   SetPropertyFromString(context, s, AtRuleDescriptorID::FontFeatureSettings,
+                        &exception_state);
+}
+
+void FontFace::setVariationSettings(ExecutionContext* context,
+                                    const String& s,
+                                    ExceptionState& exception_state) {
+  SetPropertyFromString(context, s, AtRuleDescriptorID::FontVariationSettings,
                         &exception_state);
 }
 
@@ -440,6 +459,9 @@ bool FontFace::SetPropertyValue(const CSSValue* value,
       break;
     case AtRuleDescriptorID::FontFeatureSettings:
       feature_settings_ = value;
+      break;
+    case AtRuleDescriptorID::FontVariationSettings:
+      variation_settings_ = value;
       break;
     case AtRuleDescriptorID::FontDisplay:
       display_ = value;
@@ -938,6 +960,7 @@ void FontFace::Trace(Visitor* visitor) const {
   visitor->Trace(unicode_range_);
   visitor->Trace(variant_);
   visitor->Trace(feature_settings_);
+  visitor->Trace(variation_settings_);
   visitor->Trace(display_);
   visitor->Trace(ascent_override_);
   visitor->Trace(descent_override_);
@@ -1009,24 +1032,42 @@ float FontFace::GetSizeAdjust() const {
 
 scoped_refptr<FontFeatureSettings> FontFace::GetFontFeatureSettings() const {
   DCHECK(RuntimeEnabledFeatures::FontFeatureSettingsDescriptorEnabled());
-  scoped_refptr<FontFeatureSettings> settings = FontFeatureSettings::Create();
   if (!feature_settings_) {
+    return FontFeatureSettings::Create();
+  }
+  return StyleBuilderConverterBase::ConvertFontFeatureSettings(
+      EnsureLengthResolver(), *feature_settings_);
+}
+
+scoped_refptr<FontVariationSettings> FontFace::GetFontVariationSettings()
+    const {
+  DCHECK(RuntimeEnabledFeatures::FontVariationSettingsDescriptorEnabled());
+  scoped_refptr<FontVariationSettings> settings =
+      FontVariationSettings::Create();
+  if (!variation_settings_) {
     return settings;
   }
 
-  auto* identifier_value = DynamicTo<CSSIdentifierValue>(*feature_settings_);
+  auto* identifier_value = DynamicTo<CSSIdentifierValue>(*variation_settings_);
   if ((identifier_value &&
        identifier_value->GetValueID() == CSSValueID::kNormal)) {
     return settings;
   }
 
-  const auto& list = To<CSSValueList>(*feature_settings_);
-  const wtf_size_t len = list.length();
-  for (wtf_size_t i = 0; i < len; ++i) {
-    const auto& feature = To<cssvalue::CSSFontFeatureValue>(list.Item(i));
-    settings->Append(
-        FontFeature(feature.Tag(), feature.Value(EnsureLengthResolver())));
+  const auto& list = To<CSSValueList>(*variation_settings_);
+  std::map<uint32_t, float> axes;
+
+  for (const Member<const CSSValue>& value : list) {
+    const auto& variation = To<cssvalue::CSSFontVariationValue>(*value);
+    // Use a temporary std::map to remove duplicate tags, keeping the last
+    // occurrence of each.
+    axes[AtomicStringToFourByteTag(variation.Tag())] =
+        variation.Value()->ConvertTo<float>(EnsureLengthResolver());
   }
+  for (const auto& [tag, value] : axes) {
+    settings->Append(FontVariationAxis(tag, value));
+  }
+  DCHECK(std::is_sorted(settings->begin(), settings->end()));
   return settings;
 }
 

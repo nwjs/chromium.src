@@ -19,7 +19,6 @@
 #import "ios/chrome/browser/data_sharing/model/data_sharing_service_observer_bridge.h"
 #import "ios/chrome/browser/saved_tab_groups/model/ios_tab_group_sync_util.h"
 #import "ios/chrome/browser/saved_tab_groups/ui/tab_group_utils.h"
-#import "ios/chrome/browser/share_kit/model/share_kit_face_pile_configuration.h"
 #import "ios/chrome/browser/share_kit/model/share_kit_manage_configuration.h"
 #import "ios/chrome/browser/share_kit/model/share_kit_service.h"
 #import "ios/chrome/browser/share_kit/model/sharing_state.h"
@@ -32,7 +31,6 @@
 #import "ios/chrome/browser/tab_switcher/ui_bundled/tab_grid/tab_groups/tab_group_sync_service_observer_bridge.h"
 #import "ios/chrome/browser/tab_switcher/ui_bundled/tab_group_action_type.h"
 #import "ios/chrome/browser/toolbar/ui_bundled/tab_groups/coordinator/tab_group_indicator_mediator_delegate.h"
-#import "ios/chrome/browser/toolbar/ui_bundled/tab_groups/tab_group_indicator_features_utils.h"
 #import "ios/chrome/browser/toolbar/ui_bundled/tab_groups/ui/tab_group_indicator_consumer.h"
 #import "ios/chrome/browser/url_loading/model/url_loading_browser_agent.h"
 #import "ios/chrome/browser/url_loading/model/url_loading_params.h"
@@ -165,8 +163,7 @@ using tab_groups::SharingState;
   web::WebState* webState = status.new_active_web_state;
   if ((status.active_web_state_change() || groupUpdate) && webState) {
     const TabGroup* tabGroup = [self currentTabGroup];
-    if (tabGroup && IsTabGroupIndicatorEnabled() &&
-        HasTabGroupIndicatorVisible()) {
+    if (tabGroup) {
       [_consumer setTabGroupTitle:tabGroup->GetTitle()
                        groupColor:tab_groups::ColorForTabGroupColorId(
                                       tabGroup->GetColor())];
@@ -253,7 +250,7 @@ using tab_groups::SharingState;
   if (!tabGroup) {
     return;
   }
-  if (IsTabGroupSyncEnabled() && confirmation) {
+  if (confirmation) {
     [_delegate
         showTabGroupIndicatorConfirmationForAction:TabGroupActionType::
                                                        kDeleteTabGroup
@@ -264,7 +261,6 @@ using tab_groups::SharingState;
 }
 
 - (void)deleteSharedGroupWithConfirmation:(BOOL)confirmation {
-  DCHECK(IsTabGroupSyncEnabled());
   const TabGroup* tabGroup = [self currentTabGroup];
   if (!tabGroup) {
     return;
@@ -420,7 +416,7 @@ using tab_groups::SharingState;
 // locally.
 - (void)closeTabGroup:(const TabGroup*)tabGroup
        andDeleteGroup:(BOOL)deleteGroup {
-  if (IsTabGroupSyncEnabled() && !deleteGroup) {
+  if (!deleteGroup) {
     [_delegate showTabGroupIndicatorSnackbarAfterClosingGroup];
     tab_groups::utils::CloseTabGroupLocally(tabGroup, _webStateList.get(),
                                             _tabGroupSyncService);
@@ -428,7 +424,7 @@ using tab_groups::SharingState;
     // Using `CloseAllWebStatesInGroup` will result in calling the web state
     // list observers which will take care of updating the consumer.
     CloseAllWebStatesInGroup(*_webStateList, tabGroup,
-                             WebStateList::CLOSE_USER_ACTION);
+                             WebStateList::ClosingReason::kUserAction);
   }
 }
 

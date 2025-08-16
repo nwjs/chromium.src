@@ -15,6 +15,7 @@
 #import "ios/chrome/browser/snapshots/model/model_swift.h"
 #import "ios/chrome/browser/snapshots/model/snapshot_storage_util.h"
 #import "ios/chrome/browser/snapshots/model/snapshot_tab_helper.h"
+#import "ios/chrome/browser/snapshots/model/snapshot_util.h"
 
 namespace {
 
@@ -26,82 +27,32 @@ SnapshotIDWrapper* ToWrapper(SnapshotID snapshot_id) {
   return [[SnapshotIDWrapper alloc] initWithSnapshotID:snapshot_id];
 }
 
+// Returns the snapshot IDs of all the WebStates in `browser`.
+NSArray<SnapshotIDWrapper*>* GetSnapshotIDs(Browser* browser) {
+  WebStateList* web_state_list = browser->GetWebStateList();
+  const int web_state_list_count = web_state_list->count();
+
+  NSMutableArray<SnapshotIDWrapper*>* snapshot_ids =
+      [[NSMutableArray alloc] initWithCapacity:web_state_list_count];
+
+  for (int index = 0; index < web_state_list_count; ++index) {
+    web::WebState* web_state = web_state_list->GetWebStateAt(index);
+    [snapshot_ids
+        addObject:ToWrapper(SnapshotID(web_state->GetUniqueIdentifier()))];
+  }
+  return snapshot_ids;
+}
+
 }  // anonymous namespace
 
 SnapshotBrowserAgent::SnapshotBrowserAgent(Browser* browser)
     : BrowserUserData(browser) {
-  web_state_list_observation_.Observe(browser_->GetWebStateList());
+  StartObserving(browser_->GetWebStateList(), Policy::kAccordingToFeature);
 }
 
 SnapshotBrowserAgent::~SnapshotBrowserAgent() {
   [snapshot_storage_ shutdown];
-}
-
-#pragma mark - WebStateListObserver
-
-void SnapshotBrowserAgent::WebStateListDidChange(
-    WebStateList* web_state_list,
-    const WebStateListChange& change,
-    const WebStateListStatus& status) {
-  switch (change.type()) {
-    case WebStateListChange::Type::kStatusOnly:
-      // Do nothing when a WebState is selected and its status is updated.
-      break;
-    case WebStateListChange::Type::kDetach: {
-      const WebStateListChangeDetach& detach_change =
-          change.As<WebStateListChangeDetach>();
-      DetachWebState(detach_change.detached_web_state(),
-                     PolicyForChange(detach_change));
-      break;
-    }
-    case WebStateListChange::Type::kMove:
-      // Do nothing when a WebState is moved.
-      break;
-    case WebStateListChange::Type::kReplace: {
-      const WebStateListChangeReplace& replace_change =
-          change.As<WebStateListChangeReplace>();
-      DetachWebState(replace_change.replaced_web_state(), DetachPolicy::kPurge);
-      InsertWebState(replace_change.inserted_web_state());
-      break;
-    }
-    case WebStateListChange::Type::kInsert: {
-      const WebStateListChangeInsert& insert_change =
-          change.As<WebStateListChangeInsert>();
-      InsertWebState(insert_change.inserted_web_state());
-      break;
-    }
-    case WebStateListChange::Type::kGroupCreate:
-      // Do nothing when a group is created.
-      break;
-    case WebStateListChange::Type::kGroupVisualDataUpdate:
-      // Do nothing when a tab group's visual data are updated.
-      break;
-    case WebStateListChange::Type::kGroupMove:
-      // Do nothing when a tab group is moved.
-      break;
-    case WebStateListChange::Type::kGroupDelete:
-      // Do nothing when a group is deleted.
-      break;
-  }
-}
-
-SnapshotBrowserAgent::DetachPolicy SnapshotBrowserAgent::PolicyForChange(
-    const WebStateListChangeDetach& change) const {
-  // The tab is detached without being closed, it is likely going to be
-  // moved to another Browser, so keep the snapshot (it will be moved).
-  if (!change.is_closing()) {
-    return DetachPolicy::kKeep;
-  }
-
-  // If the tab is closed due to an user action, or due to tab cleanup,
-  // then it won't be reopened and the snapshot can be deleted.
-  if (change.is_user_action() || change.is_tabs_cleanup()) {
-    return DetachPolicy::kPurge;
-  }
-
-  // Do not delete the snapshot otherwise (it is likely because the window
-  // is being closed, and the Browser destroyed).
-  return DetachPolicy::kKeep;
+  StopObserving();
 }
 
 void SnapshotBrowserAgent::SetSessionID(const std::string& identifier) {
@@ -133,18 +84,43 @@ void SnapshotBrowserAgent::RemoveAllSnapshots() {
   [snapshot_storage_ removeAllImages];
 }
 
-void SnapshotBrowserAgent::InsertWebState(web::WebState* web_state) {
+void SnapshotBrowserAgent::RetrieveSnapshotWithID(
+    SnapshotID snapshot_id,
+    SnapshotKind snapshot_kind,
+    SnapshotRetrievedBlock completion) {
+  // Fail fast if the browser agent has not been initialized yet.
+  if (!snapshot_storage_) {
+    completion(nil);
+    return;
+  }
+
+  SnapshotOperation operation =
+      snapshot_kind == SnapshotKindColor
+          ? SnapshotOperation::kRetrieveColorSnapshot
+          : SnapshotOperation::kRetrieveGreyscaleSnapshot;
+  [snapshot_storage_ retrieveImageWithSnapshotID:ToWrapper(snapshot_id)
+                                    snapshotKind:snapshot_kind
+                                      completion:BlockRecordingElapsedTime(
+                                                     operation, completion)];
+}
+
+void SnapshotBrowserAgent::OnWebStateInserted(web::WebState* web_state) {
   SnapshotTabHelper::FromWebState(web_state)->SetSnapshotStorage(
       snapshot_storage_);
 }
 
-void SnapshotBrowserAgent::DetachWebState(web::WebState* web_state,
-                                          DetachPolicy policy) {
-  if (policy == DetachPolicy::kPurge) {
-    const SnapshotID snapshot_id(web_state->GetUniqueIdentifier());
-    [snapshot_storage_ removeImageWithSnapshotID:ToWrapper(snapshot_id)];
-  }
+void SnapshotBrowserAgent::OnWebStateRemoved(web::WebState* web_state) {
   SnapshotTabHelper::FromWebState(web_state)->SetSnapshotStorage(nil);
+}
+
+void SnapshotBrowserAgent::OnWebStateDeleted(web::WebState* web_state) {
+  const SnapshotID snapshot_id(web_state->GetUniqueIdentifier());
+  [snapshot_storage_ removeImageWithSnapshotID:ToWrapper(snapshot_id)];
+}
+
+void SnapshotBrowserAgent::OnActiveWebStateChanged(web::WebState* old_active,
+                                                   web::WebState* new_active) {
+  // Nothing to do.
 }
 
 void SnapshotBrowserAgent::MigrateStorageIfNecessary() {
@@ -177,26 +153,11 @@ void SnapshotBrowserAgent::MigrateStorageIfNecessary() {
 
 void SnapshotBrowserAgent::PurgeUnusedSnapshots() {
   DCHECK(snapshot_storage_);
-  NSArray<SnapshotIDWrapper*>* snapshot_ids = GetSnapshotIDs();
+  NSArray<SnapshotIDWrapper*>* snapshot_ids = GetSnapshotIDs(browser_);
   // Keep snapshots that are less than one minute old, to prevent a concurrency
   // issue if they are created while the purge is running.
   const base::Time one_minute_ago = base::Time::Now() - base::Minutes(1);
   [snapshot_storage_
       purgeImagesOlderThanWithThresholdDate:one_minute_ago.ToNSDate()
                             liveSnapshotIDs:snapshot_ids];
-}
-
-NSArray<SnapshotIDWrapper*>* SnapshotBrowserAgent::GetSnapshotIDs() {
-  WebStateList* web_state_list = browser_->GetWebStateList();
-  const int web_state_list_count = web_state_list->count();
-
-  NSMutableArray<SnapshotIDWrapper*>* snapshot_ids =
-      [[NSMutableArray alloc] initWithCapacity:web_state_list_count];
-
-  for (int index = 0; index < web_state_list_count; ++index) {
-    web::WebState* web_state = web_state_list->GetWebStateAt(index);
-    [snapshot_ids
-        addObject:ToWrapper(SnapshotID(web_state->GetUniqueIdentifier()))];
-  }
-  return snapshot_ids;
 }

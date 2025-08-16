@@ -33,7 +33,6 @@
 #include "base/time/time.h"
 #include "base/trace_event/trace_event.h"
 #include "components/autofill/core/common/autofill_prefs.h"
-#include "components/embedder_support/android/metrics/android_metrics_service_client.h"
 #include "components/embedder_support/origin_trials/origin_trial_prefs.h"
 #include "components/embedder_support/origin_trials/pref_names.h"
 #include "components/metrics/android_metrics_helper.h"
@@ -192,7 +191,7 @@ std::unique_ptr<PrefService> AwFeatureListCreator::CreatePrefService() {
   persistent_prefs.insert(std::string(metrics::prefs::kMetricsLastSeenPrefix) +
                           kBrowserMetricsName);
   persistent_prefs.insert(std::string(metrics::prefs::kMetricsLastSeenPrefix) +
-                          metrics::kCrashpadHistogramAllocatorName);
+                          kCrashpadHistogramAllocatorName);
 
   // SegregatedPrefStore may be validated with a MAC (message authentication
   // code). On Android, the store is protected by app sandboxing, so validation

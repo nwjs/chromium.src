@@ -85,7 +85,7 @@ const char kScript[] =
     "saveBuiltin(Array,\n"
     "            ['concat', 'forEach', 'includes', 'indexOf', 'join', 'push',\n"
     "             'slice', 'splice', 'map', 'filter', 'shift', 'unshift',\n"
-    "             'pop', 'push', 'reverse'],\n"
+    "             'pop', 'push', 'reverse', 'find'],\n"
     "            ['from', 'isArray']);\n"
     "saveBuiltin(String,\n"
     "            ['indexOf', 'slice', 'split', 'substr', 'toLowerCase',\n"
@@ -100,7 +100,7 @@ const char kScript[] =
     "            ['captureStackTrace']);\n"
     "saveBuiltin(Promise,\n"
     "            ['then', 'catch'],\n"
-    "            ['resolve']);\n"
+    "            ['race', 'resolve']);\n"
     "\n"
     "// JSON is trickier because extensions can override toJSON in\n"
     "// incompatible ways, and we need to prevent that.\n"
@@ -153,14 +153,14 @@ void SaveImpl(const char* name,
               v8::Local<v8::Context> context) {
   CHECK(!value.IsEmpty() && value->IsObject()) << name;
   context->Global()
-      ->SetPrivate(context, MakeKey(name, context->GetIsolate()), value)
+      ->SetPrivate(context, MakeKey(name, v8::Isolate::GetCurrent()), value)
       .FromJust();
 }
 
 v8::Local<v8::Object> Load(const char* name, v8::Local<v8::Context> context) {
   v8::Local<v8::Value> value =
       context->Global()
-          ->GetPrivate(context, MakeKey(name, context->GetIsolate()))
+          ->GetPrivate(context, MakeKey(name, v8::Isolate::GetCurrent()))
           .ToLocalChecked();
   CHECK(value->IsObject()) << name;
   return v8::Local<v8::Object>::Cast(value);

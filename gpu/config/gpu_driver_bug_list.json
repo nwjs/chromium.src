@@ -827,9 +827,13 @@
     },
     {
       "id": 147,
-      "description": "Limit max texure size to 4096 on all of Android",
+      "description": "Limit max texure size to 4096 on older Android devices.",
       "os": {
-        "type": "android"
+        "type": "android",
+        "version": {
+          "op": "<",
+          "value": "14.0"
+        }
       },
       "features": [
         "webgl_or_caps_max_texture_size_limit_4096"
@@ -2217,11 +2221,13 @@
     },
     {
       "id": 346,
-      "cr_bugs": [1062184],
-      "description": "Enable HDR video playing through overlay on Intel",
+      "cr_bugs": [1062184, 344343039],
+      "description": "Enable HDR video playing through overlay on older Intel Graphics drivers",
       "os": {
         "type": "win"
       },
+      "vendor_id": "0x8086",
+      "multi_gpu_category": "any",
       "intel_gpu_series": [
         "icelake",
         "tigerlake",
@@ -2234,6 +2240,10 @@
         "lunarlake",
         "battlemage"
       ],
+      "driver_version": {
+        "op": "<",
+        "value": "32.0.101.6314"
+      },
       "features": [
         "force_rgb10a2_overlay_support"
       ]
@@ -2861,18 +2871,6 @@
       ]
     },
     {
-      "id": 401,
-      "description": "Disable DrDc on multiple gpus.",
-      "cr_bugs": [1354201, 1356906, 1362720],
-      "os": {
-        "type": "android"
-      },
-      "gl_renderer": ".*PowerVR Rogue.*|Adreno \\(TM\\) 730|Mali-G57 MC2|Mali-G68 MC4|Mali-G77 MC9",
-      "features": [
-        "disable_drdc"
-      ]
-    },
-    {
       "id": 404,
       "description": "Disable EGL_EXT_image_dma_buf_import_modifiers for Exo KMS modifier discovery on kms_swrast/llvmpipe",
       "os": {
@@ -3487,21 +3485,6 @@
       ]
     },
     {
-      "id": 444,
-      "description": "Disable shared image encode for VP9 MFVEA on Intel ",
-      "comment":[
-        "VP9 encode accelerator corrupts color output when accepting RGB shared images",
-        "as input."
-      ],
-      "os": {
-        "type": "win"
-      },
-      "vendor_id": "0x8086",
-      "features": [
-        "disable_vp9_shared_image_encode"
-      ]
-    },
-    {
       "id": 445,
       "description": "Disable shared D3D device for MFVEA on Intel ",
       "comment":[
@@ -3527,21 +3510,6 @@
       "device_id": ["0x36333630"],
       "features": [
         "disable_direct_composition_letterbox_video_optimization"
-      ]
-    },
-    {
-      "id": 447,
-      "description": "Disable shared image encode for AV1 MFVEA on NVidia",
-      "comment":[
-        "AV1 encode accelerator corrupts color output when accepting RGB shared images",
-        "as input."
-      ],
-      "os": {
-        "type": "win"
-      },
-      "vendor_id": "0x10de",
-      "features": [
-        "disable_av1_shared_image_encode"
       ]
     },
     {
@@ -3588,8 +3556,9 @@
         "disable_decode_into_array_texture"
       ],
       "driver_version": {
-        "op": ">",
-        "value": "32.0.101.6078"
+        "op": "between",
+        "value": "32.0.101.6079",
+        "value2": "32.0.101.6971"
       }
     },
     {
@@ -3607,6 +3576,110 @@
       },
       "features": [
         "enable_bgra8_overlays_with_yuv_overlay_support"
+      ]
+    },
+    {
+      "id": 452,
+      "cr_bugs": [1062184, 344343039],
+      "description": "Older Windows fails to report RGB10A2 overlay support for Intel GPUs",
+      "os": {
+        "type": "win",
+        "version": {
+          "op": "<",
+          "value": "10.0.26100.4061"
+        }
+      },
+      "intel_gpu_series": [
+        "icelake",
+        "tigerlake",
+        "rocketlake",
+        "alderlake",
+        "alchemist",
+        "raptorlake",
+        "meteorlake",
+        "arrowlake",
+        "lunarlake",
+        "battlemage"
+      ],
+      "features": [
+        "force_rgb10a2_overlay_support"
+      ]
+    },
+    {
+      "id": 453,
+      "cr_bugs": [415086846, 423655169, 423663681],
+      "description": "NV12 upload (creating a texture with init data or using UpdateSubresource) fails on a range of NVidia drivers",
+      "os": {
+        "type": "win"
+      },
+      "vendor_id": "0x10de",
+      "driver_version": {
+            "op": "between",
+            "value": "32.0.15.7500",
+            "value2": "32.0.15.7658"
+      },
+      "features": [
+        "disable_nv12_upload"
+      ]
+    },
+    {
+      "id": 454,
+      "cr_bugs": [415086846, 423655169, 423663681],
+      "description": "NV12 upload (creating a texture with init data or using UpdateSubresource) fails on a range of NVidia drivers",
+      "os": {
+        "type": "win"
+      },
+      "vendor_id": "0x10de",
+      "driver_version": {
+            "op": "between",
+            "value": "32.0.15.7216",
+            "value2": "32.0.15.7327"
+      },
+      "features": [
+        "disable_nv12_upload"
+      ]
+    },
+    {
+      "id": 455,
+      "cr_bugs": [431004512],
+      "description": "D3D12 HEVC hardware encoding produces bad images on Intel GPUs when long term reference is used",
+      "os": {
+        "type": "win"
+      },
+      "vendor_id": "0x8086",
+      "multi_gpu_category": "any",
+      "driver_version": {
+        "op": "<",
+        "value": "32.0.101.6913"
+      },
+      "features": [
+        "disable_d3d12_hevc_encoding"
+      ]
+    },
+    {
+      "id": 456,
+      "description": "Limit max texure size to 8192 on Android.",
+      "os": {
+        "type": "android"
+      },
+      "features": [
+        "webgl_or_caps_max_texture_size_limit_8192"
+      ]
+    },
+    {
+      "id": 457,
+      "cr_bugs": [40275246],
+      "description": "D3D12 AVC hardware encoding produces corrupted bitstream on NVidia GPUs with old drivers",
+      "os": {
+        "type": "win"
+      },
+      "vendor_id": "0x10de",
+      "driver_version": {
+          "op": "<",
+          "value": "32.0.15.7602"
+      },
+      "features": [
+        "disable_d3d12_h264_encoding"
       ]
     }
   ]

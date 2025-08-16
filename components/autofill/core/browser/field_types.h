@@ -183,9 +183,7 @@ enum FieldType {
 
   COMPANY_NAME = 60,
 
-  // Generic type whose default value is known.
-  FIELD_WITH_DEFAULT_VALUE = 61,
-
+  // FIELD_WITH_DEFAULT_VALUE value 61 is deprecated.
   // PHONE_BILLING values [62, 66] are deprecated.
   // NAME_BILLING values [67, 72] are deprecated.
 
@@ -519,8 +517,29 @@ enum FieldType {
   // the client.
   EMAIL_OR_LOYALTY_MEMBERSHIP_ID = 189,
 
-  // Types 190 to 197 are not used on the client yet, but will likely be added
+  // Types corresponding to the "National Id Card" entity from
+  // components/autofill/core/browser/data_model/autofill_ai/entity_schema.json.
+  NATIONAL_ID_CARD_NUMBER = 190,
+  NATIONAL_ID_CARD_EXPIRATION_DATE = 191,
+  NATIONAL_ID_CARD_ISSUE_DATE = 192,
+  NATIONAL_ID_CARD_ISSUING_COUNTRY = 193,
+
+  // Types corresponding to the "Known traveler" entity from
+  // components/autofill/core/browser/data_model/autofill_ai/entity_schema.json.
+  KNOWN_TRAVELER_NUMBER = 194,
+  KNOWN_TRAVELER_NUMBER_EXPIRATION_DATE = 203,
+
+  // Types corresponding to the "Redress number" entity from
+  // components/autofill/core/browser/data_model/autofill_ai/entity_schema.json.
+  REDRESS_NUMBER = 195,
+  // Types 195 to 200 are not used on the client yet, but will likely be added
   // in the future.
+
+  // ADDRESS_HOME_ZIP = ADDRESS_HOME_ZIP_PREFIX + separator +
+  // ADDRESS_HOME_ZIP_SUFFIX.
+  // For the US zip code 94043-4100 the types correspond to 94043 and 4100.
+  ADDRESS_HOME_ZIP_PREFIX = 201,
+  ADDRESS_HOME_ZIP_SUFFIX = 202,
 
   // No new types can be added without a corresponding change to the Autofill
   // server.
@@ -532,7 +551,7 @@ enum FieldType {
   // If the newly added type is a storable type of AutofillProfile, update
   // AutofillProfile.StorableTypes in
   // tools/metrics/histograms/metadata/autofill/histograms.xml.
-  MAX_VALID_FIELD_TYPE = 190,
+  MAX_VALID_FIELD_TYPE = 204,
 };
 // LINT.ThenChange(//chrome/common/extensions/api/autofill_private.idl)
 
@@ -552,7 +571,8 @@ enum class FieldTypeGroup {
   kStandaloneCvcField,
   kAutofillAi,
   kLoyaltyCard,
-  kMaxValue = kLoyaltyCard,
+  kOneTimePassword,
+  kMaxValue = kOneTimePassword,
 };
 
 template <>
@@ -575,6 +595,10 @@ std::string_view FieldTypeToStringView(FieldType type);
 
 // Returns a string describing `type`.
 std::string FieldTypeToString(FieldType type);
+
+// Returns a comma-separated list of string representations of the elements of
+// `s`.
+std::string FieldTypeSetToString(FieldTypeSet s);
 
 // Inverse FieldTypeToStringView(). Returns UNKNOWN_TYPE for unknown FieldType
 // string representations.
@@ -613,6 +637,8 @@ constexpr FieldType ToSafeFieldType(std::underlying_type_t<FieldType> raw_value,
            t == 94 ||
            // Billing addresses (values [37,43], 78, 80, 82, 84) are deprecated.
            (37 <= t && t <= 43) || t == 78 || t == 80 || t == 82 || t == 84 ||
+           // FIELD_WITH_DEFAULT_VALUE is deprecated.
+           t == 61 ||
            // Billing phone numbers (values [62,66]) are deprecated.
            (62 <= t && t <= 66) ||
            // Billing names (values [67,72]) are deprecated.
@@ -631,10 +657,13 @@ constexpr FieldType ToSafeFieldType(std::underlying_type_t<FieldType> raw_value,
            t == 162 ||
            // Types for the country for driver's license and vehicle are not
            // used yet, but will likely be added in the future.
-           (187 <= t && t <= 188);
+           (187 <= t && t <= 188) ||
+           // Types for date of birth, gender, and flight reservation are not
+           // used yet, but will likely be added in the future.
+           (196 <= t && t <= 200);
   };
   return is_invalid(raw_value) ? fallback_value
-                               : static_cast<FieldType>(raw_value);
+                               : static_cast<FieldType>(raw_value);  // nocheck
 }
 
 constexpr HtmlFieldType ToSafeHtmlFieldType(
@@ -676,18 +705,6 @@ constexpr HtmlFieldTypeSet kAllHtmlFieldTypes = [] {
   }
   return fields;
 }();
-
-bool IsDateFieldType(FieldType field_type);
-
-constexpr FieldTypeSet FieldTypesOfGroup(FieldTypeGroup group) {
-  FieldTypeSet fields_matching_group;
-  for (FieldType field_type : kAllFieldTypes) {
-    if (GroupTypeOfFieldType(field_type) == group) {
-      fields_matching_group.insert(field_type);
-    }
-  }
-  return fields_matching_group;
-}
 
 constexpr FieldTypeGroup GroupTypeOfFieldType(FieldType field_type) {
   switch (field_type) {
@@ -734,6 +751,8 @@ constexpr FieldTypeGroup GroupTypeOfFieldType(FieldType field_type) {
     case ADDRESS_HOME_CITY:
     case ADDRESS_HOME_STATE:
     case ADDRESS_HOME_ZIP:
+    case ADDRESS_HOME_ZIP_PREFIX:
+    case ADDRESS_HOME_ZIP_SUFFIX:
     case ADDRESS_HOME_COUNTRY:
     case ADDRESS_HOME_STREET_ADDRESS:
     case ADDRESS_HOME_SORTING_CODE:
@@ -800,6 +819,13 @@ constexpr FieldTypeGroup GroupTypeOfFieldType(FieldType field_type) {
     case DRIVERS_LICENSE_NUMBER:
     case DRIVERS_LICENSE_EXPIRATION_DATE:
     case DRIVERS_LICENSE_ISSUE_DATE:
+    case NATIONAL_ID_CARD_NUMBER:
+    case NATIONAL_ID_CARD_ISSUE_DATE:
+    case NATIONAL_ID_CARD_EXPIRATION_DATE:
+    case NATIONAL_ID_CARD_ISSUING_COUNTRY:
+    case REDRESS_NUMBER:
+    case KNOWN_TRAVELER_NUMBER:
+    case KNOWN_TRAVELER_NUMBER_EXPIRATION_DATE:
       return FieldTypeGroup::kAutofillAi;
 
     case PASSWORD:
@@ -819,11 +845,12 @@ constexpr FieldTypeGroup GroupTypeOfFieldType(FieldType field_type) {
     case NO_SERVER_DATA:
     case EMPTY_TYPE:
     case AMBIGUOUS_TYPE:
-    case FIELD_WITH_DEFAULT_VALUE:
     case MERCHANT_EMAIL_SIGNUP:
     case MERCHANT_PROMO_CODE:
-    case ONE_TIME_CODE:
       return FieldTypeGroup::kNoGroup;
+
+    case ONE_TIME_CODE:
+      return FieldTypeGroup::kOneTimePassword;
 
     case LOYALTY_MEMBERSHIP_ID:
     case LOYALTY_MEMBERSHIP_PROGRAM:
@@ -845,6 +872,19 @@ constexpr FieldTypeGroup GroupTypeOfFieldType(FieldType field_type) {
       break;
   }
   NOTREACHED();
+}
+
+constexpr FieldTypeSet FieldTypesOfGroup(FieldTypeGroup group) {
+  constexpr auto kMaxValue = base::to_underlying(FieldTypeGroup::kMaxValue);
+  constexpr auto kMap = []() constexpr {
+    std::array<FieldTypeSet, kMaxValue + 1> map{};
+    for (FieldType field_type : kAllFieldTypes) {
+      auto index = base::to_underlying(GroupTypeOfFieldType(field_type));
+      map[index].insert(field_type);
+    }
+    return map;
+  }();
+  return kMap[base::to_underlying(group)];
 }
 
 }  // namespace autofill

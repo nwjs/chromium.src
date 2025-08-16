@@ -18,6 +18,7 @@
 #include "components/optimization_guide/core/model_execution/model_execution_manager.h"
 #include "components/optimization_guide/core/model_execution/model_execution_prefs.h"
 #include "components/optimization_guide/core/model_execution/model_execution_util.h"
+#include "components/optimization_guide/core/model_execution/on_device_model_adaptation_loader.h"
 #include "components/optimization_guide/core/model_execution/on_device_model_component.h"
 #include "components/optimization_guide/core/model_execution/on_device_model_service_controller.h"
 #include "components/optimization_guide/core/model_execution/performance_class.h"
@@ -30,6 +31,7 @@
 #include "services/data_decoder/public/cpp/decode_image.h"
 #include "services/on_device_model/ml/performance_class.h"
 #include "services/on_device_model/public/cpp/buildflags.h"
+#include "services/on_device_model/public/cpp/features.h"
 #include "services/on_device_model/public/cpp/model_assets.h"
 #include "services/preferences/public/cpp/dictionary_value_update.h"
 #include "services/preferences/public/cpp/scoped_pref_update.h"
@@ -48,7 +50,6 @@ using optimization_guide::model_execution::prefs::localstate::
 using optimization_guide::model_execution::prefs::localstate::
     kOnDeviceModelCrashCount;
 
-#if !BUILDFLAG(USE_CHROMEOS_MODEL_SERVICE)
 on_device_model::ModelAssets LoadModelAssets(const base::FilePath& model_path) {
   // This WebUI currently provides no way to dynamically configure the expected
   // output dimension of the TS model. Since the model is in flux and its output
@@ -61,14 +62,14 @@ on_device_model::ModelAssets LoadModelAssets(const base::FilePath& model_path) {
     model_paths.weights = model_path;
   }
 
-  if (optimization_guide::features::ForceCpuBackendForOnDeviceModel()) {
+  if (base::FeatureList::IsEnabled(
+          on_device_model::features::kOnDeviceModelForceCpuBackend)) {
     model_paths.cache =
         model_paths.weights.AddExtension(FILE_PATH_LITERAL("cache"));
   }
 
   return on_device_model::LoadModelAssets(model_paths);
 }
-#endif
 
 base::flat_map<std::string, std::string> GetCriteria(
     const optimization_guide::OnDeviceModelComponentStateManager::DebugState&
@@ -156,24 +157,6 @@ void PageHandler::LoadModel(
     ml::ModelPerformanceHint performance_hint,
     mojo::PendingReceiver<on_device_model::mojom::OnDeviceModel> model,
     LoadModelCallback callback) {
-#if BUILDFLAG(USE_CHROMEOS_MODEL_SERVICE)
-  // We treat the file path as a UUID on ChromeOS.
-  base::Uuid uuid = base::Uuid::ParseLowercase(model_path.value());
-  if (!uuid.is_valid()) {
-    std::move(callback).Run(
-        on_device_model::mojom::LoadModelResult::kFailedToLoadLibrary,
-        on_device_model::Capabilities());
-    return;
-  }
-  GetService().LoadPlatformModel(
-      uuid, std::move(model), mojo::NullRemote(),
-      base::BindOnce(
-          [](LoadModelCallback callback,
-             on_device_model::mojom::LoadModelResult result) {
-            std::move(callback).Run(result, on_device_model::Capabilities());
-          },
-          std::move(callback)));
-#else
   // Warm the service while assets load in the background.
   std::ignore = GetService();
   base::ThreadPool::PostTaskAndReplyWithResult(
@@ -182,29 +165,54 @@ void PageHandler::LoadModel(
       base::BindOnce(&PageHandler::OnModelAssetsLoaded,
                      weak_ptr_factory_.GetWeakPtr(), std::move(model),
                      std::move(callback), performance_hint));
+}
+
+void PageHandler::LoadPlatformModel(
+    const base::FilePath& model_path,
+    mojo::PendingReceiver<on_device_model::mojom::OnDeviceModel> model,
+    LoadPlatformModelCallback callback) {
+#if BUILDFLAG(USE_CHROMEOS_MODEL_SERVICE)
+  // We treat the file path as a UUID on ChromeOS.
+  base::Uuid uuid = base::Uuid::ParseLowercase(model_path.value());
+  if (!uuid.is_valid()) {
+    std::move(callback).Run(
+        on_device_model::mojom::LoadModelResult::kFailedToLoadLibrary);
+    return;
+  }
+  GetPlatformService().LoadPlatformModel(
+    uuid, std::move(model), mojo::NullRemote(), std::move(callback));
+#else
+  // Shouldn't be called.
+  std::move(callback).Run(
+      on_device_model::mojom::LoadModelResult::kFailedToLoadLibrary);
 #endif
 }
 
 PageHandler::Service& PageHandler::GetService() {
   if (!service_) {
-#if BUILDFLAG(USE_CHROMEOS_MODEL_SERVICE)
-    ash::mojo_service_manager::GetServiceManagerProxy()->Request(
-        chromeos::mojo_services::kCrosOdmlService, std::nullopt,
-        service_.BindNewPipeAndPassReceiver().PassPipe());
-#else
     content::ServiceProcessHost::Launch<
         on_device_model::mojom::OnDeviceModelService>(
         service_.BindNewPipeAndPassReceiver(),
         content::ServiceProcessHost::Options()
             .WithDisplayName("On-Device Model Service")
             .Pass());
-#endif
     service_.reset_on_disconnect();
   }
   return *service_.get();
 }
 
-#if !BUILDFLAG(USE_CHROMEOS_MODEL_SERVICE)
+#if BUILDFLAG(USE_CHROMEOS_MODEL_SERVICE)
+PageHandler::PlatformService& PageHandler::GetPlatformService() {
+  if (!platform_service_) {
+    ash::mojo_service_manager::GetServiceManagerProxy()->Request(
+        chromeos::mojo_services::kCrosOdmlService, std::nullopt,
+        platform_service_.BindNewPipeAndPassReceiver().PassPipe());
+    platform_service_.reset_on_disconnect();
+  }
+  return *platform_service_.get();
+}
+#endif
+
 void PageHandler::OnModelAssetsLoaded(
     mojo::PendingReceiver<on_device_model::mojom::OnDeviceModel> model,
     LoadModelCallback callback,
@@ -215,16 +223,19 @@ void PageHandler::OnModelAssetsLoaded(
   auto params = on_device_model::mojom::LoadModelParams::New();
   params->assets = std::move(assets);
   params->backend_type =
-      optimization_guide::features::ForceCpuBackendForOnDeviceModel()
+      base::FeatureList::IsEnabled(
+          on_device_model::features::kOnDeviceModelForceCpuBackend)
           ? ml::ModelBackendType::kCpuBackend
           : ml::ModelBackendType::kGpuBackend;
   params->max_tokens = 4096;
   params->performance_hint = performance_hint;
   GetService().LoadModel(
       std::move(params), std::move(model),
-      base::BindOnce(&PageHandler::OnModelLoaded,
-                     weak_ptr_factory_.GetWeakPtr(), std::move(callback),
-                     std::move(weights)));
+      mojo::WrapCallbackWithDefaultInvokeIfNotRun(
+          base::BindOnce(&PageHandler::OnModelLoaded,
+                         weak_ptr_factory_.GetWeakPtr(), std::move(callback),
+                         std::move(weights)),
+          on_device_model::mojom::LoadModelResult::kFailedToLoadLibrary));
 }
 
 void PageHandler::OnModelLoaded(
@@ -240,29 +251,27 @@ void PageHandler::OnModelLoaded(
       base::BindOnce(std::move(callback),
                      on_device_model::mojom::LoadModelResult::kSuccess));
 }
-#endif
 
 void PageHandler::GetDevicePerformanceInfo(
     GetDevicePerformanceInfoCallback callback) {
-#if BUILDFLAG(USE_CHROMEOS_MODEL_SERVICE)
-  GetService().GetEstimatedPerformanceClass(
-      mojo::WrapCallbackWithDefaultInvokeIfNotRun(
-          base::BindOnce(
-              [](GetDevicePerformanceInfoCallback callback,
-                 on_device_model::mojom::PerformanceClass performance_class) {
-                auto perf_info =
-                    on_device_model::mojom::DevicePerformanceInfo::New();
-                perf_info->performance_class = performance_class;
-                std::move(callback).Run(std::move(perf_info));
-              },
-              std::move(callback)),
-          on_device_model::mojom::PerformanceClass::kError));
-#else
   GetService().GetDevicePerformanceInfo(
       mojo::WrapCallbackWithDefaultInvokeIfNotRun(
           std::move(callback),
           on_device_model::mojom::DevicePerformanceInfo::New()));
-#endif
+}
+
+void PageHandler::GetDefaultModelPath(GetDefaultModelPathCallback callback) {
+  auto* component_manager =
+      optimization_guide_keyed_service_->GetComponentManager();
+  auto debug_state =
+      component_manager->GetDebugState(base::PassKey<PageHandler>());
+
+  if (!debug_state.state_) {
+    std::move(callback).Run(std::nullopt);
+    return;
+  }
+
+  std::move(callback).Run(debug_state.state_->GetInstallDirectory());
 }
 
 void PageHandler::OnLogMessageAdded(
@@ -324,12 +333,9 @@ void PageHandler::OnReceivedPerformanceInfoForPageData(
       optimization_guide::features::GetOnDeviceModelCrashCountBeforeDisable();
 
   // Get data on feature adaptations.
-  const base::flat_map<optimization_guide::ModelBasedCapabilityKey,
-                       optimization_guide::OnDeviceModelAdaptationMetadata>&
-      feature_adaptations =
-          optimization_guide_keyed_service_->GetModelExecutionManager()
-              ->GetOnDeviceModelServiceController()
-              ->model_adaptation_metadata();
+  optimization_guide::OnDeviceModelServiceController& controller =
+      *optimization_guide_keyed_service_->GetModelExecutionManager()
+           ->GetOnDeviceModelServiceController();
   const PrefService* local_state = g_browser_process->local_state();
   for (const auto feature : optimization_guide::kAllModelBasedCapabilityKeys) {
     if (!optimization_guide::features::internal::
@@ -341,13 +347,11 @@ void PageHandler::OnReceivedPerformanceInfoForPageData(
     feature_adaptation_info->feature_key = static_cast<int32_t>(feature);
     feature_adaptation_info->is_recently_used =
         WasOnDeviceEligibleFeatureRecentlyUsed(feature, *local_state);
-
-    auto it = feature_adaptations.find(feature);
-    if (it != feature_adaptations.end()) {
-      feature_adaptation_info->version = it->second.version();
-    } else {
-      feature_adaptation_info->version = 0;
-    }
+    feature_adaptation_info->version =
+        controller.GetFeatureMetadata(feature)
+            .transform(
+                &optimization_guide::OnDeviceModelAdaptationMetadata::version)
+            .value_or(0);
     data->feature_adaptations.push_back(std::move(feature_adaptation_info));
   }
   data->min_vram_mb = GetMinimumVramRequired();

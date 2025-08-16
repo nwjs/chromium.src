@@ -28,6 +28,10 @@ namespace apps {
 class WebsiteMetrics;
 }  // namespace apps
 
+namespace login_detection {
+class IdentityProviderMetrics;
+}  // namespace login_detection
+
 namespace metrics {
 class UkmRecorderInterface;
 }  // namespace metrics
@@ -45,8 +49,8 @@ class ExtensionMessagePort;
 class ManifestV2ExperimentManager;
 }
 
-namespace weblayer {
-class BackgroundSyncDelegateImpl;
+namespace safe_browsing {
+class NotificationContentDetectionUkmUtil;
 }
 
 namespace ukm {
@@ -122,6 +126,10 @@ class METRICS_EXPORT UkmRecorder {
       base::PassKey<content::FedCmMetrics>,
       const GURL& provider_url);
 
+  static SourceId GetSourceIdForWebIdentityFromScope(
+      base::PassKey<login_detection::IdentityProviderMetrics>,
+      const GURL& provider_url);
+
   // Gets a new SourceId of REDIRECT_ID type and updates the source URL
   // from the redirect chain. This method should only be called in the
   // BtmNavigationHandle class.
@@ -176,6 +184,12 @@ class METRICS_EXPORT UkmRecorder {
       base::PassKey<NonPersistentNotificationHandler>,
       const GURL& url);
 
+  // Gets a new SourceId of NOTIFICATION_ID type. This should only be used
+  // for recording suspicious notification interaction UKM events.
+  static SourceId GetSourceIdForNotificationEvent(
+      base::PassKey<safe_browsing::NotificationContentDetectionUkmUtil>,
+      const GURL& url);
+
   // This method should be called when the system is about to shutdown, but
   // `UkmRecorder` is still available to record metrics.
   // Calls `OnStartingShutdown` on each observer from `observers_`.
@@ -214,7 +228,6 @@ class METRICS_EXPORT UkmRecorder {
                                            SourceIdType type);
 
  private:
-  friend weblayer::BackgroundSyncDelegateImpl;
   friend DelegatingUkmRecorder;
   friend TestRecordingHelper;
   friend UkmBackgroundRecorderService;

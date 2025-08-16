@@ -48,6 +48,7 @@
 #include "components/search_engines/search_engines_switches.h"
 #include "components/search_engines/search_terms_data.h"
 #include "components/search_engines/template_url_data.h"
+#include "components/search_engines/template_url_prepopulate_data.h"
 #include "components/search_engines/template_url_starter_pack_data.h"
 #include "components/sync/base/features.h"
 #include "components/url_formatter/url_formatter.h"
@@ -257,7 +258,7 @@ TemplateURLRef::SearchTermsArgs::SearchTermsArgs(
 TemplateURLRef::SearchTermsArgs::SearchTermsArgs(const SearchTermsArgs& other) =
     default;
 
-TemplateURLRef::SearchTermsArgs::~SearchTermsArgs() {}
+TemplateURLRef::SearchTermsArgs::~SearchTermsArgs() = default;
 
 size_t TemplateURLRef::SearchTermsArgs::EstimateMemoryUsage() const {
   size_t res = 0;
@@ -293,7 +294,8 @@ TemplateURLRef::SearchTermsArgs::ContextualSearchParams::ContextualSearchParams(
     std::string target_lang,
     std::string fluent_languages,
     std::string related_searches_stamp,
-    bool apply_lang_hint)
+    bool apply_lang_hint,
+    bool use_snippet_as_subtitle)
     : version(version),
       contextual_cards_version(contextual_cards_version),
       home_country(home_country),
@@ -304,13 +306,14 @@ TemplateURLRef::SearchTermsArgs::ContextualSearchParams::ContextualSearchParams(
       target_lang(target_lang),
       fluent_languages(fluent_languages),
       related_searches_stamp(related_searches_stamp),
-      apply_lang_hint(apply_lang_hint) {}
+      apply_lang_hint(apply_lang_hint),
+      use_snippet_as_subtitle(use_snippet_as_subtitle) {}
 
 TemplateURLRef::SearchTermsArgs::ContextualSearchParams::ContextualSearchParams(
     const ContextualSearchParams& other) = default;
 
 TemplateURLRef::SearchTermsArgs::ContextualSearchParams::
-    ~ContextualSearchParams() {}
+    ~ContextualSearchParams() = default;
 
 size_t
 TemplateURLRef::SearchTermsArgs::ContextualSearchParams::EstimateMemoryUsage()
@@ -332,7 +335,7 @@ TemplateURLRef::TemplateURLRef(const TemplateURL* owner, size_t index_in_owner)
   DCHECK_LT(index_in_owner_, owner_->alternate_urls().size());
 }
 
-TemplateURLRef::~TemplateURLRef() {}
+TemplateURLRef::~TemplateURLRef() = default;
 
 TemplateURLRef::TemplateURLRef(const TemplateURLRef& source) = default;
 
@@ -494,17 +497,6 @@ std::string TemplateURLRef::ReplaceSearchTerms(
     }
   }
 
-#if BUILDFLAG(IS_ANDROID)
-  if (!base::FeatureList::IsEnabled(
-          switches::kRemoveSearchEngineChoiceAttribution) &&
-      owner_->GetRegulatoryExtensionType() ==
-          RegulatoryExtensionType::kAndroidEEA) {
-    // Append attribution parameter to query originating from Play API search
-    // engine.
-    query_params.push_back("chrome_dse_attribution=1");
-  }
-#endif
-
   if (query_params.empty())
     return url;
 
@@ -634,11 +626,11 @@ bool TemplateURLRef::ExtractSearchTermsFromURL(
 
   // We need a search term in the template URL to extract something.
   if (search_term_key_.empty() &&
-      (search_term_key_location_ != url::Parsed::PATH))
+      search_term_key_location_ != url::Parsed::PATH)
     return false;
 
   // Host, port, and path must match.
-  if ((url.host() != host_) || (url.port() != port_) ||
+  if (url.host() != host_ || url.port() != port_ ||
       (!PathIsEqual(url) && (search_term_key_location_ != url::Parsed::PATH))) {
     return false;
   }
@@ -1138,6 +1130,8 @@ std::string TemplateURLRef::HandleReplacements(
           args.push_back("ctxsl_rs=" + params.related_searches_stamp);
         if (params.apply_lang_hint)
           args.push_back("ctxsl_applylh=1");
+        if (params.use_snippet_as_subtitle)
+          args.push_back("ctxs_usas=1");
 
         HandleReplacement(std::string(), base::JoinString(args, "&"),
                           replacement, &url);
@@ -1594,7 +1588,7 @@ TemplateURL::AssociatedExtensionInfo::AssociatedExtensionInfo(
       install_time(install_time),
       wants_to_be_default_engine(wants_to_be_default_engine) {}
 
-TemplateURL::AssociatedExtensionInfo::~AssociatedExtensionInfo() {}
+TemplateURL::AssociatedExtensionInfo::~AssociatedExtensionInfo() = default;
 
 size_t TemplateURL::AssociatedExtensionInfo::EstimateMemoryUsage() const {
   return base::trace_event::EstimateMemoryUsage(extension_id);
@@ -1635,7 +1629,9 @@ TemplateURL::TemplateURL(const TemplateURLData& data,
       extension_id, install_time, wants_to_be_default_engine);
 }
 
-TemplateURL::~TemplateURL() {}
+TemplateURL::TemplateURL(TemplateURL&& other) = default;
+
+TemplateURL::~TemplateURL() = default;
 
 bool TemplateURL::IsBetterThanConflictingEngine(
     const TemplateURL* other) const {
@@ -1805,19 +1801,14 @@ std::optional<std::string_view> TemplateURL::GetBaseBuiltinResourceId() const {
 
   if (!base_builtin_resource_id_.has_value()) {
     const TemplateURLPrepopulateData::PrepopulatedEngine*
-        reference_builtin_engine = nullptr;
-    // Grab the first matching entry from the complete list. In case of IDs
-    // shared across multiple entries, we might be returning the wrong one for
-    // the profile country. We can look into better heuristics in future work.
-    // As there are no diverging icons per ID yet, it is not critical for now.
-    if (auto iter = std::ranges::find_if(
-            TemplateURLPrepopulateData::kAllEngines,
-            [&](const TemplateURLPrepopulateData::PrepopulatedEngine* engine) {
-              return engine->id == data().prepopulate_id;
-            });
-        iter != TemplateURLPrepopulateData::kAllEngines.end()) {
-      reference_builtin_engine = *iter;
-    }
+        reference_builtin_engine =
+            TemplateURLPrepopulateData::GetPrepopulatedEngineFromBuiltInData(
+                data().prepopulate_id,
+                // We are deliberately not providing a list of regional engines.
+                // It would be useful to disambiguate between regional variants
+                // of some engines that could be using different icons. It is
+                // not a use case we have for now, so that's unnecessary.
+                /*regional_prepopulated_engines=*/{});
 
     if (reference_builtin_engine &&
         reference_builtin_engine->base_builtin_resource_id) {

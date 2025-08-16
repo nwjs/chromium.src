@@ -150,10 +150,26 @@ void InstallerDownloaderController::OnRemovedBrowserWindow(
   bwi_and_active_tab_tracker_map_.erase(bwi);
 }
 
+bool InstallerDownloaderController::ShouldShowInfobarForCurrentProfile() {
+  // The infobar should not be shown on guest profiles.
+  BrowserWindowInterface* last_active_window =
+      window_tracker_.get_last_active_window();
+  if (!last_active_window ||
+      last_active_window->GetProfile()->IsGuestSession()) {
+    return false;
+  }
+
+  return true;
+}
+
 void InstallerDownloaderController::MaybeShowInfoBar() {
   // The max show count of the infobar have been reached. Eligibility check is
   // no longer needed.
   if (!model_->CanShowInfobar()) {
+    return;
+  }
+
+  if (!ShouldShowInfobarForCurrentProfile()) {
     return;
   }
 

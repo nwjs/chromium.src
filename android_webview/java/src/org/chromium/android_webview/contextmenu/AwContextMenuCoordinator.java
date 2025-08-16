@@ -11,7 +11,6 @@ import android.content.Context;
 import android.graphics.Color;
 import android.graphics.Rect;
 import android.graphics.drawable.ColorDrawable;
-import android.util.Pair;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewStub;
@@ -57,11 +56,12 @@ public class AwContextMenuCoordinator {
 
     private ListView mListView;
     private @Nullable AwContextMenuPopulator mCurrentPopulator;
+    private final AwContextMenuHeaderCoordinator mHeaderCoordinator;
     private final WindowAndroid mWindowAndroid;
     private final Context mContext;
     private final WebContents mWebContents;
     private final ContextMenuParams mParams;
-    private final List<Pair<Integer, ModelList>> mItems;
+    private final List<ModelList> mItems;
     private ComponentDialog mDialog;
     private AnchoredPopupWindow mPopupWindow;
     private WebContentsObserver mWebContentsObserver;
@@ -92,6 +92,7 @@ public class AwContextMenuCoordinator {
         // TODO(crbug.com/323344356) make 'Open in browser' disabled by default and only show for
         // HTTP and HTTPS urls
         mItems = mCurrentPopulator.buildContextMenu();
+        mHeaderCoordinator = new AwContextMenuHeaderCoordinator(mParams, mContext);
     }
 
     public void dismiss() {
@@ -129,15 +130,13 @@ public class AwContextMenuCoordinator {
                                 .inflate(R.layout.aw_context_menu_dropdown, null)
                         : ((ViewStub) layout.findViewById(R.id.aw_context_menu_stub)).inflate();
 
-        AwContextMenuHeaderCoordinator headerCoordinator =
-                new AwContextMenuHeaderCoordinator(mParams, mContext);
         // We only want to set the header icon if the context menu is displayed as a dropdown.
         if (mUsePopupWindow) {
             AwContents awContents = AwContents.fromWebContents(mWebContents);
-            headerCoordinator.setHeaderIcon(mParams.getPageUrl(), awContents.getFavicon());
+            mHeaderCoordinator.setHeaderIcon(mParams.getPageUrl(), awContents.getFavicon());
         }
 
-        ListItem headerItem = new ListItem(ListItemType.HEADER, headerCoordinator.getModel());
+        ListItem headerItem = new ListItem(ListItemType.HEADER, mHeaderCoordinator.getModel());
 
         ModelList listItems = getItemList(headerItem, mItems, mUsePopupWindow);
         ModelListAdapter adapter =
@@ -269,7 +268,7 @@ public class AwContextMenuCoordinator {
     }
 
     private static ModelList getItemList(
-            ListItem headerItem, List<Pair<Integer, ModelList>> items, boolean usePopupWindow) {
+            ListItem headerItem, List<ModelList> items, boolean usePopupWindow) {
         ModelList itemList = new ModelList();
         itemList.add(headerItem);
 
@@ -277,8 +276,8 @@ public class AwContextMenuCoordinator {
             itemList.add(new ListItem(ListItemType.DIVIDER, new PropertyModel.Builder().build()));
         }
 
-        for (Pair<Integer, ModelList> group : items) {
-            itemList.addAll(group.second);
+        for (ModelList item : items) {
+            itemList.addAll(item);
         }
 
         return itemList;
@@ -311,5 +310,9 @@ public class AwContextMenuCoordinator {
 
     public ComponentDialog getDialogForTesting() {
         return mDialog;
+    }
+
+    public AwContextMenuHeaderCoordinator getHeaderCoordinatorForTesting() {
+        return mHeaderCoordinator;
     }
 }

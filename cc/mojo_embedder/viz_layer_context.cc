@@ -22,6 +22,7 @@
 #include "cc/animation/animation_timeline.h"
 #include "cc/animation/keyframe_effect.h"
 #include "cc/animation/keyframe_model.h"
+#include "cc/input/browser_controls_offset_manager.h"
 #include "cc/layers/heads_up_display_layer_impl.h"
 #include "cc/layers/layer_impl.h"
 #include "cc/layers/mirror_layer_impl.h"
@@ -1228,8 +1229,11 @@ VizLayerContext::VizLayerContext(viz::mojom::CompositorFrameSink& frame_sink,
   auto context = viz::mojom::PendingLayerContext::New();
   context->receiver = service_.BindNewEndpointAndPassReceiver();
   context->client = client_receiver_.BindNewEndpointAndPassRemote();
-  bool draw_mode_is_gpu = host_impl.GetDrawMode() == DRAW_MODE_HARDWARE;
-  frame_sink.BindLayerContext(std::move(context), draw_mode_is_gpu);
+  auto settings = viz::mojom::LayerContextSettings::New();
+  settings->draw_mode_is_gpu = host_impl.GetDrawMode() == DRAW_MODE_HARDWARE;
+  settings->enable_edge_anti_aliasing =
+      host_impl.settings().enable_edge_anti_aliasing;
+  frame_sink.BindLayerContext(std::move(context), std::move(settings));
 }
 
 VizLayerContext::~VizLayerContext() = default;
@@ -1251,6 +1255,7 @@ void VizLayerContext::UpdateDisplayTreeFrom(
   update->trace_id = tree.trace_id().value();
   update->primary_main_frame_item_sequence_number =
       tree.primary_main_frame_item_sequence_number();
+  update->selection = tree.selection();
   update->page_scale_factor = tree.page_scale_factor()->Current(true);
   update->min_page_scale_factor = tree.min_page_scale_factor();
   update->max_page_scale_factor = tree.max_page_scale_factor();
@@ -1262,11 +1267,12 @@ void VizLayerContext::UpdateDisplayTreeFrom(
   if (tree.local_surface_id_from_parent().is_valid()) {
     update->local_surface_id_from_parent = tree.local_surface_id_from_parent();
   }
-  update->new_local_surface_id_request =
-      tree.TakeNewLocalSurfaceIdRequestForVizProcess();
+  update->current_local_surface_id = host_impl_->GetCurrentLocalSurfaceId();
   if (target_local_surface_id.is_valid()) {
     update->target_local_surface_id = target_local_surface_id;
   }
+  DCHECK_NE(host_impl_->next_frame_token(), viz::kInvalidFrameToken);
+  update->next_frame_token = host_impl_->next_frame_token();
   update->background_color = tree.background_color();
 
   const ViewportPropertyIds& property_ids = tree.viewport_property_ids();
@@ -1276,11 +1282,15 @@ void VizLayerContext::UpdateDisplayTreeFrom(
   update->page_scale_transform = property_ids.page_scale_transform;
   update->display_transform_hint = tree.display_transform_hint();
   update->max_safe_area_inset_bottom = tree.max_safe_area_inset_bottom();
+  update->browser_controls_params = tree.browser_controls_params();
+  update->browser_controls_offset_tag_modifications =
+      host_impl_->browser_controls_manager()->GetOffsetTagModifications();
   update->inner_scroll = property_ids.inner_scroll;
   update->outer_clip = property_ids.outer_clip;
   update->outer_scroll = property_ids.outer_scroll;
 
   update->viewport_damage_rect = viewport_damage_rect;
+  update->debug_state = host_impl_->debug_state();
 
   // Sync changes to UI resources
   {

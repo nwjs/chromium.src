@@ -252,8 +252,9 @@ class ManageMirrorSyncDialogTest : public InProcessBrowserTest {
          path,
          "'});"
          "return paths; })())"});
-    auto response = content::EvalJs(dialog_contents_.get(), js_expression);
-    return response.ExtractList();
+    return content::EvalJs(dialog_contents_.get(), js_expression)
+        .TakeValue()
+        .TakeList();
   }
 
   // Helper to invoke the `getSyncingPaths` method on chrome://manage-mirrorsync
@@ -265,9 +266,9 @@ class ManageMirrorSyncDialogTest : public InProcessBrowserTest {
         "const handler = BrowserProxy.getInstance().handler;"
         "const response = await handler.getSyncingPaths();"
         "return response; })())";
-    auto response = content::EvalJs(dialog_contents_.get(), js_expression);
-    EXPECT_TRUE(response.value.is_dict());
-    return response.value.GetDict().Clone();
+    return content::EvalJs(dialog_contents_.get(), js_expression)
+        .TakeValue()
+        .TakeDict();
   }
 
   void TearDown() override {

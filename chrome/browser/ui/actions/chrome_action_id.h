@@ -180,6 +180,7 @@
   E(kActionShowBetaForum, IDC_SHOW_BETA_FORUM) \
   E(kActionToggleJavascriptAppleEvents, IDC_TOGGLE_JAVASCRIPT_APPLE_EVENTS) \
   E(kActionInstallPwa, IDC_INSTALL_PWA) \
+  E(kActionShowCollaborationRecentActivity) \
   E(kActionShowManagementPage, IDC_SHOW_MANAGEMENT_PAGE) \
   E(kActionPasteAndGo, IDC_PASTE_AND_GO) \
   E(kActionShowSaveLocalCardSignInPromoIfApplicable, \
@@ -332,6 +333,7 @@
     IDC_CONTENT_CONTEXT_RESTART_PACKAGED_APP) \
   E(kActionContentContextLensRegionSearch, \
     IDC_CONTENT_CONTEXT_LENS_REGION_SEARCH) \
+  E(kActionAiMode) \
   E(kActionContentContextWebRegionSearch, \
     IDC_CONTENT_CONTEXT_WEB_REGION_SEARCH) \
   E(kActionContentContextGeneratePassword, \
@@ -500,6 +502,8 @@
   E(kActionUnpinActionFromToolbar) \
   /*Commerce*/ \
   E(kActionCommercePriceInsights) \
+  E(kActionCommerceDiscounts) \
+  E(kActionCommerceProductSpecifications) \
 
 #if BUILDFLAG(IS_CHROMEOS)
 #define CHROME_PLATFORM_SPECIFIC_ACTION_IDS \
@@ -529,6 +533,7 @@
   E(kActionSidePanelShowAboutThisSite) \
   E(kActionSidePanelShowAssistant) \
   E(kActionSidePanelShowBookmarks, IDC_SHOW_BOOKMARK_SIDE_PANEL) \
+  E(kActionSidePanelShowComments, IDC_SHOW_COMMENTS_SIDE_PANEL) \
   E(kActionSidePanelShowCustomizeChrome) \
   E(kActionSidePanelShowCustomizeChromeFooter) \
   E(kActionSidePanelShowCustomizeChromeToolbar) \

@@ -133,10 +133,6 @@ TEST_F(BrowserPrefsTest, VerifyLocalStatePrefsMigration) {
 
   // Set initial values in local_state
 
-  // Safety Check Manager and Settings
-  local_state()->SetString(prefs::kIosSafetyCheckManagerPasswordCheckResult,
-                           "Example");
-
   // Account Info
   local_state()->SetDict(prefs::kIosPreRestoreAccountInfo,
                          dict_example.Clone());
@@ -156,16 +152,11 @@ TEST_F(BrowserPrefsTest, VerifyLocalStatePrefsMigration) {
       4);
   local_state()->SetInteger(
       prefs::kHomeCustomizationMagicStackSafetyCheckIssuesCount, 6);
+  local_state()->SetInteger(prefs::kNTPLensEntryPointNewBadgeShownCount, 3);
+  local_state()->SetInteger(prefs::kNTPHomeCustomizationNewBadgeImpressionCount,
+                            99);
 
   // Verify initial state before migration
-
-  // Check Safety Check Manager and Settings
-  EXPECT_EQ(
-      pref_service_.GetString(prefs::kIosSafetyCheckManagerPasswordCheckResult),
-      NameForSafetyCheckState(PasswordSafetyCheckState::kDefault));
-  EXPECT_EQ(local_state()->GetString(
-                prefs::kIosSafetyCheckManagerPasswordCheckResult),
-            "Example");
 
   // Check Account Info
   EXPECT_EQ(pref_service_.GetDict(prefs::kIosPreRestoreAccountInfo).size(),
@@ -221,20 +212,18 @@ TEST_F(BrowserPrefsTest, VerifyLocalStatePrefsMigration) {
   EXPECT_EQ(local_state()->GetInteger(
                 prefs::kHomeCustomizationMagicStackSafetyCheckIssuesCount),
             6);
+  EXPECT_EQ(
+      local_state()->GetInteger(prefs::kNTPLensEntryPointNewBadgeShownCount),
+      3);
+  EXPECT_EQ(local_state()->GetInteger(
+                prefs::kNTPHomeCustomizationNewBadgeImpressionCount),
+            99);
 
   // Perform migration
   MigrateObsoleteLocalStatePrefs(local_state());
   MigrateObsoleteProfilePrefs(&pref_service_);
 
   // Verify state after migration
-
-  // Check Safety Check Manager and Settings
-  EXPECT_EQ(
-      pref_service_.GetString(prefs::kIosSafetyCheckManagerPasswordCheckResult),
-      "Example");
-  EXPECT_EQ(local_state()->GetString(
-                prefs::kIosSafetyCheckManagerPasswordCheckResult),
-            NameForSafetyCheckState(PasswordSafetyCheckState::kDefault));
 
   // Check Account Info
   EXPECT_EQ(pref_service_.GetDict(prefs::kIosPreRestoreAccountInfo),
@@ -289,6 +278,12 @@ TEST_F(BrowserPrefsTest, VerifyLocalStatePrefsMigration) {
       -1);
   EXPECT_EQ(local_state()->GetInteger(
                 prefs::kHomeCustomizationMagicStackSafetyCheckIssuesCount),
+            0);
+  EXPECT_EQ(
+      local_state()->GetInteger(prefs::kNTPLensEntryPointNewBadgeShownCount),
+      0);
+  EXPECT_EQ(local_state()->GetInteger(
+                prefs::kNTPHomeCustomizationNewBadgeImpressionCount),
             0);
 }
 

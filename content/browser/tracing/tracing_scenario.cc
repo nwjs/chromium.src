@@ -144,16 +144,6 @@ void NestedTracingScenario::Enable() {
   TracingScenarioBase::Enable();
 }
 
-void NestedTracingScenario::Stop() {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  CHECK(current_state_ == State::kActive || current_state_ == State::kStopping)
-      << static_cast<int>(current_state_);
-  for (auto& rule : stop_rules_) {
-    rule->Uninstall();
-  }
-  SetState(State::kStopping);
-}
-
 bool NestedTracingScenario::Initialize(
     const perfetto::protos::gen::NestedScenarioConfig& config) {
   return BackgroundTracingRule::Append(config.start_rules(), start_rules_) &&
@@ -499,8 +489,7 @@ bool TracingScenario::OnStartTrigger(
     perfetto::Tracing::SetupStartupTracingOpts opts;
     opts.timeout_ms = kStartupTracingTimeoutMs;
     opts.backend = perfetto::kCustomBackend;
-    tracing::PerfettoTracedProcess::Get().RequestStartupTracing(trace_config_,
-                                                                opts);
+    perfetto::Tracing::SetupStartupTracingBlocking(trace_config_, opts);
   }
 
   tracing_session_->SetOnStopCallback([task_runner = task_runner_,
@@ -527,7 +516,8 @@ bool TracingScenario::OnStopTrigger(
   }
   if (active_scenario_) {
     on_nested_stopped_.Cancel();
-    active_scenario_->Stop();
+    active_scenario_->Disable();
+    active_scenario_ = nullptr;
   } else {
     for (auto& nested_scenario : nested_scenarios_) {
       nested_scenario->Disable();

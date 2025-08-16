@@ -77,6 +77,8 @@ chromium-metrics-reviews@google.com.
   <int value="29" label="Network issue"/>
   <int value="30" label="Escape key press on preselection toast"/>
   <int value="31" label="Search with camera requested"/>
+  <int value="32" label="FRE promo next button"/>
+  <int value="33" label="Reader mode activated"/>
 </enum>
 
 <!-- LINT.ThenChange(//components/lens/lens_overlay_dismissal_source.h:LensOverlayDismissalSource) -->
@@ -112,6 +114,7 @@ chromium-metrics-reviews@google.com.
   <int value="11" label="Homework action chip"/>
   <int value="12" label="AI Hub"/>
   <int value="13" label="FRE Promo"/>
+  <int value="14" label="Content area text context menu"/>
 </enum>
 
 <!-- LINT.ThenChange(//components/lens/lens_overlay_invocation_source.h:LensOverlayInvocationSource) -->

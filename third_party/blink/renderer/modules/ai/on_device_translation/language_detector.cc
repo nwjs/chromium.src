@@ -74,8 +74,8 @@ class LanguageDetectorCreateTask
         task_runner_(AIInterfaceProxy::GetTaskRunner(GetExecutionContext())),
         options_(options) {
     if (options->hasMonitor()) {
-      monitor_ = MakeGarbageCollected<CreateMonitor>(GetExecutionContext(),
-                                                     task_runner_);
+      monitor_ = MakeGarbageCollected<CreateMonitor>(
+          GetExecutionContext(), options->getSignalOr(nullptr), task_runner_);
 
       // If an exception is thrown, don't initiate language detection model
       // download. `CreateMonitorCallback`'s `Invoke` will automatically
@@ -453,12 +453,11 @@ HeapVector<Member<LanguageDetectionResult>> LanguageDetector::ConvertResult(
     return results;
   }
 
-  const WTF::UncheckedIterator<LanguageDetectionModel::LanguagePrediction>&
-      unknown_iter = std::find_if(
-          predictions.begin(), predictions.end(),
-          [](const LanguageDetectionModel::LanguagePrediction& prediction) {
-            return prediction.language == "unknown";
-          });
+  const auto& unknown_iter = std::find_if(
+      predictions.begin(), predictions.end(),
+      [](const LanguageDetectionModel::LanguagePrediction& prediction) {
+        return prediction.language == "unknown";
+      });
 
   CHECK_NE(unknown_iter, predictions.end());
   double unknown = unknown_iter->score;

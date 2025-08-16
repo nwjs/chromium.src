@@ -568,13 +568,11 @@ void LocalFrameClientImpl::DispatchDidCommitLoad(
             web_frame_->GetDocument().GetUkmSourceId(),
             KURL(web_frame_->Client()->LastCommittedUrlForUKM()));
 
-        auto smoothness_shmem =
-            frame_widget->CreateSharedMemoryForSmoothnessUkm();
         auto dropped_frames_shmem =
             frame_widget->CreateSharedMemoryForDroppedFramesUkm();
-        if (smoothness_shmem.IsValid() && dropped_frames_shmem.IsValid()) {
-          web_frame_->Client()->SetUpSharedMemoryForUkms(
-              std::move(smoothness_shmem), std::move(dropped_frames_shmem));
+        if (dropped_frames_shmem.IsValid()) {
+          web_frame_->Client()->SetUpSharedMemoryForDroppedFrames(
+              std::move(dropped_frames_shmem));
         }
       }
     }
@@ -811,8 +809,7 @@ void LocalFrameClientImpl::DidStopLoading() {
 bool LocalFrameClientImpl::NavigateBackForward(
     int offset,
     base::TimeTicks actual_navigation_start,
-    std::optional<scheduler::TaskAttributionId>
-        soft_navigation_heuristics_task_id) const {
+    std::optional<scheduler::TaskAttributionId> task_state_id) const {
   WebViewImpl* webview = web_frame_->ViewImpl();
   DCHECK(webview->Client());
   DCHECK(web_frame_->Client());
@@ -826,8 +823,7 @@ bool LocalFrameClientImpl::NavigateBackForward(
   bool has_user_gesture =
       LocalFrame::HasTransientUserActivation(web_frame_->GetFrame());
   web_frame_->GetFrame()->GetLocalFrameHostRemote().GoToEntryAtOffset(
-      offset, has_user_gesture, actual_navigation_start,
-      soft_navigation_heuristics_task_id);
+      offset, has_user_gesture, actual_navigation_start, task_state_id);
   return true;
 }
 
@@ -883,7 +879,7 @@ void LocalFrameClientImpl::DidObserveNewFeatureUsage(
 
 // A new soft navigation was observed.
 void LocalFrameClientImpl::DidObserveSoftNavigation(
-    SoftNavigationMetrics metrics) {
+    SoftNavigationMetricsForReporting metrics) {
   if (WebLocalFrameClient* client = web_frame_->Client()) {
     client->DidObserveSoftNavigation(metrics);
   }

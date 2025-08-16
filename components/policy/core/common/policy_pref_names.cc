@@ -24,6 +24,12 @@ const char kEnterpriseMDMManagementMac[] =
     "management.platform.enterprise_mdm_mac";
 #endif
 
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
+// Boolean pref indicating whether protected content identifiers are allowed.
+const char kProtectedContentIdentifiersAllowed[] =
+    "policy.protected_content_identifiers.allowed";
+#endif
+
 // Enterprise policy controlled value representing whether the user may be shown
 // HaTS surveys.
 const char kFeedbackSurveysEnabled[] = "policy.feedback_surveys_enabled";
@@ -138,6 +144,13 @@ const char kPolicyTestPageEnabled[] = "policy_test_page_enabled";
 // value is false, the user has taken no action to turn off the banner.
 const char kHasDismissedPolicyPagePromotionBanner[] =
     "has_dismissed_policy_page_promotion_banner";
+
+// Boolean indicating if the user has permanently dismissed the promotion
+// banner on the chrome://management page. If it's true, it means the user
+// has clicked the "dismiss" button and has the banner turned off, if the
+// value is false, the user has taken no action to turn off the banner.
+const char kHasDismissedManagementPagePromotionBanner[] =
+    "has_dismissed_management_page_promotion_banner";
 
 // A boolean pref indicating whether the new the page with "Cache-Control:
 // no-store" header is allowed to be stored in back/forward cache.

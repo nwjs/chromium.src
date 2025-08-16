@@ -9,11 +9,8 @@
 
 #include "third_party/blink/renderer/platform/bindings/thread_debugger.h"
 #include "third_party/blink/renderer/platform/timer.h"
+#include "third_party/blink/renderer/platform/wtf/forward.h"
 #include "third_party/blink/renderer/platform/wtf/vector.h"
-
-namespace WTF {
-class String;
-}  // namespace WTF
 
 namespace blink {
 
@@ -127,16 +124,12 @@ class ThreadDebuggerCommonImpl : public ThreadDebugger {
   Vector<void*> timer_data_;
 };
 
-}  // namespace blink
-
-namespace WTF {
-
 template <>
 struct CrossThreadCopier<v8_inspector::V8StackTraceId> {
   typedef v8_inspector::V8StackTraceId Type;
   static Type Copy(const Type& id) { return id; }
 };
 
-}  // namespace WTF
+}  // namespace blink
 
 #endif  // THIRD_PARTY_BLINK_RENDERER_CORE_INSPECTOR_THREAD_DEBUGGER_COMMON_IMPL_H_

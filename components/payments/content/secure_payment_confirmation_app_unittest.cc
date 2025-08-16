@@ -22,7 +22,7 @@
 #include "components/payments/content/browser_binding/fake_browser_bound_key.h"
 #include "components/payments/content/browser_binding/fake_browser_bound_key_store.h"
 #include "components/payments/content/browser_binding/passkey_browser_binder.h"
-#include "components/payments/content/mock_payment_manifest_web_data_service.h"
+#include "components/payments/content/mock_web_payments_web_data_service.h"
 #include "components/payments/content/payment_request_spec.h"
 #include "components/payments/core/features.h"
 #include "components/payments/core/method_strings.h"
@@ -354,8 +354,8 @@ TEST_P(SecurePaymentConfirmationAppBrowserBindingTest,
   const std::vector<uint8_t> public_key_as_cose_key({0x05, 0x06, 0x07, 0x08});
   const std::vector<uint8_t> signature({0x09, 0x0a, 0x0b, 0x0c});
   const std::vector<uint8_t> browser_bound_key_id({0x0d, 0x0e, 0x0f, 0x10});
-  scoped_refptr<MockPaymentManifestWebDataService> mock_service =
-      base::MakeRefCounted<MockPaymentManifestWebDataService>();
+  scoped_refptr<MockWebPaymentsWebDataService> mock_service =
+      base::MakeRefCounted<MockWebPaymentsWebDataService>();
   auto binder = std::make_unique<PasskeyBrowserBinder>(browser_bound_key_store_,
                                                        mock_service);
   binder->SetRandomBytesAsVectorCallbackForTesting(base::BindRepeating(
@@ -537,7 +537,7 @@ TEST_F(SecurePaymentConfirmationAppWithUxRefreshFlagTest,
 }
 
 TEST_F(SecurePaymentConfirmationAppWithUxRefreshFlagTest,
-       IgnoresPaymentEntitiesLogosWithoutBitmapsWhenAddingToPaymentOptions) {
+       PaymentEntitiesLogosWithoutBitmapsAreEmptyUrlsInPaymentOptions) {
   web_contents_ = web_contents_factory_.CreateWebContents(&context_);
   std::vector<uint8_t> credential_id(credential_id_bytes_.begin(),
                                      credential_id_bytes_.end());
@@ -570,10 +570,13 @@ TEST_F(SecurePaymentConfirmationAppWithUxRefreshFlagTest,
   // The first logo is not included because its bitmap is not set.
   EXPECT_THAT(
       payment_options,
-      Pointer(Field("payment_entities_logos",
-                    &blink::mojom::PaymentOptions::payment_entities_logos,
-                    Optional(ElementsAre(IsShownPaymentEntityLogo(
-                        kPaymentEntity2LogoUrl, "PaymentEntity #2"))))));
+      Pointer(Field(
+          "payment_entities_logos",
+          &blink::mojom::PaymentOptions::payment_entities_logos,
+          Optional(ElementsAre(
+              IsShownPaymentEntityLogo(GURL::EmptyGURL(), "PaymentEntity #1"),
+              IsShownPaymentEntityLogo(kPaymentEntity2LogoUrl,
+                                       "PaymentEntity #2"))))));
 }
 
 class SecurePaymentConfirmationAppWithDisabledUxRefreshFlagTest
@@ -622,7 +625,7 @@ TEST_F(SecurePaymentConfirmationAppWithDisabledUxRefreshFlagTest,
                         Pointer(Field(
                             "details",
                             &blink::mojom::PaymentCredentialInstrument::details,
-                            ""))))));
+                            std::cref(std::nullopt)))))));
 }
 
 // Test that OnInstrumentDetailsError is called when the authenticator returns

@@ -40,7 +40,7 @@ constexpr gfx::Size kDefaultTextureSizeForTesting = gfx::Size(20, 20);
 
 constexpr auto kResultFormat = CopyOutputRequest::ResultFormat::RGBA;
 constexpr auto kResultDestination =
-    CopyOutputRequest::ResultDestination::kNativeTextures;
+    CopyOutputRequest::ResultDestination::kSharedImage;
 
 // Returns the index of |render_pass_id| in |shared_elements| if the id
 // corresponds to an element in the given list. Otherwise returns the size of
@@ -208,8 +208,8 @@ std::unique_ptr<CopyOutputRequest> SurfaceSavedFrame::CreateCopyRequestIfNeeded(
   auto image_format =
       GetSharedImageFormat(display_color_spaces.GetOutputBufferFormat(
           content_color_usage, has_transparent_background));
-  auto color_space = ColorSpaceUtils::CompositingColorSpace(
-      display_color_spaces, content_color_usage, has_transparent_background);
+  auto color_space =
+      display_color_spaces.GetRasterAndCompositeColorSpace(content_color_usage);
 
   if (is_software) {
     gpu::SharedImageUsageSet flags = gpu::SHARED_IMAGE_USAGE_CPU_WRITE_ONLY;
@@ -226,7 +226,7 @@ std::unique_ptr<CopyOutputRequest> SurfaceSavedFrame::CreateCopyRequestIfNeeded(
   request->set_result_selection(gfx::Rect(size));
   request->set_blit_request(
       BlitRequest(gfx::Point(), LetterboxingBehavior::kDoNotLetterbox,
-                  shared_image->mailbox(), shared_image->creation_sync_token(),
+                  shared_image, shared_image->creation_sync_token(),
                   /*populates_gpu_memory_buffer=*/false));
 
   return request;

@@ -68,25 +68,19 @@ View* ShowBubble(ToolbarButtonProvider* toolbar_button_provider,
     views::Button* icon_view;
     if (IsPageActionMigrated(page_action_icon_type)) {
       CHECK(action_id.has_value());
-      auto* page_action =
-          toolbar_button_provider->GetPageActionView(action_id.value());
-      icon_view = page_action;
+      icon_view = toolbar_button_provider->GetPageActionView(action_id.value());
     } else {
       icon_view =
           toolbar_button_provider->GetPageActionIconView(page_action_icon_type);
     }
 
-    const bool is_autofill_address_page_action_icon_migrated =
-        page_action_icon_type == PageActionIconType::kAutofillAddress &&
-        IsPageActionMigrated(PageActionIconType::kAutofillAddress);
-
-    // Autofill address bubble is anchored to the omnibox RHS, not to a page
-    // action.
-    if (!is_autofill_address_page_action_icon_migrated) {
-      CHECK(icon_view);
+    if (icon_view) {
       bubble->SetHighlightedButton(icon_view);
     } else {
-      CHECK(!icon_view);
+      // Autofill address bubble is anchored to the omnibox RHS, not to a page
+      // action.
+      CHECK(page_action_icon_type == PageActionIconType::kAutofillAddress &&
+            IsPageActionMigrated(PageActionIconType::kAutofillAddress));
     }
   }
 
@@ -307,14 +301,11 @@ AutofillBubbleBase* AutofillBubbleHandlerImpl::ShowMandatoryReauthBubble(
     MandatoryReauthBubbleController* controller,
     bool is_user_gesture,
     MandatoryReauthBubbleType bubble_type) {
-  PageActionIconView* icon_view =
-      toolbar_button_provider_->GetPageActionIconView(
-          PageActionIconType::kMandatoryReauth);
-  DCHECK(icon_view);
-  // TODO(crbug.com/376283953): An action ID should be created and used here
-  // when Mandatory Reauth is migrated to the new page actions framework.
+  IconLabelBubbleView* icon_view = toolbar_button_provider_->GetPageActionView(
+      kActionAutofillMandatoryReauth);
+
   views::View* anchor_view =
-      toolbar_button_provider_->GetAnchorView(std::nullopt);
+      toolbar_button_provider_->GetAnchorView(kActionAutofillMandatoryReauth);
 
   switch (bubble_type) {
     case MandatoryReauthBubbleType::kOptIn: {
@@ -380,7 +371,7 @@ AutofillBubbleHandlerImpl::ShowSaveCardAndVirtualCardEnrollConfirmationBubble(
     views::View* anchor_view,
     content::WebContents* web_contents,
     base::OnceCallback<void(PaymentsUiClosedReason)> controller_hide_callback,
-    PageActionIconView* icon_view,
+    views::Button* icon_view,
     SavePaymentMethodAndVirtualCardEnrollConfirmationUiParams ui_params) {
   SavePaymentMethodAndVirtualCardEnrollConfirmationBubbleViews* bubble =
       new SavePaymentMethodAndVirtualCardEnrollConfirmationBubbleViews(

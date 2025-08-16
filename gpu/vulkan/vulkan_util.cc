@@ -21,8 +21,8 @@
 #include "base/trace_event/trace_event.h"
 #include "build/build_config.h"
 #include "gpu/config/gpu_info.h"  //nogncheck
-#include "gpu/config/vulkan_info.h"
 #include "gpu/vulkan/vulkan_function_pointers.h"
+#include "gpu/vulkan/vulkan_info.h"
 #include "third_party/abseil-cpp/absl/cleanup/cleanup.h"
 #include "ui/gl/gl_switches.h"
 
@@ -187,8 +187,8 @@ bool IsDeviceBlockedByFeatureParams(const GPUInfo& gpu_info,
 bool IsVulkanV2Allowed() {
   const auto* build_info = base::android::BuildInfo::GetInstance();
   // We require at least android T deqp test to pass for v2.
-  constexpr int32_t kVulkanDEQPAndroidV = 0x7e80301;
-  if (build_info->vulkan_deqp_level() < kVulkanDEQPAndroidV) {
+  constexpr int32_t kVulkanDEQPAndroidT = 0x07E60301;
+  if (build_info->vulkan_deqp_level() < kVulkanDEQPAndroidT) {
     return false;
   }
 

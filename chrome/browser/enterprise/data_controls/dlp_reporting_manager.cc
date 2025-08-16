@@ -60,6 +60,7 @@ DlpPolicyEvent_Restriction RuleRestriction2DlpEventRestriction(
     case Rule::Restriction::kFiles:
       return DlpPolicyEvent_Restriction_FILES;
     case Rule::Restriction::kUnknownRestriction:
+    case Rule::Restriction::kFileDownload:
       return DlpPolicyEvent_Restriction_UNDEFINED_RESTRICTION;
   }
 }
@@ -106,6 +107,7 @@ DlpPolicyEvent_UserType GetCurrentUserType() {
     case user_manager::UserType::kKioskChromeApp:
     case user_manager::UserType::kKioskWebApp:
     case user_manager::UserType::kKioskIWA:
+    case user_manager::UserType::kKioskArcvmApp:
       return DlpPolicyEvent_UserType_KIOSK;
     case user_manager::UserType::kGuest:
     case user_manager::UserType::kChild:

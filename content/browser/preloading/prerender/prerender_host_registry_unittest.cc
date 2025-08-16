@@ -208,10 +208,12 @@ class PrerenderHostRegistryTest : public RenderViewHostImplTestHarness {
             ui::PAGE_TRANSITION_LINK,
             /*should_warm_up_compositor=*/false,
             /*should_prepare_paint_tree=*/false,
+            /*should_pause_javascript_execution=*/false,
             /*url_match_predicate=*/{},
             /*prerender_navigation_handle_callback=*/{},
             PreloadPipelineInfoImpl::Create(
-                /*planned_max_preloading_type=*/PreloadingType::kPrerender));
+                /*planned_max_preloading_type=*/PreloadingType::kPrerender),
+            /*allow_reuse=*/false);
       case PreloadingTriggerType::kEmbedder:
         return PrerenderAttributes(
             url, trigger_type, embedder_histogram_suffix,
@@ -222,10 +224,12 @@ class PrerenderHostRegistryTest : public RenderViewHostImplTestHarness {
                                       ui::PAGE_TRANSITION_FROM_ADDRESS_BAR),
             /*should_warm_up_compositor=*/false,
             /*should_prepare_paint_tree=*/false,
+            /*should_pause_javascript_execution=*/false,
             /*url_match_predicate=*/{},
             /*prerender_navigation_handle_callback=*/{},
             PreloadPipelineInfoImpl::Create(
-                /*planned_max_preloading_type=*/PreloadingType::kPrerender));
+                /*planned_max_preloading_type=*/PreloadingType::kPrerender),
+            /*allow_reuse=*/false);
     }
   }
 
@@ -1459,6 +1463,64 @@ TEST_F(PrerenderHostRegistryTest,
       PrerenderFinalStatus::kActivationUrlHasEffectiveUrl);
 
   SetBrowserClientForTesting(old_client);
+}
+
+TEST_F(PrerenderHostRegistryTest, PotentialPrerenderProcessReuseUMA) {
+  const GURL kPrerenderingUrl("https://example.com/next");
+  // Start prerendering.
+  const FrameTreeNodeId prerender_frame_tree_node_id =
+      registry().CreateAndStartHost(GeneratePrerenderAttributes(
+          kPrerenderingUrl, PreloadingTriggerType::kSpeculationRule, "",
+          blink::mojom::SpeculationEagerness::kImmediate,
+          contents()->GetPrimaryMainFrame()));
+  ASSERT_TRUE(prerender_frame_tree_node_id);
+  PrerenderHost* prerender_host =
+      registry().FindHostByUrlForTesting(kPrerenderingUrl);
+  CommitPrerenderNavigation(*prerender_host);
+
+  {
+    base::HistogramTester histogram_tester;
+    auto navigation = CreateActivation(kPrerenderingUrl, *contents());
+    navigation->Start();
+    histogram_tester.ExpectUniqueSample(
+        "Prerender.Experimental.PrerenderProcessReuseAvailability",
+        PrerenderHostRegistry::PrerenderProcessReuseAvailability::
+            kHasMatchableHosts,
+        1);
+  }
+  {
+    base::HistogramTester histogram_tester;
+    const GURL kSameSiteUrl("https://example.com/other");
+    auto navigation = CreateActivation(kSameSiteUrl, *contents());
+    navigation->Start();
+    histogram_tester.ExpectUniqueSample(
+        "Prerender.Experimental.PrerenderProcessReuseAvailability",
+        PrerenderHostRegistry::PrerenderProcessReuseAvailability::
+            kHasSameOriginHosts,
+        1);
+  }
+  {
+    base::HistogramTester histogram_tester;
+    const GURL kSameSiteUrl("https://www.example.com:8000/other");
+    auto navigation = CreateActivation(kSameSiteUrl, *contents());
+    navigation->Start();
+    histogram_tester.ExpectUniqueSample(
+        "Prerender.Experimental.PrerenderProcessReuseAvailability",
+        PrerenderHostRegistry::PrerenderProcessReuseAvailability::
+            kHasSameSiteHosts,
+        1);
+  }
+  {
+    base::HistogramTester histogram_tester;
+    const GURL kNotSameSiteUrl("https://another.com/other");
+    auto navigation = CreateActivation(kNotSameSiteUrl, *contents());
+    navigation->Start();
+    histogram_tester.ExpectUniqueSample(
+        "Prerender.Experimental.PrerenderProcessReuseAvailability",
+        PrerenderHostRegistry::PrerenderProcessReuseAvailability::
+            kNoSameOriginOrSiteHosts,
+        1);
+  }
 }
 
 }  // namespace

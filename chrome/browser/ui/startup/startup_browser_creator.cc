@@ -45,7 +45,6 @@
 #include "chrome/browser/apps/app_service/app_service_proxy_factory.h"
 #include "chrome/browser/apps/platform_apps/app_load_service.h"
 #include "chrome/browser/apps/platform_apps/platform_app_launch.h"
-#include "chrome/browser/ash/floating_workspace/floating_workspace_service_factory.h"
 #include "chrome/browser/browser_features.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/custom_handlers/protocol_handler_registry_factory.h"
@@ -118,6 +117,7 @@
 #include "chrome/browser/ash/app_restore/full_restore_service.h"
 #include "chrome/browser/ash/app_restore/full_restore_service_factory.h"
 #include "chrome/browser/ash/floating_workspace/floating_workspace_service.h"
+#include "chrome/browser/ash/floating_workspace/floating_workspace_service_factory.h"
 #include "chrome/browser/ash/floating_workspace/floating_workspace_util.h"
 #include "chrome/browser/ash/profiles/profile_helper.h"
 #include "chrome/browser/lifetime/application_lifetime.h"
@@ -611,8 +611,8 @@ void OpenNewWindowForFirstRun(const base::CommandLine& command_line,
 
 #if BUILDFLAG(IS_CHROMEOS)
 // Returns the app id of the kiosk app associated with the current user session.
-// Returns nullopt for non-kiosk user sessions, since crash recovery is not
-// supported there.
+// Returns nullopt for non-kiosk user sessions and for ARCVM kiosk sessions,
+// since crash recovery is not supported there.
 std::optional<ash::KioskAppId> GetAppId(const base::CommandLine& command_line,
                                         Profile* profile) {
   const user_manager::User* user =
@@ -635,10 +635,41 @@ std::optional<ash::KioskAppId> GetAppId(const base::CommandLine& command_line,
     case user_manager::UserType::kChild:
     case user_manager::UserType::kGuest:
     case user_manager::UserType::kPublicAccount:
+    case user_manager::UserType::kKioskArcvmApp:
       return std::nullopt;
   }
 }
 #endif  // BUILDFLAG(IS_CHROMEOS)
+
+#if !BUILDFLAG(IS_CHROMEOS)
+bool ShouldForceLaunchIntoNewProfileWithEmail(
+    const base::CommandLine& command_line,
+    const Profile* profile) {
+  if (base::FeatureList::IsEnabled(features::kCreateProfileIfNoneExists) &&
+      command_line.HasSwitch(switches::kCreateProfileEmailIfNotExists)) {
+    std::string switch_email =
+        command_line.GetSwitchValueASCII(switches::kProfileEmail);
+    // Only prompt a new profile if there's an email specified. Otherwise,
+    // fall back to the default Chrome behavior.
+    if (switch_email.empty()) {
+      return false;
+    }
+    // If there's no profile then we should prompt a new profile.
+    if (profile == nullptr) {
+      return true;
+    }
+    // In practice, this shouldn't happen because if the switch_email is
+    // specified and a matching profile exists, then the profile username will
+    // match the switch_email. However, we don't know when this function is
+    // called, so we'll check and prompt to create a new profile if the one
+    // passed in doesn't match the switch_email.
+    if (profile != nullptr && profile->GetProfileUserName() != switch_email) {
+      return true;
+    }
+  }
+  return false;
+}
+#endif  // !BUILDFLAG(IS_CHROMEOS)
 
 }  // namespace
 
@@ -650,6 +681,7 @@ StartupProfileMode StartupProfileModeFromReason(
 
     case StartupProfileModeReason::kMultipleProfiles:
     case StartupProfileModeReason::kPickerForcedByPolicy:
+    case StartupProfileModeReason::kProfileEmailSwitchCreateProfile:
       return StartupProfileMode::kProfilePicker;
 
     case StartupProfileModeReason::kGuestModeRequested:
@@ -785,6 +817,13 @@ void StartupBrowserCreator::LaunchBrowserForLastProfiles(
 #if BUILDFLAG(IS_CHROMEOS)
     NOTREACHED();
 #else
+    if (ShouldForceLaunchIntoNewProfileWithEmail(command_line, profile)) {
+      std::string email =
+          command_line.GetSwitchValueASCII(switches::kProfileEmail);
+      ProfilePicker::Show(ProfilePicker::Params::FromStartupWithEmail(email));
+      return;
+    }
+
     ProfilePicker::Show(ProfilePicker::Params::FromEntryPoint(
         process_startup == chrome::startup::IsProcessStartup::kYes
             ? ProfilePicker::EntryPoint::kOnStartup
@@ -1712,6 +1751,15 @@ StartupProfilePathInfo GetStartupProfilePath(
       if (!profile_dir.empty()) {
         return {.path = profile_dir,
                 .reason = StartupProfileModeReason::kProfileEmailSwitch};
+      }
+      if (base::FeatureList::IsEnabled(features::kCreateProfileIfNoneExists) &&
+          command_line.HasSwitch(switches::kCreateProfileEmailIfNotExists)) {
+        // Return the profile picker instead of choosing a default profile.
+        // TODO (crbug.com/395127068): Investigate why the email sometimes does
+        // not get prefilled.
+        return {.path = base::FilePath(),
+                .reason =
+                    StartupProfileModeReason::kProfileEmailSwitchCreateProfile};
       }
     }
   }

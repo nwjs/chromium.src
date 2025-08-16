@@ -36,7 +36,6 @@
 #include "components/sync/protocol/nigori_specifics.pb.h"
 #include "components/sync/service/glue/sync_transport_data_prefs.h"
 #include "components/sync/service/sync_feature_status_for_migrations_recorder.h"
-#include "extensions/buildflags/buildflags.h"
 #include "google_apis/gaia/gaia_id.h"
 
 namespace syncer {
@@ -129,6 +128,17 @@ SyncPrefs::SyncPrefs(PrefService* pref_service)
       prefs::internal::kSelectedTypesPerAccount,
       base::BindRepeating(&SyncPrefs::OnSelectedTypesPrefChanged,
                           base::Unretained(this)));
+
+  if (base::FeatureList::IsEnabled(switches::kOfferMigrationToDiceUsers) ||
+      base::FeatureList::IsEnabled(switches::kRollbackDiceMigration)) {
+    // The explicit browser signin pref is used for determining whether some
+    // data types are selected by default. Therefore, upon a change, the
+    // selected types may change.
+    pref_change_registrar_.Add(
+        ::prefs::kExplicitBrowserSignin,
+        base::BindRepeating(&SyncPrefs::OnSelectedTypesPrefChanged,
+                            base::Unretained(this)));
+  }
 }
 
 SyncPrefs::~SyncPrefs() {
@@ -157,8 +167,6 @@ void SyncPrefs::RegisterProfilePrefs(PrefRegistrySimple* registry) {
       prefs::internal::kSyncInitialSyncFeatureSetupComplete, false);
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
-  registry->RegisterBooleanPref(
-      prefs::internal::kFirstSyncCompletedInFullSyncMode, false);
   registry->RegisterBooleanPref(kObsoleteAutofillWalletImportEnabledMigrated,
                                 false);
   registry->RegisterIntegerPref(prefs::internal::kSyncToSigninMigrationState,
@@ -253,23 +261,6 @@ void SyncPrefs::ClearInitialSyncFeatureSetupComplete() {
 }
 #endif  // !BUILDFLAG(IS_CHROMEOS)
 
-bool SyncPrefs::IsFirstSyncCompletedInFullSyncMode() const {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  return pref_service_->GetBoolean(
-      prefs::internal::kFirstSyncCompletedInFullSyncMode);
-}
-
-void SyncPrefs::SetFirstSyncCompletedInFullSyncMode() {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  pref_service_->SetBoolean(prefs::internal::kFirstSyncCompletedInFullSyncMode,
-                            true);
-}
-
-void SyncPrefs::ClearFirstSyncCompletedInFullSyncMode() {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  pref_service_->ClearPref(prefs::internal::kFirstSyncCompletedInFullSyncMode);
-}
-
 bool SyncPrefs::HasKeepEverythingSynced() const {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   return pref_service_->GetBoolean(prefs::internal::kSyncKeepEverythingSynced);
@@ -305,10 +296,6 @@ UserSelectableTypeSet SyncPrefs::GetSelectedTypesForAccount(
     }
   }
 
-  if (!password_sync_allowed_) {
-    selected_types.Remove(UserSelectableType::kPasswords);
-  }
-
   return selected_types;
 }
 
@@ -329,10 +316,6 @@ UserSelectableTypeSet SyncPrefs::GetSelectedTypesForSyncingUser() const {
       // individual prefs.
       selected_types.Put(type);
     }
-  }
-
-  if (!password_sync_allowed_) {
-    selected_types.Remove(UserSelectableType::kPasswords);
   }
 
   return selected_types;
@@ -746,12 +729,7 @@ bool SyncPrefs::IsTypeSupportedInTransportMode(UserSelectableType type) {
     case UserSelectableType::kSavedTabGroups:
       return base::FeatureList::IsEnabled(kReplaceSyncPromosWithSignInPromos);
     case UserSelectableType::kExtensions:
-#if BUILDFLAG(ENABLE_DESKTOP_ANDROID_EXTENSIONS)
-      return true;
-#else
-      return base::FeatureList::IsEnabled(
-          switches::kEnableExtensionsExplicitBrowserSignin);
-#endif
+      return switches::IsExtensionsExplicitBrowserSigninEnabled();
     case UserSelectableType::kThemes:
 #if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
       return false;
@@ -760,10 +738,9 @@ bool SyncPrefs::IsTypeSupportedInTransportMode(UserSelectableType type) {
           syncer::kSeparateLocalAndAccountThemes);
 #endif
     case UserSelectableType::kApps:
+      return base::FeatureList::IsEnabled(kReplaceSyncPromosWithSignInPromos);
     case UserSelectableType::kCookies:
-      // These types are not supported in transport mode yet.
-      // TODO(crbug.com/420912307): `kApps` should be allowed in
-      // `kReplaceSyncPromosWithSignInPromos` is enabled.
+      // `kCookies` is not supported in transport mode (ChromeOS-only type).
       return false;
   }
   NOTREACHED();
@@ -851,7 +828,7 @@ bool SyncPrefs::MaybeMigratePrefsForSyncToSigninPart1(
                                 kMigratedPart2AndFullyDone);
       return false;
     }
-    case SyncAccountState::kSignedInNotSyncing: {
+    case SyncAccountState::kSignedInWithoutSyncConsent: {
       pref_service_->SetInteger(prefs::internal::kSyncToSigninMigrationState,
                                 kMigratedPart1ButNot2);
       CHECK(!gaia_id.empty());
@@ -1103,17 +1080,6 @@ void SyncPrefs::MarkPartialSyncToSigninMigrationFullyDone() {
       kMigratedPart1ButNot2) {
     pref_service_->SetInteger(prefs::internal::kSyncToSigninMigrationState,
                               kMigratedPart2AndFullyDone);
-  }
-}
-
-void SyncPrefs::SetPasswordSyncAllowed(bool allowed) {
-  if (password_sync_allowed_ == allowed) {
-    return;
-  }
-
-  password_sync_allowed_ = allowed;
-  for (SyncPrefObserver& observer : sync_pref_observers_) {
-    observer.OnSelectedTypesPrefChange();
   }
 }
 

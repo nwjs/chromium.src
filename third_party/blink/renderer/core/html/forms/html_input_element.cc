@@ -174,7 +174,7 @@ bool HTMLInputElement::HasPendingActivity() const {
 HTMLImageLoader& HTMLInputElement::EnsureImageLoader() {
   if (!image_loader_) {
     image_loader_ = MakeGarbageCollected<HTMLImageLoader>(this);
-    RegisterActiveScriptWrappable(GetExecutionContext()->GetIsolate());
+    RegisterActiveScriptWrappable();
   }
   return *image_loader_;
 }
@@ -308,12 +308,6 @@ bool HTMLInputElement::HasCustomFocusLogic() const {
 
 bool HTMLInputElement::IsKeyboardFocusableSlow(
     UpdateBehavior update_behavior) const {
-  // Interest invoker targets with partial interest aren't keyboard focusable.
-  if (IsInPartialInterestPopover()) {
-    CHECK(RuntimeEnabledFeatures::HTMLInterestTargetAttributeEnabled(
-        GetDocument().GetExecutionContext()));
-    return false;
-  }
   return input_type_->IsKeyboardFocusableSlow(update_behavior);
 }
 
@@ -2098,8 +2092,7 @@ bool HTMLInputElement::ShouldAppearIndeterminate() const {
   return input_type_->ShouldAppearIndeterminate();
 }
 
-HTMLFormControlElement::PopoverTriggerSupport
-HTMLInputElement::SupportsPopoverTriggering() const {
+PopoverTriggerSupport HTMLInputElement::SupportsPopoverTriggering() const {
   return input_type_->SupportsPopoverTriggering();
 }
 
@@ -2321,9 +2314,6 @@ void HTMLInputElement::AdjustStyle(ComputedStyleBuilder& builder) {
 
 void HTMLInputElement::DidNotifySubtreeInsertionsToDocument() {
   input_type_view_->ListAttributeTargetChanged();
-  if (!RuntimeEnabledFeatures::DOMInsertionFasterEnabled()) {
-    PseudoStateChanged(CSSSelector::kPseudoHasDatalist);
-  }
 }
 
 AXObject* HTMLInputElement::PopupRootAXObject() {
@@ -2502,6 +2492,12 @@ void HTMLInputElement::SetFocused(bool is_focused,
   if (!is_focused && !input_type_view_->IsMultipleFieldsTemporal() &&
       UserHasEditedTheField()) {
     SetUserHasEditedTheFieldAndBlurred();
+  }
+
+  if (RuntimeEnabledFeatures::RadioKeyboardFocusableOptimizeEnabled()) {
+    if (RadioButtonGroupScope* scope = GetRadioButtonGroupScope()) {
+      scope->UpdateLastFocusedState(this);
+    }
   }
 }
 

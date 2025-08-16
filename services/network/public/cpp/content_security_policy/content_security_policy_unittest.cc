@@ -15,6 +15,7 @@
 #include "services/network/public/cpp/web_sandbox_flags.h"
 #include "services/network/public/mojom/content_security_policy.mojom.h"
 #include "services/network/public/mojom/integrity_algorithm.mojom.h"
+#include "services/network/public/mojom/integrity_metadata.mojom.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "url/gurl.h"
@@ -1236,10 +1237,10 @@ TEST(ContentSecurityPolicy,
   AddContentSecurityPolicyFromHeaders(*headers, GURL("https://example.com/"),
                                       &policies);
   auto expected_csp = mojom::CSPSourceList::New();
-  expected_csp->hashes.push_back(mojom::CSPHashSource::New(
-      mojom::IntegrityAlgorithm::kSha256, std::vector<uint8_t>{'a', 'b', 'c'}));
-  expected_csp->hashes.push_back(mojom::CSPHashSource::New(
-      mojom::IntegrityAlgorithm::kSha256, std::vector<uint8_t>{'A', 'B', 'C'}));
+  expected_csp->hashes.emplace_back(mojom::IntegrityAlgorithm::kSha256,
+                                    std::vector<uint8_t>{'a', 'b', 'c'});
+  expected_csp->hashes.emplace_back(mojom::IntegrityAlgorithm::kSha256,
+                                    std::vector<uint8_t>{'A', 'B', 'C'});
   expected_csp->nonces.push_back("cde");
 
   EXPECT_TRUE(expected_csp.Equals(
@@ -1315,12 +1316,10 @@ TEST(ContentSecurityPolicy, ParseSerializedSourceList) {
           "'sha256-YWJj' 'nonce-cde' 'sha256-QUJD'",
           base::BindOnce([] {
             auto csp = mojom::CSPSourceList::New();
-            csp->hashes.push_back(
-                mojom::CSPHashSource::New(mojom::IntegrityAlgorithm::kSha256,
-                                          std::vector<uint8_t>{'a', 'b', 'c'}));
-            csp->hashes.push_back(
-                mojom::CSPHashSource::New(mojom::IntegrityAlgorithm::kSha256,
-                                          std::vector<uint8_t>{'A', 'B', 'C'}));
+            csp->hashes.emplace_back(mojom::IntegrityAlgorithm::kSha256,
+                                     std::vector<uint8_t>{'a', 'b', 'c'});
+            csp->hashes.emplace_back(mojom::IntegrityAlgorithm::kSha256,
+                                     std::vector<uint8_t>{'A', 'B', 'C'});
             csp->nonces.push_back("cde");
             return csp;
           }),
@@ -1331,12 +1330,10 @@ TEST(ContentSecurityPolicy, ParseSerializedSourceList) {
           "'sha256-YWJj' 'nonce-cde' 'sha256-QUJD' 'url-sha256-Y2Q='",
           base::BindOnce([] {
             auto csp = mojom::CSPSourceList::New();
-            csp->hashes.push_back(
-                mojom::CSPHashSource::New(mojom::IntegrityAlgorithm::kSha256,
-                                          std::vector<uint8_t>{'a', 'b', 'c'}));
-            csp->hashes.push_back(
-                mojom::CSPHashSource::New(mojom::IntegrityAlgorithm::kSha256,
-                                          std::vector<uint8_t>{'A', 'B', 'C'}));
+            csp->hashes.emplace_back(mojom::IntegrityAlgorithm::kSha256,
+                                     std::vector<uint8_t>{'a', 'b', 'c'});
+            csp->hashes.emplace_back(mojom::IntegrityAlgorithm::kSha256,
+                                     std::vector<uint8_t>{'A', 'B', 'C'});
             csp->nonces.push_back("cde");
             return csp;
           }),
@@ -1349,12 +1346,10 @@ TEST(ContentSecurityPolicy, ParseSerializedSourceList) {
           "'sha256-YWJj' 'nonce-cde' 'sha256-QUJD' 'eval-sha256-Y2Q='",
           base::BindOnce([] {
             auto csp = mojom::CSPSourceList::New();
-            csp->hashes.push_back(
-                mojom::CSPHashSource::New(mojom::IntegrityAlgorithm::kSha256,
-                                          std::vector<uint8_t>{'a', 'b', 'c'}));
-            csp->hashes.push_back(
-                mojom::CSPHashSource::New(mojom::IntegrityAlgorithm::kSha256,
-                                          std::vector<uint8_t>{'A', 'B', 'C'}));
+            csp->hashes.emplace_back(mojom::IntegrityAlgorithm::kSha256,
+                                     std::vector<uint8_t>{'a', 'b', 'c'});
+            csp->hashes.emplace_back(mojom::IntegrityAlgorithm::kSha256,
+                                     std::vector<uint8_t>{'A', 'B', 'C'});
             csp->nonces.push_back("cde");
             return csp;
           }),
@@ -1369,17 +1364,14 @@ TEST(ContentSecurityPolicy, ParseSerializedSourceList) {
           "'sha256-YWJj' 'nonce-cde' 'sha256-QUJD' 'url-sha256-Y2Q='",
           base::BindOnce([] {
             auto csp = mojom::CSPSourceList::New();
-            csp->hashes.push_back(
-                mojom::CSPHashSource::New(mojom::IntegrityAlgorithm::kSha256,
-                                          std::vector<uint8_t>{'a', 'b', 'c'}));
-            csp->hashes.push_back(
-                mojom::CSPHashSource::New(mojom::IntegrityAlgorithm::kSha256,
-                                          std::vector<uint8_t>{'A', 'B', 'C'}));
+            csp->hashes.emplace_back(mojom::IntegrityAlgorithm::kSha256,
+                                     std::vector<uint8_t>{'a', 'b', 'c'});
+            csp->hashes.emplace_back(mojom::IntegrityAlgorithm::kSha256,
+                                     std::vector<uint8_t>{'A', 'B', 'C'});
             csp->nonces.push_back("cde");
 
-            csp->url_hashes.push_back(
-                mojom::CSPHashSource::New(mojom::IntegrityAlgorithm::kSha256,
-                                          std::vector<uint8_t>{'c', 'd'}));
+            csp->url_hashes.emplace_back(mojom::IntegrityAlgorithm::kSha256,
+                                         std::vector<uint8_t>{'c', 'd'});
             return csp;
           }),
           "",
@@ -1391,17 +1383,15 @@ TEST(ContentSecurityPolicy, ParseSerializedSourceList) {
           "'sha256-YWJj' 'nonce-cde' 'sha256-QUJD' 'eval-sha256-Y2Q='",
           base::BindOnce([] {
             auto csp = mojom::CSPSourceList::New();
-            csp->hashes.push_back(
-                mojom::CSPHashSource::New(mojom::IntegrityAlgorithm::kSha256,
-                                          std::vector<uint8_t>{'a', 'b', 'c'}));
-            csp->hashes.push_back(
-                mojom::CSPHashSource::New(mojom::IntegrityAlgorithm::kSha256,
-                                          std::vector<uint8_t>{'A', 'B', 'C'}));
+            csp->hashes.emplace_back(mojom::IntegrityAlgorithm::kSha256,
+                                     std::vector<uint8_t>{'a', 'b', 'c'});
+            csp->hashes.emplace_back(mojom::IntegrityAlgorithm::kSha256,
+                                     std::vector<uint8_t>{'A', 'B', 'C'});
             csp->nonces.push_back("cde");
 
             csp->eval_hashes.push_back(
-                mojom::CSPHashSource::New(mojom::IntegrityAlgorithm::kSha256,
-                                          std::vector<uint8_t>{'c', 'd'}));
+                network::IntegrityMetadata(mojom::IntegrityAlgorithm::kSha256,
+                                           std::vector<uint8_t>{'c', 'd'}));
             return csp;
           }),
           "",
@@ -1412,17 +1402,15 @@ TEST(ContentSecurityPolicy, ParseSerializedSourceList) {
           "https://a.com/",
           base::BindOnce([] {
             auto csp = mojom::CSPSourceList::New();
-            csp->hashes.push_back(
-                mojom::CSPHashSource::New(mojom::IntegrityAlgorithm::kSha256,
-                                          std::vector<uint8_t>{'a', 'b', 'c'}));
-            csp->hashes.push_back(
-                mojom::CSPHashSource::New(mojom::IntegrityAlgorithm::kSha256,
-                                          std::vector<uint8_t>{'A', 'B', 'C'}));
+            csp->hashes.emplace_back(mojom::IntegrityAlgorithm::kSha256,
+                                     std::vector<uint8_t>{'a', 'b', 'c'});
+            csp->hashes.emplace_back(mojom::IntegrityAlgorithm::kSha256,
+                                     std::vector<uint8_t>{'A', 'B', 'C'});
             csp->nonces.push_back("cde");
 
             csp->url_hashes.push_back(
-                mojom::CSPHashSource::New(mojom::IntegrityAlgorithm::kSha256,
-                                          std::vector<uint8_t>{'c', 'd'}));
+                network::IntegrityMetadata(mojom::IntegrityAlgorithm::kSha256,
+                                           std::vector<uint8_t>{'c', 'd'}));
             return csp;
           }),
           "The Content-Security-Policy directive 'script-src-v2' doesn't "
@@ -1719,13 +1707,13 @@ TEST(ContentSecurityPolicy, ParseHash) {
     std::vector<mojom::ContentSecurityPolicyPtr> policies;
     AddContentSecurityPolicyFromHeaders(*headers, GURL("https://example.com/"),
                                         &policies);
-    const std::vector<mojom::CSPHashSourcePtr>& hashes =
+    const std::vector<network::IntegrityMetadata>& hashes =
         policies[0]->directives[mojom::CSPDirectiveName::ScriptSrc]->hashes;
     if (!test.expected_hash.empty()) {
       EXPECT_EQ(1u, hashes.size()) << test.hash << " should parse to one hash";
-      EXPECT_EQ(test.expected_algorithm, hashes[0]->algorithm)
+      EXPECT_EQ(test.expected_algorithm, hashes[0].algorithm)
           << test.hash << " should have algorithm " << test.expected_algorithm;
-      EXPECT_EQ(test.expected_hash, hashes[0]->value)
+      EXPECT_EQ(test.expected_hash, hashes[0].value)
           << test.hash << " has not been base64decoded correctly";
     } else {
       EXPECT_TRUE(hashes.empty()) << test.hash << " should be an invalid hash";

@@ -12,6 +12,7 @@
 #include "components/tabs/public/tab_interface.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/web_contents.h"
+#include "third_party/abseil-cpp/absl/functional/overload.h"
 
 namespace actor {
 
@@ -20,30 +21,22 @@ using content::WebContents;
 using optimization_guide::DocumentIdentifierUserData;
 using tabs::TabHandle;
 
-PageToolRequest::Target::Target(const NodeTarget& node_target)
-    : impl_(node_target) {}
+namespace {
+constexpr absl::Overload ToMojoFn{
+    [](const gfx::Point& pt) -> mojom::ToolTargetPtr {
+      return actor::mojom::ToolTarget::NewCoordinate(pt);
+    },
+    [](const DomNode& node) -> mojom::ToolTargetPtr {
+      return actor::mojom::ToolTarget::NewDomNodeId(node.node_id);
+    },
+};
+}  // namespace
 
-PageToolRequest::Target::Target(const CoordinateTarget& coordinate_target)
-    : impl_(coordinate_target) {}
-
-PageToolRequest::Target::Target(const Target& other) = default;
-
-PageToolRequest::Target::~Target() = default;
-
-// static
-mojom::ToolTargetPtr PageToolRequest::ToMojoToolTarget(const Target& target) {
-  // TODO(crbug.com/419037299): This needs to take in a target RenderFrameHost&
-  // and convert from WebContents-relative coordinates into Widget-local
-  // coordinates.
-  if (target.is_coordinate()) {
-    return actor::mojom::ToolTarget::NewCoordinate(target.coordinate());
-  }
-
-  CHECK(target.is_node());
-  return actor::mojom::ToolTarget::NewDomNodeId(target.node().dom_node_id);
+mojom::ToolTargetPtr ToMojo(const PageTarget& target) {
+  return std::visit(ToMojoFn, target);
 }
 
-PageToolRequest::PageToolRequest(TabHandle tab_handle, const Target& target)
+PageToolRequest::PageToolRequest(TabHandle tab_handle, const PageTarget& target)
     : TabToolRequest(tab_handle), target_(target) {}
 
 PageToolRequest::~PageToolRequest() = default;
@@ -52,16 +45,17 @@ PageToolRequest::PageToolRequest(const PageToolRequest& other) = default;
 
 ToolRequest::CreateToolResult PageToolRequest::CreateTool(
     TaskId task_id,
-    AggregatedJournal& journal) const {
+    ToolDelegate& tool_delegate) const {
   if (!GetTabHandle().Get()) {
     return {/*tool=*/nullptr, MakeResult(mojom::ActionResultCode::kTabWentAway,
                                          "The tab is no longer present.")};
   }
 
-  return {std::make_unique<PageTool>(task_id, journal, *this), MakeOkResult()};
+  return {std::make_unique<PageTool>(task_id, tool_delegate, *this),
+          MakeOkResult()};
 }
 
-const PageToolRequest::Target& PageToolRequest::GetTarget() const {
+const PageTarget& PageToolRequest::GetTarget() const {
   return target_;
 }
 

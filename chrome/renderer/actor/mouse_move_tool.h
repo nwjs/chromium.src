@@ -25,12 +25,14 @@ class MouseMoveTool : public ToolBase {
   MouseMoveTool(content::RenderFrame& frame,
                 Journal::TaskId task_id,
                 Journal& journal,
-                mojom::MouseMoveActionPtr action);
+                mojom::MouseMoveActionPtr action,
+                mojom::ToolTargetPtr target,
+                mojom::ObservedToolTargetPtr observed_target);
 
   ~MouseMoveTool() override;
 
   // actor::ToolBase
-  mojom::ActionResultPtr Execute() override;
+  void Execute(ToolFinishedCallback callback) override;
   std::string DebugString() const override;
 
  private:

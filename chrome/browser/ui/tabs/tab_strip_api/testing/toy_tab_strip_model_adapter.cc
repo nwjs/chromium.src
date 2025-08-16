@@ -4,6 +4,11 @@
 
 #include "chrome/browser/ui/tabs/tab_strip_api/testing/toy_tab_strip_model_adapter.h"
 
+#include <utility>
+
+#include "base/notimplemented.h"
+#include "base/strings/string_number_conversions.h"
+
 namespace tabs_api::testing {
 
 ToyTabStripModelAdapter::ToyTabStripModelAdapter(ToyTabStrip* tab_strip)
@@ -35,17 +40,25 @@ void ToyTabStripModelAdapter::ActivateTab(size_t idx) {
 }
 
 void ToyTabStripModelAdapter::MoveTab(tabs::TabHandle handle,
-                                      Position position) {
-  tab_strip_->MoveTab(handle, position.index);
+                                      const Position& position) {
+  tab_strip_->MoveTab(handle, position.index());
+}
+
+void ToyTabStripModelAdapter::MoveCollection(const NodeId& id,
+                                             const Position& position) {
+  // TODO(crbug.com/412709271): Integrate with the toy tabstrip to move a
+  // collection.
+  NOTIMPLEMENTED();
+  return;
 }
 
 mojom::TabCollectionContainerPtr
 ToyTabStripModelAdapter::GetTabStripTopology() {
-  auto tab_collection = tabs_api::mojom::TabCollection::New();
-  tab_collection->id =
+  auto mojo_tab_strip = tabs_api::mojom::TabStrip::New();
+  mojo_tab_strip->id =
       tabs_api::NodeId(tabs_api::NodeId::Type::kCollection, "0");
-  tab_collection->collection_type =
-      tabs_api::mojom::TabCollection::CollectionType::kTabStrip;
+  auto tab_collection =
+      tabs_api::mojom::TabCollection::NewTabStrip(std::move(mojo_tab_strip));
 
   auto result = tabs_api::mojom::TabCollectionContainer::New();
   result->collection = std::move(tab_collection);
@@ -62,6 +75,18 @@ ToyTabStripModelAdapter::GetTabStripTopology() {
     result->elements.push_back(std::move(element));
   }
   return result;
+}
+
+std::optional<const tab_groups::TabGroupId>
+ToyTabStripModelAdapter::FindGroupIdFor(
+    const tabs::TabCollection::Handle& collection_handle) {
+  return tab_strip_->GetGroupIdFor(collection_handle);
+}
+
+void ToyTabStripModelAdapter::UpdateTabGroupVisuals(
+    const tab_groups::TabGroupId& group,
+    const tab_groups::TabGroupVisualData& visual_data) {
+  tab_strip_->UpdateGroupVisuals(group, visual_data);
 }
 
 }  // namespace tabs_api::testing

@@ -5,6 +5,7 @@
 #include "chrome/browser/actor/tools/history_tool.h"
 
 #include "base/time/time.h"
+#include "chrome/browser/actor/actor_task.h"
 #include "chrome/browser/actor/tools/observation_delay_controller.h"
 #include "chrome/browser/actor/tools/tool_callbacks.h"
 #include "chrome/common/actor.mojom.h"
@@ -29,17 +30,17 @@ namespace actor {
 
 using ::content::NavigationController;
 using ::content::NavigationHandle;
-using ::content::WebContents;
 using ::tabs::TabHandle;
 using ::tabs::TabInterface;
 
 HistoryTool::HistoryTool(TaskId task_id,
-                         AggregatedJournal& journal,
-                         WebContents& web_contents,
+                         ToolDelegate& tool_delegate,
+                         TabInterface& tab,
                          HistoryToolRequest::Direction direction)
-    : Tool(task_id, journal),
-      WebContentsObserver(&web_contents),
-      direction_(direction) {}
+    : Tool(task_id, tool_delegate),
+      WebContentsObserver(tab.GetContents()),
+      direction_(direction),
+      tab_handle_(tab.GetHandle()) {}
 
 HistoryTool::~HistoryTool() = default;
 
@@ -47,6 +48,7 @@ void HistoryTool::Validate(ValidateCallback callback) {
   NavigationController& controller = web_contents()->GetController();
   mojom::ActionResultPtr result;
 
+  // TODO(crbug.com/411462297): Move these checks to TimeOfUseValidation.
   if (direction_ == HistoryToolRequest::Direction::kBack &&
       !controller.CanGoBack()) {
     result = MakeResult(mojom::ActionResultCode::kHistoryNoBackEntries);
@@ -111,6 +113,11 @@ std::unique_ptr<ObservationDelayController> HistoryTool::GetObservationDelayer()
     const {
   return std::make_unique<ObservationDelayController>(
       *web_contents()->GetPrimaryMainFrame());
+}
+
+void HistoryTool::UpdateTaskBeforeInvoke(ActorTask& task,
+                                         InvokeCallback callback) const {
+  task.AddTab(tab_handle_, std::move(callback));
 }
 
 void HistoryTool::DidStartNavigation(NavigationHandle* navigation_handle) {

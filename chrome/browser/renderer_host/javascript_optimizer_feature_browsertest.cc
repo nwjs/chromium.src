@@ -15,6 +15,7 @@
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
 #include "content/public/test/test_host_resolver.h"
+#include "content/public/test/test_navigation_observer.h"
 #include "content/public/test/test_utils.h"
 #include "net/dns/mock_host_resolver.h"
 #include "net/test/embedded_test_server/embedded_test_server.h"
@@ -27,6 +28,10 @@ class JavascriptOptimizerBrowserTest : public PlatformBrowserTest {
     PlatformBrowserTest::SetUpOnMainThread();
     host_resolver()->AddRule("*", "127.0.0.1");
     content::SetupCrossSiteRedirector(&embedded_https_test_server());
+
+    embedded_https_test_server().SetCertHostnames(
+        {"a.com", "*.a.com", "b.com", "*.b.com", "unrelated.com"});
+    ASSERT_TRUE(embedded_https_test_server().Start());
   }
 
   content::WebContents* web_contents() {
@@ -70,8 +75,6 @@ class JavascriptOptimizerBrowserTest_OriginKeyedProcessesByDefault
 // by default via chrome://settings.
 IN_PROC_BROWSER_TEST_F(JavascriptOptimizerBrowserTest,
                        V8SiteSettingDefaultOff) {
-  ASSERT_TRUE(embedded_https_test_server().Start());
-
   auto* map = HostContentSettingsMapFactory::GetForProfile(
       chrome_test_utils::GetProfile(this));
   map->SetDefaultContentSetting(ContentSettingsType::JAVASCRIPT_OPTIMIZER,
@@ -86,8 +89,6 @@ IN_PROC_BROWSER_TEST_F(JavascriptOptimizerBrowserTest,
 // via chrome://settings for a specific site.
 IN_PROC_BROWSER_TEST_F(JavascriptOptimizerBrowserTest,
                        DisabledViaSiteSpecificSetting) {
-  ASSERT_TRUE(embedded_https_test_server().Start());
-
   auto* map = HostContentSettingsMapFactory::GetForProfile(
       chrome_test_utils::GetProfile(this));
   map->SetDefaultContentSetting(ContentSettingsType::JAVASCRIPT_OPTIMIZER,
@@ -111,8 +112,6 @@ IN_PROC_BROWSER_TEST_F(JavascriptOptimizerBrowserTest,
 IN_PROC_BROWSER_TEST_F(
     JavascriptOptimizerBrowserTest_NoOriginKeyedProcessesByDefault,
     ExceptionOriginLoadedInSubframeIsNotIsolatedOnFirstNavigation) {
-  ASSERT_TRUE(embedded_https_test_server().Start());
-
   auto* policy = content::ChildProcessSecurityPolicy::GetInstance();
   auto* map = HostContentSettingsMapFactory::GetForProfile(
       chrome_test_utils::GetProfile(this));
@@ -175,8 +174,6 @@ IN_PROC_BROWSER_TEST_F(
 IN_PROC_BROWSER_TEST_F(
     JavascriptOptimizerBrowserTest_NoOriginKeyedProcessesByDefault,
     ExceptionOriginLoadedFirstWillBeIsolatedInSubframe) {
-  ASSERT_TRUE(embedded_https_test_server().Start());
-
   auto* policy = content::ChildProcessSecurityPolicy::GetInstance();
   auto* map = HostContentSettingsMapFactory::GetForProfile(
       chrome_test_utils::GetProfile(this));
@@ -228,8 +225,6 @@ IN_PROC_BROWSER_TEST_F(
 IN_PROC_BROWSER_TEST_F(
     JavascriptOptimizerBrowserTest_NoOriginKeyedProcessesByDefault,
     RemoveRuleOriginIsStillIsolatedButIsAllowed) {
-  ASSERT_TRUE(embedded_https_test_server().Start());
-
   auto* policy = content::ChildProcessSecurityPolicy::GetInstance();
   auto* map = HostContentSettingsMapFactory::GetForProfile(
       chrome_test_utils::GetProfile(this));
@@ -271,6 +266,12 @@ IN_PROC_BROWSER_TEST_F(
       ContentSettingsType::JAVASCRIPT_OPTIMIZER,
       ContentSetting::CONTENT_SETTING_DEFAULT);
 
+  // Navigate to different origin so that the subsequent navigation to a.com
+  // occurs in a different BrowsingInstanceId.
+  ASSERT_TRUE(content::NavigateToURL(
+      web_contents(),
+      embedded_https_test_server().GetURL("unrelated.com", "/simple.html")));
+
   ASSERT_TRUE(content::NavigateToURL(
       web_contents(),
       embedded_https_test_server().GetURL("a.com", "/simple.html")));
@@ -297,7 +298,6 @@ IN_PROC_BROWSER_TEST_F(
 IN_PROC_BROWSER_TEST_F(
     JavascriptOptimizerBrowserTest_NoOriginKeyedProcessesByDefault,
     ExceptionForSiteAppliesToSubSite) {
-  ASSERT_TRUE(embedded_https_test_server().Start());
   auto* map = HostContentSettingsMapFactory::GetForProfile(
       chrome_test_utils::GetProfile(this));
   map->SetDefaultContentSetting(ContentSettingsType::JAVASCRIPT_OPTIMIZER,
@@ -333,7 +333,6 @@ IN_PROC_BROWSER_TEST_F(
     GTEST_SKIP()
         << "skipping: OriginKeyedProcessesEnabledByDefault needs to be true";
   }
-  ASSERT_TRUE(embedded_https_test_server().Start());
   auto* map = HostContentSettingsMapFactory::GetForProfile(
       chrome_test_utils::GetProfile(this));
   map->SetDefaultContentSetting(ContentSettingsType::JAVASCRIPT_OPTIMIZER,
@@ -364,7 +363,6 @@ IN_PROC_BROWSER_TEST_F(
 // that sub.a.com's behavior can differ from a.com's behavior.
 IN_PROC_BROWSER_TEST_F(JavascriptOptimizerBrowserTest,
                        ExceptionForSiteAppliesToSubSiteButCannotBeOverridden) {
-  ASSERT_TRUE(embedded_https_test_server().Start());
   auto* policy = content::ChildProcessSecurityPolicy::GetInstance();
   auto* map = HostContentSettingsMapFactory::GetForProfile(
       chrome_test_utils::GetProfile(this));
@@ -448,7 +446,6 @@ IN_PROC_BROWSER_TEST_F(
   }
 #endif
 
-  ASSERT_TRUE(embedded_https_test_server().Start());
   auto* policy = content::ChildProcessSecurityPolicy::GetInstance();
   auto* map = HostContentSettingsMapFactory::GetForProfile(
       chrome_test_utils::GetProfile(this));
@@ -504,7 +501,6 @@ IN_PROC_BROWSER_TEST_F(
 IN_PROC_BROWSER_TEST_F(
     JavascriptOptimizerBrowserTest_NoOriginKeyedProcessesByDefault,
     ExceptionForTopFrameDoesNotApplyToSubFrame) {
-  ASSERT_TRUE(embedded_https_test_server().Start());
   auto* map = HostContentSettingsMapFactory::GetForProfile(
       chrome_test_utils::GetProfile(this));
   map->SetDefaultContentSetting(ContentSettingsType::JAVASCRIPT_OPTIMIZER,
@@ -547,7 +543,6 @@ IN_PROC_BROWSER_TEST_F(
 // JavaScript optimization is handled correctly.
 IN_PROC_BROWSER_TEST_F(JavascriptOptimizerBrowserTest, ProcessLimitWorks) {
   content::RenderProcessHost::SetMaxRendererProcessCount(1);
-  ASSERT_TRUE(embedded_https_test_server().Start());
 
   auto* map = HostContentSettingsMapFactory::GetForProfile(
       chrome_test_utils::GetProfile(this));
@@ -587,4 +582,68 @@ IN_PROC_BROWSER_TEST_F(JavascriptOptimizerBrowserTest, ProcessLimitWorks) {
     EXPECT_NE(c_com_frame->GetProcess(), b_com_frame->GetProcess());
     EXPECT_EQ(a_com_frame->GetProcess(), c_com_frame->GetProcess());
   }
+}
+
+namespace {
+
+void NavigateChangeV8OptPriorToWindowOpen(content::WebContents* web_contents,
+                                          const GURL& navigate_url,
+                                          const GURL& window_open_url) {
+  Profile* profile =
+      Profile::FromBrowserContext(web_contents->GetBrowserContext());
+  auto* map = HostContentSettingsMapFactory::GetForProfile(profile);
+  map->SetDefaultContentSetting(ContentSettingsType::JAVASCRIPT_OPTIMIZER,
+                                ContentSetting::CONTENT_SETTING_ALLOW);
+  ASSERT_TRUE(content::NavigateToURL(web_contents, navigate_url));
+
+  // Simulate changing the default v8-optimization preference via
+  // chrome://settings in a different tab.
+  map->SetDefaultContentSetting(ContentSettingsType::JAVASCRIPT_OPTIMIZER,
+                                ContentSetting::CONTENT_SETTING_BLOCK);
+
+  content::TestNavigationObserver popup_observer(nullptr);
+  popup_observer.StartWatchingNewWebContents();
+  content::EvalJsResult result =
+      content::EvalJs(web_contents->GetPrimaryMainFrame(),
+                      "window.open(\"" + window_open_url.spec() + "\");");
+  popup_observer.Wait();
+}
+
+}  // anonymous namespace
+
+// Test that a same-origin window.open() call uses the same process regardless
+// of whether the user changed the v8-optimization state.
+IN_PROC_BROWSER_TEST_F(
+    JavascriptOptimizerBrowserTest,
+    ChangeJavascriptOptimizerStatePriorToSameOriginWindowOpen) {
+  GURL url = embedded_https_test_server().GetURL("a.com", "/simple.html");
+  NavigateChangeV8OptPriorToWindowOpen(web_contents(), url, url);
+
+  std::vector<content::WebContents*> all_web_contents =
+      content::GetAllWebContents();
+  ASSERT_EQ(2u, all_web_contents.size());
+  content::RenderFrameHost* frame0 = all_web_contents[0]->GetPrimaryMainFrame();
+  content::RenderFrameHost* frame1 = all_web_contents[1]->GetPrimaryMainFrame();
+  EXPECT_EQ(frame0->GetProcess(), frame1->GetProcess());
+  EXPECT_EQ(frame0->GetSiteInstance(), frame1->GetSiteInstance());
+}
+
+// Test that when the features::kOriginKeyedProcessesByDefault feature is
+// disabled that a same-site window.open() call uses the same process regardless
+// of whether the user changed the v8-optimization state.
+IN_PROC_BROWSER_TEST_F(
+    JavascriptOptimizerBrowserTest_NoOriginKeyedProcessesByDefault,
+    ChangeJavascriptOptimizerStatePriorToSameSiteWindowOpen) {
+  GURL url = embedded_https_test_server().GetURL("a.com", "/simple.html");
+  GURL same_site_url =
+      embedded_https_test_server().GetURL("foo.a.com", "/simple.html");
+  NavigateChangeV8OptPriorToWindowOpen(web_contents(), url, same_site_url);
+
+  std::vector<content::WebContents*> all_web_contents =
+      content::GetAllWebContents();
+  ASSERT_EQ(2u, all_web_contents.size());
+  content::RenderFrameHost* frame0 = all_web_contents[0]->GetPrimaryMainFrame();
+  content::RenderFrameHost* frame1 = all_web_contents[1]->GetPrimaryMainFrame();
+  EXPECT_EQ(frame0->GetProcess(), frame1->GetProcess());
+  EXPECT_EQ(frame0->GetSiteInstance(), frame1->GetSiteInstance());
 }

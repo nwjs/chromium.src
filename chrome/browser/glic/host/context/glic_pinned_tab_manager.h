@@ -12,17 +12,21 @@
 #include "chrome/browser/glic/host/context/glic_tab_data.h"
 #include "chrome/browser/glic/host/glic.mojom.h"
 #include "chrome/browser/glic/widget/glic_window_controller.h"
+#include "chrome/browser/ui/tabs/tab_strip_model_observer.h"
 #include "components/tabs/public/tab_interface.h"
+#include "mojo/public/cpp/bindings/remote.h"
+
+class Profile;
+class BrowserTabStripTracker;
 
 namespace glic {
 
-class GlicSharingManagerImpl;
-
 // Manages a collection of tabs that have been selected to be shared.
-class GlicPinnedTabManager {
+class GlicPinnedTabManager : public TabStripModelObserver {
  public:
-  explicit GlicPinnedTabManager(GlicSharingManagerImpl* sharing_manager);
-  ~GlicPinnedTabManager();
+  explicit GlicPinnedTabManager(Profile* profile,
+                                GlicWindowController* window_controller);
+  ~GlicPinnedTabManager() override;
 
   // Registers a callback to be invoked when the collection of pinned tabs
   // changes.
@@ -40,7 +44,7 @@ class GlicPinnedTabManager {
   // Registers a callback to be invoked when the TabData for a pinned tab is
   // changed.
   using PinnedTabDataChangedCallback =
-      base::RepeatingCallback<void(const glic::mojom::TabData*)>;
+      base::RepeatingCallback<void(const mojom::TabData*)>;
   base::CallbackListSubscription AddPinnedTabDataChangedCallback(
       PinnedTabDataChangedCallback callback);
 
@@ -78,8 +82,42 @@ class GlicPinnedTabManager {
   // Fetches the current list of pinned tabs.
   std::vector<content::WebContents*> GetPinnedTabs() const;
 
+  // Subscribes to changes in pin candidates.
+  void SubscribeToPinCandidates(
+      mojom::GetPinCandidatesOptionsPtr options,
+      mojo::PendingRemote<mojom::PinCandidatesObserver> observer);
+
+  // Visible for testing.
+  virtual bool IsBrowserValidForSharing(BrowserWindowInterface* browser_window);
+  // Visible for testing.
+  virtual bool IsValidForSharing(content::WebContents* web_contents);
+  // Visible for testing.
+  virtual bool IsGlicWindowShowing();
+
  private:
+  class UpdateThrottler;
+
+  // TabStripModelObserver implementation:
+  void OnTabStripModelChanged(
+      TabStripModel* tab_strip_model,
+      const TabStripModelChange& change,
+      const TabStripSelectionChange& selection) override;
+  void TabChangedAt(content::WebContents* contents,
+                    int index,
+                    TabChangeType change_type) override;
+  void OnTabWillBeRemoved(content::WebContents* contents, int index) override;
+
+  void OnPinCandidatesObserverDisconnected();
+
+  // Sends the current list of pin candidates to the observer.
+  void SendPinCandidatesUpdate();
+
+  // Returns a vector of web contents for potential pin candidates. The vector
+  // is not sorted or truncated.
+  std::vector<content::WebContents*> GetUnsortedPinCandidates();
+
   class PinnedTabObserver;
+  friend PinnedTabObserver;
   struct PinnedTabEntry {
     PinnedTabEntry(tabs::TabHandle tab_handle,
                    std::unique_ptr<PinnedTabObserver> tab_observer);
@@ -101,11 +139,10 @@ class GlicPinnedTabManager {
   // Returns true if the tab is in the pinned collection.
   bool IsTabPinned(int tab_id) const;
 
-  // Called by the PinnedTabObserver.
+  // Called by friend PinnedTabObserver.
   void OnTabWillClose(tabs::TabHandle tab_handles);
-
-  // Called by the PinnedTabObserver.
-  void OnTabDataChanged(tabs::TabHandle tab_handle, glic::mojom::TabDataPtr);
+  void OnTabDataChanged(tabs::TabHandle tab_handle, mojom::TabDataPtr);
+  void OnTabChangedOrigin(tabs::TabHandle tab_handle);
 
   // List of callbacks to invoke when the collection of pinned tabs changes
   // (including changes to metadata).
@@ -113,7 +150,7 @@ class GlicPinnedTabManager {
       pinned_tabs_changed_callback_list_;
 
   // List of callbacks to invoke when the tab data for a pinned tab changes.
-  base::RepeatingCallbackList<void(const glic::mojom::TabData*)>
+  base::RepeatingCallbackList<void(const mojom::TabData*)>
       pinned_tab_data_changed_callback_list_;
 
   // List of callbacks to invoke when the pinning status for a particular tab
@@ -121,14 +158,27 @@ class GlicPinnedTabManager {
   base::RepeatingCallbackList<void(tabs::TabInterface*, bool)>
       pinning_status_changed_callback_list_;
 
-  // Enables access to information about other sharing modes and common sharing
-  // functionality.
-  raw_ptr<GlicSharingManagerImpl> sharing_manager_;
+  // Enables searching for pin_candidates.
+  raw_ptr<Profile> profile_;
+
+  raw_ptr<GlicWindowController> window_controller_;
 
   // Using a vector lets us store the pinned tabs in the order that they are
   // pinned. Searching for a pinned tab is currently linear.
   std::vector<PinnedTabEntry> pinned_tabs_;
   uint32_t max_pinned_tabs_;
+
+  // The observer for pin candidate changes.
+  mojo::Remote<mojom::PinCandidatesObserver> pin_candidates_observer_;
+
+  // The options for the pin candidate observer.
+  mojom::GetPinCandidatesOptionsPtr pin_candidates_options_;
+
+  // A timer to debounce pin candidate updates.
+  std::unique_ptr<UpdateThrottler> pin_candidate_updater_;
+
+  // Tracks all the browsers for the current profile.
+  std::unique_ptr<BrowserTabStripTracker> tab_strip_tracker_;
 
   base::WeakPtrFactory<GlicPinnedTabManager> weak_ptr_factory_{this};
 };

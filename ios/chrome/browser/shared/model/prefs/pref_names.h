@@ -40,6 +40,15 @@ inline constexpr char kBottomOmniboxByDefault[] =
 inline constexpr char kBrowserLockdownModeEnabled[] =
     "ios.browser_lockdown_mode_enabled";
 
+// A map of sessionID (clientID) to sub-dictionaries of conversationID
+// (serverID) and creation timestamp.
+inline constexpr char kBwgSessionMap[] = "ios.bwg.session_map";
+
+// Number of times the "BWG" settings "new" IPH badge has been shown.
+// This is set to INT_MAX when the user visites the "BWG" settings page.
+inline constexpr char kBWGSettingsNewBadgeShownCount[] =
+    "ios.bwg_settings_new_badge_shown_count";
+
 // A map of profile data directory to cached information. This cache can
 // be used to display information about profiles without actually having
 // to load them.
@@ -113,6 +122,11 @@ inline constexpr char kFirstFollowUpdateUIShownCount[] =
 // to send notifications to the user. This is stored in Profile prefs.
 inline constexpr char kFeaturePushNotificationPermissions[] =
     "push_notifications.feature_permissions";
+
+// A list of delivered notification identifiers that have been handled by the
+// metrics recorder.
+inline constexpr char kHandledDeliveredNotificationIds[] =
+    "push_notifications.handled_delivered_notification_ids";
 
 // A boolean indicating if the user has ever switched accounts via an account
 // menu triggered from a web flow.
@@ -393,6 +407,10 @@ inline constexpr char kIosChooseFromDriveFilePickerPolicySettings[] =
 inline constexpr char kIosSavedThemeSpecificsIos[] =
     "ios.saved_theme_specifics_ios";
 
+// Dictionary pref storing user-uploaded background image path and framing data.
+inline constexpr char kIosUserUploadedBackground[] =
+    "ios.user_uploaded_background";
+
 // String preference containing the default account to use for saving images to
 // Google Photos.
 inline constexpr char kIosSaveToPhotosDefaultGaiaId[] =
@@ -519,14 +537,6 @@ inline constexpr char kSearchSuggestEnabled[] = "search.suggest_enabled";
 
 // Boolean that is true when the TabPickup feature is enabled.
 inline constexpr char kTabPickupEnabled[] = "ios.tab_pickup_enabled";
-
-// The last time a tab pickup banner was displayed.
-inline constexpr char kTabPickupLastDisplayedTime[] =
-    "ios.tab_pickup_last_displayed_time";
-
-// The last URL used to display a tab pickup banner.
-inline constexpr char kTabPickupLastDisplayedURL[] =
-    "ios.tab_pickup_last_displayed_url";
 
 // Boolean indicating if displaying price drops for shopping URLs on Tabs
 // in the Tab Switching UI is enabled.
@@ -771,8 +781,24 @@ inline constexpr char kIosSyncInfobarErrorLastDismissedTimestamp[] =
 // A boolean specifying whether the bwg consent form has been accepted.
 inline constexpr char kIOSBwgConsent[] = "ios.bwg.consent";
 
-// A boolean specifying whether the BWG Promo was shown manually.
-inline constexpr char kIOSBWGManualPromo[] = "ios.bwg.manual_promo";
+// A boolean specifying whether the BWG precise location setting is enabled.
+inline constexpr char kIOSBWGPreciseLocationSetting[] =
+    "ios.bwg.precise.location.setting";
+
+// A boolean specifying whether the BWG page content setting is enabled.
+inline constexpr char kIOSBWGPageContentSetting[] =
+    "ios.bwg.page.content.setting";
+
+// An integer specifying how many times the BWG Promo was shown.
+inline constexpr char kIOSBWGPromoImpressionCount[] =
+    "ios.bwg.promo_impressions";
+
+// Timestamp tracking the last interaction with the Gemini floaty.
+inline constexpr char kLastGeminiInteractionTimestamp[] =
+    "ios.gemini.last_interaction_timestamp";
+
+// A string specifying the active conversation ID.
+inline constexpr char kGeminiConversationId[] = "ios.gemini.conversation_id";
 
 // A time object storing the first browser startup with a managed primary
 // identity in the personal profile after multi-profile becomes supported. Used
@@ -788,6 +814,14 @@ inline constexpr char kNextSSORecallTime[] = "ios.next_sso_recall_time";
 // An integer determining the enabled status of Gemini by policy.
 // 0 means Gemini is enabled (default), and 1 means it's disabled.
 inline constexpr char kGeminiEnabledByPolicy[] = "ios.gemini_enabled_by_policy";
+
+// A boolean specifying if the multi-profile force-migration is done.
+inline constexpr char kMultiProfileForcedMigrationDone[] =
+    "ios.multi_profile_forced_migration_done";
+
+// A bool checking that multi-profile support for widgets is available.
+inline constexpr char kWidgetsForMultiProfile[] =
+    "ios.multi_profile_for_widgets";
 
 }  // namespace prefs
 

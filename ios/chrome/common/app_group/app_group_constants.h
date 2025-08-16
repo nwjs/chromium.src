@@ -11,15 +11,6 @@
 // They are mainly used for communication between applications in the group.
 namespace app_group {
 
-// An enum of the different application member of the Chrome app group.
-// To ensure continuity in metrics log, applications can only be added at the
-// end.
-// Applications directly sending metrics must be added to this enum.
-enum AppGroupApplications {
-  APP_GROUP_CHROME = 0,
-  APP_GROUP_TODAY_EXTENSION,
-};
-
 // The different types of outcome used for UMA and created by the open
 // extension.
 // The entries should not be removed or reordered.
@@ -163,23 +154,21 @@ extern const char kChromeAppClientID[];
 // metrics reporting.
 extern const char kUserMetricsEnabledDate[];
 
-// The six keys of the items sent by the share extension to Chrome (source, URL,
-// title, date, cancel, type).
+// The seven keys of the items sent by the share extension to Chrome (source,
+// URL, title, date, cancel, type, gaiaID).
 extern NSString* const kShareItemSource;
 extern NSString* const kShareItemURL;
 extern NSString* const kShareItemTitle;
 extern NSString* const kShareItemDate;
 extern NSString* const kShareItemCancel;
 extern NSString* const kShareItemType;
+extern NSString* const kShareItemGaiaID;
 
 // The value used by Chrome Share extension in `kShareItemSource`.
 extern NSString* const kShareItemSourceShareExtension;
 
 // The values used by Chrome extensions in
 // `kChromeAppGroupCommandAppPreference`.
-extern NSString* const kOpenCommandSourceTodayExtension;
-extern NSString* const kOpenCommandSourceContentExtension;
-extern NSString* const kOpenCommandSourceSearchExtension;
 extern NSString* const kOpenCommandSourceShareExtension;
 extern NSString* const kOpenCommandSourceCredentialsExtension;
 extern NSString* const kOpenCommandSourceOpenExtension;
@@ -225,7 +214,10 @@ extern NSString* const kAccountsOnDevice;
 extern NSString* const kEmail;
 extern NSString* const kFullName;
 // Key used to save info for widgets when no account is signed-in.
-extern NSString* const kDefaultAccount;
+extern NSString* const kNoAccount;
+// Key used to save info for widgets when used with default account (the same
+// account used in the app).
+extern NSString* const kDefault;
 
 // Supported bundle IDs for opening incognito links in Chrome.
 extern NSString* const kYoutubeBundleID;
@@ -234,8 +226,10 @@ extern NSString* const kYoutubeBundleID;
 // all profiles. Empty if last operation was a sign-out.
 extern NSString* const kPrimaryAccount;
 
-// Key in storage indicating if Chrome is likely the default browser.
+// Key used to store whether Chrome is likely the default browser.
 extern NSString* const kChromeLikelyDefaultBrowser;
+// Key used to store the timestamp when the default browser status was updated.
+extern NSString* const kChromeLikelyDefaultBrowserUpdateTimestamp;
 
 // Conversion helpers between keys and OpenExtensionOutcome.
 NSString* KeyForOpenExtensionOutcomeType(OpenExtensionOutcome);
@@ -282,9 +276,6 @@ NSUserDefaults* GetGroupUserDefaults();
 // not (i.e. on simulator, or if entitlements do not allow it) returns
 // [NSUserDefaults standardUserDefaults].
 NSUserDefaults* GetCommonGroupUserDefaults();
-
-// The application name of `application`.
-NSString* ApplicationName(AppGroupApplications application);
 
 }  // namespace app_group
 

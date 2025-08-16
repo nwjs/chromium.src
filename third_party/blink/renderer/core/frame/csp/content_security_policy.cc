@@ -34,6 +34,7 @@
 #include "base/containers/contains.h"
 #include "base/debug/dump_without_crashing.h"
 #include "base/feature_list.h"
+#include "base/metrics/histogram_functions.h"
 #include "services/network/public/cpp/features.h"
 #include "services/network/public/cpp/web_sandbox_flags.h"
 #include "services/network/public/mojom/content_security_policy.mojom-blink.h"
@@ -58,6 +59,7 @@
 #include "third_party/blink/renderer/core/frame/csp/csp_directive_list.h"
 #include "third_party/blink/renderer/core/frame/csp/csp_hash_report_body.h"
 #include "third_party/blink/renderer/core/frame/csp/csp_source.h"
+#include "third_party/blink/renderer/core/frame/csp/source_list_directive.h"
 #include "third_party/blink/renderer/core/frame/frame_client.h"
 #include "third_party/blink/renderer/core/frame/integrity_policy.h"
 #include "third_party/blink/renderer/core/frame/local_dom_window.h"
@@ -216,17 +218,8 @@ String ContentSecurityPolicy::StripURLForUseInReport(
   }
 
   // https://www.w3.org/TR/CSP3/#strip-url-for-use-in-reports
-  // > 2. Set url’s fragment to the empty string.
-  // > 3. Set url’s username to the empty string.
-  // > 4. Set url’s password to the empty string.
-  KURL stripped_url = url;
-  stripped_url.RemoveFragmentIdentifier();
-  stripped_url.SetUser(String());
-  stripped_url.SetPass(String());
-
-  // https://www.w3.org/TR/CSP3/#strip-url-for-use-in-reports
   // > 5. Return the result of executing the URL serializer on url.
-  return stripped_url.GetString();
+  return CSPStripURL(url).GetString();
 }
 
 bool ContentSecurityPolicy::IsNonceableElement(const Element* element) {
@@ -252,10 +245,10 @@ bool ContentSecurityPolicy::IsNonceableElement(const Element* element) {
     for (const Attribute& attr : element->Attributes()) {
       const AtomicString& name = attr.LocalName();
       const AtomicString& value = attr.Value();
-      if (name.FindIgnoringASCIICase(kScriptString) != WTF::kNotFound ||
-          name.FindIgnoringASCIICase(kStyleString) != WTF::kNotFound ||
-          value.FindIgnoringASCIICase(kScriptString) != WTF::kNotFound ||
-          value.FindIgnoringASCIICase(kStyleString) != WTF::kNotFound) {
+      if (name.FindIgnoringASCIICase(kScriptString) != kNotFound ||
+          name.FindIgnoringASCIICase(kStyleString) != kNotFound ||
+          value.FindIgnoringASCIICase(kScriptString) != kNotFound ||
+          value.FindIgnoringASCIICase(kStyleString) != kNotFound) {
         nonceable = false;
         break;
       }
@@ -405,6 +398,17 @@ void ContentSecurityPolicy::ReportUseCounters(
     if (policy->trusted_types && policy->trusted_types->allow_duplicates) {
       Count(WebFeature::kTrustedTypesAllowDuplicates);
     }
+
+    CSPOperativeDirective script_src = CSPDirectiveListOperativeDirective(
+        *policy, network::mojom::CSPDirectiveName::ScriptSrc);
+    if (script_src.source_list) {
+      if (CSPSourceListIsEvalHashPresent(*script_src.source_list)) {
+        Count(WebFeature::kCSPEvalHashes);
+      }
+      if (!script_src.source_list->url_hashes.empty()) {
+        Count(WebFeature::kCSPUrlHashes);
+      }
+    }
   }
 }
 
@@ -514,10 +518,10 @@ void ContentSecurityPolicy::ComputeInternalStateForParsedPolicy(
       case CSPDirectiveName::StyleSrcAttr:
       case CSPDirectiveName::StyleSrcElem:
         for (const auto& hash_source : directive.value->hashes) {
-          UsesHashAlgorithm(hash_source->algorithm);
+          UsesHashAlgorithm(hash_source.algorithm);
         }
         for (const auto& hash_source : directive.value->eval_hashes) {
-          UsesHashAlgorithm(hash_source->algorithm);
+          UsesHashAlgorithm(hash_source.algorithm);
         }
         break;
       // Images, fonts, etc. do not support integrity checks, so we can skip
@@ -555,6 +559,9 @@ void ContentSecurityPolicy::ComputeInternalStateForParsedPolicy(
     if (disallow_script_for_synthetic_response_ &&
         csp.header->source == ContentSecurityPolicySource::kMeta) {
       disallow_script_for_synthetic_response_ = false;
+      base::UmaHistogramCounts100(
+          kSyntheticResponseBlockedResourceCountHistogramName,
+          blocked_count_for_synthetic_response_);
     }
   }
 }
@@ -565,12 +572,13 @@ void ContentSecurityPolicy::SetOverrideAllowInlineStyle(bool value) {
 
 // static
 bool ContentSecurityPolicy::CheckHashAgainstPolicy(
-    Vector<network::mojom::blink::CSPHashSourcePtr>& csp_hash_values,
+    Vector<network::IntegrityMetadata>& csp_hash_values,
     const network::mojom::blink::ContentSecurityPolicy& csp,
     InlineType inline_type) {
   for (const auto& csp_hash_value : csp_hash_values) {
-    if (CSPDirectiveListAllowHash(csp, *csp_hash_value, inline_type))
+    if (CSPDirectiveListAllowHash(csp, csp_hash_value, inline_type)) {
       return true;
+    }
   }
   return false;
 }
@@ -582,7 +590,7 @@ bool ContentSecurityPolicy::AllowInline(
     const String& content,
     const String& nonce,
     const String& context_url,
-    const WTF::OrdinalNumber& context_line,
+    const OrdinalNumber& context_line,
     ReportingDisposition reporting_disposition) {
   DCHECK(element || inline_type == InlineType::kScriptAttribute ||
          inline_type == InlineType::kNavigation);
@@ -613,13 +621,17 @@ bool ContentSecurityPolicy::AllowInline(
         break;
     }
     if (!message.empty()) {
+      blocked_count_for_synthetic_response_++;
+      base::UmaHistogramEnumeration(
+          kSyntheticResponseBlockedInlineResourceTypeHistogramName,
+          inline_type);
       LogToConsole(StrCat(
           {"Refused to ", message, kWarningMessageForSyntheticResponse}));
       return false;
     }
   }
 
-  Vector<network::mojom::blink::CSPHashSourcePtr> csp_hash_values;
+  Vector<network::IntegrityMetadata> csp_hash_values;
   FillInCSPHashValues(content, hash_algorithms_used_, csp_hash_values);
 
   // Step 2. Let result be "Allowed". [spec text]
@@ -668,7 +680,7 @@ bool ContentSecurityPolicy::AllowEval(
     ContentSecurityPolicy::ExceptionStatus exception_status,
     const String& script_content) {
   bool is_allowed = true;
-  Vector<network::mojom::blink::CSPHashSourcePtr> csp_hash_values;
+  Vector<network::IntegrityMetadata> csp_hash_values;
   FillInCSPHashValues(script_content, hash_algorithms_used_, csp_hash_values);
   for (const auto& policy : policies_) {
     is_allowed &= CSPDirectiveListAllowEval(
@@ -820,6 +832,7 @@ std::optional<CSPDirectiveName> GetDirectiveTypeFromRequestContextType(
 bool AllowResourceHintRequestForPolicy(
     network::mojom::blink::ContentSecurityPolicy& csp,
     ContentSecurityPolicy* policy,
+    const KURL& document_url,
     const KURL& url,
     const String& nonce,
     const IntegrityMetadataSet& integrity_metadata,
@@ -847,8 +860,8 @@ bool AllowResourceHintRequestForPolicy(
              CSPDirectiveName::WorkerSrc,
          }) {
       if (CSPDirectiveListAllowFromSource(
-              csp, policy, type, url, url_before_redirects, redirect_status,
-              ReportingDisposition::kSuppressReporting, nonce,
+              csp, policy, type, document_url, url, url_before_redirects,
+              redirect_status, ReportingDisposition::kSuppressReporting, nonce,
               integrity_metadata, parser_disposition)) {
         return true;
       }
@@ -857,7 +870,7 @@ bool AllowResourceHintRequestForPolicy(
   // Check default-src with the given reporting disposition, to allow reporting
   // if needed.
   return CSPDirectiveListAllowFromSource(
-             csp, policy, CSPDirectiveName::DefaultSrc, url,
+             csp, policy, CSPDirectiveName::DefaultSrc, document_url, url,
              url_before_redirects, redirect_status, reporting_disposition,
              nonce, integrity_metadata, parser_disposition)
       .IsAllowed();
@@ -887,9 +900,9 @@ bool ContentSecurityPolicy::AllowRequest(
       return !CheckHeaderTypeMatches(check_header_type, reporting_disposition,
                                      policy->header->type) ||
              AllowResourceHintRequestForPolicy(
-                 *policy, this, url, nonce, integrity_metadata,
-                 parser_disposition, url_before_redirects, redirect_status,
-                 reporting_disposition);
+                 *policy, this, delegate_->Url(), url, nonce,
+                 integrity_metadata, parser_disposition, url_before_redirects,
+                 redirect_status, reporting_disposition);
     });
   }
 
@@ -923,13 +936,20 @@ bool ContentSecurityPolicy::AllowFromSource(
   else if (type == CSPDirectiveName::StyleSrcElem)
     area = SchemeRegistry::kPolicyAreaStyle;
 
-  if (disallow_script_for_synthetic_response_ &&
-      (type == CSPDirectiveName::ScriptSrcElem ||
-       type == CSPDirectiveName::WorkerSrc)) {
-    LogToConsole(
-
-        StrCat({"The script from ", url.GetString(), " was blocked.",
-                kWarningMessageForSyntheticResponse}));
+  if (disallow_script_for_synthetic_response_) {
+    SyntheticResponseBlockedSrcType blocked_src_type =
+        type == CSPDirectiveName::ScriptSrcElem
+            ? SyntheticResponseBlockedSrcType::kScriptSrcElm
+        : type == CSPDirectiveName::WorkerSrc
+            ? SyntheticResponseBlockedSrcType::kWorkerSrc
+            : SyntheticResponseBlockedSrcType::kUnspecified;
+    if (blocked_src_type != SyntheticResponseBlockedSrcType::kUnspecified) {
+      blocked_count_for_synthetic_response_++;
+      base::UmaHistogramEnumeration(
+          kSyntheticResponseBlockedSrcTypeHistogramName, blocked_src_type);
+      LogToConsole(StrCat({"The script from ", url.GetString(), " was blocked.",
+                           kWarningMessageForSyntheticResponse}));
+    }
     return false;
   }
 
@@ -964,8 +984,9 @@ bool ContentSecurityPolicy::AllowFromSource(
       continue;
     }
     result &= CSPDirectiveListAllowFromSource(
-        *policy, this, type, url, url_before_redirects, redirect_status,
-        reporting_disposition, nonce, integrity_metadata, parser_disposition);
+        *policy, this, type, delegate_->Url(), url, url_before_redirects,
+        redirect_status, reporting_disposition, nonce, integrity_metadata,
+        parser_disposition);
   }
 
   if (result.WouldBlockIfWildcardDoesNotMatchWs()) {

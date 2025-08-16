@@ -34,6 +34,7 @@
 #include "components/autofill/core/browser/suggestions/suggestion.h"
 #include "components/autofill/core/browser/suggestions/suggestion_type.h"
 #include "components/autofill/core/browser/ui/autofill_resource_utils.h"
+#include "components/autofill/core/common/autofill_payments_features.h"
 #include "components/omnibox/browser/vector_icons.h"
 #include "components/password_manager/core/common/password_manager_constants.h"
 #include "components/strings/grit/components_strings.h"
@@ -108,10 +109,6 @@ constexpr SkColor kMonochromeIconBgColor = SkColorSetARGB(255, 237, 242, 250);
 // The text color of the letter monochrome icons.
 constexpr SkColor kMonochromeIconTextColor = SkColorSetARGB(255, 71, 71, 71);
 
-constexpr auto kSuggestionTypesWithDoubleHeight =
-    DenseSet<SuggestionType>({SuggestionType::kBackupPasswordEntry,
-                              SuggestionType::kTroubleSigningInEntry});
-
 // Returns the name of the network for payment method icons, empty string
 // otherwise.
 std::u16string GetIconAccessibleName(Suggestion::Icon icon) {
@@ -173,6 +170,7 @@ std::u16string GetIconAccessibleName(Suggestion::Icon icon) {
     case Suggestion::Icon::kNoIcon:
     case Suggestion::Icon::kOfferTag:
     case Suggestion::Icon::kPenSpark:
+    case Suggestion::Icon::kPersonCheck:
     case Suggestion::Icon::kPlusAddress:
     case Suggestion::Icon::kQuestionMark:
     case Suggestion::Icon::kRecoveryPassword:
@@ -182,6 +180,7 @@ std::u16string GetIconAccessibleName(Suggestion::Icon icon) {
     case Suggestion::Icon::kSettingsAndroid:
     case Suggestion::Icon::kUndo:
     case Suggestion::Icon::kWork:
+    case Suggestion::Icon::kAndroidMessages:
       return std::u16string();
   }
   NOTREACHED();
@@ -363,6 +362,9 @@ std::optional<ui::ImageModel> GetIconImageModelFromIcon(Suggestion::Icon icon) {
 #else
       return ImageModelFromVectorIcon(vector_icons::kEditIcon, kIconSize);
 #endif
+    case Suggestion::Icon::kPersonCheck:
+      return ImageModelFromVectorIcon(vector_icons::kPersonCheckIcon,
+                                      kIconSize);
     case Suggestion::Icon::kPlusAddress:
 #if BUILDFLAG(GOOGLE_CHROME_BRANDING)
       return ImageModelFromVectorIcon(plus_addresses::kPlusAddressLogoSmallIcon,
@@ -425,7 +427,8 @@ std::optional<ui::ImageModel> GetIconImageModelFromIcon(Suggestion::Icon icon) {
     case Suggestion::Icon::kCardUnionPay:
     case Suggestion::Icon::kCardVerve:
     case Suggestion::Icon::kCardVisa:
-    case Suggestion::Icon::kBnpl: {
+    case Suggestion::Icon::kBnpl:
+    case Suggestion::Icon::kAndroidMessages: {
       // For other suggestion entries, get the icon from PNG files.
       int icon_id = GetIconResourceID(icon);
       DCHECK_NE(icon_id, 0);
@@ -450,7 +453,31 @@ std::u16string GetVoiceOverStringFromSuggestion(const Suggestion& suggestion) {
 
   add_if_not_empty(GetIconAccessibleName(suggestion.icon));
   text.push_back(suggestion.main_text.value);
-  if (!suggestion.minor_texts.empty()) {
+
+  const bool is_vcn =
+      suggestion.type == SuggestionType::kVirtualCreditCardEntry;
+  const bool is_iban = suggestion.type == SuggestionType::kIbanEntry;
+  const bool has_subtext =
+      !suggestion.labels.empty() && !suggestion.labels[0][0].value.empty();
+
+  std::u16string badge_text;
+  if (is_vcn) {
+    badge_text = l10n_util::GetStringUTF16(
+        IDS_AUTOFILL_VIRTUAL_CARD_SUGGESTION_OPTION_VALUE);
+  } else if (is_iban) {
+    badge_text =
+        l10n_util::GetStringUTF16(IDS_AUTOFILL_IBAN_SUGGESTION_OPTION_VALUE);
+  }
+
+  // A badge is applied as a label view for the following cases:
+  // - A virtual card that does not have a product description or nickname.
+  // - An IBAN that does not have a nickname.
+  bool badge_used_as_minor_text = false;
+  if ((is_vcn && !suggestion.minor_texts.empty()) ||
+      (is_iban && !has_subtext)) {
+    add_if_not_empty(badge_text);
+    badge_used_as_minor_text = true;
+  } else if (!suggestion.minor_texts.empty()) {
     std::vector<std::u16string> text_values;
     for (const auto& minor_text : suggestion.minor_texts) {
       text_values.push_back(minor_text.value);
@@ -459,11 +486,26 @@ std::u16string GetVoiceOverStringFromSuggestion(const Suggestion& suggestion) {
     add_if_not_empty(sublabel);
   }
 
+  bool badge_added_to_labels = false;
   for (const std::vector<Suggestion::Text>& row : suggestion.labels) {
+    std::vector<std::u16string> row_values;
     for (const Suggestion::Text& label : row) {
       // `label_text` is not populated for footers or autocomplete entries.
-      add_if_not_empty(label.value);
+      if (!label.value.empty()) {
+        row_values.push_back(label.value);
+      }
     }
+    // If a badge is present and not used as minor text, apply it as a
+    // label view for these specific cases:
+    // - Virtual card that has a product description or nickname.
+    // - IBAN that has a nickname.
+    if (!badge_text.empty() && !badge_used_as_minor_text &&
+        !badge_added_to_labels) {
+      row_values.push_back(badge_text);
+      badge_added_to_labels = true;
+    }
+
+    add_if_not_empty(base::JoinString(row_values, u" "));
   }
 
   // `additional_label` is only populated in a passwords context.
@@ -561,7 +603,9 @@ void AddSuggestionContentToView(
   // Adjust the row height based on the number of subtexts (lines of text).
   int row_height = views::MenuConfig::instance().touchable_menu_height;
   if (!subtext_views.empty() ||
-      kSuggestionTypesWithDoubleHeight.contains(suggestion.type)) {
+      (suggestion.type == SuggestionType::kCreditCardEntry &&
+       base::FeatureList::IsEnabled(
+           autofill::features::kAutofillEnableNewFopDisplayDesktop))) {
     row_height += kAutofillPopupAdditionalDoubleRowHeight;
   }
   content_view.SetMinimumCrossAxisSize(row_height);

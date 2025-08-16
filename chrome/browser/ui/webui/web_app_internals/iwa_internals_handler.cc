@@ -13,7 +13,6 @@
 #include "base/types/optional_util.h"
 #include "base/version.h"
 #include "chrome/browser/file_select_helper.h"
-#include "chrome/browser/ui/webui/web_app_internals/web_app_internals.mojom-forward.h"
 #include "chrome/browser/ui/webui/web_app_internals/web_app_internals.mojom.h"
 #include "chrome/browser/web_applications/isolated_web_apps/commands/install_isolated_web_app_command.h"
 #include "chrome/browser/web_applications/isolated_web_apps/commands/isolated_web_app_install_command_helper.h"
@@ -35,6 +34,7 @@
 #include "content/public/browser/file_select_listener.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/web_contents_delegate.h"
+#include "services/network/public/cpp/shared_url_loader_factory.h"
 #include "third_party/abseil-cpp/absl/functional/overload.h"
 
 namespace web_app {
@@ -169,10 +169,22 @@ class IwaInternalsHandler::IwaManifestInstallUpdateHandler
   void OnUpdateDiscoveryTaskCompleted(
       const webapps::AppId& app_id,
       IsolatedWebAppUpdateDiscoveryTask::CompletionStatus status) override {
-    if (status.has_value() && *status ==
-                                  IsolatedWebAppUpdateDiscoveryTask::Success::
-                                      kUpdateFoundAndSavedInDatabase) {
-      return;
+    if (status.has_value()) {
+      switch (*status) {
+        case IsolatedWebAppUpdateDiscoveryTask::Success::
+            kUpdateFoundAndSavedInDatabase:
+        case IsolatedWebAppUpdateDiscoveryTask::Success::
+            kPinnedVersionUpdateFoundAndSavedInDatabase:
+        case IsolatedWebAppUpdateDiscoveryTask::Success::
+            kDowngradeVersionFoundAndSavedInDatabase:
+          // An update has been found and is now pending. Return and wait for
+          // OnUpdateApplyTaskCompleted to be called.
+          return;
+        case IsolatedWebAppUpdateDiscoveryTask::Success::kNoUpdateFound:
+        case IsolatedWebAppUpdateDiscoveryTask::Success::kUpdateAlreadyPending:
+          // No update will be applied, so we can proceed to call the callback.
+          break;
+      }
     }
 
     ASSIGN_OR_RETURN(auto callback, ConsumeUpdateRequest(app_id), [](auto) {});
@@ -196,13 +208,14 @@ class IwaInternalsHandler::IwaManifestInstallUpdateHandler
         const WebApp& iwa,
         GetIsolatedWebAppById(provider_->registrar_unsafe(), app_id),
         [&](const std::string& error) { std::move(callback).Run(error); });
-
-    std::move(callback).Run(
-        status.has_value()
-            ? base::StringPrintf("Update to v%s successful (refresh the page "
-                                 "to reflect the update).",
-                                 iwa.isolation_data()->version().GetString())
-            : "Update failed: " + status.error().message);
+    if (status.has_value()) {
+      std::move(callback).Run(
+          base::StringPrintf("Update to v%s successful (refresh the page "
+                             "to reflect the update).",
+                             iwa.isolation_data()->version().GetString()));
+    } else {
+      std::move(callback).Run("Update failed: " + status.error().message);
+    }
   }
 
  private:
@@ -314,12 +327,11 @@ void IwaInternalsHandler::InstallIsolatedWebAppFromBundleUrl(
   }
   if (!params->update_info) {
     SendError(std::move(callback),
-             "Update info is required for this operation.");
+              "Update info is required for this operation.");
     return;
   }
   if (!params->update_info->update_manifest_url.is_valid()) {
-    SendError(std::move(callback),
-              "Update manifest URL is not a valid GURL.");
+    SendError(std::move(callback), "Update manifest URL is not a valid GURL.");
     return;
   }
   if (params->update_info->update_channel.empty()) {
@@ -626,7 +638,8 @@ void IwaInternalsHandler::SetPinnedVersionForIsolatedWebApp(
     return;
   }
 
-  RETURN_IF_ERROR(GetIsolatedWebAppById(provider->registrar_unsafe(), app_id), [&](auto) { std::move(callback).Run(/*success=*/false); });
+  RETURN_IF_ERROR(GetIsolatedWebAppById(provider->registrar_unsafe(), app_id),
+                  [&](auto) { std::move(callback).Run(/*success=*/false); });
 
   base::Version version = base::Version(pinned_version);
   if (!version.IsValid()) {
@@ -647,8 +660,8 @@ void IwaInternalsHandler::SetAllowDowngradesForIsolatedWebApp(
     bool allow_downgrades,
     const webapps::AppId& app_id) {
   auto* provider = WebAppProvider::GetForWebApps(profile());
-  if (!provider || provider->registrar_unsafe().GetInstallState(app_id)
-      != proto::INSTALLED_WITH_OS_INTEGRATION) {
+  if (!provider || provider->registrar_unsafe().GetInstallState(app_id) !=
+                       proto::INSTALLED_WITH_OS_INTEGRATION) {
     return;
   }
 

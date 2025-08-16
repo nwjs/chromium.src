@@ -129,14 +129,17 @@ mojo::ScopedDataPipeConsumerHandle CreateDataPipeConsumerHandleFilledWithString(
 
 class TestPlatformForRedirects final : public TestingPlatformSupport {
  public:
-  bool IsRedirectSafe(const GURL& from_url, const GURL& to_url) override {
+  bool IsRedirectSafe(
+      const GURL& from_url,
+      const GURL& to_url,
+      const std::optional<url::Origin>& request_initiator) override {
     return true;
   }
 };
 
 void RegisterURLSchemeAsCodeCacheWithHashing() {
 #if DCHECK_IS_ON()
-  WTF::SetIsBeforeThreadCreatedForTest();  // Required for next operation:
+  SetIsBeforeThreadCreatedForTest();  // Required for next operation:
 #endif
   SchemeRegistry::RegisterURLSchemeAsCodeCacheWithHashing(
       "codecachewithhashing");
@@ -2181,14 +2184,14 @@ class WebUIBundledCodeCacheResourceRequestSenderTest
   void SetUp() override {
     ResourceRequestSenderTestBase::SetUp();
 #if DCHECK_IS_ON()
-    WTF::SetIsBeforeThreadCreatedForTest();
+    SetIsBeforeThreadCreatedForTest();
 #endif
     SchemeRegistry::RegisterURLSchemeAsWebUIBundledBytecode("chrome");
   }
 
   void TearDown() override {
 #if DCHECK_IS_ON()
-    WTF::SetIsBeforeThreadCreatedForTest();
+    SetIsBeforeThreadCreatedForTest();
 #endif
     SchemeRegistry::RemoveURLSchemeAsWebUIBundledBytecodeForTest("chrome");
     ResourceRequestSenderTestBase::TearDown();

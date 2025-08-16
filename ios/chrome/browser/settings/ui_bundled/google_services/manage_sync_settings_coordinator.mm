@@ -77,12 +77,12 @@ using DismissViewCallback = SystemIdentityManager::DismissViewCallback;
 @interface ManageSyncSettingsCoordinator () <
     AccountMenuCoordinatorDelegate,
     BulkUploadCoordinatorDelegate,
-    ManageAccountsCoordinatorDelegate,
     ManageSyncSettingsCommandHandler,
     ManageSyncSettingsTableViewControllerPresentationDelegate,
     PersonalizeGoogleServicesCoordinatorDelegate,
     SettingsNavigationControllerDelegate,
     SignoutActionSheetCoordinatorDelegate,
+    SyncEncryptionPassphraseTableViewControllerPresentationDelegate,
     SyncErrorSettingsCommandHandler,
     TrustedVaultReauthenticationCoordinatorDelegate> {
   // Sync observer.
@@ -91,8 +91,8 @@ using DismissViewCallback = SystemIdentityManager::DismissViewCallback;
   BOOL _settingsAreDismissed;
   // The coordinator for the view Save in Account.
   BulkUploadCoordinator* _bulkUploadCoordinator;
-  // The coordinator for the Manage Accounts view.
-  ManageAccountsCoordinator* _manageAccountsCoordinator;
+  // The navigation controller displaying the Manage Accounts view.
+  SettingsNavigationController* _manageAccountsNavigationController;
   SyncEncryptionTableViewController* _syncEncryptionTableViewController;
   SyncEncryptionPassphraseTableViewController*
       _syncEncryptionPassphraseTableViewController;
@@ -190,24 +190,11 @@ using DismissViewCallback = SystemIdentityManager::DismissViewCallback;
 
 - (void)stop {
   [super stop];
-  [self stopAddAccountCoordinator];
   [self.mediator disconnect];
-  [self stopBulkUpload];
-  [self stopManageAccountsCoordinator];
-  [self stopAccountMenuCoordinator];
-  [self stopTrustedVaultReauthenticationCoordinator];
   self.mediator = nil;
   self.viewController = nil;
-  [_syncEncryptionPassphraseTableViewController settingsWillBeDismissed];
-  _syncEncryptionPassphraseTableViewController = nil;
-  [_syncEncryptionTableViewController settingsWillBeDismissed];
-  _syncEncryptionTableViewController = nil;
-
+  [self stopChildren];
   _syncObserver.reset();
-  [self.signoutActionSheetCoordinator stop];
-  _signoutActionSheetCoordinator = nil;
-
-  [self stopPersonalizedGoogleServicesCoordinator];
 }
 
 #pragma mark - Properties
@@ -222,6 +209,24 @@ using DismissViewCallback = SystemIdentityManager::DismissViewCallback;
 
 #pragma mark - Private
 
+// Stops properly all views opened by the current coordinator.
+- (void)stopChildren {
+  [self stopBulkUpload];
+  [self stopManageAccountsNavigationController];
+  [self stopAccountMenuCoordinator];
+  [self stopTrustedVaultReauthenticationCoordinator];
+  [self stopAddAccountCoordinator];
+  [self stopSignoutActionSheetCoordinator];
+  [self stopPersonalizedGoogleServicesCoordinator];
+
+  // The view controller below don’t have coordinator, so they must be stopped
+  // with `settingsWillBeDismissed`.
+  [_syncEncryptionPassphraseTableViewController settingsWillBeDismissed];
+  _syncEncryptionPassphraseTableViewController = nil;
+  [_syncEncryptionTableViewController settingsWillBeDismissed];
+  _syncEncryptionTableViewController = nil;
+}
+
 - (void)stopAddAccountCoordinator {
   [_addAccountCoordinator stop];
   _addAccountCoordinator = nil;
@@ -233,10 +238,18 @@ using DismissViewCallback = SystemIdentityManager::DismissViewCallback;
   _trustedVaultReauthenticationCoordinator = nil;
 }
 
-- (void)stopManageAccountsCoordinator {
-  _manageAccountsCoordinator.delegate = nil;
-  [_manageAccountsCoordinator stop];
-  _manageAccountsCoordinator = nil;
+- (void)stopManageAccountsNavigationController {
+  _manageAccountsNavigationController.delegate = nil;
+  [_manageAccountsNavigationController cleanUpSettings];
+  [_manageAccountsNavigationController dismissViewControllerAnimated:YES
+                                                          completion:nil];
+  _manageAccountsNavigationController = nil;
+}
+
+- (void)stopSignoutActionSheetCoordinator {
+  [self.signoutActionSheetCoordinator stop];
+  _signoutActionSheetCoordinator.delegate = nil;
+  _signoutActionSheetCoordinator = nil;
 }
 
 - (void)resetDismissAccountDetailsController {
@@ -265,6 +278,7 @@ using DismissViewCallback = SystemIdentityManager::DismissViewCallback;
   if (_settingsAreDismissed) {
     return;
   }
+  [self stopChildren];
   if (self.viewController.navigationController) {
     if (!_dismissWebAndAppSettingDetailsController.is_null()) {
       std::move(_dismissWebAndAppSettingDetailsController)
@@ -338,12 +352,14 @@ using DismissViewCallback = SystemIdentityManager::DismissViewCallback;
   [self stopPersonalizedGoogleServicesCoordinator];
 }
 
-#pragma mark - ManageAccountsCoordinator
+#pragma mark - SettingsNavigationControllerDelegate
 
-- (void)manageAccountsCoordinatorWantsToBeStopped:
-    (ManageAccountsCoordinator*)coordinator {
-  CHECK_EQ(coordinator, _manageAccountsCoordinator);
-  [self stopManageAccountsCoordinator];
+- (void)closeSettings {
+  [self stopManageAccountsNavigationController];
+}
+
+- (void)settingsWasDismissed {
+  [self stopManageAccountsNavigationController];
 }
 
 #pragma mark - ManageSyncSettingsCommandHandler
@@ -427,8 +443,7 @@ using DismissViewCallback = SystemIdentityManager::DismissViewCallback;
 
 // Handles signout operation with `success` or failure.
 - (void)handleSignOutCompleted:(BOOL)success {
-  [self.signoutActionSheetCoordinator stop];
-  self.signoutActionSheetCoordinator = nil;
+  [self stopSignoutActionSheetCoordinator];
   if (success) {
     [self closeManageSyncSettings];
   }
@@ -463,14 +478,15 @@ using DismissViewCallback = SystemIdentityManager::DismissViewCallback;
 - (void)showAccountsPage {
   // Stopping the manage accounts coordinator if it’s already opened. See
   // crbug.com/383373460
-  [self stopManageAccountsCoordinator];
-  _manageAccountsCoordinator = [[ManageAccountsCoordinator alloc]
-      initWithBaseViewController:self.viewController
-                         browser:self.browser
-       closeSettingsOnAddAccount:NO];
-  _manageAccountsCoordinator.delegate = self;
-  _manageAccountsCoordinator.signoutDismissalByParentCoordinator = YES;
-  [_manageAccountsCoordinator start];
+  [self stopManageAccountsNavigationController];
+  _manageAccountsNavigationController = [SettingsNavigationController
+             accountsControllerForBrowser:self.browser
+                       baseViewController:self.viewController
+                                 delegate:self
+                closeSettingsOnAddAccount:NO
+                        showSignoutButton:NO
+                           showDoneButton:YES
+      signoutDismissalByParentCoordinator:YES];
 }
 
 - (void)showManageYourGoogleAccount {
@@ -491,6 +507,10 @@ using DismissViewCallback = SystemIdentityManager::DismissViewCallback;
 }
 
 - (void)openAccountMenu {
+  if (_accountMenuCoordinator) {
+    // This can occurs in cause of double tap.
+    return;
+  }
   _accountMenuCoordinator = [[AccountMenuCoordinator alloc]
       initWithBaseViewController:self.viewController
                          browser:self.browser
@@ -519,7 +539,8 @@ using DismissViewCallback = SystemIdentityManager::DismissViewCallback;
 
 - (void)openPassphraseDialogWithModalPresentation:(BOOL)presentModally {
   SceneState* sceneState = self.browser->GetSceneState();
-  if (sceneState.isUIBlocked) {
+  if (sceneState.isUIBlocked || _syncEncryptionTableViewController ||
+      _syncEncryptionPassphraseTableViewController) {
     // This could occur due to race condition with multiple windows and
     // simultaneous taps. See crbug.com/368310663.
     return;
@@ -528,6 +549,7 @@ using DismissViewCallback = SystemIdentityManager::DismissViewCallback;
     _syncEncryptionPassphraseTableViewController =
         [[SyncEncryptionPassphraseTableViewController alloc]
             initWithBrowser:self.browser];
+    _syncEncryptionPassphraseTableViewController.presentationDelegate = self;
     _syncEncryptionPassphraseTableViewController.presentModally = YES;
     UINavigationController* navigationController =
         [[UINavigationController alloc]
@@ -548,6 +570,7 @@ using DismissViewCallback = SystemIdentityManager::DismissViewCallback;
     controllerToPush = _syncEncryptionPassphraseTableViewController =
         [[SyncEncryptionPassphraseTableViewController alloc]
             initWithBrowser:self.browser];
+    _syncEncryptionPassphraseTableViewController.presentationDelegate = self;
   } else {
     controllerToPush = _syncEncryptionTableViewController =
         [[SyncEncryptionTableViewController alloc]
@@ -559,11 +582,14 @@ using DismissViewCallback = SystemIdentityManager::DismissViewCallback;
 }
 
 - (void)openTrustedVaultReauthForFetchKeys {
+  if (_trustedVaultReauthenticationCoordinator) {
+    // This can occur if the user double tap on the error button.
+    return;
+  }
   trusted_vault::SecurityDomainId chromeSyncID =
       trusted_vault::SecurityDomainId::kChromeSync;
   syncer::TrustedVaultUserActionTriggerForUMA settingsTrigger =
       syncer::TrustedVaultUserActionTriggerForUMA::kSettings;
-  CHECK(!_trustedVaultReauthenticationCoordinator, base::NotFatalUntil::M145);
   _trustedVaultReauthenticationCoordinator =
       [[TrustedVaultReauthenticationCoordinator alloc]
           initWithBaseViewController:self.viewController
@@ -576,6 +602,10 @@ using DismissViewCallback = SystemIdentityManager::DismissViewCallback;
 }
 
 - (void)openTrustedVaultReauthForDegradedRecoverability {
+  if (_trustedVaultReauthenticationCoordinator) {
+    // This can occurs in case of double tap.
+    return;
+  }
   trusted_vault::SecurityDomainId chromeSyncID =
       trusted_vault::SecurityDomainId::kChromeSync;
   syncer::TrustedVaultUserActionTriggerForUMA settingsTrigger =
@@ -599,6 +629,10 @@ using DismissViewCallback = SystemIdentityManager::DismissViewCallback;
 }
 
 - (void)openPrimaryAccountReauthDialog {
+  // In case of double-tap, we must stop the first coordinator. This may occur
+  // because, up to iOS 18, the view may have disappeared without calling the
+  // signin completion. See crbug.com/395959814
+  [_addAccountCoordinator stop];
   SigninContextStyle contextStyle = SigninContextStyle::kDefault;
   AccessPoint accessPoint = AccessPoint::kSettings;
   signin_metrics::PromoAction promoAction =
@@ -636,19 +670,6 @@ using DismissViewCallback = SystemIdentityManager::DismissViewCallback;
   [self stopBulkUpload];
 }
 
-#pragma mark - SettingsNavigationControllerDelegate
-
-- (void)closeSettings {
-  [_baseNavigationController.presentingViewController
-      dismissViewControllerAnimated:YES
-                         completion:nil];
-  [self.delegate manageSyncSettingsCoordinatorWasRemoved:self];
-}
-
-- (void)settingsWasDismissed {
-  [self.delegate manageSyncSettingsCoordinatorWasRemoved:self];
-}
-
 #pragma mark - TrustedVaultReauthenticationCoordinatorDelegate
 
 - (void)trustedVaultReauthenticationCoordinatorWantsToBeStopped:
@@ -663,6 +684,17 @@ using DismissViewCallback = SystemIdentityManager::DismissViewCallback;
     (AccountMenuCoordinator*)coordinator {
   CHECK_EQ(_accountMenuCoordinator, coordinator, base::NotFatalUntil::M140);
   [self stopAccountMenuCoordinator];
+}
+
+#pragma mark - SyncEncryptionPassphraseTableViewControllerPresentationDelegate
+
+- (void)syncEncryptionPassphraseTableViewControllerDidDisappear:
+    (SyncEncryptionPassphraseTableViewController*)viewController {
+  CHECK_EQ(_syncEncryptionPassphraseTableViewController, viewController,
+           base::NotFatalUntil::M142);
+  _syncEncryptionPassphraseTableViewController.presentationDelegate = nil;
+  [_syncEncryptionPassphraseTableViewController settingsWillBeDismissed];
+  _syncEncryptionPassphraseTableViewController = nil;
 }
 
 @end

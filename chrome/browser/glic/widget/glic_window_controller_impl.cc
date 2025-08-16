@@ -12,12 +12,13 @@
 #include "base/metrics/user_metrics.h"
 #include "base/notimplemented.h"
 #include "base/time/time.h"
+#include "chrome/browser/actor/actor_keyed_service.h"
+#include "chrome/browser/actor/ui/actor_ui_state_manager_interface.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/glic/browser_ui/scoped_glic_button_indicator.h"
 #include "chrome/browser/glic/fre/glic_fre_controller.h"
 #include "chrome/browser/glic/fre/glic_fre_dialog_view.h"
 #include "chrome/browser/glic/glic_enabling.h"
-#include "chrome/browser/glic/glic_keyed_service.h"
 #include "chrome/browser/glic/glic_metrics.h"
 #include "chrome/browser/glic/glic_pref_names.h"
 #include "chrome/browser/glic/glic_profile_manager.h"
@@ -25,7 +26,7 @@
 #include "chrome/browser/glic/host/glic.mojom.h"
 #include "chrome/browser/glic/host/host.h"
 #include "chrome/browser/glic/host/webui_contents_container.h"
-#include "chrome/browser/glic/resources/grit/glic_browser_resources.h"
+#include "chrome/browser/glic/public/glic_keyed_service.h"
 #include "chrome/browser/glic/widget/browser_conditions.h"
 #include "chrome/browser/glic/widget/glic_view.h"
 #include "chrome/browser/glic/widget/glic_widget.h"
@@ -45,6 +46,8 @@
 #include "chrome/browser/ui/views/tabs/tab_strip_action_container.h"
 #include "chrome/browser/ui/views/tabs/window_finder.h"
 #include "chrome/common/chrome_features.h"
+#include "chrome/grit/generated_resources.h"
+#include "components/prefs/pref_service.h"
 #include "components/tabs/public/tab_interface.h"
 #include "components/web_modal/web_contents_modal_dialog_manager.h"
 #include "content/public/browser/web_contents.h"
@@ -611,6 +614,16 @@ void GlicWindowControllerImpl::Show(Browser* browser,
   if (window_config_.ShouldResetOnNewSession()) {
     previous_position_.reset();
   }
+  if (window_config_.ShouldResetSizeAndLocationOnShow()) {
+    previous_position_.reset();
+    gfx::Size initial_size = GlicWidget::GetInitialSize();
+    // Keep the old height if it is larger than the initial size.
+    if (glic_size_.has_value() &&
+        glic_size_->height() > initial_size.height()) {
+      initial_size.set_height((glic_size_->height()));
+    }
+    glic_size_ = initial_size;
+  }
   window_config_.SetLastOpenTime();
   if (!glic_service_->GetAuthController().CheckAuthBeforeShowSync(
           base::BindOnce(&GlicWindowControllerImpl::ShowAfterSignIn,
@@ -653,7 +666,8 @@ void GlicWindowControllerImpl::Show(Browser* browser,
       GetGlicWidget()->GetNearestDisplay();
   gfx::Point glic_center_point =
       GetGlicWidget()->GetWindowBoundsInScreen().CenterPoint();
-  glic_service_->metrics()->OnGlicWindowShown(display, glic_center_point);
+  glic_service_->metrics()->OnGlicWindowShown(browser, display,
+                                              glic_center_point);
 }
 
 void GlicWindowControllerImpl::SetupGlicWidget(Browser* browser) {
@@ -1078,7 +1092,8 @@ void GlicWindowControllerImpl::Close() {
       GetGlicWidget()->GetNearestDisplay();
   gfx::Point glic_center_point =
       GetGlicWidget()->GetWindowBoundsInScreen().CenterPoint();
-  glic_service_->metrics()->OnGlicWindowClose(display, glic_center_point);
+  glic_service_->metrics()->OnGlicWindowClose(
+      BrowserList::GetInstance()->GetLastActive(), display, glic_center_point);
   base::UmaHistogramEnumeration("Glic.PanelWebUiState.FinishState2",
                                 host().GetPrimaryWebUiState());
 
@@ -1474,6 +1489,13 @@ void GlicWindowControllerImpl::SetWindowState(State new_state) {
     return;
   }
   state_ = new_state;
+
+  // Inform UI components of glic panel open/close.
+  Browser* last_active_browser = BrowserList::GetInstance()->GetLastActive();
+  if (auto* actor_keyed_service = actor::ActorKeyedService::Get(profile_)) {
+    actor_keyed_service->GetActorUiStateManager()->OnGlicUpdateFloatyState(
+        state_, last_active_browser);
+  }
 
   if (IsWindowOpenAndReady()) {
     glic_service_->metrics()->OnGlicWindowOpenAndReady();

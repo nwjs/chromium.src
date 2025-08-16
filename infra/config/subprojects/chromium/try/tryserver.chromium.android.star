@@ -3,25 +3,28 @@
 # found in the LICENSE file.
 """Definitions of builders in the tryserver.chromium.android builder group."""
 
-load("//lib/branches.star", "branches")
-load("//lib/builder_config.star", "builder_config")
-load("//lib/builders.star", "os", "siso")
-load("//lib/consoles.star", "consoles")
-load("//lib/gn_args.star", "gn_args")
-load("//lib/targets.star", "targets")
-load("//lib/try.star", "try_")
+load("@chromium-luci//branches.star", "branches")
+load("@chromium-luci//builder_config.star", "builder_config")
+load("@chromium-luci//builders.star", "os")
+load("@chromium-luci//consoles.star", "consoles")
+load("@chromium-luci//gn_args.star", "gn_args")
+load("@chromium-luci//targets.star", "targets")
+load("@chromium-luci//try.star", "try_")
+load("//lib/gpu.star", "gpu")
+load("//lib/siso.star", "siso")
+load("//lib/try_constants.star", "try_constants")
 load("//project.star", "settings")
 
 try_.defaults.set(
-    executable = try_.DEFAULT_EXECUTABLE,
+    executable = try_constants.DEFAULT_EXECUTABLE,
     builder_group = "tryserver.chromium.android",
-    pool = try_.DEFAULT_POOL,
+    pool = try_constants.DEFAULT_POOL,
     cores = 8,
     os = os.LINUX_DEFAULT,
     compilator_cores = 32,
-    execution_timeout = try_.DEFAULT_EXECUTION_TIMEOUT,
+    execution_timeout = try_constants.DEFAULT_EXECUTION_TIMEOUT,
     orchestrator_cores = 4,
-    service_account = try_.DEFAULT_SERVICE_ACCOUNT,
+    service_account = try_constants.DEFAULT_SERVICE_ACCOUNT,
     # crbug.com/372192123 - downloading with "minimum" strategy doesn't work
     # well for Android builds because some steps have additional inputs/outputs
     # they are not configured in the build graph.
@@ -394,6 +397,22 @@ try_.builder(
 )
 
 try_.builder(
+    name = "android-16-x64-dbg",
+    mirrors = [
+        "ci/Android x64 Builder (dbg)",
+        "ci/android-16-x64-dbg-tests",
+    ],
+    gn_args = gn_args.config(
+        configs = [
+            "ci/Android x64 Builder (dbg)",
+            "debug_try_builder",
+        ],
+    ),
+    contact_team_email = "clank-engprod@google.com",
+    siso_remote_jobs = siso.remote_jobs.LOW_JOBS_FOR_CQ,
+)
+
+try_.builder(
     name = "android-16-x64-rel",
     branch_selector = branches.selector.ANDROID_BRANCHES,
     description_html = "Run Chromium tests on Android 16 emulator.",
@@ -616,6 +635,7 @@ try_.builder(
             "components/grpc_support/.+",
             "build/android/.+",
             "build/config/android/.+",
+            "third_party/jni_zero/.+",
         ],
     ),
 )
@@ -704,6 +724,7 @@ try_.builder(
             "components/grpc_support/.+",
             "build/android/.+",
             "build/config/android/.+",
+            "third_party/jni_zero/.+",
         ],
     ),
 )
@@ -869,6 +890,22 @@ try_.builder(
 )
 
 try_.builder(
+    name = "android-cronet-code-coverage-native",
+    mirrors = ["ci/android-cronet-code-coverage-native"],
+    gn_args = "ci/android-cronet-code-coverage-native",
+    contact_team_email = "cronet-team@google.com",
+    siso_remote_jobs = siso.remote_jobs.LOW_JOBS_FOR_CQ,
+)
+
+try_.builder(
+    name = "android-cronet-code-coverage-java",
+    mirrors = ["ci/android-cronet-code-coverage-java"],
+    gn_args = "ci/android-cronet-code-coverage-java",
+    contact_team_email = "cronet-team@google.com",
+    siso_remote_jobs = siso.remote_jobs.LOW_JOBS_FOR_CQ,
+)
+
+try_.builder(
     name = "android-cronet-x86-dbg-marshmallow-tests",
     mirrors = [
         "ci/android-cronet-x86-dbg",
@@ -965,24 +1002,6 @@ try_.builder(
     ),
 )
 
-# TODO(crbug.com/425745287): Remove this builder after android-10-arm64-rel
-# run properly as an optional CQ builder.
-try_.builder(
-    name = "android-pie-arm64-dbg",
-    # branch_selector = branches.selector.ANDROID_BRANCHES,
-    mirrors = [
-        "ci/Android arm64 Builder (dbg)",
-        "ci/android-pie-arm64-dbg",
-    ],
-    gn_args = gn_args.config(
-        configs = [
-            "ci/Android arm64 Builder (dbg)",
-        ],
-    ),
-    builderless = False,
-    cores = 16,
-)
-
 try_.builder(
     name = "android-webview-10-x86-rel-tests",
     mirrors = [
@@ -1010,6 +1029,22 @@ try_.builder(
     mirrors = ["ci/android-15-webview-wpt-fyi-rel"],
     gn_args = "ci/android-15-webview-wpt-fyi-rel",
     contact_team_email = "chrome-product-engprod@google.com",
+    siso_remote_jobs = siso.remote_jobs.LOW_JOBS_FOR_CQ,
+)
+
+# Temporary builder for checking structured test ids.
+try_.builder(
+    name = "android-structured-test-ids-16-x64-rel-fyi",
+    mirrors = [
+        "ci/android-structured-test-ids-16-x64-rel-fyi",
+    ],
+    gn_args = gn_args.config(
+        configs = [
+            "ci/android-structured-test-ids-16-x64-rel-fyi",
+            "release_try_builder",
+        ],
+    ),
+    contact_team_email = "chrome-browser-infra-team@google.com",
     siso_remote_jobs = siso.remote_jobs.LOW_JOBS_FOR_CQ,
 )
 
@@ -1255,6 +1290,7 @@ try_.builder(
             "components/cast_receiver/.+",
             "components/cast_streaming/.+",
             "third_party/cast_core/.+",
+            "third_party/jni_zero/.+",
             "third_party/openscreen/.+",
         ],
     ),
@@ -1278,6 +1314,7 @@ try_.builder(
             "components/cast_receiver/.+",
             "components/cast_streaming/.+",
             "third_party/cast_core/.+",
+            "third_party/jni_zero/.+",
             "third_party/openscreen/.+",
         ],
     ),
@@ -1406,7 +1443,7 @@ try_.builder(
     ),
 )
 
-try_.gpu.optional_tests_builder(
+gpu.try_.optional_tests_builder(
     name = "android_optional_gpu_tests_rel",
     branch_selector = branches.selector.ANDROID_BRANCHES,
     description_html = "Runs GPU tests on Pixel 4 devices. Only automatically added to CLs that touch GPU-related files.",
@@ -1540,7 +1577,7 @@ try_.gpu.optional_tests_builder(
     ),
 )
 
-try_.gpu.optional_tests_builder(
+gpu.try_.optional_tests_builder(
     name = "gpu-fyi-cq-android-arm64",
     branch_selector = branches.selector.ANDROID_BRANCHES,
     description_html = "Runs GPU tests on Pixel 6 devices. Only automatically added to CLs that touch GPU-related files.",

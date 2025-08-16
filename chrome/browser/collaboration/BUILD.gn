@@ -87,6 +87,54 @@ if (is_android) {
     sources = [ "android/java/src/org/chromium/chrome/browser/collaboration/CollaborationControllerDelegateImpl.java" ]
   }
 
+  generate_jni("comments_jni_headers") {
+    sources = [ "android/java/src/org/chromium/chrome/browser/collaboration/comments/CommentsServiceFactory.java" ]
+  }
+
+  android_library("comments_factory_java") {
+    srcjar_deps = [ ":comments_jni_headers" ]
+    sources = [ "android/java/src/org/chromium/chrome/browser/collaboration/comments/CommentsServiceFactory.java" ]
+    deps = [
+      "//base:base_java",
+      "//build/android:build_java",
+      "//chrome/browser/flags:java",
+      "//chrome/browser/profiles/android:java",
+      "//components/collaboration/public:java",
+      "//third_party/androidx:androidx_annotation_annotation_java",
+      "//third_party/jni_zero:jni_zero_java",
+    ]
+  }
+
+  android_library("comments_test_support_java") {
+    testonly = true
+    sources = [ "android/java/src/org/chromium/chrome/browser/collaboration/comments/TestCommentsService.java" ]
+    deps = [
+      "//base:base_java",
+      "//components/collaboration/public:java",
+      "//third_party/androidx:androidx_annotation_annotation_java",
+    ]
+  }
+
+  android_library("comments_javatests") {
+    testonly = true
+    sources = [ "android/java/src/org/chromium/chrome/browser/collaboration/comments/CommentsServiceFactoryTest.java" ]
+    deps = [
+      ":comments_factory_java",
+      ":comments_test_support_java",
+      "//base:base_java",
+      "//base:base_java_test_support",
+      "//chrome/browser/flags:java",
+      "//chrome/browser/profiles/android:java",
+      "//chrome/test/android:chrome_java_integration_test_support",
+      "//chrome/test/android:chrome_java_transit",
+      "//components/collaboration/public:java",
+      "//third_party/androidx:androidx_test_runner_java",
+      "//third_party/hamcrest:hamcrest_core_java",
+      "//third_party/hamcrest:hamcrest_library_java",
+      "//third_party/junit",
+    ]
+  }
+
   android_library("javatests") {
     testonly = true
 
@@ -98,6 +146,7 @@ if (is_android) {
       "//chrome/browser/flags:java",
       "//chrome/browser/profiles/android:java",
       "//chrome/test/android:chrome_java_integration_test_support",
+      "//chrome/test/android:chrome_java_transit",
       "//components/collaboration/public:java",
       "//components/data_sharing/public:public_java",
       "//components/saved_tab_groups/public:java",
@@ -105,7 +154,7 @@ if (is_android) {
       "//third_party/androidx:androidx_test_runner_java",
       "//third_party/hamcrest:hamcrest_core_java",
       "//third_party/hamcrest:hamcrest_library_java",
-      "//third_party/junit:junit",
+      "//third_party/junit",
       "//url:url_java",
     ]
   }
@@ -155,11 +204,12 @@ if (is_android) {
       "//chrome/browser/flags:java",
       "//chrome/browser/profiles/android:java",
       "//chrome/test/android:chrome_java_integration_test_support",
+      "//chrome/test/android:chrome_java_transit",
       "//components/collaboration/public:java",
       "//third_party/androidx:androidx_test_runner_java",
       "//third_party/hamcrest:hamcrest_core_java",
       "//third_party/hamcrest:hamcrest_library_java",
-      "//third_party/junit:junit",
+      "//third_party/junit",
     ]
   }
 }

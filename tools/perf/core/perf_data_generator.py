@@ -146,7 +146,6 @@ UPLOAD_SKIA_JSON_BUILDERS = frozenset([
     'win-10_amd_laptop-perf',
     'win-10_laptop_low_end-processor-perf',
     'win-10_laptop_low_end-perf_HP-Candidate',
-    'win-11_laptop_low_end-perf',  # One of the non-lightweight testers.
     'win-11-processor-perf',  # One of the lightweight processors.
     'win64-builder-perf',
 ])
@@ -238,7 +237,45 @@ FYI_BUILDERS = {
             'pool': 'chrome.tests',
         },
     },
+    'fuchsia-perf-nsn-pgo': {
+        'tests': [{
+            'isolate':
+            'performance_web_engine_test_suite',
+            'extra_args':
+            ['--output-format=histograms', '--experimental-tbmv3-metrics'] +
+            bot_platforms.FUCHSIA_EXEC_ARGS['nelson'],
+            'type':
+            TEST_TYPES.TELEMETRY,
+        }],
+        'platform':
+        'fuchsia-wes',
+        'dimension': {
+            'cpu': None,
+            'device_type': 'Nelson',
+            'os': 'Fuchsia',
+            'pool': 'chrome.tests',
+        },
+    },
     'fuchsia-perf-shk': {
+        'tests': [{
+            'isolate':
+            'performance_web_engine_test_suite',
+            'extra_args':
+            ['--output-format=histograms', '--experimental-tbmv3-metrics'] +
+            bot_platforms.FUCHSIA_EXEC_ARGS['sherlock'],
+            'type':
+            TEST_TYPES.TELEMETRY,
+        }],
+        'platform':
+        'fuchsia-wes',
+        'dimension': {
+            'cpu': None,
+            'device_type': 'Sherlock',
+            'os': 'Fuchsia',
+            'pool': 'chrome.tests',
+        },
+    },
+    'fuchsia-perf-shk-pgo': {
         'tests': [{
             'isolate':
             'performance_web_engine_test_suite',
@@ -554,7 +591,7 @@ BUILDERS = {
         }],
         'dimension': {
             'cpu': 'x86-64',
-            'os': 'Windows-10',
+            'os': 'Windows-10-19045',
             'pool': 'chrome.tests',
         },
         'perf_trigger':
@@ -1210,26 +1247,6 @@ BUILDERS = {
     'win-10-processor-perf': {
         'platform': 'linux',
         'perf_processor': True,
-    },
-    'win-11_laptop_low_end-perf': {
-        'tests': [
-            {
-                'isolate': 'performance_test_suite',
-                'extra_args': [
-                    '--assert-gpu-compositing',
-                ],
-            },
-        ],
-        'platform':
-        'win',
-        'target_bits':
-        64,
-        'dimension': {
-            'pool': 'chrome.tests.perf',
-            'os': 'Windows-11',
-            'gpu': '8086:46b3-32.0.101.6297',
-            'synthetic_product_name': 'Inspiron 15 3520 (Dell Inc.)'
-        },
     },
     'win-11-perf': {
         'tests': [

@@ -73,15 +73,6 @@ P2PSocketTcpBase::P2PSocketTcpBase(
 
 P2PSocketTcpBase::~P2PSocketTcpBase() = default;
 
-bool P2PSocketTcpBase::InitAccepted(const net::IPEndPoint& remote_address,
-                                    std::unique_ptr<net::StreamSocket> socket) {
-  DCHECK(socket);
-  remote_address_.ip_address = remote_address;
-  // TODO(ronghuawu): Add FakeSSLServerSocket.
-  socket_ = std::move(socket);
-  return DoRead();
-}
-
 void P2PSocketTcpBase::Init(
     const net::IPEndPoint& local_address,
     uint16_t min_port,
@@ -483,8 +474,7 @@ bool P2PSocketTcp::DoSend(const net::IPEndPoint& to,
 
   base::span<uint8_t> send_buffer_without_header =
       send_buffer.buffer->span().subspan(kPacketHeaderSize);
-  webrtc::ApplyPacketOptions(send_buffer_without_header.data(),
-                             send_buffer_without_header.size(),
+  webrtc::ApplyPacketOptions(send_buffer_without_header,
                              options.packet_time_params, webrtc::TimeMicros());
 
   return WriteOrQueue(send_buffer);
@@ -557,8 +547,9 @@ bool P2PSocketStunTcp::DoSend(const net::IPEndPoint& to,
           base::MakeRefCounted<net::VectorIOBuffer>(std::move(buffer)),
           buffer_size));
 
-  webrtc::ApplyPacketOptions(send_buffer.buffer->bytes(), data.size(),
-                             options.packet_time_params, webrtc::TimeMicros());
+  webrtc::ApplyPacketOptions(
+      webrtc::ArrayView<uint8_t>(send_buffer.buffer->bytes(), data.size()),
+      options.packet_time_params, webrtc::TimeMicros());
 
   // WriteOrQueue may free the memory, so dump it first.
   delegate_->DumpPacket(send_buffer.buffer->span(), false);

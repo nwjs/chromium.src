@@ -12,6 +12,7 @@
 #include "chrome/common/actor.mojom-forward.h"
 
 namespace actor {
+class ToolRequestVisitorFunctor;
 
 // Scrolls an element or viewport in the page a given distance.
 class ScrollToolRequest : public PageToolRequest {
@@ -22,10 +23,12 @@ class ScrollToolRequest : public PageToolRequest {
   // If Target is a nullopt ContentNodeId, the root viewport is scrolled.
   // Distance is specified in physical pixels.
   ScrollToolRequest(tabs::TabHandle tab_handle,
-                    const Target& target,
+                    const PageTarget& target,
                     Direction direction,
                     float distance);
   ~ScrollToolRequest() override;
+
+  void Apply(ToolRequestVisitorFunctor& f) const override;
 
   // ToolRequest
   std::string JournalEvent() const override;

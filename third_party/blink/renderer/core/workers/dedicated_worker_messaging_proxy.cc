@@ -7,6 +7,7 @@
 #include <memory>
 #include "base/trace_event/typed_macros.h"
 #include "services/network/public/mojom/fetch_api.mojom-blink.h"
+#include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/common/tokens/tokens.h"
 #include "third_party/blink/public/mojom/v8_cache_options.mojom-blink.h"
 #include "third_party/blink/public/mojom/worker/dedicated_worker_host.mojom-blink-forward.h"
@@ -111,7 +112,7 @@ void DedicatedWorkerMessagingProxy::StartWorkerGlobalScope(
 
   // Step 13: "Obtain script by switching on the value of options's type
   // member:"
-  if (options->type() == script_type_names::kClassic) {
+  if (options->type() == V8WorkerType::Enum::kClassic) {
     // "classic: Fetch a classic worker script given url, outside settings,
     // destination, and inside settings."
     UseCounter::Count(GetExecutionContext(),
@@ -124,7 +125,7 @@ void DedicatedWorkerMessagingProxy::StartWorkerGlobalScope(
         script_url, std::move(worker_main_script_load_params),
         /*policy_container=*/nullptr, outside_settings_object.CopyData(),
         resource_timing_notifier, stack_id);
-  } else if (options->type() == script_type_names::kModule) {
+  } else if (options->type() == V8WorkerType::Enum::kModule) {
     // "module: Fetch a module worker script graph given url, outside settings,
     // destination, the value of the credentials member of options, and inside
     // settings."
@@ -281,7 +282,9 @@ void DedicatedWorkerMessagingProxy::PostMessageToWorkerObject(
   debugger->ExternalAsyncTaskStarted(message.sender_stack_trace_id);
   if (message.message->CanDeserializeIn(GetExecutionContext())) {
     MessageEvent* event =
-        MessageEvent::Create(ports, std::move(message.message));
+        MessageEvent::Create(ports, std::move(message.message), /* origin=*/{},
+                             MessageEvent::kMessageIsSameOrigin,
+                             /* last_event_id=*/{}, /* source=*/nullptr);
     event->SetTraceId(message.trace_id);
     TRACE_EVENT(
         "devtools.timeline", "HandlePostMessage", "data",

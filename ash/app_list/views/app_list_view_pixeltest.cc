@@ -12,10 +12,6 @@
 #include "ash/app_list/views/apps_container_view.h"
 #include "ash/app_list/views/apps_grid_view_test_api.h"
 #include "ash/app_list/views/search_box_view.h"
-#include "ash/assistant/test/assistant_ash_test_base.h"
-#include "ash/assistant/ui/assistant_ui_constants.h"
-#include "ash/assistant/ui/assistant_view_ids.h"
-#include "ash/assistant/ui/main_stage/launcher_search_iph_view.h"
 #include "ash/constants/web_app_id_constants.h"
 #include "ash/public/cpp/style/dark_light_mode_controller.h"
 #include "ash/shelf/shelf.h"
@@ -41,29 +37,6 @@ namespace ash {
 namespace {
 
 using TestVariantsParam = std::tuple<bool, bool, bool>;
-
-bool IsRtl(TestVariantsParam param) {
-  return std::get<0>(param);
-}
-
-bool IsDarkMode(TestVariantsParam param) {
-  return std::get<1>(param);
-}
-
-bool IsTabletMode(TestVariantsParam param) {
-  return std::get<2>(param);
-}
-
-std::string GenerateTestSuffix(
-    const testing::TestParamInfo<TestVariantsParam>& info) {
-  std::string suffix;
-  suffix.append(IsRtl(info.param) ? "rtl" : "ltr");
-  suffix.append("_");
-  suffix.append(IsDarkMode(info.param) ? "dark" : "light");
-  suffix.append("_");
-  suffix.append(IsTabletMode(info.param) ? "tablet" : "clamshell");
-  return suffix;
-}
 
 void UseFixedPlaceholderTextAndHideCursor(SearchBoxView* search_box_view) {
   ASSERT_TRUE(search_box_view);
@@ -214,7 +187,7 @@ TEST_P(AppListViewPixelRTLTest, AnswerCardSearchResult) {
 
   UseFixedPlaceholderTextAndHideCursor(test_helper->GetSearchBoxView());
   EXPECT_TRUE(GetPixelDiffer()->CompareUiComponentsOnPrimaryScreen(
-      "bubble_launcher_answer_card_search_results", /*revision_number=*/16,
+      "bubble_launcher_answer_card_search_results", /*revision_number=*/17,
       GetAppListTestHelper()->GetBubbleView(),
       GetPrimaryShelf()->navigation_widget()));
 }
@@ -236,7 +209,7 @@ TEST_P(AppListViewPixelRTLTest, URLSearchResult) {
 
   UseFixedPlaceholderTextAndHideCursor(test_helper->GetSearchBoxView());
   EXPECT_TRUE(GetPixelDiffer()->CompareUiComponentsOnPrimaryScreen(
-      "bubble_launcher_url_search_results", /*revision_number=*/15,
+      "bubble_launcher_url_search_results", /*revision_number=*/16,
       GetAppListTestHelper()->GetBubbleView(),
       GetPrimaryShelf()->navigation_widget()));
 }
@@ -258,7 +231,7 @@ TEST_P(AppListViewPixelRTLTest, KeyboardShortcutSearchResult) {
 
   UseFixedPlaceholderTextAndHideCursor(test_helper->GetSearchBoxView());
   EXPECT_TRUE(GetPixelDiffer()->CompareUiComponentsOnPrimaryScreen(
-      "bubble_launcher_ks_search_results", /*revision_number=*/6,
+      "bubble_launcher_ks_search_results", /*revision_number=*/7,
       GetAppListTestHelper()->GetBubbleView()));
 }
 
@@ -271,7 +244,7 @@ TEST_P(AppListViewPixelRTLTest, Basics) {
   UseFixedPlaceholderTextAndHideCursor(
       GetAppListTestHelper()->GetSearchBoxView());
   EXPECT_TRUE(GetPixelDiffer()->CompareUiComponentsOnPrimaryScreen(
-      "bubble_launcher_basics", /*revision_number=*/17,
+      "bubble_launcher_basics", /*revision_number=*/19,
       GetAppListTestHelper()->GetBubbleView(),
       GetPrimaryShelf()->navigation_widget()));
 }
@@ -293,7 +266,7 @@ TEST_P(AppListViewPixelRTLTest, GradientZone) {
                                 /*position=*/20);
 
   EXPECT_TRUE(GetPixelDiffer()->CompareUiComponentsOnPrimaryScreen(
-      "bubble_launcher_gradient_zone", /*revision_number=*/17,
+      "bubble_launcher_gradient_zone", /*revision_number=*/19,
       GetAppListTestHelper()->GetBubbleView(),
       GetPrimaryShelf()->navigation_widget()));
 }
@@ -308,60 +281,9 @@ TEST_P(AppListViewPixelRTLTest, GeminiButton) {
       GetAppListTestHelper()->GetSearchBoxView());
 
   EXPECT_TRUE(GetPixelDiffer()->CompareUiComponentsOnPrimaryScreen(
-      "bubble_launcher_gemini_button", /*revision_number=*/0,
+      "bubble_launcher_gemini_button", /*revision_number=*/2,
       GetAppListTestHelper()->GetBubbleView(),
       GetPrimaryShelf()->navigation_widget()));
-}
-
-class AppListViewLauncherSearchIphTest
-    : public AssistantAshTestBase,
-      public testing::WithParamInterface<TestVariantsParam> {
- public:
-  std::optional<pixel_test::InitParams> CreatePixelTestInitParams()
-      const override {
-    pixel_test::InitParams init_params;
-    init_params.under_rtl = IsRtl(GetParam());
-    return init_params;
-  }
-
-  void SetUp() override {
-    AssistantAshTestBase::SetUp();
-
-    DarkLightModeController::Get()->SetDarkModeEnabledForTest(
-        IsDarkMode(GetParam()));
-
-    Shell::Get()->tablet_mode_controller()->SetEnabledForTest(
-        IsTabletMode(GetParam()));
-
-    // Set a testing text so that the pixel test can compare.
-    LauncherSearchIphView::SetChipTextForTesting(u"chip");
-
-    GetAppListTestHelper()->search_model()->SetWouldTriggerLauncherSearchIph(
-        true);
-  }
-};
-
-INSTANTIATE_TEST_SUITE_P(RTL,
-                         AppListViewLauncherSearchIphTest,
-                         testing::Combine(testing::Bool(),
-                                          testing::Bool(),
-                                          testing::Bool()),
-                         &GenerateTestSuffix);
-
-TEST_P(AppListViewLauncherSearchIphTest, Basic) {
-  GetAppListTestHelper()->ShowAppList();
-  raw_ptr<SearchBoxView> search_box_view =
-      GetAppListTestHelper()->GetSearchBoxView();
-  ASSERT_TRUE(search_box_view);
-  LeftClickOn(search_box_view->assistant_button());
-
-  auto* const iph_view = search_box_view->GetIphView();
-  ASSERT_TRUE(iph_view);
-  ViewDrawnWaiter().Wait(iph_view);
-
-  UseFixedPlaceholderTextAndHideCursor(search_box_view);
-  EXPECT_TRUE(GetPixelDiffer()->CompareUiComponentsOnPrimaryScreen(
-      "launcher_search_iph", /*revision_number=*/7, search_box_view));
 }
 
 class AppListViewTabletPixelTest
@@ -399,7 +321,7 @@ INSTANTIATE_TEST_SUITE_P(RTL,
 // Verifies the default layout for tablet mode launcher.
 TEST_P(AppListViewTabletPixelTest, Basic) {
   EXPECT_TRUE(GetPixelDiffer()->CompareUiComponentsOnPrimaryScreen(
-      "tablet_launcher_basics", /*revision_number=*/18,
+      "tablet_launcher_basics", /*revision_number=*/19,
       GetAppListTestHelper()->GetAppsContainerView()));
 }
 
@@ -420,7 +342,7 @@ TEST_P(AppListViewTabletPixelTest, TopGradientZone) {
   generator->MoveTouchBy(0, -40);
 
   EXPECT_TRUE(GetPixelDiffer()->CompareUiComponentsOnPrimaryScreen(
-      "tablet_launcher_top_gradient_zone", /*revision_number=*/16,
+      "tablet_launcher_top_gradient_zone", /*revision_number=*/17,
       GetAppListTestHelper()->GetAppsContainerView()));
 }
 
@@ -441,7 +363,7 @@ TEST_P(AppListViewTabletPixelTest, BottomGradientZone) {
   generator->MoveTouchBy(0, -90);
 
   EXPECT_TRUE(GetPixelDiffer()->CompareUiComponentsOnPrimaryScreen(
-      "tablet_launcher_bottom_gradient_zone", /*revision_number=*/18,
+      "tablet_launcher_bottom_gradient_zone", /*revision_number=*/19,
       GetAppListTestHelper()->GetAppsContainerView()));
 }
 
@@ -460,56 +382,8 @@ TEST_P(AppListViewTabletPixelTest, GeminiButton) {
   GetAppListTestHelper()->model()->SetItemName(app_list_item, "Gemini");
 
   EXPECT_TRUE(GetPixelDiffer()->CompareUiComponentsOnPrimaryScreen(
-      "tablet_launcher_gemini_button", /*revision_number=*/0,
+      "tablet_launcher_gemini_button", /*revision_number=*/1,
       GetAppListTestHelper()->GetAppsContainerView()));
-}
-
-class AppListViewAssistantZeroStateTest
-    : public AssistantAshTestBase,
-      public testing::WithParamInterface<TestVariantsParam> {
- public:
-  std::optional<pixel_test::InitParams> CreatePixelTestInitParams()
-      const override {
-    pixel_test::InitParams init_params;
-    init_params.under_rtl = IsRtl(GetParam());
-    return init_params;
-  }
-
-  void SetUp() override {
-    scoped_feature_list_.InitWithFeatures(
-        {feature_engagement::kIPHLauncherSearchHelpUiFeature}, {});
-
-    AssistantAshTestBase::SetUp();
-    DarkLightModeController::Get()->SetDarkModeEnabledForTest(
-        IsDarkMode(GetParam()));
-    Shell::Get()->tablet_mode_controller()->SetEnabledForTest(
-        IsTabletMode(GetParam()));
-
-    // Set a testing text so that the pixel test can compare.
-    LauncherSearchIphView::SetChipTextForTesting(u"chip");
-  }
-
- private:
-  base::test::ScopedFeatureList scoped_feature_list_;
-};
-
-INSTANTIATE_TEST_SUITE_P(RTL,
-                         AppListViewAssistantZeroStateTest,
-                         testing::Combine(/*IsRtl=*/testing::Bool(),
-                                          /*IsDarkMode=*/testing::Bool(),
-                                          /*IsTabletMode=*/testing::Bool()),
-                         &GenerateTestSuffix);
-
-TEST_P(AppListViewAssistantZeroStateTest, Basic) {
-  ShowAssistantUi();
-
-  auto* const assistant_page_view = page_view();
-  ViewDrawnWaiter().Wait(
-      assistant_page_view->GetViewByID(AssistantViewID::kZeroStateView));
-
-  EXPECT_TRUE(GetPixelDiffer()->CompareUiComponentsOnPrimaryScreen(
-      "app_list_view_assistant_zero_state", /*revision_number=*/11,
-      assistant_page_view->GetViewByID(AssistantViewID::kZeroStateView)));
 }
 
 }  // namespace ash

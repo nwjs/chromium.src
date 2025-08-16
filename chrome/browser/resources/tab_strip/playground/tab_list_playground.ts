@@ -8,12 +8,14 @@ import '../tab_group.js';
 
 import {CustomElement} from 'chrome://resources/js/custom_element.js';
 
-import {getTemplate} from '../tab_list.html.js';
-import type {Container, OnTabDataChangedEvent, OnTabMovedEvent, OnTabsClosedEvent, OnTabsCreatedEvent, OnTabGroupCreatedEvent, OnTabGroupVisualsChangedEvent, Position, Tab, TabCollectionContainer, TabCreatedContainer, TabGroupVisualData as TabsAPI_TabGroupVisualData, NodeId, TabsSnapshot} from '../tab_strip_api.mojom-webui.js';
-import type {TabGroupVisualData} from '../tab_strip.mojom-webui.js';
-import {Color as TabGroupColor} from '../tab_group_types.mojom-webui.js';
-import {TabCollection_CollectionType} from '../tab_strip_api.mojom-webui.js';
 import {TabGroupElement} from '../tab_group.js';
+import {Color as TabGroupColor} from '../tab_group_types.mojom-webui.js';
+import {getTemplate} from '../tab_list.html.js';
+import type {TabGroupVisualData} from '../tab_strip.mojom-webui.js';
+import type {TabsSnapshot} from '../tab_strip_api.mojom-webui.js';
+import type {Container, Tab, TabCollectionContainer, TabCreatedContainer, TabGroup} from '../tab_strip_api_data_model.mojom-webui.js';
+import type {OnTabDataChangedEvent, OnTabGroupCreatedEvent, OnTabGroupVisualsChangedEvent, OnTabMovedEvent, OnTabsClosedEvent, OnTabsCreatedEvent} from '../tab_strip_api_events.mojom-webui.js';
+import type {NodeId, Position} from '../tab_strip_api_types.mojom-webui.js';
 
 import {TabElement} from './tab_playground.js';
 import type {TabStripApiProxy} from './tab_strip_api.js';
@@ -45,7 +47,7 @@ export class TabListPlaygroundElement extends CustomElement {
       element: TabElement, index: number, pinned: boolean,
       groupId: string|null|undefined) {
     console.info(
-        'Placing TabElement. ID:', element.tab?.id.id, 'at index:', index,
+        'Placing TabElement. ID:', element.tab?.id, 'at index:', index,
         'Pinned:', pinned, 'GroupId:', groupId);
 
     // Detach the element from its current parent if it's already in the DOM.
@@ -120,7 +122,7 @@ export class TabListPlaygroundElement extends CustomElement {
   private onTabsClosed_(onTabsClosedEvent: OnTabsClosedEvent) {
     const tabsClosed = onTabsClosedEvent.tabs;
     tabsClosed.forEach((tabId: NodeId) => {
-      const tabElement = this.findTabElement_(tabId.id);
+      const tabElement = this.findTabElement_(tabId);
       if (tabElement) {
         this.addAnimationPromise_(tabElement.slideOut());
       }
@@ -129,7 +131,7 @@ export class TabListPlaygroundElement extends CustomElement {
 
   private onTabDataChanged_(onTabDataChangedEvent: OnTabDataChangedEvent) {
     const tab = onTabDataChangedEvent.tab;
-    const tabElement = this.findTabElement_(tab.id.id);
+    const tabElement = this.findTabElement_(tab.id);
     if (!tabElement) {
       return;
     }
@@ -138,22 +140,25 @@ export class TabListPlaygroundElement extends CustomElement {
 
   private onTabMoved_(event: OnTabMovedEvent) {
     console.info('onTabMoved_', event);
-    const element = this.findTabElement_(event.id.id)!;
+    const element = this.findTabElement_(event.id)!;
     element.remove();
-    this.placeTabElement(element, event.to.index, false, event.to.parentId?.id);
+    this.placeTabElement(element, event.to.index, false, event.to.parentId);
   }
 
   private onTabGroupCreated_(event: OnTabGroupCreatedEvent) {
     console.info('onTabGroupCreated_', event);
-    // Intentiaonlly not creating a TabGroupElement here. The TabGroupElement
+    // Intentionally not creating a TabGroupElement here. The TabGroupElement
     // will be created when a tab is added to the group in onTabMoved_, which
     // is fired after this event.
   }
 
   private onTabGroupVisualsChanged_(event: OnTabGroupVisualsChangedEvent) {
     console.info('onTabGroupVisualsChanged_', event);
-    this.findOrCreateTabGroupElement_(event.groupId.id).updateVisuals(
-      this.toTabGroupVisualData_(event.visualData));
+    const {tabGroup} = event.tabCollection;
+    if (tabGroup) {
+      this.findOrCreateTabGroupElement_(tabGroup.id)
+          .updateVisuals(this.toTabGroupVisualData_(tabGroup));
+    }
   }
 
   private createTabElement_(tab: Tab, isPinned: boolean): TabElement {
@@ -212,10 +217,9 @@ export class TabListPlaygroundElement extends CustomElement {
                     const newTab = containerElement.tabContainer.tab;
                     const isPinned = parentIsPinned ||
                         (container.collection &&
-                         container.collection.collectionType ===
-                             TabCollection_CollectionType.kPinned);
+                         !!container.collection.pinnedTabs);
 
-                    let tabElement = this.findTabElement_(newTab.id.id);
+                    let tabElement = this.findTabElement_(newTab.id);
                     if (tabElement) {
                       tabElement.tab = newTab;
                       tabElement.isPinned = isPinned;
@@ -224,16 +228,15 @@ export class TabListPlaygroundElement extends CustomElement {
                     }
                     this.placeTabElement(
                         tabElement, index, isPinned,
-                        container.collection.id.id ?
-                            container.collection.id.id :
+                        container.collection.tabGroup ?
+                            container.collection.tabGroup.id :
                             null);
                   } else if (containerElement.tabCollectionContainer) {
                     const nestedContainer =
                         containerElement.tabCollectionContainer;
                     const collectionIsPinned = parentIsPinned ||
                         (nestedContainer.collection &&
-                         nestedContainer.collection.collectionType ===
-                             TabCollection_CollectionType.kPinned);
+                         !!nestedContainer.collection.pinnedTabs);
                     processContainer(nestedContainer, collectionIsPinned);
                   }
                 });
@@ -268,7 +271,7 @@ export class TabListPlaygroundElement extends CustomElement {
     return tabGroupElement;
   }
 
-  private toTabGroupVisualData_(visualData: TabsAPI_TabGroupVisualData): TabGroupVisualData {
+  private toTabGroupVisualData_(group: TabGroup): TabGroupVisualData {
     const colorMap = new Map<TabGroupColor, string>([
       [TabGroupColor.kGrey, '128, 128, 128'],
       [TabGroupColor.kBlue, '0, 0, 255'],
@@ -282,8 +285,8 @@ export class TabListPlaygroundElement extends CustomElement {
    ]);
 
     return {
-      title: visualData.title,
-      color: colorMap.get(visualData.color)!,
+      title: group.data.title,
+      color: colorMap.get(group.data.color)!,
       textColor: '255, 255, 255' /*white*/,
     };
   }

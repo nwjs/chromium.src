@@ -13,6 +13,10 @@
 #import "base/types/expected.h"
 #import "components/optimization_guide/proto/features/common_quality_data.pb.h"
 
+namespace base {
+class TimeDelta;
+}  // namespace base
+
 namespace web {
 class WebState;
 }  // namespace web
@@ -30,6 +34,8 @@ enum class PageContextWrapperError {
   kPDFDataError,
   // The webpage is protected, PageContext was force-detached.
   kForceDetachError,
+  // The Page Context retrieval timed out.
+  kTimeout,
 };
 
 using PageContextWrapperCallbackResponse =
@@ -59,8 +65,11 @@ using PageContextWrapperCallbackResponse =
 // Initiates the asynchronous work of populating all the PageContext fields, and
 // executes the `completionCallback` when all async work is complete.
 // Relinquishes ownership of the PageContext proto back to the handler of the
-// callback.
+// callback. Uses a default timeout.
 - (void)populatePageContextFieldsAsync;
+
+// Same as `populatePageContextFieldsAsync`, but with a custom timeout.
+- (void)populatePageContextFieldsAsyncWithTimeout:(base::TimeDelta)timeout;
 
 // Enables force taking snapshots if none could be retrieved from storage, does
 // nothing if `shouldGetSnapshot` is NO.
@@ -85,14 +94,15 @@ using PageContextWrapperCallbackResponse =
 // force-realizes the associated WebState.
 @property(nonatomic, assign) BOOL shouldGetFullPagePDF;
 
-// Whether the entire webpage innerText should be fetched. This will construct
-// an APC tree with all same-origin and cross-origin frames as FrameData
-// ContentNodes, each with their single corresponding TextInfo ContentNode
-// filled with their innerText. For the main frame and its same-origin iframes,
-// the original hierarchy is kept. All cross-origin iframes will be direct
-// children of the main frame's root node, with their descendents keeping their
-// relative (WRT to their parent cross-origin iframes) hierarchy.
-@property(nonatomic, assign) BOOL shouldGetInnerText;
+// Whether the entire webpage AnnotatedPageContent (APC) of innerTexts should be
+// fetched. This will construct an APC tree with all same-origin and
+// cross-origin frames as FrameData ContentNodes, each with their single
+// corresponding TextInfo ContentNode filled with their innerText. For the main
+// frame and its same-origin iframes, the original hierarchy is kept. All
+// cross-origin iframes will be direct children of the main frame's root node,
+// with their descendents keeping their relative (WRT to their parent
+// cross-origin iframes) hierarchy.
+@property(nonatomic, assign) BOOL shouldGetAnnotatedPageContent;
 
 @end
 

@@ -9,6 +9,8 @@
 #include <vector>
 
 #include "base/command_line.h"
+#include "base/functional/bind.h"
+#include "base/path_service.h"
 #include "base/strings/string_split.h"
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
@@ -82,9 +84,6 @@ DumpAccessibilityTreeTest::~DumpAccessibilityTreeTest() {}
 void DumpAccessibilityTreeTest::SetUpCommandLine(
     base::CommandLine* command_line) {
   DumpAccessibilityTestBase::SetUpCommandLine(command_line);
-  // Enable KeyboardFocusableScrollers, used by AccessibilityScrollableOverflow.
-  command_line->AppendSwitchASCII(switches::kEnableBlinkFeatures,
-                                  "KeyboardFocusableScrollers");
   // Enable AccessibilityAriaVirtualContent.
   command_line->AppendSwitchASCII(switches::kEnableBlinkFeatures,
                                   "AccessibilityAriaVirtualContent");
@@ -146,11 +145,27 @@ void DumpAccessibilityTreeTest::ChooseFeatures(
       features::kEnableAccessibilityAriaVirtualContent);
   // crbug.com/339418716 - temporary until enabled by default
   enabled_features->emplace_back(blink::features::kPermissionElement);
+#if BUILDFLAG(IS_ANDROID)
+  disabled_features->emplace_back(
+      features::kAccessibilityPopulateSupplementalDescriptionApi);
+#endif  // BUILDFLAG(IS_ANDROID)
   DumpAccessibilityTestBase::ChooseFeatures(enabled_features,
                                             disabled_features);
 }
 
 class DumpAccessibilityTreeTestExceptUIA : public DumpAccessibilityTreeTest {};
+
+#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
+// Material Design accessibility tests use third_party components.
+class DumpAccessibilityTreeWithMaterialDesignTest
+    : public DumpAccessibilityTreeTest {
+ public:
+  void SetUpOnMainThread() override {
+    SetUpMaterialDesignRequestHandler();
+    DumpAccessibilityTreeTest::SetUpOnMainThread();
+  }
+};
+#endif
 
 // Parameterize the tests so that each test-pass is run independently.
 struct DumpAccessibilityTreeTestPassToString {
@@ -293,6 +308,14 @@ INSTANTIATE_TEST_SUITE_P(
     DumpAccessibilityTreeTest,
     ::testing::ValuesIn(DumpAccessibilityTestBase::TreeTestPasses()),
     DumpAccessibilityTreeTestPassToString());
+
+#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
+INSTANTIATE_TEST_SUITE_P(
+    All,
+    DumpAccessibilityTreeWithMaterialDesignTest,
+    ::testing::ValuesIn(DumpAccessibilityTestBase::TreeTestPasses()),
+    DumpAccessibilityTreeTestPassToString());
+#endif
 
 INSTANTIATE_TEST_SUITE_P(
     All,
@@ -1970,17 +1993,13 @@ IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest,
   RunAriaTest(FILE_PATH_LITERAL("aria-tree-discontinuous.html"));
 }
 
-// TODO(crbug.com/367650908): Flaky on Linux and sanitizer bots.
-#if BUILDFLAG(IS_LINUX) || defined(ADDRESS_SANITIZER) || \
-    defined(LEAK_SANITIZER) || defined(MEMORY_SANITIZER)
-#define MAYBE_AccessibilityAriaTreeitemNestedInLists \
-  DISABLED_AccessibilityAriaTreeitemNestedInLists
-#else
-#define MAYBE_AccessibilityAriaTreeitemNestedInLists \
-  AccessibilityAriaTreeitemNestedInLists
-#endif
 IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest,
-                       MAYBE_AccessibilityAriaTreeitemNestedInLists) {
+                       AccessibilityAriaTreeitemNestedInLists) {
+  RunAriaTest(FILE_PATH_LITERAL("aria-treeitem-nested-in-lists.html"));
+}
+
+IN_PROC_BROWSER_TEST_P(YieldingParserDumpAccessibilityTreeTest,
+                       AccessibilityAriaTreeitemNestedInLists) {
   RunAriaTest(FILE_PATH_LITERAL("aria-treeitem-nested-in-lists.html"));
 }
 
@@ -2902,8 +2921,8 @@ IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest, AccessibilityImgMimeType) {
   RunHtmlTest(FILE_PATH_LITERAL("img-mime-type.png"));  // Open an image file.
 }
 
-IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest, AccessibilityInterestTarget) {
-  RunPopoverHintTest(FILE_PATH_LITERAL("interest-target.html"));
+IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest, AccessibilityInterestFor) {
+  RunPopoverHintTest(FILE_PATH_LITERAL("interest-for.html"));
 }
 
 IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest, AccessibilityInPageLinks) {
@@ -3297,6 +3316,11 @@ IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest, AccessibilityListItemLevel) {
 }
 
 IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest,
+                       AccessibilityListItemShadowDomLineNavigation) {
+  RunHtmlTest(FILE_PATH_LITERAL("list-item-shadow-dom-line-navigation.html"));
+}
+
+IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest,
                        AccessibilityListItemNestedDiv) {
   RunHtmlTest(FILE_PATH_LITERAL("list-item-nested-div.html"));
 }
@@ -3406,8 +3430,6 @@ IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest, AccessibilityMinRole) {
 IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest,
                        AccessibilityMinRoleTabbableGroup) {
   base::CommandLine::ForCurrentProcess()->AppendSwitchASCII(
-      switches::kEnableBlinkFeatures, "KeyboardFocusableScrollers");
-  base::CommandLine::ForCurrentProcess()->AppendSwitchASCII(
       switches::kEnableBlinkFeatures, "AccessibilityMinRoleTabbable");
   RunHtmlTest(FILE_PATH_LITERAL("min-role-tabbable-group.html"));
 }
@@ -3472,6 +3494,11 @@ IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest,
 
 IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest, AccessibilityNoscript) {
   RunHtmlTest(FILE_PATH_LITERAL("noscript.html"));
+}
+
+IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest,
+                       AccessibilityNextOnLineEmptyListItem) {
+  RunHtmlTest(FILE_PATH_LITERAL("next-on-line-empty-list-item.html"));
 }
 
 IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest, AccessibilityOl) {
@@ -4667,6 +4694,108 @@ IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest,
   RunCSSTest(FILE_PATH_LITERAL("interactivity-inert.html"));
 }
 
+#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
+IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeWithMaterialDesignTest,
+                       MaterialDesignButtons) {
+  RunMaterialDesignTest(FILE_PATH_LITERAL("buttons.html"));
+}
+
+IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeWithMaterialDesignTest,
+                       MaterialDesignIconButtons) {
+  RunMaterialDesignTest(FILE_PATH_LITERAL("icon-buttons.html"));
+}
+
+IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeWithMaterialDesignTest,
+                       MaterialDesignCheckboxes) {
+  RunMaterialDesignTest(FILE_PATH_LITERAL("checkboxes.html"));
+}
+
+IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeWithMaterialDesignTest,
+                       MaterialDesignRadioButtons) {
+  RunMaterialDesignTest(FILE_PATH_LITERAL("radio-buttons.html"));
+}
+
+IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeWithMaterialDesignTest,
+                       MaterialDesignSwitches) {
+  RunMaterialDesignTest(FILE_PATH_LITERAL("switches.html"));
+}
+
+IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeWithMaterialDesignTest,
+                       MaterialDesignTextFields) {
+  RunMaterialDesignTest(FILE_PATH_LITERAL("text-fields.html"));
+}
+
+IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeWithMaterialDesignTest,
+                       MaterialDesignSelect) {
+  RunMaterialDesignTest(FILE_PATH_LITERAL("select.html"));
+}
+
+IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeWithMaterialDesignTest,
+                       MaterialDesignSliders) {
+  RunMaterialDesignTest(FILE_PATH_LITERAL("sliders.html"));
+}
+
+IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeWithMaterialDesignTest,
+                       MaterialDesignProgress) {
+  RunMaterialDesignTest(FILE_PATH_LITERAL("progress.html"));
+}
+
+IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeWithMaterialDesignTest,
+                       MaterialDesignChipsAssist) {
+  RunMaterialDesignTest(FILE_PATH_LITERAL("chips-assist.html"));
+}
+
+IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeWithMaterialDesignTest,
+                       MaterialDesignChipsFilter) {
+  RunMaterialDesignTest(FILE_PATH_LITERAL("chips-filter.html"));
+}
+
+IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeWithMaterialDesignTest,
+                       MaterialDesignChipsInput) {
+  RunMaterialDesignTest(FILE_PATH_LITERAL("chips-input.html"));
+}
+
+IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeWithMaterialDesignTest,
+                       MaterialDesignChipsSuggestion) {
+  RunMaterialDesignTest(FILE_PATH_LITERAL("chips-suggestion.html"));
+}
+
+IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeWithMaterialDesignTest,
+                       MaterialDesignFAB) {
+  RunMaterialDesignTest(FILE_PATH_LITERAL("fab.html"));
+}
+
+IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeWithMaterialDesignTest,
+                       MaterialDesignCards) {
+  RunMaterialDesignTest(FILE_PATH_LITERAL("cards.html"));
+}
+
+IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeWithMaterialDesignTest,
+                       MaterialDesignDialogs) {
+  RunMaterialDesignTest(FILE_PATH_LITERAL("dialogs.html"));
+}
+
+IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeWithMaterialDesignTest,
+                       MaterialDesignList) {
+  RunMaterialDesignTest(FILE_PATH_LITERAL("list.html"));
+}
+
+IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeWithMaterialDesignTest,
+                       MaterialDesignMenu) {
+  RunMaterialDesignTest(FILE_PATH_LITERAL("menu.html"));
+}
+
+IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeWithMaterialDesignTest,
+                       MaterialDesignTabs) {
+  RunMaterialDesignTest(FILE_PATH_LITERAL("tabs.html"));
+}
+
+IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeWithMaterialDesignTest,
+                       MaterialDesignVersionInfo) {
+  RunMaterialDesignTest(FILE_PATH_LITERAL("version-info.html"));
+}
+
+#endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
 class DumpAccessibilityTreeWithCarouselTest : public DumpAccessibilityTreeTest {
   void SetUpCommandLine(base::CommandLine* command_line) override {
     DumpAccessibilityTreeTest::SetUpCommandLine(command_line);
@@ -4697,6 +4826,11 @@ IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeWithCarouselTest, CarouselNoTabs) {
 IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeWithCarouselTest,
                        CarouselWithTabs) {
   RunCSSTest(FILE_PATH_LITERAL("carousel-with-tabs.html"));
+}
+
+IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeWithCarouselTest,
+                       CarouselWithLinks) {
+  RunCSSTest(FILE_PATH_LITERAL("carousel-with-links.html"));
 }
 
 IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeWithCarouselTest,

@@ -37,15 +37,23 @@ constexpr base::TimeDelta kSmoothScrollDelay = base::Milliseconds(700);
 ScrollTool::ScrollTool(content::RenderFrame& frame,
                        Journal::TaskId task_id,
                        Journal& journal,
-                       mojom::ScrollActionPtr action)
-    : ToolBase(frame, task_id, journal), action_(std::move(action)) {}
+                       mojom::ScrollActionPtr action,
+                       mojom::ToolTargetPtr target,
+                       mojom::ObservedToolTargetPtr observed_target)
+    : ToolBase(frame,
+               task_id,
+               journal,
+               std::move(target),
+               std::move(observed_target)),
+      action_(std::move(action)) {}
 
 ScrollTool::~ScrollTool() = default;
 
-mojom::ActionResultPtr ScrollTool::Execute() {
+void ScrollTool::Execute(ToolFinishedCallback callback) {
   ValidatedResult validated_result = Validate();
   if (!validated_result.has_value()) {
-    return std::move(validated_result.error());
+    std::move(callback).Run(std::move(validated_result.error()));
+    return;
   }
 
   WebElement scrolling_element = validated_result->scroller;
@@ -61,20 +69,29 @@ mojom::ActionResultPtr ScrollTool::Execute() {
 
   targeting_smooth_scroller_ = scrolling_element.HasScrollBehaviorSmooth();
 
-  return did_scroll
-             ? MakeOkResult()
-             : MakeResult(mojom::ActionResultCode::kScrollOffsetDidNotChange);
+  journal_->Log(
+      task_id_, "ScrollTool::Execute",
+      absl::StrFormat("Scrolling element %s from %s by offset %s (CSS "
+                      "pixels). Smooth scroll: %v.",
+                      base::ToString(scrolling_element),
+                      start_offset_css.ToString(), offset_css.ToString(),
+                      targeting_smooth_scroller_));
+
+  std::move(callback).Run(
+      did_scroll
+          ? MakeOkResult()
+          : MakeResult(mojom::ActionResultCode::kScrollOffsetDidNotChange));
 }
 
 std::string ScrollTool::DebugString() const {
   return absl::StrFormat("ScrollTool[%s;direction(%s);distance(%f)]",
-                         ToDebugString(action_->target),
+                         ToDebugString(target_),
                          base::ToString(action_->direction), action_->distance);
 }
 
-base::TimeDelta ScrollTool::MinimumObservationDelay() const {
+base::TimeDelta ScrollTool::ExecutionObservationDelay() const {
   return targeting_smooth_scroller_ ? kSmoothScrollDelay
-                                    : ToolBase::MinimumObservationDelay();
+                                    : ToolBase::ExecutionObservationDelay();
 }
 
 ScrollTool::ValidatedResult ScrollTool::Validate() const {
@@ -88,13 +105,13 @@ ScrollTool::ValidatedResult ScrollTool::Validate() const {
         mojom::ActionResultCode::kArgumentsInvalid, "Negative Distance"));
   }
 
-  if (action_->target->is_coordinate()) {
+  if (target_->is_coordinate()) {
     NOTIMPLEMENTED() << "Coordinate-based target not yet supported.";
     return base::unexpected(MakeErrorResult());
   }
 
   WebElement scrolling_element;
-  int32_t dom_node_id = action_->target->get_dom_node_id();
+  int32_t dom_node_id = target_->get_dom_node_id();
   if (dom_node_id == kRootElementDomNodeId) {
     scrolling_element = web_frame->GetDocument().ScrollingElement();
     if (scrolling_element.IsNull()) {
@@ -102,12 +119,11 @@ ScrollTool::ValidatedResult ScrollTool::Validate() const {
           MakeResult(mojom::ActionResultCode::kScrollNoScrollingElement));
     }
   } else {
-    scrolling_element =
-        GetNodeFromId(frame_.get(), dom_node_id).DynamicTo<WebElement>();
-    if (scrolling_element.IsNull()) {
-      return base::unexpected(
-          MakeResult(mojom::ActionResultCode::kInvalidDomNodeId));
+    auto resolved_target = ValidateAndResolveTarget();
+    if (!resolved_target.has_value()) {
+      return base::unexpected(std::move(resolved_target.error()));
     }
+    scrolling_element = resolved_target->node.DynamicTo<WebElement>();
   }
 
   gfx::Vector2dF offset_physical;

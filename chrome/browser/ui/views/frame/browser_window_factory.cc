@@ -9,6 +9,8 @@
 #include "chrome/browser/ui/views/frame/browser_frame.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/frame/native_browser_frame_factory.h"
+#include "chrome/browser/ui/webui_browser/webui_browser.h"
+#include "chrome/browser/ui/webui_browser/webui_browser_window.h"
 #include "chrome/grit/branded_strings.h"
 #include "components/safe_browsing/core/browser/password_protection/metrics_util.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -35,6 +37,12 @@ BrowserWindow* BrowserWindow::CreateBrowserWindow(
     std::unique_ptr<Browser> browser,
     bool user_gesture,
     bool in_tab_dragging) {
+#if 0
+  if (webui_browser::IsWebUIBrowserEnabled() && browser->is_type_normal()) {
+    return new WebUIBrowserWindow(std::move(browser));
+  }
+#endif
+
 #if defined(USE_AURA)
   // Avoid generating too many occlusion tracking calculation events before this
   // function returns. The occlusion status will be computed only once once this

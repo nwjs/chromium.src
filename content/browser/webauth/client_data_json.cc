@@ -136,7 +136,11 @@ std::string BuildClientDataJson(ClientDataJsonParams params) {
       for (auto logo_iterator = logos.begin(); logo_iterator != logos.end();
            ++logo_iterator) {
         ret.append(R"({"url":)");
-        ret.append(ToJSONString((*logo_iterator)->url.spec()));
+        if ((*logo_iterator)->url.is_empty()) {
+          ret.append(R"("")");
+        } else {
+          ret.append(ToJSONString((*logo_iterator)->url.spec()));
+        }
         ret.append(R"(,"label":)");
         ret.append(ToJSONString((*logo_iterator)->label));
         ret.append("}");
@@ -163,9 +167,13 @@ std::string BuildClientDataJson(ClientDataJsonParams params) {
     ret.append(R"(,"displayName":)");
     ret.append(ToJSONString(params.payment_options->instrument->display_name));
 
-    if (!params.payment_options->instrument->details.empty()) {
+    if (params.payment_options->instrument->details.has_value()) {
+      // SPC calls should have been rejected if the details field was present
+      // but empty.
+      CHECK(!params.payment_options->instrument->details->empty());
+
       ret.append(R"(,"details":)");
-      ret.append(ToJSONString(params.payment_options->instrument->details));
+      ret.append(ToJSONString(*params.payment_options->instrument->details));
     }
 
     ret.append("}");

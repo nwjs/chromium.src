@@ -76,6 +76,13 @@ class RealtimeReportingClientBase : public KeyedService,
   // information.
   virtual std::string GetProfileIdentifier() = 0;
 
+  // Sub-methods called by ReportEventWithTimestamp() to provide content area
+  // account email.
+  virtual std::string GetContentAreaAccountEmail(const GURL& url) = 0;
+
+  // Returns whether device info should be reported for browser or profile.
+  virtual bool ShouldIncludeDeviceInfo(bool per_profile) = 0;
+
  protected:
   // Sub-method called by InitRealtimeReportingClient() to make appropriate
   // verifications and initialize the profile reporting client. Returns a policy
@@ -106,9 +113,6 @@ class RealtimeReportingClientBase : public KeyedService,
       policy::CloudPolicyClient* client,
       const ReportingSettings& settings) = 0;
 #endif
-
-  // Returns whether device info should be reported for browser or profile.
-  virtual bool ShouldIncludeDeviceInfo(bool per_profile) = 0;
 
   // Callback used with UploadSecurityEventReport() to upload events to the
   // reporting server.

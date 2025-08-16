@@ -74,8 +74,8 @@
         <template is="dom-if" if="[[enableIncognitoTrackingProtections_]]">
           <cr-link-row id="incognitoTrackingProtectionsLinkRow" class="hr"
               start-icon="settings:visibility-off"
-              label="$i18n{incognitoTrackingProtectionsPageTitle}"
-              sub-label="$i18n{incognitoTrackingProtectionsPageEntrypointDescription}"
+              label="$i18n{incognitoTrackingProtectionsPageEntrypointLabel}"
+              sub-label="$i18n{incognitoTrackingProtectionsPageEntrypointSublabel}"
               on-click="onIncognitoTrackingProtectionsClick_"
               role-description="$i18n{subpageArrowRoleDescription}">
           </cr-link-row>
@@ -105,6 +105,9 @@
             sub-label="$i18n{permissionsPageDescription}"
             on-click="onPermissionsPageClick_"
             role-description="$i18n{subpageArrowRoleDescription}"></cr-link-row>
+        <cr-toast id="deleteBrowsingDataToast" duration="5000">
+          <div>[[dbdDeletionConfirmationToastLabel_]]</div>
+        </cr-toast>
       </div>
 
       <template is="dom-if" route-path="/content/v8" no-search>
@@ -838,7 +841,7 @@
         </settings-subpage>
       </template>
       <template is="dom-if" route-path="/content/protectedContent" no-search>
-<if expr="not chromeos_ash and not is_win">
+<if expr="not is_chromeos and not is_win">
         <settings-subpage page-title="$i18n{siteSettingsProtectedContent}">
 </if>
 <if expr="is_chromeos or is_win">
@@ -1326,6 +1329,3 @@
         </template>
       </template>
     </settings-animated-pages>
-    <cr-toast id="deleteBrowsingDataToast" duration="5000">
-      <div>[[dbdDeletionConfirmationToastLabel_]]</div>
-    </cr-toast>

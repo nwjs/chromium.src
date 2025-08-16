@@ -213,6 +213,7 @@ component("base") {
     "bit_cast.h",
     "bits.h",
     "build_time.h",
+    "byte_count.h",
     "callback_list.cc",
     "callback_list.h",
     "cancelable_callback.h",
@@ -418,6 +419,13 @@ component("base") {
     "memory/weak_ptr.h",
     "memory/writable_shared_memory_region.cc",
     "memory/writable_shared_memory_region.h",
+    "memory_coordinator/async_memory_consumer_registration.cc",
+    "memory_coordinator/async_memory_consumer_registration.h",
+    "memory_coordinator/memory_consumer.cc",
+    "memory_coordinator/memory_consumer.h",
+    "memory_coordinator/memory_consumer_registry.cc",
+    "memory_coordinator/memory_consumer_registry.h",
+    "memory_coordinator/traits.h",
     "message_loop/io_watcher.cc",
     "message_loop/io_watcher.h",
     "message_loop/message_pump.cc",
@@ -1141,8 +1149,6 @@ component("base") {
     sources += [
       "android/android_hardware_buffer_compat.cc",
       "android/android_hardware_buffer_compat.h",
-      "android/android_image_reader_compat.cc",
-      "android/android_image_reader_compat.h",
       "android/android_info.cc",
       "android/android_info.h",
       "android/android_input_receiver_compat.cc",
@@ -1162,6 +1168,7 @@ component("base") {
       "android/bundle_utils.h",
       "android/child_process_binding_types.h",
       "android/child_process_service.cc",
+      "android/child_process_service.h",
       "android/content_uri_utils.cc",
       "android/content_uri_utils.h",
       "android/cpu_features.cc",
@@ -1224,7 +1231,13 @@ component("base") {
       "android/task_scheduler/task_traits_android.h",
       "android/thread_instruction_count.cc",
       "android/thread_instruction_count.h",
+      "android/virtual_document_path.cc",
+      "android/virtual_document_path.h",
+      "android/yield_to_looper_checker.cc",
+      "android/yield_to_looper_checker.h",
       "debug/stack_trace_android.cc",
+      "files/file_android.cc",
+      "files/file_android.h",
       "files/file_util_android.cc",
       "files/scoped_file_android.cc",
       "memory/platform_shared_memory_mapper_android.cc",
@@ -1277,6 +1290,7 @@ component("base") {
       ":process_launcher_jni",
       ":sys_utils_jni",
       ":tasks_jni",
+      ":virtual_document_path_jni",
       "//base/version_info/android:version_constants_bridge_jni",
       "//third_party/ashmem",
       "//third_party/cpu_features:ndk_compat",
@@ -1331,11 +1345,12 @@ component("base") {
   }
   if (is_android || is_robolectric) {
     sources += [
-      "android/base_jni_onload.cc",
-      "android/base_jni_onload.h",
+      "android/base_jni_init.cc",
+      "android/base_jni_init.h",
       "android/callback_android.cc",
       "android/callback_android.h",
       "android/command_line_android.cc",
+      "android/command_line_android.h",
       "android/int_string_callback.cc",
       "android/int_string_callback.h",
       "android/java_exception_reporter.cc",
@@ -1378,19 +1393,8 @@ component("base") {
       ":tasks_minimal_jni($default_toolchain)",
       "//build:robolectric_buildflags",
     ]
-    public_deps += [ "//third_party/jni_zero:jni_zero" ]
+    public_deps += [ "//third_party/jni_zero" ]
   }  # is_android || is_robolectric
-
-  if (is_android && !is_robolectric) {
-    # The robolectic toolchain doesn't provide the NDK headers required for data
-    # and function type definitions used by BinderApi et al.
-    sources += [
-      "android/binder.cc",
-      "android/binder.h",
-      "android/binder_box.cc",
-      "android/binder_box.h",
-    ]
-  }
 
   # Chromeos.
   if (is_chromeos) {
@@ -1730,6 +1734,8 @@ component("base") {
       "allocator/partition_alloc_features.h",
       "allocator/partition_alloc_support.cc",
       "allocator/partition_alloc_support.h",
+      "allocator/scheduler_loop_quarantine_config.cc",
+      "allocator/scheduler_loop_quarantine_config.h",
     ]
   }
   if (use_allocator_shim) {
@@ -2214,10 +2220,16 @@ component("base") {
         ]
       }
 
-      # We include launch_mac on simulator builds so unittests can fork. But,
-      # platforms like tvOS continue to use launch_ios since they do not support
-      # multi-processes.
-      if (target_environment == "simulator" && target_platform == "iphoneos") {
+      # We include launch_mac on simulator builds so unit and browser tests can
+      # fork.
+      # iOS-based platforms like tvOS need special treatment in launch_mac.cc
+      # due to some symbols being marked unavailable despite being present,
+      # which is why this condition is restricted to specific `target_platform`
+      # values.
+      # In all cases, this is restricted to simulator builds because App Store
+      # restrictions forbid the use of multiple processes in applications.
+      if (target_environment == "simulator" &&
+          (target_platform == "iphoneos" || target_platform == "tvos")) {
         sources += [
           "process/kill_mac.cc",
           "process/launch_mac.cc",
@@ -2350,7 +2362,12 @@ component("base") {
 
     # TODO(b/167763382) Find an alternate solution for Chromecast devices, since
     # adding the icui18n and icuuc deps significantly increases the binary size.
-    if (!is_castos && !is_cast_android) {
+    # This dependency was added to deal with Y2038 problem where time_t is
+    # represented via int32. However, Android builds specifically have time64
+    # headers which allows representing time as int64, which makes this entire
+    # problem moot. Hence, why `!is_cronet_build` flag has been added.
+    # See crbug.com/431972096#comment10 for more information.
+    if (!is_castos && !is_cast_android && !is_cronet_build) {
       sources += [ "time/time_exploded_icu.cc" ]
 
       # The ICU dependency is only needed on systems with a 32-bit time_t.
@@ -2507,6 +2524,18 @@ component("base") {
   if (!is_debug) {
     configs -= [ "//build/config/compiler:default_optimization" ]
     configs += [ "//build/config/compiler:optimize_max" ]
+  }
+}
+
+if (is_android) {
+  # This source_set must end up in the root component of a shared library, and
+  # the NativeInitializationHook definition must also be in the root component.
+  source_set("jni_onload") {
+    sources = [
+      "android/jni_onload.cc",
+      "android/jni_onload.h",
+    ]
+    deps = [ ":base" ]
   }
 }
 
@@ -3320,6 +3349,7 @@ test("base_unittests") {
     "bit_cast_unittest.cc",
     "bits_unittest.cc",
     "build_time_unittest.cc",
+    "byte_count_unittest.cc",
     "callback_list_unittest.cc",
     "cancelable_callback_unittest.cc",
     "check_is_test_unittest.cc",
@@ -3439,6 +3469,9 @@ test("base_unittests") {
     "memory/values_equivalent_unittest.cc",
     "memory/weak_auto_reset_unittest.cc",
     "memory/weak_ptr_unittest.cc",
+    "memory_coordinator/async_memory_consumer_registration_unittest.cc",
+    "memory_coordinator/memory_consumer_registry_unittest.cc",
+    "memory_coordinator/memory_consumer_unittest.cc",
     "message_loop/message_pump_glib_unittest.cc",
     "message_loop/message_pump_unittest.cc",
     "message_loop/work_id_provider_unittest.cc",
@@ -3713,6 +3746,10 @@ test("base_unittests") {
 
   fuzztests = [ "JSONReaderTest.CanParseAnythingWithoutCrashing" ]
 
+  if (is_clang) {
+    sources += [ "compiler_hardening_test.cc" ]
+  }
+
   defines = []
   frameworks = []
 
@@ -3974,7 +4011,6 @@ test("base_unittests") {
     sources += [
       "android/android_input_receiver_compat_unittest.cc",
       "android/application_status_listener_unittest.cc",
-      "android/binder_unittest.cc",
       "android/child_process_unittest.cc",
       "android/content_uri_utils_unittest.cc",
       "android/jank_metric_uma_recorder_unittest.cc",
@@ -4245,6 +4281,7 @@ test("base_unittests") {
       # TODO(crbug.com/40158212): Move partition_alloc tests into its repository.
       "allocator/partition_alloc_support_unittest.cc",
       "allocator/partition_allocator/src/partition_alloc/shim/allocator_shim_unittest.cc",
+      "allocator/scheduler_loop_quarantine_config_unittest.cc",
     ]
   }
 
@@ -4286,6 +4323,10 @@ test("base_unittests") {
   if (enable_nocompile_tests) {
     deps += [ ":base_nocompile_tests" ]
   }
+
+  # TODO(crbug.com/40031409): Fix code that adds exit-time destructors and
+  # enable the diagnostic by removing this line.
+  configs += [ "//build/config/compiler:no_exit_time_destructors" ]
 }
 
 # Test that CFG is enabled in Rust code.
@@ -4524,6 +4565,7 @@ if (is_android) {
       ":process_launcher_jni",
     ]
     deps = [
+      ":android_info_java",
       ":base_java",
       "//base/version_info/android:version_constants_java",
       "//third_party/android_deps:com_google_code_findbugs_jsr305_java",
@@ -5089,6 +5131,20 @@ if (is_android) {
     sources = [ "android/java/src/org/chromium/base/ContentUriUtils.java" ]
   }
 
+  generate_jni("virtual_document_path_jni") {
+    sources = [ "android/java/src/org/chromium/base/VirtualDocumentPath.java" ]
+  }
+  android_library("virtual_document_path_java") {
+    srcjar_deps = [ ":virtual_document_path_jni" ]
+    deps = [
+      ":log_java",
+      ":tasks_java",
+      "//third_party/androidx:androidx_annotation_annotation_jvm_java",
+      "//third_party/jni_zero:jni_zero_java",
+    ]
+    sources = [ "android/java/src/org/chromium/base/VirtualDocumentPath.java" ]
+  }
+
   android_library("activity_state_java") {
     srcjar_deps = [ ":application_status_enum_srcjar" ]
     sources = [
@@ -5208,6 +5264,8 @@ if (is_android) {
     sources = [
       "android/java/src/org/chromium/base/library_loader/IRelroLibInfo.aidl",
     ]
+    cpp_root_names = [ "RelroLibInfo" ]
+    cpp_package_name = "org/chromium/base/library_loader"
   }
 
   android_library("library_loader_java") {
@@ -5288,6 +5346,15 @@ if (is_android) {
     ]
   }
 
+  android_library("holder_java") {
+    sources = [ "android/java/src/org/chromium/base/Holder.java" ]
+
+    deps = [
+      ":callback_java",
+      ":supplier_java",
+    ]
+  }
+
   android_aidl("android_info_aidl") {
     import_include = [ "android/java/src" ]
     sources = [ "android/java/src/org/chromium/base/IAndroidInfo.aidl" ]
@@ -5316,6 +5383,18 @@ if (is_android) {
       "android/java/src/org/chromium/base/process_launcher/IFileDescriptorInfo.aidl",
       "android/java/src/org/chromium/base/process_launcher/IParentProcess.aidl",
     ]
+    cpp_root_names = [
+      "ChildProcessArgs",
+      "ChildProcessService",
+      "FileDescriptorInfo",
+      "ParentProcess",
+    ]
+    cpp_package_name = "org/chromium/base/process_launcher"
+    deps = [
+      ":android_info_aidl",
+      ":build_info_aidl",
+      ":relro_aidl",
+    ]
   }
 
   android_library("base_javatests") {
@@ -5325,6 +5404,7 @@ if (is_android) {
       ":base_java",
       ":base_java_test_support",
       ":base_java_test_support_uncommon",
+      ":virtual_document_path_java",
       "//base/test:test_support_java",
       "//third_party/androidx:androidx_annotation_annotation_java",
       "//third_party/androidx:androidx_test_monitor_java",
@@ -5332,7 +5412,7 @@ if (is_android) {
       "//third_party/androidx:androidx_test_runner_java",
       "//third_party/hamcrest:hamcrest_java",
       "//third_party/jni_zero:jni_zero_java",
-      "//third_party/junit:junit",
+      "//third_party/junit",
       "//third_party/mockito:mockito_java",
     ]
 
@@ -5351,6 +5431,7 @@ if (is_android) {
       "android/javatests/src/org/chromium/base/PackageUtilsTest.java",
       "android/javatests/src/org/chromium/base/StrictModeContextTest.java",
       "android/javatests/src/org/chromium/base/UserDataHostTest.java",
+      "android/javatests/src/org/chromium/base/VirtualDocumentPathTest.java",
       "android/javatests/src/org/chromium/base/jank_tracker/JankTrackerTest.java",
       "android/javatests/src/org/chromium/base/library_loader/EarlyNativeTest.java",
       "android/javatests/src/org/chromium/base/metrics/RecordHistogramTest.java",
@@ -5392,7 +5473,7 @@ if (is_android) {
       ":base_java",
       "//third_party/androidx:androidx_annotation_annotation_java",
       "//third_party/jni_zero:jni_zero_java",
-      "//third_party/junit:junit",
+      "//third_party/junit",
     ]
   }
 
@@ -5402,7 +5483,7 @@ if (is_android) {
     deps = [
       ":base_java",
       "//testing/android/instrumentation:test_runner_java",
-      "//third_party/accessibility_test_framework:accessibility_core_java",
+      "//third_party/android_deps:com_google_android_apps_common_testing_accessibility_framework_accessibility_test_framework_java",
       "//third_party/android_deps:com_google_code_findbugs_jsr305_java",
       "//third_party/android_deps:espresso_java",
       "//third_party/android_deps:guava_android_java",
@@ -5527,7 +5608,7 @@ if (is_android) {
       "//third_party/androidx:androidx_test_monitor_java",
       "//third_party/hamcrest:hamcrest_java",
       "//third_party/jni_zero:jni_zero_java",
-      "//third_party/junit:junit",
+      "//third_party/junit",
     ]
 
     srcjar_deps = [ ":base_java_test_support_uncommon_jni" ]
@@ -5579,7 +5660,7 @@ if (is_android) {
       "//third_party/androidx:androidx_test_monitor_java",
       "//third_party/hamcrest:hamcrest_java",
       "//third_party/jni_zero:jni_zero_java",
-      "//third_party/junit:junit",
+      "//third_party/junit",
     ]
   }
 
@@ -5719,6 +5800,7 @@ if (is_android) {
     deps = [
       ":base_java",
       ":content_uri_utils_java",
+      ":virtual_document_path_java",
       "//third_party/jni_zero:jni_zero_java",
     ]
     srcjar_deps = [ ":base_unittest_support_jni" ]

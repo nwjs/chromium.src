@@ -19,9 +19,11 @@ import android.widget.RemoteViews;
 
 import androidx.annotation.IntDef;
 import androidx.annotation.Px;
+import androidx.browser.customtabs.CustomContentAction;
 import androidx.browser.customtabs.CustomTabsIntent;
 import androidx.browser.customtabs.CustomTabsIntent.CloseButtonPosition;
 import androidx.browser.customtabs.CustomTabsIntent.OpenInBrowserState;
+import androidx.browser.customtabs.ExperimentalCustomContentAction;
 import androidx.browser.customtabs.ExperimentalOpenInBrowser;
 import androidx.browser.trusted.FileHandlingData;
 import androidx.browser.trusted.LaunchHandlerClientMode;
@@ -782,6 +784,14 @@ public abstract class BrowserServicesIntentDataProvider {
     }
 
     /**
+     * @return {@link List<CustomContentAction>} the developer defined contextual menu items.
+     */
+    @ExperimentalCustomContentAction
+    public List<CustomContentAction> getCustomContentActions() {
+        return List.of();
+    }
+
+    /**
      * @return if optional button on the toolbar can be shown.
      */
     public boolean isOptionalButtonSupported() {
@@ -797,9 +807,9 @@ public abstract class BrowserServicesIntentDataProvider {
     }
 
     /**
-     * @return the version of android_browser_helper, or null.
+     * @return the version code of android_browser_helper, or zero.
      */
-    public @Nullable Integer getAndroidBrowserHelperVersion() {
-        return null;
+    public int getAndroidBrowserHelperVersion() {
+        return 0;
     }
 }

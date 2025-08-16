@@ -94,7 +94,6 @@
 #include "components/metrics/expired_histogram_util.h"
 #include "components/metrics/metrics_service.h"
 #include "components/metrics/metrics_shutdown.h"
-#include "components/nacl/common/buildflags.h"
 #include "components/offline_pages/buildflags/buildflags.h"
 #include "components/policy/core/browser/policy_data_utils.h"
 #include "components/policy/core/common/cloud/machine_level_user_cloud_policy_manager.h"
@@ -111,6 +110,8 @@
 #include "components/variations/synthetic_trials_active_group_id_provider.h"
 #include "components/variations/variations_ids_provider.h"
 #include "content/public/browser/browser_thread.h"
+#include "content/public/browser/network_service_instance.h"
+#include "content/public/browser/network_service_util.h"
 #include "content/public/browser/synthetic_trial_syncer.h"
 #include "content/public/browser/web_ui_controller_factory.h"
 #include "content/public/common/content_features.h"
@@ -189,7 +190,7 @@
 #include "chrome/browser/headless/headless_mode_metrics.h"  // nogncheck
 #include "chrome/browser/headless/headless_mode_util.h"     // nogncheck
 #include "chrome/browser/metrics/desktop_session_duration/desktop_session_duration_tracker.h"
-#include "chrome/browser/metrics/desktop_session_duration/touch_mode_stats_tracker.h"
+#include "chrome/browser/metrics/desktop_session_duration/touch_ui_controller_stats_tracker.h"
 #include "chrome/browser/profiles/profile_activity_metrics_recorder.h"
 #include "components/headless/select_file_dialog/headless_select_file_dialog.h"
 #include "ui/base/pointer/touch_ui_controller.h"
@@ -240,12 +241,6 @@
 
 #if BUILDFLAG(ENABLE_EXTENSIONS)
 #include "extensions/components/javascript_dialog_extensions_client/javascript_dialog_extension_client_impl.h"
-#endif
-
-#if BUILDFLAG(ENABLE_NACL)
-#include "chrome/browser/nacl_host/nacl_browser_delegate_impl.h"
-#include "components/nacl/browser/nacl_browser.h"
-#include "components/nacl/browser/nacl_process_host.h"
 #endif
 
 #if BUILDFLAG(ENABLE_OFFLINE_PAGES)
@@ -1069,7 +1064,7 @@ int ChromeBrowserMainParts::PreCreateThreadsImpl() {
 #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
   metrics::DesktopSessionDurationTracker::Initialize();
   ProfileActivityMetricsRecorder::Initialize();
-  TouchModeStatsTracker::Initialize(
+  TouchUIControllerStatsTracker::Initialize(
       metrics::DesktopSessionDurationTracker::Get(),
       ui::TouchUiController::Get());
 #endif
@@ -1124,6 +1119,7 @@ int ChromeBrowserMainParts::PreCreateThreadsImpl() {
 }
 
 void ChromeBrowserMainParts::PostCreateThreads() {
+  TRACE_EVENT("startup", "ChromeBrowserMainParts::PostCreateThreads");
   // This task should be posted after the IO thread starts, and prior to the
   // base version of the function being invoked. It is functionally okay to post
   // this task in method ChromeBrowserMainParts::BrowserThreadsStarted() which
@@ -1145,6 +1141,23 @@ void ChromeBrowserMainParts::PostCreateThreads() {
       base::BindOnce(&tracing::TracingSamplerProfiler::
                          CreateOnChildThreadWithCustomUnwinders,
                      base::BindRepeating(&CreateCoreUnwindersFactory)));
+#else
+  if (content::IsInProcessNetworkService() &&
+      base::FeatureList::IsEnabled(content::kNetworkServiceDedicatedThread)) {
+    auto task_runner = content::GetNetworkTaskRunner();
+    // In some tests, we don't initialize the Network Service, so we check that
+    // here to avoid crashing.
+    //
+    // TODO(thiabaud): Make this more robust, regarding initialization order.
+    // The current implementation will silently fail if this is called before
+    // |GetNetworkService()| is called for the first time.
+    if (task_runner) {
+      task_runner->PostTask(
+          FROM_HERE,
+          base::BindOnce(&sampling_profiler::ThreadProfiler::StartOnChildThread,
+                         sampling_profiler::ProfilerThreadType::kNetwork));
+    }
+  }
 #endif
 
 #if BUILDFLAG(ENABLE_PROCESS_SINGLETON)
@@ -1521,13 +1534,6 @@ int ChromeBrowserMainParts::PreMainMessageLoopRunImpl() {
   // Desktop construction occurs here, (required before profile creation).
   PreProfileInit();
 
-#if BUILDFLAG(ENABLE_NACL)
-  // NaClBrowserDelegateImpl is accessed inside CreateInitialProfile().
-  // So make sure to create it before that.
-  nacl::NaClBrowser::SetDelegate(std::make_unique<NaClBrowserDelegateImpl>(
-      browser_process_->profile_manager()));
-#endif
-
   // This step is costly and is already measured in Startup.CreateFirstProfile
   // and more directly Profile.CreateAndInitializeProfile.
   StartupProfileInfo profile_info = CreateInitialProfile(
@@ -1681,10 +1687,6 @@ int ChromeBrowserMainParts::PreMainMessageLoopRunImpl() {
 
 #if BUILDFLAG(ENABLE_OFFLINE_PAGES)
   offline_pages::OfflinePageInfoHandler::Register();
-#endif
-
-#if BUILDFLAG(ENABLE_NACL)
-  nacl::NaClProcessHost::EarlyStartup();
 #endif
 
   PreBrowserStart();

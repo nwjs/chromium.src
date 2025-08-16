@@ -38,11 +38,8 @@
 #include "third_party/blink/renderer/platform/heap/member.h"
 #include "third_party/blink/renderer/platform/heap/visitor.h"
 #include "third_party/blink/renderer/platform/wtf/bit_field.h"
+#include "third_party/blink/renderer/platform/wtf/forward.h"
 #include "third_party/blink/renderer/platform/wtf/gc_plugin.h"
-
-namespace WTF {
-class StringBuilder;
-}  // namespace WTF
 
 namespace blink {
 
@@ -261,7 +258,6 @@ class CORE_EXPORT CSSSelector {
     kPseudoFocusWithin,
     kPseudoFullPageMedia,
     kPseudoHasInterest,
-    kPseudoHasPartialInterest,
     kPseudoHasSlotted,
     kPseudoHorizontal,
     kPseudoHover,
@@ -316,7 +312,6 @@ class CORE_EXPORT CSSSelector {
     kPseudoState,
     kPseudoTarget,
     kPseudoTargetOfInterest,
-    kPseudoTargetOfPartialInterest,
     kPseudoUnknown,
     // Something that was unparsable, but contained either a nesting
     // selector (&), or a :scope pseudo-class, and must therefore be kept
@@ -365,6 +360,7 @@ class CORE_EXPORT CSSSelector {
     kPseudoMultiSelectFocus,
     kPseudoOpen,
     kPseudoPastCue,
+    kPseudoPatching,
     kPseudoPopoverInTopLayer,
     kPseudoPopoverOpen,
     kPseudoRelativeAnchor,
@@ -642,7 +638,7 @@ class CORE_EXPORT CSSSelector {
   // and these could happen concurrently. This trips up TSan,
   // even though the race is benign, so use an atomic read
   // instead of C++ bitfields.
-  using BitField = WTF::ConcurrentlyReadBitField<uint32_t>;
+  using BitField = ConcurrentlyReadBitField<uint32_t>;
   using RelationField =
       BitField::DefineFirstValue<uint32_t, 4>;  // RelationType
   using MatchField = RelationField::DefineNextValue<uint32_t, 4>;  // MatchType
@@ -701,16 +697,16 @@ class CORE_EXPORT CSSSelector {
   unsigned SpecificityForPage() const;
 
   template <bool expand_pseudo_references>
-  bool SerializeSimpleSelector(WTF::StringBuilder& builder,
+  bool SerializeSimpleSelector(StringBuilder& builder,
                                uintptr_t scope_id) const;
 
   template <bool expand_pseudo_references>
-  const CSSSelector* SerializeCompound(WTF::StringBuilder&,
+  const CSSSelector* SerializeCompound(StringBuilder&,
                                        uintptr_t scope_id) const;
 
   template <bool expand_pseudo_references>
   static void SerializeSelectorList(const CSSSelectorList* selector_list,
-                                    WTF::StringBuilder& builder,
+                                    StringBuilder& builder,
                                     uintptr_t scope_id);
 
   template <bool expand_pseudo_references>
@@ -1036,15 +1032,13 @@ CSSSelector::RelationType ConvertRelationToRelative(
 // list, e.g. :is(), :where() etc.
 unsigned MaximumSpecificity(const CSSSelector* first_selector);
 
-}  // namespace blink
-
-namespace WTF {
 template <>
-struct VectorTraits<blink::CSSSelector> : VectorTraitsBase<blink::CSSSelector> {
+struct VectorTraits<CSSSelector> : VectorTraitsBase<CSSSelector> {
   static const bool kCanInitializeWithMemset = true;
   static const bool kCanClearUnusedSlotsWithMemset = true;
   static const bool kCanMoveWithMemcpy = true;
 };
-}  // namespace WTF
+
+}  // namespace blink
 
 #endif  // THIRD_PARTY_BLINK_RENDERER_CORE_CSS_CSS_SELECTOR_H_

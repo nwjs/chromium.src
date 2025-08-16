@@ -29,7 +29,9 @@
 #include "content/public/common/content_features.h"
 #include "content/public/common/content_switches.h"
 #include "device/vr/buildflags/buildflags.h"
+#include "net/base/features.h"
 #include "services/network/public/cpp/features.h"
+#include "ui/android/ui_android_features.h"
 #include "url/origin.h"
 
 // Must come after all headers that specialize FromJniType() / ToJniType().
@@ -63,7 +65,7 @@ static jlong JNI_PageInfoController_Init(
 
 PageInfoControllerAndroid::PageInfoControllerAndroid(
     JNIEnv* env,
-    jobject java_page_info_pop,
+    const base::android::JavaRef<jobject>& java_page_info_pop,
     content::WebContents* web_contents) {
   content::NavigationEntry* nav_entry =
       web_contents->GetController().GetVisibleEntry();
@@ -83,22 +85,16 @@ PageInfoControllerAndroid::PageInfoControllerAndroid(
 
 PageInfoControllerAndroid::~PageInfoControllerAndroid() = default;
 
-void PageInfoControllerAndroid::Destroy(JNIEnv* env,
-                                        const JavaParamRef<jobject>& obj) {
+void PageInfoControllerAndroid::Destroy(JNIEnv* env) {
   delete this;
 }
 
-void PageInfoControllerAndroid::RecordPageInfoAction(
-    JNIEnv* env,
-    const JavaParamRef<jobject>& obj,
-    jint action) {
+void PageInfoControllerAndroid::RecordPageInfoAction(JNIEnv* env, jint action) {
   presenter_->RecordPageInfoAction(
       static_cast<page_info::PageInfoAction>(action));
 }
 
-void PageInfoControllerAndroid::UpdatePermissions(
-    JNIEnv* env,
-    const JavaParamRef<jobject>& obj) {
+void PageInfoControllerAndroid::UpdatePermissions(JNIEnv* env) {
   presenter_->UpdatePermissions();
 }
 
@@ -107,6 +103,22 @@ void PageInfoControllerAndroid::SetIdentityInfo(
   JNIEnv* env = base::android::AttachCurrentThread();
   std::unique_ptr<PageInfoUI::SecurityDescription> security_description =
       GetSecurityDescription(identity_info);
+
+  if (base::FeatureList::IsEnabled(net::features::kVerifyQWACs)) {
+    if (security_description->summary_style == SecuritySummaryColor::GREEN) {
+      // Have the controller set up the button that will show the connection
+      // security subpage.
+      Java_PageInfoController_showOpenSecurityPageButton(
+          env, controller_jobject_,
+          ConvertUTF16ToJavaString(env, security_description->summary));
+    } else {
+      // Have the controller add the connection security UI directly to the page
+      // info UI.
+      Java_PageInfoController_showConnectionSecurityInfo(env,
+                                                         controller_jobject_);
+    }
+    return;
+  }
 
   Java_PageInfoController_setSecurityDescription(
       env, controller_jobject_,
@@ -142,6 +154,9 @@ void PageInfoControllerAndroid::SetPermissionInfo(
   permissions_to_display.push_back(ContentSettingsType::IMAGES);
   permissions_to_display.push_back(ContentSettingsType::JAVASCRIPT);
   permissions_to_display.push_back(ContentSettingsType::POPUPS);
+  if (base::FeatureList::IsEnabled(ui::kAndroidWindowManagementWebApi)) {
+    permissions_to_display.push_back(ContentSettingsType::WINDOW_MANAGEMENT);
+  }
   permissions_to_display.push_back(ContentSettingsType::ADS);
   permissions_to_display.push_back(
       ContentSettingsType::PROTECTED_MEDIA_IDENTIFIER);

@@ -20,7 +20,7 @@ void FakeLocalFrameHost::Init(blink::AssociatedInterfaceProvider* provider) {
   provider->OverrideBinderForTesting(
       mojom::blink::LocalFrameHost::Name_,
       WTF::BindRepeating(&FakeLocalFrameHost::BindFrameHostReceiver,
-                         base::Unretained(this)));
+                         WTF::Unretained(this)));
 }
 
 void FakeLocalFrameHost::EnterFullscreen(
@@ -322,6 +322,19 @@ void FakeLocalFrameHost::NotifyStorageAccessed(
 void FakeLocalFrameHost::RecordWindowProxyUsageMetrics(
     const blink::FrameToken& target_frame_token,
     blink::mojom::WindowProxyAccessType access_type) {}
+
+void FakeLocalFrameHost::InitializeCrashReportStorage(
+    uint64_t length,
+    InitializeCrashReportStorageCallback callback) {}
+
+void FakeLocalFrameHost::SetCrashReportStorageKey(
+    const WTF::String& key,
+    const WTF::String& value,
+    SetCrashReportStorageKeyCallback callback) {}
+
+void FakeLocalFrameHost::RemoveCrashReportStorageKey(
+    const WTF::String& key,
+    RemoveCrashReportStorageKeyCallback callback) {}
 
 void FakeLocalFrameHost::NotifyDocumentInteractive() {}
 

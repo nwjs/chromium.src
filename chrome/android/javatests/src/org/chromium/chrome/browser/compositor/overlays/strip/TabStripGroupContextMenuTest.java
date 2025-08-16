@@ -11,10 +11,14 @@ import static androidx.test.espresso.action.ViewActions.pressKey;
 import static androidx.test.espresso.action.ViewActions.replaceText;
 import static androidx.test.espresso.assertion.ViewAssertions.doesNotExist;
 import static androidx.test.espresso.assertion.ViewAssertions.matches;
+import static androidx.test.espresso.matcher.ViewMatchers.isDescendantOfA;
 import static androidx.test.espresso.matcher.ViewMatchers.isDisplayed;
+import static androidx.test.espresso.matcher.ViewMatchers.isFocused;
 import static androidx.test.espresso.matcher.ViewMatchers.isRoot;
 import static androidx.test.espresso.matcher.ViewMatchers.withContentDescription;
 import static androidx.test.espresso.matcher.ViewMatchers.withId;
+import static androidx.test.espresso.matcher.ViewMatchers.withParent;
+import static androidx.test.espresso.matcher.ViewMatchers.withParentIndex;
 import static androidx.test.espresso.matcher.ViewMatchers.withText;
 
 import static org.hamcrest.CoreMatchers.allOf;
@@ -86,7 +90,6 @@ public class TabStripGroupContextMenuTest {
             ChromeTransitTestRules.fastAutoResetCtaActivityRule();
 
     private StripLayoutHelper mStripLayoutHelper;
-    private int mRootId;
     private Token mTabGroupId;
     private ModalDialogManager mModalDialogManager;
 
@@ -359,7 +362,7 @@ public class TabStripGroupContextMenuTest {
         assertEquals(
                 "The default grey color should be selected",
                 TabGroupColorId.GREY,
-                tabGroupModelFilter.getTabGroupColor(mRootId));
+                tabGroupModelFilter.getTabGroupColor(mTabGroupId));
 
         // Select the blue color.
         String blueColor =
@@ -379,7 +382,7 @@ public class TabStripGroupContextMenuTest {
         assertEquals(
                 "The blue color should be selected",
                 TabGroupColorId.BLUE,
-                tabGroupModelFilter.getTabGroupColor(mRootId));
+                tabGroupModelFilter.getTabGroupColor(mTabGroupId));
     }
 
     @Test
@@ -391,17 +394,21 @@ public class TabStripGroupContextMenuTest {
         int numTabsBeforeClick = mActivityTestRule.getActivity().getCurrentTabModel().getCount();
         showMenu();
 
-        // Hit down arrow 3 times. The first time should highlight the text field; the next should
-        // highlight the color chooser row; the last should skip the divider and go to "add new tab
-        // in group".
-        for (int i = 0; i < 3; i++) {
-            // We need to use espresso to perform the key events.
-            // InstrumentationRegistry.getInstrumentation().sendKeySync() and
-            // activity.dispatchKeyEvent don't work.
-            onView(withId(R.id.tab_group_action_menu_list))
-                    .perform(pressKey(KeyEvent.KEYCODE_DPAD_DOWN));
-        }
-        onView(withId(R.id.tab_group_action_menu_list)).perform(pressKey(KeyEvent.KEYCODE_SPACE));
+        // Start with the edit text box. Click to focus, then hit down arrow.
+        onView(withId(R.id.tab_group_title)).perform(click());
+        onView(withId(R.id.tab_group_title)).perform(pressKey(KeyEvent.KEYCODE_DPAD_DOWN));
+        // One of the color picker circles should be focused.
+        onView(allOf(isDescendantOfA(withId(R.id.color_picker_container)), isFocused()))
+                .check(matches(isDisplayed()));
+        // Hit down arrow a 2nd time.
+        onView(isFocused()).perform(pressKey(KeyEvent.KEYCODE_DPAD_DOWN));
+        // TODO(crbug.com/385172744): This may need to be updated for color picker taking up 2 rows
+        // The second element of tab_group_action_menu_list should be focused (skip divider).
+        onView(allOf(withParent(withId(R.id.tab_group_action_menu_list)), withParentIndex(1)))
+                .check(matches(isFocused()));
+        // Now hit the button.
+        onView(isFocused()).perform(pressKey(KeyEvent.KEYCODE_SPACE));
+
         assertEquals(
                 numTabsBeforeClick + 1,
                 mActivityTestRule.getActivity().getCurrentTabModel().getCount());
@@ -501,7 +508,6 @@ public class TabStripGroupContextMenuTest {
         StripLayoutGroupTitle stripLayoutGroupTitle = ((StripLayoutGroupTitle) views[0]);
         float x = stripLayoutGroupTitle.getPaddedX();
         float y = stripLayoutGroupTitle.getPaddedY();
-        mRootId = stripLayoutGroupTitle.getRootId();
         mTabGroupId = stripLayoutGroupTitle.getTabGroupId();
 
         final StripLayoutHelperManager manager =

@@ -19,6 +19,8 @@ enum class AuthenticationOperation {
   // Operation to sign-in again with the previously signed-in account. The user
   // is presented with the SSOAuth dialog. This command can only be used if
   // there is no primary account.
+  // This is the only command whose view may be dismissed without the
+  // signin-completion being called, up to iOS18. See crbug.com/395959814.
   kResignin,
   // Operation to start a sign-in only operation. The user is presented with
   // the consistency web sign-in dialog.
@@ -148,6 +150,10 @@ enum class AuthenticationOperation {
 // The action to execute after a change of profile. Can be accessed only once.
 @property(nonatomic, readonly)
     const ChangeProfileContinuationProvider& changeProfileContinuationProvider;
+
+// Whether the identity snackbar must be displayed after a successful
+// HistorySyncSigninCoordinator. Default value: false.
+@property(nonatomic, assign) BOOL showSnackbar;
 
 @end
 

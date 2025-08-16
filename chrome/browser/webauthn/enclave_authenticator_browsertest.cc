@@ -29,6 +29,8 @@
 #include "base/strings/utf_string_conversions.h"
 #include "base/synchronization/condition_variable.h"
 #include "base/synchronization/lock.h"
+#include "base/test/metrics/histogram_tester.h"
+#include "base/test/scoped_feature_list.h"
 #include "base/test/scoped_logging_settings.h"
 #include "base/test/simple_test_clock.h"
 #include "base/test/simple_test_tick_clock.h"
@@ -58,6 +60,7 @@
 #include "chrome/grit/generated_resources.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
+#include "components/device_event_log/device_event_log.h"
 #include "components/password_manager/core/browser/password_form.h"
 #include "components/password_manager/core/browser/password_store/password_store_interface.h"
 #include "components/password_manager/core/common/password_manager_pref_names.h"
@@ -101,7 +104,7 @@
 #include "components/trusted_vault/icloud_recovery_key_mac.h"
 #include "components/trusted_vault/proto/vault.pb.h"
 #include "components/trusted_vault/proto_string_bytes_conversion.h"
-#include "crypto/scoped_fake_apple_keychain_v2.h"
+#include "crypto/apple/scoped_fake_keychain_v2.h"
 #include "device/fido/mac/fake_icloud_keychain.h"
 #endif  // BUILDFLAG(IS_MAC)
 
@@ -113,6 +116,75 @@
 namespace {
 
 using trusted_vault::MockTrustedVaultThrottlingConnection;
+
+static constexpr char kMakeCredentialLargeBlob[] = R"((() => {
+  return navigator.credentials.create({ publicKey: {
+    rp: { name: "www.example.com" },
+    user: { id: new Uint8Array([0]), name: "foo", displayName: "" },
+    pubKeyCredParams: [{ type: "public-key", alg: -7 }],
+    challenge: new Uint8Array([0]),
+    timeout: 10000,
+    authenticatorSelection: {
+      userVerification: "discouraged",
+      requireResidentKey: true
+    },
+    // Ask for large-blob support at registration time.
+    extensions: { largeBlob: { support: "preferred" } },
+  }}).then(c => {
+    const lb = c.getClientExtensionResults().largeBlob;
+    // Pass back the value we care about.
+    window.domAutomationController.send(
+        "largeblob " + (lb ? lb.supported : lb));
+  }, e => window.domAutomationController.send("error " + e));
+})())";
+
+static constexpr char kGetAssertionWriteLargeBlob[] = R"((() => {
+  const credIdB64 = "$1";
+  const blob      = new TextEncoder().encode("hello world");
+
+  // helper
+  const b64ToBuf = b64 => {
+    const bin = atob(b64);
+    const u8  = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; ++i) u8[i] = bin.charCodeAt(i);
+    return u8.buffer;
+  };
+
+  return navigator.credentials.get({ publicKey: {
+    challenge: new Uint8Array([0]),
+    timeout: 10000,
+    userVerification: "discouraged",
+    allowCredentials: [{ type: "public-key", id: b64ToBuf(credIdB64) }],
+    extensions: { largeBlob: { write: blob } },
+  }}).then(_ => window.domAutomationController.send("write ok"),
+           e  => window.domAutomationController.send("error " + e));
+})())";
+
+static constexpr char kGetAssertionReadLargeBlob[] = R"((() => {
+  const credIdB64 = "$1";
+
+  const b64ToBuf = b64 => {
+    const bin = atob(b64);
+    const u8  = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; ++i) u8[i] = bin.charCodeAt(i);
+    return u8.buffer;
+  };
+
+  return navigator.credentials.get({ publicKey: {
+    challenge: new Uint8Array([0]),
+    timeout: 10000,
+    userVerification: "discouraged",
+    allowCredentials: [{ type: "public-key", id: b64ToBuf(credIdB64) }],
+    extensions: { largeBlob: { read: true } },
+  }}).then(c => {
+      const lb = c.getClientExtensionResults().largeBlob;
+      const txt = lb && lb.blob
+                  ? new TextDecoder().decode(lb.blob)
+                  : "";
+      window.domAutomationController.send("read " + txt);
+    },
+    e => window.domAutomationController.send("error " + e));
+})())";
 
 static constexpr char kMakeCredentialUvDiscouraged[] = R"((() => {
   return navigator.credentials.create({ publicKey: {
@@ -328,6 +400,19 @@ static constexpr char kGetAssertionUvDiscouraged[] = R"((() => {
            e => window.domAutomationController.send('error ' + e));
 })())";
 
+static constexpr char kGetAssertionSecurityKey[] = R"((() => {
+  const credId = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16];
+  return navigator.credentials.get({ publicKey: {
+    challenge: new Uint8Array([0]),
+    timeout: 10000,
+    userVerification: 'discouraged',
+    allowCredentials: [
+      {type: 'public-key', id: new Uint8Array(credId), transports: ["usb"]}
+    ],
+  }}).then(c => window.domAutomationController.send('webauthn: OK'),
+           e => window.domAutomationController.send('error ' + e));
+})())";
+
 static constexpr char kGetAssertionCredId1[] = R"((() => {
   const credId = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16];
   return navigator.credentials.get({ publicKey: {
@@ -520,6 +605,13 @@ bool IsReady(GPMEnclaveController::AccountState state) {
   }
 }
 
+std::string GetDeviceLog() {
+  return device_event_log::GetAsString(
+      device_event_log::NEWEST_FIRST, /*format=*/"level",
+      /*types=*/"fido",
+      /*max_level=*/device_event_log::LOG_LEVEL_EVENT, /*max_events=*/0);
+}
+
 bool IsMechanismEnclaveCredential(
     const AuthenticatorRequestDialogModel::Mechanism& mechanism) {
   if (std::holds_alternative<
@@ -557,6 +649,8 @@ class EnclaveAuthenticatorBrowserTest : public EnclaveAuthenticatorTestBase {
       pre_tai_run_loop_->Run();
       pre_tai_run_loop_ = std::make_unique<base::RunLoop>();
     }
+
+    void RunMakeCredentialWithLargeBlobSupport(std::string* out_b64);
 
     void WaitForDelegateDestruction() {
       destruction_run_loop_->Run();
@@ -820,17 +914,6 @@ class EnclaveAuthenticatorBrowserTest : public EnclaveAuthenticatorTestBase {
   raw_ptr<ChromeAuthenticatorRequestDelegate> request_delegate_;
 };
 
-class EnclaveAuthenticatorWithTimeout : public EnclaveAuthenticatorBrowserTest {
- public:
-  EnclaveAuthenticatorWithTimeout() {
-    scoped_feature_list_.InitAndDisableFeature(
-        device::kWebAuthnNoAccountTimeout);
-  }
-
- private:
-  base::test::ScopedFeatureList scoped_feature_list_;
-};
-
 // Parses the string resulting from the Javascript snippets that exercise the
 // PRF extension.
 std::tuple<bool, std::string, std::string> ParsePrfResult(
@@ -927,6 +1010,9 @@ IN_PROC_BROWSER_TEST_F(EnclaveAuthenticatorBrowserTest,
   std::string script_result;
   ASSERT_TRUE(message_queue.WaitForMessage(&script_result));
   EXPECT_EQ(script_result, "\"webauthn: OK\"");
+
+  // Ensure the security domain secret is redacted from logs.
+  EXPECT_THAT(GetDeviceLog(), testing::HasSubstr("\"secret\": \"[redacted]\""));
 }
 
 IN_PROC_BROWSER_TEST_F(EnclaveAuthenticatorBrowserTest, NonWebauthnRequest) {
@@ -1029,6 +1115,9 @@ IN_PROC_BROWSER_TEST_F(EnclaveAuthenticatorBrowserTest, MakeCredentialWithPrf) {
   EXPECT_TRUE(enabled);
   EXPECT_EQ(first, "none");
   EXPECT_EQ(second, "none");
+
+  // Ensure the PRF is redacted from logs.
+  EXPECT_THAT(GetDeviceLog(), testing::HasSubstr("\"prf\": \"[redacted]\""));
 }
 
 IN_PROC_BROWSER_TEST_F(EnclaveAuthenticatorBrowserTest, GetAssertionWithPrf) {
@@ -1776,64 +1865,6 @@ IN_PROC_BROWSER_TEST_F(EnclaveAuthenticatorBrowserTest,
   dialog_model()->OnAccountPreselectedIndex(0);
 }
 
-// Tests tapping a passkey from autofill after the trusted vault service times
-// out. Regression test for crbug.com/343669719.
-IN_PROC_BROWSER_TEST_F(EnclaveAuthenticatorWithTimeout,
-                       SelectPasskeyAfterTimeout) {
-  SetVaultConnectionToTimeout();
-
-  // Execute a conditional UI request.
-  AddTestPasskeyToModel();
-  content::WebContents* web_contents =
-      browser()->tab_strip_model()->GetActiveWebContents();
-  content::DOMMessageQueue message_queue(web_contents);
-  content::ExecuteScriptAsync(web_contents, kGetAssertionConditionalUI);
-  delegate_observer()->WaitForUI();
-  EXPECT_EQ(dialog_model()->step(),
-            AuthenticatorRequestDialogModel::Step::kPasskeyAutofill);
-
-  // Have the request time out.
-  timer_task_runner_->FastForwardBy(
-      GPMEnclaveController::kDownloadAccountStateTimeout);
-  ASSERT_TRUE(model_observer()->loading_enclave_timed_out());
-
-  // Tap the passkey and expect an error.
-  model_observer()->SetStepToObserve(
-      AuthenticatorRequestDialogModel::Step::kGPMError);
-  dialog_model()->OnAccountPreselectedIndex(0);
-  model_observer()->WaitForStep();
-}
-
-// Tests a trusted vault service timeout after tapping a passkey from autofill.
-// Regression test for crbug.com/343669719.
-IN_PROC_BROWSER_TEST_F(EnclaveAuthenticatorWithTimeout,
-                       SelectPasskeyThenTimeout) {
-  SetVaultConnectionToTimeout();
-
-  // Execute a conditional UI request.
-  AddTestPasskeyToModel();
-  content::WebContents* web_contents =
-      browser()->tab_strip_model()->GetActiveWebContents();
-  content::DOMMessageQueue message_queue(web_contents);
-  content::ExecuteScriptAsync(web_contents, kGetAssertionConditionalUI);
-  delegate_observer()->WaitForUI();
-  EXPECT_EQ(dialog_model()->step(),
-            AuthenticatorRequestDialogModel::Step::kPasskeyAutofill);
-
-  // Tap the passkey. The step should be kPasskeyAutofill while autofill shows a
-  // loading indicator.
-  dialog_model()->OnAccountPreselectedIndex(0);
-  EXPECT_EQ(dialog_model()->step(),
-            AuthenticatorRequestDialogModel::Step::kPasskeyAutofill);
-
-  // Wait for the request to time out.
-  model_observer()->SetStepToObserve(
-      AuthenticatorRequestDialogModel::Step::kGPMError);
-  timer_task_runner_->FastForwardBy(
-      GPMEnclaveController::kDownloadAccountStateTimeout);
-  model_observer()->WaitForStep();
-}
-
 IN_PROC_BROWSER_TEST_F(EnclaveAuthenticatorBrowserTest, GpmEnclaveNeedsReauth) {
   // Set the account state to a recoverable signin error.
   auto* const identity_manager =
@@ -1882,6 +1913,35 @@ IN_PROC_BROWSER_TEST_F(EnclaveAuthenticatorBrowserTest, GpmEnclaveNeedsReauth) {
   EXPECT_TRUE(script_result.starts_with("\"error NotAllowedError"))
       << script_result;
   EXPECT_EQ(browser()->tab_strip_model()->GetTabCount(), 2);
+}
+
+IN_PROC_BROWSER_TEST_F(EnclaveAuthenticatorBrowserTest,
+                       NoReauthButtonForSecurityKeyRequests) {
+  // Set the account state to a recoverable signin error.
+  auto* const identity_manager =
+      IdentityManagerFactory::GetForProfile(browser()->profile());
+  CoreAccountId account =
+      identity_manager->GetPrimaryAccountId(signin::ConsentLevel::kSignin);
+  signin::UpdatePersistentErrorOfRefreshTokenForAccount(
+      identity_manager, account,
+      GoogleServiceAuthError(GoogleServiceAuthError::INVALID_GAIA_CREDENTIALS));
+
+  // Add a passkey to make sure it's not shown.
+  AddTestPasskeyToModel();
+
+  // Make a get assertion request that has a USB-only list of transports.
+  content::WebContents* web_contents =
+      browser()->tab_strip_model()->GetActiveWebContents();
+  content::DOMMessageQueue message_queue(web_contents);
+  content::ExecuteScriptAsync(web_contents, kGetAssertionSecurityKey);
+  delegate_observer()->WaitForUI();
+
+  // The reauth button should not be displayed.
+  EXPECT_FALSE(
+      std::ranges::any_of(dialog_model()->mechanisms, [](const auto& m) {
+        return std::holds_alternative<
+            AuthenticatorRequestDialogModel::Mechanism::SignInAgain>(m.type);
+      }));
 }
 
 // Tests that if the enclave is the default, but loading takes too long, the
@@ -2007,145 +2067,6 @@ IN_PROC_BROWSER_TEST_F(EnclaveAuthenticatorBrowserTest,
             AuthenticatorRequestDialogModel::Step::kGPMCreatePin);
 }
 
-IN_PROC_BROWSER_TEST_F(EnclaveAuthenticatorWithTimeout,
-                       SecurityDomainCheckTimesOut) {
-  EnableUVKeySupport();
-  SetTrustedVaultEmpty();
-
-  content::WebContents* web_contents =
-      browser()->tab_strip_model()->GetActiveWebContents();
-  content::DOMMessageQueue message_queue(web_contents);
-  content::ExecuteScriptAsync(web_contents, kMakeCredentialUvDiscouraged);
-  delegate_observer()->WaitForUI();
-
-  EXPECT_EQ(dialog_model()->step(),
-            AuthenticatorRequestDialogModel::Step::kGPMCreatePasskey);
-  EXPECT_EQ(request_delegate()
-                ->enclave_controller_for_testing()
-                ->account_state_for_testing(),
-            GPMEnclaveController::AccountState::kEmpty);
-  dialog_model()->OnGPMCreatePasskey();
-  EXPECT_EQ(dialog_model()->step(),
-            AuthenticatorRequestDialogModel::Step::kGPMCreatePin);
-  dialog_model()->OnGPMPinEntered(u"123456");
-
-  std::string script_result;
-  ASSERT_TRUE(message_queue.WaitForMessage(&script_result));
-  EXPECT_EQ(script_result, "\"webauthn: OK\"");
-
-  // Now set the security domain check to timeout. Chrome should operate
-  // normally.
-  SetVaultConnectionToTimeout();
-
-  // Wait for the transport availability to be enumerated. The UI won't be shown
-  // yet because the enclave is not ready.
-  content::ExecuteScriptAsync(web_contents, kMakeCredentialUvDiscouraged);
-  model_observer()->SetStepToObserve(
-      AuthenticatorRequestDialogModel::Step::kGPMConnecting);
-  delegate_observer()->WaitForPreTransportAvailabilityEnumerated();
-
-  // Make the enclave ready by having the account state download time out.
-  timer_task_runner_->FastForwardBy(
-      GPMEnclaveController::kDownloadAccountStateTimeout);
-  delegate_observer()->WaitForUI();
-
-  EXPECT_EQ(dialog_model()->step(),
-            AuthenticatorRequestDialogModel::Step::kGPMCreatePasskey);
-}
-
-// Tests that receiving partial data from the security domain server resets the
-// timeout timer.
-IN_PROC_BROWSER_TEST_F(EnclaveAuthenticatorWithTimeout,
-                       SecurityDomainKeepAlive) {
-  // Set up a trusted vault connection that lets us control the time it
-  // resolves.
-  base::OnceCallback<void(AuthenticationFactorsResult)> connection_cb;
-  base::RepeatingClosure keep_alive_cb;
-  auto connection = std::make_unique<
-      testing::NiceMock<MockTrustedVaultThrottlingConnection>>();
-  EXPECT_CALL(*connection, DownloadAuthenticationFactorsRegistrationState(
-                               testing::_, testing::_, testing::_))
-      .WillOnce(
-          [&connection_cb, &keep_alive_cb](
-              const CoreAccountInfo&,
-              base::OnceCallback<void(AuthenticationFactorsResult)> callback,
-              base::RepeatingClosure keep_alive) mutable {
-            connection_cb = std::move(callback);
-            keep_alive_cb = std::move(keep_alive);
-            return std::make_unique<
-                trusted_vault::TrustedVaultConnection::Request>();
-          });
-  GpmTrustedVaultConnectionProvider::SetOverrideForFrame(
-      browser()
-          ->tab_strip_model()
-          ->GetActiveWebContents()
-          ->GetPrimaryMainFrame(),
-      std::move(connection));
-
-  // Execute a make credential request.
-  content::WebContents* web_contents =
-      browser()->tab_strip_model()->GetActiveWebContents();
-  content::DOMMessageQueue message_queue(web_contents);
-  content::ExecuteScriptAsync(web_contents, kMakeCredentialUvDiscouraged);
-
-  // Wait for the transport availability to be enumerated. The UI won't be shown
-  // yet because the enclave is not ready.
-  delegate_observer()->WaitForPreTransportAvailabilityEnumerated();
-
-  // Wait for 75% of the time it takes to time out. We should still be waiting.
-  timer_task_runner_->FastForwardBy(
-      GPMEnclaveController::kDownloadAccountStateTimeout * 0.75);
-
-  // Pretend we downloaded data but there's more to receive.
-  keep_alive_cb.Run();
-  ASSERT_FALSE(delegate_observer()->ui_shown());
-
-  // Wait for 75% of the time again. If everything goes right, we should not
-  // have timed out yet.
-  timer_task_runner_->FastForwardBy(
-      GPMEnclaveController::kDownloadAccountStateTimeout * 0.75);
-  ASSERT_FALSE(delegate_observer()->ui_shown());
-
-  // Resolve the connection.
-  AuthenticationFactorsResult registration_state_result;
-  registration_state_result.state =
-      AuthenticationFactorsResult::State::kRecoverable;
-  registration_state_result.key_version = kSecretVersion;
-  std::move(connection_cb).Run(std::move(registration_state_result));
-  delegate_observer()->WaitForUI();
-  EXPECT_EQ(dialog_model()->step(),
-            AuthenticatorRequestDialogModel::Step::kTrustThisComputerCreation);
-}
-
-// Verifies that if the enclave activation takes a while and transport
-// enumeration completes, the request is still successful.
-IN_PROC_BROWSER_TEST_F(EnclaveAuthenticatorWithTimeout,
-                       DelayedEnclaveActivation) {
-  // Set up a trusted vault connection that lets us control the time it
-  // resolves, so enclave manager initialization can be delayed.
-  SetTrustedVaultSlowAndCacheCallback();
-
-  content::WebContents* web_contents =
-      browser()->tab_strip_model()->GetActiveWebContents();
-  content::DOMMessageQueue message_queue(web_contents);
-  content::ExecuteScriptAsync(web_contents, kMakeCredentialUvDiscouraged);
-
-  // Wait for the transport availability to be enumerated. The UI won't be shown
-  // yet because the enclave is not ready.
-  delegate_observer()->WaitForPreTransportAvailabilityEnumerated();
-
-  EXPECT_FALSE(
-      delegate_observer()->on_transport_availability_enumerated_called());
-  EXPECT_FALSE(delegate_observer()->ui_shown());
-  AuthenticationFactorsResult registration_state_result;
-  registration_state_result.state =
-      AuthenticationFactorsResult::State::kRecoverable;
-  registration_state_result.key_version = kSecretVersion;
-  std::move(cached_connection_cb()).Run(std::move(registration_state_result));
-
-  delegate_observer()->WaitForUI();
-}
-
 #if BUILDFLAG(IS_MAC)
 IN_PROC_BROWSER_TEST_F(EnclaveAuthenticatorBrowserTest, BiometricsInPWA) {
   // When requesting biometrics in a PWA, Touch ID should never be used.
@@ -2215,9 +2136,6 @@ IN_PROC_BROWSER_TEST_F(EnclaveAuthenticatorBrowserTest, BiometricsInPWA) {
 #endif
 IN_PROC_BROWSER_TEST_F(EnclaveAuthenticatorBrowserTest,
                        MAYBE_NoGpmForCrossPlatformAttachment) {
-  EnableUVKeySupport();
-  SetTrustedVaultRecoverable();
-
   content::WebContents* web_contents =
       browser()->tab_strip_model()->GetActiveWebContents();
   content::DOMMessageQueue message_queue(web_contents);
@@ -2229,8 +2147,7 @@ IN_PROC_BROWSER_TEST_F(EnclaveAuthenticatorBrowserTest,
         return std::holds_alternative<
             AuthenticatorRequestDialogModel::Mechanism::Enclave>(m.type);
       }));
-  EXPECT_TRUE(
-      request_delegate()->enclave_controller_for_testing()->is_active());
+  EXPECT_FALSE(request_delegate()->enclave_controller_for_testing());
 }
 
 #if BUILDFLAG(IS_WIN) && defined(ARCH_CPU_ARM64)
@@ -2728,7 +2645,7 @@ constexpr char kICloudKeychainRecoveryKeyAccessGroup[] =
 
 class EnclaveICloudRecoveryKeyTest : public EnclaveAuthenticatorBrowserTest {
  protected:
-  crypto::ScopedFakeAppleKeychainV2 scoped_fake_apple_keychain_{
+  crypto::apple::ScopedFakeKeychainV2 scoped_fake_keychain_{
       kICloudKeychainRecoveryKeyAccessGroup};
 };
 
@@ -2994,13 +2911,15 @@ IN_PROC_BROWSER_TEST_F(EnclaveICloudRecoveryKeyTest, DISABLED_Recovery) {
 #endif  // BUILDFLAG(IS_MAC)
 
 #if BUILDFLAG(IS_MAC)
-#define MAYBE_MakeCredentialDeclineGPM DISABLED_MakeCredentialDeclineGPM
+#define MAYBE_MakeCredentialDeclineGPMThenAccept \
+  DISABLED_MakeCredentialDeclineGPMThenAccept
 #else
-#define MAYBE_MakeCredentialDeclineGPM MakeCredentialDeclineGPM
+#define MAYBE_MakeCredentialDeclineGPMThenAccept \
+  MakeCredentialDeclineGPMThenAccept
 #endif
 // TODO(crbug.com/345308672): Failing on various Mac bots.
 IN_PROC_BROWSER_TEST_F(EnclaveAuthenticatorBrowserTest,
-                       MAYBE_MakeCredentialDeclineGPM) {
+                       MAYBE_MakeCredentialDeclineGPMThenAccept) {
   SetTrustedVaultEmpty();
   delegate_observer()->AddAdditionalTransport(
       device::FidoTransportProtocol::kInternal);
@@ -3028,7 +2947,7 @@ IN_PROC_BROWSER_TEST_F(EnclaveAuthenticatorBrowserTest,
   delegate_observer()->WaitForDelegateDestruction();
 
   // With the enclave configured, the next request should offer GPM as a
-  // priority mechanism for an attachment=platform request.
+  // priority mechanism for an attachment=platform request. Decline it.
   content::ExecuteScriptAsync(web_contents, kMakeCredentialAttachmentPlatform);
   delegate_observer()->WaitForUI();
   EXPECT_EQ(dialog_model()->step(),
@@ -3039,7 +2958,12 @@ IN_PROC_BROWSER_TEST_F(EnclaveAuthenticatorBrowserTest,
   model_observer()->WaitForStep();
   dialog_model()->CancelAuthenticatorRequest();
   delegate_observer()->WaitForDelegateDestruction();
+  EXPECT_EQ(
+      browser()->profile()->GetPrefs()->GetInteger(
+          webauthn::pref_names::kEnclaveDeclinedGPMCredentialCreationCount),
+      1);
 
+  // Decline a second time.
   content::ExecuteScriptAsync(web_contents, kMakeCredentialAttachmentPlatform);
   delegate_observer()->WaitForUI();
   EXPECT_EQ(dialog_model()->step(),
@@ -3050,6 +2974,10 @@ IN_PROC_BROWSER_TEST_F(EnclaveAuthenticatorBrowserTest,
   model_observer()->WaitForStep();
   dialog_model()->CancelAuthenticatorRequest();
   delegate_observer()->WaitForDelegateDestruction();
+  EXPECT_EQ(
+      browser()->profile()->GetPrefs()->GetInteger(
+          webauthn::pref_names::kEnclaveDeclinedGPMCredentialCreationCount),
+      2);
 
   // After backing out of GPM twice, the next attempt should default to
   // either mechanism selection or, on Mac, the custom platform authenticator
@@ -3058,6 +2986,30 @@ IN_PROC_BROWSER_TEST_F(EnclaveAuthenticatorBrowserTest,
   delegate_observer()->WaitForUI();
   EXPECT_EQ(dialog_model()->step(),
             AuthenticatorRequestDialogModel::Step::kMechanismSelection);
+
+  // Now, select GPM from the list and complete the creation.
+  dialog_model()->OnGPMSelected();
+  EXPECT_EQ(dialog_model()->step(),
+            AuthenticatorRequestDialogModel::Step::kGPMCreatePasskey);
+  EXPECT_EQ(request_delegate()
+                ->enclave_controller_for_testing()
+                ->account_state_for_testing(),
+            GPMEnclaveController::AccountState::kReady);
+  dialog_model()->OnGPMCreatePasskey();
+  ASSERT_TRUE(message_queue.WaitForMessage(&script_result));
+  delegate_observer()->WaitForDelegateDestruction();
+
+  // The decline count should be reset.
+  EXPECT_EQ(
+      browser()->profile()->GetPrefs()->GetInteger(
+          webauthn::pref_names::kEnclaveDeclinedGPMCredentialCreationCount),
+      0);
+
+  // The next request should have GPM as the priority again.
+  content::ExecuteScriptAsync(web_contents, kMakeCredentialAttachmentPlatform);
+  delegate_observer()->WaitForUI();
+  EXPECT_EQ(dialog_model()->step(),
+            AuthenticatorRequestDialogModel::Step::kGPMCreatePasskey);
   dialog_model()->CancelAuthenticatorRequest();
   delegate_observer()->WaitForDelegateDestruction();
 }
@@ -4073,6 +4025,128 @@ IN_PROC_BROWSER_TEST_F(EnclaveAuthenticatorImmediateMediationBrowserTest,
       "WebAuthentication.GetAssertion.Immediate.EnclaveReady",
       /*sample=*/false,
       /*expected_bucket_count=*/1);
+}
+
+IN_PROC_BROWSER_TEST_F(EnclaveAuthenticatorBrowserTest,
+                       MakeCredential_LargeBlobSupported) {
+  // New empty vault.
+  SetTrustedVaultEmpty();
+
+  content::WebContents* const web_contents =
+      browser()->tab_strip_model()->GetActiveWebContents();
+
+  // Start JS create() call.
+  content::DOMMessageQueue queue(web_contents);
+  content::ExecuteScriptAsync(web_contents, kMakeCredentialLargeBlob);
+
+  delegate_observer()->WaitForUI();
+  EXPECT_EQ(dialog_model()->step(),
+            AuthenticatorRequestDialogModel::Step::kGPMCreatePasskey);
+  dialog_model()->OnGPMCreatePasskey();
+  EXPECT_EQ(dialog_model()->step(),
+            AuthenticatorRequestDialogModel::Step::kGPMCreatePin);
+  dialog_model()->OnGPMPinEntered(u"123456");
+
+  // Collect the JS result and verify the extension bit.
+  std::string script_result;
+  ASSERT_TRUE(queue.WaitForMessage(&script_result));
+  EXPECT_EQ(script_result, "\"largeblob true\"");
+}
+
+IN_PROC_BROWSER_TEST_F(EnclaveAuthenticatorBrowserTest,
+                       GetAssertion_LargeBlobWriteThenRead) {
+  base::HistogramTester histogram_tester;
+
+  // New empty vault.
+  SetTrustedVaultEmpty();
+
+  content::WebContents* web_contents =
+      browser()->tab_strip_model()->GetActiveWebContents();
+  content::DOMMessageQueue queue(web_contents);
+  content::ExecuteScriptAsync(web_contents, kMakeCredentialLargeBlob);
+
+  delegate_observer()->WaitForUI();
+  EXPECT_EQ(dialog_model()->step(),
+            AuthenticatorRequestDialogModel::Step::kGPMCreatePasskey);
+  dialog_model()->OnGPMCreatePasskey();
+  EXPECT_EQ(dialog_model()->step(),
+            AuthenticatorRequestDialogModel::Step::kGPMCreatePin);
+  dialog_model()->OnGPMPinEntered(u"123456");
+
+  std::string script_result;
+  ASSERT_TRUE(queue.WaitForMessage(&script_result));
+  EXPECT_EQ(script_result, "\"largeblob true\"");
+
+  const auto passkeys = passkey_model()->GetAllPasskeys();
+  ASSERT_EQ(passkeys.size(), 1u);
+  const std::string cred_id_b64 =
+      base::Base64Encode(passkeys[0].credential_id());
+
+  auto run_get_and_confirm = [&](const std::string& js) {
+    content::DOMMessageQueue q(web_contents);
+    content::ExecuteScriptAsync(web_contents, js);
+
+    // Wait for Chrome UI.
+    delegate_observer()->WaitForUI();
+
+    EXPECT_EQ(dialog_model()->step(),
+              AuthenticatorRequestDialogModel::Step::kSelectPriorityMechanism);
+    dialog_model()->OnUserConfirmedPriorityMechanism();
+
+    // Collect the JS result.
+    std::string r;
+    CHECK(q.WaitForMessage(&r));
+    return r;
+  };
+
+  // Write the blob.
+  std::string write_js = base::ReplaceStringPlaceholders(
+      kGetAssertionWriteLargeBlob, {cred_id_b64}, nullptr);
+  EXPECT_EQ(run_get_and_confirm(write_js), "\"write ok\"");
+  histogram_tester.ExpectBucketCount(
+      "WebAuthentication.GPM.GetAssertion.LargeBlobSucceeded.Write",
+      /*sample=*/true, /*expected_count=*/1);
+
+  // Read it back and verify contents.
+  std::string read_js = base::ReplaceStringPlaceholders(
+      kGetAssertionReadLargeBlob, {cred_id_b64}, nullptr);
+  EXPECT_EQ(run_get_and_confirm(read_js), "\"read hello world\"");
+  histogram_tester.ExpectBucketCount(
+      "WebAuthentication.GPM.GetAssertion.LargeBlobSucceeded.Read",
+      /*sample=*/true, /*expected_count=*/1);
+
+  // Ensure the large blob is redacted from logs.
+  EXPECT_THAT(GetDeviceLog(),
+              testing::HasSubstr("\"largeBlob\": \"[redacted]\""));
+}
+
+// Disable large blob for GPM feature flag.
+class EnclaveLargeBlobFlagOffTest : public EnclaveAuthenticatorBrowserTest {
+ public:
+  EnclaveLargeBlobFlagOffTest() {
+    scoped_feature_list_.InitAndDisableFeature(
+        device::kWebAuthnLargeBlobForGPM);
+  }
+
+ private:
+  base::test::ScopedFeatureList scoped_feature_list_;
+};
+
+IN_PROC_BROWSER_TEST_F(EnclaveLargeBlobFlagOffTest,
+                       LargeBlobExtensionNotOfferedWhenFlagDisabled) {
+  SetTrustedVaultEmpty();
+  content::WebContents* wc =
+      browser()->tab_strip_model()->GetActiveWebContents();
+  content::DOMMessageQueue q(wc);
+  content::ExecuteScriptAsync(wc, kMakeCredentialLargeBlob);
+
+  delegate_observer()->WaitForUI();
+  dialog_model()->OnGPMCreatePasskey();
+  dialog_model()->OnGPMPinEntered(u"123456");
+
+  std::string result;
+  ASSERT_TRUE(q.WaitForMessage(&result));
+  EXPECT_EQ(result, "\"largeblob false\"");
 }
 
 }  // namespace

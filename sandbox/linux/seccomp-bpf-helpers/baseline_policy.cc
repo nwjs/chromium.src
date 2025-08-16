@@ -145,6 +145,7 @@ ResultExpr EvaluateSyscallImpl(int fs_denied_errno,
     return Allow();
   }
 
+
   if (SyscallSets::IsSockSendOneMsg(sysno)) {
     return RestrictSockSendFlags(sysno);
   }
@@ -239,11 +240,11 @@ ResultExpr EvaluateSyscallImpl(int fs_denied_errno,
   }
 
   if (sysno == __NR_madvise) {
-    // Only allow MADV_DONTNEED, MADV_RANDOM, MADV_REMOVE, MADV_NORMAL and
-    // MADV_FREE.
+    // Only allow MADV_DONTNEED, MADV_WILLNEED, MADV_RANDOM, MADV_REMOVE,
+    // MADV_NORMAL, and MADV_FREE.
     const Arg<int> advice(2);
-    return If(AnyOf(advice == MADV_DONTNEED, advice == MADV_RANDOM,
-                    advice == MADV_REMOVE,
+    return If(AnyOf(advice == MADV_DONTNEED, advice == MADV_WILLNEED,
+                    advice == MADV_RANDOM, advice == MADV_REMOVE,
                     advice == MADV_NORMAL
 #if defined(MADV_FREE)
                     // MADV_FREE was introduced in Linux 4.5 and started being
@@ -297,9 +298,10 @@ ResultExpr EvaluateSyscallImpl(int fs_denied_errno,
   }
 
   // memfd_create is considered a file system syscall which below will be denied
-  // with fs_denied_errno, we need memfd_create for Mojo shared memory channels.
+  // with fs_denied_errno, we need memfd_create for Mojo shared memory channels
+  // and general shared memory.
   if (sysno == __NR_memfd_create) {
-    return Allow();
+    return RestrictMemfdCreate();
   }
 
   // The fstatat syscalls are file system syscalls, which will be denied below

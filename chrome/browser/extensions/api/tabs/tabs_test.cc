@@ -53,7 +53,9 @@
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/tabs/saved_tab_groups/saved_tab_group_utils.h"
+#include "chrome/browser/ui/tabs/tab_list_interface.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
+#include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/web_applications/test/isolated_web_app_test_utils.h"
 #include "chrome/browser/ui/zoom/chrome_zoom_level_prefs.h"
 #include "chrome/browser/web_applications/isolated_web_apps/commands/install_isolated_web_app_command.h"
@@ -73,6 +75,7 @@
 #include "components/policy/core/common/policy_pref_names.h"
 #include "components/prefs/pref_service.h"
 #include "components/saved_tab_groups/public/tab_group_sync_service.h"
+#include "components/tabs/public/split_tab_id.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/storage_partition.h"
@@ -149,7 +152,7 @@ class TestFunctionDispatcherDelegate
 
  private:
   extensions::WindowController* GetExtensionWindowController() const override {
-    return browser_->GetFeatures().extension_window_controller();
+    return BrowserExtensionWindowController::From(browser_);
   }
 
   content::WebContents* GetAssociatedWebContents() const override {
@@ -1606,20 +1609,20 @@ IN_PROC_BROWSER_TEST_F(ExtensionTabsTest, DiscardedProperty) {
     EXPECT_EQ(0u, result.size());
   }
 
-  TabStripModel* tab_strip_model = browser()->tab_strip_model();
+  TabListInterface* tab_list = TabListInterface::From(browser());
 
   // Creates Tab object to ensure the property is correct for the extension.
   api::tabs::Tab tab_object_a = ExtensionTabUtil::CreateTabObject(
-      web_contents_a, kDontScrubBehavior, nullptr, tab_strip_model, 0);
+      web_contents_a, kDontScrubBehavior, nullptr, tab_list, 0);
   EXPECT_FALSE(tab_object_a.discarded);
 
   // Discards one tab.
   EXPECT_TRUE(tab_manager->DiscardTabByExtension(web_contents_a));
-  web_contents_a = tab_strip_model->GetWebContentsAt(1);
+  web_contents_a = browser()->tab_strip_model()->GetWebContentsAt(1);
 
   // Make sure the property is changed accordingly after discarding the tab.
   tab_object_a = ExtensionTabUtil::CreateTabObject(
-      web_contents_a, kDontScrubBehavior, nullptr, tab_strip_model, 0);
+      web_contents_a, kDontScrubBehavior, nullptr, tab_list, 0);
   EXPECT_TRUE(tab_object_a.discarded);
 
   // Get non-discarded tabs after discarding one tab.
@@ -1652,8 +1655,8 @@ IN_PROC_BROWSER_TEST_F(ExtensionTabsTest, DiscardedProperty) {
     ASSERT_EQ(1u, result.size());
 
     // Make sure the returned tab is the correct one.
-    int tab_id_c =
-        ExtensionTabUtil::GetTabId(tab_strip_model->GetWebContentsAt(0));
+    int tab_id_c = ExtensionTabUtil::GetTabId(
+        browser()->tab_strip_model()->GetWebContentsAt(0));
 
     ASSERT_TRUE(result[0].is_dict());
     std::optional<int> id = result[0].GetDict().FindInt(extension_misc::kId);
@@ -1669,7 +1672,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionTabsTest, DiscardedProperty) {
   }
 
   // Activates the first created tab.
-  tab_strip_model->ActivateTabAt(1);
+  browser()->tab_strip_model()->ActivateTabAt(1);
 
   // Get non-discarded tabs after activating a discarded tab.
   {
@@ -1803,9 +1806,8 @@ IN_PROC_BROWSER_TEST_F(ExtensionTabsTest, DiscardWithoutId) {
 }
 
 IN_PROC_BROWSER_TEST_F(ExtensionTabsTest, TestGroupDetachedAndReInserted) {
-  // This implicitly creates the `TabsEventRouter`, which is required to get a
-  // tab update event.
-  TabsWindowsAPI::Get(profile())->tabs_event_router();
+  // Create the `TabsEventRouter`, which is required to get a tab update event.
+  TabsWindowsAPI::Get(profile())->InitTabsEventRouter();
 
   chrome::AddTabAt(browser(), GURL(), -1, true);
   chrome::AddTabAt(browser(), GURL(), -1, true);
@@ -1830,6 +1832,46 @@ IN_PROC_BROWSER_TEST_F(ExtensionTabsTest, TestGroupDetachedAndReInserted) {
       std::move(detached_group), 1);
 
   // Group added as well as the tab's group changed event should be sent.
+  event_observer.WaitForEventWithName(api::tabs::OnUpdated::kEventName);
+  EXPECT_TRUE(base::Contains(event_observer.events(),
+                             api::tabs::OnUpdated::kEventName));
+}
+
+class ExtensionTabsWithSplitViewTest : public ExtensionTabsTest {
+ public:
+  ExtensionTabsWithSplitViewTest() {
+    scoped_feature_list_.InitAndEnableFeature(features::kSideBySide);
+  }
+
+ private:
+  base::test::ScopedFeatureList scoped_feature_list_;
+};
+
+IN_PROC_BROWSER_TEST_F(ExtensionTabsWithSplitViewTest,
+                       SplitViewAddedAndRemoved) {
+  // Create the `TabsEventRouter`, which is required to get a tab update event.
+  TabsWindowsAPI::Get(profile())->InitTabsEventRouter();
+
+  chrome::AddTabAt(browser(), GURL(), -1, true);
+  chrome::AddTabAt(browser(), GURL(), -1, true);
+  chrome::AddTabAt(browser(), GURL(), -1, true);
+
+  TestEventRouterObserver event_observer(
+      EventRouter::Get(browser()->profile()));
+
+  browser()->tab_strip_model()->ActivateTabAt(0);
+  split_tabs::SplitTabId split = browser()->tab_strip_model()->AddToNewSplit(
+      {1}, split_tabs::SplitTabVisualData(),
+      split_tabs::SplitTabCreatedSource());
+
+  event_observer.WaitForEventWithName(api::tabs::OnUpdated::kEventName);
+  EXPECT_TRUE(base::Contains(event_observer.events(),
+                             api::tabs::OnUpdated::kEventName));
+
+  event_observer.ClearEvents();
+
+  browser()->tab_strip_model()->RemoveSplit(split);
+
   event_observer.WaitForEventWithName(api::tabs::OnUpdated::kEventName);
   EXPECT_TRUE(base::Contains(event_observer.events(),
                              api::tabs::OnUpdated::kEventName));
@@ -1864,9 +1906,8 @@ IN_PROC_BROWSER_TEST_F(ExtensionTabsTest, Freezing) {
     }
   }
 
-  // This implicitly creates the `TabsEventRouter`, which is required to get a
-  // tab update event.
-  TabsWindowsAPI::Get(profile())->tabs_event_router();
+  // Create the `TabsEventRouter`, which is required to get a tab update event.
+  TabsWindowsAPI::Get(profile())->InitTabsEventRouter();
 
   // Freeze the background tab and wait for a tab update event.
   TestEventRouterObserver event_router_observer(EventRouter::Get(profile()));
@@ -1943,9 +1984,9 @@ IN_PROC_BROWSER_TEST_F(ExtensionTabsTest, AutoDiscardableProperty) {
       browser()->OpenURL(params, /*navigation_handle_callback=*/{});
 
   // Creates Tab object to ensure the property is correct for the extension.
-  TabStripModel* tab_strip_model = browser()->tab_strip_model();
+  TabListInterface* tab_list = TabListInterface::From(browser());
   api::tabs::Tab tab_object_a = ExtensionTabUtil::CreateTabObject(
-      web_contents_a, kDontScrubBehavior, nullptr, tab_strip_model, 0);
+      web_contents_a, kDontScrubBehavior, nullptr, tab_list, 0);
   EXPECT_TRUE(tab_object_a.auto_discardable);
 
   // Set up query and update functions with the extension.
@@ -1985,7 +2026,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionTabsTest, AutoDiscardableProperty) {
 
   // Make sure the property is changed accordingly after updating the tab.
   tab_object_a = ExtensionTabUtil::CreateTabObject(
-      web_contents_a, kDontScrubBehavior, nullptr, tab_strip_model, 0);
+      web_contents_a, kDontScrubBehavior, nullptr, tab_list, 0);
   EXPECT_FALSE(tab_object_a.auto_discardable);
 
   // Get auto-discardable tabs after changing the status of web contents A.
@@ -2019,7 +2060,8 @@ IN_PROC_BROWSER_TEST_F(ExtensionTabsTest, AutoDiscardableProperty) {
   std::optional<int> id_value =
       query_result[0].GetDict().FindInt(extension_misc::kId);
   ASSERT_TRUE(id_value);
-  EXPECT_EQ(ExtensionTabUtil::GetTabId(tab_strip_model->GetWebContentsAt(0)),
+  EXPECT_EQ(ExtensionTabUtil::GetTabId(
+                browser()->tab_strip_model()->GetWebContentsAt(0)),
             *id_value);
 
   // Get auto-discardable tabs after changing the status of both created tabs.
@@ -2560,7 +2602,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionApiTest, WindowsCreate_WithOpener) {
   ASSERT_TRUE(extension);
 
   // Navigate a tab to an extension page.
-  GURL extension_url = extension->ResolveExtensionURL("file.html");
+  GURL extension_url = extension->GetResourceURL("file.html");
   ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), extension_url));
   content::WebContents* old_contents =
       browser()->tab_strip_model()->GetActiveWebContents();
@@ -2632,7 +2674,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionApiTest, WindowsCreate_NoOpener) {
   ASSERT_TRUE(extension);
 
   // Navigate a tab to an extension page.
-  GURL extension_url = extension->ResolveExtensionURL("file.html");
+  GURL extension_url = extension->GetResourceURL("file.html");
   ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), extension_url));
   content::WebContents* old_contents =
       browser()->tab_strip_model()->GetActiveWebContents();
@@ -2672,7 +2714,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionApiTest, WindowsCreate_OpenerAndOrigin) {
   ASSERT_TRUE(extension);
 
   // Navigate a tab to an extension page.
-  GURL extension_url = extension->ResolveExtensionURL("file.html");
+  GURL extension_url = extension->GetResourceURL("file.html");
   ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), extension_url));
   content::WebContents* web_contents =
       browser()->tab_strip_model()->GetActiveWebContents();
@@ -2753,7 +2795,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionApiTest, TabsUpdate_WebToAboutBlank) {
   const extensions::Extension* extension =
       LoadExtension(test_data_dir_.AppendASCII("../simple_with_file"));
   ASSERT_TRUE(extension);
-  GURL extension_url = extension->ResolveExtensionURL("file.html");
+  GURL extension_url = extension->GetResourceURL("file.html");
   url::Origin extension_origin = url::Origin::Create(extension_url);
   GURL web_url = embedded_test_server()->GetURL("/title1.html");
   url::Origin web_origin = url::Origin::Create(web_url);
@@ -2813,7 +2855,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionApiTest, TabsUpdate_WebToAboutNewTab) {
   const extensions::Extension* extension =
       LoadExtension(test_data_dir_.AppendASCII("../simple_with_file"));
   ASSERT_TRUE(extension);
-  GURL extension_url = extension->ResolveExtensionURL("file.html");
+  GURL extension_url = extension->GetResourceURL("file.html");
   url::Origin extension_origin = url::Origin::Create(extension_url);
   GURL web_url = embedded_test_server()->GetURL("/title1.html");
   url::Origin web_origin = url::Origin::Create(web_url);
@@ -2873,7 +2915,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionApiTest, TabsUpdate_WebToNonWAR) {
   const extensions::Extension* extension =
       LoadExtension(test_data_dir_.AppendASCII("../simple_with_file"));
   ASSERT_TRUE(extension);
-  GURL extension_url = extension->ResolveExtensionURL("file.html");
+  GURL extension_url = extension->GetResourceURL("file.html");
   url::Origin extension_origin = url::Origin::Create(extension_url);
   GURL web_url = embedded_test_server()->GetURL("/title1.html");
   url::Origin web_origin = url::Origin::Create(web_url);

@@ -353,15 +353,13 @@ public class SyncErrorMessageTest {
     @LargeTest
     public void testSyncErrorMessageNotShownForUpmBackendOutdatedSignedInUsers() {
         // Sign in.
-        doReturn(true)
-                .when(mPasswordManagerUtilBridgeJniMock)
-                .isGmsCoreUpdateRequired(any(), any());
+        doReturn(true).when(mPasswordManagerUtilBridgeJniMock).isGmsCoreUpdateRequired(any());
         mSyncTestRule.setUpAccountAndSignInForTesting();
         @SyncSettingsUtils.SyncError
         int syncError =
                 ThreadUtils.runOnUiThreadBlocking(
                         () -> {
-                            return SyncSettingsUtils.getIdentityError(
+                            return SyncSettingsUtils.getSyncError(
                                     mSyncTestRule.getProfile(/* incognito= */ false));
                         });
         Assert.assertEquals(SyncSettingsUtils.SyncError.UPM_BACKEND_OUTDATED, syncError);

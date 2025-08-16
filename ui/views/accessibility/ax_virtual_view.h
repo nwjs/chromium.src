@@ -9,6 +9,7 @@
 
 #include <memory>
 #include <optional>
+#include <string>
 #include <vector>
 
 #include "base/functional/callback_forward.h"
@@ -123,6 +124,11 @@ class VIEWS_EXPORT AXVirtualView : public ViewAccessibility,
   gfx::NativeViewAccessible GetNativeObject() const override;
 
   Widget* GetWidget() const override;
+  // TODO(crbug.com/40672441): Rename to GetParent once ViewsAX is completed and
+  // AXVirtualView no longer needs to extend AXPlatformNodeDelegate.
+  ViewAccessibility* GetViewAccessibilityParent() const override;
+
+  std::string GetDebugString() const override;
 
   // ui::AXPlatformNodeDelegate. Note that
   // - Some of these functions have Mac-specific implementations in
@@ -150,6 +156,7 @@ class VIEWS_EXPORT AXVirtualView : public ViewAccessibility,
   bool AccessibilityPerformAction(const ui::AXActionData& data) override;
   bool ShouldIgnoreHoveredStateForTesting() override;
   bool IsOffscreen() const override;
+  ui::AXPlatformNodeId GetUniqueId() const override;
   gfx::AcceleratedWidget GetTargetForNativeAccessibilityEvent() override;
   std::vector<int32_t> GetColHeaderNodeIds() const override;
   std::vector<int32_t> GetColHeaderNodeIds(int col_index) const override;

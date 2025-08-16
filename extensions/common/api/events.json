@@ -121,7 +121,7 @@
             "description": "Registers rules to handle events.",
             "parameters": [
               {
-                "nodoc": "true",
+                "nodoc": true,
                 "name": "eventName",
                 "type": "string",
                 "description": "Name of the event this function affects."
@@ -160,7 +160,7 @@
             "description": "Returns currently registered rules.",
             "parameters": [
               {
-                "nodoc": "true",
+                "nodoc": true,
                 "name": "eventName",
                 "type": "string",
                 "description": "Name of the event this function affects."
@@ -199,7 +199,7 @@
             "description": "Unregisters currently registered rules.",
             "parameters": [
               {
-                "nodoc": "true",
+                "nodoc": true,
                 "name": "eventName",
                 "type": "string",
                 "description": "Name of the event this function affects."

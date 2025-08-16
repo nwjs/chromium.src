@@ -21,7 +21,6 @@
 #include "build/build_config.h"
 #include "build/buildflag.h"
 #include "build/robolectric_buildflags.h"
-#include "url/origin_debug.h"  // TODO(thestig): Remove.
 #include "url/scheme_host_port.h"
 
 #if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_ROBOLECTRIC)
@@ -45,11 +44,6 @@ namespace IPC {
 template <class P>
 struct ParamTraits;
 }  // namespace IPC
-
-namespace ipc_fuzzer {
-template <class T>
-struct FuzzTraits;
-}  // namespace ipc_fuzzer
 
 namespace mojo {
 template <typename DataViewType, typename T>
@@ -356,7 +350,6 @@ class COMPONENT_EXPORT(URL) Origin {
   friend class net::SchemefulSite;
   friend class OriginTest;
   friend struct mojo::UrlOriginAdapter;
-  friend struct ipc_fuzzer::FuzzTraits<Origin>;
   friend struct mojo::StructTraits<url::mojom::OriginDataView, url::Origin>;
   friend IPC::ParamTraits<url::Origin>;
   friend COMPONENT_EXPORT(URL) std::ostream& operator<<(std::ostream& out,

@@ -68,7 +68,7 @@ GURL IconsInfo::GetIconURL(const Extension* extension,
   const std::string& path =
       GetIcons(*extension, color_scheme).Get(size_in_px, match_type);
   return path.empty() ? GURL()
-                      : extension->ResolveExtensionURL(base::EscapePath(path));
+                      : extension->GetResourceURL(base::EscapePath(path));
 }
 
 bool IconsHandler::Parse(Extension* extension, std::u16string* error) {
@@ -82,7 +82,7 @@ bool IconsHandler::Parse(Extension* extension, std::u16string* error) {
 
   std::vector<std::string> warnings;
   if (!manifest_handler_helpers::LoadIconsFromDictionary(
-          *icons_dict, &icons_info->icons, error, &warnings)) {
+          *extension, *icons_dict, &icons_info->icons, error, &warnings)) {
     return false;
   }
   for (const auto& warning : warnings) {

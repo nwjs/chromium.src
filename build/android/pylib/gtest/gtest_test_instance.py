@@ -29,7 +29,6 @@ BROWSER_TEST_SUITES = [
     'android_sync_integration_tests',
     'components_browsertests',
     'content_browsertests',
-    'weblayer_browsertests',
 ]
 
 # The max number of tests to run on a batch during the test run.
@@ -689,8 +688,6 @@ class GtestTestInstance(test_instance.TestInstance):
         disabled_prefixes += ['MANUAL_']
       if not self._run_disabled:
         disabled_prefixes += ['DISABLED_', 'FLAKY_']
-      if not self._run_pre_tests:
-        disabled_prefixes += ['PRE_']
 
     disabled_filter_items += ['%s*' % dp for dp in disabled_prefixes]
     disabled_filter_items += ['*.%s*' % dp for dp in disabled_prefixes]

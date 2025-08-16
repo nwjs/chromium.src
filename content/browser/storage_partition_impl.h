@@ -47,7 +47,6 @@
 #include "services/network/public/mojom/device_bound_sessions.mojom.h"
 #include "services/network/public/mojom/network_context.mojom.h"
 #include "services/network/public/mojom/network_context_client.mojom.h"
-#include "storage/browser/blob/blob_url_registry.h"
 #include "storage/browser/quota/quota_client_type.h"
 #include "storage/browser/quota/quota_settings.h"
 #include "third_party/blink/public/common/storage_key/storage_key.h"
@@ -71,6 +70,7 @@ class DeviceBoundSessionAccessObserver;
 }  // namespace network
 
 namespace storage {
+class BlobUrlRegistry;
 struct BucketClientInfo;
 class SharedStorageManager;
 }
@@ -372,12 +372,6 @@ class CONTENT_EXPORT StoragePartitionImpl
       const scoped_refptr<net::HttpResponseHeaders>& head_headers,
       mojo::PendingRemote<network::mojom::AuthChallengeResponder>
           auth_challenge_responder) override;
-  void OnPrivateNetworkAccessPermissionRequired(
-      const GURL& url,
-      const net::IPAddress& ip_address,
-      const std::optional<std::string>& private_network_device_id,
-      const std::optional<std::string>& private_network_device_name,
-      OnPrivateNetworkAccessPermissionRequiredCallback callback) override;
   void OnLocalNetworkAccessPermissionRequired(
       OnLocalNetworkAccessPermissionRequiredCallback callback) override;
   void OnClearSiteData(

@@ -59,7 +59,6 @@
 
 namespace base::i18n {
 
-#if !BUILDFLAG(IS_NACL)
 namespace {
 
 #if DCHECK_IS_ON()
@@ -177,7 +176,8 @@ void LazyInitIcuDataFile() {
     return;
   }
 #endif  // !BUILDFLAG(IS_APPLE)
-  File file(data_path, File::FLAG_OPEN | File::FLAG_READ);
+  File file(data_path,
+            File::FLAG_OPEN | File::FLAG_READ | File::FLAG_WIN_SHARE_DELETE);
   if (file.IsValid()) {
     // TODO(brucedawson): http://crbug.com/445616.
     g_debug_icu_pf_last_error = 0;
@@ -450,7 +450,5 @@ void AllowMultipleInitializeCallsForTesting() {
   g_check_called_once = false;
 #endif
 }
-
-#endif  // !BUILDFLAG(IS_NACL)
 
 }  // namespace base::i18n

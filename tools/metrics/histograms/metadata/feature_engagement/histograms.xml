@@ -276,6 +276,8 @@ chromium-metrics-reviews@google.com.
       summary="default browser badge promo eligibility tracking"/>
   <variant name="IPH_iOSDefaultBrowserBannerPromoFeature"
       summary="iOS Default browser banner promo"/>
+  <variant name="IPH_iOSDefaultBrowserOffCyclePromo"
+      summary="showing the Default Browser off-cycle Promo on iOS"/>
   <variant name="IPH_iOSDefaultBrowserOverflowMenuBadge"
       summary="default browser badge promo on the overflow menu"/>
   <variant name="IPH_iOSDefaultBrowserSettingsBadge"
@@ -295,12 +297,20 @@ chromium-metrics-reviews@google.com.
       summary="Showing the static Feed Swipe IPH on iOS."/>
   <variant name="IPH_iOSHistoryOnOverflowMenuFeature"
       summary="history item on the overflow menu on iOS"/>
+  <variant name="IPH_iOSHomepageCustomizationNewBadge"
+      summary="showing the new badge IPH on the homepage customization menu
+               button"/>
+  <variant name="IPH_iOSHomepageLensNewBadge"
+      summary="showing the new badge IPH on the Lens entrypoint in the
+               homepage Omnibox"/>
   <variant name="IPH_iOSInlineEnhancedSafeBrowsingPromoFeature"
       summary="Showing the Enhanced Safe Browsing Promo on iOS"/>
   <variant name="IPH_iOSLensOverlayEntrypointTip"
       summary="IOS Lens overlay toolbar entrypoint"/>
   <variant name="IPH_iOSLensOverlayEscapeHatchTip"
       summary="IOS Lens overlay Escape Hatch"/>
+  <variant name="IPH_iOSOneTimeDefaultBrowserNotification"
+      summary="scheduling the One Time Default Browser notification on iOS"/>
   <variant name="IPH_iOSOverflowMenuCustomization"
       summary="overflow menu customization"/>
   <variant name="IPH_iOSPageActionMenu"
@@ -658,6 +668,8 @@ chromium-metrics-reviews@google.com.
       summary="tab switcher floating action button"/>
   <variant name="IPH_ToolbarManagementButton"
       summary="toolbar management button"/>
+  <variant name="IPH_TouchToSearchCallout"
+      summary="Touch to search IPH feature"/>
   <variant name="IPH_TrackingProtectionOffboarding"
       summary="(obsolete) tracking protection offboarding notice"/>
   <variant name="IPH_TrackingProtectionOnboarding"
@@ -721,7 +733,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="InProductHelp.Db.TotalEvents" units="events"
-    expires_after="2025-11-16">
+    expires_after="2026-01-18">
   <owner>nyquist@chromium.org</owner>
   <summary>
     Records the total number of event records in the database for in-product
@@ -760,7 +772,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="InProductHelp.Gestural.DismissalReason.iOS"
-    enum="InProductHelpDismissalReason" expires_after="2025-10-19">
+    enum="InProductHelpDismissalReason" expires_after="2025-12-21">
   <owner>ginnyhuang@chromium.org</owner>
   <owner>adamta@google.com</owner>
   <summary>
@@ -770,7 +782,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="InProductHelp.NotifyEventReadyState.{IPHFeature}"
-    enum="BooleanSuccess" expires_after="2025-11-16">
+    enum="BooleanSuccess" expires_after="2026-01-18">
   <owner>nyquist@chromium.org</owner>
   <summary>
     Records if the model is ready when in-product help event happens for
@@ -780,7 +792,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="InProductHelp.ShouldTriggerHelpUI.{IPHFeature}"
-    enum="TriggerHelpUIResult" expires_after="2025-11-16">
+    enum="TriggerHelpUIResult" expires_after="2026-01-18">
   <owner>nyquist@chromium.org</owner>
   <summary>
     Records if in-product help for {IPHFeature} is shown to the user, and the
@@ -792,7 +804,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="InProductHelp.ShownTime.{IPHFeature}" units="ms"
-    expires_after="2025-10-19">
+    expires_after="2025-12-21">
   <owner>lpromero@google.com</owner>
   <owner>gambard@chromium.org</owner>
   <summary>
@@ -805,7 +817,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="InProductHelp.ShownTime2.{IPHFeature}" units="ms"
-    expires_after="2025-10-26">
+    expires_after="2025-12-28">
   <owner>gayane@google.com</owner>
   <owner>lpromero@google.com</owner>
   <owner>gambard@chromium.org</owner>
@@ -900,7 +912,7 @@ In the future, Desktop IPH may be completely moved to the user_education folder.
 </histogram>
 
 <histogram name="UserEducation.MessageShown.TimeInQueue.{IPHFeature}"
-    units="ms" expires_after="2025-11-02">
+    units="ms" expires_after="2026-01-04">
   <owner>dfried@chromium.org</owner>
   <owner>frizzle-team@google.com</owner>
   <summary>
@@ -924,9 +936,6 @@ In the future, Desktop IPH may be completely moved to the user_education folder.
     be used to determine how deep in the rotation of rotating promos users are
     going, and also what proportion of users have seen a particular promo from a
     rotating promo set.
-
-    This replaces the deprecated histogram
-    &quot;UserEducation.MessageShown.RotatingPromoIndex&quot;.
   </summary>
   <token key="IPHFeature" variants="IPHFeature"/>
 </histogram>

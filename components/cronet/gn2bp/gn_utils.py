@@ -79,6 +79,19 @@ def _remove_out_prefix(label):
   return re.sub('^//out/.+?/(gen|obj)/', '', label)
 
 
+def _filter_defines(defines):
+  # These C++ defines are not actually used in code; Chromium only uses them to
+  # force rebuilds on rolls of certain dependencies. They don't hurt, per se,
+  # but they do create annoying diff noise on Android.bp files, so we drop them
+  # for aesthetic/convenience reasons.
+  EXCLUDED_DEFINES = {
+      "CR_CLANG_REVISION", "CR_LIBCXX_REVISION", "ANDROID_NDK_VERSION_ROLL"
+  }
+  return (define for define in defines if not any(
+      define.startswith(f"{excluded_define}=")
+      for excluded_define in EXCLUDED_DEFINES))
+
+
 class GnParser:
   """A parser with some cleverness for GN json desc files
 
@@ -539,7 +552,7 @@ class GnParser:
           raise ValueError(
               f"Unexpected android_sdk_dep: {android_sdk_dep} for target {target.name}"
           )
-    elif target.script == "//build/rust/run_bindgen.py":
+    elif target.script == "//build/rust/gni_impl/run_bindgen.py":
       # rust_bindgen is a supported module in Soong but GN depend on actions
       # so we need to copy the action fields (sources, outputs and args) in
       # order to correctly generate the `rust_bindgen` module.
@@ -613,7 +626,7 @@ class GnParser:
         desc.get('cflags', []) + desc.get('cflags_cc', []))
     target.arch[arch].libs.update(desc.get('libs', []))
     target.arch[arch].ldflags.update(desc.get('ldflags', []))
-    target.arch[arch].defines.update(desc.get('defines', []))
+    target.arch[arch].defines.update(_filter_defines(desc.get('defines', [])))
     target.arch[arch].include_dirs.update(desc.get('include_dirs', []))
     target.output_name = desc.get('output_name', None)
     target.crate_name = desc.get("crate_name", None)

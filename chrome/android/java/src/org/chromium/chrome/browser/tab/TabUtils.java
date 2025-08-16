@@ -50,8 +50,7 @@ import java.lang.annotation.RetentionPolicy;
 /** Collection of utility methods that operates on Tab. */
 @NullMarked
 public class TabUtils {
-    @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
-    public static final float PORTRAIT_THUMBNAIL_ASPECT_RATIO = 0.85f;
+    @VisibleForTesting public static final float PORTRAIT_THUMBNAIL_ASPECT_RATIO = 0.85f;
 
     /** Define the callers of NavigationControllerImpl#setUseDesktopUserAgent. */
     @IntDef({
@@ -118,7 +117,7 @@ public class TabUtils {
         return screenBounds;
     }
 
-    public static Tab fromWebContents(WebContents webContents) {
+    public static Tab fromWebContents(@Nullable WebContents webContents) {
         return TabImplJni.get().fromWebContents(webContents);
     }
 
@@ -195,18 +194,6 @@ public class TabUtils {
         }
         return WebsitePreferenceBridge.isContentSettingGlobal(
                 profile, ContentSettingsType.REQUEST_DESKTOP_SITE, url, url);
-    }
-
-    /**
-     * Check if Request Desktop Site global setting is enabled.
-     * @param profile The profile of the tab.
-     *        Content settings have separate storage for incognito profiles.
-     *        For site-specific exceptions the actual profile is needed.
-     * @return Whether the desktop site should be requested.
-     */
-    public static boolean isDesktopSiteGlobalEnabled(Profile profile) {
-        return WebsitePreferenceBridge.isCategoryEnabled(
-                profile, ContentSettingsType.REQUEST_DESKTOP_SITE);
     }
 
     /**
@@ -380,6 +367,15 @@ public class TabUtils {
                 || MediaCaptureDevicesDispatcherAndroid.isCapturingTab(webContents)
                 || MediaCaptureDevicesDispatcherAndroid.isCapturingWindow(webContents)
                 || MediaCaptureDevicesDispatcherAndroid.isCapturingScreen(webContents);
+    }
+
+    /** Pauses media for a tab. */
+    public static void pauseMedia(Tab tab) {
+        WebContents webContents = tab.getWebContents();
+        if (webContents != null) {
+            webContents.suspendAllMediaPlayers();
+            webContents.setAudioMuted(true);
+        }
     }
 
     private static int getThumbnailHeightDiff(Context context) {

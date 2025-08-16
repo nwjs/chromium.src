@@ -9,6 +9,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <string_view>
 
 #include "base/files/file_path.h"
 #include "base/memory/weak_ptr.h"
@@ -49,12 +50,18 @@ class BackingStoreTransactionImpl;
 // perform the actual database operations.
 class DatabaseConnection {
  public:
-  // Opens the SQL database for the IndexedDB database with `name` at
-  // `file_path`, creating it if it doesn't exist.
+  // Opens a connection to the specified database. When `name` is present, it
+  // will create a new DB if one does not exist. When `name` is null and a DB
+  // does not exist or is not already initialized, returns an error. When `path`
+  // is empty, the database will be opened in-memory.
   static StatusOr<std::unique_ptr<DatabaseConnection>> Open(
-      const std::u16string& name,
-      const base::FilePath& file_path,
+      std::optional<std::u16string_view> name,
+      base::FilePath path,
       BackingStoreImpl& backing_store);
+
+  // Destroys the DatabaseConnection pointed to by `db`, if appropriate, i.e. if
+  // `db` is the last weak pointer.
+  static void Release(base::WeakPtr<DatabaseConnection> db);
 
   DatabaseConnection(const DatabaseConnection&) = delete;
   DatabaseConnection& operator=(const DatabaseConnection&) = delete;
@@ -63,6 +70,21 @@ class DatabaseConnection {
   const blink::IndexedDBDatabaseMetadata& metadata() const { return metadata_; }
 
   base::WeakPtr<DatabaseConnection> GetWeakPtr();
+
+  // Gets the version of the database that is actually committed. This can be
+  // different from the version in `metadata_` during a version change
+  // transaction.
+  int64_t GetCommittedVersion() const;
+
+  // True when the database is in an early, partially initialized state,
+  // containing schema but no data. This will be true when the database is first
+  // created as well as when it's been deleted, but held open due to active blob
+  // references. Note that in the latter case, the database will contain data
+  // corresponding to active blobs, but no object stores, records, etc.
+  bool IsZygotic() const;
+
+  // Get the size of the database opened in-memory.
+  uint64_t GetInMemorySize() const;
 
   // Exposed to `BackingStoreDatabaseImpl`.
   std::unique_ptr<BackingStoreTransactionImpl> CreateTransaction(
@@ -82,6 +104,12 @@ class DatabaseConnection {
       const BackingStoreTransactionImpl& transaction);
   void RollBackTransaction(base::PassKey<BackingStoreTransactionImpl>,
                            const BackingStoreTransactionImpl& transaction);
+  // It's possible that a BackingStoreTransactionImpl is created, and Begin() is
+  // called, but it's never used. In this case, neither Commit nor Rollback will
+  // be called. This method will be called every time a transaction that was
+  // begun is being destroyed.
+  void EndTransaction(base::PassKey<BackingStoreTransactionImpl>,
+                      const BackingStoreTransactionImpl& transaction);
 
   Status SetDatabaseVersion(base::PassKey<BackingStoreTransactionImpl>,
                             int64_t version);
@@ -92,9 +120,19 @@ class DatabaseConnection {
                            bool auto_increment);
   Status DeleteObjectStore(base::PassKey<BackingStoreTransactionImpl>,
                            int64_t object_store_id);
+  Status RenameObjectStore(base::PassKey<BackingStoreTransactionImpl>,
+                           int64_t object_store_id,
+                           const std::u16string& new_name);
   Status CreateIndex(base::PassKey<BackingStoreTransactionImpl>,
                      int64_t object_store_id,
                      blink::IndexedDBIndexMetadata index);
+  Status DeleteIndex(base::PassKey<BackingStoreTransactionImpl>,
+                     int64_t object_store_id,
+                     int64_t index_id);
+  Status RenameIndex(base::PassKey<BackingStoreTransactionImpl>,
+                     int64_t object_store_id,
+                     int64_t index_id,
+                     const std::u16string& new_name);
 
   StatusOr<int64_t> GetKeyGeneratorCurrentNumber(
       base::PassKey<BackingStoreTransactionImpl>,
@@ -119,7 +157,11 @@ class DatabaseConnection {
       int64_t object_store_id,
       const blink::IndexedDBKey& key,
       IndexedDBValue value);
-  Status DeleteRange(int64_t object_store_id, const blink::IndexedDBKeyRange&);
+  Status DeleteRange(base::PassKey<BackingStoreTransactionImpl>,
+                     int64_t object_store_id,
+                     const blink::IndexedDBKeyRange&);
+  Status ClearObjectStore(base::PassKey<BackingStoreTransactionImpl>,
+                          int64_t object_store_id);
   StatusOr<uint32_t> GetObjectStoreKeyCount(
       base::PassKey<BackingStoreTransactionImpl>,
       int64_t object_store_id,
@@ -183,17 +225,11 @@ class DatabaseConnection {
                                                   int64_t record_row_id);
 
  private:
-  DatabaseConnection(std::unique_ptr<sql::Database> db,
+  DatabaseConnection(base::FilePath path,
+                     std::unique_ptr<sql::Database> db,
                      std::unique_ptr<sql::MetaTable> meta_table,
                      blink::IndexedDBDatabaseMetadata metadata,
                      BackingStoreImpl& backing_store);
-
-  // True when the database is in an early, partially initialized state,
-  // containing schema but no data. This will be true when the database is first
-  // created as well as when it's been deleted, but held open due to active blob
-  // references. Note that in the latter case, the database will contain data
-  // corresponding to active blobs, but no object stores, records, etc.
-  bool IsZygotic() const;
 
   bool HasActiveVersionChangeTransaction() const {
     return metadata_snapshot_.has_value();
@@ -206,6 +242,22 @@ class DatabaseConnection {
   // Called when a blob that was opened for reading stops being "active", i.e.
   // when `ActiveBlobStreamer` in `active_blobs_` no longer has connections.
   void OnBlobBecameInactive(int64_t blob_number);
+
+  // These methods add or remove rows to the `blob_references` table. The rows
+  // correspond to active blobs, i.e. the `record_row_id` will be null. These
+  // updates are made right away when `active_blobs_` is updated (an element is
+  // added or removed), and also after a transaction is rolled back which may
+  // have caused the loss of a `blob_references` update.
+  void AddActiveBlobReference(int64_t blob_number);
+  void RemoveActiveBlobReference(int64_t blob_number);
+
+  // The connection needs to be held open when there are active blobs or an
+  // active BackingStore::Database referencing it. This will return false if
+  // that's the case.
+  bool CanBeDestroyed() const;
+
+  // The expected path for `db_`, or empty for in-memory DBs.
+  const base::FilePath path_;
 
   std::unique_ptr<sql::Database> db_;
   std::unique_ptr<sql::MetaTable> meta_table_;
@@ -253,6 +305,13 @@ class DatabaseConnection {
   // blob has a corresponding entry in this map. These blobs must keep `this`
   // alive since they're backed by the SQLite database.
   std::map<int64_t, std::unique_ptr<ActiveBlobStreamer>> active_blobs_;
+
+  // Used to track when rolling back a transaction necessitates updating
+  // `blob_references`. Transaction rollback will affect `blob_references`
+  // updates that have been made since the transaction started, but we need that
+  // table to stay in sync with `active_blobs_` regardless of whether the
+  // transaction is ultimately committed or rolled back.
+  bool sync_active_blobs_after_transaction_ = false;
 
   // TODO(crbug.com/419203257): this should invalidate its weak pointers when
   // `db_` is closed.

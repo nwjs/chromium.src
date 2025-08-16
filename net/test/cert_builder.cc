@@ -2,11 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifdef UNSAFE_BUFFERS_BUILD
-// TODO(crbug.com/40284755): Remove this and spanify to fix the errors.
-#pragma allow_unsafe_buffers
-#endif
-
 #include "net/test/cert_builder.h"
 
 #include <algorithm>
@@ -18,6 +13,7 @@
 #include <utility>
 #include <vector>
 
+#include "base/compiler_specific.h"
 #include "base/containers/span.h"
 #include "base/files/file_path.h"
 #include "base/memory/ptr_util.h"
@@ -26,6 +22,7 @@
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
 #include "base/time/time.h"
+#include "crypto/evp.h"
 #include "crypto/hash.h"
 #include "crypto/keypair.h"
 #include "net/cert/asn1_util.h"
@@ -128,7 +125,7 @@ std::vector<uint8_t> FinishCBBToVector(CBB* cbb) {
   }
 
   bssl::UniquePtr<uint8_t> delete_bytes(cbb_bytes);
-  return std::vector<uint8_t>(cbb_bytes, cbb_bytes + cbb_len);
+  return std::vector<uint8_t>(cbb_bytes, UNSAFE_TODO(cbb_bytes + cbb_len));
 }
 
 }  // namespace
@@ -215,13 +212,10 @@ std::unique_ptr<CertBuilder> CertBuilder::FromSubjectPublicKeyInfo(
   DCHECK(issuer);
   auto builder = std::make_unique<CertBuilder>(/*orig_cert=*/nullptr, issuer);
 
-  CBS cbs;
-  CBS_init(&cbs, spki_der.data(), spki_der.size());
-  builder->key_ = bssl::UniquePtr<EVP_PKEY>(EVP_parse_public_key(&cbs));
-  // Check that there was no error in `EVP_parse_public_key` and that it
-  // consumed the entire public key.
-  if (!builder->key_ || (CBS_len(&cbs) != 0))
+  builder->key_ = crypto::evp::PublicKeyFromBytes(spki_der);
+  if (!builder->key_) {
     return nullptr;
+  }
 
   return builder;
 }
@@ -1412,12 +1406,9 @@ void CertBuilder::BuildSctListExtension(const std::string& pre_tbs_certificate,
   for (const SctConfig& sct_config : sct_configs_) {
     ct::SignedEntryData entry;
     entry.type = ct::SignedEntryData::LOG_ENTRY_TYPE_PRECERT;
-    bssl::ScopedCBB issuer_spki_cbb;
-    ASSERT_TRUE(CBB_init(issuer_spki_cbb.get(), 32));
-    ASSERT_TRUE(
-        EVP_marshal_public_key(issuer_spki_cbb.get(), issuer_->GetKey()));
-    entry.issuer_key_hash = crypto::hash::Sha256(
-        base::as_byte_span(FinishCBB(issuer_spki_cbb.get())));
+    std::vector<uint8_t> issuer_spki =
+        crypto::evp::PublicKeyToBytes(issuer_->GetKey());
+    entry.issuer_key_hash = crypto::hash::Sha256(issuer_spki);
     entry.tbs_certificate = pre_tbs_certificate;
 
     std::string serialized_log_entry;

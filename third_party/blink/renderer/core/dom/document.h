@@ -39,6 +39,7 @@
 #include "base/dcheck_is_on.h"
 #include "base/gtest_prod_util.h"
 #include "base/memory/scoped_refptr.h"
+#include "base/memory/stack_allocated.h"
 #include "base/time/time.h"
 #include "base/timer/elapsed_timer.h"
 #include "base/uuid.h"
@@ -95,7 +96,6 @@
 #include "third_party/blink/renderer/platform/timer.h"
 #include "third_party/blink/renderer/platform/weborigin/kurl.h"
 #include "third_party/blink/renderer/platform/wtf/casting.h"
-#include "third_party/blink/renderer/platform/wtf/gc_plugin.h"
 #include "third_party/blink/renderer/platform/wtf/hash_set.h"
 #include "third_party/perfetto/include/perfetto/tracing/traced_value_forward.h"
 
@@ -407,14 +407,6 @@ class CORE_EXPORT Document : public ContainerNode,
 
   bool HasDocumentPictureInPictureWindow() const;
 
-  void SetIsTrackingSoftNavigationHeuristics(bool value) {
-    is_tracking_soft_navigation_heuristics_ = value;
-  }
-
-  bool IsTrackingSoftNavigationHeuristics() const {
-    return is_tracking_soft_navigation_heuristics_;
-  }
-
   network::mojom::ReferrerPolicy GetReferrerPolicy() const;
 
   bool DocumentPolicyFeatureObserved(
@@ -501,7 +493,8 @@ class CORE_EXPORT Document : public ContainerNode,
   // autonomous custom elements and customized built-in elements.
   Element* CreateElement(const QualifiedName&,
                          const CreateElementFlags,
-                         const AtomicString& is);
+                         const AtomicString& is,
+                         CustomElementRegistry* custom_element_registry);
 
   Element* createElementNS(const AtomicString& namespace_uri,
                            const AtomicString& qualified_name,
@@ -511,8 +504,6 @@ class CORE_EXPORT Document : public ContainerNode,
       const AtomicString& qualified_name,
       const V8UnionElementCreationOptionsOrString* string_or_options,
       ExceptionState& exception_state);
-
-  CustomElementRegistry* customElementRegistry() const override;
 
   // Creates an element without custom element processing.
   Element* CreateRawElement(const QualifiedName&,
@@ -542,7 +533,6 @@ class CORE_EXPORT Document : public ContainerNode,
   // [1] https://drafts.csswg.org/scroll-animations-1/#avoiding-cycles
   Element* ScrollingElementNoLayout();
 
-  bool KeyboardFocusableScrollersEnabled();
   bool StandardizedBrowserZoomEnabled() const;
 
   V8DocumentReadyState readyState() const;
@@ -1521,7 +1511,7 @@ class CORE_EXPORT Document : public ContainerNode,
   bool AllowInlineEventHandler(Node*,
                                EventListener*,
                                const String& context_url,
-                               const WTF::OrdinalNumber& context_line);
+                               const OrdinalNumber& context_line);
 
   void StatePopped(scoped_refptr<SerializedScriptValue>);
 
@@ -2162,7 +2152,7 @@ class CORE_EXPORT Document : public ContainerNode,
 
   // https://github.com/whatwg/html/pull/9538
   static Document* parseHTMLUnsafe(ExecutionContext* context,
-                                   const String& html,
+                                   const V8UnionStringOrTrustedHTML* html,
                                    ExceptionState& exception_state);
 
   // https://wicg.github.io/sanitizer-api/#framework
@@ -2171,7 +2161,7 @@ class CORE_EXPORT Document : public ContainerNode,
   // the |options| parameter. Long-term, the two parseHTMLUnsage methods
   // should be merged.
   static Document* parseHTMLUnsafe(ExecutionContext* context,
-                                   const String& html,
+                                   const V8UnionStringOrTrustedHTML* html,
                                    SetHTMLUnsafeOptions* options,
                                    ExceptionState& exception_state);
   static Document* parseHTML(ExecutionContext* context,
@@ -2332,6 +2322,8 @@ class CORE_EXPORT Document : public ContainerNode,
     void Trace(Visitor*) const;
 
    private:
+    void LogSyntheticSelectMetrics(Document& owner) const;
+
     HeapVector<Member<HTMLFormElement>> list_;
     bool dirty_ = false;
   };
@@ -2612,8 +2604,6 @@ class CORE_EXPORT Document : public ContainerNode,
 
   bool well_formed_ = false;
 
-  bool is_tracking_soft_navigation_heuristics_ = false;
-
   // Document URLs.
   KURL url_;  // Document.URL: The URL from which this document was retrieved.
   KURL base_url_;  // Node.baseURI: The URL to use when resolving relative URLs.
@@ -2818,21 +2808,21 @@ class CORE_EXPORT Document : public ContainerNode,
   // the stack and cleared upon leaving its allocated scope. Hence it
   // is acceptable not to trace it -- should a conservative GC occur,
   // the cache object's references will be traced by a stack walk.
-  GC_PLUGIN_IGNORE("https://crbug.com/461878")
+  STACK_ALLOCATED_IGNORE("https://crbug.com/461878")
   NthIndexCache* nth_index_cache_ = nullptr;
 
   // This is an untraced pointer to the cache-scoped object that is first
   // allocated on the stack. It is set upon the first object being allocated
   // on the stack, and cleared upon leaving its allocated scope. The object's
   // references will be traced by a stack walk.
-  GC_PLUGIN_IGNORE("https://crbug.com/669058")
+  STACK_ALLOCATED_IGNORE("https://crbug.com/669058")
   CheckPseudoHasCacheScope* check_pseudo_has_cache_scope_ = nullptr;
 
   // This is an untraced pointer to the first stack-allocated scoping object
   // that defers invalidation of the node list caches. It is set upon the first
   // object being allocated on the stack, and cleared upon leaving its
   // allocated scope. The object's references will be traced by a stack walk.
-  GC_PLUGIN_IGNORE("https://crbug.com/40874584")
+  STACK_ALLOCATED_IGNORE("https://crbug.com/40874584")
   InvalidateNodeListCachesScope* invalidate_node_list_caches_scope_ = nullptr;
 
   bool in_pseudo_has_checking_ = false;

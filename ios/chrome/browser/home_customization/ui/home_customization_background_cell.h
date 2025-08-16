@@ -7,11 +7,11 @@
 
 #import <UIKit/UIKit.h>
 
-@protocol LogoVendor;
-@protocol HomeCustomizationMutator;
 @protocol BackgroundCustomizationConfiguration;
+@protocol HomeCustomizationMutator;
+@class SearchEngineLogoMediator;
 
-@class HomeCustomizationColorPaletteConfiguration;
+@class NewTabPageColorPalette;
 
 // Represents a mini preview of how the NTP will look with a particular
 // background selected. This cell is part of the background customization
@@ -27,12 +27,13 @@
 - (void)setupContentView:(UIView*)contentView;
 
 // Configures the cell using the given background customization configuration.
+// TODO(crbug.com/423883582): This class should not know
+// `SearchEngineLogoMediator`.
 - (void)configureWithBackgroundOption:
             (id<BackgroundCustomizationConfiguration>)backgroundConfiguration
-                           logoVendor:(id<LogoVendor>)logoVendor
-                         colorPalette:
-                             (HomeCustomizationColorPaletteConfiguration*)
-                                 colorPalette;
+             searchEngineLogoMediator:
+                 (SearchEngineLogoMediator*)searchEngineLogoMediator
+                         colorPalette:(NewTabPageColorPalette*)colorPalette;
 
 // Updates the background image displayed behind the cell’s content.
 - (void)updateBackgroundImage:(UIImage*)image;

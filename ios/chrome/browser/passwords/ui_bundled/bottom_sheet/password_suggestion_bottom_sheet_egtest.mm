@@ -19,6 +19,7 @@
 #import "ios/chrome/browser/passwords/model/metrics/ios_password_manager_metrics.h"
 #import "ios/chrome/browser/passwords/model/password_manager_app_interface.h"
 #import "ios/chrome/browser/passwords/ui_bundled/bottom_sheet/password_suggestion_bottom_sheet_app_interface.h"
+#import "ios/chrome/browser/passwords/ui_bundled/password_constants.h"
 #import "ios/chrome/browser/settings/ui_bundled/password/password_details/password_details_table_view_constants.h"
 #import "ios/chrome/browser/settings/ui_bundled/password/password_manager_egtest_utils.h"
 #import "ios/chrome/browser/settings/ui_bundled/password/password_settings_app_interface.h"
@@ -96,7 +97,8 @@ id<GREYMatcher> PasswordManagerContextMenuItem() {
 // Returns the matcher for the backup password suggestion with the given
 // `suggestion_username`.
 id<GREYMatcher> BackupPasswordSuggestion(NSString* suggestion_username) {
-  id<GREYMatcher> backup_icon = grey_accessibilityID(kHistorySymbol);
+  id<GREYMatcher> backup_icon = grey_accessibilityID(
+      kRecoveryPasswordSuggestionIconAccessibilityIdentifier);
   id<GREYMatcher> backup_text = grey_accessibilityLabel(l10n_util::GetNSString(
       IDS_IOS_PASSWORD_BOTTOM_SHEET_RECOVERY_PASSWORD_LABEL));
   return grey_allOf(grey_accessibilityID(suggestion_username),
@@ -331,8 +333,7 @@ void LongPressElementOnceVisible(id<GREYMatcher> matcher) {
   [PasswordManagerAppInterface
       storeCredentialWithUsername:@"user"
                          password:@"password"
-                              URL:net::NSURLWithGURL(
-                                      [self loginAutofocusPageURL])
+                              URL:net::NSURLWithGURL([self loginPageURL])
                            shared:NO
                    backupPassword:@"backup password"];
   [self loadLoginPage];
@@ -1158,7 +1159,7 @@ void LongPressElementOnceVisible(id<GREYMatcher> matcher) {
       assertWithMatcher:grey_nil()];
 }
 
-// Tests that backup passwords appear as expected in the bottom sheet and that
+// Tests that a backup password appears as expected in the bottom sheet and that
 // it can be used to fill the form.
 - (void)testUseBackupPassword {
   [self savePasswordWithBackupAndLoadLoginPage];

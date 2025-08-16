@@ -437,7 +437,6 @@ PseudoId CSSSelector::GetPseudoId(PseudoType type) {
     case kPseudoFutureCue:
     case kPseudoHas:
     case kPseudoHasInterest:
-    case kPseudoHasPartialInterest:
     case kPseudoHasSlotted:
     case kPseudoHasDatalist:
     case kPseudoHorizontal:
@@ -473,6 +472,7 @@ PseudoId CSSSelector::GetPseudoId(PseudoType type) {
     case kPseudoParent:
     case kPseudoPart:
     case kPseudoPastCue:
+    case kPseudoPatching:
     case kPseudoPaused:
     case kPseudoPermissionElementInvalidStyle:
     case kPseudoPermissionElementOccluded:
@@ -498,7 +498,6 @@ PseudoId CSSSelector::GetPseudoId(PseudoType type) {
     case kPseudoTarget:
     case kPseudoTargetCurrent:
     case kPseudoTargetOfInterest:
-    case kPseudoTargetOfPartialInterest:
     case kPseudoUnknown:
     case kPseudoUnparsed:
     case kPseudoUserInvalid:
@@ -624,7 +623,6 @@ constexpr static NameToPseudoStruct kPseudoTypeWithoutArgumentsMap[] = {
     {"grammar-error", CSSSelector::kPseudoGrammarError},
     {"granted", CSSSelector::kPseudoPermissionGranted},
     {"has-interest", CSSSelector::kPseudoHasInterest},
-    {"has-partial-interest", CSSSelector::kPseudoHasPartialInterest},
     {"has-slotted", CSSSelector::kPseudoHasSlotted},
     {"horizontal", CSSSelector::kPseudoHorizontal},
     {"host", CSSSelector::kPseudoHost},
@@ -648,6 +646,7 @@ constexpr static NameToPseudoStruct kPseudoTypeWithoutArgumentsMap[] = {
     {"optional", CSSSelector::kPseudoOptional},
     {"out-of-range", CSSSelector::kPseudoOutOfRange},
     {"past", CSSSelector::kPseudoPastCue},
+    {"patching", CSSSelector::kPseudoPatching},
     {"paused", CSSSelector::kPseudoPaused},
     {"permission-icon", CSSSelector::kPseudoPermissionIcon},
     {"picker-icon", CSSSelector::kPseudoPickerIcon},
@@ -672,7 +671,6 @@ constexpr static NameToPseudoStruct kPseudoTypeWithoutArgumentsMap[] = {
     {"target", CSSSelector::kPseudoTarget},
     {"target-current", CSSSelector::kPseudoTargetCurrent},
     {"target-of-interest", CSSSelector::kPseudoTargetOfInterest},
-    {"target-of-partial-interest", CSSSelector::kPseudoTargetOfPartialInterest},
     {"target-text", CSSSelector::kPseudoTargetText},
     {"user-invalid", CSSSelector::kPseudoUserInvalid},
     {"user-valid", CSSSelector::kPseudoUserValid},
@@ -755,6 +753,11 @@ CSSSelector::PseudoType CSSSelector::NameToPseudoType(
     return CSSSelector::kPseudoUnknown;
   }
 
+  if (match->type == CSSSelector::kPseudoPatching &&
+      !RuntimeEnabledFeatures::DocumentPatchingEnabled()) {
+    return CSSSelector::kPseudoUnknown;
+  }
+
   if (match->type == CSSSelector::kPseudoPermissionElementInvalidStyle &&
       !RuntimeEnabledFeatures::PermissionElementEnabled(
           document ? document->GetExecutionContext() : nullptr)) {
@@ -794,11 +797,6 @@ CSSSelector::PseudoType CSSSelector::NameToPseudoType(
     return CSSSelector::kPseudoUnknown;
   }
 
-  if (match->type == CSSSelector::kPseudoOpen &&
-      !RuntimeEnabledFeatures::CSSPseudoOpenEnabled()) {
-    return CSSSelector::kPseudoUnknown;
-  }
-
   if (match->type == CSSSelector::kPseudoPicker &&
       !HTMLSelectElement::CustomizableSelectEnabled(document)) {
     return CSSSelector::kPseudoUnknown;
@@ -811,10 +809,8 @@ CSSSelector::PseudoType CSSSelector::NameToPseudoType(
   }
 
   if ((match->type == CSSSelector::kPseudoHasInterest ||
-       match->type == CSSSelector::kPseudoHasPartialInterest ||
-       match->type == CSSSelector::kPseudoTargetOfInterest ||
-       match->type == CSSSelector::kPseudoTargetOfPartialInterest) &&
-      !RuntimeEnabledFeatures::HTMLInterestTargetAttributeEnabled(
+       match->type == CSSSelector::kPseudoTargetOfInterest) &&
+      !RuntimeEnabledFeatures::HTMLInterestForAttributeEnabled(
           document ? document->GetExecutionContext() : nullptr)) {
     return CSSSelector::kPseudoUnknown;
   }
@@ -995,7 +991,6 @@ void CSSSelector::UpdatePseudoType(const AtomicString& value,
     case kPseudoFutureCue:
     case kPseudoHas:
     case kPseudoHasInterest:
-    case kPseudoHasPartialInterest:
     case kPseudoHasSlotted:
     case kPseudoHorizontal:
     case kPseudoHost:
@@ -1024,6 +1019,7 @@ void CSSSelector::UpdatePseudoType(const AtomicString& value,
     case kPseudoOutOfRange:
     case kPseudoParent:
     case kPseudoPastCue:
+    case kPseudoPatching:
     case kPseudoPaused:
     case kPseudoPermissionElementInvalidStyle:
     case kPseudoPermissionElementOccluded:
@@ -1046,7 +1042,6 @@ void CSSSelector::UpdatePseudoType(const AtomicString& value,
     case kPseudoTarget:
     case kPseudoTargetCurrent:
     case kPseudoTargetOfInterest:
-    case kPseudoTargetOfPartialInterest:
     case kPseudoUnknown:
     case kPseudoUnparsed:
     case kPseudoUserInvalid:
@@ -1762,7 +1757,6 @@ bool CSSSelector::IsAllowedAfterPart() const {
     case kPseudoFocusWithin:
     case kPseudoFullPageMedia:
     case kPseudoHasInterest:
-    case kPseudoHasPartialInterest:
     case kPseudoHasSlotted:
     case kPseudoHover:
     case kPseudoIndeterminate:
@@ -1782,7 +1776,6 @@ bool CSSSelector::IsAllowedAfterPart() const {
     case kPseudoState:
     case kPseudoTarget:
     case kPseudoTargetOfInterest:
-    case kPseudoTargetOfPartialInterest:
     case kPseudoUserInvalid:
     case kPseudoUserValid:
     case kPseudoValid:
@@ -1794,6 +1787,7 @@ bool CSSSelector::IsAllowedAfterPart() const {
     case kPseudoFullscreen:
     case kPseudoInRange:
     case kPseudoOutOfRange:
+    case kPseudoPatching:
     case kPseudoPaused:
     case kPseudoPictureInPicture:
     case kPseudoPlaying:

@@ -65,6 +65,7 @@
 #include "components/sync/base/features.h"
 #include "components/sync/model/sync_change.h"
 #include "components/sync/model/sync_change_processor.h"
+#include "components/sync/protocol/entity_data.h"
 #include "components/sync/protocol/entity_specifics.pb.h"
 #include "components/sync/protocol/search_engine_specifics.pb.h"
 #include "components/url_formatter/url_fixer.h"
@@ -168,9 +169,9 @@ bool Contains(TemplateURLService::OwnedTemplateURLVector* template_urls,
   return FindTemplateURL(template_urls, turl) != template_urls->end();
 }
 
-bool IsCreatedByExtension(const TemplateURL* template_url) {
-  return template_url->type() == TemplateURL::NORMAL_CONTROLLED_BY_EXTENSION ||
-         template_url->type() == TemplateURL::OMNIBOX_API_EXTENSION;
+bool IsCreatedByExtension(const TemplateURL& template_url) {
+  return template_url.type() == TemplateURL::NORMAL_CONTROLLED_BY_EXTENSION ||
+         template_url.type() == TemplateURL::OMNIBOX_API_EXTENSION;
 }
 
 // Check if `is_active` status should be merged.  This is true if the
@@ -594,33 +595,11 @@ TemplateURLService::~TemplateURLService() {
 // static
 void TemplateURLService::RegisterProfilePrefs(
     user_prefs::PrefRegistrySyncable* registry) {
-#if BUILDFLAG(IS_IOS) || BUILDFLAG(IS_ANDROID)
-  uint32_t flags = PrefRegistry::NO_REGISTRATION_FLAGS;
-#else
-  uint32_t flags = user_prefs::PrefRegistrySyncable::SYNCABLE_PREF;
-#endif
-  registry->RegisterStringPref(prefs::kSyncedDefaultSearchProviderGUID,
-                               std::string(), flags);
   registry->RegisterStringPref(prefs::kDefaultSearchProviderGUID,
                                std::string());
   registry->RegisterBooleanPref(prefs::kDefaultSearchProviderEnabled, true);
   registry->RegisterBooleanPref(
       prefs::kDefaultSearchProviderContextMenuAccessAllowed, true);
-
-  registry->RegisterInt64Pref(
-      prefs::kDefaultSearchProviderChoiceScreenCompletionTimestamp, 0);
-  registry->RegisterStringPref(
-      prefs::kDefaultSearchProviderChoiceScreenCompletionVersion,
-      std::string());
-  registry->RegisterDictionaryPref(
-      prefs::kDefaultSearchProviderPendingChoiceScreenDisplayState);
-  registry->RegisterInt64Pref(
-      prefs::kDefaultSearchProviderChoiceInvalidationTimestamp, 0);
-
-#if BUILDFLAG(IS_IOS)
-  registry->RegisterIntegerPref(
-      prefs::kDefaultSearchProviderChoiceScreenSkippedCount, 0);
-#endif
 }
 
 #if BUILDFLAG(IS_ANDROID)
@@ -781,7 +760,7 @@ const TemplateURL* TemplateURLService::GetTemplateURLForHost(
 TemplateURL* TemplateURLService::Add(
     std::unique_ptr<TemplateURL> template_url) {
   DCHECK(template_url);
-  DCHECK(!IsCreatedByExtension(template_url.get()) ||
+  DCHECK(!IsCreatedByExtension(*template_url.get()) ||
          (!FindTemplateURLForExtension(
               template_url->GetExtensionInfo()->extension_id,
               template_url->type()) &&
@@ -870,8 +849,8 @@ void TemplateURLService::Remove(const TemplateURL* template_url) {
     // be hidden by an extension or policy and then deleted. Clean up the user
     // prefs then.
     if (template_url->sync_guid() ==
-        GetDefaultSearchProviderGuidFromPrefs(prefs_.get())) {
-      SetDefaultSearchProviderGuidToPrefs(prefs_.get(), std::string());
+        prefs_->GetString(prefs::kDefaultSearchProviderGUID)) {
+      prefs_->SetString(prefs::kDefaultSearchProviderGUID, std::string());
     }
 
     UMA_HISTOGRAM_ENUMERATION(kDeleteSyncedEngineHistogramName,
@@ -1021,7 +1000,7 @@ void TemplateURLService::ResetTemplateURL(TemplateURL* url,
                                           const std::u16string& title,
                                           const std::u16string& keyword,
                                           const std::string& search_url) {
-  DCHECK(!IsCreatedByExtension(url));
+  DCHECK(!IsCreatedByExtension(*url));
   DCHECK(!keyword.empty());
   DCHECK(!search_url.empty());
 
@@ -1228,7 +1207,7 @@ void TemplateURLService::UpdateProviderFavicons(
 
   Scoper scoper(this);
   for (TemplateURL* turl : urls_for_host_copy) {
-    if (!IsCreatedByExtension(turl) &&
+    if (!IsCreatedByExtension(*turl) &&
         turl->policy_origin() !=
             TemplateURLData::PolicyOrigin::kSearchAggregator &&
         turl->IsSearchURL(potential_search_url, search_terms_data()) &&
@@ -1259,7 +1238,7 @@ void TemplateURLService::SetUserSelectedDefaultSearchProvider(
   // Omnibox keywords cannot be made default. Extension-controlled search
   // engines can be made default only by the extension itself because they
   // aren't persisted.
-  DCHECK(!url || !IsCreatedByExtension(url));
+  DCHECK(!url || !IsCreatedByExtension(*url));
   if (url) {
     url->set_is_active(TemplateURLData::ActiveStatus::kTrue);
   }
@@ -1442,8 +1421,8 @@ void TemplateURLService::RepairPrepopulatedSearchEngines() {
       // Write the fallback engine's GUID to prefs, which will cause
       // OnDefaultSearchProviderGUIDChanged() to set it as the new
       // user-selected engine.
-      SetDefaultSearchProviderGuidToPrefs(prefs_.get(),
-                                          fallback_engine->sync_guid());
+      prefs_->SetString(prefs::kDefaultSearchProviderGUID,
+                        fallback_engine->sync_guid());
     }
   } else {
     // If the default search provider came from a user pref we would have been
@@ -1877,7 +1856,8 @@ std::optional<syncer::ModelError> TemplateURLService::ProcessSyncChanges(
     const base::Location& from_here,
     const syncer::SyncChangeList& change_list) {
   if (!models_associated_) {
-    return syncer::ModelError(FROM_HERE, "Models not yet associated.");
+    return syncer::ModelError(
+        FROM_HERE, syncer::ModelError::Type::kSearchEngineModelsNotAssociated);
   }
   DCHECK(loaded_);
 
@@ -1915,8 +1895,10 @@ std::optional<syncer::ModelError> TemplateURLService::ProcessSyncChanges(
           (base::FeatureList::IsEnabled(
                syncer::kSeparateLocalAndAccountSearchEngines) &&
            !existing_turl->GetAccountData())) {
-        // Can't DELETE a non-existent engine.
-        error = syncer::ModelError(FROM_HERE, error_msg);
+        // Can't DELETE a non-existent engine at the account level.
+        error = syncer::ModelError(
+            FROM_HERE, syncer::ModelError::Type::
+                           kSearchEngineDeleteNonExistentAtAccountLevel);
         continue;
       }
 
@@ -1936,7 +1918,6 @@ std::optional<syncer::ModelError> TemplateURLService::ProcessSyncChanges(
               syncer::kSeparateLocalAndAccountSearchEngines) &&
           existing_turl->GetLocalData()) {
         Update(existing_turl, TemplateURL(*existing_turl->GetLocalData()));
-        MaybeUpdateDSEViaPrefs(existing_turl);
       } else if (existing_turl != GetDefaultSearchProvider()) {
         Remove(existing_turl);
       } else {
@@ -1960,22 +1941,16 @@ std::optional<syncer::ModelError> TemplateURLService::ProcessSyncChanges(
       data.id = kInvalidTemplateURLID;
 
       // If flag is enabled, add `data` as account data member instead.
-      TemplateURL* added =
-          base::FeatureList::IsEnabled(
-              syncer::kSeparateLocalAndAccountSearchEngines)
-              ? Add(std::make_unique<TemplateURL>(std::nullopt, data))
-              : Add(std::make_unique<TemplateURL>(data));
-      if (added) {
-        MaybeUpdateDSEViaPrefs(added);
-      }
+      base::FeatureList::IsEnabled(
+          syncer::kSeparateLocalAndAccountSearchEngines)
+          ? Add(std::make_unique<TemplateURL>(std::nullopt, data))
+          : Add(std::make_unique<TemplateURL>(data));
     } else {
       // Since we've already found |existing_turl| by GUID, this Update() should
       // always return true, but we still don't want to crash if it fails.
       DCHECK(existing_turl);
       bool update_success = Update(existing_turl, *turl);
       DCHECK(update_success);
-
-      MaybeUpdateDSEViaPrefs(existing_turl);
     }
   }
 
@@ -1994,6 +1969,12 @@ base::WeakPtr<syncer::SyncableService> TemplateURLService::AsWeakPtr() {
   return weak_ptr_factory_.GetWeakPtr();
 }
 
+std::string TemplateURLService::GetClientTag(
+    const syncer::EntityData& entity_data) const {
+  DCHECK(entity_data.specifics.has_search_engine());
+  return entity_data.specifics.search_engine().sync_guid();
+}
+
 std::optional<syncer::ModelError> TemplateURLService::MergeDataAndStartSyncing(
     syncer::DataType type,
     const syncer::SyncDataList& initial_sync_data,
@@ -2005,7 +1986,8 @@ std::optional<syncer::ModelError> TemplateURLService::MergeDataAndStartSyncing(
 
   // Disable sync if we failed to load.
   if (load_failed_) {
-    return syncer::ModelError(FROM_HERE, "Local database load failed.");
+    return syncer::ModelError(
+        FROM_HERE, syncer::ModelError::Type::kSearchEngineLocalDbLoadFailed);
   }
 
   sync_processor_ = std::move(sync_processor);
@@ -2485,28 +2467,11 @@ void TemplateURLService::Init() {
   }
 
   pref_change_registrar_.Init(&prefs_.get());
-  if (base::FeatureList::IsEnabled(switches::kSearchEngineChoiceTrigger)) {
-    // We migrate `kSyncedDefaultSearchProviderGUID` to
-    // `kDefaultSearchProviderGUID` if the latter was never set.
-    if (!prefs_->HasPrefPath(prefs::kDefaultSearchProviderGUID)) {
-      prefs_->SetString(
-          prefs::kDefaultSearchProviderGUID,
-          prefs_->GetString(prefs::kSyncedDefaultSearchProviderGUID));
-    }
-
-    pref_change_registrar_.Add(
-        prefs::kDefaultSearchProviderGUID,
-        base::BindRepeating(
-            &TemplateURLService::OnDefaultSearchProviderGUIDChanged,
-            base::Unretained(this)));
-  } else {
-    // TODO(b/364828491): Deprecate `kSyncedDefaultSearchProviderGUID`.
-    pref_change_registrar_.Add(
-        prefs::kSyncedDefaultSearchProviderGUID,
-        base::BindRepeating(
-            &TemplateURLService::OnDefaultSearchProviderGUIDChanged,
-            base::Unretained(this)));
-  }
+  pref_change_registrar_.Add(
+      prefs::kDefaultSearchProviderGUID,
+      base::BindRepeating(
+          &TemplateURLService::OnDefaultSearchProviderGUIDChanged,
+          base::Unretained(this)));
 
   DefaultSearchManager::Source source = DefaultSearchManager::FROM_USER;
   const TemplateURLData* dse =
@@ -2736,12 +2701,6 @@ bool TemplateURLService::Update(TemplateURL* existing_turl,
     }
   }
 
-  // Even if the DSE is controlled by an extension or policy, update the user
-  // preferences as they may take over later.
-  if (default_search_provider_source_ != DefaultSearchManager::FROM_FALLBACK) {
-    MaybeUpdateDSEViaPrefs(existing_turl);
-  }
-
   return true;
 }
 
@@ -2752,21 +2711,6 @@ bool TemplateURLService::UpdateData(TemplateURL* existing_turl,
                       TemplateURL(existing_turl->GetLocalData(), new_data))
              : Update(existing_turl,
                       TemplateURL(new_data, existing_turl->GetAccountData()));
-}
-
-void TemplateURLService::MaybeUpdateDSEViaPrefs(TemplateURL* synced_turl) {
-  // The DSE is not synced anymore when the `kSearchEngineChoiceTrigger` feature
-  // is enabled.
-  // TODO(b/341011768): Remove DSE sync code.
-  if (base::FeatureList::IsEnabled(switches::kSearchEngineChoiceTrigger)) {
-    return;
-  }
-
-  if (synced_turl->sync_guid() ==
-      GetDefaultSearchProviderGuidFromPrefs(prefs_.get())) {
-    default_search_manager_.SetUserSelectedDefaultSearchEngine(
-        synced_turl->data());
-  }
 }
 
 void TemplateURLService::UpdateKeywordSearchTermsForURL(
@@ -2801,7 +2745,7 @@ void TemplateURLService::UpdateKeywordSearchTermsForURL(
       // later after iteration.
       // Note: Update() will replace the entry from the container of this
       // iterator, so update here directly will cause an error about it.
-      if (!IsCreatedByExtension(*i)) {
+      if (!IsCreatedByExtension(**i)) {
         visited_url = *i;
       }
     }
@@ -2984,8 +2928,8 @@ bool TemplateURLService::ApplyDefaultSearchChangeNoMetrics(
           << "Add() to repair the DSE must never fail.";
     }
     if (default_search_provider_) {
-      SetDefaultSearchProviderGuidToPrefs(
-          prefs_.get(), default_search_provider_->sync_guid());
+      prefs_->SetString(prefs::kDefaultSearchProviderGUID,
+                        default_search_provider_->sync_guid());
     }
   }
 
@@ -3351,10 +3295,10 @@ void TemplateURLService::MergeInSyncTemplateURL(
         // Update default search provider guid if the conflicting turl is the
         // default search provider.
         if (conflicting_built_in_turl == default_search_provider_ &&
-            GetDefaultSearchProviderGuidFromPrefs(prefs_.get()) ==
+            prefs_->GetString(prefs::kDefaultSearchProviderGUID) ==
                 default_search_provider_->sync_guid()) {
-          SetDefaultSearchProviderGuidToPrefs(prefs_.get(),
-                                              sync_turl->sync_guid());
+          prefs_->SetString(prefs::kDefaultSearchProviderGUID,
+                            sync_turl->sync_guid());
         }
         Update(conflicting_built_in_turl,
                *UpdateExistingURLWithAccountData(conflicting_built_in_turl,
@@ -3364,7 +3308,7 @@ void TemplateURLService::MergeInSyncTemplateURL(
         std::string guid = conflicting_built_in_turl->sync_guid();
         if (conflicting_built_in_turl == default_search_provider_) {
           bool pref_matched =
-              GetDefaultSearchProviderGuidFromPrefs(prefs_.get()) ==
+              prefs_->GetString(prefs::kDefaultSearchProviderGUID) ==
               default_search_provider_->sync_guid();
           // Update the existing engine in-place.
           Update(default_search_provider_, TemplateURL(sync_turl->data()));
@@ -3374,8 +3318,8 @@ void TemplateURLService::MergeInSyncTemplateURL(
           // refers to a new search engine from Sync which just hasn't been
           // added locally yet, so leave it alone in that case.
           if (pref_matched) {
-            SetDefaultSearchProviderGuidToPrefs(
-                prefs_.get(), default_search_provider_->sync_guid());
+            prefs_->SetString(prefs::kDefaultSearchProviderGUID,
+                              default_search_provider_->sync_guid());
           }
 
           should_add_sync_turl = false;
@@ -3399,12 +3343,9 @@ void TemplateURLService::MergeInSyncTemplateURL(
             syncer::kSeparateLocalAndAccountSearchEngines)
             ? std::make_unique<TemplateURL>(std::nullopt, data)
             : std::make_unique<TemplateURL>(data);
-    TemplateURL* added = added_ptr.get();
     base::AutoReset<DefaultSearchChangeOrigin> change_origin(
         &dsp_change_origin_, DSP_CHANGE_SYNC_ADD);
-    if (Add(std::move(added_ptr))) {
-      MaybeUpdateDSEViaPrefs(added);
-    }
+    Add(std::move(added_ptr));
   }
 }
 
@@ -3427,7 +3368,7 @@ void TemplateURLService::OnDefaultSearchProviderGUIDChanged() {
   base::AutoReset<DefaultSearchChangeOrigin> change_origin(
       &dsp_change_origin_, DSP_CHANGE_SYNC_PREF);
 
-  std::string new_guid = GetDefaultSearchProviderGuidFromPrefs(prefs_.get());
+  std::string new_guid = prefs_->GetString(prefs::kDefaultSearchProviderGUID);
   if (new_guid.empty()) {
     default_search_manager_.ClearUserSelectedDefaultSearchEngine();
     return;

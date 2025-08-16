@@ -56,7 +56,6 @@
 #include "gpu/command_buffer/client/client_shared_image.h"
 #include "gpu/command_buffer/client/shared_image_interface.h"
 #include "gpu/command_buffer/common/shared_image_usage.h"
-#include "gpu/ipc/client/client_shared_image_interface.h"
 #include "media/base/media_switches.h"
 #include "media/base/video_frame.h"
 #include "media/base/video_types.h"
@@ -6280,8 +6279,7 @@ class ColorTransformPixelTest
     // Ensure our expected color contains the texture color blended in a
     // blending-suitable space, if a color conversion was required.
     const gfx::ColorSpace blend_color_space =
-        this->display_color_spaces_.GetCompositingColorSpace(
-            /*needs_alpha=*/true,
+        this->display_color_spaces_.GetRasterAndCompositeColorSpace(
             this->dst_color_space_.GetContentColorUsage());
     std::unique_ptr<gfx::ColorTransform> transform_src_to_blend =
         gfx::ColorTransform::NewColorTransform(this->src_color_space_,

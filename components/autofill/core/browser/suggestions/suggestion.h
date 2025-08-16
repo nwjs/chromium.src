@@ -21,6 +21,7 @@
 #include "build/build_config.h"
 #include "components/autofill/core/browser/field_types.h"
 #include "components/autofill/core/browser/suggestions/suggestion_type.h"
+#include "components/autofill/core/browser/webdata/autocomplete/autocomplete_entry.h"
 #include "components/autofill/core/common/unique_ids.h"
 #include "ui/gfx/image/image.h"
 #include "url/gurl.h"
@@ -35,17 +36,21 @@ struct Suggestion {
   struct PasswordSuggestionDetails {
     std::u16string username;
     std::u16string password;
+    // Password used in the recovery flow initiated after failed password
+    // change.
+    std::optional<std::u16string> backup_password;
     // The signon realm of the password. Unlike the `display_signon_realm`, it
     // is not necessarily user friendly/readable, but rather has the raw
     // `PasswordForm::signon_realm` value.
-    std::string signon_realm;
+    std::optional<std::string> signon_realm;
     // Stores either the password signon realm or the Android app name for which
     // the password was saved.
-    std::u16string display_signon_realm;
+    std::optional<std::u16string> display_signon_realm;
     // This flag is set to `false` for the manual fallback suggestions which
     // represent exact, strongly affiliated, PSL and weakly affiliated matches
-    // for the domain the suggestions are shown for. All other suggestions have
-    // this flag set to `true`.
+    // for the domain the suggestions are shown for. All other manual fallback
+    // suggestions have this flag set to `true`.
+    // Note that non-manual-fallback suggestions are never cross domain.
     bool is_cross_domain = false;
 
     PasswordSuggestionDetails();
@@ -54,6 +59,10 @@ struct Suggestion {
                               std::string_view signon_realm,
                               std::u16string_view display_signon_realm,
                               bool is_cross_domain);
+    // Used to construct the payload of a backup password suggestion.
+    PasswordSuggestionDetails(std::u16string_view username,
+                              std::u16string_view password,
+                              std::u16string_view backup_password);
     PasswordSuggestionDetails(const PasswordSuggestionDetails&);
     PasswordSuggestionDetails(PasswordSuggestionDetails&&);
     PasswordSuggestionDetails& operator=(const PasswordSuggestionDetails&);
@@ -184,6 +193,22 @@ struct Suggestion {
     std::map<FieldType, std::u16string> fields;
   };
 
+  struct OneTimePasswordPayload final {
+    OneTimePasswordPayload();
+    explicit OneTimePasswordPayload(
+        std::map<FieldGlobalId, std::u16string> filling_data);
+    OneTimePasswordPayload(const OneTimePasswordPayload&);
+    OneTimePasswordPayload(OneTimePasswordPayload&&);
+    OneTimePasswordPayload& operator=(const OneTimePasswordPayload&);
+    OneTimePasswordPayload& operator=(OneTimePasswordPayload&&);
+    ~OneTimePasswordPayload();
+
+    friend bool operator==(const OneTimePasswordPayload&,
+                           const OneTimePasswordPayload&) = default;
+
+    std::map<FieldGlobalId, std::u16string> filling_data;
+  };
+
   using IsLoading = base::StrongAlias<class IsLoadingTag, bool>;
   using InstrumentId = base::StrongAlias<class InstrumentIdTag, uint64_t>;
   using Payload = std::variant<Guid,
@@ -194,7 +219,9 @@ struct Suggestion {
                                PlusAddressPayload,
                                AutofillAiPayload,
                                PaymentsPayload,
-                               IdentityCredentialPayload>;
+                               IdentityCredentialPayload,
+                               AutocompleteEntry,
+                               OneTimePasswordPayload>;
 
   // This struct is used to provide password suggestions with custom icons,
   // using the favicon of the website associated with the credentials. While
@@ -313,6 +340,7 @@ struct Suggestion {
     kMagic,
     kOfferTag,
     kPenSpark,
+    kPersonCheck,
     kPlusAddress,
     kQuestionMark,
     kRecoveryPassword,
@@ -338,6 +366,7 @@ struct Suggestion {
     kIban,
     kBnpl,
     kSaveAndFill,
+    kAndroidMessages,
   };
 
   // This enum is used to control filtration of suggestions (see it's used in
@@ -376,8 +405,6 @@ struct Suggestion {
   // constructors. Some expect UTF16 strings and others UTF8, while internally
   // we only use UTF16. The ones expecting UTF8 are only used by tests and could
   // be easily refactored.
-  Suggestion();
-  explicit Suggestion(std::u16string main_text);
   explicit Suggestion(SuggestionType type);
   Suggestion(std::u16string main_text, SuggestionType type);
   // Constructor for unit tests. It will convert the strings from UTF-8 to
@@ -426,6 +453,8 @@ struct Suggestion {
                std::holds_alternative<PasswordSuggestionDetails>(payload);
       case SuggestionType::kFillPassword:
       case SuggestionType::kViewPasswordDetails:
+      case SuggestionType::kBackupPasswordEntry:
+      case SuggestionType::kTroubleSigningInEntry:
         return std::holds_alternative<PasswordSuggestionDetails>(payload);
       case SuggestionType::kSeePromoCodeDetails:
         return std::holds_alternative<GURL>(payload);
@@ -443,6 +472,8 @@ struct Suggestion {
                std::holds_alternative<PaymentsPayload>(payload);
       case SuggestionType::kBnplEntry:
         return std::holds_alternative<PaymentsPayload>(payload);
+      case SuggestionType::kOneTimePasswordEntry:
+        return std::holds_alternative<OneTimePasswordPayload>(payload);
       case SuggestionType::kDevtoolsTestAddressEntry:
       default:
         return std::holds_alternative<Guid>(payload) ||
@@ -462,7 +493,7 @@ struct Suggestion {
   Payload payload;
 
   // Determines popup identifier for the suggestion.
-  SuggestionType type = SuggestionType::kAutocompleteEntry;
+  SuggestionType type;
 
   // The texts that will be displayed on the first line in a suggestion. The
   // order of showing the two texts on the first line depends on whether it is

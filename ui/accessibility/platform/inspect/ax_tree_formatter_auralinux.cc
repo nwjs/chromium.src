@@ -628,7 +628,7 @@ const char* const ATK_OBJECT_ATTRIBUTES[] = {
     "explicit-name",
     "grabbed",
     "haspopup",
-    "has-interest-target",
+    "has-interest-for",
     "hidden",
     "html-input-name",
     "id",

@@ -30,7 +30,6 @@
 #import "ios/chrome/browser/tab_switcher/ui_bundled/tab_grid/toolbars/tab_grid_bottom_toolbar.h"
 #import "ios/chrome/browser/tab_switcher/ui_bundled/tab_grid/toolbars/tab_grid_toolbars_grid_delegate.h"
 #import "ios/chrome/browser/tab_switcher/ui_bundled/tab_group_action_type.h"
-#import "ios/chrome/browser/toolbar/ui_bundled/tab_groups/tab_group_indicator_features_utils.h"
 #import "ios/chrome/common/ui/colors/semantic_color_names.h"
 #import "ios/chrome/common/ui/elements/gradient_view.h"
 #import "ios/chrome/common/ui/util/constraints_ui_util.h"
@@ -59,7 +58,6 @@ constexpr CGFloat kButtonSpacing = 10;
 constexpr CGFloat kLegacyMenuImageSize = 20;
 constexpr CGFloat kCloseImageSize = 12.5;
 constexpr CGFloat kMenuImageSize = 16;
-constexpr CGFloat kButtonDiameter = 26;
 
 // Animation.
 constexpr CGFloat kTranslationCompletion = 0;
@@ -104,11 +102,11 @@ UIButton* TopToolbarButton(NSString* symbol_name,
   ExtendedTouchTargetButton* button =
       [ExtendedTouchTargetButton buttonWithConfiguration:configuration
                                            primaryAction:action];
-  button.minimumDiameter = kButtonDiameter + kButtonSpacing;
+  button.minimumDiameter = kTabGroupButtonHeight + kButtonSpacing;
   button.translatesAutoresizingMaskIntoConstraints = NO;
 
   [NSLayoutConstraint activateConstraints:@[
-    [button.heightAnchor constraintEqualToConstant:kButtonDiameter],
+    [button.heightAnchor constraintEqualToConstant:kTabGroupButtonHeight],
     [button.widthAnchor constraintEqualToAnchor:button.heightAnchor],
   ]];
 
@@ -454,12 +452,10 @@ UIButton* TopToolbarButton(NSString* symbol_name,
   }
   [self configureBottomToolbar];
 
-  if (@available(iOS 17, *)) {
-    [self registerForTraitChanges:@[ UITraitVerticalSizeClass.class ]
-                       withAction:@selector(sizeClassDidChange)];
-    [self registerForTraitChanges:@[ UITraitHorizontalSizeClass.class ]
-                       withAction:@selector(sizeClassDidChange)];
-  }
+  [self registerForTraitChanges:@[ UITraitVerticalSizeClass.class ]
+                     withAction:@selector(sizeClassDidChange)];
+  [self registerForTraitChanges:@[ UITraitHorizontalSizeClass.class ]
+                     withAction:@selector(sizeClassDidChange)];
 }
 
 - (UIStatusBarStyle)preferredStatusBarStyle {
@@ -470,22 +466,6 @@ UIButton* TopToolbarButton(NSString* symbol_name,
   [super viewSafeAreaInsetsDidChange];
   [self updateGridInsets];
 }
-
-#if !defined(__IPHONE_17_0) || __IPHONE_OS_VERSION_MIN_REQUIRED < __IPHONE_17_0
-- (void)traitCollectionDidChange:(UITraitCollection*)previousTraitCollection {
-  [super traitCollectionDidChange:previousTraitCollection];
-  if (@available(iOS 17, *)) {
-    return;
-  }
-
-  if (previousTraitCollection.verticalSizeClass !=
-          self.traitCollection.verticalSizeClass ||
-      previousTraitCollection.horizontalSizeClass !=
-          self.traitCollection.horizontalSizeClass) {
-    [self sizeClassDidChange];
-  }
-}
-#endif
 
 #pragma mark - UINavigationBarDelegate
 
@@ -775,27 +755,12 @@ UIButton* TopToolbarButton(NSString* symbol_name,
         [[UIBarButtonItem alloc] initWithCustomView:facePileButton];
   }
 
-  if (IsTabGroupIndicatorEnabled() && HasTabGroupIndicatorButtonsUpdated()) {
-    NSMutableArray* buttons = [NSMutableArray array];
-    [buttons addObject:menuItem];
-    if (facePileBarButton) {
-      [buttons addObject:facePileBarButton];
-    }
-    navigationItem.rightBarButtonItems = buttons;
-  } else {
-    UIImage* plusImage =
-        DefaultSymbolWithPointSize(kPlusSymbol, kLegacyMenuImageSize);
-    UIBarButtonItem* plusItem =
-        [[UIBarButtonItem alloc] initWithImage:plusImage
-                                         style:UIBarButtonItemStylePlain
-                                        target:self
-                                        action:@selector(didTapPlusButton)];
-    plusItem.accessibilityIdentifier = kTabGroupNewTabButtonIdentifier;
-    plusItem.accessibilityLabel =
-        l10n_util::GetNSString(IDS_IOS_TAB_GRID_CREATE_NEW_TAB);
-
-    navigationItem.rightBarButtonItems = @[ menuItem, plusItem ];
+  NSMutableArray* buttons = [NSMutableArray array];
+  [buttons addObject:menuItem];
+  if (facePileBarButton) {
+    [buttons addObject:facePileBarButton];
   }
+  navigationItem.rightBarButtonItems = buttons;
   return navigationItem;
 }
 
@@ -936,10 +901,6 @@ UIButton* TopToolbarButton(NSString* symbol_name,
 
 // Adds the bottom toolbar containing the "plus" button.
 - (void)configureBottomToolbar {
-  if (!IsTabGroupIndicatorEnabled() || !HasTabGroupIndicatorButtonsUpdated()) {
-    return;
-  }
-
   TabGridBottomToolbar* bottomToolbar = [[TabGridBottomToolbar alloc] init];
   _bottomToolbar = bottomToolbar;
   bottomToolbar.translatesAutoresizingMaskIntoConstraints = NO;
@@ -989,7 +950,6 @@ UIButton* TopToolbarButton(NSString* symbol_name,
   // Shared actions.
   NSMutableArray<UIAction*>* sharedActions = [[NSMutableArray alloc] init];
   if (_gridViewController.shared) {
-    CHECK(IsTabGroupSyncEnabled());
     [sharedActions addObject:[actionFactory actionToManageTabGroupWithBlock:^{
                      [weakSelf manageGroup];
                    }]];
@@ -1031,42 +991,34 @@ UIButton* TopToolbarButton(NSString* symbol_name,
 
   // Destructive actions.
   NSMutableArray<UIAction*>* destructiveActions = [[NSMutableArray alloc] init];
-  if (IsTabGroupSyncEnabled()) {
-    [destructiveActions
-        addObject:[actionFactory actionToCloseTabGroupWithBlock:^{
-          [weakSelf closeGroup];
-        }]];
-    if (!_incognito) {
-      switch (_sharingState) {
-        case SharingState::kNotShared: {
-          [destructiveActions
-              addObject:[actionFactory actionToDeleteTabGroupWithBlock:^{
-                [weakSelf deleteGroup];
-              }]];
-          break;
-        }
-        case SharingState::kShared: {
-          [destructiveActions
-              addObject:[actionFactory actionToLeaveSharedTabGroupWithBlock:^{
-                [weakSelf leaveSharedGroup];
-              }]];
-          break;
-        }
+  [destructiveActions addObject:[actionFactory actionToCloseTabGroupWithBlock:^{
+                        [weakSelf closeGroup];
+                      }]];
+  if (!_incognito) {
+    switch (_sharingState) {
+      case SharingState::kNotShared: {
+        [destructiveActions
+            addObject:[actionFactory actionToDeleteTabGroupWithBlock:^{
+              [weakSelf deleteGroup];
+            }]];
+        break;
+      }
+      case SharingState::kShared: {
+        [destructiveActions
+            addObject:[actionFactory actionToLeaveSharedTabGroupWithBlock:^{
+              [weakSelf leaveSharedGroup];
+            }]];
+        break;
+      }
 
-        case SharingState::kSharedAndOwned: {
-          [destructiveActions
-              addObject:[actionFactory actionToDeleteSharedTabGroupWithBlock:^{
-                [weakSelf deleteSharedGroup];
-              }]];
-          break;
-        }
+      case SharingState::kSharedAndOwned: {
+        [destructiveActions
+            addObject:[actionFactory actionToDeleteSharedTabGroupWithBlock:^{
+              [weakSelf deleteSharedGroup];
+            }]];
+        break;
       }
     }
-  } else {
-    [destructiveActions
-        addObject:[actionFactory actionToDeleteTabGroupWithBlock:^{
-          [weakSelf deleteGroup];
-        }]];
   }
   [menuElements addObject:[UIMenu menuWithTitle:@""
                                           image:nil
@@ -1093,24 +1045,18 @@ UIButton* TopToolbarButton(NSString* symbol_name,
 - (void)ungroup {
   // Shows the confirmation to ungroup the current group (keep the tab) and
   // close the view. Do nothing when a user cancels the action.
-  if (IsTabGroupSyncEnabled()) {
-    if (IsContainedTabGroupEnabled()) {
-      [_handler
-          showTabGroupConfirmationForAction:TabGroupActionType::kUngroupTabGroup
-                                      group:_tabGroup->GetWeakPtr()
-                                 sourceView:_menuButton];
-    } else {
-      [_handler
-          showTabGroupConfirmationForAction:TabGroupActionType::kUngroupTabGroup
-                                      group:_tabGroup->GetWeakPtr()
-                           sourceButtonItem:_navigationBar.topItem
-                                                .rightBarButtonItems[0]];
-    }
-    return;
+  if (IsContainedTabGroupEnabled()) {
+    [_handler
+        showTabGroupConfirmationForAction:TabGroupActionType::kUngroupTabGroup
+                                    group:_tabGroup->GetWeakPtr()
+                               sourceView:_menuButton];
+  } else {
+    [_handler
+        showTabGroupConfirmationForAction:TabGroupActionType::kUngroupTabGroup
+                                    group:_tabGroup->GetWeakPtr()
+                         sourceButtonItem:_navigationBar.topItem
+                                              .rightBarButtonItems[0]];
   }
-
-  [self.mutator ungroup];
-  [_handler hideTabGroup];
 }
 
 // Closes the tabs and deletes the current group and closes the view.
@@ -1121,31 +1067,24 @@ UIButton* TopToolbarButton(NSString* symbol_name,
 
 // Deletes the tabs and deletes the current group and closes the view.
 - (void)deleteGroup {
-  if (IsTabGroupSyncEnabled()) {
-    // Shows the confirmation to delete the tabs, delete the current group and
-    // close the view. Do nothing when a user cancels the action.
-    if (IsContainedTabGroupEnabled()) {
-      [_handler
-          showTabGroupConfirmationForAction:TabGroupActionType::kDeleteTabGroup
-                                      group:_tabGroup->GetWeakPtr()
-                                 sourceView:_menuButton];
-    } else {
-      [_handler
-          showTabGroupConfirmationForAction:TabGroupActionType::kDeleteTabGroup
-                                      group:_tabGroup->GetWeakPtr()
-                           sourceButtonItem:_navigationBar.topItem
-                                                .rightBarButtonItems[0]];
-    }
-    return;
+  // Shows the confirmation to delete the tabs, delete the current group and
+  // close the view. Do nothing when a user cancels the action.
+  if (IsContainedTabGroupEnabled()) {
+    [_handler
+        showTabGroupConfirmationForAction:TabGroupActionType::kDeleteTabGroup
+                                    group:_tabGroup->GetWeakPtr()
+                               sourceView:_menuButton];
+  } else {
+    [_handler
+        showTabGroupConfirmationForAction:TabGroupActionType::kDeleteTabGroup
+                                    group:_tabGroup->GetWeakPtr()
+                         sourceButtonItem:_navigationBar.topItem
+                                              .rightBarButtonItems[0]];
   }
-
-  [self.mutator deleteGroup];
-  [_handler hideTabGroup];
 }
 
 // Deletes the shared group and closes the view.
 - (void)deleteSharedGroup {
-  CHECK(IsTabGroupSyncEnabled());
   CHECK(_gridViewController.shared);
   CHECK_EQ(_sharingState, SharingState::kSharedAndOwned);
 
@@ -1165,7 +1104,6 @@ UIButton* TopToolbarButton(NSString* symbol_name,
 
 // Leaves the shared group and closes the view.
 - (void)leaveSharedGroup {
-  CHECK(IsTabGroupSyncEnabled());
   CHECK(_gridViewController.shared);
   CHECK_EQ(_sharingState, SharingState::kShared);
 
@@ -1198,16 +1136,12 @@ UIButton* TopToolbarButton(NSString* symbol_name,
         _bottomToolbar.intrinsicContentSize.height + kBottomToolbarMargin, 0);
     return;
   }
-  CGFloat bottomToolbarInset = 0;
-  if (IsTabGroupIndicatorEnabled() && HasTabGroupIndicatorButtonsUpdated()) {
-    BOOL shouldUseCompactLayout = self.traitCollection.verticalSizeClass ==
-                                      UIUserInterfaceSizeClassRegular &&
-                                  self.traitCollection.horizontalSizeClass ==
-                                      UIUserInterfaceSizeClassCompact;
-
-    bottomToolbarInset =
-        shouldUseCompactLayout ? _bottomToolbar.intrinsicContentSize.height : 0;
-  }
+  BOOL shouldUseCompactLayout = self.traitCollection.verticalSizeClass ==
+                                    UIUserInterfaceSizeClassRegular &&
+                                self.traitCollection.horizontalSizeClass ==
+                                    UIUserInterfaceSizeClassCompact;
+  CGFloat bottomToolbarInset =
+      shouldUseCompactLayout ? _bottomToolbar.intrinsicContentSize.height : 0;
 
   UIEdgeInsets safeAreaInsets = self.view.safeAreaInsets;
   safeAreaInsets.top = 0;

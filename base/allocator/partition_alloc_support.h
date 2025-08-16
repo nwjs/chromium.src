@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/40284755): Remove this and spanify to fix the errors.
+#pragma allow_unsafe_buffers
+#endif
+
 #ifndef BASE_ALLOCATOR_PARTITION_ALLOC_SUPPORT_H_
 #define BASE_ALLOCATOR_PARTITION_ALLOC_SUPPORT_H_
 
@@ -86,7 +91,8 @@ class BASE_EXPORT PartitionAllocSupport {
   void ReconfigureAfterZygoteFork(const std::string& process_type);
   void ReconfigureAfterFeatureListInit(
       const std::string& process_type,
-      bool configure_dangling_pointer_detector = true);
+      bool configure_dangling_pointer_detector = true,
+      bool is_in_death_test_child = false);
   void ReconfigureAfterTaskRunnerInit(const std::string& process_type);
 
   // |has_main_frame| tells us if the renderer contains a main frame.
@@ -116,12 +122,6 @@ class BASE_EXPORT PartitionAllocSupport {
   static bool ShouldEnablePartitionAllocWithAdvancedChecks(
       const std::string& process_type);
 
-  // Returns quarantine configuration for `process_name` and `branch_type`.
-  static ::partition_alloc::internal::SchedulerLoopQuarantineConfig
-  GetSchedulerLoopQuarantineConfiguration(
-      const std::string& process_type,
-      features::internal::SchedulerLoopQuarantineBranchType branch_type);
-
  private:
   PartitionAllocSupport();
 
@@ -139,8 +139,6 @@ class BASE_EXPORT PartitionAllocSupport {
       ::partition_alloc::kThreadCacheDefaultSizeThreshold;
 #endif
 };
-
-BASE_EXPORT BASE_DECLARE_FEATURE(kDisableMemoryReclaimerInBackground);
 
 // Visible in header for testing.
 class BASE_EXPORT MemoryReclaimerSupport {
@@ -180,6 +178,7 @@ BASE_EXPORT void CheckHeapIntegrity(const void* ptr);
 // to the function, and it may use that for debugging purpose.
 BASE_EXPORT void SetDoubleFreeOrCorruptionDetectedFn(void (*fn)(uintptr_t));
 
+using partition_alloc::SchedulerLoopQuarantineScanPolicyUpdater;
 using partition_alloc::ScopedSchedulerLoopQuarantineExclusion;
 
 }  // namespace base::allocator

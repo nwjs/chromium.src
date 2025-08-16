@@ -7,7 +7,6 @@
 
 #include <memory>
 #include <string>
-#include <unordered_set>
 #include <vector>
 
 #include "base/memory/raw_ptr.h"
@@ -140,8 +139,6 @@ class GPU_GLES2_EXPORT SharedImageFactory {
   void SetGpuExtraInfo(const gfx::GpuExtraInfo& gpu_info);
   bool GetGpuMemoryBufferHandleInfo(const Mailbox& mailbox,
                                     gfx::GpuMemoryBufferHandle& handle,
-                                    viz::SharedImageFormat& format,
-                                    gfx::Size& size,
                                     gfx::BufferUsage& buffer_usage);
 
   bool CreateSharedImagePool(
@@ -155,6 +152,8 @@ class GPU_GLES2_EXPORT SharedImageFactory {
   gpu::SharedImageCapabilities MakeCapabilities();
 
   bool HasSharedImage(const Mailbox& mailbox) const;
+
+  SharedContextState* shared_context_state() { return context_state_.get(); }
 
  private:
   bool IsSharedBetweenThreads(gpu::SharedImageUsageSet usage);
@@ -253,6 +252,8 @@ class GPU_GLES2_EXPORT SharedImageRepresentationFactory {
       const Mailbox& mailbox,
       const wgpu::Device& device,
       wgpu::BackendType backend_type);
+  std::unique_ptr<WebNNTensorRepresentation> ProduceWebNNTensor(
+      const Mailbox& mailbox);
   std::unique_ptr<OverlayImageRepresentation> ProduceOverlay(
       const Mailbox& mailbox);
   std::unique_ptr<MemoryImageRepresentation> ProduceMemory(

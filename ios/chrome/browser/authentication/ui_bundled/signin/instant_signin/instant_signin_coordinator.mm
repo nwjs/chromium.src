@@ -22,6 +22,8 @@
 #import "ios/chrome/browser/shared/model/profile/profile_ios.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/shared/ui/elements/activity_overlay_coordinator.h"
+#import "ios/chrome/browser/signin/model/authentication_service.h"
+#import "ios/chrome/browser/signin/model/authentication_service_factory.h"
 #import "ios/chrome/browser/signin/model/chrome_account_manager_service.h"
 #import "ios/chrome/browser/signin/model/chrome_account_manager_service_factory.h"
 #import "ios/chrome/browser/signin/model/identity_manager_factory.h"
@@ -96,8 +98,13 @@
   _signinLogger = [[UserSigninLogger alloc] initWithAccessPoint:self.accessPoint
                                                     promoAction:_promoAction];
   [_signinLogger logSigninStarted];
+  AuthenticationService* authenticationService =
+      AuthenticationServiceFactory::GetForProfile(
+          self.profile->GetOriginalProfile());
   _mediator =
       [[InstantSigninMediator alloc] initWithAccessPoint:self.accessPoint
+                                   authenticationService:authenticationService
+                                         identityManager:identityManager
                                     continuationProvider:_continuationProvider];
   _mediator.delegate = self;
 
@@ -245,6 +252,13 @@
                    completionIdentity:_identity];
 }
 
+- (void)instantSigninMediatorSigninIsImpossible:
+    (InstantSigninMediator*)mediator {
+  CHECK_EQ(mediator, _mediator, base::NotFatalUntil::M144);
+  [self runCompletionWithSigninResult:SigninCoordinatorResultInterrupted
+                   completionIdentity:nil];
+}
+
 #pragma mark - Private
 
 // Starts the sign-in flow.
@@ -278,6 +292,10 @@
 
 // Starts the add account coordinator.
 - (void)startAddAccountForSignInOnly {
+  // In case of double-tap, we must stop the first coordinator. This may occur
+  // because, up to iOS 18, the view may have disappeared without calling the
+  // signin completion. See crbug.com/395959814
+  [_addAccountSigninCoordinator stop];
   _addAccountSigninCoordinator = [SigninCoordinator
       addAccountCoordinatorWithBaseViewController:self.baseViewController
                                           browser:self.browser

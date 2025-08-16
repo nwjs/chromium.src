@@ -28,14 +28,14 @@ import org.chromium.base.test.transit.TripBuilder;
 import org.chromium.base.test.transit.ViewElement;
 import org.chromium.base.test.transit.ViewSpec;
 import org.chromium.base.test.util.ViewActionOnDescendant;
-import org.chromium.chrome.browser.hub.HubToolbarMediator;
+import org.chromium.chrome.browser.hub.HubUtils;
 import org.chromium.chrome.browser.hub.PaneId;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.tasks.tab_management.TabGridView;
 import org.chromium.chrome.test.R;
 import org.chromium.chrome.test.transit.SoftKeyboardFacility;
-import org.chromium.chrome.test.transit.page.PageStation;
+import org.chromium.chrome.test.transit.page.CtaPageStation;
 import org.chromium.chrome.test.transit.tabmodel.TabCountChangedCondition;
 import org.chromium.chrome.test.util.TabBinningUtil;
 
@@ -98,33 +98,36 @@ public abstract class TabSwitcherStation extends HubBaseStation {
     public TabSwitcherAppMenuFacility openAppMenu() {
         recheckActiveConditions();
 
-        return enterFacilitySync(
-                new TabSwitcherAppMenuFacility<>(mIsIncognito),
-                menuButtonElement.getClickTrigger());
+        return menuButtonElement
+                .clickTo()
+                .enterFacility(new TabSwitcherAppMenuFacility<>(mIsIncognito));
     }
 
     /**
      * @param index The tab index to select.
-     * @param destinationBuilder Builder for the specific type of PageStation expected to appear.
-     * @return Builder of the {@link PageStation} for the tab that was selected.
+     * @param destinationBuilder Builder for the specific type of {@link CtaPageStation} expected to
+     *     appear.
+     * @return Builder of the {@link CtaPageStation} for the tab that was selected.
      */
-    public <T extends PageStation> T selectTabAtIndex(
-            int index, PageStation.Builder<T> destinationBuilder) {
+    public <T extends CtaPageStation> T selectTabAtIndex(
+            int index, CtaPageStation.Builder<T> destinationBuilder) {
         recheckActiveConditions();
 
-        T destination =
-                destinationBuilder
-                        .withIncognito(mIsIncognito)
-                        .withIsOpeningTabs(0)
-                        .withIsSelectingTabs(1)
-                        .build();
+        return selectTabAtCardIndexTo(index)
+                .arriveAt(
+                        destinationBuilder
+                                .withIncognito(mIsIncognito)
+                                .initSelectingExistingTab()
+                                .build());
+    }
 
-        return travelToSync(
-                destination,
-                () -> {
-                    ViewActionOnDescendant.performOnRecyclerViewNthItemDescendant(
-                            is(recyclerViewElement.get()), index, TAB_THUMBNAIL, click());
-                });
+    /** Click the thumbnail of the card at the given |index| to start a Trip. */
+    @CheckReturnValue
+    public TripBuilder selectTabAtCardIndexTo(int index) {
+        return runTo(
+                () ->
+                        ViewActionOnDescendant.performOnRecyclerViewNthItemDescendant(
+                                is(recyclerViewElement.get()), index, TAB_THUMBNAIL, click()));
     }
 
     /**
@@ -181,17 +184,14 @@ public abstract class TabSwitcherStation extends HubBaseStation {
     /**
      * Returns to the previous tab via the back button.
      *
-     * @param destinationBuilder Builder for the specific type of PageStation expected to appear.
-     * @return the {@link PageStation} that Hub returned to.
+     * @param destinationBuilder Builder for the specific type of {@link CtaPageStation} expected to
+     *     appear.
+     * @return the {@link CtaPageStation} that Hub returned to.
      */
-    public <T extends PageStation> T leaveHubToPreviousTabViaBack(
-            PageStation.Builder<T> destinationBuilder) {
+    public <T extends CtaPageStation> T leaveHubToPreviousTabViaBack(
+            CtaPageStation.Builder<T> destinationBuilder) {
         T destination =
-                destinationBuilder
-                        .withIsOpeningTabs(0)
-                        .withIsSelectingTabs(1)
-                        .withIncognito(mIsIncognito)
-                        .build();
+                destinationBuilder.initSelectingExistingTab().withIncognito(mIsIncognito).build();
         return pressBackTo().withRetry().arriveAt(destination);
     }
 
@@ -199,18 +199,16 @@ public abstract class TabSwitcherStation extends HubBaseStation {
     public TabSwitcherGroupCardFacility expectGroupCard(List<Integer> tabIdsInGroup, String title) {
         TabModel currentModel = tabModelElement.get();
         int expectedCardIndex = TabBinningUtil.getBinIndex(currentModel, tabIdsInGroup);
-        return enterFacilitySync(
-                new TabSwitcherGroupCardFacility(expectedCardIndex, tabIdsInGroup, title),
-                /* trigger= */ null);
+        return noopTo().enterFacility(
+                        new TabSwitcherGroupCardFacility(expectedCardIndex, tabIdsInGroup, title));
     }
 
     /** Expect a tab card to exist. */
     public TabSwitcherTabCardFacility expectTabCard(int tabId, String title) {
         TabModel currentModel = tabModelElement.get();
         int expectedCardIndex = TabBinningUtil.getBinIndex(currentModel, tabId);
-        return enterFacilitySync(
-                new TabSwitcherTabCardFacility(expectedCardIndex, tabId, title),
-                /* trigger= */ null);
+        return noopTo().enterFacility(
+                        new TabSwitcherTabCardFacility(expectedCardIndex, tabId, title));
     }
 
     /** Verify the tab switcher card count. */
@@ -227,7 +225,7 @@ public abstract class TabSwitcherStation extends HubBaseStation {
     }
 
     private boolean shouldHubSearchBoxBeVisible() {
-        return HubToolbarMediator.isScreenWidthTablet(
+        return HubUtils.isScreenWidthTablet(
                 mActivityElement.get().getResources().getConfiguration().screenWidthDp);
     }
 }

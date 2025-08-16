@@ -32,17 +32,24 @@ class RemoveObsoleteBundleVersionsSuccess {
     return number_of_removed_versions_;
   }
 
+  std::string ToString() const;
+
  private:
   size_t number_of_removed_versions_;
 };
 
 class RemoveObsoleteBundleVersionsError {
  public:
+  // These are used in histograms, do not remove/renumber entries. If you're
+  // adding to this enum with the intention that it will be logged, update the
+  // `IsolatedWebAppRemoveObsoleteBundleVersionsError` enum listing in
+  // tools/metrics/histograms/metadata/webapps/enums.xml.
   enum class Type {
-    kSystemShutdown,
-    kAppNotInstalled,
-    kInstalledVersionNotCached,
-    kCouldNotDeleteAllVersions,
+    kSystemShutdown = 0,
+    kAppNotInstalled = 1,
+    kInstalledVersionNotCached = 2,
+    kCouldNotDeleteAllVersions = 3,
+    kMaxValue = kCouldNotDeleteAllVersions,
   };
 
   explicit RemoveObsoleteBundleVersionsError(
@@ -61,18 +68,17 @@ class RemoveObsoleteBundleVersionsError {
 
   Type type() const { return type_; }
 
-  size_t number_of_failed_remove_versions() const {
+  size_t number_of_failed_to_remove_versions() const {
     return number_of_failed_to_remove_versions_;
   }
+
+  std::string ToString() const;
 
  private:
   Type type_;
   // Valid only for `kCouldNotDeleteAllVersions` failure.
   size_t number_of_failed_to_remove_versions_;
 };
-
-std::string RemoveObsoleteBundleVersionsErrorToString(
-    RemoveObsoleteBundleVersionsError error);
 
 using RemoveObsoleteBundleVersionsResult =
     base::expected<RemoveObsoleteBundleVersionsSuccess,

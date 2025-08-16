@@ -359,8 +359,11 @@ class LayerTreeHostImplForTesting : public LayerTreeHostImpl {
     test_hooks_->UpdateAnimationState(this, has_unfinished_animation);
   }
 
-  void NotifyTileStateChanged(const Tile* tile, bool update_damage) override {
-    LayerTreeHostImpl::NotifyTileStateChanged(tile, update_damage);
+  void NotifyTileStateChanged(const Tile* tile,
+                              bool update_damage,
+                              bool set_needs_redraw) override {
+    LayerTreeHostImpl::NotifyTileStateChanged(tile, update_damage,
+                                              set_needs_redraw);
     test_hooks_->NotifyTileStateChangedOnThread(this, tile, update_damage);
   }
 
@@ -675,8 +678,7 @@ class LayerTreeTestLayerTreeFrameSinkClient
 
  private:
   raw_ptr<TestHooks> hooks_;
-  raw_ptr<TaskRunnerProvider, AcrossTasksDanglingUntriaged>
-      task_runner_provider_;
+  raw_ptr<TaskRunnerProvider> task_runner_provider_;
 };
 
 LayerTreeTest::LayerTreeTest(viz::RendererType renderer_type)
@@ -1296,6 +1298,22 @@ size_t LayerTreeTest::NumCallsToWaitForProtectedSequenceCompletion() const {
 }
 
 void LayerTreeTest::DestroyLayerTreeHost() {
+  // The `LayerTreeFrameSink` must be released before the LayerTreeHost as some
+  // subclasses, such as `TestLayerTreeFrameSink` hold onto pointers to
+  // `LayerTreeTestLayerTreeFrameSinkClient` and other objects, such as
+  // `TestCompositorFrameSinkSupport` (which also references the task runner and
+  // client), which will trigger dangling ptr warnings if destroyed in the wrong
+  // order.
+  if (layer_tree_host_) {
+    // Forcing the LayerTreeHost to be !visible to avoid triggering the DCHECK
+    // in ReleaseLayerTreeFrameSink.
+    layer_tree_host_->SetVisible(false);
+    layer_tree_host_->ReleaseLayerTreeFrameSink();
+  }
+  // References the TaskRunnerProvider owned by LayerTreeHost so must be
+  // cleaned up first to avoid being a dangling ptr.
+  layer_tree_frame_sink_client_ = nullptr;
+
   if (layer_tree_host_ && layer_tree_host_->root_layer())
     layer_tree_host_->root_layer()->SetLayerTreeHost(nullptr);
   layer_tree_host_ = nullptr;

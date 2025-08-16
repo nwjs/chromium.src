@@ -63,18 +63,6 @@ mojom("mojom") {
     enabled_features = [ "is_ios_iphoneos" ]
   }
 
-  cpp_typemaps = [
-    {
-      types = [
-        {
-          mojom = "device.mojom.BluetoothAddress"
-          cpp = "::std::array<::uint8_t, 6>"
-        },
-      ]
-      traits_public_deps = [ "//base" ]
-    },
-  ]
-
   if (use_blink) {
     # The blink variant of the Device Service mojom are depended on by the
     # blink platform target. All blink variant mojoms use WTF types, which are
@@ -231,7 +219,7 @@ mojom("usb_test") {
 mojom("geoposition") {
   generate_java = true
   sources = [ "geoposition.mojom" ]
-  public_deps = [ "//mojo/public/mojom/base:base" ]
+  public_deps = [ "//mojo/public/mojom/base" ]
 
   if (use_blink) {
     # The blink variant of the geoposition mojom is depended on by the blink

@@ -16,6 +16,11 @@
 #include "base/files/file_util.h"
 #include "base/json/json_file_value_serializer.h"
 #include "base/json/json_reader.h"
+
+#if BUILDFLAG(IS_MAC)
+#include "base/mac/mac_util.h"
+#endif
+
 #include "base/memory/weak_ptr.h"
 #include "base/notreached.h"
 #include "base/path_service.h"
@@ -621,7 +626,8 @@ base::Value::Dict WebContentsToJson(const Browser& browser,
       web_contents.GetPrimaryMainFrame(),
       "'launchParamsTargetUrls' in window ? launchParamsTargetUrls : []");
   EXPECT_THAT(launchParamsResults, content::EvalJsResult::IsOk());
-  base::Value::List launchParamsTargetUrls = launchParamsResults.ExtractList();
+  const base::Value::List& launchParamsTargetUrls =
+      launchParamsResults.ExtractList();
   if (!launchParamsTargetUrls.empty()) {
     for (const base::Value& url : launchParamsTargetUrls) {
       dict.EnsureList("launchParams")
@@ -629,8 +635,8 @@ base::Value::Dict WebContentsToJson(const Browser& browser,
     }
   }
 
-  WebAppTabHelper* helper = WebAppTabHelper::FromWebContents(&web_contents);
-  if (helper->is_pinned_home_tab()) {
+  if (browser.app_controller() &&
+      browser.app_controller()->GetPinnedHomeTab() == &web_contents) {
     dict.Set("is_pinned_home_tab", true);
   }
 
@@ -1766,6 +1772,14 @@ class NavCaptureParameterizedBrowserTest
     if (ShouldRunDisabledTests()) {
       return false;
     }
+
+#if BUILDFLAG(IS_MAC)
+    // TODO(crbug.com/432178469): Remove this and associated import after Mac13
+    // flakiness is fixed.
+    if (base::mac::MacOSMajorVersion() == 13) {
+      return true;
+    }
+#endif
 
     testing::TestParamInfo<LinkCaptureTestParam> param(GetParam(), 0);
     const base::Value::Dict& test_case = GetTestCaseDataFromParam();

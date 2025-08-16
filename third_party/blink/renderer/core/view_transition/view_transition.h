@@ -151,10 +151,11 @@ class CORE_EXPORT ViewTransition : public GarbageCollected<ViewTransition>,
   viz::ViewTransitionElementResourceId GetSnapshotId(
       const LayoutObject& object) const;
 
-  // The layer used to paint the old Document rendered in a LocalFrame subframe
-  // until the new Document can start rendering.
-  const scoped_refptr<cc::ViewTransitionContentLayer>&
-  GetSubframeSnapshotLayer() const;
+  // The layer used to paint the old contents of the transition scope until the
+  // transition can start animating. This is used for non-document scopes and
+  // for document scopes in local subframes.
+  const scoped_refptr<cc::ViewTransitionContentLayer>& GetScopeSnapshotLayer()
+      const;
 
   // Updates a clip node. The clip tracks the subset of the |object|'s ink
   // overflow rectangle which should be painted.The return value is a result of
@@ -333,6 +334,7 @@ class CORE_EXPORT ViewTransition : public GarbageCollected<ViewTransition>,
     kAnimateTagDiscovery,
     kAnimateRequestPending,
     kAnimating,
+    kPendingDone,
 
     // Terminal states.
     kFinished,
@@ -368,6 +370,12 @@ class CORE_EXPORT ViewTransition : public GarbageCollected<ViewTransition>,
   void PauseRendering();
   void OnRenderingPausedTimeout();
   void ResumeRendering();
+
+  // Returns true if unable to capture the view transition due to unsupported
+  // style or layout.
+  bool UnsupportedCapture();
+
+  void LogMessageToConsole(const String& message);
 
   // Cross-document navigations may span across multiple CompositorFrameSinks if
   // the old/new Documents render to different WebWidgets. This returns false if

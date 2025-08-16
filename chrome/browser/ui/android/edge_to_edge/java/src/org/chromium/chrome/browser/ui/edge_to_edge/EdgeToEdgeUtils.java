@@ -37,7 +37,6 @@ import org.chromium.content_public.browser.WebContentsObserver;
 import org.chromium.ui.base.DeviceFormFactor;
 import org.chromium.ui.base.WindowAndroid;
 import org.chromium.ui.display.DisplayUtil;
-import org.chromium.ui.insets.InsetObserver;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -57,8 +56,6 @@ public class EdgeToEdgeUtils {
     private static final String ELIGIBLE_HISTOGRAM = "Android.EdgeToEdge.Eligible";
     private static final String INELIGIBLE_REASON_HISTOGRAM =
             "Android.EdgeToEdge.IneligibilityReason";
-    private static final String PARAM_SAFE_AREA_CONSTRAINT_SCROLLABLE_WHEN_STACKING =
-            "scrollable_when_stacking";
     private static final String MISSING_NAVBAR_INSETS_HISTOGRAM =
             "Android.EdgeToEdge.MissingNavbarInsets2";
 
@@ -126,6 +123,11 @@ public class EdgeToEdgeUtils {
         return ChromeFeatureList.sEdgeToEdgeBottomChin.isEnabled();
     }
 
+    /** Whether it is allowed to use other insets as a backup for missing navigation bar insets. */
+    public static boolean isUseBackupNavbarInsetsEnabled() {
+        return ChromeFeatureList.sEdgeToEdgeUseBackupNavbarInsets.isEnabled();
+    }
+
     /**
      * Returns whether the configuration of the device should allow Edge To Edge bottom chin. Note
      * the results are false-positive, if the method is called before the |activity|'s decor view
@@ -134,7 +136,7 @@ public class EdgeToEdgeUtils {
     public static boolean isEdgeToEdgeBottomChinEnabled(Activity activity) {
         // Make sure we test SDK version before checking the Feature so Field Trials only collect
         // from qualifying devices.
-        if (!EdgeToEdgeFieldTrial.getBottomChinOverrides().isEnabledForManufacturerVersion()) {
+        if (!EdgeToEdgeFieldTrialImpl.getBottomChinOverrides().isEnabledForManufacturerVersion()) {
             return false;
         }
 
@@ -161,15 +163,14 @@ public class EdgeToEdgeUtils {
      * This is a sensitive check for whether all insets indicate or imply that the device is in
      * gesture navigation mode, and not tappable (3-button) navigation mode.
      *
-     * @param insetObserver The InsetObserver in the current activity, used to retrieve the last
-     *     seen root view window insets.
+     * @param insets The window insets to check for signals indicating gesture navigation.
      * @return Whether all insets indicate the device is in gesture navigation mode.
      */
-    public static boolean doAllInsetsIndicateGestureNavigation(InsetObserver insetObserver) {
-        WindowInsetsCompat rootInsets = insetObserver.getLastRawWindowInsets();
-        return rootInsets != null
-                && isInGestureNavigationMode(rootInsets)
-                && !hasTappableBarIgnoringTop(() -> rootInsets);
+    public static boolean doAllInsetsIndicateGestureNavigation(
+            @Nullable WindowInsetsCompat insets) {
+        return insets != null
+                && isInGestureNavigationMode(insets)
+                && !hasTappableBarIgnoringTop(() -> insets);
     }
 
     /** Whether the edge-to-edge feature is enabled on tablet. */
@@ -206,22 +207,14 @@ public class EdgeToEdgeUtils {
         return DisplayUtil.getCurrentSmallestScreenWidth(context) < widthThreshold;
     }
 
-    /**
-     * Whether drawing the website that has `viewport-fit=cover` fully edge to edge, removing the
-     * bottom chin.
-     */
-    public static boolean isEdgeToEdgeWebOptInEnabled() {
-        return isBottomChinFeatureEnabled() && ChromeFeatureList.sEdgeToEdgeWebOptIn.isEnabled();
-    }
-
     /** Whether edge-to-edge should be enabled everywhere. */
     @OptIn(markerClass = BuildCompat.PrereleaseSdkCheck.class)
     public static boolean isEdgeToEdgeEverywhereEnabled() {
-        if (!EdgeToEdgeFieldTrial.getEverywhereOverrides().isEnabledForManufacturerVersion()) {
+        if (!EdgeToEdgeFieldTrialImpl.getEverywhereOverrides().isEnabledForManufacturerVersion()) {
             return false;
         }
 
-        if (BuildInfo.getInstance().isAutomotive || BuildInfo.getInstance().isDesktop) {
+        if (BuildInfo.getInstance().isAutomotive) {
             return false;
         }
 
@@ -244,8 +237,7 @@ public class EdgeToEdgeUtils {
 
     /** Whether key native pages should draw to edge. */
     public static boolean isDrawKeyNativePageToEdgeEnabled() {
-        return isBottomChinFeatureEnabled()
-                && ChromeFeatureList.sDrawKeyNativeEdgeToEdge.isEnabled();
+        return isBottomChinFeatureEnabled();
     }
 
     /**
@@ -253,17 +245,7 @@ public class EdgeToEdgeUtils {
      * isEdgeToEdgeBottomChinEnabled}.
      */
     public static boolean isSafeAreaConstraintEnabled() {
-        return isBottomChinFeatureEnabled()
-                && ChromeFeatureList.sEdgeToEdgeSafeAreaConstraint.isEnabled();
-    }
-
-    /** Whether the bottom chin should ignore the constraint when stacking with other layers. */
-    public static boolean isConstraintBottomChinScrollableWhenStacking() {
-        return isSafeAreaConstraintEnabled()
-                && ChromeFeatureList.getFieldTrialParamByFeatureAsBoolean(
-                        ChromeFeatureList.EDGE_TO_EDGE_SAFE_AREA_CONSTRAINT,
-                        PARAM_SAFE_AREA_CONSTRAINT_SCROLLABLE_WHEN_STACKING,
-                        true);
+        return isBottomChinFeatureEnabled();
     }
 
     /**
@@ -335,9 +317,7 @@ public class EdgeToEdgeUtils {
             boolean isPageOptedIntoEdgeToEdge, @LayoutType int layoutType, int bottomInset) {
         return isPageOptedIntoEdgeToEdge
                 || (isBottomChinFeatureEnabled() && isBottomChinAllowed(layoutType, bottomInset))
-                || (isDrawKeyNativePageToEdgeEnabled()
-                        && layoutType == LayoutType.TAB_SWITCHER
-                        && !ChromeFeatureList.sDrawKeyNativeEdgeToEdgeDisableHubE2e.getValue());
+                || (layoutType == LayoutType.TAB_SWITCHER);
     }
 
     /**
@@ -372,7 +352,7 @@ public class EdgeToEdgeUtils {
         if (sAlwaysDrawWebEdgeToEdgeForTesting) {
             return true;
         }
-        return isEdgeToEdgeWebOptInEnabled() && getWasViewportFitCover(tab);
+        return getWasViewportFitCover(tab);
     }
 
     /**
@@ -389,9 +369,6 @@ public class EdgeToEdgeUtils {
         }
         if (tab.shouldEnableEmbeddedMediaExperience()) {
             return isDrawKeyNativePageToEdgeEnabled();
-        }
-        if (!isEdgeToEdgeWebOptInEnabled()) {
-            return false;
         }
         return value == ViewportFit.COVER || value == ViewportFit.COVER_FORCED_BY_USER_AGENT;
     }
@@ -505,11 +482,6 @@ public class EdgeToEdgeUtils {
     public static void setAlwaysDrawWebEdgeToEdgeForTesting(boolean drawWebEdgeToEdge) {
         sAlwaysDrawWebEdgeToEdgeForTesting = drawWebEdgeToEdge;
         ResettersForTesting.register(() -> sAlwaysDrawWebEdgeToEdgeForTesting = false);
-    }
-
-    /** Whether push safe-area-insets-bottom to pages that's not using viewport-fit=cover. */
-    public static boolean pushSafeAreaInsetsForNonOptInPages() {
-        return ChromeFeatureList.sDynamicSafeAreaInsets.isEnabled();
     }
 
     public static void setObservedTappableNavigationBarForTesting(boolean observed) {

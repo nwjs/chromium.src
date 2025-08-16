@@ -5,7 +5,10 @@
 #import "ios/chrome/browser/home_customization/ui/home_customization_background_photo_framing_view_controller.h"
 
 #import "base/check.h"
-#import "ios/chrome/browser/ntp/ui_bundled/logo_vendor.h"
+#import "ios/chrome/browser/home_customization/model/home_customization_background_photo_framing_coordinates.h"
+#import "ios/chrome/browser/home_customization/model/home_customization_background_photo_framing_mutator.h"
+#import "ios/chrome/browser/ntp/search_engine_logo/mediator/search_engine_logo_mediator.h"
+#import "ios/chrome/browser/ntp/search_engine_logo/ui/search_engine_logo_state.h"
 #import "ios/chrome/browser/shared/ui/symbols/symbols.h"
 #import "ios/chrome/common/ui/colors/semantic_color_names.h"
 #import "ios/chrome/common/ui/util/constraints_ui_util.h"
@@ -34,8 +37,8 @@ const CGFloat kCenterStackSpacing = 4.0;
     UIScrollViewDelegate> {
   // The original image to be framed.
   UIImage* _originalImage;
-  // Logo vendor for displaying Google logo/doodle.
-  id<LogoVendor> _logoVendor;
+  // Mediator in charge of displaying Google logo/doodle.
+  SearchEngineLogoMediator* _searchEngineLogoMediator;
   // Image view displaying the image.
   UIImageView* _imageView;
   // Bottom section container.
@@ -51,13 +54,14 @@ const CGFloat kCenterStackSpacing = 4.0;
 #pragma mark - Initialization
 
 - (instancetype)initWithImage:(UIImage*)image
-                   logoVendor:(id<LogoVendor>)logoVendor {
+     searchEngineLogoMediator:
+         (SearchEngineLogoMediator*)searchEngineLogoMediator {
   CHECK(image);
-  CHECK(logoVendor);
+  CHECK(searchEngineLogoMediator);
   self = [super initWithNibName:nil bundle:nil];
   if (self) {
     _originalImage = image;
-    _logoVendor = logoVendor;
+    _searchEngineLogoMediator = searchEngineLogoMediator;
     // Set fullscreen presentation.
     self.modalPresentationStyle = UIModalPresentationOverFullScreen;
   }
@@ -150,12 +154,11 @@ const CGFloat kCenterStackSpacing = 4.0;
   [self.view addSubview:topSection];
 
   // Add logo vendor view.
-  if (_logoVendor) {
+  if (_searchEngineLogoMediator) {
     // Get logo view and configure it.
-    UIView* logoView = _logoVendor.view;
+    UIView* logoView = _searchEngineLogoMediator.view;
     logoView.translatesAutoresizingMaskIntoConstraints = NO;
-    _logoVendor.showingLogo = YES;
-    _logoVendor.usesMonochromeLogo = YES;
+    _searchEngineLogoMediator.usesMonochromeLogo = YES;
     logoView.tintColor = [UIColor colorNamed:kSolidWhiteColor];
     [topSection addArrangedSubview:logoView];
 
@@ -333,10 +336,47 @@ const CGFloat kCenterStackSpacing = 4.0;
   [self.delegate imageFramingViewControllerDidCancel:self];
 }
 
-// Handles save button tap functionality.
 - (void)saveButtonTapped {
-  // TODO(crbug.com/421925583): Implement save button and integrate with
-  // services.
+  if (!_mutator) {
+    [self.delegate imageFramingViewControllerDidCancel:self];
+    return;
+  }
+  HomeCustomizationFramingCoordinates* framingCoordinates =
+      [self calculateFramingCoordinates];
+
+  __weak __typeof(self) weakSelf = self;
+  [_mutator saveImage:_originalImage
+      withFramingCoordinates:framingCoordinates
+                  completion:base::BindOnce(^{
+                    [weakSelf.delegate
+                        imageFramingViewControllerDidSucceed:weakSelf];
+                  })];
+}
+
+// Calculates the center point of the visible area in content coordinates.
+- (HomeCustomizationFramingCoordinates*)calculateFramingCoordinates {
+  // Get the visible area in scroll view content coordinates.
+  CGRect visibleContentRect =
+      CGRectMake(_scrollView.contentOffset.x, _scrollView.contentOffset.y,
+                 _scrollView.bounds.size.width, _scrollView.bounds.size.height);
+
+  // Convert from scroll view content coordinates to original image coordinates.
+  CGFloat scaleX = _originalImage.size.width / _imageView.frame.size.width;
+  CGFloat scaleY = _originalImage.size.height / _imageView.frame.size.height;
+
+  CGRect visibleRectInOriginal =
+      CGRectMake(visibleContentRect.origin.x * scaleX,
+                 visibleContentRect.origin.y * scaleY,
+                 visibleContentRect.size.width * scaleX,
+                 visibleContentRect.size.height * scaleY);
+
+  // Clamp the rectangle to image bounds.
+  CGRect imageBounds =
+      CGRectMake(0, 0, _originalImage.size.width, _originalImage.size.height);
+  CGRect clampedRect = CGRectIntersection(visibleRectInOriginal, imageBounds);
+
+  return [[HomeCustomizationFramingCoordinates alloc]
+      initWithVisibleRect:clampedRect];
 }
 
 @end

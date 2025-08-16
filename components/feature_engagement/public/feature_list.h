@@ -179,6 +179,8 @@ DEFINE_VARIATION_PARAM(kIPHTabGroupShareNotificationBubbleOnStripFeature,
                        "IPH_TabGroupSharedNotificationBubbleOnStrip");
 DEFINE_VARIATION_PARAM(kIPHTabGroupShareUpdateFeature,
                        "IPH_TabGroupShareUpdate");
+DEFINE_VARIATION_PARAM(kIPHTabGroupShareVersionUpdateFeature,
+                       "IPH_TabGroupShareVersionUpdate");
 DEFINE_VARIATION_PARAM(kIPHTabGroupsRemoteGroupFeature,
                        "IPH_TabGroupsRemoteGroup");
 DEFINE_VARIATION_PARAM(kIPHTabGroupsSurfaceFeature, "IPH_TabGroupsSurface");
@@ -190,6 +192,8 @@ DEFINE_VARIATION_PARAM(kIPHTabSwitcherAddToGroup, "IPH_TabSwitcherAddToGroup");
 DEFINE_VARIATION_PARAM(kIPHTabSwitcherButtonFeature, "IPH_TabSwitcherButton");
 DEFINE_VARIATION_PARAM(kIPHTabSwitcherButtonSwitchIncognitoFeature,
                        "IPH_TabSwitcherButtonSwitchIncognito");
+DEFINE_VARIATION_PARAM(kIPHTouchToSearchCalloutFeature,
+                       "IPH_TouchToSearchCallout");
 DEFINE_VARIATION_PARAM(kIPHTranslateMenuButtonFeature,
                        "IPH_TranslateMenuButton");
 DEFINE_VARIATION_PARAM(kIPHVideoTutorialNTPChromeIntroFeature,
@@ -322,6 +326,10 @@ DEFINE_VARIATION_PARAM(kIPHiOSSharedTabGroupForeground,
                        "IPH_iOSSharedTabGroupForeground");
 DEFINE_VARIATION_PARAM(kIPHiOSDefaultBrowserBannerPromoFeature,
                        "IPH_iOSDefaultBrowserBannerPromoFeature");
+DEFINE_VARIATION_PARAM(kIPHiOSDefaultBrowserOffCyclePromoFeature,
+                       "IPH_iOSDefaultBrowserOffCyclePromo");
+DEFINE_VARIATION_PARAM(kIPHiOSOneTimeDefaultBrowserNotificationFeature,
+                       "IPH_iOSOneTimeDefaultBrowserNotification");
 DEFINE_VARIATION_PARAM(kIPHiOSReminderNotificationsOverflowMenuBubbleFeature,
                        "IPH_iOSReminderNotificationsOverflowMenuBubbleFeature");
 DEFINE_VARIATION_PARAM(
@@ -335,10 +343,13 @@ DEFINE_VARIATION_PARAM(
     kIPHiOSSwitchAccountsWithNTPAccountParticleDiscFeature,
     "IPH_iOSSwitchAccountsWithNTPAccountParticleDiscFeature");
 DEFINE_VARIATION_PARAM(kIPHiOSWelcomeBackFeature, "IPH_iOSWelcomeBack");
-DEFINE_VARIATION_PARAM(kIPHIOSBWGPromoFeature, "IPH_iOSBWGPromo");
 DEFINE_VARIATION_PARAM(kIPHiOSSafariImportFeature,
                        "IPH_iOSSafariImportFeature");
 DEFINE_VARIATION_PARAM(kIPHIOSPageActionMenu, "IPH_iOSPageActionMenu");
+DEFINE_VARIATION_PARAM(kIPHiOSHomepageLensNewBadge,
+                       "IPH_iOSHomepageLensNewBadge");
+DEFINE_VARIATION_PARAM(kIPHiOSHomepageCustomizationNewBadge,
+                       "IPH_iOSHomepageCustomizationNewBadge");
 #endif  // BUILDFLAG(IS_IOS)
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_APPLE) || BUILDFLAG(IS_LINUX) || \
@@ -661,6 +672,7 @@ inline constexpr flags_ui::FeatureEntry::FeatureVariation
         VARIATION_ENTRY(kIPHTabGroupCreationDialogSyncTextFeature),
         VARIATION_ENTRY(kIPHTabGroupShareNoticeFeature),
         VARIATION_ENTRY(kIPHTabGroupShareUpdateFeature),
+        VARIATION_ENTRY(kIPHTabGroupShareVersionUpdateFeature),
         VARIATION_ENTRY(kIPHTabGroupsDragAndDropFeature),
         VARIATION_ENTRY(kIPHTabGroupsRemoteGroupFeature),
         VARIATION_ENTRY(kIPHTabGroupsSurfaceFeature),
@@ -668,6 +680,7 @@ inline constexpr flags_ui::FeatureEntry::FeatureVariation
         VARIATION_ENTRY(kIPHTabSwitcherAddToGroup),
         VARIATION_ENTRY(kIPHTabSwitcherButtonFeature),
         VARIATION_ENTRY(kIPHTabSwitcherButtonSwitchIncognitoFeature),
+        VARIATION_ENTRY(kIPHTouchToSearchCalloutFeature),
         VARIATION_ENTRY(kIPHTranslateMenuButtonFeature),
         VARIATION_ENTRY(kIPHVideoTutorialNTPChromeIntroFeature),
         VARIATION_ENTRY(kIPHVideoTutorialNTPDownloadFeature),
@@ -715,6 +728,7 @@ inline constexpr flags_ui::FeatureEntry::FeatureVariation
         VARIATION_ENTRY(kIPHiOSPromoPostRestoreFeature),
         VARIATION_ENTRY(kIPHiOSPromoCredentialProviderExtensionFeature),
         VARIATION_ENTRY(kIPHiOSHistoryOnOverflowMenuFeature),
+        VARIATION_ENTRY(kIPHiOSPromoGenericDefaultBrowserFeature),
         VARIATION_ENTRY(kIPHiOSPromoPostRestoreDefaultBrowserFeature),
         VARIATION_ENTRY(kIPHiOSPromoNonModalUrlPasteDefaultBrowserFeature),
         VARIATION_ENTRY(kIPHiOSPromoNonModalAppSwitcherDefaultBrowserFeature),
@@ -748,7 +762,6 @@ inline constexpr flags_ui::FeatureEntry::FeatureVariation
             kIPHiOSReminderNotificationsOverflowMenuNewBadgeFeature),
         VARIATION_ENTRY(kIPHiOSDownloadAutoDeletionFeature),
         VARIATION_ENTRY(kIPHiOSWelcomeBackFeature),
-        VARIATION_ENTRY(kIPHIOSBWGPromoFeature),
         VARIATION_ENTRY(kIPHiOSSafariImportFeature),
         VARIATION_ENTRY(kIPHIOSPageActionMenu),
 #elif BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || \

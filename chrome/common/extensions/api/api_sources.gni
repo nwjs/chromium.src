@@ -24,18 +24,26 @@ schema_sources_ = [
   "identity.idl",
   "instance_id.json",
   "notifications.idl",
+  "omnibox.json",
+  "page_capture.json",
   "permissions.json",
   "processes.idl",
   "reading_list.idl",
   "scripting.idl",
   "tabs.json",
+  "web_authentication_proxy.idl",
 
   # Despite the name, these APIs do not rely on any WebRTC-specific bits and
   # as such do not belong in a conditional.
+  "webrtc_audio_private.idl",
   "webrtc_logging_private.idl",
   "webstore_private.json",
   "windows.json",
 ]
+
+if (enable_service_discovery) {
+  schema_sources_ += [ "mdns.idl" ]
+}
 
 # Schemas that should be used only to auto-generate the C++ types.
 # In many cases, this includes schemas used to generate types used in manifest
@@ -70,8 +78,6 @@ if (enable_extensions) {
     "enterprise_reporting_private.idl",
     "image_writer_private.idl",
     "language_settings_private.idl",
-    "omnibox.json",
-    "page_capture.json",
     "passwords_private.idl",
     "resources_private.idl",
     "safe_browsing_private.idl",
@@ -82,12 +88,10 @@ if (enable_extensions) {
     "system_private.json",
     "tab_capture.idl",
     "tab_groups.json",
-    "web_authentication_proxy.idl",
     "web_navigation.json",
 
     # Despite the name, these APIs do not rely on any WebRTC-specific bits and
     # as such do not belong in a conditional.
-    "webrtc_audio_private.idl",
     "webrtc_desktop_capture_private.idl",
   ]
 
@@ -140,10 +144,6 @@ if (enable_extensions) {
 
   if (is_linux || is_win || is_chromeos) {
     schema_sources_ += [ "input_ime.json" ]
-  }
-
-  if (enable_service_discovery) {
-    schema_sources_ += [ "mdns.idl" ]
   }
 
   if (enable_pdf) {

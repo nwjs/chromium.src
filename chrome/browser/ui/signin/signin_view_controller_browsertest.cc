@@ -54,9 +54,9 @@
 #if BUILDFLAG(ENABLE_EXTENSIONS)
 #include "base/path_service.h"
 #include "chrome/browser/extensions/chrome_test_extension_loader.h"
-#include "chrome/browser/extensions/extension_sync_util.h"
 #include "chrome/browser/extensions/scoped_test_mv2_enabler.h"
 #include "chrome/browser/extensions/signin_test_util.h"
+#include "chrome/browser/extensions/sync/extension_sync_util.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/webui/test_support/webui_interactive_test_mixin.h"
 #include "chrome/common/chrome_paths.h"
@@ -267,7 +267,8 @@ class SigninViewControllerBrowserTest
 
 IN_PROC_BROWSER_TEST_F(
     SigninViewControllerBrowserTest,
-    SignoutOrReauthWithPromptForPersistentErrorState_Reauth) {
+    // TODO(crbug.com/429624627): Re-enable this test.
+    DISABLED_SignoutOrReauthWithPromptForPersistentErrorState_Reauth) {
   // Setup a primary account in error state.
   AccountInfo primary_account_info = SetPrimaryAccount();
   ASSERT_TRUE(
@@ -349,8 +350,9 @@ IN_PROC_BROWSER_TEST_F(
   EXPECT_TRUE(IsSignoutTab(tab));
 }
 
+// https://crbug.com/429624627: Test is flakily crashing.
 IN_PROC_BROWSER_TEST_F(SigninViewControllerBrowserTest,
-                       SignoutOrReauthWithPrompt_Cancel) {
+                       DISABLED_SignoutOrReauthWithPrompt_Cancel) {
   // Setup a primary account.
   AccountInfo primary_account_info = SetPrimaryAccount();
   ASSERT_TRUE(
@@ -709,7 +711,7 @@ IN_PROC_BROWSER_TEST_F(SigninViewControllerBrowserTest,
           std::make_unique<signin::EnterpriseProfileCreationDialogParams>(
               account_info,
               /*is_oidc_account=*/false,
-              /*turn_sync_on_signed_profile=*/false,
+              /*user_already_signed_in=*/false,
               /*profile_creation_required_by_policy=*/false,
               /*show_link_data_option=*/false,
               /*process_user_choice_callback=*/
@@ -728,7 +730,7 @@ IN_PROC_BROWSER_TEST_F(SigninViewControllerBrowserTest,
           std::make_unique<signin::EnterpriseProfileCreationDialogParams>(
               account_info,
               /*is_oidc_account=*/false,
-              /*turn_sync_on_signed_profile=*/false,
+              /*user_already_signed_in=*/false,
               /*profile_creation_required_by_policy=*/true,
               /*show_link_data_option=*/false,
               /*process_user_choice_callback=*/

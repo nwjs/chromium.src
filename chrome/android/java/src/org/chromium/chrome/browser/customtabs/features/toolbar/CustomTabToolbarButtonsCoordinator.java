@@ -27,7 +27,6 @@ import org.chromium.chrome.browser.browserservices.intents.BrowserServicesIntent
 import org.chromium.chrome.browser.browserservices.intents.BrowserServicesIntentDataProvider.CustomTabProfileType;
 import org.chromium.chrome.browser.browserservices.intents.BrowserServicesIntentDataProvider.TitleVisibility;
 import org.chromium.chrome.browser.browserservices.intents.CustomButtonParams;
-import org.chromium.chrome.browser.customtabs.CustomTabFeatureOverridesManager;
 import org.chromium.chrome.browser.customtabs.features.CustomTabDimensionUtils;
 import org.chromium.chrome.browser.customtabs.features.minimizedcustomtab.CustomTabMinimizeDelegate;
 import org.chromium.chrome.browser.customtabs.features.partialcustomtab.PartialCustomTabSideSheetStrategy.MaximizeButtonCallback;
@@ -55,6 +54,7 @@ public class CustomTabToolbarButtonsCoordinator
             mCustomActionButtonsMcp;
     private final PropertyModel mModel;
     private final CustomTabToolbarButtonsMediator mMediator;
+    private final boolean mIsOptionalButtonSupported;
 
     public CustomTabToolbarButtonsCoordinator(
             Activity activity,
@@ -62,7 +62,6 @@ public class CustomTabToolbarButtonsCoordinator
             BrowserServicesIntentDataProvider intentDataProvider,
             Callback<CustomButtonParams> customButtonClickCallback,
             CustomTabMinimizeDelegate minimizeDelegate,
-            @Nullable CustomTabFeatureOverridesManager featureOverridesManager,
             CustomTabToolbar.@Nullable OmniboxParams omniboxParams,
             ActivityLifecycleDispatcher lifecycleDispatcher,
             ActivityTabProvider tabProvider) {
@@ -82,6 +81,7 @@ public class CustomTabToolbarButtonsCoordinator
                         // #setCloseButtonClickHandler.
                         : new CloseButtonData();
 
+        mIsOptionalButtonSupported = intentDataProvider.isOptionalButtonSupported();
         int toolbarWidth = CustomTabDimensionUtils.getInitialWidth(activity, intentDataProvider);
         boolean omniboxEnabled = omniboxParams != null;
         boolean titleVisible =
@@ -117,7 +117,6 @@ public class CustomTabToolbarButtonsCoordinator
                         activity,
                         minimizeDelegate,
                         intentDataProvider,
-                        featureOverridesManager,
                         lifecycleDispatcher,
                         tabProvider);
         view.setOnNewWidthMeasuredListener(mMediator);
@@ -140,12 +139,12 @@ public class CustomTabToolbarButtonsCoordinator
 
     @Override
     public void setOptionalButtonData(@Nullable ButtonData buttonData) {
-        mMediator.setOptionalButtonData(buttonData);
+        if (mIsOptionalButtonSupported) mMediator.setOptionalButtonData(buttonData);
     }
 
     @Override
     public boolean isOptionalButtonVisible() {
-        return false;
+        return mIsOptionalButtonSupported ? mMediator.isOptionalButtonVisible() : false;
     }
 
     /**

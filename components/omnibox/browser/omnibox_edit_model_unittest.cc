@@ -35,9 +35,10 @@
 #include "components/omnibox/browser/test_omnibox_view.h"
 #include "components/omnibox/browser/test_scheme_classifier.h"
 #include "components/omnibox/browser/unscoped_extension_provider.h"
+#include "components/omnibox/common/omnibox_feature_configs.h"
 #include "components/omnibox/common/omnibox_features.h"
 #include "components/omnibox/common/omnibox_focus_state.h"
-#include "components/prefs/testing_pref_service.h"
+#include "components/sync_preferences/testing_pref_service_syncable.h"
 #include "components/url_formatter/url_fixer.h"
 #include "extensions/buildflags/buildflags.h"
 #include "omnibox_triggered_feature_service.h"
@@ -92,27 +93,53 @@ void OpenUrlFromEditBox(OmniboxController* controller,
 class OmniboxEditModelTest : public testing::Test {
  public:
   OmniboxEditModelTest() {
-    auto omnibox_client = std::make_unique<TestOmniboxClient>();
-    omnibox_client_ = omnibox_client.get();
-
-    view_ = std::make_unique<TestOmniboxView>(std::move(omnibox_client));
+    view_ = std::make_unique<TestOmniboxView>(
+        std::make_unique<TestOmniboxClient>());
     view_->controller()->SetEditModelForTesting(
         std::make_unique<TestOmniboxEditModel>(view_->controller(), view_.get(),
-                                               /*pref_service=*/nullptr));
+                                               pref_service()));
+
+    EXPECT_CALL(*client(), GetPrefs()).WillRepeatedly(Return(pref_service()));
   }
 
+  void SetUp() override {
+    omnibox::RegisterProfilePrefs(
+        static_cast<sync_preferences::TestingPrefServiceSyncable*>(
+            pref_service())
+            ->registry());
+    omnibox::RegisterProfilePrefs(
+        static_cast<sync_preferences::TestingPrefServiceSyncable*>(
+            classifier_pref_service())
+            ->registry());
+  }
+
+  PrefService* pref_service() {
+    return controller()
+        ->autocomplete_controller()
+        ->autocomplete_provider_client()
+        ->GetPrefs();
+  }
+  PrefService* classifier_pref_service() {
+    return client()
+        ->autocomplete_classifier()
+        ->autocomplete_controller()
+        ->autocomplete_provider_client()
+        ->GetPrefs();
+  }
   TestOmniboxView* view() { return view_.get(); }
   TestLocationBarModel* location_bar_model() {
-    return omnibox_client_->location_bar_model();
+    return client()->location_bar_model();
   }
   TestOmniboxEditModel* model() {
     return static_cast<TestOmniboxEditModel*>(view_->model());
   }
   OmniboxController* controller() { return view_->controller(); }
+  TestOmniboxClient* client() {
+    return static_cast<TestOmniboxClient*>(controller()->client());
+  }
 
  protected:
   base::test::TaskEnvironment task_environment_;
-  raw_ptr<TestOmniboxClient, DanglingUntriaged> omnibox_client_;
   std::unique_ptr<TestOmniboxView> view_;
 };
 
@@ -222,8 +249,7 @@ TEST_F(OmniboxEditModelTest, AlternateNavHasHTTP) {
   const GURL alternate_nav_url("http://abcd/");
 
   AutocompleteMatch alternate_nav_match;
-  EXPECT_CALL(*omnibox_client_,
-              OnAutocompleteAccept(_, _, _, _, _, _, _, _, _, _, _))
+  EXPECT_CALL(*client(), OnAutocompleteAccept(_, _, _, _, _, _, _, _, _, _, _))
       .WillOnce(SaveArg<10>(&alternate_nav_match));
 
   model()->OnSetFocus(false);  // Avoids DCHECK in OpenMatch().
@@ -233,8 +259,7 @@ TEST_F(OmniboxEditModelTest, AlternateNavHasHTTP) {
   EXPECT_TRUE(
       AutocompleteInput::HasHTTPScheme(alternate_nav_match.fill_into_edit));
 
-  EXPECT_CALL(*omnibox_client_,
-              OnAutocompleteAccept(_, _, _, _, _, _, _, _, _, _, _))
+  EXPECT_CALL(*client(), OnAutocompleteAccept(_, _, _, _, _, _, _, _, _, _, _))
       .WillOnce(SaveArg<10>(&alternate_nav_match));
 
   model()->SetUserText(u"abcd");
@@ -544,24 +569,42 @@ class OmniboxEditModelPopupTest : public ::testing::Test {
         extensions_features::kExperimentalOmniboxLabs);
 #endif  // BUILDFLAG(ENABLE_EXTENSIONS)
 
-    auto omnibox_client = std::make_unique<TestOmniboxClient>();
-    EXPECT_CALL(*omnibox_client, GetPrefs())
-        .WillRepeatedly(Return(pref_service()));
-
-    view_ = std::make_unique<TestOmniboxView>(std::move(omnibox_client));
+    view_ = std::make_unique<TestOmniboxView>(
+        std::make_unique<TestOmniboxClient>());
     view_->controller()->SetEditModelForTesting(
         std::make_unique<TestOmniboxEditModel>(view_->controller(), view_.get(),
                                                pref_service()));
 
-    omnibox::RegisterProfilePrefs(pref_service_.registry());
+    EXPECT_CALL(*client(), GetPrefs()).WillRepeatedly(Return(pref_service()));
+
     model()->set_popup_view(&popup_view_);
     model()->SetPopupIsOpen(true);
   }
-  OmniboxEditModelPopupTest(const OmniboxEditModelPopupTest&) = delete;
-  OmniboxEditModelPopupTest& operator=(const OmniboxEditModelPopupTest&) =
-      delete;
 
-  TestingPrefServiceSimple* pref_service() { return &pref_service_; }
+  void SetUp() override {
+    omnibox::RegisterProfilePrefs(
+        static_cast<sync_preferences::TestingPrefServiceSyncable*>(
+            pref_service())
+            ->registry());
+    omnibox::RegisterProfilePrefs(
+        static_cast<sync_preferences::TestingPrefServiceSyncable*>(
+            classifier_pref_service())
+            ->registry());
+  }
+
+  PrefService* pref_service() {
+    return controller()
+        ->autocomplete_controller()
+        ->autocomplete_provider_client()
+        ->GetPrefs();
+  }
+  PrefService* classifier_pref_service() {
+    return client()
+        ->autocomplete_classifier()
+        ->autocomplete_controller()
+        ->autocomplete_provider_client()
+        ->GetPrefs();
+  }
   OmniboxTriggeredFeatureService* triggered_feature_service() {
     return &triggered_feature_service_;
   }
@@ -576,7 +619,6 @@ class OmniboxEditModelPopupTest : public ::testing::Test {
  protected:
   base::test::ScopedFeatureList feature_list_;
   base::test::TaskEnvironment task_environment_;
-  TestingPrefServiceSimple pref_service_;
   std::unique_ptr<TestOmniboxView> view_;
   TestOmniboxPopupView popup_view_;
   OmniboxTriggeredFeatureService triggered_feature_service_;
@@ -871,6 +913,11 @@ TEST_F(OmniboxEditModelPopupTest, PopupStepSelection) {
 // Actions are not part of the selection stepping in Android and iOS at all.
 #if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
 TEST_F(OmniboxEditModelPopupTest, PopupStepSelectionWithActions) {
+  omnibox_feature_configs::ScopedConfigForTesting<
+      omnibox_feature_configs::Toolbelt>
+      scoped_config;
+  scoped_config.Get().enabled = true;
+
   ACMatches matches;
   for (size_t i = 0; i < 4; ++i) {
     AutocompleteMatch match(nullptr, 1000, false,
@@ -879,6 +926,18 @@ TEST_F(OmniboxEditModelPopupTest, PopupStepSelectionWithActions) {
     match.allowed_to_be_default_match = true;
     matches.push_back(match);
   }
+
+  // The toolbelt match has three normal actions.
+  AutocompleteMatch toolbelt_match(nullptr, 1000, false,
+                                   AutocompleteMatchType::NULL_RESULT_MESSAGE);
+  toolbelt_match.actions.push_back(base::MakeRefCounted<OmniboxAction>(
+      OmniboxAction::LabelStrings(u"", u"", u"", u"foo"), GURL()));
+  toolbelt_match.actions.push_back(base::MakeRefCounted<OmniboxAction>(
+      OmniboxAction::LabelStrings(u"", u"", u"", u"bar"), GURL()));
+  toolbelt_match.actions.push_back(base::MakeRefCounted<OmniboxAction>(
+      OmniboxAction::LabelStrings(u"", u"", u"", u"spam"), GURL()));
+  matches.push_back(toolbelt_match);
+
   // The second match has a normal action.
   matches[1].actions.push_back(base::MakeRefCounted<OmniboxAction>(
       OmniboxAction::LabelStrings(), GURL()));
@@ -909,19 +968,37 @@ TEST_F(OmniboxEditModelPopupTest, PopupStepSelectionWithActions) {
     EXPECT_EQ(n, model()->GetPopupSelection().line);
   }
 
+  std::vector<std::u16string> expected_labels = {u"foo", u"bar", u"spam"};
+  auto test_a11y_label = [&](size_t action_index, std::u16string a11y_label) {
+    DCHECK(action_index < expected_labels.size());
+    EXPECT_EQ(expected_labels[action_index], a11y_label);
+  };
+
   // Step by states forward.
   for (auto selection : {
            Selection(1, Selection::NORMAL),
            Selection(1, Selection::FOCUSED_BUTTON_ACTION),
            Selection(2, Selection::NORMAL),
            Selection(3, Selection::NORMAL),
+           Selection(4, Selection::FOCUSED_BUTTON_ACTION, /*action_index=*/0),
+           Selection(4, Selection::FOCUSED_BUTTON_ACTION, /*action_index=*/1),
+           Selection(4, Selection::FOCUSED_BUTTON_ACTION, /*action_index=*/2),
            Selection(0, Selection::NORMAL),
        }) {
     model()->OnTabPressed(false);
-    EXPECT_EQ(selection, model()->GetPopupSelection());
+    auto popup_selection = model()->GetPopupSelection();
+    EXPECT_EQ(selection, popup_selection);
+    if (matches[popup_selection.line].IsToolbelt()) {
+      test_a11y_label(popup_selection.action_index,
+                      model()->GetPopupAccessibilityLabelForCurrentSelection(
+                          u"", false, nullptr));
+    }
   }
   // Step by states backward.
   for (auto selection : {
+           Selection(4, Selection::FOCUSED_BUTTON_ACTION, /*action_index=*/2),
+           Selection(4, Selection::FOCUSED_BUTTON_ACTION, /*action_index=*/1),
+           Selection(4, Selection::FOCUSED_BUTTON_ACTION, /*action_index=*/0),
            Selection(3, Selection::NORMAL),
            Selection(2, Selection::NORMAL),
            Selection(1, Selection::FOCUSED_BUTTON_ACTION),
@@ -929,7 +1006,13 @@ TEST_F(OmniboxEditModelPopupTest, PopupStepSelectionWithActions) {
            Selection(0, Selection::NORMAL),
        }) {
     model()->OnTabPressed(true);
-    EXPECT_EQ(selection, model()->GetPopupSelection());
+    auto popup_selection = model()->GetPopupSelection();
+    EXPECT_EQ(selection, popup_selection);
+    if (matches[popup_selection.line].IsToolbelt()) {
+      test_a11y_label(popup_selection.action_index,
+                      model()->GetPopupAccessibilityLabelForCurrentSelection(
+                          u"", false, nullptr));
+    }
   }
 
   // Try the `kAllLines` step behavior.
@@ -1532,8 +1615,7 @@ TEST_F(OmniboxEditModelTest, OpenTabMatch) {
   match.from_keyword = true;
 
   WindowOpenDisposition disposition;
-  EXPECT_CALL(*omnibox_client_,
-              OnAutocompleteAccept(_, _, _, _, _, _, _, _, _, _, _))
+  EXPECT_CALL(*client(), OnAutocompleteAccept(_, _, _, _, _, _, _, _, _, _, _))
       .WillOnce(SaveArg<2>(&disposition));
 
   model()->OnSetFocus(false);  // Avoids DCHECK in OpenMatch().
@@ -1542,8 +1624,7 @@ TEST_F(OmniboxEditModelTest, OpenTabMatch) {
                                GURL(), std::u16string(), 0);
   EXPECT_EQ(disposition, WindowOpenDisposition::SWITCH_TO_TAB);
 
-  EXPECT_CALL(*omnibox_client_,
-              OnAutocompleteAccept(_, _, _, _, _, _, _, _, _, _, _))
+  EXPECT_CALL(*client(), OnAutocompleteAccept(_, _, _, _, _, _, _, _, _, _, _))
       .WillOnce(SaveArg<2>(&disposition));
 
   // Suggestions not from the Open Tab Provider or not from keyword mode should
@@ -1553,8 +1634,7 @@ TEST_F(OmniboxEditModelTest, OpenTabMatch) {
                                GURL(), std::u16string(), 0);
   EXPECT_EQ(disposition, WindowOpenDisposition::CURRENT_TAB);
 
-  EXPECT_CALL(*omnibox_client_,
-              OnAutocompleteAccept(_, _, _, _, _, _, _, _, _, _, _))
+  EXPECT_CALL(*client(), OnAutocompleteAccept(_, _, _, _, _, _, _, _, _, _, _))
       .WillOnce(SaveArg<2>(&disposition));
 
   match.provider = controller()->autocomplete_controller()->search_provider();

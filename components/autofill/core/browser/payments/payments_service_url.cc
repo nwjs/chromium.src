@@ -40,9 +40,9 @@ const char kProdPaymentsManageCardsUrl[] =
     "p=paymentmethods&utm_source=chrome&utm_medium=settings&utm_campaign="
     "paymentmethods";
 const char kSandboxPaymentsManageCardsUrl[] =
-    "https://pay.sandbox.google.com/"
-    "pay?p=paymentmethods&utm_source=chrome&utm_medium=settings&utm_campaign="
-    "payment_methods";
+    "https://wallet-web.sandbox.google.com/wallet?"
+    "p=paymentmethods&utm_source=chrome&utm_medium=settings&utm_campaign="
+    "paymentmethods";
 
 // URL used when opening the Loyalty cards page from chrome://settings/payments.
 const char kManageLoyaltyCardsUrl[] =
@@ -60,6 +60,8 @@ const char kVirtualCardEnrollmentSupportUrl[] =
 constexpr char kBnplAffirmTermsUrl[] =
     "https://support.google.com/googlepay?p=bnpl_autofill_chrome";
 constexpr char kBnplZipTermsUrl[] =
+    "https://support.google.com/googlepay?p=bnpl_autofill_chrome";
+constexpr char kBnplKlarnaTermsUrl[] =
     "https://support.google.com/googlepay?p=bnpl_autofill_chrome";
 }  // namespace
 
@@ -124,6 +126,8 @@ GURL GetBnplTermsUrl(IssuerId issuer_id) {
     // Afterpay to the BNPL flow.
     case IssuerId::kBnplAfterpay:
       NOTREACHED();
+    case IssuerId::kBnplKlarna:
+      return GURL(kBnplKlarnaTermsUrl);
   }
   NOTREACHED();
 }

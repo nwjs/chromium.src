@@ -15,11 +15,13 @@
 #import "base/strings/sys_string_conversions.h"
 #import "base/task/single_thread_task_runner.h"
 #import "components/browser_sync/sync_to_signin_migration.h"
+#import "components/policy/core/common/management/platform_management_service.h"
 #import "components/pref_registry/pref_registry_syncable.h"
 #import "components/prefs/pref_service.h"
 #import "components/signin/ios/browser/features.h"
 #import "components/signin/public/base/gaia_id_hash.h"
 #import "components/signin/public/base/signin_pref_names.h"
+#import "components/signin/public/base/signin_switches.h"
 #import "components/signin/public/identity_manager/account_info.h"
 #import "components/signin/public/identity_manager/device_accounts_synchronizer.h"
 #import "components/signin/public/identity_manager/primary_account_mutator.h"
@@ -244,7 +246,8 @@ void AuthenticationService::RemoveObserver(
   observer_list_.RemoveObserver(observer);
 }
 
-AuthenticationService::ServiceStatus AuthenticationService::GetServiceStatus() {
+AuthenticationService::ServiceStatus AuthenticationService::GetServiceStatus()
+    const {
   if (!account_manager_service_->IsServiceSupported()) {
     return ServiceStatus::SigninDisabledByInternal;
   }
@@ -294,6 +297,18 @@ void AuthenticationService::OnApplicationWillEnterForeground() {
   }
 }
 
+bool AuthenticationService::SigninEnabled() const {
+  switch (GetServiceStatus()) {
+    case AuthenticationService::ServiceStatus::SigninForcedByPolicy:
+    case AuthenticationService::ServiceStatus::SigninAllowed:
+      return YES;
+    case AuthenticationService::ServiceStatus::SigninDisabledByUser:
+    case AuthenticationService::ServiceStatus::SigninDisabledByPolicy:
+    case AuthenticationService::ServiceStatus::SigninDisabledByInternal:
+      return NO;
+  }
+}
+
 void AuthenticationService::SetReauthPromptForSignInAndSync() {
   pref_service_->SetBoolean(prefs::kSigninShouldPromptForSigninAgain, true);
 }
@@ -326,7 +341,7 @@ bool AuthenticationService::ShouldClearDataForSignedInPeriodOnSignOut() const {
   // 2. The app management configuration key is present.
   // Note: data will be cleared from the time of sign-in in this case.
   return HasPrimaryIdentityManaged(signin::ConsentLevel::kSignin) &&
-         !IsApplicationManagedByMDM();
+         !policy::PlatformManagementService::GetInstance()->IsManaged();
 }
 
 id<SystemIdentity> AuthenticationService::GetPrimaryIdentity(
@@ -337,10 +352,8 @@ id<SystemIdentity> AuthenticationService::GetPrimaryIdentity(
 
 void AuthenticationService::SignIn(id<SystemIdentity> identity,
                                    signin_metrics::AccessPoint access_point) {
-  ServiceStatus status = GetServiceStatus();
-  CHECK(status == ServiceStatus::SigninAllowed ||
-        status == ServiceStatus::SigninForcedByPolicy)
-      << "Service status " << static_cast<int>(status);
+  CHECK(SigninEnabled()) << "Service status "
+                         << static_cast<int>(GetServiceStatus());
   DCHECK(account_manager_service_->IsValidIdentity(identity));
 
   primary_account_was_restricted_ = false;
@@ -600,6 +613,15 @@ bool AuthenticationService::HandleMDMError(id<SystemIdentity> identity,
 
   SystemIdentityManager* system_identity_manager =
       GetApplicationContext()->GetSystemIdentityManager();
+  if (base::FeatureList::IsEnabled(switches::kAllowlistScopesForMdmErrors)) {
+    bool scope_limited_error_suppressed =
+        system_identity_manager->IsScopeLimitedError(error);
+    base::UmaHistogramBoolean("Signin.ScopeLimitedErrorSuppressed",
+                              scope_limited_error_suppressed);
+    if (scope_limited_error_suppressed) {
+      return false;
+    }
+  }
 
   if (system_identity_manager->HandleMDMNotification(
           identity, ActiveIdentities(), error,
@@ -644,7 +666,8 @@ void AuthenticationService::OnRefreshTokenUpdated(id<SystemIdentity> identity) {
 
 void AuthenticationService::OnAccessTokenRefreshFailed(
     id<SystemIdentity> identity,
-    id<RefreshAccessTokenError> error) {
+    id<RefreshAccessTokenError> error,
+    const std::set<std::string>& scopes) {
   if (!identity) {
     DLOG(ERROR)
         << "Unexpected call of OnAccessTokenRefreshFailed with null identity";

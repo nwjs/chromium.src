@@ -101,10 +101,7 @@
 #include "base/memory/raw_ptr.h"
 #include "base/memory/ref_counted.h"
 #include "base/trace_event/trace_event.h"
-
-namespace base {
-class Value;
-}
+#include "base/values.h"
 
 namespace trace_analyzer {
 class QueryNode;

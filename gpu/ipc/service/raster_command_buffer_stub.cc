@@ -24,7 +24,6 @@
 #include "gpu/ipc/service/gpu_channel.h"
 #include "gpu/ipc/service/gpu_channel_manager.h"
 #include "gpu/ipc/service/gpu_channel_manager_delegate.h"
-#include "gpu/ipc/service/gpu_memory_buffer_factory.h"
 #include "gpu/ipc/service/gpu_watchdog_thread.h"
 #include "ui/gl/gl_bindings.h"
 #include "ui/gl/gl_context.h"
@@ -70,8 +69,7 @@ gpu::ContextResult RasterCommandBufferStub::Initialize(
   }
 
   if (init_params.attribs.gpu_preference != gl::GpuPreference::kLowPower ||
-      init_params.attribs.context_type != CONTEXT_TYPE_OPENGLES2 ||
-      init_params.attribs.bind_generates_resource) {
+      init_params.attribs.context_type != CONTEXT_TYPE_OPENGLES2) {
     LOG(ERROR) << "ContextResult::kFatalFailure: Incompatible creation attribs "
                   "used with RasterDecoder";
     return ContextResult::kFatalFailure;

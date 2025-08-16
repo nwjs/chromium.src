@@ -6,10 +6,7 @@
 
 namespace net::device_bound_sessions {
 
-SessionError::SessionError(SessionError::ErrorType type,
-                           net::SchemefulSite site,
-                           std::optional<std::string> session_id)
-    : type(type), site(std::move(site)), session_id(std::move(session_id)) {}
+SessionError::SessionError(SessionError::ErrorType type) : type(type) {}
 
 SessionError::~SessionError() = default;
 
@@ -36,6 +33,12 @@ bool SessionError::IsFatal() const {
     case kScopeOriginSameSiteMismatch:
     case kRefreshUrlSameSiteMismatch:
     case kInvalidScopeOrigin:
+    case kMismatchedSessionId:
+    case kInvalidRefreshInitiators:
+    case kInvalidScopeRule:
+    case kMissingScope:
+    case kNoCredentials:
+    case kInvalidScopeIncludeSite:
       return true;
 
     case kNetError:
@@ -66,6 +69,12 @@ bool SessionError::IsServerError() const {
     case kRefreshUrlSameSiteMismatch:
     case kInvalidScopeOrigin:
     case kTransientHttpError:
+    case kMismatchedSessionId:
+    case kInvalidRefreshInitiators:
+    case kInvalidScopeRule:
+    case kMissingScope:
+    case kNoCredentials:
+    case kInvalidScopeIncludeSite:
       return true;
   }
 }

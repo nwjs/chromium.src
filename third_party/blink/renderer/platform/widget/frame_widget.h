@@ -45,7 +45,7 @@ class Cursor;
 }  // namespace ui
 
 namespace viz {
-struct FrameTimingDetails;
+class FrameTimingDetails;
 }  // namespace viz
 
 namespace blink {
@@ -95,10 +95,6 @@ class PLATFORM_EXPORT FrameWidget {
   virtual void NotifyPresentationTime(
       base::OnceCallback<void(const viz::FrameTimingDetails&)>
           presentation_callback) = 0;
-
-  // Enable or disable BeginMainFrameNotExpected signals from the compositor,
-  // which are consumed by the blink scheduler.
-  virtual void RequestBeginMainFrameNotExpected(bool request) = 0;
 
   // A stable numeric Id for the local root's compositor. For tracing/debugging
   // purposes.

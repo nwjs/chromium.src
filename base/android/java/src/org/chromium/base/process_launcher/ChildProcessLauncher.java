@@ -94,6 +94,12 @@ public class ChildProcessLauncher {
          * @param connection the connection that got disconnected.
          */
         public void onConnectionLost(ChildProcessConnection connection) {}
+
+        /**
+         * Gives us which process type we have, so we know which delegate to use when initializing
+         * the child process.
+         */
+        public abstract int getLibraryProcessType();
     }
 
     // Represents an invalid process handle; same as base/process/process.h kNullProcessHandle.
@@ -113,9 +119,6 @@ public class ChildProcessLauncher {
     // The IBinder interfaces provided to the created service.
     private final @Nullable List<IBinder> mClientInterfaces;
 
-    // A binder box which can be used by the child to unpack additional binders.
-    private final @Nullable IBinder mBinderBox;
-
     // The actual service connection. Set once we have connected to the service. Volatile as it is
     // accessed from threads other than the Launcher thread.
     private volatile @Nullable ChildProcessConnection mConnection;
@@ -130,7 +133,6 @@ public class ChildProcessLauncher {
      * @param connectionAllocator the allocator used to create connections to the service.
      * @param clientInterfaces the interfaces that should be passed to the started process so it can
      *     communicate with the parent process.
-     * @param binderBox an optional binder box the child can use to unpack additional binders
      */
     public ChildProcessLauncher(
             Handler launcherHandler,
@@ -138,8 +140,7 @@ public class ChildProcessLauncher {
             String[] commandLine,
             IFileDescriptorInfo[] filesToBeMapped,
             ChildConnectionAllocator connectionAllocator,
-            @Nullable List<IBinder> clientInterfaces,
-            @Nullable IBinder binderBox) {
+            @Nullable List<IBinder> clientInterfaces) {
         assert connectionAllocator != null;
         mLauncherHandler = launcherHandler;
         isRunningOnLauncherThread();
@@ -148,7 +149,6 @@ public class ChildProcessLauncher {
         mDelegate = delegate;
         mFilesToBeMapped = filesToBeMapped;
         mClientInterfaces = clientInterfaces;
-        mBinderBox = binderBox;
     }
 
     /**
@@ -271,11 +271,7 @@ public class ChildProcessLauncher {
         IChildProcessArgs connectionArgs = createConnectionArgs();
         mDelegate.onBeforeConnectionSetup(connectionArgs);
         mConnection.setupConnection(
-                connectionArgs,
-                getClientInterfaces(),
-                getBinderBox(),
-                connectionCallback,
-                zygoteInfoCallback);
+                connectionArgs, getClientInterfaces(), connectionCallback, zygoteInfoCallback);
     }
 
     private void onServiceConnected(@Nullable ChildProcessConnection connection) {
@@ -308,10 +304,6 @@ public class ChildProcessLauncher {
         return mClientInterfaces;
     }
 
-    public @Nullable IBinder getBinderBox() {
-        return mBinderBox;
-    }
-
     private boolean isRunningOnLauncherThread() {
         return mLauncherHandler.getLooper() == Looper.myLooper();
     }
@@ -324,6 +316,7 @@ public class ChildProcessLauncher {
         args.androidInfo = AndroidInfo.getAidlInfo();
         args.deviceInfo = DeviceInfo.getAidlInfo();
         args.channel = VersionConstants.CHANNEL;
+        args.libraryProcessType = mDelegate.getLibraryProcessType();
         return args;
     }
 

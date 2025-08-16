@@ -124,10 +124,6 @@
     "META": {"sizes": {"includes": [150]}},
     "includes": [2400],
   },
-  "chrome/browser/resources/chromeos/seal/resources.grd": {
-    "META": {"sizes": {"includes": [50]}},
-    "includes": [2420],
-  },
   "chrome/browser/resources/component_extension_resources.grd": {
     "includes": [2440],
     "structures": [2460],
@@ -172,6 +168,10 @@
   "<(SHARED_INTERMEDIATE_DIR)/chrome/browser/resources/actor_internals/resources.grd": {
     "META": {"sizes": {"includes": [10],}},
     "includes": [2750],
+  },
+  "<(SHARED_INTERMEDIATE_DIR)/chrome/browser/resources/actor_overlay/resources.grd": {
+    "META": {"sizes": {"includes": [10]}},
+    "includes": [2755],
   },
   "<(SHARED_INTERMEDIATE_DIR)/chrome/browser/resources/app_home/resources.grd": {
     "META": {"sizes": {"includes": [20]}},
@@ -617,6 +617,10 @@
     "META": {"sizes": {"includes": [45],}},
     "includes": [4780],
   },
+  "<(SHARED_INTERMEDIATE_DIR)/chrome/browser/resources/side_panel/comments/resources.grd": {
+    "META": {"sizes": {"includes": [30],}},
+    "includes": [4790],
+  },
   "<(SHARED_INTERMEDIATE_DIR)/chrome/browser/resources/side_panel/commerce/resources.grd": {
     "META": {"sizes": {"includes": [20],}},
     "includes": [4800],
@@ -685,7 +689,7 @@
     "META": {"sizes": {"includes": [30]}},
     "includes": [5020],
   }, "<(SHARED_INTERMEDIATE_DIR)/chrome/browser/resources/tab_group_home/resources.grd": {
-    "META": {"sizes": {"includes": [10]}},
+    "META": {"sizes": {"includes": [20]}},
     "includes": [5030],
   },
   "<(SHARED_INTERMEDIATE_DIR)/chrome/browser/resources/tab_search/resources.grd": {
@@ -732,6 +736,26 @@
     "META": {"sizes": {"includes": [10],}},
     "includes": [5210],
   },
+  "<(SHARED_INTERMEDIATE_DIR)/chrome/browser/resources/color_pipeline_internals/resources.grd": {
+    "META": {"sizes": {"includes": [10]}},
+    "includes": [5220],
+  },
+  "<(SHARED_INTERMEDIATE_DIR)/chrome/browser/resources/watermark/resources.grd": {
+    "META": {"sizes": {"includes": [10]}},
+    "includes": [5230],
+  },
+  "<(SHARED_INTERMEDIATE_DIR)/chrome/browser/resources/tab_strip_internals/resources.grd": {
+    "META": {"sizes": {"includes": [5]}},
+    "includes": [5240],
+  },
+  "<(SHARED_INTERMEDIATE_DIR)/chrome/browser/resources/webui_browser/resources.grd": {
+    "META": {"sizes": {"includes": [5]}},
+    "includes": [5250],
+  },
+  "<(SHARED_INTERMEDIATE_DIR)/chrome/browser/resources/webui_browser/internal/resources.grd": {
+    "META": {"sizes": {"includes": [5]}},
+    "includes": [5260],
+  },
   # END chrome/ WebUI resources section
 
   # START chrome/ miscellaneous section.
@@ -771,10 +795,6 @@
   "chromeos/ash/components/emoji/emoji.grd" : {
     "META": {"sizes": {"includes": [45],}},
     "includes" : [5740],
-  },
-  "<(SHARED_INTERMEDIATE_DIR)/chromeos/ash/components/kiosk/vision/webui/resources.grd" : {
-    "META": {"sizes": {"includes": [15]}},
-    "includes" : [5760],
   },
   "chromeos/ash/resources/ash_resources.grd": {
     "includes": [5780],
@@ -1075,6 +1095,10 @@
     "META": {"sizes": {"includes": [5]}},
     "includes": [7290],
   },
+  "<(SHARED_INTERMEDIATE_DIR)/chrome/browser/resources/autofill_ml_internals/resources.grd": {
+    "META": {"sizes": {"includes": [10]}},
+    "includes": [7295],
+  },
   "<(SHARED_INTERMEDIATE_DIR)/components/commerce/core/internals/resources/resources.grd": {
     "META": {"sizes": {"includes": [30]}},
     "includes": [7300],
@@ -1212,20 +1236,6 @@
   },
   "ios/chrome/open_extension/strings/ios_open_extension_google_chrome_strings.grd": {
     "messages": [1160],
-  },
-  "ios/chrome/search_widget_extension/strings/ios_search_widget_extension_chromium_strings.grd": {
-    "META": {"join": 2},
-    "messages": [1180],
-  },
-  "ios/chrome/search_widget_extension/strings/ios_search_widget_extension_google_chrome_strings.grd": {
-    "messages": [1180],
-  },
-  "ios/chrome/content_widget_extension/strings/ios_content_widget_extension_chromium_strings.grd": {
-    "META": {"join": 2},
-    "messages": [1200],
-  },
-  "ios/chrome/content_widget_extension/strings/ios_content_widget_extension_google_chrome_strings.grd": {
-    "messages": [1200],
   },
   "ios/chrome/credential_provider_extension/strings/ios_credential_provider_extension_strings.grd": {
     "META": {"join": 2},
@@ -1477,6 +1487,9 @@
   },
   "ui/resources/ui_resources.grd": {
     "structures": [9820],
+  },
+  "ui/resources/ui_lottie_resources.grd": {
+    "structures": [9830],
   },
   "ui/resources/ui_unscaled_resources.grd": {
     "includes": [9840],

@@ -10,17 +10,16 @@
 
 const $Headers = require('safeMethods').SafeMethods.$Headers;
 
-function convertUrlPatternsToMatchPatterns(urlPatterns) {
-  // TODO(crbug.com/419101630): Implement this.
-  return urlPatterns;
-}
+const convertURLPatternsToMatchPatterns =
+    require('controlledFrameURLPatternsHelper')
+        .convertURLPatternsToMatchPatterns;
 
 function convertExtensionHeadersToWeb(httpHeaders) {
   const headers = new $Headers.self();
   for (const header of httpHeaders) {
-    const value = (header.value !== undefined)
-        ? header.value
-        : $String.fromCharCode(...header.binaryValue);
+    const value = (header.value !== undefined) ?
+        header.value :
+        $String.fromCharCode(...header.binaryValue);
     $Headers.append(headers, header.name, value);
   }
   return headers;
@@ -51,7 +50,7 @@ function mapString(mapping, value) {
 }
 
 function extractAndMapValues(obj, mapping) {
-  const mapped = { __proto__: null };
+  const mapped = {__proto__: null};
   for (const [key, value] of $Object.entries(obj)) {
     if (key in mapping) {
       $Object.defineProperty(mapped, key, {
@@ -173,20 +172,12 @@ class ControlledFrameWebRequest {
     }
     if (options.includeHeaders !== undefined &&
         !$Array.includes(
-            $Array.self('none', 'same-origin', 'cross-origin'),
-            options.includeHeaders)) {
+            $Array.self('none', 'cors', 'all'), options.includeHeaders)) {
       throw new TypeError(
           'If defined, "includeHeaders" must equal the string ' +
-          '"none", "same-origin", or "cross-origin".');
+          '"none", "cors", or "all".');
     }
     return new WebRequestInterceptor(this.#webRequest, options);
-  }
-
-  handlerBehaviorChanged() {
-    return new $Promise.self((resolve) => {
-      // TODO(crbug.com/421986167): handlerBehaviorChanged is undefined.
-      this.#webRequest.handlerBehaviorChanged(resolve);
-    });
   }
 }
 
@@ -220,7 +211,7 @@ class WebRequestInterceptor extends EventTarget {
 
     this.#filter = {
       __proto__: null,
-      urls: convertUrlPatternsToMatchPatterns(options.urlPatterns),
+      urls: convertURLPatternsToMatchPatterns(options.urlPatterns),
     };
     if (options.resourceTypes !== undefined) {
       this.#filter.types =
@@ -243,10 +234,10 @@ class WebRequestInterceptor extends EventTarget {
     if (options.includeRequestBody === true) {
       $Array.push(this.#extraInfoSpec, 'requestBody');
     }
-    if (options.includeHeaders === 'same-origin') {
+    if (options.includeHeaders === 'cors') {
       $Array.push(this.#extraInfoSpec, 'requestHeaders');
       $Array.push(this.#extraInfoSpec, 'responseHeaders');
-    } else if (options.includeHeaders === 'cross-origin') {
+    } else if (options.includeHeaders === 'all') {
       $Array.push(this.#extraInfoSpec, 'requestHeaders');
       $Array.push(this.#extraInfoSpec, 'responseHeaders');
       $Array.push(this.#extraInfoSpec, 'extraHeaders');
@@ -309,13 +300,12 @@ class WebRequestInterceptor extends EventTarget {
     const result = blocking ? {__proto__: null} : undefined;
     switch (type) {
       case 'authrequired':
-        webEvent = new AuthRequiredEvent(webDetails, result);
         if (blocking && asyncCallback) {
-          $Promise.resolve(webListener(webEvent)).then(() => {
-            asyncCallback(result);
-          });
+          this.#handleAsyncAuthRequiredEvent(
+              webListener, webDetails, asyncCallback);
           return;
         }
+        webEvent = new AuthRequiredEvent(webDetails, result, {__proto__: null});
         break;
       case 'beforeredirect':
         webEvent = new BeforeRedirectEvent(webDetails);
@@ -348,15 +338,60 @@ class WebRequestInterceptor extends EventTarget {
     }
     return result;
   }
+
+  #handleAsyncAuthRequiredEvent(webListener, webDetails, asyncCallback) {
+    const result = {__proto__: null};
+    const options = {__proto__: null};
+    const webEvent = new AuthRequiredEvent(webDetails, result, options);
+    const listenerReturnValue = webListener(webEvent);
+    if (listenerReturnValue instanceof $Promise.self) {
+      console.error(`authrequired handlers must be synchronous`);
+    }
+
+    if (result.cancel || (options.signal && options.signal.aborted)) {
+      asyncCallback({__proto__: null, cancel: true});
+      return;
+    }
+
+    if (!result.authCredentials) {
+      asyncCallback();
+      return;
+    }
+
+    const resultPromises =
+        $Array.self($Promise.resolve(result.authCredentials));
+    if (options.signal) {
+      $Array.push(resultPromises, new $Promise.self((resolve) => {
+        options.signal.addEventListener('abort', resolve);
+      }));
+    }
+
+    const promise = $Promise.race(resultPromises);
+    $Promise.then(promise, (authCredentials) => {
+      const response = {__proto__: null};
+      if (options.signal && options.signal.aborted) {
+        response.cancel = true;
+      } else {
+        response.authCredentials = authCredentials;
+      }
+      asyncCallback(response);
+    });
+    $Promise.catch(promise, (e) => {
+      console.error('authrequired Promise rejected:', e);
+      asyncCallback();
+    });
+  }
 }
 
 class AuthRequiredEvent extends Event {
   #result;
+  #options;
 
-  constructor(details, result) {
+  constructor(details, result, options) {
     super('authrequired');
     $Object.assign(this, details);
     this.#result = result;
+    this.#options = options;
     $Object.freeze(this);
   }
 
@@ -367,7 +402,7 @@ class AuthRequiredEvent extends Event {
     super.preventDefault();
   }
 
-  setCredentials(credentials) {
+  setCredentials(credentials, options) {
     if (this.#result === undefined) {
       console.error(
           'AuthRequiredEvent.setCredentials is only supported ' +
@@ -375,6 +410,15 @@ class AuthRequiredEvent extends Event {
       return;
     }
     this.#result.authCredentials = credentials;
+    if (options && options.signal) {
+      if (options.signal instanceof AbortSignal) {
+        this.#options.signal = options.signal;
+      } else {
+        console.error(
+            'options.signal argument to setCredentials ' +
+            'must be an AbortSignal');
+      }
+    }
   }
 }
 

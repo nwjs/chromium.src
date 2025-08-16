@@ -6,6 +6,7 @@
 
 #import "base/memory/raw_ptr.h"
 #import "base/test/metrics/user_action_tester.h"
+#import "base/test/scoped_feature_list.h"
 #import "base/test/task_environment.h"
 #import "components/bookmarks/browser/bookmark_model.h"
 #import "components/bookmarks/browser/bookmark_node.h"
@@ -14,6 +15,7 @@
 #import "components/policy/core/common/policy_pref_names.h"
 #import "components/sync_preferences/testing_pref_service_syncable.h"
 #import "ios/chrome/browser/bookmarks/model/bookmark_model_factory.h"
+#import "ios/chrome/browser/dom_distiller/model/distiller_service_factory.h"
 #import "ios/chrome/browser/find_in_page/model/find_tab_helper.h"
 #import "ios/chrome/browser/find_in_page/model/java_script_find_tab_helper.h"
 #import "ios/chrome/browser/find_in_page/model/util.h"
@@ -22,7 +24,10 @@
 #import "ios/chrome/browser/lens_overlay/coordinator/lens_overlay_availability.h"
 #import "ios/chrome/browser/ntp/model/new_tab_page_tab_helper.h"
 #import "ios/chrome/browser/ntp/model/new_tab_page_tab_helper_delegate.h"
+#import "ios/chrome/browser/ntp/model/new_tab_page_util.h"
 #import "ios/chrome/browser/policy/model/policy_util.h"
+#import "ios/chrome/browser/reader_mode/model/features.h"
+#import "ios/chrome/browser/reader_mode/model/reader_mode_tab_helper.h"
 #import "ios/chrome/browser/sessions/model/fake_tab_restore_service.h"
 #import "ios/chrome/browser/sessions/model/ios_chrome_tab_restore_browser_agent.h"
 #import "ios/chrome/browser/sessions/model/ios_chrome_tab_restore_service_factory.h"
@@ -104,8 +109,8 @@ class KeyCommandsProviderTest : public PlatformTest {
   }
 
   void CloseWebState(int index) {
-    web_state_list_->CloseWebStateAt(
-        index, WebStateList::ClosingFlags::CLOSE_NO_FLAGS);
+    web_state_list_->CloseWebStateAt(index,
+                                     WebStateList::ClosingReason::kDefault);
   }
 
   // Checks that `view_controller_` can perform the `action` with the given
@@ -425,7 +430,7 @@ TEST_F(KeyCommandsProviderTest, CanPerform_ActionsInHttpPage) {
   ntp_helper->SetDelegate(delegate);
 
   // Ensure that the actions are not available when the tab is a NTP.
-  ASSERT_TRUE(ntp_helper->IsActive());
+  ASSERT_TRUE(IsVisibleURLNewTabPage(fake_web_state.get()));
   ASSERT_FALSE(url.SchemeIsHTTPOrHTTPS());
   for (NSString* action in actions) {
     EXPECT_FALSE(CanPerform(action));
@@ -1042,4 +1047,30 @@ TEST_F(KeyCommandsProviderTest, ClearingBrowserDoesntCrash) {
   browser_.reset();
 
   EXPECT_FALSE(CanPerform(@"keyCommand_showNextTab"));
+}
+
+// Checks that some commands are not available in ReadingMode.
+TEST_F(KeyCommandsProviderTest, TestReadingMode) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndEnableFeature(kEnableReaderMode);
+  // Open a tab with a URL.
+  GURL url = GURL("https://test/url");
+  auto web_state_unique = CreateFakeWebStateWithURL(url);
+  auto web_state = web_state_unique.get();
+  browser_->GetWebStateList()->InsertWebState(
+      std::move(web_state_unique),
+      WebStateList::InsertionParams::Automatic().Activate());
+  web_state->SetWebFramesManager(web::ContentWorld::kIsolatedWorld,
+                                 std::make_unique<web::FakeWebFramesManager>());
+
+  ReaderModeTabHelper::CreateForWebState(
+      web_state, DistillerServiceFactory::GetForProfile(profile_.get()));
+  ReaderModeTabHelper* tab_helper =
+      ReaderModeTabHelper::FromWebState(web_state);
+  EXPECT_TRUE(CanPerform(@"keyCommand_addToReadingList"));
+  EXPECT_TRUE(CanPerform(@"keyCommand_addToBookmarks"));
+
+  tab_helper->ActivateReader(ReaderModeAccessPoint::kAIHub);
+  EXPECT_FALSE(CanPerform(@"keyCommand_addToReadingList"));
+  EXPECT_FALSE(CanPerform(@"keyCommand_addToBookmarks"));
 }

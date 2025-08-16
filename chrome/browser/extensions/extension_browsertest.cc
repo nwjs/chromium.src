@@ -10,6 +10,7 @@
 #include "base/strings/string_number_conversions.h"
 #include "base/test/test_future.h"
 #include "base/version_info/channel.h"
+#include "chrome/browser/extensions/chrome_extension_test_notification_observer.h"
 #include "chrome/browser/extensions/chrome_test_extension_loader.h"
 #include "chrome/browser/extensions/component_loader.h"
 #include "chrome/browser/extensions/crx_installer.h"
@@ -773,7 +774,11 @@ base::FilePath ExtensionBrowserTest::PackExtensionWithOptions(
 }
 
 bool ExtensionBrowserTest::NavigateToURL(const GURL& url) {
-  content::WebContents* web_contents = GetActiveWebContents();
+  return NavigateToURL(GetActiveWebContents(), url);
+}
+
+bool ExtensionBrowserTest::NavigateToURL(content::WebContents* web_contents,
+                                         const GURL& url) {
   content::TestNavigationObserver observer(web_contents);
   // The return value is ignored because some tests load URLs that cause
   // redirects, or are blocked URLs, which make NavigateToURL return false.
@@ -781,6 +786,17 @@ bool ExtensionBrowserTest::NavigateToURL(const GURL& url) {
   // Ensure the navigation happened.
   observer.Wait();
   return observer.last_navigation_succeeded();
+}
+
+bool ExtensionBrowserTest::NavigateToURL(BrowserWindowInterface* browser_window,
+                                         const GURL& url) {
+#if BUILDFLAG(IS_ANDROID)
+  NOTREACHED() << "Not supported on Android.";
+#else
+  auto* web_contents =
+      browser_window->GetTabStripModel()->GetActiveWebContents();
+  return NavigateToURL(web_contents, url);
+#endif
 }
 
 bool ExtensionBrowserTest::GetCurrentTabTitle(std::u16string* title) {
@@ -1005,7 +1021,12 @@ bool ExtensionBrowserTest::WaitForExtensionNotIdle(
 }
 
 bool ExtensionBrowserTest::WaitForPageActionVisibilityChangeTo(int count) {
-  return platform_delegate_.WaitForPageActionVisibilityChangeTo(count);
+  // Note: It's okay if the visibility is already at `count` (i.e., that we're
+  // constructing this observer "late"); the observer handles that case
+  // gracefully.
+  ChromeExtensionTestNotificationObserver observer(GetProfile());
+  return observer.WaitForPageActionVisibilityChangeTo(GetActiveWebContents(),
+                                                      count);
 }
 
 const Extension* ExtensionBrowserTest::LoadAndLaunchApp(
@@ -1020,6 +1041,14 @@ Profile* ExtensionBrowserTest::profile() {
 
 content::WebContents* ExtensionBrowserTest::web_contents() {
   return web_contents_.get();
+}
+
+BrowserWindowInterface* ExtensionBrowserTest::browser_window_interface() {
+#if BUILDFLAG(IS_ANDROID)
+  return nullptr;
+#else
+  return browser();
+#endif
 }
 
 ExtensionService* ExtensionBrowserTest::extension_service() {

@@ -91,7 +91,6 @@
 #include "net/cookies/cookie_access_result.h"
 #include "net/cookies/cookie_inclusion_status.h"
 #include "net/net_buildflags.h"
-#include "ppapi/buildflags/buildflags.h"
 #include "services/network/cookie_manager.h"
 #include "services/network/public/cpp/features.h"
 #include "services/network/test/mock_device_bound_session_manager.h"
@@ -101,6 +100,7 @@
 #include "storage/browser/test/mock_quota_client.h"
 #include "storage/browser/test/mock_quota_manager.h"
 #include "storage/browser/test/mock_special_storage_policy.h"
+#include "storage/common/database/db_status.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/common/features.h"
@@ -363,7 +363,7 @@ class RemoveLocalStorageTester {
         storage_partition_->GetPath().Append(storage::kLocalStoragePath),
         storage::kLocalStorageLeveldbName, std::nullopt,
         base::SingleThreadTaskRunner::GetCurrentDefault(),
-        base::BindLambdaForTesting([&](leveldb::Status status) {
+        base::BindLambdaForTesting([&](storage::DbStatus status) {
           ASSERT_TRUE(status.ok());
           open_loop.Quit();
         }));
@@ -2335,10 +2335,10 @@ TEST_F(StoragePartitionImplTest, RemoveDeviceBoundSessions) {
 
   EXPECT_CALL(
       *device_bound_session_manager_raw,
-      DeleteAllSessions(Eq(created_after_time), Eq(created_before_time), _, _))
-      .WillOnce(WithArg<3>(Invoke([](base::OnceClosure completion_closure) {
-        std::move(completion_closure).Run();
-      })));
+      DeleteAllSessions(Eq(net::device_bound_sessions::DeletionReason::
+                               kStoragePartitionCleared),
+                        Eq(created_after_time), Eq(created_before_time), _, _))
+      .WillOnce(base::test::RunOnceClosure<4>());
 
   base::RunLoop run_loop;
   partition->ClearData(StoragePartition::REMOVE_DATA_MASK_DEVICE_BOUND_SESSIONS,
@@ -2572,25 +2572,6 @@ TEST_F(StoragePartitionImplSharedStorageTest, RemoveSharedStorageRecent) {
   EXPECT_FALSE(SharedStorageExistsForOrigin(kOrigin3));
 }
 
-TEST_F(StoragePartitionImplTest, PrivateNetworkAccessPermission) {
-  base::test::ScopedFeatureList features;
-  features.InitAndEnableFeature(
-      network::features::kPrivateNetworkAccessPermissionPrompt);
-
-  StoragePartitionImpl* partition = static_cast<StoragePartitionImpl*>(
-      browser_context()->GetDefaultStoragePartition());
-
-  mojo::Remote<network::mojom::URLLoaderNetworkServiceObserver> observer(
-      partition->CreateURLLoaderNetworkObserverForServiceWorker(
-          network::mojom::kBrowserProcessId, url::Origin()));
-
-  base::test::TestFuture<bool> grant_permission;
-  observer->OnPrivateNetworkAccessPermissionRequired(
-      GURL(), net::IPAddress(192, 163, 1, 1), "test-id", "test-name",
-      base::BindOnce(grant_permission.GetCallback()));
-  EXPECT_FALSE(grant_permission.Get());
-}
-
 // Local network access tests require there to be a (minimal) frame setup.
 using StoragePartitionImplLocalNetworkAccessTest = RenderViewHostTestHarness;
 
@@ -2706,4 +2687,102 @@ TEST_F(StoragePartitionImplTest, ClearDataStorageKeyDeletesPartitionedCookies) {
   EXPECT_TRUE(tester.ContainsCookie(kOrigin, kOtherPartitionKey));
 }
 
+
+class MockGpuDiskCacheFactory : public gpu::GpuDiskCacheFactory {
+ public:
+  MockGpuDiskCacheFactory() = default;
+  ~MockGpuDiskCacheFactory() override = default;
+
+  MOCK_METHOD(void,
+              ClearByPath,
+              (const base::FilePath&, base::Time, base::Time, base::OnceClosure),
+              (override));
+};
+
+class StoragePartitionImplShaderCacheTest : public StoragePartitionImplTest {
+ public:
+  StoragePartitionImplShaderCacheTest() {
+    InitGpuDiskCacheFactorySingleton();
+    SetGpuDiskCacheFactorySingletonForTesting(&mock_gpu_disk_cache_factory_);
+  }
+
+  ~StoragePartitionImplShaderCacheTest() override {
+    SetGpuDiskCacheFactorySingletonForTesting(nullptr);
+    DestroyGpuDiskCacheFactorySingletonForTesting();
+  }
+
+ protected:
+  StoragePartition* storage_partition() {
+    return browser_context()->GetDefaultStoragePartition();
+  }
+
+  base::test::ScopedFeatureList feature_list_;
+  MockGpuDiskCacheFactory mock_gpu_disk_cache_factory_;
+};
+
+TEST_F(StoragePartitionImplShaderCacheTest,
+       ClearData_PartialCleanupDisabled_NoStorageCleanup) {
+  feature_list_.InitAndEnableFeature(
+      features::kDisablePartialStorageCleanupForGPUDiskCache);
+
+  EXPECT_CALL(mock_gpu_disk_cache_factory_, ClearByPath(_, _, _, _)).Times(0);
+
+  base::RunLoop run_loop;
+  storage_partition()->ClearData(
+      StoragePartition::REMOVE_DATA_MASK_SHADER_CACHE,
+      StoragePartition::QUOTA_MANAGED_STORAGE_MASK_ALL,
+      /*filter_builder=*/nullptr,
+      /*storage_key_policy_matcher=*/{},
+      /*cookie_deletion_filter=*/nullptr,
+      /*perform_storage_cleanup=*/false, base::Time(), base::Time::Max(),
+      run_loop.QuitClosure());
+  run_loop.Run();
+}
+
+TEST_F(StoragePartitionImplShaderCacheTest,
+       ClearData_PartialCleanupEnabled_WithStorageCleanup) {
+  feature_list_.InitAndDisableFeature(
+      features::kDisablePartialStorageCleanupForGPUDiskCache);
+
+  EXPECT_CALL(mock_gpu_disk_cache_factory_, ClearByPath(_, _, _, _))
+      .Times(gpu::kGpuDiskCacheTypes.size())
+      .WillRepeatedly(testing::Invoke(
+          [](const base::FilePath&, base::Time, base::Time,
+             base::OnceClosure callback) { std::move(callback).Run(); }));
+
+  base::RunLoop run_loop;
+  storage_partition()->ClearData(
+      StoragePartition::REMOVE_DATA_MASK_SHADER_CACHE,
+      StoragePartition::QUOTA_MANAGED_STORAGE_MASK_ALL,
+      /*filter_builder=*/nullptr,
+      /*storage_key_policy_matcher=*/{},
+      /*cookie_deletion_filter=*/nullptr,
+      /*perform_storage_cleanup=*/true, base::Time(), base::Time::Max(),
+      run_loop.QuitClosure());
+  run_loop.Run();
+}
+
+TEST_F(StoragePartitionImplShaderCacheTest,
+       ClearData_PartialCleanupDisabled_WithStorageCleanup) {
+  feature_list_.InitAndEnableFeature(
+      features::kDisablePartialStorageCleanupForGPUDiskCache);
+
+  EXPECT_CALL(mock_gpu_disk_cache_factory_, ClearByPath(_, _, _, _))
+      .Times(gpu::kGpuDiskCacheTypes.size())
+      .WillRepeatedly(testing::Invoke(
+          [](const base::FilePath&, base::Time, base::Time,
+             base::OnceClosure callback) { std::move(callback).Run(); }));
+
+  base::RunLoop run_loop;
+  storage_partition()->ClearData(
+      StoragePartition::REMOVE_DATA_MASK_SHADER_CACHE,
+      StoragePartition::QUOTA_MANAGED_STORAGE_MASK_ALL,
+      /*filter_builder=*/nullptr,
+      /*storage_key_policy_matcher=*/{},
+      /*cookie_deletion_filter=*/nullptr,
+      /*perform_storage_cleanup=*/true, base::Time(), base::Time::Max(),
+      run_loop.QuitClosure());
+  run_loop.Run();
+}
 }  // namespace content
+

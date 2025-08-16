@@ -10,12 +10,23 @@ namespace autofill::payments {
 // Interface for managing the Save and Fill dialog flow.
 class SaveAndFillManager {
  public:
+  using CardSaveAndFillDialogUserDecision =
+      PaymentsAutofillClient::CardSaveAndFillDialogUserDecision;
+  using UserProvidedCardSaveAndFillDetails =
+      PaymentsAutofillClient::UserProvidedCardSaveAndFillDetails;
+  using FillCardCallback = base::OnceCallback<void(const CreditCard&)>;
+
   SaveAndFillManager() = default;
   SaveAndFillManager(const SaveAndFillManager& other) = delete;
   SaveAndFillManager& operator=(const SaveAndFillManager& other) = delete;
   virtual ~SaveAndFillManager() = default;
 
-  virtual void OnDidAcceptCreditCardSaveAndFillSuggestion() = 0;
+  // Initiates the Save and Fill flow after the user accepts the Save and Fill
+  // suggestion.
+  virtual void OnDidAcceptCreditCardSaveAndFillSuggestion(
+      FillCardCallback fill_card_callback) = 0;
+  // Returns true if the maximum number of strikes has been reached.
+  virtual bool IsMaxStrikesLimitReached() = 0;
 };
 
 }  // namespace autofill::payments

@@ -50,6 +50,7 @@
 #include "components/autofill/core/browser/metrics/autofill_metrics.h"
 #include "components/autofill/core/browser/metrics/autofill_metrics_utils.h"
 #include "components/autofill/core/browser/metrics/log_event.h"
+#include "components/autofill/core/browser/metrics/payments/save_and_fill_metrics.h"
 #include "components/autofill/core/browser/metrics/suggestions_list_metrics.h"
 #include "components/autofill/core/browser/payments/bnpl_manager.h"
 #include "components/autofill/core/browser/payments/credit_card_access_manager.h"
@@ -134,6 +135,8 @@ AutofillTriggerSource TriggerSourceFromSuggestionTriggerSource(
       return AutofillTriggerSource::kManualFallback;
     case AutofillSuggestionTriggerSource::kAutofillAi:
       return AutofillTriggerSource::kAutofillAi;
+    case AutofillSuggestionTriggerSource::kProactivePasswordRecovery:
+      return AutofillTriggerSource::kProactivePasswordRecovery;
   }
   NOTREACHED();
 }
@@ -242,6 +245,7 @@ bool AutofillExternalDelegate::IsAutofillAndFirstLayerSuggestionId(
       // suggestions related to standalone CVC fields.
     case SuggestionType::kVirtualCreditCardEntry:
     case SuggestionType::kLoyaltyCardEntry:
+    case SuggestionType::kOneTimePasswordEntry:
       return true;
     case SuggestionType::kAccountStoragePasswordEntry:
     case SuggestionType::kAllLoyaltyCardsEntry:
@@ -675,6 +679,10 @@ void AutofillExternalDelegate::DidSelectSuggestion(
     case SuggestionType::kScanCreditCard:
     case SuggestionType::kSeePromoCodeDetails:
     case SuggestionType::kBnplEntry:
+    // So far OTP suggestions are only available on Android, so no preview
+    // is needed. This needs to be changed once Desktop suggestions and UI
+    // are implemented.
+    case SuggestionType::kOneTimePasswordEntry:
       break;
     case SuggestionType::kTitle:
     case SuggestionType::kSeparator:
@@ -893,6 +901,16 @@ void AutofillExternalDelegate::DidAcceptSuggestion(
       }
       break;
     }
+    case SuggestionType::kOneTimePasswordEntry: {
+      auto otp_payload =
+          suggestion.GetPayload<Suggestion::OneTimePasswordPayload>()
+              .filling_data;
+      manager_->FillOrPreviewForm(
+          mojom::ActionPersistence::kFill, query_form_,
+          query_field_.global_id(), &otp_payload,
+          TriggerSourceFromSuggestionTriggerSource(trigger_source_));
+      break;
+    }
     case SuggestionType::kTitle:
     case SuggestionType::kSeparator:
     case SuggestionType::kPasswordEntry:
@@ -961,12 +979,9 @@ bool AutofillExternalDelegate::RemoveSuggestion(const Suggestion& suggestion) {
       if (AddressDataManager& adm = manager_->client()
                                         .GetPersonalDataManager()
                                         .address_data_manager();
-          auto* profile = adm.GetProfileByGUID(guid)) {
-        // Home and Work profiles are read-only and therefore cannot be deleted.
-        if (!profile->IsHomeAndWorkProfile()) {
-          adm.RemoveProfile(guid);
-          return true;
-        }
+          adm.GetProfileByGUID(guid)) {
+        adm.RemoveProfile(guid);
+        return true;
       }
       return false;
     }
@@ -1041,6 +1056,7 @@ bool AutofillExternalDelegate::RemoveSuggestion(const Suggestion& suggestion) {
     case SuggestionType::kFillAutofillAi:
     case SuggestionType::kPendingStateSignin:
     case SuggestionType::kLoyaltyCardEntry:
+    case SuggestionType::kOneTimePasswordEntry:
       return false;
   }
 }
@@ -1244,7 +1260,8 @@ void AutofillExternalDelegate::DidAcceptAddressSuggestion(
         const AutofillField* autofill_trigger_field = GetQueriedAutofillField();
         const bool triggered_on_email_field =
             autofill_trigger_field &&
-            autofill_trigger_field->Type().group() == FieldTypeGroup::kEmail;
+            autofill_trigger_field->Type().GetGroups().contains(
+                FieldTypeGroup::kEmail);
         // Email suggestions don't have a separate suggestion type. Check that
         // the suggestions are triggered on an email field and that the popup
         // contains a plus address filling suggestion as well.
@@ -1382,7 +1399,21 @@ void AutofillExternalDelegate::DidAcceptPaymentsSuggestion(
               ->GetSaveAndFillManager();
       CHECK(save_and_fill_manager);
 
-      save_and_fill_manager->OnDidAcceptCreditCardSaveAndFillSuggestion();
+      save_and_fill_manager->OnDidAcceptCreditCardSaveAndFillSuggestion(
+          base::BindOnce(
+              [](base::WeakPtr<AutofillExternalDelegate> delegate,
+                 const CreditCard& card) {
+                if (delegate) {
+                  delegate->manager_->FillOrPreviewForm(
+                      mojom::ActionPersistence::kFill, delegate->query_form_,
+                      delegate->query_field_.global_id(), &card,
+                      AutofillTriggerSource::kCreditCardSaveAndFill);
+                }
+              },
+              GetWeakPtr()));
+
+      manager_->GetCreditCardFormEventLogger()
+          .OnDidAcceptSaveAndFillSuggestion();
       break;
     }
     case SuggestionType::kScanCreditCard:

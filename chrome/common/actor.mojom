@@ -5,6 +5,7 @@
 module actor.mojom;
 
 import "mojo/public/mojom/base/time.mojom";
+import "third_party/blink/public/mojom/content_extraction/ai_page_content.mojom";
 import "ui/gfx/geometry/mojom/geometry.mojom";
 
 // This interface is meant to largely mirror the
@@ -19,6 +20,11 @@ union ToolTarget {
   // corner of the local root frame (i.e. the blink::WebWidget/RenderWidget). In
   // physical pixels.
   gfx.mojom.Point coordinate;
+};
+
+// Attributes of the Node target returned from hit test on last observed APC.
+struct ObservedToolTarget {
+  blink.mojom.AIPageContentAttributes node_attribute;
 };
 
 // Information specific to a click action.
@@ -36,12 +42,10 @@ struct ClickAction {
   };
   Type type;
   Count count;
-  ToolTarget target;
 };
 
 // Information specific to a mouse move action.
 struct MouseMoveAction {
-  ToolTarget target;
 };
 
 // Information specific to the type (keyboard input) action.  Note: TypeAction
@@ -59,7 +63,6 @@ struct TypeAction {
   };
 
   Mode mode;
-  ToolTarget target;
   // text should be ASCII only for now.
   string text;
   bool follow_by_enter;
@@ -85,10 +88,6 @@ struct ScrollAction {
     kDown = 4,
   };
 
-  // This target is the element to scroll. A null target implies scrolling the
-  // page's viewport. If the scroll action returns failure, it means the target
-  // isn't scrollable.
-  ToolTarget target;
   ScrollDirection direction;
   // Scroll distance in physical pixels, and it should always be positive.
   float distance;
@@ -96,8 +95,6 @@ struct ScrollAction {
 
 // Action for selecting an option from a <select> element.
 struct SelectAction {
-  ToolTarget target;
-
   // The value of the option to set as the currently selected option. The action
   // fails if the given value doesn't match the value of one of the element's
   // <option> children. Case-sensitive.
@@ -107,8 +104,13 @@ struct SelectAction {
 // Performs a left mouse button down on the from_target, then moves to and
 // releases on the to_target.
 struct DragAndReleaseAction {
-  ToolTarget from_target;
   ToolTarget to_target;
+};
+
+// Executes a script tool associated with the Document.
+struct ScriptToolAction {
+  string name;
+  string input_arguments;
 };
 
 // Union of tool-specific actions.
@@ -119,7 +121,10 @@ union ToolAction {
   ScrollAction scroll;
   SelectAction select;
   TypeAction type;
+  ScriptToolAction script_tool;
 };
+
+
 
 // LINT.IfChange(ActionResultCode)
 
@@ -132,6 +137,8 @@ union ToolAction {
 // optimization_guide.proto.BrowserActionResult.  New Codes may be added to
 // unused values, but existing codes should not be removed, reordered, or
 // renumbered.
+// Googlers: When making additions, also add the new value here:
+// http://shortn/_gLyPxrRm6p
 enum ActionResultCode {
   kOk = 0,
 
@@ -190,6 +197,25 @@ enum ActionResultCode {
   // frame under that coordinate during time of observation.
   kFrameLocationChangedSinceObservation = 26,
 
+  // A tool caused a navigation, but the navigation was blocked.
+  kTriggeredNavigationBlocked = 27,
+
+  // The requested tool actions array was empty.
+  kEmptyActionSequence = 28,
+
+  // The tool executor was busy with another tool, so could not invoke another.
+  kExecutorBusy = 29,
+
+  // The target element from hit test observed page content cannot be found in
+  // the live DOM.
+  kObservedTargetElementDestroyed  = 30,
+
+  // The target element from hit test observed page content is different from
+  // hit test on the live DOM.
+  kObservedTargetElementChanged = 31,
+
+  // Please see the comment above about adding new values.
+
   ///////////////////////////////////////////////////////////////////////
   // Codes 100-199: Errors for navigation. (Not part of the ToolAction union
   // as it's a browser-side tool.)
@@ -197,11 +223,15 @@ enum ActionResultCode {
   // The requested URL was not valid.
   kNavigateInvalidUrl = 100,
 
+  // Please see the comment above about adding new values.
+
   ///////////////////////////////////////////////////////////////////////
   // Codes 200-299: Errors for ClickAction.
 
   // The click event was suppressed.
   kClickSuppressed = 200,
+
+  // Please see the comment above about adding new values.
 
   ///////////////////////////////////////////////////////////////////////
   // Codes 300-399: Errors for DragAndRelease.
@@ -224,11 +254,15 @@ enum ActionResultCode {
   // The mouse up event was suppressed.
   kDragAndReleaseUpSuppressed = 305,
 
+  // Please see the comment above about adding new values.
+
   ///////////////////////////////////////////////////////////////////////
   // Codes 400-499: Errors for MouseMoveAction.
 
   // The mouse move event was suppressed.
   kMouseMoveEventSuppressed = 400,
+
+  // Please see the comment above about adding new values.
 
   ///////////////////////////////////////////////////////////////////////
   // Codes 500-599: Errors for ScrollAction.
@@ -245,6 +279,8 @@ enum ActionResultCode {
   // The offset of the target element didn't change after scrolling.
   kScrollOffsetDidNotChange = 502,
 
+  // Please see the comment above about adding new values.
+
   ///////////////////////////////////////////////////////////////////////
   // Codes 600-699: Errors for SelectAction.
 
@@ -259,6 +295,8 @@ enum ActionResultCode {
 
   // The invoking the tool resulted in an unexpected value.
   kSelectUnexpectedValue = 603,
+
+  // Please see the comment above about adding new values.
 
   ///////////////////////////////////////////////////////////////////////
   // Codes 700-799: Errors for TypeAction.
@@ -277,6 +315,8 @@ enum ActionResultCode {
 
   // The key down event for one of the chars was suppressed by Blink.
   kTypeKeyDownSuppressed = 704,
+
+  // Please see the comment above about adding new values.
 
   ///////////////////////////////////////////////////////////////////////
   // Codes 800-899: Errors for history tool. (Not part of the ToolAction union
@@ -299,6 +339,8 @@ enum ActionResultCode {
 
   // History navigation committed to an error page.
   kHistoryErrorPage = 805,
+
+  // Please see the comment above about adding new values.
 };
 
 // LINT.ThenChange(//tools/metrics/histograms/metadata/actor/enums.xml:ActionResultCode)
@@ -308,7 +350,16 @@ struct ToolInvocation {
   // The task ID owning this invocation.
   int32 task_id;
 
+  // The action to carry out in this invocation.
   ToolAction action;
+
+  // Target of this tool invocation.
+  ToolTarget target;
+
+  // Target from hit test on the last observed page content.
+  // This is optional and is used for checking if the action target has changed
+  // since last observation.
+  ObservedToolTarget? observed_target;
 };
 
 struct ActionResult {
@@ -317,6 +368,10 @@ struct ActionResult {
 
   // If the code is not kOk, an English language message describing the error.
   string message;
+
+  // If the action is a script tool, provides the result of that execution. This
+  // is only populated if the execution was successful.
+  string? script_tool_response;
 };
 
 // The type of the journal entry.
@@ -324,6 +379,12 @@ enum JournalEntryType {
   kBegin,
   kEnd,
   kInstant,
+};
+
+// The track to log the journal entry on.
+enum JournalTrack {
+  kFrontEnd,
+  kActor,
 };
 
 // Represents a journal entry. This should only be used for logging and
@@ -337,9 +398,8 @@ struct JournalEntry {
   // The task ID associated with this entry.
   int32 task_id;
 
-  // Unique identifier for entry. Begin/End types
-  // should use the same id.
-  uint64 id;
+  // The track the event should occur on.
+  JournalTrack track;
 
   // The time the event occurred at.
   mojo_base.mojom.Time timestamp;

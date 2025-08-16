@@ -30,8 +30,10 @@
 #include "content/browser/devtools/devtools_instrumentation.h"
 #include "content/browser/loader/navigation_url_loader_impl.h"
 #include "content/browser/loader/url_loader_factory_utils.h"
+#include "content/browser/renderer_host/private_network_access_util.h"
 #include "content/browser/service_worker/service_worker_client.h"
 #include "content/browser/service_worker/service_worker_container_host.h"
+#include "content/browser/service_worker/service_worker_context_core.h"
 #include "content/browser/service_worker/service_worker_host.h"
 #include "content/browser/service_worker/service_worker_object_host.h"
 #include "content/browser/service_worker/service_worker_process_manager.h"
@@ -578,7 +580,8 @@ void ServiceWorkerContextWrapper::
 
   for (const auto& kv : running_service_workers_) {
     for (auto& observer : core_sync_observer_list_->observers) {
-      observer.OnStopped(/*version_id=*/kv.first, /*worker_info=*/kv.second);
+      observer.OnStoppedSync(/*version_id=*/kv.first,
+                             /*scope=*/kv.second.scope);
     }
   }
 }
@@ -599,10 +602,15 @@ void ServiceWorkerContextWrapper::RegisterServiceWorker(
       net::SimplifyUrlForRequest(options.scope), options.type,
       options.update_via_cache);
 
-  // TODO(crbug.com/40056874): initialize remaining fields
   PolicyContainerPolicies policy_container_policies;
   policy_container_policies.is_web_secure_context =
       network::IsUrlPotentiallyTrustworthy(script_url);
+  // TODO(crbug.com/435246545): Add browser test to test extensions and LNA.
+  // TODO(crbug.com/436098661): Figure out the right address space for payment
+  // apps
+  policy_container_policies.ip_address_space = content::CalculateIPAddressSpace(
+      options.scope, nullptr, GetContentClient()->browser());
+
   // TODO(bashi): Pass a valid outside fetch client settings object. Perhaps
   // changing this method to take a settings object.
   context()->RegisterServiceWorker(
@@ -647,9 +655,11 @@ void ServiceWorkerContextWrapper::UnregisterServiceWorkerImpl(
                                   blink::ServiceWorkerStatusCode::kErrorAbort));
     return;
   }
-  context()->UnregisterServiceWorker(net::SimplifyUrlForRequest(scope), key,
-                                     /*is_immediate=*/false,
-                                     std::move(callback));
+  context()->UnregisterServiceWorker(
+      net::SimplifyUrlForRequest(scope), key,
+      /*is_immediate=*/false,
+      ServiceWorkerRegistration::DeleteInitiator::kContentPublicApi,
+      std::move(callback));
 }
 
 void ServiceWorkerContextWrapper::UnregisterServiceWorkerImmediatelyImpl(
@@ -657,16 +667,17 @@ void ServiceWorkerContextWrapper::UnregisterServiceWorkerImmediatelyImpl(
     const blink::StorageKey& key,
     StatusCodeCallback callback) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
-
   if (!context_core_) {
     GetUIThreadTaskRunner({})->PostTask(
         FROM_HERE, base::BindOnce(std::move(callback),
                                   blink::ServiceWorkerStatusCode::kErrorAbort));
     return;
   }
-  context()->UnregisterServiceWorker(net::SimplifyUrlForRequest(scope), key,
-                                     /*is_immediate=*/true,
-                                     std::move(callback));
+  context()->UnregisterServiceWorker(
+      net::SimplifyUrlForRequest(scope), key,
+      /*is_immediate=*/true,
+      ServiceWorkerRegistration::DeleteInitiator::kContentPublicApi,
+      std::move(callback));
 }
 
 ServiceWorkerExternalRequestResult

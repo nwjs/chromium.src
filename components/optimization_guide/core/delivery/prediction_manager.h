@@ -21,6 +21,7 @@
 #include "base/timer/timer.h"
 #include "base/types/optional_ref.h"
 #include "components/optimization_guide/core/delivery/model_enums.h"
+#include "components/optimization_guide/core/delivery/model_provider_registry.h"
 #include "components/optimization_guide/core/delivery/prediction_model_download_observer.h"
 #include "components/optimization_guide/core/delivery/prediction_model_fetch_timer.h"
 #include "components/optimization_guide/core/delivery/prediction_model_store.h"
@@ -63,17 +64,12 @@ class ModelInfo;
 // for an OptimizationTarget.
 class PredictionManager : public PredictionModelDownloadObserver {
  public:
-  // Callback to whether component updates are enabled for the browser.
-  using ComponentUpdatesEnabledProvider = base::RepeatingCallback<bool(void)>;
-
   PredictionManager(
       PredictionModelStore* prediction_model_store,
       scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory,
-      PrefService* pref_service,
-      bool off_the_record,
+      PrefService* local_state,
       const std::string& application_locale,
       OptimizationGuideLogger* optimization_guide_logger,
-      ComponentUpdatesEnabledProvider component_updates_enabled_provider,
       unzip::UnzipperFactory unzipper_factory);
 
   PredictionManager(const PredictionManager&) = delete;
@@ -143,6 +139,7 @@ class PredictionManager : public PredictionModelDownloadObserver {
 
   // Initialize the model metadata fetching and downloads.
   void MaybeInitializeModelDownloads(
+      PrefService* local_state,
       download::BackgroundDownloadService* background_download_service);
 
   PredictionModelFetchTimer* GetPredictionModelFetchTimerForTesting() {
@@ -163,21 +160,6 @@ class PredictionManager : public PredictionModelDownloadObserver {
           prediction_models);
 
  private:
-  // Contains the model registration specific info to be kept for each
-  // optimization target.
-  struct ModelRegistrationInfo {
-    explicit ModelRegistrationInfo(std::optional<proto::Any> metadata);
-    ~ModelRegistrationInfo();
-
-    // The feature-provided metadata that was registered with the prediction
-    // manager.
-    std::optional<proto::Any> metadata;
-
-    // The set of model observers that were registered to receive model updates
-    // from the prediction manager.
-    base::ObserverList<OptimizationTargetModelObserver> model_observers;
-  };
-
   friend class PredictionManagerTestBase;
   friend class PredictionModelStoreBrowserTestBase;
 
@@ -264,13 +246,6 @@ class PredictionManager : public PredictionModelDownloadObserver {
   // 2. The last time a fetch attempt was made.
   void ScheduleModelsFetch();
 
-  // Notifies observers of `optimization_target` that the model has been
-  // updated. `model_info` will be nullopt when the model was stopped to be
-  // served from the server, and removed from the store,
-  void NotifyObserversOfNewModel(
-      proto::OptimizationTarget optimization_target,
-      base::optional_ref<const ModelInfo> model_info);
-
   // Updates the metadata for |model|.
   void UpdateModelMetadata(const proto::PredictionModel& model);
 
@@ -298,14 +273,7 @@ class PredictionManager : public PredictionModelDownloadObserver {
     model_cache_key_ = model_cache_key;
   }
 
-  // A map of optimization target to the model file containing the model for the
-  // target.
-  base::flat_map<proto::OptimizationTarget, std::unique_ptr<ModelInfo>>
-      optimization_target_model_info_map_ GUARDED_BY_CONTEXT(sequence_checker_);
-
-  // The map from optimization target to the model registration specific data.
-  std::map<proto::OptimizationTarget, ModelRegistrationInfo>
-      model_registration_info_map_ GUARDED_BY_CONTEXT(sequence_checker_);
+  ModelProviderRegistry registry_ GUARDED_BY_CONTEXT(sequence_checker_);
 
   // The fetcher that handles making requests to update the models and host
   // model features from the remote Optimization Guide Service.
@@ -333,10 +301,6 @@ class PredictionManager : public PredictionModelDownloadObserver {
   // and |this| are owned by the optimization guide keyed service.
   raw_ptr<OptimizationGuideLogger> optimization_guide_logger_;
 
-  // The repeating callback that will be used to determine if component updates
-  // are enabled.
-  ComponentUpdatesEnabledProvider component_updates_enabled_provider_;
-
   // Callback to build Unzipper remotes.
   unzip::UnzipperFactory unzipper_factory_;
 
@@ -348,9 +312,6 @@ class PredictionManager : public PredictionModelDownloadObserver {
   PredictionModelFetchTimer prediction_model_fetch_timer_
       GUARDED_BY_CONTEXT(sequence_checker_);
 
-  // Whether the profile for this PredictionManager is off the record.
-  bool off_the_record_ = false;
-
   // The locale of the application.
   std::string application_locale_;
 
@@ -359,9 +320,6 @@ class PredictionManager : public PredictionModelDownloadObserver {
 
   // The path to the directory containing the models.
   base::FilePath models_dir_path_;
-
-  // Whether to check for Google API key configuration.
-  bool should_check_google_api_key_configuration_ = true;
 
   SEQUENCE_CHECKER(sequence_checker_);
 

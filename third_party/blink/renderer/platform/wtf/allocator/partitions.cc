@@ -48,7 +48,7 @@
 #include "partition_alloc/partition_root.h"
 #include "third_party/blink/renderer/platform/wtf/wtf.h"
 
-namespace WTF {
+namespace blink {
 
 const char* const Partitions::kAllocatedObjectPoolName =
     "partition_alloc/allocated_objects";
@@ -265,7 +265,7 @@ size_t Partitions::TotalSizeOfCommittedPages() {
 // static
 size_t Partitions::TotalActiveBytes() {
   LightPartitionStatsDumperImpl dumper;
-  WTF::Partitions::DumpMemoryStats(true, &dumper);
+  Partitions::DumpMemoryStats(true, &dumper);
   return dumper.TotalActiveBytes();
 }
 
@@ -463,4 +463,4 @@ void Partitions::AdjustPartitionsForBackground() {
   }
 }
 
-}  // namespace WTF
+}  // namespace blink

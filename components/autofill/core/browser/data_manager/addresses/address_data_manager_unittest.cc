@@ -258,24 +258,19 @@ TEST_F(AddressDataManagerTest, GetProfiles) {
 
 // Tests the different orderings in which profiles can be retrieved.
 TEST_F(AddressDataManagerTest, GetProfiles_Order) {
-  base::test::ScopedFeatureList feature(
-      features::kAutofillEnableSupportForHomeAndWork);
   base::Time now = base::Time::Now();
   AutofillProfile profile1 = test::GetFullProfile();
   profile1.usage_history().set_use_date(now - base::Hours(2));
   profile1.usage_history().set_use_count(1);
   profile1.usage_history().set_modification_date(now);
-  test_api(profile1).set_record_type(AutofillProfile::RecordType::kAccountWork);
   AutofillProfile profile2 = test::GetFullProfile2();
   profile2.usage_history().set_use_date(now);
   profile2.usage_history().set_use_count(1);
   profile2.usage_history().set_modification_date(now - base::Hours(1));
-  test_api(profile2).set_record_type(AutofillProfile::RecordType::kAccountHome);
   AutofillProfile profile3 = test::GetFullCanadianProfile();
   profile3.usage_history().set_use_date(now - base::Hours(1));
   profile3.usage_history().set_use_count(1234);
   profile3.usage_history().set_modification_date(now - base::Hours(2));
-  test_api(profile3).set_record_type(AutofillProfile::RecordType::kAccount);
 
   AddProfileToAddressDataManager(profile1);
   AddProfileToAddressDataManager(profile2);
@@ -305,13 +300,6 @@ TEST_F(AddressDataManagerTest, GetProfiles_Order) {
   EXPECT_THAT(address_data_manager().GetProfiles(
                   AddressDataManager::ProfileOrder::kMostRecentlyModifiedDesc),
               testing::ElementsAre(Pointee(profile1), Pointee(profile2),
-                                   Pointee(profile3)));
-
-  // `profile2` is first because it is a Home address.
-  // `profile1` is second because it is a Work address.
-  // `profile3` is last, even though it has the highest use count.
-  EXPECT_THAT(address_data_manager().GetProfilesToSuggest(),
-              testing::ElementsAre(Pointee(profile2), Pointee(profile1),
                                    Pointee(profile3)));
 }
 
@@ -388,9 +376,9 @@ TEST_F(AddressDataManagerTest, GetProfilesForSettings) {
   local_profile.usage_history().set_modification_date(kSomeLaterTime);
   AddProfileToAddressDataManager(local_profile);
 
-  EXPECT_THAT(address_data_manager().GetProfilesForSettings(),
-              testing::ElementsAre(testing::Pointee(local_profile),
-                                   testing::Pointee(account_profile)));
+  EXPECT_THAT(
+      address_data_manager().GetProfilesForSettings(),
+      testing::ElementsAre(Pointee(local_profile), Pointee(account_profile)));
 }
 
 // Adding, updating, removing operations without waiting in between.

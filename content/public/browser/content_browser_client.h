@@ -59,7 +59,6 @@
 #include "media/base/picture_in_picture_events_info.h"
 #include "media/mojo/mojom/media_service.mojom-forward.h"
 #include "media/mojo/mojom/remoting.mojom-forward.h"
-#include "mojo/public/cpp/bindings/binder_map.h"
 #include "mojo/public/cpp/bindings/generic_pending_receiver.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
@@ -235,7 +234,6 @@ class BluetoothDelegate;
 class BrowserChildProcessHost;
 class BrowserContext;
 class BrowserMainParts;
-class BrowserPpapiHost;
 class BrowserURLHandler;
 class ClientCertificateDelegate;
 class ControllerPresentationServiceDelegate;
@@ -256,7 +254,6 @@ class NavigationUIData;
 class PrefetchServiceDelegate;
 class PrerenderWebContentsDelegate;
 class PresentationObserver;
-class PrivateNetworkDeviceDelegate;
 class ReceiverPresentationServiceDelegate;
 class RenderFrameHost;
 class RenderProcessHost;
@@ -273,7 +270,6 @@ class URLLoaderRequestInterceptor;
 class UsbDelegate;
 class VideoOverlayWindow;
 class VideoPictureInPictureWindowController;
-class VpnServiceProxy;
 class WebAuthenticationDelegate;
 class WebContents;
 class WebContentsViewDelegate;
@@ -284,7 +280,6 @@ struct GlobalRequestID;
 struct OpenURLParams;
 struct Referrer;
 struct ServiceWorkerVersionBaseInfo;
-struct SocketPermissionRequest;
 
 #if BUILDFLAG(IS_ANDROID)
 class TtsEnvironmentAndroid;
@@ -738,6 +733,12 @@ class CONTENT_EXPORT ContentBrowserClient {
   // See also https://crbug.com/825369
   virtual bool ShouldEnableStrictSiteIsolation();
 
+  // Determines whether Origin Isolation is overridden by either a user choice
+  // or enterprise policy. Note that returning true here will override the
+  // return value from ShouldDisableOriginIsolation(). Returns std::nullopt if
+  // there is no overridden value.
+  virtual std::optional<bool> GetOverrideValueForOriginKeyedProcesses();
+
   // Allows the embedder to programmatically control whether Site Isolation
   // should be disabled.  Note that this takes precedence over
   // ShouldEnableStrictSiteIsolation() if both return true.
@@ -750,8 +751,9 @@ class CONTENT_EXPORT ContentBrowserClient {
   virtual bool ShouldDisableSiteIsolation(
       SiteIsolationMode site_isolation_mode);
 
-  // Allows the embedder to programmatically control whether Origin Isolation
-  // should be disabled.
+  // Allows the embedder to programmatically control whether the origin-keyed
+  // processes by default feature should be disabled. Note that this is ignored
+  // if GetOverrideValueForOriginKeyedProcesses() returns true.
   virtual bool ShouldDisableOriginIsolation();
 
   // Retrieves names of any additional site isolation modes from the embedder.
@@ -1243,6 +1245,10 @@ class CONTENT_EXPORT ContentBrowserClient {
   virtual bool IsPrefetchWithServiceWorkerAllowed(
       content::BrowserContext* browser_context);
 
+  // Allow ServiceWorkerAutoPreload.
+  // https://github.com/WICG/service-worker-auto-preload
+  virtual bool IsServiceWorkerAutoPreloadAllowed(BrowserContext* context);
+
   // Returns whether the synthetic response with service worker is allowed for
   // the profile in a given context and URL. Not all URLs are actually invoke
   // synthetic response. The opt-in from the server is required to invoke the
@@ -1511,35 +1517,6 @@ class CONTENT_EXPORT ContentBrowserClient {
   // Returns the path to Local Traces directory.
   virtual std::optional<base::FilePath> GetLocalTracesDirectory();
 
-  // Notification that a pepper plugin has just been spawned. This allows the
-  // embedder to add filters onto the host to implement interfaces.
-  // This is called on the IO thread.
-  virtual void DidCreatePpapiPlugin(BrowserPpapiHost* browser_host) {}
-
-  // Gets the host for an external out-of-process plugin.
-  virtual BrowserPpapiHost* GetExternalBrowserPpapiHost(int plugin_child_id);
-
-  // Returns true if the socket operation specified by |params| is allowed from
-  // the given |browser_context| and |url|. If |params| is nullptr, this method
-  // checks the basic "socket" permission, which is for those operations that
-  // don't require a specific socket permission rule.
-  // |private_api| indicates whether this permission check is for the private
-  // Pepper socket API or the public one.
-  virtual bool AllowPepperSocketAPI(BrowserContext* browser_context,
-                                    const GURL& url,
-                                    bool private_api,
-                                    const SocketPermissionRequest* params);
-
-  // Returns true if the "vpnProvider" permission is allowed from the given
-  // |browser_context| and |url|.
-  virtual bool IsPepperVpnProviderAPIAllowed(BrowserContext* browser_context,
-                                             const GURL& url);
-
-  // Creates a new VpnServiceProxy. The caller owns the returned value. It's
-  // valid to return nullptr.
-  virtual std::unique_ptr<VpnServiceProxy> GetVpnServiceProxy(
-      BrowserContext* browser_context);
-
   // Returns an implementation of a file selecition policy. Can return null.
   virtual std::unique_ptr<ui::SelectFilePolicy> CreateSelectFilePolicy(
       WebContents* web_contents);
@@ -1600,17 +1577,6 @@ class CONTENT_EXPORT ContentBrowserClient {
   // Whether system-wide performance trace collection using the external system
   // tracing service is enabled.
   virtual bool IsSystemWideTracingEnabled();
-
-  // Returns true if plugin referred to by the url can use
-  // pp::FileIO::RequestOSFileHandle.
-  virtual bool IsPluginAllowedToCallRequestOSFileHandle(
-      BrowserContext* browser_context,
-      const GURL& url);
-
-  // Returns true if dev channel APIs are available for plugins.
-  virtual bool IsPluginAllowedToUseDevChannelAPIs(
-      BrowserContext* browser_context,
-      const GURL& url);
 
   // Allows to register browser interfaces exposed through the
   // RenderProcessHost. Note that interface factory callbacks added to
@@ -1861,6 +1827,12 @@ class CONTENT_EXPORT ContentBrowserClient {
   // Returns true if the audio process should run with high priority. false
   // otherwise.
   virtual bool ShouldEnableAudioProcessHighPriority();
+
+  // Returns true if the renderer process should run with the
+  // RestrictCoreSharing mitigation policy. This policy ensures that no other
+  // processes are scheduled on the same CPU core as the renderer process.
+  virtual bool ShouldRestrictCoreSharingOnRenderer();
+
 #endif
 
   // Binds a new media remoter service to |receiver|, if supported by the
@@ -1974,7 +1946,7 @@ class CONTENT_EXPORT ContentBrowserClient {
   // non-subresource requests, such as:
   //   -downloads
   //   -service worker script when starting a service worker. In that case, the
-  //    frame id will be MSG_ROUTING_NONE
+  //    frame id will be IPC::mojom::kRoutingIdNone
   virtual void RegisterNonNetworkSubresourceURLLoaderFactories(
       int render_process_id,
       int render_frame_id,
@@ -2165,12 +2137,11 @@ class CONTENT_EXPORT ContentBrowserClient {
   //
   // `process_id` is the ID of the process which hosts the initiator context.
   // `frame_routing_id` is the ID of the frame with which the initiator context
-  // is associated, or MSG_ROUTING_NONE if there is no associated frame.
-  // `url` is the destination URL and
-  // `initiator_origin` is the origin of the initiator context.
-  // When the connection is blocked, `callback` is called with `error`.
-  // `handshake_client` will be proxied to block the connection while
-  // handshaking.
+  // is associated, or IPC::mojom::kRoutingIdNone if there is no associated
+  // frame. `url` is the destination URL and `initiator_origin` is the origin of
+  // the initiator context. When the connection is blocked, `callback` is called
+  // with `error`. `handshake_client` will be proxied to block the connection
+  // while handshaking.
   using WillCreateWebTransportCallback = base::OnceCallback<void(
       mojo::PendingRemote<network::mojom::WebTransportHandshakeClient>
           handshake_client,
@@ -2342,8 +2313,23 @@ class CONTENT_EXPORT ContentBrowserClient {
   // Whether same-site RenderFrameHost swaps due to RenderDocument is allowed
   // for navigations from `rfh`. Embedders can choose to disallow this if there
   // are cases that are not correctly supported yet.
-  virtual bool ShouldAllowSameSiteRenderFrameHostChange(
-      const content::RenderFrameHost& rfh);
+  enum ShouldAllowSameSiteRenderFrameHostChangeResult {
+    // The embedder doesn't allow the same-site RenderFrameHost change.
+    kNotAllowed,
+    // The embedder allows the same-site RenderFrameHost change. Depending on
+    // the RenderDocument feature flag state in //content, this might not
+    // actually result in a RenderFrameHost change.
+    kAllowed,
+    // The embedder allows a same-site RenderFrameHost change on both main
+    // frames and subframes, regardless of the RenderDocument feature flag or
+    // parameter state in //content. This allows embedders to fully control
+    // RenderDocument behavior without setting RenderDocument feature flag or
+    // parameter.
+    kAllowedOverrideLevel
+  };
+
+  virtual ShouldAllowSameSiteRenderFrameHostChangeResult
+  ShouldAllowSameSiteRenderFrameHostChange(const content::RenderFrameHost& rfh);
 
   // Called on IO or UI thread to determine whether or not to allow load and
   // render MHTML page from http/https URLs.
@@ -2382,10 +2368,6 @@ class CONTENT_EXPORT ContentBrowserClient {
 
   // Allows the embedder to provide an implementation of the WebUSB API.
   virtual UsbDelegate* GetUsbDelegate();
-
-  // Allows the embedder to provide an implementation of the Private Network
-  // Device API.
-  virtual PrivateNetworkDeviceDelegate* GetPrivateNetworkDeviceDelegate();
 
   // Allows the embedder to provide an implementation of the Local Font Access
   // API.
@@ -3212,10 +3194,11 @@ class CONTENT_EXPORT ContentBrowserClient {
       RenderFrameHost* rfh,
       mojo::PendingReceiver<blink::mojom::AIManager> receiver);
 
-  // Binds the TranslationManager for the given `browser_context`,
-  // `context_user_data` and `origin` to `receiver`. The created
-  // TranslationManager will be owned by the `context_user_data`.
+  // Binds the TranslationManager for the given `process_host`,
+  // `browser_context`, `context_user_data` and `origin` to `receiver`. The
+  // created TranslationManager will be owned by the `context_user_data`.
   virtual void BindTranslationManager(
+      RenderProcessHost* process_host,
       BrowserContext* browser_context,
       base::SupportsUserData* context_user_data,
       const url::Origin& origin,

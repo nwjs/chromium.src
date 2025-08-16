@@ -105,10 +105,12 @@
 
 #if BUILDFLAG(IS_ANDROID)
 #include "base/android/task_scheduler/post_task_android.h"
+#include "base/memory_coordinator/memory_consumer_registry.h"
 #include "components/discardable_memory/service/discardable_shared_memory_manager.h"  // nogncheck
 #include "content/app/content_main_runner_impl.h"
 #include "content/app/mojo/mojo_init.h"
 #include "content/app/mojo_ipc_support.h"
+#include "content/browser/memory_coordinator/browser_memory_consumer_registry.h"
 #include "content/public/app/content_main_delegate.h"
 #include "content/public/common/content_paths.h"
 #include "testing/android/native_test/native_browser_test_support.h"
@@ -383,6 +385,10 @@ void BrowserTestBase::SetUp() {
   command_line->AppendSwitch(
       switches::kDisableBackgroundingOccludedWindowsForTesting);
 
+  // Disable IgnoreDuplicateNavs by default to ensure tests run with predictable
+  // navigation behavior and don't have navigations unintentionally ignored.
+  command_line->AppendSwitch(switches::kDisableIgnoreDuplicateNavsForTesting);
+
   if (enable_pixel_output_) {
     DCHECK(!command_line->HasSwitch(switches::kForceDeviceScaleFactor))
         << "--force-device-scale-factor flag already present. Tests using "
@@ -605,6 +611,8 @@ void BrowserTestBase::SetUp() {
   // things up manually. A meager re-implementation of ContentMainRunnerImpl
   // follows.
 
+  base::ScopedMemoryConsumerRegistry<BrowserMemoryConsumerRegistry> registry;
+
   // Unlike other platforms, android_browsertests can reuse the same process for
   // multiple tests. Need to reset startup metrics to allow recording them
   // again.
@@ -620,9 +628,6 @@ void BrowserTestBase::SetUp() {
 
   std::optional<int> startup_error = delegate->BasicStartupComplete();
   ASSERT_FALSE(startup_error.has_value());
-
-  // We can only setup startup tracing after mojo is initialized above.
-  tracing::EnableStartupTracingIfNeeded();
 
   {
     ContentClient::SetBrowserClientAlwaysAllowForTesting(
@@ -659,9 +664,13 @@ void BrowserTestBase::SetUp() {
         delegate->PostEarlyInitialization(invoked_in_browser);
     ASSERT_FALSE(post_early_initialization_exit_code.has_value());
 
+    // We can only setup startup tracing after feature list is initialized
+    // above.
+    tracing::InitTracingPostFeatureList(/*enable_consumer=*/true,
+                                        /*will_trace_thread_restart=*/false);
+
     StartBrowserThreadPool();
 
-    tracing::InitTracingPostFeatureList(/*enable_consumer=*/true);
     InitializeBrowserMemoryInstrumentationClient();
   }
 

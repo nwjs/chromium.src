@@ -4,79 +4,102 @@
 
 #import "ios/chrome/browser/intelligence/bwg/model/bwg_service.h"
 
-#import <memory>
-
 #import "base/metrics/histogram_functions.h"
-#import "components/optimization_guide/proto/features/common_quality_data.pb.h"
 #import "components/prefs/pref_service.h"
 #import "components/signin/public/identity_manager/identity_manager.h"
+#import "google_apis/gaia/google_service_auth_error.h"
 #import "ios/chrome/browser/intelligence/bwg/metrics/bwg_metrics.h"
-#import "ios/chrome/browser/intelligence/bwg/model/bwg_configuration.h"
-#import "ios/chrome/browser/intelligence/proto_wrappers/page_context_wrapper.h"
 #import "ios/chrome/browser/shared/model/prefs/pref_names.h"
+#import "ios/chrome/browser/shared/model/profile/profile_ios.h"
 #import "ios/chrome/browser/signin/model/authentication_service.h"
 #import "ios/public/provider/chrome/browser/bwg/bwg_api.h"
+#import "ios/web/public/web_state.h"
+#import "ios/web/util/content_type_util.h"
 
-namespace {
-// Helper to convert PageContextWrapperError to BWGPageContextState.
-ios::provider::BWGPageContextState BWGPageContextFromPageContextWrapperError(
-    PageContextWrapperError error) {
-  switch (error) {
-    case PageContextWrapperError::kForceDetachError:
-      return ios::provider::BWGPageContextState::kProtected;
-    default:
-      return ios::provider::BWGPageContextState::kError;
-  }
-}
-}  // namespace
-
-BwgService::BwgService(AuthenticationService* auth_service,
+BwgService::BwgService(ProfileIOS* profile,
+                       AuthenticationService* auth_service,
                        signin::IdentityManager* identity_manager,
                        PrefService* pref_service) {
+  profile_ = profile;
   auth_service_ = auth_service;
   identity_manager_ = identity_manager;
+  identity_manager_->AddObserver(this);
   pref_service_ = pref_service;
+
+  CheckGeminiEnterpriseEligibility();
 }
 
 BwgService::~BwgService() = default;
 
-void BwgService::PresentOverlayOnViewController(
-    UIViewController* base_view_controller,
-    base::expected<std::unique_ptr<optimization_guide::proto::PageContext>,
-                   PageContextWrapperError> expected_page_context) {
-  BWGConfiguration* config = [[BWGConfiguration alloc] init];
-  config.baseViewController = base_view_controller;
-  config.authService = auth_service_;
-
-  std::unique_ptr<optimization_guide::proto::PageContext> pageContext = nullptr;
-  if (expected_page_context.has_value()) {
-    pageContext = std::move(expected_page_context.value());
-    config.BWGPageContextState =
-        ios::provider::BWGPageContextState::kSuccessfullyAttached;
-  } else {
-    config.BWGPageContextState = BWGPageContextFromPageContextWrapperError(
-        expected_page_context.error());
-  }
-
-  config.pageContext = std::move(pageContext);
-  ios::provider::StartBwgOverlay(config);
+void BwgService::Shutdown() {
+  identity_manager_->RemoveObserver(this);
 }
 
-bool BwgService::IsEligibleForBWG() {
-  AccountCapabilities capabilities =
+#pragma mark - Public
+
+bool BwgService::IsProfileEligibleForBwg() {
+  AccountInfo account_info = identity_manager_->FindExtendedAccountInfo(
+      identity_manager_->GetPrimaryAccountInfo(signin::ConsentLevel::kSignin));
+  bool tokens_ok =
       identity_manager_
-          ->FindExtendedAccountInfo(identity_manager_->GetPrimaryAccountInfo(
-              signin::ConsentLevel::kSignin))
-          .capabilities;
+          ->GetErrorStateOfRefreshTokenForAccount(account_info.account_id)
+          .state() == GoogleServiceAuthError::NONE;
 
+  // If the account info was not found, the user is likely not authenticated.
+  bool has_account_info = !account_info.IsEmpty();
+
+  // Checks whether the account capabilities permit model execution.
   bool can_use_model_execution =
-      capabilities.can_use_model_execution_features() == signin::Tribool::kTrue;
-  bool is_disabled_by_policy =
-      pref_service_->GetInteger(prefs::kGeminiEnabledByPolicy) == 1;
+      has_account_info
+          ? account_info.capabilities.can_use_model_execution_features() ==
+                signin::Tribool::kTrue
+          : false;
 
-  bool is_eligible = can_use_model_execution && !is_disabled_by_policy;
+  // Checks the Chrome and Gemini Enterprise policies.
+  bool is_disabled_by_policy =
+      pref_service_->GetInteger(prefs::kGeminiEnabledByPolicy) == 1 ||
+      is_disabled_by_gemini_policy_;
+
+  bool is_eligible = can_use_model_execution && !is_disabled_by_policy &&
+                     tokens_ok && !profile_->IsOffTheRecord();
 
   base::UmaHistogramBoolean(kEligibilityHistogram, is_eligible);
 
   return is_eligible;
+}
+
+bool BwgService::IsBwgAvailableForWebState(web::WebState* web_state) {
+  if (!IsProfileEligibleForBwg()) {
+    return false;
+  }
+  // The web state is eligible for HTML and images that use http/https schemes.
+  const GURL& url = web_state->GetVisibleURL();
+  const std::string mime_type = web_state->GetContentsMimeType();
+  const BOOL is_web_state_eligible =
+      url.SchemeIsHTTPOrHTTPS() &&
+      (web::IsContentTypeHtml(mime_type) || web::IsContentTypeImage(mime_type));
+
+  return is_web_state_eligible;
+}
+
+#pragma mark - signin::IdentityManager::Observer
+
+void BwgService::OnPrimaryAccountChanged(
+    const signin::PrimaryAccountChangeEvent& event) {
+  CheckGeminiEnterpriseEligibility();
+}
+
+void BwgService::OnIdentityManagerShutdown(
+    signin::IdentityManager* identity_manager) {
+  if (identity_manager_) {
+    identity_manager_->RemoveObserver(this);
+  }
+}
+
+#pragma mark - Private
+
+void BwgService::CheckGeminiEnterpriseEligibility() {
+  ios::provider::CheckGeminiEligibility(auth_service_, ^(BOOL eligible) {
+    is_disabled_by_gemini_policy_ = !eligible;
+  });
 }

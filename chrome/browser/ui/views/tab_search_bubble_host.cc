@@ -124,12 +124,6 @@ void TabSearchBubbleHost::OnWidgetVisibilityChanged(views::Widget* widget,
             webui_bubble_manager_->bubble_using_cached_web_contents(),
             webui_bubble_manager_->contents_warmup_level()));
 
-    // Pause tab closing mode observation.
-    if (features::IsTabSearchMoving() &&
-        !features::HasTabSearchToolbarButton()) {
-      tab_strip_->NotifyTabstripBubbleOpened();
-    }
-
     const PrefService* prefs = profile_->GetPrefs();
     const auto section = tab_search_prefs::GetTabSearchSectionFromInt(
         prefs->GetInteger(tab_search_prefs::kTabSearchTabIndex));
@@ -153,12 +147,6 @@ void TabSearchBubbleHost::OnWidgetVisibilityChanged(views::Widget* widget,
           tab_search::mojom::DeclutterCTREvent::kDeclutterShown);
     }
   } else if (!visible && bubble_created_time_.has_value()) {
-    // Re-enable tab closing mode observation.
-    if (features::IsTabSearchMoving() &&
-        !features::HasTabSearchToolbarButton()) {
-      tab_strip_->NotifyTabstripBubbleClosed();
-    }
-
     const base::TimeDelta time_to_close =
         base::TimeTicks::Now() - bubble_created_time_.value();
     base::UmaHistogramMediumTimes("Tabs.TabSearch.TimeToClose", time_to_close);
@@ -178,7 +166,7 @@ void TabSearchBubbleHost::OnWidgetDestroying(views::Widget* widget) {
   }
 }
 
-void TabSearchBubbleHost::OnOrganizationAccepted(const Browser* browser) {
+void TabSearchBubbleHost::OnOrganizationAccepted(Browser* browser) {
   if (browser != GetBrowser()) {
     return;
   }
@@ -186,7 +174,7 @@ void TabSearchBubbleHost::OnOrganizationAccepted(const Browser* browser) {
   if (browser->tab_strip_model()->group_model()->ListTabGroups().size() > 1) {
     return;
   }
-  browser->window()->MaybeShowFeaturePromo(
+  BrowserUserEducationInterface::From(browser)->MaybeShowFeaturePromo(
       feature_engagement::kIPHTabOrganizationSuccessFeature);
 }
 
@@ -259,7 +247,7 @@ bool TabSearchBubbleHost::ShowTabSearchBubble(
 
   if (auto* const browser = GetBrowser()) {
     // Close the Tab Search IPH if it is showing.
-    browser->window()->NotifyFeaturePromoFeatureUsed(
+    BrowserUserEducationInterface::From(browser)->NotifyFeaturePromoFeatureUsed(
         feature_engagement::kIPHTabSearchFeature,
         FeaturePromoFeatureUsedAction::kClosePromoIfPresent);
   }

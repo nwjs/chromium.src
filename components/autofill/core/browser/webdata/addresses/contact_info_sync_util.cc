@@ -27,6 +27,9 @@ ContactInfoSpecifics::AddressType RecordTypeToAddressType(
   switch (record_type) {
     case AutofillProfile::RecordType::kLocalOrSyncable:
       // Local profiles are not synced through CONTACT_INFO.
+      // For that reason there is an early return in
+      // `ContactInfoSyncBridge::AutofillProfileChanged`,
+      // the program won't enter this case.
       NOTREACHED();
     case AutofillProfile::RecordType::kAccount:
       return ContactInfoSpecifics::REGULAR;
@@ -34,6 +37,11 @@ ContactInfoSpecifics::AddressType RecordTypeToAddressType(
       return ContactInfoSpecifics::HOME;
     case AutofillProfile::RecordType::kAccountWork:
       return ContactInfoSpecifics::WORK;
+    case AutofillProfile::RecordType::kAccountNameEmail:
+      // Since there is an early return in
+      // `ContactInfoSyncBridge::AutofillProfileChanged`,
+      // the program won't enter this case.
+      NOTREACHED();
   }
 }
 
@@ -255,6 +263,10 @@ sync_pb::ContactInfoSpecifics ContactInfoSpecificsFromAutofillProfile(
   s.Set(specifics.mutable_address_city(), ADDRESS_HOME_CITY);
   s.Set(specifics.mutable_address_state(), ADDRESS_HOME_STATE);
   s.Set(specifics.mutable_address_zip(), ADDRESS_HOME_ZIP);
+  if (base::FeatureList::IsEnabled(features::kAutofillSupportSplitZipCode)) {
+    s.Set(specifics.mutable_address_zip_prefix(), ADDRESS_HOME_ZIP_PREFIX);
+    s.Set(specifics.mutable_address_zip_suffix(), ADDRESS_HOME_ZIP_SUFFIX);
+  }
   s.Set(specifics.mutable_address_country(), ADDRESS_HOME_COUNTRY);
   s.Set(specifics.mutable_address_street_address(),
         ADDRESS_HOME_STREET_ADDRESS);
@@ -395,6 +407,10 @@ AutofillProfile CreateAutofillProfileFromContactInfoSpecifics(
   s.Set(specifics.address_city(), ADDRESS_HOME_CITY);
   s.Set(specifics.address_state(), ADDRESS_HOME_STATE);
   s.Set(specifics.address_zip(), ADDRESS_HOME_ZIP);
+  if (base::FeatureList::IsEnabled(features::kAutofillSupportSplitZipCode)) {
+    s.Set(specifics.address_zip_prefix(), ADDRESS_HOME_ZIP_PREFIX);
+    s.Set(specifics.address_zip_suffix(), ADDRESS_HOME_ZIP_SUFFIX);
+  }
   s.Set(specifics.address_street_address(), ADDRESS_HOME_STREET_ADDRESS);
   s.Set(specifics.address_sorting_code(), ADDRESS_HOME_SORTING_CODE);
   s.Set(specifics.address_dependent_locality(),
@@ -510,6 +526,14 @@ sync_pb::ContactInfoSpecifics TrimContactInfoSpecificsDataForCaching(
   }
   if (d.Delete(trimmed_specifics.mutable_address_zip())) {
     trimmed_specifics.clear_address_zip();
+  }
+  if (base::FeatureList::IsEnabled(features::kAutofillSupportSplitZipCode)) {
+    if (d.Delete(trimmed_specifics.mutable_address_zip_prefix())) {
+      trimmed_specifics.clear_address_zip_prefix();
+    }
+    if (d.Delete(trimmed_specifics.mutable_address_zip_suffix())) {
+      trimmed_specifics.clear_address_zip_suffix();
+    }
   }
   if (d.Delete(trimmed_specifics.mutable_address_country())) {
     trimmed_specifics.clear_address_country();

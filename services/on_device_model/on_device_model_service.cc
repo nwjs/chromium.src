@@ -16,15 +16,13 @@
 #include "base/task/task_traits.h"
 #include "base/task/thread_pool.h"
 #include "base/timer/elapsed_timer.h"
+#include "base/types/expected_macros.h"
 #include "base/uuid.h"
 #include "components/optimization_guide/core/optimization_guide_features.h"
 #include "mojo/public/cpp/bindings/receiver_set.h"
+#include "services/on_device_model/backend.h"
 #include "services/on_device_model/fake/on_device_model_fake.h"
-#include "services/on_device_model/ml/gpu_blocklist.h"
 #include "services/on_device_model/ml/on_device_model_executor.h"
-#include "services/on_device_model/ml/on_device_model_internal.h"
-#include "services/on_device_model/ml/performance_class.h"
-#include "services/on_device_model/ml/ts_model.h"
 #include "services/on_device_model/public/cpp/features.h"
 #include "services/on_device_model/public/cpp/service_client.h"
 
@@ -43,12 +41,13 @@ const base::FeatureParam<base::TimeDelta> kModelIdleTimeout{
     "on_device_model_active_session_idle_timeout", kDefaultModelIdleTimeout};
 
 class ModelWrapper;
+class AsrStreamWrapper;
 
 class SessionWrapper final : public mojom::Session {
  public:
   SessionWrapper(base::WeakPtr<ModelWrapper> model,
                  mojo::PendingReceiver<mojom::Session> receiver,
-                 std::unique_ptr<ml::SessionImpl> session,
+                 std::unique_ptr<BackendSession> session,
                  mojom::Priority priority)
       : model_(model),
         receiver_(this, std::move(receiver)),
@@ -59,11 +58,12 @@ class SessionWrapper final : public mojom::Session {
   SessionWrapper(const SessionWrapper&) = delete;
   SessionWrapper& operator=(const SessionWrapper&) = delete;
 
+  // mojom::Session:
   void Append(mojom::AppendOptionsPtr options,
               mojo::PendingRemote<mojom::ContextClient> client) override;
   void Generate(
       mojom::GenerateOptionsPtr options,
-      mojo::PendingRemote<mojom::StreamingResponder> response) override;
+      mojo::PendingRemote<mojom::StreamingResponder> responder) override;
   void GetSizeInTokens(mojom::InputPtr input,
                        GetSizeInTokensCallback callback) override;
   void Score(const std::string& text, ScoreCallback callback) override;
@@ -74,6 +74,11 @@ class SessionWrapper final : public mojom::Session {
   void SetPriority(mojom::Priority priority) override { priority_ = priority; }
 
   mojo::Receiver<mojom::Session>& receiver() { return receiver_; }
+  BackendSession& backend() { return *session_; }
+  void AsrStream(
+      mojom::AsrStreamOptionsPtr options,
+      mojo::PendingReceiver<mojom::AsrStreamInput> stream,
+      mojo::PendingRemote<mojom::AsrStreamResponder> response) override;
 
   bool IsForeground() const {
     return priority_ == mojom::Priority::kForeground;
@@ -116,24 +121,29 @@ class SessionWrapper final : public mojom::Session {
   }
 
   void CloneInternal(mojo::PendingReceiver<mojom::Session> session);
+  void AsrStreamInternal(
+      mojom::AsrStreamOptionsPtr options,
+      mojo::PendingReceiver<mojom::AsrStreamInput> stream,
+      mojo::PendingRemote<mojom::AsrStreamResponder> response,
+      base::OnceClosure on_complete);
 
   base::WeakPtr<ModelWrapper> model_;
   mojo::Receiver<mojom::Session> receiver_;
-  std::unique_ptr<ml::SessionImpl> session_;
+  std::unique_ptr<BackendSession> session_;
   mojom::Priority priority_;
+  std::unique_ptr<AsrStreamWrapper> asr_session_;
   base::WeakPtrFactory<SessionWrapper> weak_ptr_factory_{this};
 };
 
 class ModelWrapper final : public mojom::OnDeviceModel {
  public:
   explicit ModelWrapper(
-      std::unique_ptr<ml::OnDeviceModelExecutor> model,
+      std::unique_ptr<BackendModel> model,
       mojo::PendingReceiver<mojom::OnDeviceModel> receiver,
       base::OnceCallback<void(base::WeakPtr<mojom::OnDeviceModel>)> on_delete)
       : model_(std::move(model)), on_delete_(std::move(on_delete)) {
-    receivers_.Add(
-        this, std::move(receiver),
-        std::unique_ptr<ml::OnDeviceModelExecutor::ScopedAdaptation>());
+    receivers_.Add(this, std::move(receiver),
+                   std::unique_ptr<BackendModel::ScopedAdaptation>());
     receivers_.set_disconnect_handler(base::BindRepeating(
         &ModelWrapper::ModelDisconnected, weak_ptr_factory_.GetWeakPtr()));
     RestartIdleTimer();
@@ -192,7 +202,7 @@ class ModelWrapper final : public mojom::OnDeviceModel {
   }
 
   void AddSession(mojo::PendingReceiver<mojom::Session> receiver,
-                  std::unique_ptr<ml::SessionImpl> session,
+                  std::unique_ptr<BackendSession> session,
                   mojom::Priority priority) {
     auto current_session = std::make_unique<SessionWrapper>(
         weak_ptr_factory_.GetWeakPtr(), std::move(receiver), std::move(session),
@@ -302,12 +312,11 @@ class ModelWrapper final : public mojom::OnDeviceModel {
     ModelDisconnected();
   }
 
-  std::unique_ptr<ml::OnDeviceModelExecutor> model_;
+  std::unique_ptr<BackendModel> model_;
   std::set<std::unique_ptr<SessionWrapper>, base::UniquePtrComparator>
       sessions_;
-  mojo::ReceiverSet<
-      mojom::OnDeviceModel,
-      std::unique_ptr<ml::OnDeviceModelExecutor::ScopedAdaptation>>
+  mojo::ReceiverSet<mojom::OnDeviceModel,
+                    std::unique_ptr<BackendModel::ScopedAdaptation>>
       receivers_;
   base::OnceCallback<void(base::WeakPtr<mojom::OnDeviceModel>)> on_delete_;
   std::list<PendingTask> pending_tasks_;
@@ -321,12 +330,34 @@ class ModelWrapper final : public mojom::OnDeviceModel {
   base::WeakPtrFactory<ModelWrapper> weak_ptr_factory_{this};
 };
 
+class AsrStreamWrapper final : public mojom::AsrStreamInput {
+ public:
+  AsrStreamWrapper(base::WeakPtr<SessionWrapper> session,
+                   mojo::PendingReceiver<mojom::AsrStreamInput> receiver)
+      : session_(session), receiver_(this, std::move(receiver)) {}
+  ~AsrStreamWrapper() override = default;
+
+  AsrStreamWrapper(const AsrStreamWrapper&) = delete;
+  AsrStreamWrapper& operator=(const AsrStreamWrapper&) = delete;
+
+  void AddAudioChunk(mojom::AudioDataPtr data) override {
+    if (!session_) {
+      return;  // Session was already closed.
+    }
+    session_->backend().AsrAddAudioChunk(std::move(data));
+  }
+
+ private:
+  base::WeakPtr<SessionWrapper> session_;
+  mojo::Receiver<mojom::AsrStreamInput> receiver_;
+  base::WeakPtrFactory<AsrStreamWrapper> weak_ptr_factory_{this};
+};
+
 void SessionWrapper::Append(mojom::AppendOptionsPtr options,
                             mojo::PendingRemote<mojom::ContextClient> client) {
   if (!model_) {
     return;
   }
-
   auto append_internal = base::BindOnce(&SessionWrapper::AppendInternal,
                                         weak_ptr_factory_.GetWeakPtr(),
                                         std::move(options), std::move(client));
@@ -337,14 +368,14 @@ void SessionWrapper::Append(mojom::AppendOptionsPtr options,
 
 void SessionWrapper::Generate(
     mojom::GenerateOptionsPtr options,
-    mojo::PendingRemote<mojom::StreamingResponder> response) {
+    mojo::PendingRemote<mojom::StreamingResponder> responder) {
   if (!model_) {
     return;
   }
 
   auto generate_internal = base::BindOnce(
       &SessionWrapper::GenerateInternal, weak_ptr_factory_.GetWeakPtr(),
-      std::move(options), std::move(response));
+      std::move(options), std::move(responder));
 
   model_->AddAndRunPendingTask(std::move(generate_internal),
                                weak_ptr_factory_.GetWeakPtr());
@@ -401,6 +432,20 @@ void SessionWrapper::Clone(mojo::PendingReceiver<mojom::Session> session) {
       weak_ptr_factory_.GetWeakPtr());
 }
 
+void SessionWrapper::AsrStream(
+    mojom::AsrStreamOptionsPtr options,
+    mojo::PendingReceiver<mojom::AsrStreamInput> stream,
+    mojo::PendingRemote<mojom::AsrStreamResponder> response) {
+  if (!model_) {
+    return;
+  }
+  model_->AddAndRunPendingTask(
+      base::BindOnce(&SessionWrapper::AsrStreamInternal,
+                     weak_ptr_factory_.GetWeakPtr(), std::move(options),
+                     std::move(stream), std::move(response)),
+      weak_ptr_factory_.GetWeakPtr());
+}
+
 void SessionWrapper::CloneInternal(
     mojo::PendingReceiver<mojom::Session> session) {
   if (!model_) {
@@ -410,51 +455,64 @@ void SessionWrapper::CloneInternal(
   model_->AddSession(std::move(session), session_->Clone(), priority_);
 }
 
-const ml::ChromeML* DefaultImpl() {
+void SessionWrapper::AsrStreamInternal(
+    mojom::AsrStreamOptionsPtr options,
+    mojo::PendingReceiver<mojom::AsrStreamInput> stream,
+    mojo::PendingRemote<mojom::AsrStreamResponder> response,
+    base::OnceClosure on_complete) {
+  if (!model_) {
+    return;
+  }
+  DCHECK_EQ(asr_session_, nullptr);
+  auto speech_stream_wrapper = std::make_unique<AsrStreamWrapper>(
+      weak_ptr_factory_.GetWeakPtr(), std::move(stream));
+  asr_session_ = std::move(speech_stream_wrapper);
+  session_->AsrStream(std::move(options), std::move(response));
+}
+
+std::unique_ptr<Backend> DefaultImpl() {
   if (base::FeatureList::IsEnabled(features::kUseFakeChromeML)) {
-    return fake_ml::GetFakeChromeML();
+    return std::make_unique<ml::BackendImpl>(fake_ml::GetFakeChromeML());
   }
 #if defined(ENABLE_ML_INTERNAL)
-  return ::ml::ChromeML::Get();
+  return std::make_unique<ml::BackendImpl>(::ml::ChromeML::Get());
 #else
-  return fake_ml::GetFakeChromeML();
-#endif
+  return std::make_unique<ml::BackendImpl>(fake_ml::GetFakeChromeML());
+#endif  // defined(ENABLE_ML_INTERNAL)
 }
 
 }  // namespace
 
 OnDeviceModelService::OnDeviceModelService(
     mojo::PendingReceiver<mojom::OnDeviceModelService> receiver,
-    const ml::OnDeviceModelInternalImpl* impl)
-    : OnDeviceModelService(std::move(receiver), *impl->chrome_ml()) {}
+    const ml::ChromeML& chrome_ml)
+    : receiver_(this, std::move(receiver)),
+      backend_(std::make_unique<ml::BackendImpl>(&chrome_ml)) {}
 
 OnDeviceModelService::OnDeviceModelService(
     mojo::PendingReceiver<mojom::OnDeviceModelService> receiver,
-    const ml::ChromeML& chrome_ml)
-    : receiver_(this, std::move(receiver)),
-      chrome_ml_(chrome_ml),
-      ts_holder_(ml::TsHolder::Create(chrome_ml_)) {}
+    std::unique_ptr<Backend> backend)
+    : receiver_(this, std::move(receiver)), backend_(std::move(backend)) {}
+
 OnDeviceModelService::~OnDeviceModelService() = default;
 
+// static
 std::unique_ptr<mojom::OnDeviceModelService> OnDeviceModelService::Create(
-    mojo::PendingReceiver<mojom::OnDeviceModelService> receiver) {
-  const ml::ChromeML* chrome_ml = DefaultImpl();
-  if (!chrome_ml) {
-    receiver.ResetWithReason(
-        static_cast<uint32_t>(ServiceDisconnectReason::kFailedToLoadLibrary),
-        "Unable to load chrome_ml library.");
-    return nullptr;
+    mojo::PendingReceiver<mojom::OnDeviceModelService> receiver,
+    std::unique_ptr<Backend> backend) {
+  if (!backend) {
+    backend = DefaultImpl();
   }
-  if (!optimization_guide::features::ForceCpuBackendForOnDeviceModel() &&
-      ml::IsGpuBlocked(chrome_ml->api())) {
-    receiver.ResetWithReason(
-        static_cast<uint32_t>(ServiceDisconnectReason::kGpuBlocked),
-        "The device's GPU is not supported.");
-    return nullptr;
-  }
+  RETURN_IF_ERROR(backend->CanCreate(),
+                  [&](ServiceDisconnectReason reason)
+                      -> std::unique_ptr<mojom::OnDeviceModelService> {
+                    receiver.ResetWithReason(static_cast<uint32_t>(reason),
+                                             "Error loading backend.");
+                    return nullptr;
+                  });
   // No errors, return real service.
   return std::make_unique<OnDeviceModelService>(std::move(receiver),
-                                                *chrome_ml);
+                                                std::move(backend));
 }
 
 void OnDeviceModelService::LoadModel(
@@ -465,8 +523,8 @@ void OnDeviceModelService::LoadModel(
     params->performance_hint = ml::ModelPerformanceHint::kFastestInference;
   }
   auto start = base::TimeTicks::Now();
-  auto model_impl = ml::OnDeviceModelExecutor::CreateWithResult(
-      *chrome_ml_, std::move(params),
+  auto model_impl = backend_->CreateWithResult(
+      std::move(params),
       base::BindOnce(
           [](base::TimeTicks start) {
             base::UmaHistogramMediumTimes("OnDeviceModel.LoadModelDuration",
@@ -486,35 +544,50 @@ void OnDeviceModelService::LoadModel(
 
 void OnDeviceModelService::GetCapabilities(ModelFile model_file,
                                            GetCapabilitiesCallback callback) {
-  std::move(callback).Run(ml::OnDeviceModelExecutor::GetCapabilities(
-      *chrome_ml_, std::move(model_file)));
+  std::move(callback).Run(backend_->GetCapabilities(std::move(model_file)));
 }
 
 void OnDeviceModelService::GetDevicePerformanceInfo(
     GetDevicePerformanceInfoCallback callback) {
+#if BUILDFLAG(IS_CHROMEOS)
+  // On ChromeOS, we explicitly allowlist only Chromebook Plus devices,
+  // so skip the benchmark and return a fixed performance profile.
+  auto perf_info = on_device_model::mojom::DevicePerformanceInfo::New();
+  // Fix the performance to 'High', which should allow all Nano models to run.
+  perf_info->performance_class = on_device_model::mojom::PerformanceClass::kHigh;
+  // Chromebook+ devices have 8GB RAM+, so half of that can be VRAM.
+  perf_info->vram_mb = 4096;
+  std::move(callback).Run(std::move(perf_info));
+#else
   // This is expected to take awhile in some cases, so run on a background
   // thread to avoid blocking the main thread.
   base::ThreadPool::PostTaskAndReplyWithResult(
       FROM_HERE, {base::TaskPriority::BEST_EFFORT},
       base::BindOnce(
-          [](const ml::ChromeML& chrome_ml) {
+          [](OnDeviceModelService* service) {
+            if (!service) {
+              return on_device_model::mojom::DevicePerformanceInfo::New();
+            }
             base::ElapsedTimer timer;
             on_device_model::mojom::DevicePerformanceInfoPtr perf_info =
-                ml::GetDevicePerformanceInfo(chrome_ml);
+                service->backend_->GetDevicePerformanceInfo();
             base::UmaHistogramTimes("OnDeviceModel.BenchmarkDuration",
                                     timer.Elapsed());
             return perf_info;
           },
-          // base::Unretained is safe since chrome_ml_ refers to a global.
-          base::Unretained(chrome_ml_)),
+          // WeakPtr won't work here because they're not thread-safe.
+          // Raw pointers are ok because OnDeviceModelService will always live
+          // as long as the ODML process does, so if this code is running the
+          // service must be alive.
+          base::Unretained(this)),
       std::move(callback));
+#endif
 }
 
 void OnDeviceModelService::LoadTextSafetyModel(
     on_device_model::mojom::TextSafetyModelParamsPtr params,
     mojo::PendingReceiver<mojom::TextSafetyModel> model) {
-  ts_holder_.AsyncCall(&ml::TsHolder::Reset)
-      .WithArgs(std::move(params), std::move(model));
+  backend_->LoadTextSafetyModel(std::move(params), std::move(model));
 }
 
 void OnDeviceModelService::SetForceQueueingForTesting(bool force_queueing) {

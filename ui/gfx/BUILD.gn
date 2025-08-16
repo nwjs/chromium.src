@@ -354,7 +354,7 @@ component("gfx") {
 
   if (use_blink) {
     public_deps += [ "//cc/paint" ]
-    deps += [ "//third_party:freetype_harfbuzz" ]
+    deps += [ "//third_party/harfbuzz-ng" ]
   }
 
   # Android.
@@ -614,22 +614,17 @@ source_set("memory_buffer_sources") {
     "gpu_fence.h",
     "gpu_fence_handle.cc",
     "gpu_fence_handle.h",
+    "native_pixmap.h",
     "overlay_priority_hint.h",
     "overlay_transform.h",
     "overlay_type.h",
     "surface_origin.h",
   ]
 
-  if (!is_nacl) {
-    sources += [ "native_pixmap.h" ]
-  }
-
   if (use_blink) {
     sources += [
       "ca_layer_params.cc",
       "ca_layer_params.h",
-      "gpu_memory_buffer.cc",
-      "gpu_memory_buffer.h",
       "gpu_memory_buffer_handle.cc",
       "gpu_memory_buffer_handle.h",
     ]
@@ -644,15 +639,12 @@ source_set("memory_buffer_sources") {
 
   deps = [
     ":gfx_switches",
+    ":native_widget_types_sources",
     "//base",
     "//build:chromecast_buildflags",
     "//gpu/vulkan:buildflags",
     "//ui/gfx/geometry",
   ]
-
-  if (!is_nacl) {
-    deps += [ ":native_widget_types_sources" ]
-  }
 
   if (is_linux || is_chromeos) {
     sources += [
@@ -678,14 +670,17 @@ source_set("memory_buffer_sources") {
       "mac/io_surface.h",
     ]
 
-    public_deps += [ "//ui/gfx:color_space" ]
+    public_deps += [
+      "//components/viz/common:shared_image_format",
+      "//ui/gfx:color_space",
+    ]
   }
 
   if (is_win) {
     public_deps += [ "//ipc:message_support" ]
   }
 
-  if ((is_linux || is_chromeos || use_ozone) && !is_nacl) {
+  if (is_linux || is_chromeos || use_ozone) {
     sources += [
       "native_pixmap_handle.cc",
       "native_pixmap_handle.h",
@@ -757,8 +752,12 @@ static_library("test_support") {
   if (use_blink) {
     sources += [ "render_text_test_api.h" ]
 
-    deps += [ "//third_party:freetype_harfbuzz" ]
+    deps += [ "//third_party/harfbuzz-ng" ]
   }
+
+  # TODO(crbug.com/40031409): Fix code that adds exit-time destructors and
+  # enable the diagnostic by removing this line.
+  configs += [ "//build/config/compiler:no_exit_time_destructors" ]
 }
 
 test("gfx_unittests") {
@@ -921,7 +920,7 @@ test("gfx_unittests") {
   ]
 
   if (use_blink) {
-    deps += [ "//third_party:freetype_harfbuzz" ]
+    deps += [ "//third_party/harfbuzz-ng" ]
   }
 
   data_deps = [ "//ui/resources:ui_test_pak_data" ]
@@ -1004,6 +1003,10 @@ test("gfx_unittests") {
     additional_manifest_fragments =
         [ "//build/config/fuchsia/test/test_fonts.shard.test-cml" ]
   }
+
+  # TODO(crbug.com/40031409): Fix code that adds exit-time destructors and
+  # enable the diagnostic by removing this line.
+  configs += [ "//build/config/compiler:no_exit_time_destructors" ]
 }
 
 if (is_android) {

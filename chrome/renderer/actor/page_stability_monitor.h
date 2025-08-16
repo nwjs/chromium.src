@@ -46,6 +46,10 @@ class PageStabilityMonitor : public content::RenderFrameObserver {
   enum class State {
     kInitial,
 
+    // If a tool specifies an execution delay, wait in this state before
+    // starting monitoring.
+    kMonitorStartDelay,
+
     // Entry point into the state machine. Decides which state to start in.
     kStartMonitoring,
 
@@ -58,9 +62,6 @@ class PageStabilityMonitor : public content::RenderFrameObserver {
     // Wait until the main thread is settled.
     kWaitForMainThreadIdle,
 
-    // Ensure the minimum delay time has been met.
-    kEnsureMinimumDelay,
-
     // Wait until a new frame has been submitted to and presented by the display
     // compositor.
     kWaitForVisualStateRequest,
@@ -68,6 +69,10 @@ class PageStabilityMonitor : public content::RenderFrameObserver {
     // Timeout states - these just log and and move to invoke callback state.
     kTimeoutGlobal,
     kTimeoutMainThread,
+
+    // If `kGlicActorPageStabilityInvokeCallbackDelay` is set, the callback
+    // passed to WaitForStable() will be delayed by said amount of time.
+    kMaybeDelayCallback,
 
     // Invoke the callback passed to WaitForStable and cleanup.
     kInvokeCallback,
@@ -103,9 +108,8 @@ class PageStabilityMonitor : public content::RenderFrameObserver {
 
   std::unique_ptr<Journal::PendingAsyncEntry> journal_entry_;
 
-  // This value is set to prevent the monitor from returning sooner than this
-  // time.
-  base::TimeTicks minimum_end_time_;
+  // Amount of time to delay before monitoring begins.
+  base::TimeDelta monitoring_start_delay_;
 
   base::WeakPtrFactory<PageStabilityMonitor> weak_ptr_factory_{this};
 };

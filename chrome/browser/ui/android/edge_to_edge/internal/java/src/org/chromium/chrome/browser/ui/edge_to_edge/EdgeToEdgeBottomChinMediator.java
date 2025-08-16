@@ -108,8 +108,7 @@ class EdgeToEdgeBottomChinMediator
         mBottomControlsStacker = bottomControlsStacker;
         mFullscreenManager = fullscreenManager;
         mDefaultVisibility = defaultVisibility;
-        mIsConstraintChinScrollableWhenStacking =
-                EdgeToEdgeUtils.isConstraintBottomChinScrollableWhenStacking();
+        mIsConstraintChinScrollableWhenStacking = true;
 
         // Add observers.
         mKeyboardVisibilityDelegate.addKeyboardVisibilityListener(this);
@@ -301,8 +300,6 @@ class EdgeToEdgeBottomChinMediator
 
     @Override
     public void onBrowserControlsOffsetUpdate(int layerYOffset) {
-        assert BottomControlsStacker.isDispatchingYOffset();
-
         mYOffset = layerYOffset;
 
         if (isVisible()) {

@@ -18,7 +18,7 @@
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_window.h"
-#include "chrome/grit/theme_resources.h"
+#include "chrome/grit/browser_resources.h"
 #include "components/autofill/core/browser/data_model/autofill_ai/entity_instance.h"
 #include "components/autofill/core/browser/data_model/autofill_ai/entity_type.h"
 #include "components/autofill/core/browser/integrators/autofill_ai/autofill_ai_import_utils.h"
@@ -59,12 +59,18 @@ void EmitBubbleFunnelMetrics(
   };
   auto get_entity_name_for_logging = [](EntityType entity_type) {
     switch (entity_type.name()) {
+      case EntityTypeName::kDriversLicense:
+        return "DriversLicense";
+      case EntityTypeName::kKnownTravelerNumber:
+        return "KnownTravelerNumber";
+      case EntityTypeName::kNationalIdCard:
+        return "NationalIdCard";
       case EntityTypeName::kVehicle:
         return "Vehicle";
       case EntityTypeName::kPassport:
         return "Passport";
-      case EntityTypeName::kDriversLicense:
-        return "DriversLicense";
+      case EntityTypeName::kRedressNumber:
+        return "RedressNumber";
     }
     NOTREACHED();
   };
@@ -199,27 +205,45 @@ std::u16string SaveOrUpdateAutofillAiDataControllerImpl::GetDialogTitle()
     const {
   if (IsSavePrompt()) {
     switch (new_entity_->type().name()) {
-      case EntityTypeName::kVehicle:
-        return l10n_util::GetStringUTF16(
-            IDS_AUTOFILL_AI_SAVE_VEHICLE_ENTITY_DIALOG_TITLE);
-      case EntityTypeName::kPassport:
-        return l10n_util::GetStringUTF16(
-            IDS_AUTOFILL_AI_SAVE_PASSPORT_ENTITY_DIALOG_TITLE);
       case EntityTypeName::kDriversLicense:
         return l10n_util::GetStringUTF16(
             IDS_AUTOFILL_AI_SAVE_DRIVERS_LICENSE_ENTITY_DIALOG_TITLE);
+      case EntityTypeName::kKnownTravelerNumber:
+        return l10n_util::GetStringUTF16(
+            IDS_AUTOFILL_AI_SAVE_KNOWN_TRAVELER_NUMBER_ENTITY_DIALOG_TITLE);
+      case EntityTypeName::kNationalIdCard:
+        return l10n_util::GetStringUTF16(
+            IDS_AUTOFILL_AI_SAVE_NATIONAL_ID_CARD_ENTITY_DIALOG_TITLE);
+      case EntityTypeName::kPassport:
+        return l10n_util::GetStringUTF16(
+            IDS_AUTOFILL_AI_SAVE_PASSPORT_ENTITY_DIALOG_TITLE);
+      case EntityTypeName::kRedressNumber:
+        return l10n_util::GetStringUTF16(
+            IDS_AUTOFILL_AI_SAVE_REDRESS_NUMBER_ENTITY_DIALOG_TITLE);
+      case EntityTypeName::kVehicle:
+        return l10n_util::GetStringUTF16(
+            IDS_AUTOFILL_AI_SAVE_VEHICLE_ENTITY_DIALOG_TITLE);
     }
   } else {
     switch (new_entity_->type().name()) {
-      case EntityTypeName::kVehicle:
-        return l10n_util::GetStringUTF16(
-            IDS_AUTOFILL_AI_UPDATE_VEHICLE_ENTITY_DIALOG_TITLE);
-      case EntityTypeName::kPassport:
-        return l10n_util::GetStringUTF16(
-            IDS_AUTOFILL_AI_UPDATE_PASSPORT_ENTITY_DIALOG_TITLE);
       case EntityTypeName::kDriversLicense:
         return l10n_util::GetStringUTF16(
             IDS_AUTOFILL_AI_UPDATE_DRIVERS_LICENSE_ENTITY_DIALOG_TITLE);
+      case EntityTypeName::kKnownTravelerNumber:
+        return l10n_util::GetStringUTF16(
+            IDS_AUTOFILL_AI_UPDATE_KNOWN_TRAVELER_NUMBER_ENTITY_DIALOG_TITLE);
+      case EntityTypeName::kNationalIdCard:
+        return l10n_util::GetStringUTF16(
+            IDS_AUTOFILL_AI_UPDATE_NATIONAL_ID_CARD_ENTITY_DIALOG_TITLE);
+      case EntityTypeName::kPassport:
+        return l10n_util::GetStringUTF16(
+            IDS_AUTOFILL_AI_UPDATE_PASSPORT_ENTITY_DIALOG_TITLE);
+      case EntityTypeName::kRedressNumber:
+        return l10n_util::GetStringUTF16(
+            IDS_AUTOFILL_AI_UPDATE_REDRESS_NUMBER_ENTITY_DIALOG_TITLE);
+      case EntityTypeName::kVehicle:
+        return l10n_util::GetStringUTF16(
+            IDS_AUTOFILL_AI_UPDATE_VEHICLE_ENTITY_DIALOG_TITLE);
     }
   }
   NOTREACHED();
@@ -262,16 +286,20 @@ SaveOrUpdateAutofillAiDataControllerImpl::GetWeakPtr() {
   return weak_ptr_factory_.GetWeakPtr();
 }
 
-// TODO(389629676): Return proper resources once we have them.
-std::pair<int, int>
-SaveOrUpdateAutofillAiDataControllerImpl::GetTitleImagesResourceId() const {
+int SaveOrUpdateAutofillAiDataControllerImpl::GetTitleImagesResourceId() const {
   switch (new_entity_->type().name()) {
-    case EntityTypeName::kVehicle:
-      return {IDR_SAVE_VEHICLE, IDR_SAVE_VEHICLE_DARK};
-    case EntityTypeName::kPassport:
-      return {IDR_SAVE_PASSPORT, IDR_SAVE_PASSPORT_DARK};
     case EntityTypeName::kDriversLicense:
-      return {IDR_SAVE_DRIVERS_LICENSE, IDR_SAVE_DRIVERS_LICENSE_DARK};
+      return IDR_AUTOFILL_SAVE_DRIVERS_LICENSE_LOTTIE;
+    case EntityTypeName::kKnownTravelerNumber:
+      return IDR_AUTOFILL_SAVE_KNOWN_TRAVELER_NUMBER_AND_REDRESS_NUMBER_LOTTIE;
+    case EntityTypeName::kNationalIdCard:
+      return IDR_AUTOFILL_SAVE_PASSPORT_AND_NATIONAL_ID_CARD_LOTTIE;
+    case EntityTypeName::kPassport:
+      return IDR_AUTOFILL_SAVE_PASSPORT_AND_NATIONAL_ID_CARD_LOTTIE;
+    case EntityTypeName::kRedressNumber:
+      return IDR_AUTOFILL_SAVE_KNOWN_TRAVELER_NUMBER_AND_REDRESS_NUMBER_LOTTIE;
+    case EntityTypeName::kVehicle:
+      return IDR_AUTOFILL_SAVE_VEHICLE_LOTTIE;
   }
   NOTREACHED();
 }

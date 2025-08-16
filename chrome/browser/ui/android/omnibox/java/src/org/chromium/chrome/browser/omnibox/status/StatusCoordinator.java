@@ -132,7 +132,7 @@ public class StatusCoordinator implements View.OnClickListener, LocationBarDataP
         Resources res = mStatusView.getResources();
         mMediator.setUrlMinWidth(
                 res.getDimensionPixelSize(R.dimen.location_bar_min_url_width)
-                        + res.getDimensionPixelSize(R.dimen.location_bar_status_icon_bg_size)
+                        + res.getDimensionPixelSize(R.dimen.location_bar_status_icon_width)
                         + res.getDimensionPixelSize(R.dimen.location_bar_start_padding)
                         + res.getDimensionPixelSize(R.dimen.location_bar_end_padding));
 
@@ -227,10 +227,9 @@ public class StatusCoordinator implements View.OnClickListener, LocationBarDataP
         updateSecurityIcon();
     }
 
-    // LocationBarData.Observer implementation.
+    // LocationBarDataProvider.Observer implementation.
     // Using the default empty onPrimaryColorChanged.
     // Using the default empty onTitleChanged.
-    // Using the default empty onUrlChanged.
 
     @Override
     public void onNtpStartedLoading() {
@@ -249,8 +248,8 @@ public class StatusCoordinator implements View.OnClickListener, LocationBarDataP
     }
 
     @Override
-    public void onUrlChanged() {
-        mMediator.onUrlChanged();
+    public void onUrlChanged(boolean isTabChanging) {
+        mMediator.onUrlChanged(isTabChanging);
     }
 
     @Override
@@ -297,7 +296,7 @@ public class StatusCoordinator implements View.OnClickListener, LocationBarDataP
     public @DrawableRes int getSecurityIconResourceIdForTesting() {
         return mModel.get(StatusProperties.STATUS_ICON_RESOURCE) == null
                 ? 0
-                : mModel.get(StatusProperties.STATUS_ICON_RESOURCE).getIconResForTesting();
+                : mModel.get(StatusProperties.STATUS_ICON_RESOURCE).getIconRes();
     }
 
     /**

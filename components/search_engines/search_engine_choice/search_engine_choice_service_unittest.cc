@@ -759,7 +759,7 @@ TEST_F(SearchEngineChoiceServiceTest, NoRepromptForSyntaxError) {
   // Set the reprompt parameters with invalid syntax.
   base::test::ScopedFeatureList scoped_feature_list;
   scoped_feature_list.InitAndEnableFeatureWithParameters(
-      switches::kSearchEngineChoiceTrigger,
+      switches::kSearchEngineChoiceTriggerReprompt,
       {{switches::kSearchEngineChoiceTriggerRepromptParams.name, "Foo"}});
   ASSERT_EQ("Foo", switches::kSearchEngineChoiceTriggerRepromptParams.Get());
 
@@ -849,7 +849,7 @@ TEST_F(SearchEngineChoiceServiceTest, NoRepromptByDefault) {
 TEST_F(SearchEngineChoiceServiceTest, RepromptForMissingChoiceVersion) {
   base::test::ScopedFeatureList scoped_feature_list;
   scoped_feature_list.InitAndEnableFeatureWithParameters(
-      switches::kSearchEngineChoiceTrigger,
+      switches::kSearchEngineChoiceTriggerReprompt,
       {{switches::kSearchEngineChoiceTriggerRepromptParams.name, "{}"}});
   ASSERT_EQ("{}", switches::kSearchEngineChoiceTriggerRepromptParams.Get());
 
@@ -882,7 +882,7 @@ TEST_F(SearchEngineChoiceServiceTest, RepromptForMissingChoiceVersion) {
 TEST_F(SearchEngineChoiceServiceTest, RepromptForMissingTimestamp) {
   base::test::ScopedFeatureList scoped_feature_list;
   scoped_feature_list.InitAndEnableFeatureWithParameters(
-      switches::kSearchEngineChoiceTrigger,
+      switches::kSearchEngineChoiceTriggerReprompt,
       {{switches::kSearchEngineChoiceTriggerRepromptParams.name, "{}"}});
   ASSERT_EQ("{}", switches::kSearchEngineChoiceTriggerRepromptParams.Get());
 
@@ -986,7 +986,7 @@ struct DeviceRestoreTestParam {
   bool choice_predates_restore;
   bool is_feature_enabled;
   bool is_invalidation_retroactive;
-  bool expect_choice_info_wipe;
+  bool expect_invalidation_timestamp;
 };
 
 class SearchEngineChoiceServiceDeviceRestoreTest
@@ -1023,31 +1023,31 @@ INSTANTIATE_TEST_SUITE_P(
                                .choice_predates_restore = true,
                                .is_feature_enabled = true,
                                .is_invalidation_retroactive = false,
-                               .expect_choice_info_wipe = true},
+                               .expect_invalidation_timestamp = true},
         DeviceRestoreTestParam{.test_suffix = "WipeForRetroactiveDetection",
                                .restore_detected_in_current_session = false,
                                .choice_predates_restore = true,
                                .is_feature_enabled = true,
                                .is_invalidation_retroactive = true,
-                               .expect_choice_info_wipe = true},
+                               .expect_invalidation_timestamp = true},
         DeviceRestoreTestParam{.test_suffix = "NoWipeForLateDetection",
                                .restore_detected_in_current_session = false,
                                .choice_predates_restore = true,
                                .is_feature_enabled = true,
                                .is_invalidation_retroactive = false,
-                               .expect_choice_info_wipe = false},
+                               .expect_invalidation_timestamp = false},
         DeviceRestoreTestParam{.test_suffix = "NoWipeForNewChoice",
                                .restore_detected_in_current_session = true,
                                .choice_predates_restore = false,
                                .is_feature_enabled = true,
                                .is_invalidation_retroactive = false,
-                               .expect_choice_info_wipe = false},
+                               .expect_invalidation_timestamp = false},
         DeviceRestoreTestParam{.test_suffix = "NoWipeForFeatureDisabled",
                                .restore_detected_in_current_session = true,
                                .choice_predates_restore = true,
                                .is_feature_enabled = false,
                                .is_invalidation_retroactive = false,
-                               .expect_choice_info_wipe = false},
+                               .expect_invalidation_timestamp = false},
     }),
     &SearchEngineChoiceServiceDeviceRestoreTest::GetTestSuffix);
 
@@ -1057,6 +1057,8 @@ TEST_P(SearchEngineChoiceServiceDeviceRestoreTest, RepromptOnRestoreDetection) {
 
   SetChoiceCompletionMetadata(*pref_service(),
                               {base::Time::Now(), base::Version("1.0.0.0")});
+  ASSERT_TRUE(pref_service()->HasPrefPath(
+      prefs::kDefaultSearchProviderChoiceScreenCompletionTimestamp));
 
   // Trigger the creation of the service, which should check for the reprompt.
   InitService({
@@ -1066,24 +1068,59 @@ TEST_P(SearchEngineChoiceServiceDeviceRestoreTest, RepromptOnRestoreDetection) {
       .choice_predates_restore = GetParam().choice_predates_restore,
   });
 
-  if (GetParam().expect_choice_info_wipe) {
-    EXPECT_FALSE(pref_service()->HasPrefPath(
-        prefs::kDefaultSearchProviderChoiceScreenCompletionTimestamp));
-    histogram_tester_.ExpectUniqueSample(
-        search_engines::kSearchEngineChoiceWipeReasonHistogram,
-        SearchEngineChoiceWipeReason::kDeviceRestored, 1);
-    histogram_tester_.ExpectTotalCount(
-        search_engines::kSearchEngineChoiceRepromptHistogram, 0);
-  } else {
-    EXPECT_TRUE(pref_service()->HasPrefPath(
-        prefs::kDefaultSearchProviderChoiceScreenCompletionTimestamp));
-    histogram_tester_.ExpectTotalCount(
-        search_engines::kSearchEngineChoiceWipeReasonHistogram, 0);
-    histogram_tester_.ExpectBucketCount(
-        search_engines::kSearchEngineChoiceRepromptHistogram,
-        RepromptResult::kNoReprompt, 1);
-  }
+  search_engine_choice_service().RecordStaticEligibility(
+      search_engine_choice_service().GetStaticChoiceScreenConditions(
+          policy_service(), template_url_service()));
+  search_engine_choice_service().RecordDynamicEligibility(
+      search_engine_choice_service().GetDynamicChoiceScreenConditions(
+          template_url_service()));
 
+  EXPECT_TRUE(pref_service()->HasPrefPath(
+      prefs::kDefaultSearchProviderChoiceScreenCompletionTimestamp));
+  histogram_tester_.ExpectBucketCount(
+      search_engines::kSearchEngineChoiceRepromptHistogram,
+      RepromptResult::kNoReprompt, 1);
+  histogram_tester_.ExpectTotalCount(
+      search_engines::kSearchEngineChoiceWipeReasonHistogram, 0);
+  EXPECT_EQ(pref_service()->HasPrefPath(
+                prefs::kDefaultSearchProviderChoiceInvalidationTimestamp),
+            GetParam().expect_invalidation_timestamp);
+
+  SearchEngineChoiceScreenConditions expected_eligibility_condition =
+#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_FUCHSIA) || \
+    BUILDFLAG(CHROME_FOR_TESTING)
+      SearchEngineChoiceScreenConditions::kUnsupportedBrowserType;
+#else
+      GetParam().expect_invalidation_timestamp
+          ? SearchEngineChoiceScreenConditions::kEligible
+          : SearchEngineChoiceScreenConditions::kAlreadyCompleted;
+#endif
+  histogram_tester_.ExpectUniqueSample(
+      search_engines::kSearchEngineChoiceScreenProfileInitConditionsHistogram,
+      expected_eligibility_condition, 1);
+  if (GetParam().restore_detected_in_current_session &&
+      GetParam().is_feature_enabled) {
+    histogram_tester_.ExpectUniqueSample(
+        search_engines::kChoiceScreenProfileInitConditionsPostRestoreHistogram,
+        expected_eligibility_condition, 1);
+  } else {
+    histogram_tester_.ExpectTotalCount(
+        search_engines::kChoiceScreenProfileInitConditionsPostRestoreHistogram,
+        0);
+  }
+  histogram_tester_.ExpectUniqueSample(
+      search_engines::kSearchEngineChoiceScreenNavigationConditionsHistogram,
+      expected_eligibility_condition, 1);
+  if (GetParam().restore_detected_in_current_session &&
+      GetParam().is_feature_enabled) {
+    histogram_tester_.ExpectUniqueSample(
+        search_engines::kChoiceScreenNavigationConditionsPostRestoreHistogram,
+        expected_eligibility_condition, 1);
+  } else {
+    histogram_tester_.ExpectTotalCount(
+        search_engines::kChoiceScreenNavigationConditionsPostRestoreHistogram,
+        0);
+  }
   histogram_tester_.ExpectTotalCount(
       search_engines::kSearchEngineChoiceRepromptSpecificCountryHistogram, 0);
   histogram_tester_.ExpectTotalCount(
@@ -1128,7 +1165,7 @@ TEST_P(SearchEngineChoiceUtilsParamTest, Reprompt) {
 
   base::test::ScopedFeatureList scoped_feature_list;
   scoped_feature_list.InitAndEnableFeatureWithParameters(
-      switches::kSearchEngineChoiceTrigger,
+      switches::kSearchEngineChoiceTriggerReprompt,
       {{switches::kSearchEngineChoiceTriggerRepromptParams.name,
         feature_param_value}});
   ASSERT_EQ(feature_param_value,

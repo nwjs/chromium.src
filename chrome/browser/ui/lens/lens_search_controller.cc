@@ -20,6 +20,7 @@
 #include "chrome/browser/ui/lens/lens_overlay_query_controller.h"
 #include "chrome/browser/ui/lens/lens_overlay_side_panel_coordinator.h"
 #include "chrome/browser/ui/lens/lens_overlay_theme_utils.h"
+#include "chrome/browser/ui/lens/lens_overlay_url_builder.h"
 #include "chrome/browser/ui/lens/lens_permission_bubble_controller.h"
 #include "chrome/browser/ui/lens/lens_search_contextualization_controller.h"
 #include "chrome/browser/ui/lens/lens_search_feature_flag_utils.h"
@@ -35,23 +36,24 @@
 #include "ui/gfx/geometry/rect.h"
 
 namespace {
-
 void CheckInitialized(bool initialized) {
   CHECK(initialized)
       << "The LensSearchController has not been initialized. Initialize() must "
          "be called before using the LensSearchController.";
 }
 
-LensSearchController* GetLensSearchControllerFromTabInterface(
-    tabs::TabInterface* tab_interface) {
-  return tab_interface
-             ? tab_interface->GetTabFeatures()->lens_search_controller()
-             : nullptr;
-}
 }  // namespace
 
+DEFINE_USER_DATA(LensSearchController);
+
+// static
+LensSearchController* LensSearchController::From(tabs::TabInterface* tab) {
+  return tab ? Get(tab->GetUnownedUserDataHost()) : nullptr;
+}
+
 LensSearchController::LensSearchController(tabs::TabInterface* tab)
-    : tab_(tab) {
+    : tab_(tab),
+      scoped_unowned_user_data_(tab->GetUnownedUserDataHost(), *this) {
   tab_subscriptions_.push_back(tab_->RegisterDidActivate(base::BindRepeating(
       &LensSearchController::TabForegrounded, weak_ptr_factory_.GetWeakPtr())));
   tab_subscriptions_.push_back(tab_->RegisterWillDeactivate(
@@ -109,15 +111,13 @@ void LensSearchController::Initialize(
 // static.
 LensSearchController* LensSearchController::FromWebUIWebContents(
     content::WebContents* webui_web_contents) {
-  return GetLensSearchControllerFromTabInterface(
-      webui::GetTabInterface(webui_web_contents));
+  return From(webui::GetTabInterface(webui_web_contents));
 }
 
 // static.
 LensSearchController* LensSearchController::FromTabWebContents(
     content::WebContents* tab_web_contents) {
-  return GetLensSearchControllerFromTabInterface(
-      tabs::TabInterface::GetFromContents(tab_web_contents));
+  return From(tabs::TabInterface::GetFromContents(tab_web_contents));
 }
 
 void LensSearchController::OpenLensOverlay(
@@ -207,13 +207,30 @@ void LensSearchController::IssueContextualSearchRequest(
   CHECK(invocation_source ==
         lens::LensOverlayInvocationSource::kOmniboxContextualSuggestion);
 
+  std::string query_text =
+      lens::ExtractTextQueryParameterValue(destination_url);
+  std::map<std::string, std::string> additional_query_parameters =
+      lens::GetParametersMapWithoutQuery(destination_url);
+
+  IssueContextualSearchRequestWithQuery(invocation_source, query_text,
+                                        additional_query_parameters, match_type,
+                                        is_zero_prefix_suggestion);
+}
+
+void LensSearchController::IssueContextualSearchRequestWithQuery(
+    lens::LensOverlayInvocationSource invocation_source,
+    std::string query_text,
+    std::map<std::string, std::string> additional_query_parameters,
+    AutocompleteMatchType::Type match_type,
+    bool is_zero_prefix_suggestion) {
   // If the eligibility checks fail, do not procced with opening any UI.
   if (!RunLensEligibilityChecks(
           invocation_source,
           /*permission_granted_callback=*/base::BindRepeating(
-              &LensSearchController::IssueContextualSearchRequest,
-              weak_ptr_factory_.GetWeakPtr(), invocation_source,
-              destination_url, match_type, is_zero_prefix_suggestion))) {
+              &LensSearchController::IssueContextualSearchRequestWithQuery,
+              weak_ptr_factory_.GetWeakPtr(), invocation_source, query_text,
+              additional_query_parameters, match_type,
+              is_zero_prefix_suggestion))) {
     return;
   }
 
@@ -225,7 +242,8 @@ void LensSearchController::IssueContextualSearchRequest(
   // TODO(crbug.com/404941800): This flow should not start the overlay once
   // contextualization is separated from the overlay.
   lens_overlay_controller_->IssueContextualSearchRequest(
-      destination_url, lens_overlay_query_controller_.get(), match_type,
+      query_text, additional_query_parameters,
+      lens_overlay_query_controller_.get(), match_type,
       is_zero_prefix_suggestion, invocation_source);
 }
 

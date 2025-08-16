@@ -50,8 +50,8 @@
 #include "components/commerce/core/subscriptions/subscriptions_observer.h"
 #include "components/commerce/core/web_wrapper.h"
 #include "components/grit/components_resources.h"
+#include "components/optimization_guide/core/hints/hints_fetcher.h"
 #include "components/optimization_guide/core/hints/optimization_guide_decider.h"
-#include "components/optimization_guide/core/optimization_guide_features.h"
 #include "components/optimization_guide/core/optimization_guide_util.h"
 #include "components/optimization_guide/proto/hints.pb.h"
 #include "components/power_bookmarks/core/power_bookmark_service.h"
@@ -62,6 +62,7 @@
 #include "components/search/ntp_features.h"
 #include "components/session_proto_db/session_proto_storage.h"
 #include "components/sessions/core/tab_restore_service.h"
+#include "components/signin/public/base/signin_pref_names.h"
 #include "components/sync/base/features.h"
 #include "components/sync/service/sync_service.h"
 #include "components/unified_consent/url_keyed_data_collection_consent_helper.h"
@@ -159,6 +160,23 @@ class ProductSpecificationsUrlObserver
       this};
 };
 
+// Returns the consent level to use for endpoint fetchers.
+// This function can be deleted once the Sync feature is removed.
+signin::ConsentLevel GetConsentLevelForEndpointFetchers(
+    PrefService* pref_service) {
+  if (base::FeatureList::IsEnabled(
+          syncer::kReplaceSyncPromosWithSignInPromos)) {
+#if BUILDFLAG(ENABLE_DICE_SUPPORT)
+    return pref_service->GetBoolean(prefs::kExplicitBrowserSignin)
+               ? signin::ConsentLevel::kSignin
+               : signin::ConsentLevel::kSync;
+#else
+    return signin::ConsentLevel::kSignin;
+#endif  // BUILDFLAG(ENABLE_DICE_SUPPORT)
+  }
+  return signin::ConsentLevel::kSync;
+}
+
 }  // namespace
 
 const char kImageAvailabilityHistogramName[] =
@@ -248,7 +266,7 @@ ShoppingService::ShoppingService(
     if (subscription_proto_db) {
       subscriptions_manager_ = std::make_unique<SubscriptionsManager>(
           identity_manager, url_loader_factory, subscription_proto_db,
-          account_checker_.get());
+          account_checker_.get(), GetConsentLevelForEndpointFetchers(pref_service_));
     }
   }
 
@@ -628,16 +646,14 @@ void ShoppingService::PDPMetricsCallback(
     optimization_guide::OptimizationGuideDecision decision,
     const optimization_guide::OptimizationMetadata& metadata,
     const GURL& url) {
-  if (!IsRegionLockedFeatureEnabled(kShoppingPDPMetrics,
-                                    kShoppingPDPMetricsRegionLaunched)) {
+  if (!IsRegionLockedFeatureEnabled(kShoppingPDPMetrics)) {
     return;
   }
 
   metrics::RecordPDPMetrics(decision, metadata, pref_service_,
                             is_off_the_record, IsShoppingListEligible(), url);
 
-  bool supported_country =
-      IsRegionLockedFeatureEnabled(kShoppingList, kShoppingListRegionLaunched);
+  bool supported_country = IsRegionLockedFeatureEnabled(kShoppingList);
   metrics::RecordShoppingListIneligibilityReasons(
       pref_service_, account_checker_.get(), is_off_the_record,
       supported_country);
@@ -869,8 +885,7 @@ void ShoppingService::GetUpdatedProductInfoForBookmarks(
 }
 
 size_t ShoppingService::GetMaxProductBookmarkUpdatesPerBatch() {
-  return optimization_guide::features::
-      MaxUrlsForOptimizationGuideServiceHintsFetch();
+  return optimization_guide::HintsFetcher::kMaxUrls;
 }
 
 void ShoppingService::GetAllPriceTrackedBookmarks(
@@ -1007,11 +1022,9 @@ void ShoppingService::IsShoppingPage(const GURL& url,
 }
 
 bool ShoppingService::IsRegionLockedFeatureEnabled(
-    const base::Feature& feature,
-    const base::Feature& region_specific_feature) {
-  return commerce::IsRegionLockedFeatureEnabled(
-      feature, region_specific_feature, country_on_startup_,
-      locale_on_startup_);
+    const base::Feature& feature) {
+  return commerce::IsRegionLockedFeatureEnabled(feature, country_on_startup_,
+                                                locale_on_startup_);
 }
 
 const std::vector<UrlInfo> ShoppingService::GetUrlInfosForActiveWebWrappers() {

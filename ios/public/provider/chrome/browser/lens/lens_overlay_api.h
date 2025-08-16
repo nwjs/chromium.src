@@ -101,6 +101,12 @@ class GURL;
 // Updates the visibility of the top icons.
 - (void)setTopIconsHidden:(BOOL)hidden;
 
+// Updates the visibility of the HUD view.
+- (void)setHUDViewHidden:(BOOL)hidden;
+
+// Updates the visibility of the guidance view.
+- (void)setGuidanceViewHidden:(BOOL)hidden;
+
 // Disables flyout menus from displaying.
 - (void)disableFlyoutMenu:(BOOL)disable;
 
@@ -112,6 +118,9 @@ class GURL;
 
 // Shows the overflow menu tooltip.
 - (void)requestShowOverflowMenuTooltip;
+
+/// Updates the visibility of the guidance view.
+- (void)updateGuidanceViewVisibility:(BOOL)visible animated:(BOOL)animated;
 
 @end
 

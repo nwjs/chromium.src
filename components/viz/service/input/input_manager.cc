@@ -20,6 +20,7 @@
 
 #if BUILDFLAG(IS_ANDROID)
 #include "base/android/android_input_receiver_compat.h"
+#include "base/task/thread_pool.h"
 #include "components/input/android/android_input_callback.h"
 #include "components/input/android/input_token_forwarder.h"
 #include "components/input/android/scoped_input_receiver.h"
@@ -43,14 +44,19 @@ namespace {
 
 #if BUILDFLAG(IS_ANDROID)
 
+// Threshold being used to call `System.gc()` to cleanup lingering around
+// surface controls.
+constexpr const int kPendingSurfaceControlsThreshold = 100;
+
 void ForwardVizInputTransferToken(
     const input::ScopedInputTransferToken& viz_input_token,
     const gpu::SurfaceHandle& surface_handle) {
   JNIEnv* env = jni_zero::AttachCurrentThread();
   base::android::ScopedJavaGlobalRef<jobject> viz_input_token_java(
-      env, base::AndroidInputReceiverCompat::GetInstance()
-               .AInputTransferToken_toJavaFn(
-                   env, viz_input_token.a_input_transfer_token()));
+      base::android::ScopedJavaLocalRef<jobject>(
+          env, base::AndroidInputReceiverCompat::GetInstance()
+                   .AInputTransferToken_toJavaFn(
+                       env, viz_input_token.a_input_transfer_token())));
 
   input::InputTokenForwarder::GetInstance()->ForwardVizInputTransferToken(
       surface_handle, viz_input_token_java);
@@ -271,6 +277,19 @@ void InputManager::OnDestroyedCompositorFrameSink(
   if (receiver_data_ && receiver_data_->root_frame_sink_id() == frame_sink_id) {
     if (base::android::android_info::sdk_int() >=
         base::android::android_info::SdkVersion::SDK_VERSION_BAKLAVA) {
+      if (base::android::android_info::sdk_int() ==
+          base::android::android_info::SdkVersion::SDK_VERSION_BAKLAVA) {
+        // This is only needed on Android 16, since the newer versions will
+        // have the platform side fix after which we don't need to do manual
+        // `System.gc()`.
+        pending_surface_controls_++;
+        if (pending_surface_controls_ > kPendingSurfaceControlsThreshold) {
+          base::ThreadPool::PostTask(
+              FROM_HERE,
+              base::BindOnce(&input::InputUtils::RunGarbageCollection));
+          pending_surface_controls_ = 0;
+        }
+      }
       input::InputReceiverData* receiver = receiver_data_.get();
       receiver->OnDestroyedCompositorFrameSink(std::move(receiver_data_));
     } else {
@@ -656,16 +675,18 @@ bool InputManager::ReturnInputBackToBrowser() {
   }
   JNIEnv* env = jni_zero::AttachCurrentThread();
   base::android::ScopedJavaGlobalRef<jobject> viz_input_token_java(
-      env,
-      base::AndroidInputReceiverCompat::GetInstance()
-          .AInputTransferToken_toJavaFn(
-              env, receiver_data_->viz_input_token().a_input_transfer_token()));
+      base::android::ScopedJavaLocalRef<jobject>(
+          env,
+          base::AndroidInputReceiverCompat::GetInstance()
+              .AInputTransferToken_toJavaFn(
+                  env,
+                  receiver_data_->viz_input_token().a_input_transfer_token())));
   base::android::ScopedJavaGlobalRef<jobject> browser_input_token_java(
-      env,
-      base::AndroidInputReceiverCompat::GetInstance()
-          .AInputTransferToken_toJavaFn(
-              env,
-              receiver_data_->browser_input_token().a_input_transfer_token()));
+      base::android::ScopedJavaLocalRef<jobject>(
+          env, base::AndroidInputReceiverCompat::GetInstance()
+                   .AInputTransferToken_toJavaFn(
+                       env, receiver_data_->browser_input_token()
+                                .a_input_transfer_token())));
 
   return static_cast<bool>(Java_InputTransferHandlerViz_transferInput(
       env, viz_input_token_java, browser_input_token_java));

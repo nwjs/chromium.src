@@ -28,6 +28,7 @@
 #include "gpu/command_buffer/common/swap_buffers_complete_params.h"
 #include "gpu/command_buffer/service/shared_image/shared_image_format_service_utils.h"
 #include "third_party/khronos/GLES2/gl2ext.h"
+#include "third_party/skia/include/core/SkCPURecorder.h"
 #include "third_party/skia/include/core/SkImage.h"
 #include "third_party/skia/include/core/SkPixelRef.h"
 #include "third_party/skia/include/gpu/GpuTypes.h"
@@ -261,7 +262,7 @@ void FakeSkiaOutputSurface::CopyOutput(
   }
 
   if (request->result_destination() ==
-      CopyOutputResult::Destination::kNativeTextures) {
+      CopyOutputResult::Destination::kSharedImage) {
     // NOTE: This implementation is incomplete and doesn't copy anything into
     // the mailbox, but currently the only tests that use this don't actually
     // check the returned texture data. A corollary to this fact is that the
@@ -284,16 +285,16 @@ void FakeSkiaOutputSurface::CopyOutput(
             &FakeSkiaOutputSurface::DestroyCopyOutputTexture,
             weak_ptr_factory_.GetWeakPtr(), std::move(client_shared_image))));
 
-    request->SendResult(std::make_unique<CopyOutputTextureResult>(
-        CopyOutputResult::Format::RGBA, geometry.result_bounds,
-        CopyOutputResult::TextureResult(local_mailbox, color_space),
-        std::move(release_callbacks)));
+    request->SendResult(std::make_unique<CopyOutputSharedImageResult>(
+        CopyOutputResult::Format::RGBA, geometry.result_bounds, local_mailbox,
+        color_space, "CopyOutput", std::move(release_callbacks)));
     return;
   }
 
   GrDirectContext* direct = GrAsDirectContext(gr_context());
   auto copy_image = surface->makeImageSnapshot()->makeSubset(
-      direct, RectToSkIRect(geometry.sampling_bounds));
+      direct ? direct->asRecorder() : skcpu::Recorder::TODO(),
+      RectToSkIRect(geometry.sampling_bounds), {});
   // Send copy request by copying into a bitmap.
   SkBitmap bitmap;
   copy_image->asLegacyBitmap(&bitmap);

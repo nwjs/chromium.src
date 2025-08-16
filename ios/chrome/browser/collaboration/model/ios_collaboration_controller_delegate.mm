@@ -39,6 +39,7 @@
 #import "ios/chrome/browser/share_kit/model/share_kit_service_factory.h"
 #import "ios/chrome/browser/share_kit/model/share_kit_share_group_configuration.h"
 #import "ios/chrome/browser/shared/coordinator/alert/alert_coordinator.h"
+#import "ios/chrome/browser/shared/coordinator/scene/scene_state.h"
 #import "ios/chrome/browser/shared/model/browser/browser.h"
 #import "ios/chrome/browser/shared/model/web_state_list/tab_group.h"
 #import "ios/chrome/browser/shared/public/commands/application_commands.h"
@@ -208,7 +209,9 @@ void IOSCollaborationControllerDelegate::ShowError(const ErrorInfo& error,
             l10n_util::GetNSString(
                 IDS_COLLABORATION_CHROME_OUT_OF_DATE_ERROR_DIALOG_UPDATE_BUTTON)
                   action:update_action
-                   style:UIAlertActionStyleDefault];
+                   style:UIAlertActionStyleDefault
+               preferred:YES
+                 enabled:YES];
 
     auto dismiss_action = base::CallbackToBlock(
         base::BindOnce(&IOSCollaborationControllerDelegate::ErrorAccepted,
@@ -298,6 +301,10 @@ void IOSCollaborationControllerDelegate::ShowAuthenticationUi(
           &IOSCollaborationControllerDelegate::OnAuthenticationComplete,
           weak_ptr_factory_.GetWeakPtr(), std::move(result)));
       // For a paused sign-in, re-authentication is required.
+      // In case of double-tap, we must stop the first coordinator. This may
+      // occur because, up to iOS 18, the view may have disappeared without
+      // calling the signin completion. See crbug.com/395959814
+      [signin_coordinator_ stop];
       signin_coordinator_ = [SigninCoordinator
           primaryAccountReauthCoordinatorWithBaseViewController:
               base_view_controller_
@@ -469,7 +476,22 @@ void IOSCollaborationControllerDelegate::PromoteTabGroup(
 }
 
 void IOSCollaborationControllerDelegate::PromoteCurrentScreen() {
-  // TODO(crbug.com/399595276): Implement this.
+  if (!browser_) {
+    return;
+  }
+  SceneState* scene_state = browser_->GetSceneState();
+  UISceneActivationRequestOptions* options =
+      [[UISceneActivationRequestOptions alloc] init];
+  UISceneSessionActivationRequest* request = [UISceneSessionActivationRequest
+      requestWithSession:scene_state.scene.session];
+  request.options = options;
+  [[UIApplication sharedApplication]
+      activateSceneSessionForRequest:request
+                        errorHandler:^(NSError* error) {
+                          LOG(ERROR) << base::SysNSStringToUTF8(
+                              error.localizedDescription);
+                          NOTREACHED();
+                        }];
 }
 
 void IOSCollaborationControllerDelegate::OnFlowFinished() {
@@ -809,6 +831,9 @@ void IOSCollaborationControllerDelegate::ConfigureAndManageTabGroup(
   config.tabGroup = tab_group;
   config.groupImage = faviconsGridImage;
   config.collabID = base::SysUTF8ToNSString(collaboration_id.value());
+  config.enterpriseSharingDisabled =
+      collaboration_service_->GetServiceStatus().collaboration_status ==
+      CollaborationStatus::kDisabledForPolicy;
   config.applicationHandler =
       HandlerForProtocol(browser_->GetCommandDispatcher(), ApplicationCommands);
   auto completion_block = base::CallbackToBlock(std::move(result));
@@ -835,6 +860,8 @@ UIImage* IOSCollaborationControllerDelegate::JoinGroupImage(
   CGRect frame = CGRectMake(0, 0, kJoinGroupImageSize, kJoinGroupImageSize);
   TabGroupFaviconsGrid* favicons_grid =
       [[TabGroupFaviconsGrid alloc] initWithFrame:frame];
+  favicons_grid.overrideUserInterfaceStyle =
+      base_view_controller_.traitCollection.userInterfaceStyle;
   favicons_grid.translatesAutoresizingMaskIntoConstraints = NO;
   favicons_grid.numberOfTabs = [preview_items count];
   favicons_grid_configurator_->ConfigureFaviconsGrid(favicons_grid,

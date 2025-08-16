@@ -1600,6 +1600,17 @@ Unknown properties are collapsed to zero. -->
 
 <!-- LINT.ThenChange(//chrome/renderer/accessibility/phrase_segmentation/dependency_parser_model.h:DependencyParserModelState) -->
 
+<!-- LINT.IfChange(DistillationParseResult)-->
+
+<enum name="DistillationParseResult">
+  <summary>Describes the result of a disillation parsing attempt</summary>
+  <int value="0" label="Success"/>
+  <int value="1" label="Parse Failure"/>
+  <int value="2" label="No Data"/>
+</enum>
+
+<!-- LINT.ThenChange(//components/dom_distiller/core/distiller_page.cc:DistillationParseResult) -->
+
 <!-- LINT.IfChange(DistillationResult)-->
 
 <enum name="DistillationResult">
@@ -2098,6 +2109,17 @@ Unknown properties are collapsed to zero. -->
 
 <!-- LINT.ThenChange(//chrome/common/read_anything/read_anything.mojom:Colors) -->
 
+<!-- LINT.IfChange(ReadAnythingDistillationStatus) -->
+
+<enum name="ReadAnythingDistillationStatus">
+  <int value="0" label="Failed"/>
+  <int value="1" label="Success"/>
+  <int value="2" label="Still running"/>
+  <int value="3" label="Restarted"/>
+</enum>
+
+<!-- LINT.ThenChange(//chrome/common/read_anything/read_anything.mojom:DistillationStatus) -->
+
 <!-- LINT.IfChange(ReadAnythingEmptyState) -->
 
 <enum name="ReadAnythingEmptyState">
@@ -2118,7 +2140,7 @@ Unknown properties are collapsed to zero. -->
   <int value="5" label="EB Garamond"/>
   <int value="6" label="STIX Two Text"/>
   <int value="7" label="Andika"/>
-  <int value="8" label="Atkinson Hyperlegible"/>
+  <int value="8" label="Atkinson Hyperlegible Next"/>
 </enum>
 
 <!-- LINT.ThenChange(//chrome/common/read_anything/read_anything_util.cc:ReadAnythingFont) -->
@@ -2134,6 +2156,18 @@ Unknown properties are collapsed to zero. -->
 </enum>
 
 <!-- LINT.ThenChange(//chrome/renderer/accessibility/read_anything/read_anything_app_model.cc:ReadAnythingHeuristics) -->
+
+<!-- LINT.IfChange(ReadAnythingHighlightGranularity) -->
+
+<enum name="ReadAnythingHighlightGranularity">
+  <int value="0" label="Highlight auto"/>
+  <int value="1" label="Highlight off"/>
+  <int value="2" label="Highlight word"/>
+  <int value="3" label="Highlight phrase"/>
+  <int value="4" label="Hihglight sentence"/>
+</enum>
+
+<!-- LINT.ThenChange(//chrome/browser/resources/side_panel/read_anything/metrics_browser_proxy.ts:ReadAloudHighlightGranularity) -->
 
 <!-- LINT.IfChange(ReadAnythingHighlightState) -->
 
@@ -2356,6 +2390,31 @@ Unknown properties are collapsed to zero. -->
 </enum>
 
 <!-- LINT.ThenChange(//chrome/browser/speech/extension_api/tts_extension_api.cc:TextToSpeechSource) -->
+
+<!-- LINT.IfChange(TranslationDispatcherLoadResult) -->
+
+<enum name="TranslationDispatcherLoadResult">
+  <int value="0" label="Success"/>
+  <int value="1" label="NetworkError"/>
+  <int value="2" label="HttpError"/>
+  <int value="3" label="EmptyResponse"/>
+</enum>
+
+<!-- LINT.ThenChange(//components/live_caption/translation_dispatcher.cc:TranslationDispatcherLoadResult) -->
+
+<!-- LINT.IfChange(TranslationDispatcherParseResult) -->
+
+<enum name="TranslationDispatcherParseResult">
+  <int value="0" label="Success"/>
+  <int value="1" label="JsonParseError"/>
+  <int value="2" label="ValueNotDict"/>
+  <int value="3" label="DataDictNotFound"/>
+  <int value="4" label="TranslationsListNotFound"/>
+  <int value="5" label="TranslatedTextNotDict"/>
+  <int value="6" label="TranslatedTextNotFound"/>
+</enum>
+
+<!-- LINT.ThenChange(//components/live_caption/translation_dispatcher.cc:TranslationDispatcherParseResult) -->
 
 </enums>
 

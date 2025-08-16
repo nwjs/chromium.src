@@ -217,7 +217,7 @@ TEST_P(PaintPropertyTreeBuilderTest, PositionAndScroll) {
   LoadTestData("position-and-scroll.html");
 
   Element* scroller = GetDocument().getElementById(AtomicString("scroller"));
-  scroller->scrollTo(0, 100);
+  scroller->scrollToForTesting(0, 100);
   LocalFrameView* frame_view = GetDocument().View();
   frame_view->UpdateAllLifecyclePhasesForTest();
   const ObjectPaintProperties* scroller_properties =
@@ -525,7 +525,7 @@ TEST_P(PaintPropertyTreeBuilderTest, OverflowScrollVerticalRLMulticol) {
 TEST_P(PaintPropertyTreeBuilderTest, DocScrollingTraditional) {
   SetBodyInnerHTML("<style> body { height: 10000px; } </style>");
 
-  GetDocument().domWindow()->scrollTo(0, 100);
+  GetDocument().domWindow()->scrollToForTesting(0, 100);
 
   LocalFrameView* frame_view = GetDocument().View();
   frame_view->UpdateAllLifecyclePhasesForTest();
@@ -3861,7 +3861,7 @@ TEST_P(PaintPropertyTreeBuilderTest, OverflowScrollContentsTreeState) {
 
   Element* clipper_element =
       GetDocument().getElementById(AtomicString("clipper"));
-  clipper_element->scrollTo(1, 2);
+  clipper_element->scrollToForTesting(1, 2);
 
   auto* clipper = To<LayoutBoxModelObject>(clipper_element->GetLayoutObject());
   const ObjectPaintProperties* clip_properties =
@@ -4106,7 +4106,7 @@ TEST_P(PaintPropertyTreeBuilderTest, FrameOverflowHiddenScrollProperties) {
     <div class='forceScroll'></div>
   )HTML");
 
-  GetDocument().domWindow()->scrollTo(0, 37);
+  GetDocument().domWindow()->scrollToForTesting(0, 37);
 
   UpdateAllLifecyclePhasesForTest();
 
@@ -5963,7 +5963,7 @@ TEST_P(PaintPropertyTreeBuilderTest, RepeatingFixedPositionInPagedMedia) {
     </div>
     <div id="normal" style="height: 1000px"></div>
   )HTML");
-  GetDocument().domWindow()->scrollTo(0, 200);
+  GetDocument().domWindow()->scrollToForTesting(0, 200);
   UpdateAllLifecyclePhasesForTest();
 
   const auto* fixed = GetLayoutObjectByElementId("fixed");
@@ -6022,7 +6022,7 @@ TEST_P(PaintPropertyTreeBuilderTest,
     </div>
     <div id="normal" style="height: 1000px"></div>
   )HTML");
-  GetDocument().domWindow()->scrollTo(0, 200);
+  GetDocument().domWindow()->scrollToForTesting(0, 200);
   UpdateAllLifecyclePhasesForTest();
 
   const auto* fixed = GetLayoutObjectByElementId("fixed");

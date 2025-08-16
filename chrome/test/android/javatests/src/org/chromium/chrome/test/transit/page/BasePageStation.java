@@ -19,6 +19,9 @@ import org.chromium.base.test.transit.Element;
 import org.chromium.base.test.transit.TripBuilder;
 import org.chromium.chrome.browser.app.ChromeActivity;
 import org.chromium.chrome.browser.tab.Tab;
+import org.chromium.chrome.browser.tab.TabCreationState;
+import org.chromium.chrome.browser.tab.TabLaunchType;
+import org.chromium.chrome.browser.tab.TabSelectionType;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelObserver;
 import org.chromium.chrome.test.transit.ChromeActivityTabModelBoundStation;
@@ -30,8 +33,9 @@ import java.util.List;
 import java.util.function.Function;
 
 /**
- * Base class for the screen that shows a web or native page in ChromeActivity. {@link PageStation}
- * subclasses this for ChromeTabbedActivity and {@link CctPageStation} for CustomTabActivity.
+ * Base class for the screen that shows a web or native page in ChromeActivity. {@link
+ * CtaPageStation} subclasses this for ChromeTabbedActivity and {@link CctPageStation} for
+ * CustomTabActivity.
  *
  * <p>Contains extra configurable Conditions such as waiting for a tab to be created, selected, have
  * the expected title, etc.
@@ -137,7 +141,9 @@ public class BasePageStation<HostActivity extends ChromeActivity>
             return this;
         }
 
+        /** Do not wait for a tba to be selected; use the current tab. */
         public Builder<PageT> withTabAlreadySelected(Tab currentTab) {
+            mConfig.withIsOpeningTabs(0);
             mConfig.withTabAlreadySelected(currentTab);
             return this;
         }
@@ -167,12 +173,27 @@ public class BasePageStation<HostActivity extends ChromeActivity>
             return this;
         }
 
+        /** Wait for the |url| to be loaded on the current tab. */
         public Builder<PageT> initForLoadingUrlOnSameTab(
                 String url, BasePageStation<?> previousStation) {
             initFrom(previousStation);
             if (mConfig.mExpectedUrlSubstring == null) {
                 mConfig.withExpectedUrlSubstring(url);
             }
+            return this;
+        }
+
+        /** Wait for a new tab to be opened and selected. */
+        public Builder<PageT> initOpeningNewTab() {
+            mConfig.withIsOpeningTabs(1);
+            mConfig.withIsSelectingTabs(1);
+            return this;
+        }
+
+        /** Wait for an existing tab to be selected. */
+        public Builder<PageT> initSelectingExistingTab() {
+            mConfig.withIsOpeningTabs(0);
+            mConfig.withIsSelectingTabs(1);
             return this;
         }
 
@@ -335,7 +356,11 @@ public class BasePageStation<HostActivity extends ChromeActivity>
         }
 
         @Override
-        public void didAddTab(Tab tab, int type, int creationState, boolean markedForSelection) {
+        public void didAddTab(
+                Tab tab,
+                @TabLaunchType int type,
+                @TabCreationState int creationState,
+                boolean markedForSelection) {
             notifyCalled();
         }
 
@@ -372,7 +397,7 @@ public class BasePageStation<HostActivity extends ChromeActivity>
         }
 
         @Override
-        public void didSelectTab(Tab tab, int type, int lastId) {
+        public void didSelectTab(Tab tab, @TabSelectionType int type, int lastId) {
             if (mTabsSelected.contains(tab)) {
                 // We get multiple (2-3 depending on the case) didSelectTab when selecting a Tab, so
                 // filter out redundant callbacks to make sure we wait for different Tabs.
@@ -423,7 +448,7 @@ public class BasePageStation<HostActivity extends ChromeActivity>
 
         private CorrectActivityTabCondition(
                 Supplier<ActivityT> activitySupplier, Supplier<Tab> expectedTabSupplier) {
-            super(/* isRunOnUiThread= */ false);
+            super(/* isRunOnUiThread= */ true);
             mActivitySupplier = dependOnSupplier(activitySupplier, "ChromeActivity");
             mExpectedTab = dependOnSupplier(expectedTabSupplier, "ExpectedTab");
         }

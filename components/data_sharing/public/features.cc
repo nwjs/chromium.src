@@ -20,16 +20,16 @@ const char kActivityLogsDefaultUrl[] =
 
 }  // namespace
 
-BASE_FEATURE(kCollaborationAutomotive,
-             "CollaborationAutomotive",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 BASE_FEATURE(kCollaborationEntrepriseV2,
              "CollaborationEntrepriseV2",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kDataSharingFeature,
              "DataSharing",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kDataSharingAccountDataMigration,
+             "DataSharingAccountDataMigration",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kDataSharingJoinOnly,

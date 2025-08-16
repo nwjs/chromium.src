@@ -29,6 +29,7 @@
 
 #include <stddef.h>
 
+#include <memory>
 #include <optional>
 
 #include "base/check.h"
@@ -51,6 +52,7 @@
 #include "third_party/blink/renderer/platform/bindings/script_wrappable.h"
 #include "third_party/blink/renderer/platform/fonts/font_description.h"
 #include "third_party/blink/renderer/platform/geometry/path.h"
+#include "third_party/blink/renderer/platform/graphics/canvas_hibernation_handler.h"
 #include "third_party/blink/renderer/platform/graphics/color.h"
 #include "third_party/blink/renderer/platform/graphics/image_orientation.h"
 #include "third_party/blink/renderer/platform/graphics/paint/paint_filter.h"
@@ -73,11 +75,11 @@ struct PendingTask;
 
 namespace cc {
 class Layer;
-class PaintCanvas;
 }  // namespace cc
 
 namespace blink {
 
+class Canvas2DDrawElementOption;
 class CanvasImageSource;
 class ComputedStyle;
 class Element;
@@ -85,6 +87,7 @@ class ExceptionState;
 class ExecutionContext;
 class ImageData;
 class ImageDataSettings;
+class MemoryManagedPaintCanvas;
 class MemoryManagedPaintRecorder;
 class Path2D;
 class SVGResource;
@@ -94,7 +97,8 @@ enum class PredefinedColorSpace;
 class MODULES_EXPORT CanvasRenderingContext2D final
     : public ScriptWrappable,
       public BaseRenderingContext2D,
-      public SVGResourceClient {
+      public SVGResourceClient,
+      public CanvasHibernationHandler::Delegate {
   DEFINE_WRAPPERTYPEINFO();
 
  public:
@@ -156,14 +160,39 @@ class MODULES_EXPORT CanvasRenderingContext2D final
   void DisableAcceleration() override;
   bool ShouldDisableAccelerationBecauseOfReadback() const override;
 
+  // CanvasHibernationHandler::Delegate implementation
+  bool IsContextLost() const override { return isContextLost(); }
+  bool IsPageVisible() const override {
+    return canvas() && canvas()->IsPageVisible();
+  }
+  void ResetResourceProviderForCanvas2D() override {
+    ReplaceResourceProviderForCanvas2D(nullptr);
+  }
+  void SetNeedsCompositingUpdate() override {
+    if (canvas()) {
+      canvas()->SetNeedsCompositingUpdate();
+    }
+  }
+  void ClearCanvas2DLayerTexture() override {
+    if (canvas()) {
+      canvas()->ClearCanvas2DLayerTexture();
+    }
+  }
+
   // CanvasRenderingContext implementation
+  bool IsComposited() const override;
+  scoped_refptr<CanvasResource> PaintRenderingResultsToResource(
+      SourceDrawingBuffer source_buffer,
+      FlushReason reason) override;
+  bool IsCanvas2DResourceProviderValid() override;
+  const std::optional<cc::PaintRecord>& GetLastRecordingForCanvas2D() override;
   int AllocatedBufferCountPerPixel() override {
     if (!Host()) {
       return 0;
     }
 
     int buffer_count = 0;
-    auto* provider = Host()->GetResourceProviderForCanvas2D();
+    auto* provider = GetResourceProviderForCanvas2D();
     if (provider) {
       buffer_count = 1;
       if (provider->IsAccelerated()) {
@@ -180,15 +209,15 @@ class MODULES_EXPORT CanvasRenderingContext2D final
   int Width() const final;
   int Height() const final;
 
-  bool CanCreateCanvas2dResourceProvider() const final;
+  bool CanCreateCanvas2dResourceProvider() final;
 
   RespectImageOrientationEnum RespectImageOrientation() const final;
 
   Color GetCurrentColor() const final;
 
-  cc::PaintCanvas* GetOrCreatePaintCanvas() final;
+  MemoryManagedPaintCanvas* GetOrCreatePaintCanvas() final;
   using BaseRenderingContext2D::GetPaintCanvas;  // Pull the non-const overload.
-  const cc::PaintCanvas* GetPaintCanvas() const final;
+  const MemoryManagedPaintCanvas* GetPaintCanvas() const final;
   const MemoryManagedPaintRecorder* Recorder() const override;
 
   void WillDraw(const SkIRect& dirty_rect,
@@ -198,17 +227,20 @@ class MODULES_EXPORT CanvasRenderingContext2D final
 
   sk_sp<PaintFilter> StateGetFilter() final;
 
+  void PreFinalizeFrame() override;
   void FinalizeFrame(FlushReason) override;
 
   void drawElement(Element* element,
                    double x,
                    double y,
+                   Canvas2DDrawElementOption* options,
                    ExceptionState& exception_state);
   void drawElement(Element* element,
                    double x,
                    double y,
                    double dwidth,
                    double dheight,
+                   Canvas2DDrawElementOption* options,
                    ExceptionState& exception_state);
   void setHitTestRegions(VectorOf<CanvasElementHitTestRegion> hit_test_regions,
                          ExceptionState& exception_state);
@@ -217,8 +249,10 @@ class MODULES_EXPORT CanvasRenderingContext2D final
   ExecutionContext* GetTopExecutionContext() const override;
 
   bool IsPaintable() const final;
+  bool IsHibernating() const final;
 
-  void WillDrawImage(CanvasImageSource*) const final;
+  void WillDrawImage(CanvasImageSource*,
+                     bool image_is_texture_backed) const final;
 
   std::optional<cc::PaintRecord> FlushCanvas(FlushReason) override;
 
@@ -257,9 +291,20 @@ class MODULES_EXPORT CanvasRenderingContext2D final
     return GetTriggersForIntervention();
   }
 
+  CanvasResourceProvider* GetOrCreateCanvas2DResourceProvider() override;
+  CanvasResourceProvider* GetResourceProviderForCanvas2D() const override;
+  void SetCanvas2DResourceProviderForTesting(
+      std::unique_ptr<CanvasResourceProvider> provider,
+      const gfx::Size& size);
+
+  // TODO(crbug.com/352263194): Migrate canvas_rendering_context_2d_test.cc
+  // callsites and make this method private.
+  CanvasHibernationHandler* GetHibernationHandler() const;
+
  protected:
   HTMLCanvasElement* HostAsHTMLCanvasElement() const final;
   UniqueFontSelector* GetFontSelector() const final;
+  void SizeChanged() final;
 
   bool WritePixels(const SkImageInfo& orig_info,
                    const void* pixels,
@@ -277,11 +322,18 @@ class MODULES_EXPORT CanvasRenderingContext2D final
   FRIEND_TEST_ALL_PREFIXES(CanvasRenderingContext2DTestAccelerated,
                            PrepareMailboxWhenContextIsLostWithFailedRestore);
 
+  void Dispose() override;
+
+  std::unique_ptr<CanvasResourceProvider> CreateCanvasResourceProvider();
+
+  void EnableAccelerationIfPossible() override;
+
   void DrawElementInternal(Element* element,
                            double x,
                            double y,
                            std::optional<double> dwidth,
                            std::optional<double> dheight,
+                           Canvas2DDrawElementOption* options,
                            ExceptionState& exception_state);
 
   void PruneLocalFontCache(size_t target_size);
@@ -296,7 +348,6 @@ class MODULES_EXPORT CanvasRenderingContext2D final
   void DrawFocusRing(const Path&, Element*);
   void UpdateElementAccessibility(const Path&, Element*);
 
-  bool IsComposited() const override;
   bool HasAlpha() const override { return CreationAttributes().alpha; }
   bool IsDesynchronized() const override {
     return CreationAttributes().desynchronized;
@@ -305,16 +356,26 @@ class MODULES_EXPORT CanvasRenderingContext2D final
   void Stop() final;
 
   cc::Layer* CcLayer() const override;
-  bool IsCanvas2DBufferValid() const override;
 
   void ColorSchemeMayHaveChanged() override;
 
-  CanvasResourceProvider* GetOrCreateCanvas2DResourceProvider() override;
+  std::unique_ptr<CanvasResourceProvider> ReplaceResourceProviderForCanvas2D(
+      std::unique_ptr<CanvasResourceProvider>) override;
+  void DropAndRecreateExistingCanvas2DResourceProvider() override;
+
+  CanvasResourceProvider* RecreateCanvasResourceProviderForCanvas2D();
 
   FilterOperations filter_operations_;
   HashMap<String, FontDescription> fonts_resolved_using_current_style_;
   bool should_prune_local_font_cache_;
   LinkedHashSet<String> font_lru_list_;
+
+  std::unique_ptr<CanvasHibernationHandler> hibernation_handler_;
+  std::unique_ptr<CanvasResourceProvider> resource_provider_;
+
+  // `did_fail_to_create_resource_provider_` prevents repeated attempts in
+  // allocating resources after the first attempt failed.
+  bool did_fail_to_create_resource_provider_ = false;
 
   // For privacy reasons we need to delay contextLost events until the page is
   // visible. In order to do this we will hold on to a bool here

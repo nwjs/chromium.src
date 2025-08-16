@@ -140,6 +140,7 @@ source_set("ui_bundled") {
     "//ios/chrome/browser/feature_engagement/model",
     "//ios/chrome/browser/first_run/ui_bundled:field_trial",
     "//ios/chrome/browser/history/model",
+    "//ios/chrome/browser/intelligence/features",
     "//ios/chrome/browser/keyboard/ui_bundled",
     "//ios/chrome/browser/language/model",
     "//ios/chrome/browser/main/model",
@@ -154,6 +155,7 @@ source_set("ui_bundled") {
     "//ios/chrome/browser/push_notification/model:push_notification_client_id",
     "//ios/chrome/browser/push_notification/model:push_notification_settings_util_header",
     "//ios/chrome/browser/regional_capabilities/model",
+    "//ios/chrome/browser/safari_data_import/public",
     "//ios/chrome/browser/search_engine_choice/ui_bundled:ui_util",
     "//ios/chrome/browser/search_engines/model",
     "//ios/chrome/browser/settings/model/sync/utils",
@@ -162,6 +164,7 @@ source_set("ui_bundled") {
     "//ios/chrome/browser/settings/ui_bundled/address_bar_preference/cells",
     "//ios/chrome/browser/settings/ui_bundled/autofill",
     "//ios/chrome/browser/settings/ui_bundled/bandwidth",
+    "//ios/chrome/browser/settings/ui_bundled/bwg/coordinator",
     "//ios/chrome/browser/settings/ui_bundled/cells",
     "//ios/chrome/browser/settings/ui_bundled/cells:public",
     "//ios/chrome/browser/settings/ui_bundled/clear_browsing_data",
@@ -173,6 +176,7 @@ source_set("ui_bundled") {
     "//ios/chrome/browser/settings/ui_bundled/google_services",
     "//ios/chrome/browser/settings/ui_bundled/google_services:constants",
     "//ios/chrome/browser/settings/ui_bundled/google_services/manage_accounts",
+    "//ios/chrome/browser/settings/ui_bundled/google_services/manage_accounts:constants",
     "//ios/chrome/browser/settings/ui_bundled/language",
     "//ios/chrome/browser/settings/ui_bundled/language:ui",
     "//ios/chrome/browser/settings/ui_bundled/notifications",
@@ -436,6 +440,7 @@ source_set("eg_app_support+eg2") {
     "//ios/chrome/browser/supervised_user/model",
     "//ios/chrome/browser/supervised_user/model:sync_settings_factory",
     "//ios/chrome/browser/sync/model",
+    "//ios/chrome/browser/tabs/model:features",
     "//ios/chrome/common/crash_report",
     "//ios/chrome/test/app:test_support",
     "//ios/components/security_interstitials",
@@ -443,6 +448,10 @@ source_set("eg_app_support+eg2") {
     "//services/network:test_support",
   ]
   public_deps = [ "//components/content_settings/core/common" ]
+
+  # TODO(crbug.com/40031409): Fix code that adds exit-time destructors and
+  # enable the diagnostic by removing this line.
+  configs += [ "//build/config/compiler:no_exit_time_destructors" ]
 }
 
 source_set("eg_test_support+eg2") {
@@ -511,6 +520,7 @@ source_set("eg2_tests") {
     "//ios/chrome/common/ui/colors",
     "//ios/chrome/common/ui/promo_style:constants",
     "//ios/chrome/common/ui/table_view:cells_constants",
+    "//ios/chrome/test:eg_test_support+eg2",
     "//ios/chrome/test/earl_grey:eg_test_support+eg2",
     "//ios/testing/earl_grey:eg_test_support+eg2",
     "//ios/web/public/test/http_server",

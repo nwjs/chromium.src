@@ -663,15 +663,16 @@ TEST_F(LegacySWPictureLayerImplTest, CreateTilingsEvenIfTwinHasNone) {
   ASSERT_EQ(0u, active_layer()->tilings()->num_tilings());
 }
 
-TEST_F(LegacySWPictureLayerImplTest, ZoomOutCrash) {
+TEST_F(LegacySWPictureLayerImplTest, ZoomOut) {
   gfx::Size layer_bounds(1300, 1900);
 
-  // Set up the high and low res tilings before pinch zoom.
+  // Set up the high res tilings before pinch zoom.
   SetupDefaultTrees(layer_bounds);
   ResetTilingsAndRasterScales();
   EXPECT_EQ(0u, active_layer()->tilings()->num_tilings());
   SetContentsScaleOnBothLayers(32.0f, 1.0f, 32.0f);
-  EXPECT_EQ(32.f, active_layer()->HighResTiling()->contents_scale_key());
+  EXPECT_BOTH_EQ(num_tilings(), 1u);
+  EXPECT_BOTH_EQ(tilings()->tiling_at(0)->contents_scale_key(), 32.0f);
 
   // Since this test simulates a pinch it needs an input handler.
   // TODO(bokan): This is a raster unit test, it shouldn't be using a real
@@ -681,8 +682,9 @@ TEST_F(LegacySWPictureLayerImplTest, ZoomOutCrash) {
   host_impl()->GetInputHandler().PinchGestureBegin(
       gfx::Point(), ui::ScrollInputType::kTouchscreen);
   SetContentsScaleOnBothLayers(1.0f, 1.0f, 1.0f);
-  SetContentsScaleOnBothLayers(1.0f, 1.0f, 1.0f);
   EXPECT_EQ(active_layer()->tilings()->NumHighResTilings(), 1);
+  EXPECT_EQ(1.0f,
+            pending_layer()->tilings()->tiling_at(0)->contents_scale_key());
 }
 
 TEST_F(LegacySWPictureLayerImplTest, ScaledBoundsOverflowInt) {
@@ -692,7 +694,7 @@ TEST_F(LegacySWPictureLayerImplTest, ScaledBoundsOverflowInt) {
 
   gfx::Size layer_bounds(600000, 60);
 
-  // Set up the high and low res tilings before pinch zoom.
+  // Set up the high res tilings before pinch zoom.
   SetupDefaultTrees(layer_bounds);
   ResetTilingsAndRasterScales();
   EXPECT_EQ(0u, active_layer()->tilings()->num_tilings());
@@ -718,7 +720,6 @@ TEST_F(LegacySWPictureLayerImplTest, ScaledBoundsOverflowInt) {
 TEST_F(LegacySWPictureLayerImplTest, PinchGestureTilings) {
   gfx::Size layer_bounds(1300, 1900);
 
-  float low_res_factor = 0.25f;
   SetupDefaultTrees(layer_bounds);
   ResetTilingsAndRasterScales();
 
@@ -752,8 +753,7 @@ TEST_F(LegacySWPictureLayerImplTest, PinchGestureTilings) {
   active_layer()->MarkAllTilingsUsed();
 
   // Zoom out further. We should create a new tiling.
-  SetContentsScaleOnBothLayers(low_res_factor * 2.1f, 1.0f,
-                               low_res_factor * 2.1f);
+  SetContentsScaleOnBothLayers(.525f, 1.0f, .525f);
   ASSERT_EQ(3u, active_layer()->tilings()->num_tilings());
 
   // Zoom in a lot now. Since we increase by increments of
@@ -814,8 +814,7 @@ TEST_F(LegacySWPictureLayerImplTest, SnappedTilingDuringZoom) {
   // Ensure UpdateTiles won't remove any tilings.
   active_layer()->MarkAllTilingsUsed();
 
-  // Zoom out further, close to our low-res scale factor. We should
-  // create a new tiling.
+  // Zoom out further. We should create a new tiling.
   SetContentsScaleOnBothLayers(0.1f, 1.0f, 0.1f);
   ASSERT_EQ(3u, active_layer()->tilings()->num_tilings());
 
@@ -980,7 +979,7 @@ TEST_F(LegacySWPictureLayerImplTest, ScaledBackdropFilterMaskLayer) {
   host_impl()->AdvanceToNextFrame(base::Milliseconds(1));
   UpdateDrawProperties(host_impl()->pending_tree());
 
-  // Masks are scaled, and do not have a low res tiling.
+  // Masks are scaled and have only a high res tiling.
   EXPECT_EQ(1.3f, pending_mask->HighResTiling()->contents_scale_key());
   EXPECT_EQ(1u, pending_mask->num_tilings());
 
@@ -1027,7 +1026,7 @@ TEST_F(LegacySWPictureLayerImplTest, ScaledMaskLayer) {
   host_impl()->AdvanceToNextFrame(base::Milliseconds(1));
   UpdateDrawProperties(host_impl()->pending_tree());
 
-  // Masks are scaled, and do not have a low res tiling.
+  // Masks are scaled and have only a high res tiling.
   EXPECT_EQ(1.3f, pending_mask->HighResTiling()->contents_scale_key());
   EXPECT_EQ(1u, pending_mask->num_tilings());
 
@@ -2252,7 +2251,7 @@ TEST_F(LegacySWPictureLayerImplTest,
   EXPECT_EQ(HIGH_RESOLUTION, high_res->resolution());
 }
 
-TEST_F(PictureLayerImplTest, NoLowResTilingWithGpuRasterization) {
+TEST_F(PictureLayerImplTest, OnlyHighResTilingWithGpuRasterization) {
   gfx::Size default_tile_size(host_impl()->settings().default_tile_size);
   gfx::Size layer_bounds(default_tile_size.width() * 4,
                          default_tile_size.height() * 4);
@@ -3108,7 +3107,6 @@ TEST_F(LegacySWPictureLayerImplTest, TilingSetRasterQueueRequiredNoHighRes) {
 
 TEST_F(LegacySWPictureLayerImplTest, TilingSetEvictionQueue) {
   gfx::Size layer_bounds(1000, 1000);
-  float low_res_factor = 0.25f;
 
   host_impl()->active_tree()->SetDeviceViewportRect(gfx::Rect(500, 500));
 
@@ -3163,8 +3161,7 @@ TEST_F(LegacySWPictureLayerImplTest, TilingSetEvictionQueue) {
       all_tiles);
 
   std::set<Tile*> unique_tiles;
-  auto expected_scales = std::to_array<float>({low_res_factor, 1.f});
-  size_t scale_index = 0;
+  auto expected_scale = 1.f;
   bool reached_visible = false;
   PrioritizedTile last_tile;
   size_t distance_decreasing = 0;
@@ -3190,13 +3187,7 @@ TEST_F(LegacySWPictureLayerImplTest, TilingSetEvictionQueue) {
 
     EXPECT_FALSE(tile->required_for_activation());
 
-    while (std::abs(tile->contents_scale_key() - expected_scales[scale_index]) >
-           std::numeric_limits<float>::epsilon()) {
-      ++scale_index;
-      ASSERT_LT(scale_index, std::size(expected_scales));
-    }
-
-    EXPECT_FLOAT_EQ(tile->contents_scale_key(), expected_scales[scale_index]);
+    EXPECT_FLOAT_EQ(tile->contents_scale_key(), expected_scale);
     unique_tiles.insert(tile);
 
     if (tile->required_for_activation() ==
@@ -3221,7 +3212,6 @@ TEST_F(LegacySWPictureLayerImplTest, TilingSetEvictionQueue) {
   EXPECT_EQ(1u, distance_increasing);
   EXPECT_EQ(11u, distance_decreasing);
 
-  scale_index = 0;
   bool reached_required = false;
   while (!queue->IsEmpty()) {
     PrioritizedTile prioritized_tile = queue->Top();
@@ -3235,16 +3225,9 @@ TEST_F(LegacySWPictureLayerImplTest, TilingSetEvictionQueue) {
       EXPECT_TRUE(tile->required_for_activation());
     } else if (tile->required_for_activation()) {
       reached_required = true;
-      scale_index = 0;
     }
 
-    while (std::abs(tile->contents_scale_key() - expected_scales[scale_index]) >
-           std::numeric_limits<float>::epsilon()) {
-      ++scale_index;
-      ASSERT_LT(scale_index, std::size(expected_scales));
-    }
-
-    EXPECT_FLOAT_EQ(tile->contents_scale_key(), expected_scales[scale_index]);
+    EXPECT_FLOAT_EQ(tile->contents_scale_key(), expected_scale);
     unique_tiles.insert(tile);
     queue->Pop();
   }
@@ -3695,7 +3678,7 @@ TEST_F(LegacySWPictureLayerImplTest, CleanUpTilings) {
   SetContentsScaleOnBothLayers(0.5f, device_scale, page_scale);
 
   // The high resolution tiling is between target and ideal, so is not
-  // removed.  The low res tiling for the old ideal=1.0 scale is removed.
+  // removed.
   used_tilings.clear();
   active_layer()->CleanUpTilingsOnActiveLayer(used_tilings);
   ASSERT_EQ(2u, active_layer()->tilings()->num_tilings());
@@ -5162,35 +5145,6 @@ TEST_F(HalfWidthTileTest, TileSizes) {
   EXPECT_EQ(result.height(), 256);
 }
 
-TEST_F(LegacySWPictureLayerImplTest, LowResWasHighResCollision) {
-  gfx::Size layer_bounds(1300, 1900);
-
-  float low_res_factor = 0.25f;
-  SetupDefaultTrees(layer_bounds);
-  ResetTilingsAndRasterScales();
-
-  float page_scale = 2.f;
-  SetContentsScaleOnBothLayers(page_scale, 1.0f, page_scale);
-  EXPECT_BOTH_EQ(num_tilings(), 1u);
-  EXPECT_BOTH_EQ(tilings()->tiling_at(0)->contents_scale_key(), page_scale);
-
-  // Since this test simulates a pinch it needs an input handler.
-  // TODO(bokan): This is a raster unit test, it shouldn't be using a real
-  // input handler.
-  InputHandler::Create(static_cast<CompositorDelegateForInput&>(*host_impl()));
-
-  host_impl()->GetInputHandler().PinchGestureBegin(
-      gfx::Point(), ui::ScrollInputType::kTouchscreen);
-
-  // Zoom out to exactly the low res factor so that the previous high res
-  // would be equal to the current low res (if it were possible to have one).
-  float zoomed = page_scale / low_res_factor;
-  SetContentsScaleOnBothLayers(zoomed, 1.0f, zoomed);
-  EXPECT_EQ(1u, pending_layer()->num_tilings());
-  EXPECT_EQ(zoomed,
-            pending_layer()->tilings()->tiling_at(0)->contents_scale_key());
-}
-
 TEST_F(LegacySWPictureLayerImplTest, CompositedImageCalculateContentsScale) {
   gfx::Size layer_bounds(400, 400);
   gfx::Rect layer_rect(layer_bounds);
@@ -6004,6 +5958,8 @@ TEST_F(LegacySWPictureLayerImplTest, InvalidateRasterInducingScrolls) {
   scroll_tree.GetOrCreateSyncedScrollOffsetForTesting(scroll_element_id1)
       ->SetCurrent(gfx::PointF(0, 100.25f));
   host_impl()->pending_tree()->DidUpdateScrollOffset(scroll_element_id1, false);
+  EXPECT_TRUE(host_impl()->HasPendingRasterInvalidationScrollForTesting(
+      scroll_element_id1));
   property_trees->transform_tree_mutable().UpdateTransforms(
       scroll_tree.Node(scroll_node_id1)->transform_id);
 

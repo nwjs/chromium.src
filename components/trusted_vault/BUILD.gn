@@ -78,7 +78,7 @@ static_library("trusted_vault") {
       "//crypto",
       "//google_apis",
       "//net",
-      "//services/network/public/cpp:cpp",
+      "//services/network/public/cpp",
       "//third_party/boringssl",
       "//third_party/libxml:xml_reader",
     ]
@@ -140,6 +140,10 @@ if (!is_android) {
 
       deps += [ "//crypto:test_support" ]
     }
+
+    # TODO(crbug.com/40031409): Fix code that adds exit-time destructors and
+    # enable the diagnostic by removing this line.
+    configs += [ "//build/config/compiler:no_exit_time_destructors" ]
   }
 }
 
