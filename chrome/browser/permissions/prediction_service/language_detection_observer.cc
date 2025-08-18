@@ -25,6 +25,7 @@ void LanguageDetectionObserver::Init(
   web_contents_ = web_contents;
   on_english_detected_callback_ = std::move(on_english_detected);
   fallback_callback_ = std::move(on_fallback);
+#if 0
   std::string_view source_language =
       chrome_translate_client()->GetLanguageState().source_language();
 
@@ -47,6 +48,7 @@ void LanguageDetectionObserver::Init(
         LanguageDetectionStatus::kImmediatelyAvailableNotEnglish);
     std::move(fallback_callback_).Run();
   }
+#endif
 }
 
 void LanguageDetectionObserver::Reset() {
@@ -59,11 +61,13 @@ ChromeTranslateClient* LanguageDetectionObserver::chrome_translate_client() {
 }
 
 void LanguageDetectionObserver::RemoveAsObserver() {
+#if 0
   if (web_contents_) {
     chrome_translate_client()
         ->GetTranslateDriver()
         ->RemoveLanguageDetectionObserver(this);
   }
+#endif
 }
 
 void LanguageDetectionObserver::OnTimeout() {
