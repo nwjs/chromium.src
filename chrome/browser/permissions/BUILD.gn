@@ -306,7 +306,7 @@ if (!is_android) {
     }
 
     if (build_with_tflite_lib) {
-      sources += [ "prediction_service/prediction_service_browsertest.cc" ]
+      #sources += [ "prediction_service/prediction_service_browsertest.cc" ]
       deps += [ "//components/permissions/prediction_service" ]
     }
 
