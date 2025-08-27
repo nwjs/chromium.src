@@ -302,7 +302,6 @@
 <translation id="2120553909046681540">Organizația ta a dezactivat navigarea privată.</translation>
 <translation id="2122754583996902531">Browserul tău este gestionat. <ph name="BEGIN_LINK" />Află mai multe<ph name="END_LINK" /></translation>
 <translation id="21243612977487926">Chaturile organizației tale nu se folosesc pentru a ne îmbunătăți modelele. Gemini poate să afișeze informații inexacte, inclusiv despre persoane, așadar verifică încă o dată răspunsurile. <ph name="YOUR_PRIVACY_GEMINI" /></translation>
-<translation id="2126034128616392756">Următoarele parole nu au fost importate în Managerul de parole Google, deoarece nu corespund cerințelor.</translation>
 <translation id="2139867232736819575">Caută textul pe care l-ai copiat</translation>
 <translation id="2147127444698817042">Disponibilă numai pe iPhone</translation>
 <translation id="2148799636999124959">Conectează-te cu ușurință la site-uri și aplicații cu parolele salvate.</translation>
@@ -513,6 +512,7 @@ Motorul tău de căutare este <ph name="DSE_NAME" />. Vezi instrucțiunile pentr
 <translation id="2931440415625410757">Afișează instrucțiunile</translation>
 <translation id="2952278131021475699">Căutare cu camera Lens</translation>
 <translation id="2962516096219646456">Vezi toate datele de completare automată</translation>
+<translation id="2965594942405840553">Această acțiune nu se poate anula</translation>
 <translation id="2969979262385602596">Nu te-ai conectat. Încearcă din nou mai târziu.</translation>
 <translation id="2975761176769946178">Este necesară o adresă URL</translation>
 <translation id="297667759942911166">Colaborează la grupuri de file</translation>
@@ -664,6 +664,7 @@ Vezi instrucțiunile motorului de căutare pentru ștergerea istoricului căută
 <translation id="3596414637720633074">Blochează cookie-urile terță parte în modul incognito</translation>
 <translation id="3602260545951981695">Alege Protecție îmbunătățită</translation>
 <translation id="3610041351087301930">Ascunde modul Cititor</translation>
+<translation id="3610866916973186448">Da, doresc ștergerea</translation>
 <translation id="3622175633937495219">Istoricul căutărilor (găsite: <ph name="COUNT" />)</translation>
 <translation id="3625008969091706597">Poți să glisezi pe margine pentru a te deplasa înapoi.</translation>
 <translation id="362709345066740529">Personalizează-ți aici cardurile, feedul și multe altele</translation>
@@ -1973,6 +1974,7 @@ Site-urile pot folosi cookie-uri pentru a vedea activitatea ta de navigare de pe
 <translation id="8561999115126307258">{count,plural, =1{{count} opțiune pentru parolă disponibilă deasupra tastaturii.}few{{count} opțiuni pentru parolă disponibile deasupra tastaturii.}other{{count} de opțiuni pentru parolă disponibile deasupra tastaturii.}}</translation>
 <translation id="8564894539416715395">Pagina Filă nouă</translation>
 <translation id="8569721750632860947">Ce adresă URL dorești să adaugi în lista de lecturi?</translation>
+<translation id="8571019948162152515">Ștergi „<ph name="FILENAME" />”?</translation>
 <translation id="8571213806525832805">Ultimele 4 săptămâni</translation>
 <translation id="8577056989960190117">Completează automat anul de expirare <ph name="YEAR" /></translation>
 <translation id="8588404856427128947">Stinsă</translation>

@@ -223,6 +223,8 @@ public abstract class ChromeFeatureList {
             "AndroidWindowPopupResizeAfterSpawn";
     public static final String ANIMATED_GIF_REFACTOR = "AnimatedGifRefactor";
     public static final String ANIMATED_IMAGE_DRAG_SHADOW = "AnimatedImageDragShadow";
+    public static final String ANNOTATED_PAGE_CONTENTS_VIRTUAL_STRUCTURE =
+            "AnnotatedPageContentsVirtualStructure";
     public static final String APP_SPECIFIC_HISTORY = "AppSpecificHistory";
     public static final String APP_SPECIFIC_HISTORY_VIEW_INTENT = "AppSpecificHistoryViewIntent";
     public static final String ASYNC_NOTIFICATION_MANAGER = "AsyncNotificationManager";
@@ -561,6 +563,7 @@ public abstract class ChromeFeatureList {
             "ReportNotificationContentDetectionData";
     public static final String RIGHT_EDGE_GOES_FORWARD_GESTURE_NAV =
             "RightEdgeGoesForwardGestureNav";
+    public static final String ROBUST_WINDOW_MANAGEMENT = "RobustWindowManagement";
     public static final String SAFETY_HUB = "SafetyHub";
     public static final String SAFETY_HUB_ANDROID_ORGANIC_SURVEY = "SafetyHubAndroidOrganicSurvey";
     public static final String SAFETY_HUB_ANDROID_SURVEY = "SafetyHubAndroidSurvey";

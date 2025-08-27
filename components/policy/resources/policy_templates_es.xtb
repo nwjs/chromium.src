@@ -29,7 +29,7 @@ Esta política se retirará en el futuro, cuando se haya lanzado por completo la
       Si no se establece, no se aplica ninguna limitación y el usuario puede imprimir los documentos que quiera.</translation>
 <translation id="1013949464926722411">Si se define esta política, los orígenes incluidos en la lista no podrán obtener atributos del dispositivo (como el número de serie o el nombre de host) usando la API Device Attributes.
 
-Los orígenes deben corresponder a aplicaciones web aisladas que se hayan instalado de manera forzada (usando la política <ph name="ISOLATED_WEB_APP_INSTALL_FORCE_LIST_POLICY_NAME" />) o que se hayan configurado como aplicaciones de kiosco. Para obtener información sobre las especificaciones de la API Device Attributes, consulta https://wicg.github.io/WebApiDevice/device_attributes.
+Los orígenes deben corresponder a apps web aisladas que se hayan instalado de manera forzada (usando la política <ph name="ISOLATED_WEB_APP_INSTALL_FORCE_LIST_POLICY_NAME" />) o que se hayan configurado como apps de kiosco. Para obtener información sobre las especificaciones de la API Device Attributes, consulta https://wicg.github.io/WebApiDevice/device_attributes.
 
 Para obtener información detallada sobre los patrones de <ph name="URL_LABEL" /> válidos, consulta https://cloud.google.com/docs/chrome-enterprise/policies/url-patterns. <ph name="WILDCARD_VALUE" /> no es un valor aceptado para esta política.</translation>
 <translation id="101438888985615157">Girar la pantalla 180 grados</translation>
@@ -2280,6 +2280,7 @@ Para obtener más información sobre el tratamiento de datos en las funciones de
       Si se le asigna el valor 1 ("UserOnly"), los usuarios podrán gestionar los certificados de usuario, pero no todos los certificados del dispositivo.</translation>
 <translation id="2593762551209145088">Navegación segura nunca está activa.</translation>
 <translation id="2594773358911436070">Ajustes de WebRTC</translation>
+<translation id="2600005880585324062">Permitir que <ph name="PRODUCT_NAME" /> decida qué orígenes aislar de otros orígenes del mismo sitio.</translation>
 <translation id="26023406105317310">Configurar las cuentas de Kerberos</translation>
 <translation id="2603237557651009842">Bloquear la API WebPrinting en estos sitios</translation>
 <translation id="2603382859270873566">Habilitar la compatibilidad con la API PPB_VideoDecoder(Dev).</translation>
@@ -2475,6 +2476,7 @@ Si se inhabilita esta política o no se establece, los usuarios podrán transfer
 <translation id="2753637905605932878">Restringe el intervalo de puertos UDP locales utilizado por WebRTC</translation>
 <translation id="2755847332939882873">Permite la recogida de trazas de rendimiento del sistema</translation>
 <translation id="2757054304033424106">Tipos de extensiones o aplicaciones que se pueden instalar</translation>
+<translation id="275769337615229465">La mayoría de los orígenes se aislarán de otros orígenes del mismo sitio.</translation>
 <translation id="2759224876420453487">Controlar el comportamiento del usuario en una sesión de varios perfiles</translation>
 <translation id="2760947619380644513">Permitir que los usuarios con acceso remoto abran URLs del host en su navegador de cliente local</translation>
 <translation id="2761483219396643566">Tiempo de espera de advertencia de inactividad cuando el dispositivo funciona con batería</translation>
@@ -2665,12 +2667,12 @@ Si se habilita esta política, el menú de aplicaciones/la tecla de búsqueda po
       Además, ten en cuenta que esta política es una solución de emergencia pensada para estar disponible durante poco tiempo.
       </translation>
 <translation id="2939335382784544151">Habilitar la importación del historial de navegación en la primera ejecución</translation>
-<translation id="2939606629175440564">Si se define esta política, se especifica si una aplicación web aislada que se ha instalado de manera forzada o una aplicación de kiosco tiene acceso a la API Device Attributes de forma predeterminada.
+<translation id="2939606629175440564">Si se define esta política, se especifica si una app web aislada que se ha instalado de manera forzada o una app de kiosco tiene acceso a la API Device Attributes de forma predeterminada.
 Consulta https://wicg.github.io/WebApiDevice/device_attributes para obtener más información.
 
-Si se le asigna el valor 1 a esta política o no se define, las aplicaciones web aisladas que se hayan instalado de manera forzada y las aplicaciones de kiosco podrán usar la API.
+Si se le asigna el valor 1 a esta política o no se define, las apps web aisladas que se hayan instalado de manera forzada y las apps de kiosco podrán usar la API.
 
-Si se le asigna el valor 2 a esta política, las aplicaciones web aisladas que se han instalado de manera forzada y las aplicaciones de kiosco no podrán usar la API.</translation>
+Si se le asigna el valor 2 a esta política, las apps web aisladas que se han instalado de manera forzada y las apps de kiosco no podrán usar la API.</translation>
 <translation id="2940127076681735544">Si se define esta política como una URL válida, <ph name="PRODUCT_NAME" /> descargará la lista de sitios web de esa URL y aplicará las reglas como si se hubieran configurado con la política <ph name="SITELIST_POLICY_NAME" />.
 
       Si no se asigna ningún valor a esta política o se le asigna una URL no válida, <ph name="PRODUCT_NAME" /> no usará la política como fuente de reglas para cambiar de navegador.
@@ -3218,7 +3220,7 @@ Si se inhabilita <ph name="NTPCARDSVISIBLE" />, no se mostrará la tarjeta de Ou
 <translation id="3278042410658310805">Inhabilitar los mensajes de voz en la pantalla de inicio de sesión y permitir que el usuario los habilite temporalmente</translation>
 <translation id="3279532732818711062">Si se define esta política, los orígenes incluidos en la lista podrán obtener atributos del dispositivo (como el número de serie o el nombre de host) usando la API Device Attributes.
 
-Los orígenes deben corresponder a aplicaciones web aisladas que se hayan instalado de manera forzada (usando la política <ph name="ISOLATED_WEB_APP_INSTALL_FORCE_LIST_POLICY_NAME" />) (desde la versión 125), que se hayan configurado como aplicaciones de kiosco o que se hayan instalado de manera forzada (usando <ph name="WEB_APP_INSTALL_FORCE_LIST_POLICY_NAME" />) (antes de la versión 140). Para obtener información sobre las especificaciones de la API Device Attributes, consulta https://wicg.github.io/WebApiDevice/device_attributes.
+Los orígenes deben corresponder a apps web aisladas que se hayan instalado de manera forzada (usando la política <ph name="ISOLATED_WEB_APP_INSTALL_FORCE_LIST_POLICY_NAME" />) (desde la versión 125), que se hayan configurado como apps de kiosco o que se hayan instalado de manera forzada (usando <ph name="WEB_APP_INSTALL_FORCE_LIST_POLICY_NAME" />) (antes de la versión 140). Para obtener información sobre las especificaciones de la API Device Attributes, consulta https://wicg.github.io/WebApiDevice/device_attributes.
 
 Si quieres obtener información detallada sobre los patrones de <ph name="URL_LABEL" /> válidos (desde la versión 127), consulta https://cloud.google.com/docs/chrome-enterprise/policies/url-patterns. <ph name="WILDCARD_VALUE" /> no es un valor aceptado para esta política.</translation>
 <translation id="328347261792478720">De forma predeterminada, el navegador mostrará recomendaciones de contenido multimedia personalizadas al usuario. Si se inhabilita esta política, no se mostrarán estas recomendaciones al usuario. Si se habilita esta política o no se establece, se mostrarán recomendaciones de contenido multimedia al usuario.</translation>
@@ -4916,7 +4918,7 @@ Algunas consideraciones sobre si las empresas deberían inhabilitar <ph name="IP
 
 - No se realizarán peticiones de DNS para las solicitudes con proxy, lo que puede afectar a la monitorización o al filtrado basados en DNS.
 
-- Es posible que las aplicaciones empresariales no funcionen correctamente cuando se usan en modo Incógnito si dependen de solicitudes a dominios (o subdominios de esos dominios) de la lista de dominios enmascarados (<ph name="MASKED_DOMAIN_LIST_URL" />) y requieren que esas solicitudes procedan de intervalos de direcciones IP específicos.
+- Es posible que las apps empresariales no funcionen correctamente cuando se usan en modo Incógnito si dependen de solicitudes a dominios (o subdominios de esos dominios) de la lista de dominios enmascarados (<ph name="MASKED_DOMAIN_LIST_URL" />) y requieren que esas solicitudes procedan de intervalos de direcciones IP específicos.
 
 - Es posible que el tráfico no se redirija a través de un proxy en el modo Incógnito en determinadas condiciones; por ejemplo, cuando los usuarios abren el modo Incógnito desde un perfil de Chrome en el que no han iniciado sesión. En general, esta función requiere que el usuario haya iniciado sesión en Chrome con una cuenta de Google personal al abrir el modo Incógnito.
 
@@ -4972,6 +4974,7 @@ Un dispositivo se considera gestionado si se utiliza una versión empresarial de
       Si no se asigna ningún valor a esta política, el usuario puede inhabilitar cualquier complemento instalado en el sistema.</translation>
 <translation id="4549695018986780856">Manifest V2 está habilitado</translation>
 <translation id="4549729301485728119">El valor predeterminado se determina por otros factores</translation>
+<translation id="4554429681167460828">Ningún origen se aislará de otros orígenes del mismo sitio, salvo que el origen lo solicite explícitamente.</translation>
 <translation id="4554651132977135445">Modo de procesamiento loopback de políticas del usuario</translation>
 <translation id="4554991346503872538">No ofrecer traducción nunca</translation>
 <translation id="4555850956567117258">Habilitar confirmación remota para el usuario</translation>
@@ -5500,7 +5503,7 @@ Si se le asigna el valor <ph name="ALLOW_PASSTHROUGH_OF_SEARCH_BASED_SHORTCUTS_F
 
 Advertencia: Si se establece esta política, los datos personales locales pueden verse afectados y eliminarse de forma permanente. Te recomendamos probar la configuración antes de implementarla para evitar la eliminación accidental de datos personales.
 
-Los tipos de datos disponibles son los siguientes: historial de navegación (<ph name="DATA_TYPE_BROWSING_HISTORY" />), historial de descargas (<ph name="DATA_TYPE_DOWNLOAD_HISTORY" />), cookies (<ph name="DATA_TYPE_COOKIES_AND_OTHER_SITE_DATA" />), caché <ph name="DATA_TYPE_CACHED_IMAGES_AND_FILES" />, Autocompletar (<ph name="DATA_TYPE_AUTOFILL" />), contraseñas (<ph name="DATA_TYPE_PASSWORD" />), configuración de sitios (<ph name="DATA_TYPE_SITE_SETTINGS" />) y datos de aplicaciones alojadas (<ph name="DATA_TYPE_HOSTED_APP_DATA" />). Esta política no prevalece sobre <ph name="ALLOW_DELETING_BROWSER_HISTORY_POLICY_NAME" />.
+Los tipos de datos disponibles son los siguientes: historial de navegación (<ph name="DATA_TYPE_BROWSING_HISTORY" />), historial de descargas (<ph name="DATA_TYPE_DOWNLOAD_HISTORY" />), cookies (<ph name="DATA_TYPE_COOKIES_AND_OTHER_SITE_DATA" />), caché <ph name="DATA_TYPE_CACHED_IMAGES_AND_FILES" />, Autocompletar (<ph name="DATA_TYPE_AUTOFILL" />), contraseñas (<ph name="DATA_TYPE_PASSWORD" />), configuración de sitios (<ph name="DATA_TYPE_SITE_SETTINGS" />) y datos de apps alojadas (<ph name="DATA_TYPE_HOSTED_APP_DATA" />). Esta política no prevalece sobre <ph name="ALLOW_DELETING_BROWSER_HISTORY_POLICY_NAME" />.
 
 Se mantendrá la sesión iniciada del usuario en su cuenta de Google al eliminar las cookies.
 
@@ -6173,7 +6176,7 @@ Nota: Esta política no se aplica a las actualizaciones de HSTS.</translation>
 <translation id="5307432759655324440">Disponibilidad del modo Incógnito</translation>
 <translation id="5308551343115571396">Después de que se inhabilite <ph name="LACROS_NAME" />, intentaremos conservar tantos datos de usuario como sea posible y eliminaremos todos los datos del navegador.</translation>
 <translation id="530949964068726932">Ocultar las opciones de accesibilidad en el menú de la bandeja del sistema</translation>
-<translation id="5309944663104291505">No permitir que las aplicaciones web aisladas que se han instalado de manera forzada y las aplicaciones de kiosco usen la API Device Attributes</translation>
+<translation id="5309944663104291505">No permitir que las apps web aisladas que se han instalado de manera forzada y las apps de kiosco usen la API Device Attributes</translation>
 <translation id="5310544046492594469">Si se asigna el valor "0" (predeterminado) a esta política, podrás acceder a las herramientas para desarrolladores y a la consola de JavaScript, pero no en extensiones instaladas por políticas de empresa o, desde la versión 114 y si se trata de un usuario gestionado, no podrás acceder a las herramientas para desarrolladores ni a la consola de JavaScript en extensiones integradas en el navegador. Si se le asigna el valor "1", podrás acceder a las herramientas para desarrolladores y a la consola de JavaScript sin excepciones, incluso en extensiones instaladas por políticas de empresa. Si se le asigna el valor "2", no podrás acceder a las herramientas para desarrolladores ni tampoco podrás inspeccionar elementos de sitios web.
 
       Este ajuste también desactiva las combinaciones de teclas y las entradas de menús o menús contextuales que permiten abrir las herramientas para desarrolladores y la consola de JavaScript.
@@ -6527,7 +6530,7 @@ Si se inhabilita <ph name="NTPCARDSVISIBLE" />, no se mostrará la tarjeta de Sh
 <translation id="5534235660122271432">No permitir la escritura en dispositivos de almacenamiento externo</translation>
 <translation id="5535256585099022933">Definir el intervalo de tiempo para el reinicio</translation>
 <translation id="5537400155400537818">Inhabilitado: el zoom de CSS conserva su comportamiento anterior al estándar.</translation>
-<translation id="5537587542872235553">Permitir que las aplicaciones web aisladas que se han instalado de manera forzada y las aplicaciones de kiosco usen la API Device Attributes</translation>
+<translation id="5537587542872235553">Permitir que las apps web aisladas que se han instalado de manera forzada y las apps de kiosco usen la API Device Attributes</translation>
 <translation id="553806128266843748">Un indicador booleano que especifica si las limitaciones de ancho de banda están habilitadas.</translation>
 <translation id="5540885720415375851">Permitir descubrimiento de dispositivos locales</translation>
 <translation id="5542235730745104308">Si se asigna el valor true a esta política, <ph name="PRODUCT_NAME" /> usará páginas de error alternativas que vienen incorporadas (como "No se encuentra la página"). Si se le asigna el valor false, <ph name="PRODUCT_NAME" /> nunca usará páginas de error alternativas.
@@ -6899,9 +6902,9 @@ En <ph name="MS_WIN_NAME" />, esta política solo está disponible en instancias
 <translation id="5740636973289452345">Habilitar informes de datos sobre extensiones y complementos</translation>
 <translation id="5740716956489996914">Usar el comportamiento predeterminado para definir si los sitios web pueden enviar solicitudes a endpoints de la red local</translation>
 <translation id="5741110260062082926">Inhabilitar Orca</translation>
-<translation id="5746126833785204233">Si se habilita esta política, se recogerán los registros a nivel de la aplicación de kiosco cuando se esté ejecutando una aplicación de kiosco en el dispositivo. Se recogerán registros de todos los tipos de aplicaciones de kiosco.
+<translation id="5746126833785204233">Si se habilita esta política, se recogerán los registros a nivel de la app de kiosco cuando se esté ejecutando una app de kiosco en el dispositivo. Se recogerán registros de todos los tipos de apps de kiosco.
 Estos registros se almacenarán en un archivo kiosk_apps.log independiente.
-Si no se define esta política o se inhabilita, no se recogerán los registros a nivel de la aplicación de kiosco.</translation>
+Si no se define esta política o se inhabilita, no se recogerán los registros a nivel de la app de kiosco.</translation>
 <translation id="5746149754419996562">Habilita la presencia de widgets Glanceables en <ph name="PRODUCT_OS_NAME" />. Concretamente, esto afecta a los widgets a los que se puede acceder mediante el chip de fecha de la estantería.
 Si se habilita esta política, se habilitarán los widgets Glanceables en <ph name="PRODUCT_OS_NAME" />.
 Si esta política se inhabilita o no se define, no se habilitarán los widgets Glanceables en <ph name="PRODUCT_OS_NAME" />.</translation>
@@ -8249,6 +8252,7 @@ Los cambios de esta política solo se podrán aplicar si ARC no se está ejecuta
 <translation id="66265932317331474">Proporcionar información sobre la CPU</translation>
 <translation id="6628120204569232711">Informar sobre el estado del almacenamiento</translation>
 <translation id="662991036483361836">Impedir que los usuarios habiliten Compartir con Nearby</translation>
+<translation id="6630693609822689611">Habilitar el aislamiento de procesos con clave de origen de forma predeterminada.</translation>
 <translation id="663685822663765995">Restringir el modo de impresión en color</translation>
 <translation id="6640355849038068978">Si se habilita esta opción, los usuarios podrán abrir la aplicación Eche (por ejemplo, haciendo clic en una notificación de la función Mi teléfono).
 
@@ -9771,7 +9775,7 @@ Si no se establece esta política, el navegador seleccionará el renderizador de
 <translation id="7750991880413385988">Abrir página Nueva pestaña</translation>
 <translation id="7752154519644940493">Configuración de la función Inserción de imágenes de IA generativa</translation>
 <translation id="7753678409577376761">Habilitar el punto de entrada de las funciones experimentales de la barra de herramientas del navegador</translation>
-<translation id="7754704193130578113">Preguntar dónde se guardará cada archivo antes de descargarlo</translation>
+<translation id="7754704193130578113">Preguntar dónde guardar cada archivo antes de descargarlo</translation>
 <translation id="7754893969683595513">Si se asigna un valor a esta política, se especificará el tiempo (en milisegundos) que tardará el servicio de gestión en solicitar información de la política de usuarios. Los valores válidos están comprendidos entre 1.800.000 (30 minutos) y 86.400.000 (1 día). Cualquier valor fuera de este intervalo se redondeará al límite correspondiente.
 
       Si no se le asigna ningún valor, se utilizará el valor predeterminado (3 horas).
@@ -9780,6 +9784,13 @@ Si no se establece esta política, el navegador seleccionará el renderizador de
 <translation id="775822241671489040">Controla la opción "Usar el menú de aplicaciones/la tecla de búsqueda para cambiar el comportamiento de las teclas de función".</translation>
 <translation id="7758378441185523981">Habilita la autenticación pasiva para tipos de perfil.</translation>
 <translation id="776110834126722255">Obsoleta</translation>
+<translation id="7761702157788500857">Habilita el aislamiento de procesos con clave de origen para la mayoría de las páginas (es decir, las que se asignan a un clúster de agentes con clave de origen de forma predeterminada). Esto mejora la seguridad, pero también aumenta el número de procesos creados. Los usuarios pueden anular el valor de la política definida mediante las marcas de línea de comandos o chrome://flags (tanto para activar como para desactivar esta función).
+
+Si se habilita esta política, la mayoría de los orígenes se aislarán, incluso de otros orígenes del mismo sitio. Consulta también las políticas <ph name="ISOLATE_ORIGINS_POLICY_NAME" /> y <ph name="SITE_PER_PROCESS_POLICY_NAME" />.
+
+Si se inhabilita esta política, no se aislará ningún origen del resto de su sitio, a menos que un origen lo solicite explícitamente.
+
+Si no se establece esta política, el navegador determinará qué orígenes se deben aislar y cuándo.</translation>
 <translation id="7763614521440615342">Mostrar sugerencias de contenido en la página Nueva pestaña</translation>
 <translation id="7763650553214838209">Se ha inhabilitado la asignación de una combinación de teclas para la acción Insert ("Insertar").</translation>
 <translation id="7763655314629932385">Especifica la versión deseada de la IWA. Si se proporciona, el sistema intentará instalar esta versión específica y, seguidamente, bloqueará cualquier actualización posterior. Para desfijar la aplicación y volver a habilitar las actualizaciones, quita este campo. **Importante:** Si la versión proporcionada no existe, la IWA se permanecerá con la versión instalada actualmente. Esto se debe a que, después de intentar (y, en este caso, no poder) actualizar a la versión fijada, tenerla fijada inhabilita las actualizaciones automáticas.</translation>

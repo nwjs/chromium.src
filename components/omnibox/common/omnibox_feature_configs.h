@@ -118,16 +118,17 @@ struct CalcProvider : Config<CalcProvider> {
   size_t num_non_calc_inputs;
 };
 
-// Chromium-side tweaks to accommodate AI mode echo matches from the server.
-// Disabling this won't actually disable AI mode echo matches altogether; that's
-// controlled server side. This just changes client side behavior to allow them
-// to work well.
-struct AiModeEchoMatch : Config<AiModeEchoMatch> {
-  DECLARE_FEATURE(kAiModeEchoMatch);
+// AIM related omnibox features.
+struct AiMode : Config<AiMode> {
+  DECLARE_FEATURE(kAllowAiModeMatches);
+  DECLARE_FEATURE(kAiModeEligibility);
 
-  AiModeEchoMatch();
+  AiMode();
 
-  bool enabled;
+  // Chromium-side guard for AI matches from the search server. Enabling this
+  // won't guarantee AI mode matches are shown; that mostly depends on server
+  // side. But disabling this will hide the server echo matches.
+  bool allow_ai_mode_matches;
 
   // Deduping doesn't consider extra query params like `udm=50`.
   // `google.com/?q=query&udm=50` and `google.com/?q=query` would usually be
@@ -135,6 +136,39 @@ struct AiModeEchoMatch : Config<AiModeEchoMatch> {
   // differentiating signal in deduping. Does not apply to `udm=50` in normal
   // URLs. Does not apply to e.g. `udm=49` in the suggest template.
   bool do_not_dedupe_aim_suggestions = true;
+
+  // Navigations that match a site search update the `keyword_search_terms`
+  // table in the history DB. E.g. youtube.com/id/x, google.com/?q=x, or
+  // google.com/?q=x&udm=50. Determining which site search was used and should
+  // be attributed does not consider query params. Navigating to either
+  // google.com/?q=x or google.com/?q=x&udm=50 will each attribute both the
+  // Google and AI mode site searches. When
+  // `do_not_show_historic_aim_suggestions` is enabled, 2 things change:
+  // 1. AI mode navigations don't increment any site search. This ensures the
+  //    user won't see a traditional history search suggestion for an AI mode
+  //    search they've done.
+  // 2. No navigation increments the AI mode site search. This ensures the user
+  //    won't see AI mode history search suggestions for a traditional search
+  //    they've done.
+  // These changes apply to both omnibox and other (e.g. bookmark, web)
+  // navigations.
+  bool do_not_show_historic_aim_suggestions = true;
+
+  // Whether to check for AI mode eligibility on the client side
+  // `AimEligibilityService` based on the user's locale.
+  bool check_ai_locale_client_side = true;
+
+  // If true, use the gws side eligibility values. Otherwise, ignore the gws
+  // side response and use client side eligibility values.
+  bool check_ai_eligibility_gws_side = false;
+};
+
+// If enabled, show the AIM entrypoint in the omnibox.
+struct AiModeOmniboxEntryPoint : Config<AiModeOmniboxEntryPoint> {
+  AiModeOmniboxEntryPoint();
+  bool enabled;
+  // Whether to hide the AIM hint text on NTP open.
+  bool hide_aim_hint_text_on_ntp_open;
 };
 
 // A config struct for features related to contextual search in omnibox.
@@ -159,6 +193,7 @@ struct ContextualSearch : Config<ContextualSearch> {
   DECLARE_FEATURE(kUseApcPaywallSignal);
   DECLARE_FEATURE(kShowSuggestionsOnNoApc);
   DECLARE_FEATURE(kOpenLensActionUITweaks);
+  DECLARE_FEATURE(kSuggestionsFulfilledByLensSupported);
 
   // Whether to use contextual search features, for example the lens action.
   bool IsContextualSearchEnabled() const;
@@ -235,6 +270,12 @@ struct ContextualSearch : Config<ContextualSearch> {
 
   // Whether to show the Lens entrypoint action with the new UI tweaks.
   bool open_lens_action_ui_tweaks;
+
+  // Whether the feature to allow contextual search suggestions to be fulfilled
+  // by Lens is supported. This allows contextual suggestions to open the Lens
+  // overlay in the selection state. This is in contrast to the default behavior
+  // where the suggestion is fulfilled by the contextual searchbox.
+  bool suggestions_fulfilled_by_lens_supported;
 };
 
 // If enabled, allows MIA zero-prefix suggestions in NTP omnibox and realbox.

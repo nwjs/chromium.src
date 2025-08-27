@@ -289,7 +289,7 @@ Du kan kontrollera dina lösenord när du vill i <ph name="GOOGLE_PASSWORD_MANAG
 <translation id="1184037892196730210">Det gick inte att casta skärmen</translation>
 <translation id="1185924365081634987">Du kan också försöka lösa nätverksproblemet genom att <ph name="GUEST_SIGNIN_LINK_START" />surfa som gäst<ph name="GUEST_SIGNIN_LINK_END" />.</translation>
 <translation id="1187214683155615962">Avisering om prestandaproblem</translation>
-<translation id="1187722533808055681">Antal gånger som systemets vänteprocess har väckts</translation>
+<translation id="1187722533808055681">Aktivering efter inaktivitet</translation>
 <translation id="1188807932851744811">Loggen har inte laddats upp.</translation>
 <translation id="1190086046506744802">Mycket stort</translation>
 <translation id="1190155014618058972">Skapa anpassad tangentkombination</translation>
@@ -1104,7 +1104,6 @@ Behörigheter som du redan har gett appar kan gälla för det här kontot. Du ka
 <translation id="174123615272205933">Anpassa</translation>
 <translation id="1741314857973421784">Fortsätt</translation>
 <translation id="1744108098763830590">bakgrundssida</translation>
-<translation id="174516937379651657">När du delar en sida med Gemini skickas sidans fullständiga innehåll och webbadress till Google.</translation>
 <translation id="1745732479023874451">Hantera kontakter</translation>
 <translation id="1748283190377208783">{0,plural, =1{unused plural form}other{Vill du öppna och redigera # filer i den här webbappen?}}</translation>
 <translation id="1748329107062243374">Använd en nyckel från <ph name="DEVICE_NAME" /> för att logga in på <ph name="WEBSITE" /></translation>
@@ -5663,7 +5662,7 @@ Zooma ut med Ctrl + Alt + Minska ljusstyrkan.</translation>
 <translation id="4907129260985716018">Välj när det här tillägget kan läsa och ändra webbplatsdata</translation>
 <translation id="4908811072292128752">Öppna en ny flik om du vill surfa på två webbplatser samtidigt</translation>
 <translation id="4910241725741323970">Appen har redan installerats</translation>
-<translation id="4912643508233590958">Antal gånger som systemets vänteprocess har väckts</translation>
+<translation id="4912643508233590958">Aktivering efter inaktivitet</translation>
 <translation id="4913209098186576320">Den här filen kan vara farlig<ph name="LINE_BREAK" />Kontrollen tar längre tid än vanligt …</translation>
 <translation id="4913695564084524048">Det gick inte att hitta appdata</translation>
 <translation id="4915961947098019832">Får visa bilder</translation>
@@ -8200,7 +8199,6 @@ Det finns # utsatta lösenord till. Du rekommenderas av Google Lösenordshanteri
 <translation id="6759193508432371551">Återställ standardinställningar</translation>
 <translation id="6760354150216532978">Varning! Den här webbplatsen kan se ändringar du gör</translation>
 <translation id="6761209758867628753">Verktyg: Hjälp mig skriva</translation>
-<translation id="6761459308170527362">Du kan chatta med rösten eller via text för att ställa en fråga till Gemini om sidinnehållet du delar</translation>
 <translation id="676158322851696513"><ph name="EXTENSION_NAME" /></translation>
 <translation id="6761623907967804682">Webbplatsdata på enheten tillåts inte</translation>
 <translation id="6762833852331690540">På</translation>
@@ -8990,7 +8988,6 @@ Det finns # utsatta lösenord till. Du rekommenderas av Google Lösenordshanteri
 <translation id="7320213904474460808">Standardnätverk</translation>
 <translation id="7321545336522791733">Servern kan inte nås</translation>
 <translation id="7322515217754205362">Webbplatsbehörigheter</translation>
-<translation id="7322919329844967709">Du får mer relevanta svar som är kopplade till sidinnehållet du delar</translation>
 <translation id="7323315405936922211">Markörområdets storlek</translation>
 <translation id="7324020307732396723">Öppna språkinställningarna</translation>
 <translation id="7324297612904500502">Forum för betaversionen</translation>
@@ -10328,7 +10325,6 @@ Spara nyckelfilen på ett säkert ställe. Den behövs om du ska skapa nya versi
 <translation id="8222112516148944758">Flikgrupper sparas och uppdateras automatiskt på alla dina enheter</translation>
 <translation id="8222674561049363989">Filen är inte ett giltigt dokument</translation>
 <translation id="822347941086490485">Söker efter HID-enheter …</translation>
-<translation id="8224209912580158729">Dela sidinnehåll med Gemini för att få mer relevanta svar.</translation>
 <translation id="8224427620313426549">Ditt <ph name="DOMAIN_LINK" />-konto raderas inte</translation>
 <translation id="8225046344534779393">Kontrollera internetanslutningen</translation>
 <translation id="8225265270453771718">Dela ett appfönster</translation>

@@ -214,6 +214,13 @@ extern const base::FeatureParam<int> kLensSearchSidePanelDefaultWidth;
 COMPONENT_EXPORT(LENS_FEATURES)
 extern const base::FeatureParam<int> kLensOverlayEntrypointLabelAltId;
 
+// Whether the Lens overlay text selection context menu entrypoint should
+// issue contextual queries. If false, contextualization will be suppressed for
+// all queries in the session.
+COMPONENT_EXPORT(LENS_FEATURES)
+extern const base::FeatureParam<bool>
+    kLensOverlayTextSelectionContextMenuEntrypointContextualize;
+
 // The URL for the Lens home page.
 COMPONENT_EXPORT(LENS_FEATURES)
 extern std::string GetHomepageURLForLens();
@@ -840,6 +847,18 @@ extern bool ShouldShowAimInSidePanel();
 COMPONENT_EXPORT(LENS_FEATURES)
 extern bool GetAimSearchboxEnabled();
 
+// Whether the side panel ghost loader is disabled for AIM interactions.
+COMPONENT_EXPORT(LENS_FEATURES)
+extern bool GetSidePanelGhostLoaderDisabledForAim();
+
+// Whether the composebox should contextualize on focus.
+COMPONENT_EXPORT(LENS_FEATURES)
+extern bool GetShouldComposeboxContextualizeOnFocus();
+
+// Whether to close the overlay when the user transitions to the AIM UI.
+COMPONENT_EXPORT(LENS_FEATURES)
+extern bool ShouldCloseOverlayOnAimTransition();
+
 // Whether to use the alt loading hint when overlay is opened on web pages.
 COMPONENT_EXPORT(LENS_FEATURES)
 extern bool ShouldUseAltLoadingHintWeb();
@@ -960,6 +979,12 @@ extern std::string GetStraightToSrpQuery();
 // entrypoint.
 COMPONENT_EXPORT(LENS_FEATURES)
 extern bool IsLensOverlayTextSelectionContextMenuEntrypointEnabled();
+
+// Whether the Lens overlay text selection context menu entrypoint should
+// issue contextual queries. If false, contextualization will be suppressed for
+// all queries in the session.
+COMPONENT_EXPORT(LENS_FEATURES)
+extern bool IsLensOverlayTextSelectionContextMenuEntrypointContextualized();
 
 }  // namespace lens::features
 #endif  // COMPONENTS_LENS_LENS_FEATURES_H_

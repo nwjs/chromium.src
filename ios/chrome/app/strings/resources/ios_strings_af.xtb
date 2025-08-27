@@ -302,7 +302,6 @@
 <translation id="2120553909046681540">Jou organisasie het private blaai afgeskakel.</translation>
 <translation id="2122754583996902531">Jou blaaier word bestuur. <ph name="BEGIN_LINK" />Kom meer te wete<ph name="END_LINK" /></translation>
 <translation id="21243612977487926">Jou organisasie se kletse word nie gebruik om ons modelle te verbeter nie. Gemini kan dalk onakkurate inligting wys, insluitend oor mense, so jy moet dit dubbelkontroleer. <ph name="YOUR_PRIVACY_GEMINI" /></translation>
-<translation id="2126034128616392756">Die volgende wagwoorde is nie na Google Wagwoordbestuurder toe ingevoer nie, omdat hulle nie aan die vereistes voldoen nie.</translation>
 <translation id="2139867232736819575">Soek vir teks wat jy gekopieer het</translation>
 <translation id="2147127444698817042">Net op iPhone beskikbaar</translation>
 <translation id="2148799636999124959">Meld vinnig by werwe en apps aan met jou gestoorde wagwoorde.</translation>
@@ -513,6 +512,7 @@ Jou soekenjin is <ph name="DSE_NAME" />. Sien hul instruksies om jou soekgeskied
 <translation id="2931440415625410757">Wys instruksies</translation>
 <translation id="2952278131021475699">Lens-kamerasoektog</translation>
 <translation id="2962516096219646456">Sien alle outovuldata</translation>
+<translation id="2965594942405840553">Hierdie handeling kan nie ontdoen word nie</translation>
 <translation id="2969979262385602596">Kon nie aanmeld nie. Probeer asseblief later weer.</translation>
 <translation id="2975761176769946178">’n URL word vereis</translation>
 <translation id="297667759942911166">Werk saam in oortjiegroepe</translation>
@@ -664,6 +664,7 @@ Sien jou soekenjin se instruksies om jou soekgeskiedenis uit te vee, indien nodi
 <translation id="3596414637720633074">Blokkeer derdepartywebkoekies in Incognito</translation>
 <translation id="3602260545951981695">Kies “Verbeterde beskerming”</translation>
 <translation id="3610041351087301930">Versteek Leser</translation>
+<translation id="3610866916973186448">Ja, vee uit</translation>
 <translation id="3622175633937495219">Soekgeskiedenis (<ph name="COUNT" /> gevind)</translation>
 <translation id="3625008969091706597">Jy kan die rand swiep om terug te gaan.</translation>
 <translation id="362709345066740529">Pasmaak hier jou kaarte, stroom en meer</translation>
@@ -1973,6 +1974,7 @@ Werwe kan webkoekies gebruik om jou blaai-aktiwiteit op verskillende werwe te si
 <translation id="8561999115126307258">{count,plural, =1{{count} opsie vir wagwoord is bo jou sleutelbord beskikbaar.}other{{count} opsies vir wagwoord is bo jou sleutelbord beskikbaar.}}</translation>
 <translation id="8564894539416715395">Nuwe oortjiebladsy</translation>
 <translation id="8569721750632860947">Watter URL wil jy by jou leeslys voeg?</translation>
+<translation id="8571019948162152515">Vee “<ph name="FILENAME" />” uit?</translation>
 <translation id="8571213806525832805">Afgelope vier weke</translation>
 <translation id="8577056989960190117">Vul die vervaljaar <ph name="YEAR" /> outomaties in</translation>
 <translation id="8588404856427128947">Af</translation>

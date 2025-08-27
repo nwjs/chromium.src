@@ -11,6 +11,7 @@
 #import "components/omnibox/browser/autocomplete_match_classification.h"
 #import "components/omnibox/browser/autocomplete_result.h"
 #import "components/omnibox/browser/omnibox_client.h"
+#import "components/omnibox/browser/omnibox_field_trial.h"
 #import "components/prefs/pref_service.h"
 #import "ios/chrome/browser/aim/model/aim_availability.h"
 #import "ios/chrome/browser/omnibox/model/suggestions/autocomplete_match_formatter.h"
@@ -39,14 +40,19 @@
   NSArray<id<AutocompleteSuggestionGroup>>* _nonPedalSuggestionsGroups;
   /// The omnibox client.
   base::WeakPtr<OmniboxClient> _omniboxClient;
+  /// The autocomplete client.
+  base::WeakPtr<AutocompleteProviderClient> _autocompleteProviderClient;
   /// Whether aim shortcut is available.
   BOOL _aimShortcutAvailable;
 }
 
-- (instancetype)initWithOmniboxClient:(OmniboxClient*)omniboxClient {
+- (instancetype)initWithOmniboxClient:(OmniboxClient*)omniboxClient
+           autocompleteProviderClient:
+               (AutocompleteProviderClient*)autocompleteProviderClient {
   self = [super init];
   if (self) {
     _omniboxClient = omniboxClient->AsWeakPtr();
+    _autocompleteProviderClient = autocompleteProviderClient->GetWeakPtr();
     _pedalSectionExtractor = [[PedalSectionExtractor alloc] init];
     _pedalSectionExtractor.delegate = self;
   }
@@ -56,7 +62,7 @@
 - (void)disconnect {
   _searchEngineObserver.reset();
   _omniboxClient = nullptr;
-  self.profilePrefService = nullptr;
+  _autocompleteProviderClient = nullptr;
 }
 
 - (NSArray<id<AutocompleteSuggestionGroup>>*)wrapAutocompleteResultInGroups:
@@ -114,12 +120,10 @@
       templateURLService && templateURLService->GetDefaultSearchProvider() &&
       templateURLService->GetDefaultSearchProvider()->GetEngineType(
           templateURLService->search_terms_data()) == SEARCH_ENGINE_GOOGLE;
-  if (self.profilePrefService) {
-    _aimShortcutAvailable =
-        !self.isLensOverlay &&
-        base::FeatureList::IsEnabled(omnibox::kOmniboxAimShortcutTypedState) &&
-        IsAIMAvailable(self.profilePrefService, templateURLService);
-  }
+  _aimShortcutAvailable =
+      !self.isLensOverlay && _autocompleteProviderClient &&
+      OmniboxFieldTrial::IsDeterministicAimActionInTypedStateEnabled(
+          _autocompleteProviderClient.get());
 }
 
 #pragma mark - Private
@@ -157,7 +161,7 @@
 
     switch (suggestAction.type) {
       case omnibox::SuggestTemplateInfo_TemplateAction_ActionType_CHROME_AIM:
-        formatter.hasAimShortcut = _aimShortcutAvailable && !self.incognito;
+        formatter.hasAimShortcut = _aimShortcutAvailable;
         break;
       case omnibox::SuggestTemplateInfo_TemplateAction_ActionType_CALL: {
         BOOL hasDialApp = [[UIApplication sharedApplication]

@@ -1104,7 +1104,6 @@
 <translation id="174123615272205933">맞춤</translation>
 <translation id="1741314857973421784">계속</translation>
 <translation id="1744108098763830590">백그라운드 페이지</translation>
-<translation id="174516937379651657">Gemini와 페이지를 공유하면 페이지의 전체 콘텐츠와 URL이 Google로 전송됩니다.</translation>
 <translation id="1745732479023874451">연락처 관리</translation>
 <translation id="1748283190377208783">{0,plural, =1{unused plural form}other{이 웹 앱에서 # 파일을 열고 수정하시겠습니까?}}</translation>
 <translation id="1748329107062243374"><ph name="DEVICE_NAME" />의 패스키로 <ph name="WEBSITE" />에 로그인하세요</translation>
@@ -3209,7 +3208,7 @@
 <translation id="3201237270673604992">알파벳 역순</translation>
 <translation id="3201422919974259695">사용 가능한 USB 기기가 여기에 표시됩니다.</translation>
 <translation id="3202499879214571401"><ph name="DEVICE_NAME" /> 기기로의 화면 전송 일시중지</translation>
-<translation id="3202578601642193415">최근</translation>
+<translation id="3202578601642193415">날짜순</translation>
 <translation id="3204648577100496185">앱과 관련된 데이터가 기기에서 삭제될 수 있습니다.</translation>
 <translation id="3206289903841621620">사용자 사전 <ph name="NUMBER" /></translation>
 <translation id="3207344462385471911">최근 활동을 바탕으로 내가 관심을 가질 만한 추천 검색어 및 쇼핑 할인이 표시됩니다.
@@ -7614,7 +7613,7 @@ https://support.google.com/chromebook/?p=tpm</translation>
 <translation id="6325191661371220117">자동 실행 사용 안함</translation>
 <translation id="632524945411480350">창 크기를 아래쪽으로 조정함</translation>
 <translation id="6326175484149238433">Chrome에서 삭제</translation>
-<translation id="6326855256003666642">프로그램 사용자 수</translation>
+<translation id="6326855256003666642">연결 유지 활동 수</translation>
 <translation id="6327065839080961103"><ph name="FEATURE_NAME" /> 데이터 사용량</translation>
 <translation id="6327785803543103246">웹 프록시 자동검색</translation>
 <translation id="6329916384047371874"><ph name="DOMAIN" />에 <ph name="PASSWORD_DOMAIN" /> 비밀번호를 사용하게 됩니다. <ph name="DOMAIN" />을(를) 신뢰하는 경우에만 해당 비밀번호를 사용하세요.</translation>
@@ -8201,7 +8200,6 @@ https://support.google.com/chromebook/?p=tpm</translation>
 <translation id="6759193508432371551">초기화</translation>
 <translation id="6760354150216532978">경고: 이 사이트에서 내가 수정한 내용을 볼 수 있습니다</translation>
 <translation id="6761209758867628753">도구: 작성 지원 기능</translation>
-<translation id="6761459308170527362">음성 또는 텍스트 채팅을 사용하여 Gemini에게 공유 중인 페이지 콘텐츠에 대해 질문할 수 있습니다.</translation>
 <translation id="676158322851696513">"<ph name="EXTENSION_NAME" />"</translation>
 <translation id="6761623907967804682">기기 내 사이트 데이터가 허용되지 않음</translation>
 <translation id="6762833852331690540">사용</translation>
@@ -8991,7 +8989,6 @@ https://support.google.com/chromebook/?p=tpm</translation>
 <translation id="7320213904474460808">기본 네트워크 설정</translation>
 <translation id="7321545336522791733">서버에 연결할 수 없음</translation>
 <translation id="7322515217754205362">사이트 권한</translation>
-<translation id="7322919329844967709">공유하는 페이지 콘텐츠와 관련된 더 관련성 높은 답변을 얻을 수 있습니다.</translation>
 <translation id="7323315405936922211">커서 영역 크기</translation>
 <translation id="7324020307732396723">언어 설정 열기</translation>
 <translation id="7324297612904500502">베타 포럼</translation>
@@ -9191,7 +9188,7 @@ https://support.google.com/chromebook/?p=tpm</translation>
 <translation id="7453008956351770337">이 프린터를 선택하면 다음 확장 프로그램에 내 프린터에 액세스할 수 있는 권한을 부여하게 됩니다.</translation>
 <translation id="7453032093368223821">기타 데이터 관리</translation>
 <translation id="7454548535253569100">포털: <ph name="SUBFRAME_SITE" /></translation>
-<translation id="7454744349230173024">조직에서 비밀번호 저장을 사용 중지했습니다</translation>
+<translation id="7454744349230173024">조직에서 비밀번호 저장을 사용 중지했습니다.</translation>
 <translation id="7455730275746867420">추가 컨테이너 관리</translation>
 <translation id="7455988709578031708">방문 기록을 기반으로 추천됩니다. 이 설정을 사용하고 있습니다.</translation>
 <translation id="7456142309650173560">개발자</translation>
@@ -9736,7 +9733,7 @@ https://support.google.com/chromebook/?p=tpm</translation>
 <translation id="7820400255539998692">이 기기를 사용하는 다른 사용자가 내 비밀번호를 볼 수 없도록 <ph name="FILENAME" /> 파일을 삭제하세요.</translation>
 <translation id="7820561748632634942">추가 스위치를 할당하시겠습니까?</translation>
 <translation id="782057141565633384">동영상 주소 복사(&amp;O)</translation>
-<translation id="7824665136384946951">조직에서 세이프 브라우징을 사용 중지했습니다</translation>
+<translation id="7824665136384946951">조직에서 세이프 브라우징을 사용 중지했습니다.</translation>
 <translation id="7824864914877854148">오류로 인해 백업을 완료할 수 없습니다.</translation>
 <translation id="7825289983414309119">산</translation>
 <translation id="782590969421016895">현재 페이지 사용</translation>
@@ -10329,7 +10326,6 @@ https://support.google.com/chromebook/?p=sm</translation>
 <translation id="8222112516148944758">탭 그룹이 모든 기기에서 자동으로 저장되고 업데이트됩니다.</translation>
 <translation id="8222674561049363989">유효한 파일 문서가 아닙니다</translation>
 <translation id="822347941086490485">HID 기기를 찾는 중...</translation>
-<translation id="8224209912580158729">더 관련성 높은 대답을 얻으려면 Gemini와 페이지 콘텐츠를 공유하세요.</translation>
 <translation id="8224427620313426549"><ph name="DOMAIN_LINK" /> 계정은 삭제되지 않습니다.</translation>
 <translation id="8225046344534779393">인터넷 연결 상태 확인</translation>
 <translation id="8225265270453771718">애플리케이션 창 공유</translation>

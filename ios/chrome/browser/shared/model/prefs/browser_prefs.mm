@@ -40,6 +40,7 @@
 #import "components/network_time/network_time_tracker.h"
 #import "components/ntp_tiles/most_visited_sites.h"
 #import "components/ntp_tiles/popular_sites_impl.h"
+#import "components/omnibox/browser/aim_eligibility_service.h"
 #import "components/omnibox/browser/omnibox_prefs.h"
 #import "components/omnibox/browser/zero_suggest_provider.h"
 #import "components/optimization_guide/core/model_execution/model_execution_prefs.h"
@@ -686,6 +687,7 @@ void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry) {
   autofill::prefs::RegisterProfilePrefs(registry);
   collaboration::prefs::RegisterProfilePrefs(registry);
   commerce::RegisterPrefs(registry);
+  AimEligibilityService::RegisterProfilePrefs(registry);
   dom_distiller::DistilledPagePrefs::RegisterProfilePrefs(registry);
   enterprise::RegisterIdentifiersProfilePrefs(registry);
   enterprise_connectors::RegisterProfilePrefs(registry);
@@ -1035,12 +1037,15 @@ void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry) {
 
   // BWG prefs.
   registry->RegisterDictionaryPref(prefs::kBwgSessionMap);
-  registry->RegisterBooleanPref(prefs::kIOSBwgConsent, false);
+  registry->RegisterBooleanPref(
+      prefs::kIOSBwgConsent, false,
+      user_prefs::PrefRegistrySyncable::SYNCABLE_PREF);
   registry->RegisterBooleanPref(prefs::kIOSBWGPreciseLocationSetting, false);
   registry->RegisterBooleanPref(prefs::kIOSBWGPageContentSetting, true);
   registry->RegisterIntegerPref(prefs::kIOSBWGPromoImpressionCount, 0);
   registry->RegisterTimePref(prefs::kLastGeminiInteractionTimestamp,
                              base::Time());
+  registry->RegisterStringPref(prefs::kLastGeminiInteractionURL, std::string());
   registry->RegisterStringPref(prefs::kGeminiConversationId, std::string());
 
   registry->RegisterTimePref(prefs::kIosSyncInfobarErrorLastDismissedTimestamp,

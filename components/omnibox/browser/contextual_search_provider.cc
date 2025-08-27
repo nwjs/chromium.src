@@ -41,7 +41,6 @@
 #include "components/omnibox/browser/suggestion_group_util.h"
 #include "components/omnibox/browser/zero_suggest_provider.h"
 #include "components/omnibox/common/omnibox_feature_configs.h"
-#include "components/search/search.h"
 #include "components/search_engines/search_engine_type.h"
 #include "components/search_engines/search_terms_data.h"
 #include "components/search_engines/template_url.h"
@@ -145,21 +144,19 @@ struct EligibleMatchesAndActions {
         (toolbelt_config.always_include_lens_action ||
          LensEntrypointEligible(input, client));
 
-    // - Restricted to when `kAiModeOmniboxEntryPoint` is disabled
-    // - Restricted to DSE google
-    // - Restricted to locale EN
-    // - Restricted to when `kAIModeSettings` policy is enabled
+    // When the AIM page action is enabled, we need to suppress the AIM toolbelt
+    // action in order to ensure that there's at most one AIM entrypoint shown
+    // in the Omnibox.
+    bool is_aim_page_action_enabled =
+        OmniboxFieldTrial::IsAimOmniboxEntrypointEnabled(
+            client->GetAimEligibilityService());
     toolbelt_ai_mode =
         toolbelt &&
-        !base::FeatureList::IsEnabled(omnibox::kAiModeOmniboxEntryPoint) &&
-        search::DefaultSearchProviderIsGoogle(
-            client->GetTemplateURLService()) &&
-        l10n_util::GetLanguage(client->GetApplicationLocale()) == "en" &&
-        omnibox::IsAimAllowedByPolicy(client->GetPrefs()) &&
         ToolbeltActionEligible(
             input, client, toolbelt_config.show_ai_mode_action_on_non_ntp,
             toolbelt_config.show_ai_mode_action_on_ntp,
-            template_url_starter_pack_data::StarterPackId::kAiMode);
+            template_url_starter_pack_data::StarterPackId::kAiMode) &&
+        !is_aim_page_action_enabled;
 
     toolbelt_history =
         toolbelt &&

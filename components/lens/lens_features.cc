@@ -10,6 +10,7 @@
 #include "base/metrics/field_trial_params.h"
 #include "base/numerics/safe_conversions.h"
 #include "base/time/time.h"
+#include "build/branding_buildflags.h"
 #include "build/build_config.h"
 
 namespace lens::features {
@@ -109,7 +110,11 @@ BASE_FEATURE(kLensOverlayCornerSliders,
 
 BASE_FEATURE(kLensSearchProtectedPage,
              "LensSearchProtectedPage",
+#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
              base::FEATURE_ENABLED_BY_DEFAULT);
+#else
+             base::FEATURE_DISABLED_BY_DEFAULT);
+#endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING)
 
 BASE_FEATURE(kLensOverlayEduActionChip,
              "LensOverlayEduActionChip",
@@ -579,8 +584,22 @@ constexpr base::FeatureParam<bool> kOpenAimInSidePanel{
 constexpr base::FeatureParam<bool> kAimSearchboxEnabled{
     &kLensSearchAimM3, "aim-searchbox-enabled", true};
 
+constexpr base::FeatureParam<bool> kSidePanelGhostLoaderDisabledForAim{
+    &kLensSearchAimM3, "side-panel-ghost-loader-disabled-for-aim", true};
+
+constexpr base::FeatureParam<bool> kContextualizeOnFocus{
+    &kLensSearchAimM3, "contextualize-on-focus", false};
+
+constexpr base::FeatureParam<bool> kCloseOverlayOnAimTransition{
+    &kLensSearchAimM3, "close-overlay-on-aim-transition", true};
+
 const base::FeatureParam<int> kLensOverlayEntrypointLabelAltId{
     &kLensOverlayEntrypointLabelAlt, "id", 0};
+
+constexpr base::FeatureParam<bool>
+    kLensOverlayTextSelectionContextMenuEntrypointContextualize{
+        &kLensOverlayTextSelectionContextMenuEntrypoint, "contextualize",
+        false};
 
 std::string GetHomepageURLForLens() {
   return kHomepageURLForLens.Get();
@@ -1088,6 +1107,21 @@ bool GetAimSearchboxEnabled() {
          kAimSearchboxEnabled.Get();
 }
 
+bool GetSidePanelGhostLoaderDisabledForAim() {
+  return base::FeatureList::IsEnabled(kLensSearchAimM3) &&
+         kSidePanelGhostLoaderDisabledForAim.Get();
+}
+
+bool GetShouldComposeboxContextualizeOnFocus() {
+  return base::FeatureList::IsEnabled(kLensSearchAimM3) &&
+         kContextualizeOnFocus.Get();
+}
+
+bool ShouldCloseOverlayOnAimTransition() {
+  return base::FeatureList::IsEnabled(kLensSearchAimM3) &&
+         kCloseOverlayOnAimTransition.Get();
+}
+
 bool ShouldUseAltLoadingHintWeb() {
   return kUseAltLoadingHintWeb.Get();
 }
@@ -1210,6 +1244,10 @@ std::string GetStraightToSrpQuery() {
 bool IsLensOverlayTextSelectionContextMenuEntrypointEnabled() {
   return base::FeatureList::IsEnabled(
       kLensOverlayTextSelectionContextMenuEntrypoint);
+}
+
+bool IsLensOverlayTextSelectionContextMenuEntrypointContextualized() {
+  return kLensOverlayTextSelectionContextMenuEntrypointContextualize.Get();
 }
 
 }  // namespace lens::features

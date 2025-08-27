@@ -91,7 +91,14 @@ class FeaturedSearchProviderTest : public testing::Test {
   ~FeaturedSearchProviderTest() override = default;
 
   void SetUp() override {
+    toolbelt_scoped_config_.Get().enabled = true;
     client_ = std::make_unique<FakeAutocompleteProviderClient>();
+
+    MockAimEligibilityService* mock_aim_eligibility_service =
+        static_cast<MockAimEligibilityService*>(
+            client_->GetAimEligibilityService());
+    EXPECT_CALL(*mock_aim_eligibility_service, IsAimEligible())
+        .WillRepeatedly(testing::Return(true));
     provider_ = new FeaturedSearchProvider(client_.get());
     omnibox::RegisterProfilePrefs(
         static_cast<sync_preferences::TestingPrefServiceSyncable*>(
@@ -179,6 +186,9 @@ class FeaturedSearchProviderTest : public testing::Test {
         std::make_unique<TemplateURL>(template_url_data));
   }
 
+  omnibox_feature_configs::ScopedConfigForTesting<
+      omnibox_feature_configs::Toolbelt>
+      toolbelt_scoped_config_;
   std::unique_ptr<MockAutocompleteProviderClient> client_;
   scoped_refptr<FeaturedSearchProvider> provider_;
 };

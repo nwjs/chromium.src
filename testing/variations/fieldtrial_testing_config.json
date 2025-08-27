@@ -8151,54 +8151,31 @@
             ],
             "experiments": [
                 {
-                    "name": "_enabled_OnFocusZPS_NoPrefetch_LensAction",
+                    "name": "_enabled_OnFocusZPS_NoPrefetch_ContextualSearch_LensAction",
                     "params": {
-                        "Limit": "0",
-                        "OmniboxZpsMaxSearchSuggestions": "3",
+                        "OmniboxZpsMaxSearchSuggestions": "6",
                         "OmniboxZpsMaxSuggestions": "6",
-                        "OmniboxZpsMaxUrlSuggestions": "3",
-                        "OnFocusMaxSearchSuggestions": "3",
-                        "OnFocusMaxUrlSuggestions": "3",
-                        "OnFocusMostVisitedMaxSuggestions": "6"
+                        "OmniboxZpsMaxUrlSuggestions": "0"
                     },
                     "enable_features": [
-                        "OmniboxContextualSearchOnFocusSuggestions",
-                        "OmniboxFocusTriggersWebAndSRPZeroSuggest",
-                        "OmniboxHideSuggestionGroupHeaders",
-                        "OmniboxUrlSuggestionsOnFocus",
-                        "OmniboxZeroSuggestSynchronousMatchesOnly",
-                        "OmniboxZpsSuggestionLimit"
-                    ],
-                    "disable_features": [
-                        "LensOverlayOmniboxEntryPoint"
-                    ]
-                },
-                {
-                    "name": "_enabled_OnFocusZPS_ContextualSearchAndUrlSuggestions_LensAction",
-                    "params": {
-                        "OmniboxZpsMaxSearchSuggestions": "3",
-                        "OmniboxZpsMaxSuggestions": "6",
-                        "OmniboxZpsMaxUrlSuggestions": "3",
-                        "OnFocusMaxSearchSuggestions": "3",
-                        "OnFocusMaxUrlSuggestions": "3",
-                        "OnFocusMostVisitedMaxSuggestions": "6"
-                    },
-                    "enable_features": [
+                        "ContextualSuggestionsAblateOthersWhenPresent",
                         "ContextualZeroSuggestLensFulfillment",
+                        "HappinessTrackingSurveyForOmniboxOnFocusZps",
+                        "LensOverlayContextualSearchboxForOmniboxSuggestions",
+                        "LensOverlayVisualSelectionUpdatesForOmniboxSuggestions",
                         "OmniboxContextualSearchOnFocusSuggestions",
                         "OmniboxFocusTriggersWebAndSRPZeroSuggest",
                         "OmniboxHideSuggestionGroupHeaders",
-                        "OmniboxUrlSuggestionsOnFocus",
-                        "OmniboxZeroSuggestSynchronousMatchesOnly",
+                        "OmniboxShowPopupOnMouseReleased",
                         "OmniboxZpsSuggestionLimit",
                         "SendContextualUrlSuggestParam",
                         "SendPageTitleSuggestParam",
                         "ShowSuggestionsOnNoApc",
-                        "UseApcPaywallSignal",
-                        "ZeroSuggestPrefetchingOnWeb"
+                        "UseApcPaywallSignal"
                     ],
                     "disable_features": [
-                        "LensOverlayOmniboxEntryPoint"
+                        "LensOverlayOmniboxEntryPoint",
+                        "OmniboxUrlSuggestionsOnFocus"
                     ]
                 }
             ]
@@ -12174,6 +12151,24 @@
             ]
         }
     ],
+    "HttpsFirstDialogUi": [
+        {
+            "platforms": [
+                "chromeos",
+                "linux",
+                "mac",
+                "windows"
+            ],
+            "experiments": [
+                {
+                    "name": "Enabled",
+                    "enable_features": [
+                        "HttpsFirstDialogUi"
+                    ]
+                }
+            ]
+        }
+    ],
     "HttpsFirstModeV2ForTypicallySecureUsers": [
         {
             "platforms": [
@@ -13160,6 +13155,21 @@
                         "EnableReaderModeDefaultBrowserPromo",
                         "EnableReaderModePageEligibilityForToolsMenu",
                         "ReaderModeUseReadability"
+                    ]
+                }
+            ]
+        }
+    ],
+    "IOSSafariImportWorkflow": [
+        {
+            "platforms": [
+                "ios"
+            ],
+            "experiments": [
+                {
+                    "name": "Enabled",
+                    "enable_features": [
+                        "ImportPasswordsFromSafari"
                     ]
                 }
             ]
@@ -15100,11 +15110,9 @@
             ]
         }
     ],
-    "MemoryPurgeOnFreezeLimit": [
+    "MemoryPurgeOnFreezeDisabled": [
         {
             "platforms": [
-                "android",
-                "android_webview",
                 "chromeos",
                 "linux",
                 "mac",
@@ -15112,9 +15120,9 @@
             ],
             "experiments": [
                 {
-                    "name": "Enabled",
-                    "enable_features": [
-                        "MemoryPurgeOnFreezeLimit"
+                    "name": "Disabled",
+                    "disable_features": [
+                        "MemoryPurgeOnFreeze"
                     ]
                 }
             ]
@@ -16118,6 +16126,28 @@
             "experiments": [
                 {
                     "name": "Enabled"
+                }
+            ]
+        }
+    ],
+    "OmniboxAiRhsEchoLensToolbeltDesktop": [
+        {
+            "platforms": [
+                "chromeos",
+                "linux",
+                "mac",
+                "windows"
+            ],
+            "experiments": [
+                {
+                    "name": "Enabled",
+                    "enable_features": [
+                        "AiModeOmniboxEntryPoint",
+                        "AllowAiModeMatches",
+                        "OmniboxHideAimEntrypointOnUserInput",
+                        "OmniboxToolbelt",
+                        "OpenLensActionUITweaks"
+                    ]
                 }
             ]
         }
@@ -25159,15 +25189,41 @@
                         "UserVisibleProcessPriority"
                     ],
                     "disable_features": [
-                        "RestrictThreadPoolInBackground",
-                        "SetIsolatesPriority"
+                        "IsolatesPriorityBestEffortWhenHidden",
+                        "IsolatesPriorityUseProcessPriority",
+                        "RestrictThreadPoolInBackground"
                     ]
                 },
                 {
-                    "name": "RendererSettings",
+                    "name": "IsolatesPriority",
+                    "enable_features": [
+                        "IsolatesPriorityBestEffortWhenHidden",
+                        "IsolatesPriorityUseProcessPriority",
+                        "UnimportantFramesPriority"
+                    ],
+                    "disable_features": [
+                        "RestrictThreadPoolInBackground",
+                        "UserVisibleProcessPriority"
+                    ]
+                },
+                {
+                    "name": "RestrictThreadPoolInBackground",
                     "enable_features": [
                         "RestrictThreadPoolInBackground",
-                        "SetIsolatesPriority",
+                        "UnimportantFramesPriority"
+                    ],
+                    "disable_features": [
+                        "IsolatesPriorityBestEffortWhenHidden",
+                        "IsolatesPriorityUseProcessPriority",
+                        "UserVisibleProcessPriority"
+                    ]
+                },
+                {
+                    "name": "AllRendererSettings",
+                    "enable_features": [
+                        "IsolatesPriorityBestEffortWhenHidden",
+                        "IsolatesPriorityUseProcessPriority",
+                        "RestrictThreadPoolInBackground",
                         "UnimportantFramesPriority"
                     ],
                     "disable_features": [
@@ -25177,8 +25233,9 @@
                 {
                     "name": "All",
                     "enable_features": [
+                        "IsolatesPriorityBestEffortWhenHidden",
+                        "IsolatesPriorityUseProcessPriority",
                         "RestrictThreadPoolInBackground",
-                        "SetIsolatesPriority",
                         "UnimportantFramesPriority",
                         "UserVisibleProcessPriority"
                     ]

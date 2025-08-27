@@ -302,7 +302,6 @@
 <translation id="2120553909046681540">Votre organisation a désactivé la navigation privée.</translation>
 <translation id="2122754583996902531">Votre navigateur est géré. <ph name="BEGIN_LINK" />En savoir plus<ph name="END_LINK" /></translation>
 <translation id="21243612977487926">Les clavardages de votre organisation ne sont pas utilisés pour améliorer nos modèles. Gemini may display inaccurate info, including about people, so double-check it. <ph name="YOUR_PRIVACY_GEMINI" /></translation>
-<translation id="2126034128616392756">Les mots de passe suivants n'ont pas été importés dans le gestionnaire de mots de passe Google, car ils ne répondent pas aux exigences.</translation>
 <translation id="2139867232736819575">Rechercher le texte que vous avez copié</translation>
 <translation id="2147127444698817042">Uniquement accessible sur iPhone</translation>
 <translation id="2148799636999124959">Connectez-vous rapidement aux sites et aux applis grâce à vos mots de passe enregistrés.</translation>
@@ -513,6 +512,7 @@ Vous utilisez <ph name="DSE_NAME" /> comme moteur de recherche. Consultez les in
 <translation id="2931440415625410757">Afficher les instructions</translation>
 <translation id="2952278131021475699">Recherche avec Lentille Google au moyen de l'appareil photo</translation>
 <translation id="2962516096219646456">Voir toutes les données de remplissage automatique</translation>
+<translation id="2965594942405840553">Cette action est irréversible</translation>
 <translation id="2969979262385602596">Échec de connexion. Veuillez réessayer plus tard.</translation>
 <translation id="2975761176769946178">Veuillez entrer une URL</translation>
 <translation id="297667759942911166">Collaborer dans des groupes d'onglets</translation>
@@ -664,6 +664,7 @@ Consultez les instructions de votre moteur de recherche pour supprimer votre his
 <translation id="3596414637720633074">Bloquer les témoins tiers en navigation privée</translation>
 <translation id="3602260545951981695">Choisissez « Protection renforcée »</translation>
 <translation id="3610041351087301930">Masquer le lecteur</translation>
+<translation id="3610866916973186448">Oui, supprimer</translation>
 <translation id="3622175633937495219">Historique de recherche (<ph name="COUNT" /> éléments trouvés)</translation>
 <translation id="3625008969091706597">Vous pouvez balayer l'écran à partir du bord pour reculer.</translation>
 <translation id="362709345066740529">Personnalisez vos cartes, votre flux et bien plus ici</translation>
@@ -1973,6 +1974,7 @@ Les sites peuvent utiliser des témoins afin de voir votre activité de navigati
 <translation id="8561999115126307258">{count,plural, =1{{count} option de mot de passe accessible au-dessus de votre clavier.}one{{count} option de mot de passe accessible au-dessus de votre clavier.}other{{count} options de mot de passe accessibles au-dessus de votre clavier.}}</translation>
 <translation id="8564894539416715395">Page Nouvel onglet</translation>
 <translation id="8569721750632860947">Quelle URL souhaitez-vous ajouter à votre Liste de lecture?</translation>
+<translation id="8571019948162152515">Supprimer « <ph name="FILENAME" /> »?</translation>
 <translation id="8571213806525832805">Quatre dernières semaines</translation>
 <translation id="8577056989960190117">Remplir automatiquement l'année d'expiration <ph name="YEAR" /></translation>
 <translation id="8588404856427128947">Désactivée</translation>

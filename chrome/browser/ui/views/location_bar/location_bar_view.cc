@@ -432,10 +432,24 @@ void LocationBarView::Init() {
   params.types_enabled.push_back(PageActionIconType::kVirtualCardEnroll);
   params.types_enabled.push_back(PageActionIconType::kMandatoryReauth);
 
+  if (browser_ &&
+      base::FeatureList::IsEnabled(omnibox::kAiModeOmniboxEntryPoint)) {
+    // Position in the leading position, like the entrypoint for
+    // kLensOverlayHomework below. While both chips may be enabled, they will
+    // not appear at the same time due to different focus behavior. The
+    // visibility of this entrypoint is dependent on whether or not the user
+    // meets AIM eligibility criteria.
+    params.types_enabled.insert(params.types_enabled.begin(),
+                                PageActionIconType::kAiMode);
+  }
+
   if (browser_ && lens::features::IsOmniboxEntryPointEnabled()) {
     // The persistent compact entrypoint should be positioned directly before
     // the star icon and the prominent expanding entrypoint should be
-    // positioned in the leading position.
+    // positioned in the leading position. This entrypoint will be suppressed
+    // if the AIM page action is enabled and the user meets AIM eligibility
+    // criteria, since we want to avoid both showing up when the user focuses
+    // the Omnibox.
     if (lens::features::IsOmniboxEntrypointAlwaysVisible()) {
       params.types_enabled.push_back(PageActionIconType::kLensOverlay);
     } else {
@@ -450,19 +464,6 @@ void LocationBarView::Init() {
     // at the same time due to different focus behavior.
     params.types_enabled.insert(params.types_enabled.begin(),
                                 PageActionIconType::kLensOverlayHomework);
-  }
-
-  // - Restricted to DSE Google.
-  // - Restricted to locale EN.
-  // - Restricted to when `kAIModeSettings` policy is enabled.
-  OmniboxClient* client = omnibox_view_->controller()->client();
-  if (browser_ &&
-      base::FeatureList::IsEnabled(omnibox::kAiModeOmniboxEntryPoint) &&
-      search::DefaultSearchProviderIsGoogle(client->GetTemplateURLService()) &&
-      l10n_util::GetLanguage(g_browser_process->GetApplicationLocale()) ==
-          "en" &&
-      omnibox::IsAimAllowedByPolicy(client->GetPrefs())) {
-    params.types_enabled.push_back(PageActionIconType::kAiMode);
   }
 
   if (browser_ && tab_groups::SavedTabGroupUtils::SupportsSharedTabGroups()) {
@@ -1305,14 +1306,6 @@ bool LocationBarView::RefreshContentSettingViews() {
   return visibility_changed;
 }
 
-void LocationBarView::RefreshAimPageActionIcon() {
-  PageActionIconView* aim_page_action_icon_view =
-      page_action_icon_controller_->GetIconView(PageActionIconType::kAiMode);
-  if (aim_page_action_icon_view) {
-    aim_page_action_icon_view->Update();
-  }
-}
-
 void LocationBarView::RefreshPageActionIconViews() {
   if (web_app::AppBrowserController::IsWebApp(browser_)) {
     // For web apps, the location bar is normally hidden and icons appear in
@@ -1324,6 +1317,15 @@ void LocationBarView::RefreshPageActionIconViews() {
 
   page_action_icon_controller_->UpdateAll();
 }
+
+void LocationBarView::RefreshAiModePageActionIconView() {
+  PageActionIconView* aim_icon_view =
+      page_action_icon_controller_->GetIconView(PageActionIconType::kAiMode);
+  if (aim_icon_view) {
+    aim_icon_view->Update();
+  }
+}
+
 
 void LocationBarView::RefreshPageActionContainerViewAndIconsVisibility(
     bool should_hide_page_actions) {
@@ -1555,6 +1557,10 @@ void LocationBarView::OnChanged() {
   InvalidateLayout();
   SchedulePaint();
   UpdateChipVisibility();
+  // The AI mode page action icon view visibility depends on whether or not
+  // user text has been entered into the omnibox, so refresh the icon on
+  // changes.
+  RefreshAiModePageActionIconView();
 }
 
 void LocationBarView::OnPopupVisibilityChanged() {
@@ -1589,8 +1595,9 @@ void LocationBarView::OnOmniboxFocused() {
   hover_animation_.Reset();
   RefreshBackground();
 
-  // Ensure AIM page action button reacts to changes in Omnibox focus state.
-  RefreshAimPageActionIcon();
+  // The AI mode page action icon view should only be visible when the omnibox
+  // is focused, so if there is a change in focus, refresh the icon.
+  RefreshAiModePageActionIconView();
 }
 
 void LocationBarView::OnOmniboxBlurred() {
@@ -1599,8 +1606,9 @@ void LocationBarView::OnOmniboxBlurred() {
   }
   RefreshBackground();
 
-  // Ensure AIM page action button reacts to changes in Omnibox focus state.
-  RefreshAimPageActionIcon();
+  // The AI mode page action icon view should only be visible when the omnibox
+  // is focused, so if there is a change in focus, refresh the icon.
+  RefreshAiModePageActionIconView();
 }
 
 void LocationBarView::OnOmniboxHovered(bool is_hovering) {

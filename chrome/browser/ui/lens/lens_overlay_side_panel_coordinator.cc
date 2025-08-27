@@ -4,6 +4,8 @@
 
 #include "chrome/browser/ui/lens/lens_overlay_side_panel_coordinator.h"
 
+#include <vector>
+
 #include "base/metrics/histogram_functions.h"
 #include "chrome/app/vector_icons/vector_icons.h"
 #include "chrome/browser/companion/text_finder/text_finder_manager.h"
@@ -11,6 +13,7 @@
 #include "chrome/browser/lens/core/mojom/lens_side_panel.mojom.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/lens/lens_composebox_controller.h"
 #include "chrome/browser/ui/lens/lens_help_menu_utils.h"
 #include "chrome/browser/ui/lens/lens_overlay_controller.h"
 #include "chrome/browser/ui/lens/lens_overlay_side_panel_web_view.h"
@@ -424,6 +427,12 @@ void LensOverlaySidePanelCoordinator::RequestSendFeedback() {
                            ui::EF_NONE);
 }
 
+void LensOverlaySidePanelCoordinator::OnAimMessage(
+    const std::vector<uint8_t>& message) {
+  // Pass the message to the LensComposeboxController to handle.
+  GetLensComposeboxController()->OnAimMessage(message);
+}
+
 void LensOverlaySidePanelCoordinator::OnScrollToMessage(
     const std::vector<std::string>& text_fragments,
     uint32_t pdf_page_number) {
@@ -634,6 +643,29 @@ void LensOverlaySidePanelCoordinator::SetPageContentUploadProgress(
   }
 }
 
+void LensOverlaySidePanelCoordinator::SendClientMessageToAim(
+    const std::vector<uint8_t>& serialized_message) {
+  if (side_panel_page_) {
+    side_panel_page_->SendClientMessageToAim(serialized_message);
+  }
+}
+
+void LensOverlaySidePanelCoordinator::AimHandshakeReceived() {
+  if (side_panel_page_) {
+    side_panel_page_->AimHandshakeReceived();
+  }
+}
+
+void LensOverlaySidePanelCoordinator::AimResultsChanged(bool on_aim) {
+  // Close the overlay if the user transitions to the AIM UI.
+  if (on_aim && lens::features::ShouldCloseOverlayOnAimTransition()) {
+    lens_search_controller_->HideOverlay();
+  }
+  if (side_panel_page_) {
+    side_panel_page_->AimResultsChanged(on_aim);
+  }
+}
+
 void LensOverlaySidePanelCoordinator::SuppressGhostLoader() {
   if (side_panel_page_) {
     side_panel_page_->SuppressGhostLoader();
@@ -805,6 +837,17 @@ void LensOverlaySidePanelCoordinator::DidStartNavigation(
                                       kChromeSideSearchVersionHeaderValue);
   SetSidePanelIsOffline(net::NetworkChangeNotifier::IsOffline());
   SetSidePanelNewTabUrl(GURL());
+
+  // Notify the side panel that the results have moved to/from the AIM UI.
+  const bool is_aim_query = IsAimQuery(nav_url);
+  AimResultsChanged(is_aim_query);
+
+  // If this is an AIM query, to be opened in the side panel, exit early to
+  // prevent the ghost loader from being shown. AIM supports soft navigations to
+  // handle custom animations, and showing the ghost loader would cover those.
+  if (lens::features::GetSidePanelGhostLoaderDisabledForAim() && is_aim_query) {
+    return;
+  }
   SetSidePanelIsLoadingResults(true);
 }
 

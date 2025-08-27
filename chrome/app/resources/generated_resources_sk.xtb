@@ -1097,7 +1097,6 @@ Povolenia, ktoré ste už udelili aplikáciám, sa môžu vzťahovať na tento �
 <translation id="174123615272205933">Vlastné</translation>
 <translation id="1741314857973421784">Ďalej</translation>
 <translation id="1744108098763830590">stránka na pozadí</translation>
-<translation id="174516937379651657">Keď zdieľate stránku s Gemini, celý jej obsah a jej webová adresa sa odošlú Googlu.</translation>
 <translation id="1745732479023874451">Spravovať kontakty</translation>
 <translation id="1748283190377208783">{0,plural, =1{unused plural form}few{Chcete otvoriť a upraviť # súbory v tejto webovej aplikácii?}many{Open and edit # files in this web app?}other{Chcete otvoriť a upraviť # súborov v tejto webovej aplikácii?}}</translation>
 <translation id="1748329107062243374">Na webe <ph name="WEBSITE" /> sa prihláste prístupovým kľúčom zariadenia <ph name="DEVICE_NAME" /></translation>
@@ -1594,7 +1593,7 @@ Ak chcete spravovať nastavenia tohto účtu, nainštalujte si do zariadenia apl
 <translation id="2090165459409185032">Ak chcete obnoviť informácie o svojom účte, prejdite na stránku google.com/accounts/recovery</translation>
 <translation id="2090507354966565596">Automaticky sa pripojí, keď sa prihlásite</translation>
 <translation id="2090876986345970080">Nastavenie zabezpečenia systému</translation>
-<translation id="2091523941449737894">Rýchlejším pohybmi na touchpade pohnete kurzor ďalej</translation>
+<translation id="2091523941449737894">Rýchlejším pohybom na touchpade posuniete kurzor ďalej</translation>
 <translation id="2091887806945687916">Zvuk</translation>
 <translation id="2092356157625807382"><ph name="BEGIN_H3" />Funkcie ladenia<ph name="END_H3" />
     <ph name="BR" />
@@ -3196,7 +3195,7 @@ Ak chcete spravovať nastavenia tohto účtu, nainštalujte si do zariadenia apl
 <translation id="3201237270673604992">Od Z do A</translation>
 <translation id="3201422919974259695">Tu sa budú zobrazovať dostupné zariadenia USB.</translation>
 <translation id="3202499879214571401">Pozastaviť prenos obrazovky do zariadenia <ph name="DEVICE_NAME" /></translation>
-<translation id="3202578601642193415">Najnovšie</translation>
+<translation id="3202578601642193415">Najnovšia</translation>
 <translation id="3204648577100496185">Údaje spojené s touto aplikáciou môžu byť z tohto zariadenia odstránené</translation>
 <translation id="3206289903841621620"><ph name="NUMBER" />. používateľský slovník</translation>
 <translation id="3207344462385471911">Zobrazujú sa vám navrhované vyhľadávania a nákupné zľavy, ktoré vás na základe vašej nedávnej aktivity môžu zaujímať.
@@ -8191,7 +8190,6 @@ Máte ešte # ďalších. Správca hesiel Google odporúča okamžite dané hes
 <translation id="6759193508432371551">Obnovenie výrobných nastavení</translation>
 <translation id="6760354150216532978">Upozornenie: Tnto web si môže zobrazovať úpravy, ktoré vykonáte.</translation>
 <translation id="6761209758867628753">Nástroj: asistent pri písaní</translation>
-<translation id="6761459308170527362">Pomocou hlasového alebo textového četu môžete Gemini položiť otázku o obsahu stránky, ktorú zdieľate</translation>
 <translation id="676158322851696513">„<ph name="EXTENSION_NAME" />“</translation>
 <translation id="6761623907967804682">Dáta webov v zariadení nie sú povolené</translation>
 <translation id="6762833852331690540">Zapnuté</translation>
@@ -8981,7 +8979,6 @@ Máte ešte # ďalších. Správca hesiel Google odporúča okamžite dané hes
 <translation id="7320213904474460808">Preferovať sieť</translation>
 <translation id="7321545336522791733">Server je nedostupný</translation>
 <translation id="7322515217754205362">Povolenia webu</translation>
-<translation id="7322919329844967709">Získate relevantnejšie odpovede súvisiace s obsahom stránky, ktorú zdieľate</translation>
 <translation id="7323315405936922211">Veľkosť oblasti kurzora</translation>
 <translation id="7324020307732396723">Otvoriť nastavenia jazyka</translation>
 <translation id="7324297612904500502">Beta fórum</translation>
@@ -10318,7 +10315,6 @@ Súbor kľúča uložte na bezpečné miesto. Budete ho potrebovať na vytvoreni
 <translation id="8222112516148944758">Skupiny kariet sa automaticky ukladajú a aktualizujú vo všetkých vašich zariadeniach</translation>
 <translation id="8222674561049363989">Súbor nie je platný dokument</translation>
 <translation id="822347941086490485">Hľadajú sa zariadenia HID…</translation>
-<translation id="8224209912580158729">Zdieľajte obsah stránky s Gemini a získajte relevantnejšie odpovede.</translation>
 <translation id="8224427620313426549">Váš účet <ph name="DOMAIN_LINK" /> odstránený nebude</translation>
 <translation id="8225046344534779393">Skontrolujte internetové pripojenie</translation>
 <translation id="8225265270453771718">Zdieľanie okna aplikácie</translation>

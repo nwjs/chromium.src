@@ -67,6 +67,7 @@
 #include "chrome/browser/ui/tabs/tab_group_home/constants.h"
 #include "chrome/browser/ui/toasts/toast_features.h"
 #include "chrome/browser/ui/ui_features.h"
+#include "chrome/browser/ui/webui/new_tab_page/composebox/variations/aim_entrypoint_fieldtrial.h"
 #include "chrome/browser/ui/webui/new_tab_page/composebox/variations/composebox_fieldtrial.h"
 #include "chrome/browser/unexpire_flags.h"
 #include "chrome/browser/unexpire_flags_gen.h"
@@ -155,6 +156,7 @@
 #include "components/search/ntp_features.h"
 #include "components/search_engines/search_engines_switches.h"
 #include "components/security_interstitials/content/stateful_ssl_host_state_delegate.h"
+#include "components/security_interstitials/core/features.h"
 #include "components/security_state/core/security_state.h"
 #include "components/segmentation_platform/embedder/home_modules/constants.h"
 #include "components/segmentation_platform/public/features.h"
@@ -1513,37 +1515,35 @@ const FeatureEntry::FeatureVariation
          nullptr},
 };
 
-const FeatureEntry::FeatureParam kOmniboxToolbeltVariant1[] = {
+const FeatureEntry::FeatureParam kOmniboxToolbeltLensActionsZeroInputs[] = {
     {"KeepToolbeltAfterInput", "false"},
-    {"AlwaysIncludeLensAction", "false"},
     {"ShowLensActionOnNonNtp", "true"},
     {"ShowLensActionOnNtp", "false"},
-    {"ShowAiModeActionOnNonNtp", "true"},
-    {"ShowAiModeActionOnNtp", "true"},
+    {"ShowAiModeActionOnNonNtp", "false"},
+    {"ShowAiModeActionOnNtp", "false"},
     {"ShowHistoryActionOnNonNtp", "true"},
     {"ShowHistoryActionOnNtp", "true"},
     {"ShowBookmarksActionOnNonNtp", "true"},
     {"ShowBookmarksActionOnNtp", "true"},
-    {"ShowTabsActionOnNonNtp", "false"},
-    {"ShowTabsActionOnNtp", "false"},
+    {"ShowTabsActionOnNonNtp", "true"},
+    {"ShowTabsActionOnNtp", "true"},
 };
-const FeatureEntry::FeatureParam kOmniboxToolbeltVariant2[] = {
-    {"KeepToolbeltAfterInput", "true"},
-    {"AlwaysIncludeLensAction", "false"},
-    {"ShowLensActionOnNonNtp", "true"},
-    {"ShowLensActionOnNtp", "false"},
-    {"ShowAiModeActionOnNonNtp", "true"},
-    {"ShowAiModeActionOnNtp", "true"},
-    {"ShowHistoryActionOnNonNtp", "true"},
-    {"ShowHistoryActionOnNtp", "true"},
-    {"ShowBookmarksActionOnNonNtp", "true"},
-    {"ShowBookmarksActionOnNtp", "true"},
-    {"ShowTabsActionOnNonNtp", "false"},
-    {"ShowTabsActionOnNtp", "false"},
+const FeatureEntry::FeatureParam kOmniboxToolbeltLensActionsZeroTypedInputs[] =
+    {
+        {"KeepToolbeltAfterInput", "true"},
+        {"ShowLensActionOnNonNtp", "true"},
+        {"ShowLensActionOnNtp", "false"},
+        {"ShowAiModeActionOnNonNtp", "false"},
+        {"ShowAiModeActionOnNtp", "false"},
+        {"ShowHistoryActionOnNonNtp", "true"},
+        {"ShowHistoryActionOnNtp", "true"},
+        {"ShowBookmarksActionOnNonNtp", "true"},
+        {"ShowBookmarksActionOnNtp", "true"},
+        {"ShowTabsActionOnNonNtp", "true"},
+        {"ShowTabsActionOnNtp", "true"},
 };
-const FeatureEntry::FeatureParam kOmniboxToolbeltVariant3[] = {
+const FeatureEntry::FeatureParam kOmniboxToolbeltAiActionsZeroInputs[] = {
     {"KeepToolbeltAfterInput", "false"},
-    {"AlwaysIncludeLensAction", "false"},
     {"ShowLensActionOnNonNtp", "false"},
     {"ShowLensActionOnNtp", "false"},
     {"ShowAiModeActionOnNonNtp", "true"},
@@ -1555,9 +1555,8 @@ const FeatureEntry::FeatureParam kOmniboxToolbeltVariant3[] = {
     {"ShowTabsActionOnNonNtp", "true"},
     {"ShowTabsActionOnNtp", "true"},
 };
-const FeatureEntry::FeatureParam kOmniboxToolbeltVariant4[] = {
+const FeatureEntry::FeatureParam kOmniboxToolbeltAiActionsZeroTypedInputs[] = {
     {"KeepToolbeltAfterInput", "true"},
-    {"AlwaysIncludeLensAction", "false"},
     {"ShowLensActionOnNonNtp", "false"},
     {"ShowLensActionOnNtp", "false"},
     {"ShowAiModeActionOnNonNtp", "true"},
@@ -1568,10 +1567,36 @@ const FeatureEntry::FeatureParam kOmniboxToolbeltVariant4[] = {
     {"ShowBookmarksActionOnNtp", "true"},
     {"ShowTabsActionOnNonNtp", "true"},
     {"ShowTabsActionOnNtp", "true"},
+};
+const FeatureEntry::FeatureParam kOmniboxToolbeltLensAiActionsZeroInputs[] = {
+    {"KeepToolbeltAfterInput", "false"},
+    {"ShowLensActionOnNonNtp", "true"},
+    {"ShowLensActionOnNtp", "false"},
+    {"ShowAiModeActionOnNonNtp", "true"},
+    {"ShowAiModeActionOnNtp", "true"},
+    {"ShowHistoryActionOnNonNtp", "true"},
+    {"ShowHistoryActionOnNtp", "true"},
+    {"ShowBookmarksActionOnNonNtp", "true"},
+    {"ShowBookmarksActionOnNtp", "true"},
+    {"ShowTabsActionOnNonNtp", "false"},
+    {"ShowTabsActionOnNtp", "false"},
+};
+const FeatureEntry::FeatureParam
+    kOmniboxToolbeltLensAiActionsZeroTypedInputs[] = {
+        {"KeepToolbeltAfterInput", "true"},
+        {"ShowLensActionOnNonNtp", "true"},
+        {"ShowLensActionOnNtp", "false"},
+        {"ShowAiModeActionOnNonNtp", "true"},
+        {"ShowAiModeActionOnNtp", "true"},
+        {"ShowHistoryActionOnNonNtp", "true"},
+        {"ShowHistoryActionOnNtp", "true"},
+        {"ShowBookmarksActionOnNonNtp", "true"},
+        {"ShowBookmarksActionOnNtp", "true"},
+        {"ShowTabsActionOnNonNtp", "false"},
+        {"ShowTabsActionOnNtp", "false"},
 };
 const FeatureEntry::FeatureParam kOmniboxToolbeltAllActionsZeroInputs[] = {
     {"KeepToolbeltAfterInput", "false"},
-    {"AlwaysIncludeLensAction", "false"},
     {"ShowLensActionOnNonNtp", "true"},
     {"ShowLensActionOnNtp", "true"},
     {"ShowAiModeActionOnNonNtp", "true"},
@@ -1583,35 +1608,42 @@ const FeatureEntry::FeatureParam kOmniboxToolbeltAllActionsZeroInputs[] = {
     {"ShowTabsActionOnNonNtp", "true"},
     {"ShowTabsActionOnNtp", "true"},
 };
-const FeatureEntry::FeatureParam
-    kOmniboxToolbeltAllActionsZeroAndTypedInputs[] = {
-        {"KeepToolbeltAfterInput", "true"},
-        {"AlwaysIncludeLensAction", "false"},
-        {"ShowLensActionOnNonNtp", "true"},
-        {"ShowLensActionOnNtp", "true"},
-        {"ShowAiModeActionOnNonNtp", "true"},
-        {"ShowAiModeActionOnNtp", "true"},
-        {"ShowHistoryActionOnNonNtp", "true"},
-        {"ShowHistoryActionOnNtp", "true"},
-        {"ShowBookmarksActionOnNonNtp", "true"},
-        {"ShowBookmarksActionOnNtp", "true"},
-        {"ShowTabsActionOnNonNtp", "true"},
-        {"ShowTabsActionOnNtp", "true"},
+const FeatureEntry::FeatureParam kOmniboxToolbeltAllActionsZeroTypedInputs[] = {
+    {"KeepToolbeltAfterInput", "true"},
+    {"ShowLensActionOnNonNtp", "true"},
+    {"ShowLensActionOnNtp", "true"},
+    {"ShowAiModeActionOnNonNtp", "true"},
+    {"ShowAiModeActionOnNtp", "true"},
+    {"ShowHistoryActionOnNonNtp", "true"},
+    {"ShowHistoryActionOnNtp", "true"},
+    {"ShowBookmarksActionOnNonNtp", "true"},
+    {"ShowBookmarksActionOnNtp", "true"},
+    {"ShowTabsActionOnNonNtp", "true"},
+    {"ShowTabsActionOnNtp", "true"},
 };
 const FeatureEntry::FeatureVariation kOmniboxToolbeltVariations[] = {
-    {"Variant 1: ContextualAndAIMode - ZeroPrefixStateOnly",
-     kOmniboxToolbeltVariant1, std::size(kOmniboxToolbeltVariant1), nullptr},
-    {"Variant 2: ContextualAndAIMode - ZeroPrefixAndTypedState",
-     kOmniboxToolbeltVariant2, std::size(kOmniboxToolbeltVariant2), nullptr},
-    {"Variant 3: AIModeOnly - ZeroPrefixStateOnly", kOmniboxToolbeltVariant3,
-     std::size(kOmniboxToolbeltVariant3), nullptr},
-    {"Variant 4: AIModeOnly - ZeroPrefixAndTypedState",
-     kOmniboxToolbeltVariant4, std::size(kOmniboxToolbeltVariant4), nullptr},
-    {"All actions - ZeroPrefixStateOnly", kOmniboxToolbeltAllActionsZeroInputs,
+    {"1 - Lens Action - Zero Inputs (Default)",
+     kOmniboxToolbeltLensActionsZeroInputs,
+     std::size(kOmniboxToolbeltLensActionsZeroInputs), nullptr},
+    {"2 - Lens Action - Zero + Typed Inputs",
+     kOmniboxToolbeltLensActionsZeroTypedInputs,
+     std::size(kOmniboxToolbeltLensActionsZeroTypedInputs), nullptr},
+    {"3 - AI Action - Zero Inputs", kOmniboxToolbeltAiActionsZeroInputs,
+     std::size(kOmniboxToolbeltAiActionsZeroInputs), nullptr},
+    {"4 - AI Action - Zero + Typed Inputs",
+     kOmniboxToolbeltAiActionsZeroTypedInputs,
+     std::size(kOmniboxToolbeltAiActionsZeroTypedInputs), nullptr},
+    {"5 - Lens + AI Actions - Zero Inputs",
+     kOmniboxToolbeltLensAiActionsZeroInputs,
+     std::size(kOmniboxToolbeltLensAiActionsZeroInputs), nullptr},
+    {"6 - Lens + AI Actions - Zero + Typed Inputs",
+     kOmniboxToolbeltLensAiActionsZeroTypedInputs,
+     std::size(kOmniboxToolbeltLensAiActionsZeroTypedInputs), nullptr},
+    {"7 - All Actions - Zero Inputs", kOmniboxToolbeltAllActionsZeroInputs,
      std::size(kOmniboxToolbeltAllActionsZeroInputs), nullptr},
-    {"All actions - ZeroPrefixAndTypedState",
-     kOmniboxToolbeltAllActionsZeroAndTypedInputs,
-     std::size(kOmniboxToolbeltAllActionsZeroAndTypedInputs), nullptr},
+    {"8 - All Actions - Zero + Typed Inputs",
+     kOmniboxToolbeltAllActionsZeroTypedInputs,
+     std::size(kOmniboxToolbeltAllActionsZeroTypedInputs), nullptr},
 };
 
 const FeatureEntry::FeatureParam kComposeboxShowZps[] = {
@@ -3382,6 +3414,22 @@ const FeatureEntry::FeatureVariation
         {"copy and save as image",
          kLensOverlayImageContextMenuActionsCopyAndSave,
          std::size(kLensOverlayImageContextMenuActionsCopyAndSave), nullptr},
+};
+
+const FeatureEntry::FeatureParam
+    kLensOverlayTextSelectionContextMenuEntrypointContextualized{
+        "contextualize", "true"};
+const FeatureEntry::FeatureParam
+    kLensOverlayTextSelectionContextMenuEntrypointNonContextualized{
+        "contextualize", "false"};
+const FeatureEntry::FeatureVariation
+    kLensOverlayTextSelectionContextMenuEntrypointVariations[] = {
+        {"contextualized",
+         &kLensOverlayTextSelectionContextMenuEntrypointContextualized, 1,
+         nullptr},
+        {"non-contextualized",
+         &kLensOverlayTextSelectionContextMenuEntrypointNonContextualized, 1,
+         nullptr},
 };
 #endif  // !BUILDFLAG(IS_ANDROID)
 
@@ -6920,12 +6968,22 @@ const FeatureEntry kFeatureEntries[] = {
      flag_descriptions::kAiModeOmniboxEntryPointDescription, kOsDesktop,
      FEATURE_VALUE_TYPE(omnibox::kAiModeOmniboxEntryPoint)},
 
+    {"hide-aim-omnibox-entrypoint-on-user-input",
+     flag_descriptions::kHideAimOmniboxEntrypointOnUserInputName,
+     flag_descriptions::kHideAimOmniboxEntrypointOnUserInputDescription,
+     kOsDesktop, FEATURE_VALUE_TYPE(omnibox::kHideAimEntrypointOnUserInput)},
+
     {"omnibox-toolbelt", flag_descriptions::kOmniboxToolbeltName,
      flag_descriptions::kOmniboxToolbeltDescription, kOsDesktop,
      FEATURE_WITH_PARAMS_VALUE_TYPE(
          omnibox_feature_configs::Toolbelt::kOmniboxToolbelt,
          kOmniboxToolbeltVariations,
          "OmniboxToolbelt")},
+
+    {"omnibox-allow-ai-mode-matches",
+     flag_descriptions::kOmniboxAllowAiModeMatchesName,
+     flag_descriptions::kOmniboxAllowAiModeMatchesDescription, kOsDesktop,
+     FEATURE_VALUE_TYPE(omnibox_feature_configs::AiMode::kAllowAiModeMatches)},
 
     {"omnibox-drive-suggestions-no-sync-requirement",
      flag_descriptions::kOmniboxDriveSuggestionsNoSyncRequirementName,
@@ -7958,6 +8016,13 @@ const FeatureEntry kFeatureEntries[] = {
      kOsAndroid,
      FEATURE_VALUE_TYPE(
          safe_browsing::kGlobalCacheListForGatingNotificationProtections)},
+
+    {"enable-annotated-page-contents-for-virtual-structure",
+     flag_descriptions::kAnnotatedPageContentsForVirtualStructureName,
+     flag_descriptions::kAnnotatedPageContentsForVirtualStructureDescription,
+     kOsAndroid,
+     FEATURE_VALUE_TYPE(
+         chrome::android::kAnnotatedPageContentsVirtualStructure)},
 
 #endif  // BUILDFLAG(IS_ANDROID)
 
@@ -9623,7 +9688,7 @@ const FeatureEntry kFeatureEntries[] = {
 
     {"https-first-dialog-ui", flag_descriptions::kHttpsFirstDialogUiName,
      flag_descriptions::kHttpsFirstDialogUiDescription, kOsDesktop,
-     FEATURE_VALUE_TYPE(features::kHttpsFirstDialogUi)},
+     FEATURE_VALUE_TYPE(security_interstitials::features::kHttpsFirstDialogUi)},
 
     {"https-first-mode-v2-for-engaged-sites",
      flag_descriptions::kHttpsFirstModeV2ForEngagedSitesName,
@@ -12624,6 +12689,10 @@ const FeatureEntry kFeatureEntries[] = {
     {"instance-switcher-v2", flag_descriptions::kInstanceSwitcherV2Name,
      flag_descriptions::kInstanceSwitcherV2Description, kOsAndroid,
      FEATURE_VALUE_TYPE(chrome::android::kInstanceSwitcherV2)},
+
+    {"robust-window-management", flag_descriptions::kRobustWindowManagementName,
+     flag_descriptions::kRobustWindowManagementDescription, kOsAndroid,
+     FEATURE_VALUE_TYPE(chrome::android::kRobustWindowManagement)},
 #endif  // BUILDFLAG(IS_ANDROID)
 
 #if !BUILDFLAG(IS_ANDROID)
@@ -13147,6 +13216,18 @@ const FeatureEntry kFeatureEntries[] = {
      flag_descriptions::kToolbarSnapshotRefactorDescription, kOsAndroid,
      FEATURE_VALUE_TYPE(chrome::android::kToolbarSnapshotRefactor)},
 #endif  // BUILDFLAG(IS_ANDROID)
+
+#if !BUILDFLAG(IS_ANDROID)
+    {"enable-lens-overlay-text-selection-context-menu-entrypoint",
+     flag_descriptions::kLensOverlayTextSelectionContextMenuEntrypointName,
+     flag_descriptions::
+         kLensOverlayTextSelectionContextMenuEntrypointDescription,
+     kOsDesktop,
+     FEATURE_WITH_PARAMS_VALUE_TYPE(
+         lens::features::kLensOverlayTextSelectionContextMenuEntrypoint,
+         kLensOverlayTextSelectionContextMenuEntrypointVariations,
+         "LensOverlayTextSelectionContextMenuEntrypoint")},
+#endif  // !BUILDFLAG(IS_ANDROID)
 
     // Add new entries above this line.
 

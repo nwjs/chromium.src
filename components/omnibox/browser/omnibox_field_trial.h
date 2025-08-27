@@ -15,11 +15,14 @@
 
 #include "base/feature_list.h"
 #include "base/metrics/field_trial_params.h"
+#include "components/omnibox/browser/aim_eligibility_service.h"
 #include "components/omnibox/browser/autocomplete_match_type.h"
 #include "components/omnibox/browser/autocomplete_provider.h"
 #include "components/omnibox/common/omnibox_features.h"
 #include "third_party/metrics_proto/omnibox_event.pb.h"
 #include "third_party/omnibox_proto/entity_info.pb.h"
+
+class AutocompleteProviderClient;
 
 namespace base {
 class TimeDelta;
@@ -406,6 +409,13 @@ bool IsOnFocusZeroSuggestEnabledInContext(
 // popup in the given context.
 bool IsHideSuggestionGroupHeadersEnabledInContext(
     metrics::OmniboxEventProto::PageClassification page_classification);
+
+// Returns whether the deterministic AIM shortcut action in typed state is enabled.
+bool IsDeterministicAimActionInTypedStateEnabled(AutocompleteProviderClient* client);
+
+// Returns whether AIM page action in Omnibox is enabled.
+bool IsAimOmniboxEntrypointEnabled(
+    const AimEligibilityService* aim_eligibility_service);
 
 // Rich autocompletion.
 bool IsRichAutocompletionEnabled();

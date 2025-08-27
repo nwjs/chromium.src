@@ -2377,11 +2377,19 @@ void RenderViewContextMenu::AppendSearchProvider() {
       return;
     }
 
-    menu_model_.AddItem(
-        IDC_CONTENT_CONTEXT_SEARCHWEBFOR,
-        l10n_util::GetStringFUTF16(IDS_CONTENT_CONTEXT_SEARCHWEBFOR,
-                                   default_provider->short_name(),
-                                   printable_selection_text));
+    // When the Lens text selection entrypoint flag is enabled, checking for the
+    // availability of Lens requires the browser, so hide the menu item if the
+    // flag is enabled and there is no browser (e.g. when selecting in the side
+    // panel).
+    if (!lens::features::
+            IsLensOverlayTextSelectionContextMenuEntrypointEnabled() ||
+        GetBrowser()) {
+      menu_model_.AddItem(
+          IDC_CONTENT_CONTEXT_SEARCHWEBFOR,
+          l10n_util::GetStringFUTF16(IDS_CONTENT_CONTEXT_SEARCHWEBFOR,
+                                     default_provider->short_name(),
+                                     printable_selection_text));
+    }
   } else {
     if ((selection_navigation_url_ != params_.link_url) &&
         ChildProcessSecurityPolicy::GetInstance()->IsWebSafeScheme(
@@ -3681,10 +3689,11 @@ bool RenderViewContextMenu::IsUntrustedNetworkDisabled() const {
 }
 
 bool RenderViewContextMenu::ShouldOpenTextQueryInLens() const {
+  BrowserWindowInterface* browser = GetBrowser();
   return lens::features::
              IsLensOverlayTextSelectionContextMenuEntrypointEnabled() &&
-         GetBrowser()
-             ->GetFeatures()
+         browser &&
+         browser->GetFeatures()
              .lens_overlay_entry_point_controller()
              ->IsEnabled();
 }
@@ -4800,14 +4809,17 @@ void RenderViewContextMenu::OpenTextQueryInLens() {
   auto* const controller =
       LensSearchController::FromTabWebContents(source_web_contents_);
   CHECK(controller);
-  controller->IssueContextualSearchRequestWithQuery(
+  controller->IssueTextSearchRequest(
       lens::LensOverlayInvocationSource::kContentAreaContextMenuText,
       base::UTF16ToUTF8(params_.selection_text),
       /*additional_query_parameters=*/{},
       // TODO(crbug.com/432490312): Match type here is likely not ideal.
       // Investigate removing match type from this function.
       AutocompleteMatchType::Type::SEARCH_WHAT_YOU_TYPED,
-      /*is_zero_prefix_suggestion=*/false);
+      /*is_zero_prefix_suggestion=*/false,
+      /*suppress_contextualization=*/
+      !lens::features::
+          IsLensOverlayTextSelectionContextMenuEntrypointContextualized());
 }
 
 Browser* RenderViewContextMenu::GetBrowser() const {

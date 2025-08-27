@@ -43,7 +43,6 @@ class AiModePageActionIconView : public PageActionIconView {
 
   // views::View:
   bool OnKeyPressed(const ui::KeyEvent& event) override;
-  bool SkipDefaultKeyEventProcessing(const ui::KeyEvent& event) override;
 
   void ExecuteWithKeyboardSourceForTesting();
 
@@ -54,6 +53,8 @@ class AiModePageActionIconView : public PageActionIconView {
  private:
   bool ShouldShow();
   OmniboxView* GetOmniboxView();
+
+  void UpdateFeatureTriggered(bool page_action_shown);
 
   const raw_ptr<BrowserWindowInterface> browser_;
 };

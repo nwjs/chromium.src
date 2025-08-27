@@ -7,12 +7,15 @@
 #include <stddef.h>
 
 #include <algorithm>
+#include <string>
+#include <vector>
 
 #include "base/functional/callback_helpers.h"
 #include "base/strings/cstring_view.h"
 #include "base/strings/utf_string_conversions.h"
 #include "build/build_config.h"
 #include "chrome/app/chrome_command_ids.h"
+#include "chrome/browser/autocomplete/aim_eligibility_service_factory.h"
 #include "chrome/browser/autocomplete/autocomplete_classifier_factory.h"
 #include "chrome/browser/autocomplete/document_suggestions_service_factory.h"
 #include "chrome/browser/autocomplete/in_memory_url_index_factory.h"
@@ -56,6 +59,7 @@
 #include "components/history_clusters/core/features.h"
 #include "components/language/core/browser/pref_names.h"
 #include "components/omnibox/browser/actions/omnibox_pedal_provider.h"
+#include "components/omnibox/browser/aim_eligibility_service.h"
 #include "components/omnibox/browser/autocomplete_classifier.h"
 #include "components/omnibox/browser/autocomplete_match.h"
 #include "components/omnibox/browser/lens_suggest_inputs_utils.h"
@@ -418,6 +422,11 @@ ChromeAutocompleteProviderClient::GetTabGroupSyncService() const {
   return tab_groups::TabGroupSyncServiceFactory::GetForProfile(profile_);
 }
 
+AimEligibilityService*
+ChromeAutocompleteProviderClient::GetAimEligibilityService() const {
+  return AimEligibilityServiceFactory::GetForProfile(profile_);
+}
+
 bool ChromeAutocompleteProviderClient::IsOffTheRecord() const {
   return profile_->IsOffTheRecord();
 }
@@ -572,31 +581,30 @@ bool ChromeAutocompleteProviderClient::IsLensEnabled() const {
 }
 
 bool ChromeAutocompleteProviderClient::AreLensEntrypointsVisible() const {
-  #if !BUILDFLAG(IS_ANDROID)
-    if (auto* lens_search_controller =
-            GetLensSearchController(GetWebContents(web_contents_getter_))) {
-      // Guaranteed to exist if lens_search_controller is  not null.
-      return lens_search_controller->GetTabInterface()
-          ->GetBrowserWindowInterface()
-          ->GetFeatures()
-          .lens_overlay_entry_point_controller()
-          ->AreVisible();
-    }
-  #endif
-    return false;
-  }
-
-  std::optional<bool> ChromeAutocompleteProviderClient::IsPagePaywalled()
-      const {
 #if !BUILDFLAG(IS_ANDROID)
-    if (auto* web_contents = GetWebContents(web_contents_getter_)) {
-      if (auto* tab_helper = OmniboxTabHelper::FromWebContents(web_contents)) {
-        return tab_helper->IsPagePaywalled();
-      }
-    }
-#endif
-    return false;
+  if (auto* lens_search_controller =
+          GetLensSearchController(GetWebContents(web_contents_getter_))) {
+    // Guaranteed to exist if lens_search_controller is  not null.
+    return lens_search_controller->GetTabInterface()
+        ->GetBrowserWindowInterface()
+        ->GetFeatures()
+        .lens_overlay_entry_point_controller()
+        ->AreVisible();
   }
+#endif  // !BUILDFLAG(IS_ANDROID)
+  return false;
+}
+
+std::optional<bool> ChromeAutocompleteProviderClient::IsPagePaywalled() const {
+#if !BUILDFLAG(IS_ANDROID)
+  if (auto* web_contents = GetWebContents(web_contents_getter_)) {
+    if (auto* tab_helper = OmniboxTabHelper::FromWebContents(web_contents)) {
+      return tab_helper->IsPagePaywalled();
+    }
+  }
+#endif  // !BUILDFLAG(IS_ANDROID)
+  return false;
+}
 
 base::CallbackListSubscription
 ChromeAutocompleteProviderClient::GetLensSuggestInputsWhenReady(
@@ -657,9 +665,10 @@ bool ChromeAutocompleteProviderClient::OpenJourneys(const std::string& query) {
     return false;
   }
 
-  if (auto* history_clusters_side_panel_coordinator =
-          browser->GetFeatures().history_clusters_side_panel_coordinator()) {
-    history_clusters_side_panel_coordinator->Show(query);
+  auto* const history_clusters_side_panel_coordinator =
+      browser->GetFeatures().history_clusters_side_panel_coordinator();
+  if (history_clusters_side_panel_coordinator &&
+      history_clusters_side_panel_coordinator->Show(query)) {
     return true;
   }
 

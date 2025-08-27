@@ -86,7 +86,7 @@
 <translation id="1333455942675373522">صفحه‌کلید</translation>
 <translation id="1334485477792811969">سرویس‌های وبی</translation>
 <translation id="1335767868357998043">انتخاب موقعیت نوار نشانی</translation>
-<translation id="1347468774581902829">مدیریت فعالیت</translation>
+<translation id="1347468774581902829">مدیریت فعالیت‌ها</translation>
 <translation id="1348596747084433075">https://www.amazon.com/Wife-Gifts/s?k=for+Wife+Gifts</translation>
 <translation id="1355337783640312381">برای عوض کردن حساب، روی نماد حسابتان تک‌ضرب بزنید</translation>
 <translation id="1358106883354237005">حساب مدیریت‌شده</translation>
@@ -302,7 +302,6 @@
 <translation id="2120553909046681540">سازمانتان مرور خصوصی را خاموش کرده است.</translation>
 <translation id="2122754583996902531">مرورگرتان تحت‌مدیریت است. <ph name="BEGIN_LINK" />بیشتر بدانید<ph name="END_LINK" /></translation>
 <translation id="21243612977487926">‏از گپ‌های سازمان شما برای بهبود دادن مدل‌های ما استفاده نمی‌شود. ممکن است Gemini اطلاعات نادرست، ازجمله درباره افراد، نمایش دهد، بنابراین پاسخ‌هایش را دوباره‌سنجی کنید. <ph name="YOUR_PRIVACY_GEMINI" /></translation>
-<translation id="2126034128616392756">‏گذرواژه‌های زیر در «مدیر گذرواژه Google» وارد نشدند زیرا با الزامات مطابقت ندارند.</translation>
 <translation id="2139867232736819575">جستجوی نوشتاری که کپی کرده‌اید</translation>
 <translation id="2147127444698817042">‏فقط در iPhone دردسترس است</translation>
 <translation id="2148799636999124959">با گذرواژه‌های ذخیره‌شده‌تان، سریعاً به سیستم سایت‌ها و برنامه‌ها وارد شوید.</translation>
@@ -513,6 +512,7 @@
 <translation id="2931440415625410757">نمایش دستورالعمل‌ها</translation>
 <translation id="2952278131021475699">جستجوی دوربینی با «لنز»</translation>
 <translation id="2962516096219646456">دیدن همه داده‌های تکمیل خودکار</translation>
+<translation id="2965594942405840553">این کنش واگردشدنی نیست</translation>
 <translation id="2969979262385602596">ورود به سیستم انجام نشد. بعداً دوباره امتحان کنید.</translation>
 <translation id="2975761176769946178">نشانی وب الزامی است</translation>
 <translation id="297667759942911166">در گروه‌های برگه مشارکت کنید</translation>
@@ -664,6 +664,7 @@
 <translation id="3596414637720633074">مسدود کردن کوکی‌های طرف سوم در «حالت ناشناس»</translation>
 <translation id="3602260545951981695">«محافظت بهبودیافته» را انتخاب کنید</translation>
 <translation id="3610041351087301930">پنهان کردن خواننده</translation>
+<translation id="3610866916973186448">بله، حذف شود</translation>
 <translation id="3622175633937495219">سابقه «جستجو» (<ph name="COUNT" /> مورد پیدا شد)</translation>
 <translation id="3625008969091706597">برای رفتن به عقب، می‌توانید از لبه تند بکشید.</translation>
 <translation id="362709345066740529">کارت‌ها، فید، و موارد دیگر را اینجا سفارشی‌سازی کنید</translation>
@@ -797,7 +798,7 @@
 <translation id="4163699139741158298">{count,plural, =1{نشانک در «{title}» ذخیره شد. این نشانک فقط در این دستگاه ذخیره می‌شود.}one{‫{count} نشانک در «{title}» ذخیره شد. این نشانک فقط در این دستگاه ذخیره می‌شود.}other{‫{count} نشانک در «{title}» ذخیره شد. این نشانک‌ها فقط در این دستگاه ذخیره می‌شود.}}</translation>
 <translation id="4164514562270305824">حذف خودکار بارگیری‌ها</translation>
 <translation id="4168651806173792090"><ph name="NETWORK_NAME" /> با ارقام آخر <ph name="LAST_FOUR_DIGITS" /></translation>
-<translation id="4169535189173047238">اجازه داده نشود</translation>
+<translation id="4169535189173047238">اجازه ندادن</translation>
 <translation id="417138788035229076">مدیریت گروه</translation>
 <translation id="4172051516777682613">همیشه نشان داده شود</translation>
 <translation id="417273154673973994">{count,plural, =1{‫۱ گروه برگه بسته و ذخیره شد}one{‫{count} گروه برگه بسته و ذخیره شد}other{‫{count} گروه برگه بسته و ذخیره شد}}</translation>
@@ -879,7 +880,7 @@
 <translation id="4495516234578759322">یافتن مورد بعدی</translation>
 <translation id="4502423230170890588">حذف از این دستگاه</translation>
 <translation id="4508750114462689118">بستن تبلیغ ورود به سیستم</translation>
-<translation id="4509345063551561634">مکان:</translation>
+<translation id="4509345063551561634">محل:</translation>
 <translation id="4517684186578051919">اطلاعات دستگاه</translation>
 <translation id="4520798012560649652">درباره «حالت ناشناس» بیشتر بدانید</translation>
 <translation id="452503091941773389">{count,plural, =1{‫{count} نشانک}one{‫{count} نشانک}other{‫{count} نشانک}}</translation>
@@ -1973,6 +1974,7 @@ Handoff باید در بخش عمومی تنظیمات نیز فعال شود و
 <translation id="8561999115126307258">{count,plural, =1{‫{count} گزینه برای گذرواژه در بالای صفحه‌کلید وجود دارد.}one{‫{count} گزینه برای گذرواژه در بالای صفحه‌کلید وجود دارد.}other{‫{count} گزینه برای گذرواژه در بالای صفحه‌کلید وجود دارد.}}</translation>
 <translation id="8564894539416715395">صفحه برگه جدید</translation>
 <translation id="8569721750632860947">کدام نشانی وب را می‌خواهید به فهرست خواندن اضافه کنید؟</translation>
+<translation id="8571019948162152515">‫«<ph name="FILENAME" />» حذف شود؟</translation>
 <translation id="8571213806525832805">۴ هفته گذشته</translation>
 <translation id="8577056989960190117">تکمیل خودکار سال انقضا <ph name="YEAR" /></translation>
 <translation id="8588404856427128947">خاموش</translation>

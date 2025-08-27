@@ -1393,6 +1393,9 @@ extern const char kPwaRestoreUiAtStartupDescription[];
 extern const char kStartSurfaceReturnTimeName[];
 extern const char kStartSurfaceReturnTimeDescription[];
 
+extern const char kHideAimOmniboxEntrypointOnUserInputName[];
+extern const char kHideAimOmniboxEntrypointOnUserInputDescription[];
+
 extern const char kHistoryEmbeddingsName[];
 extern const char kHistoryEmbeddingsDescription[];
 
@@ -1509,6 +1512,9 @@ extern const char kLensOverlaySimplifiedSelectionDescription[];
 
 extern const char kLensOverlayStraightToSrpName[];
 extern const char kLensOverlayStraightToSrpDescription[];
+
+extern const char kLensOverlayTextSelectionContextMenuEntrypointName[];
+extern const char kLensOverlayTextSelectionContextMenuEntrypointDescription[];
 
 extern const char kLensOverlayTranslateButtonName[];
 extern const char kLensOverlayTranslateButtonDescription[];
@@ -1630,6 +1636,9 @@ extern const char kOmitCorsClientCertDescription[];
 
 extern const char kOmniboxAdjustIndentationName[];
 extern const char kOmniboxAdjustIndentationDescription[];
+
+extern const char kOmniboxAllowAiModeMatchesName[];
+extern const char kOmniboxAllowAiModeMatchesDescription[];
 
 extern const char kOmniboxAnswerActionsName[];
 extern const char kOmniboxAnswerActionsDescription[];
@@ -1934,6 +1943,9 @@ extern const char kShowWarningsForSuspiciousNotificationsDescription[];
 #if BUILDFLAG(IS_ANDROID)
 extern const char kGlobalCacheListForGatingNotificationProtectionsName[];
 extern const char kGlobalCacheListForGatingNotificationProtectionsDescription[];
+
+extern const char kAnnotatedPageContentsForVirtualStructureName[];
+extern const char kAnnotatedPageContentsForVirtualStructureDescription[];
 #endif  // BUILDFLAG(IS_ANDROID)
 
 extern const char kPowerBookmarkBackendName[];
@@ -2059,6 +2071,9 @@ extern const char kReplaceSyncPromosWithSignInPromosDescription[];
 extern const char kRetainOmniboxOnFocusName[];
 extern const char kRetainOmniboxOnFocusDescription[];
 #endif  // BUILDFLAG(IS_ANDROID)
+
+extern const char kRobustWindowManagementName[];
+extern const char kRobustWindowManagementDescription[];
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_LINUX)
 extern const char kRootScrollbarFollowsTheme[];

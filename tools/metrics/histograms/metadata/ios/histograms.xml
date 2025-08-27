@@ -2116,6 +2116,56 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram name="IOS.Gemini.Prompt.ContextAttachment" enum="Boolean"
+    expires_after="2026-07-21">
+  <owner>kanouche@google.com</owner>
+  <owner>bling-alchemy-eng@google.com</owner>
+  <summary>
+    Records whether prompts sent to Gemini include page context.
+  </summary>
+</histogram>
+
+<histogram name="IOS.Gemini.Response.Latency.WithContext" units="ms"
+    expires_after="2026-02-01">
+  <owner>kanouche@google.com</owner>
+  <owner>bling-alchemy@google.com</owner>
+  <summary>
+    Records the latency from prompt submission to response received for Gemini
+    on iOS when page context was included with the prompt.
+  </summary>
+</histogram>
+
+<histogram name="IOS.Gemini.Response.Latency.WithoutContext" units="ms"
+    expires_after="2026-02-01">
+  <owner>kanouche@google.com</owner>
+  <owner>bling-alchemy@google.com</owner>
+  <summary>
+    Records the latency from prompt submission to response received for Gemini
+    on iOS when no page context was included with the prompt.
+  </summary>
+</histogram>
+
+<histogram name="IOS.Gemini.Session.FirstPrompt" enum="Boolean"
+    expires_after="2026-02-01">
+  <owner>kanouche@google.com</owner>
+  <owner>bling-alchemy@google.com</owner>
+  <summary>
+    Records whether the user sent their first prompt in a Gemini session on iOS.
+    False indicates abandoned sessions.
+  </summary>
+</histogram>
+
+<histogram name="IOS.Gemini.Session.PromptCount" units="count"
+    expires_after="2026-02-01">
+  <owner>kanouche@google.com</owner>
+  <owner>bling-alchemy@google.com</owner>
+  <summary>
+    Records the total number of prompts sent by the user in a BWG (Gemini)
+    session on iOS. Includes 0 for abandoned sessions where no prompts were
+    sent.
+  </summary>
+</histogram>
+
 <histogram name="IOS.Gemini.Session.Time" units="ms" expires_after="2026-07-21">
   <owner>kanouche@google.com</owner>
   <owner>bling-alchemy-eng@google.com</owner>
@@ -2123,6 +2173,39 @@ chromium-metrics-reviews@google.com.
     Records the duration of a BWG session. A session starts when the BWG UI
     appears and ends when the BWG UI disappears. Recorded when a session ends.
   </summary>
+</histogram>
+
+<histogram name="IOS.Gemini.SessionLength.FRE.{SessionType}" units="ms"
+    expires_after="2026-02-13">
+  <owner>kanouche@google.com</owner>
+  <owner>bling-alchemy-eng@google.com</owner>
+  <summary>
+    The duration of a Gemini session that happens to be the first run, from when
+    the UI appears to when it is dismissed. This metric is segmented by the type
+    of sessions.
+  </summary>
+  <token key="SessionType">
+    <variant name="Abandoned"
+        summary="Sessions closed without any prompts submitted"/>
+    <variant name="WithPrompt"
+        summary="Sessions where the user submitted at least one prompt"/>
+  </token>
+</histogram>
+
+<histogram name="IOS.Gemini.SessionLength.{SessionType}" units="ms"
+    expires_after="2026-02-13">
+  <owner>kanouche@google.com</owner>
+  <owner>bling-alchemy-eng@google.com</owner>
+  <summary>
+    The duration of a Gemini session, from when the UI appears to when it is
+    dismissed. This metric is segmented by the type of sessions.
+  </summary>
+  <token key="SessionType">
+    <variant name="Abandoned"
+        summary="Sessions closed without any prompts submitted"/>
+    <variant name="WithPrompt"
+        summary="Sessions where the user submitted at least one prompt"/>
+  </token>
 </histogram>
 
 <histogram name="IOS.Gemini.StartupTime.{FirstRunBool}" units="ms"
@@ -2142,6 +2225,18 @@ chromium-metrics-reviews@google.com.
         summary="User went directly from the entrypoint to the BWG overlay.
                  Does not include FRE time"/>
   </token>
+</histogram>
+
+<histogram name="IOS.GMOSKOInstallAttribution" enum="IOSInstallAttributionType"
+    expires_after="2026-08-04">
+  <owner>gujen@google.com</owner>
+  <owner>sebsg@google.com</owner>
+  <owner>bling-mony-pod@google.com</owner>
+  <summary>
+    For installs that can be attributed to the acceptance of a recent external
+    promo, records whether the acceptance was within the lat 24 hours or the
+    last 15 days. Recorded once at app startup, once per promo acceptance.
+  </summary>
 </histogram>
 
 <histogram name="IOS.GoogleOne.Outcome.{EntryPoint}" enum="GoogleOneOutcome"
@@ -2753,6 +2848,26 @@ chromium-metrics-reviews@google.com.
     <variant name="Reviews"
         summary="reviews are shown on the ShopCard, if the user recently
                  navigated to a URL we have reviews for"/>
+  </token>
+</histogram>
+
+<histogram name="IOS.MagicStack.ShopCard.{Type}.ImpressionLimitStorageSize"
+    units="KB" expires_after="2026-02-17">
+  <owner>davidjm@chromium.org</owner>
+  <owner>chrome-shopping@google.com</owner>
+  <summary>
+    The size of the storage in user preferences regarding impression counts for
+    various cards in the Magic Stack. This storage enables auto dismissing cards
+    after 3 impressions. This instance is for the {Type} card.
+  </summary>
+  <token key="Type">
+    <variant name="PriceDropOnTrackedItem"
+        summary="price drop on tracked item"/>
+    <variant name="TabResumptionRegular" summary="regular tab resumption"/>
+    <variant name="TabResumptionWithPriceDrop"
+        summary="tab resumption with a price drop"/>
+    <variant name="TabResumptionWithPriceTracking"
+        summary="tab resumption where the URL is price trackable"/>
   </token>
 </histogram>
 

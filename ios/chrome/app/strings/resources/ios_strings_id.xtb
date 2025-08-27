@@ -302,7 +302,6 @@
 <translation id="2120553909046681540">Organisasi Anda menonaktifkan penjelajahan rahasia.</translation>
 <translation id="2122754583996902531">Browser Anda dikelola. <ph name="BEGIN_LINK" />Pelajari Lebih Lanjut<ph name="END_LINK" /></translation>
 <translation id="21243612977487926">Percakapan organisasi Anda tidak digunakan untuk meningkatkan kualitas model kami. Gemini mungkin menampilkan info yang tidak akurat, termasuk tentang orang, jadi periksa kembali responsnya.<ph name="YOUR_PRIVACY_GEMINI" /></translation>
-<translation id="2126034128616392756">Sandi berikut tidak diimpor ke Pengelola Sandi Google karena tidak sesuai dengan persyaratan.</translation>
 <translation id="2139867232736819575">Telusuri Teks yang Anda Salin</translation>
 <translation id="2147127444698817042">Hanya tersedia di iPhone</translation>
 <translation id="2148799636999124959">Login dengan cepat ke situs dan aplikasi menggunakan sandi tersimpan.</translation>
@@ -513,6 +512,7 @@ Mesin telusur Anda adalah <ph name="DSE_NAME" />. Lihat petunjuknya untuk mengha
 <translation id="2931440415625410757">Tampilkan petunjuk</translation>
 <translation id="2952278131021475699">Penelusuran Kamera Lens</translation>
 <translation id="2962516096219646456">Lihat semua data isi otomatis</translation>
+<translation id="2965594942405840553">Tindakan ini tidak dapat diurungkan</translation>
 <translation id="2969979262385602596">Gagal masuk. Coba lagi nanti.</translation>
 <translation id="2975761176769946178">URL wajib diisi</translation>
 <translation id="297667759942911166">Berkolaborasi dalam grup tab</translation>
@@ -664,6 +664,7 @@ Lihat petunjuk mesin telusur untuk menghapus histori penelusuran Anda, jika memu
 <translation id="3596414637720633074">Blokir cookie pihak ketiga dalam mode Samaran</translation>
 <translation id="3602260545951981695">Pilih "Perlindungan yang Ditingkatkan"</translation>
 <translation id="3610041351087301930">Sembunyikan Pembaca</translation>
+<translation id="3610866916973186448">Ya, hapus</translation>
 <translation id="3622175633937495219">Histori Penelusuran (<ph name="COUNT" /> ditemukan)</translation>
 <translation id="3625008969091706597">Anda dapat menggeser tepi untuk kembali.</translation>
 <translation id="362709345066740529">Sesuaikan kartu, feed, dan lainnya di sini</translation>
@@ -1973,6 +1974,7 @@ Situs dapat menggunakan cookie untuk melihat aktivitas penjelajahan Anda di berb
 <translation id="8561999115126307258">{count,plural, =1{{count} opsi sandi tersedia di atas keyboard Anda.}other{{count} opsi sandi tersedia di atas keyboard Anda.}}</translation>
 <translation id="8564894539416715395">Halaman tab baru</translation>
 <translation id="8569721750632860947">URL apa yang ingin Anda tambahkan ke daftar bacaan?</translation>
+<translation id="8571019948162152515">Hapus "<ph name="FILENAME" />"?</translation>
 <translation id="8571213806525832805">4 minggu terakhir</translation>
 <translation id="8577056989960190117">Isi otomatis tahun habis masa berlaku <ph name="YEAR" /></translation>
 <translation id="8588404856427128947">Nonaktif</translation>

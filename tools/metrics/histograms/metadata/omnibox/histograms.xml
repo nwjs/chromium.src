@@ -319,6 +319,7 @@ Keep consistent with active providers. Doesn't need to include every provider in
     <variant name="AIM"/>
     <variant name="Call"/>
     <variant name="Directions"/>
+    <variant name="Lens"/>
     <variant name="Reviews"/>
   </token>
 </histogram>
@@ -343,6 +344,144 @@ Keep consistent with active providers. Doesn't need to include every provider in
     <variant name="Shown" summary="shown"/>
     <variant name="Used" summary="used"/>
   </token>
+</histogram>
+
+<histogram name="Omnibox.AimEligibility.GwsEligibility.is_eligible"
+    enum="Boolean" expires_after="2026-08-05">
+  <owner>manukh@chromium.org</owner>
+  <owner>chrome-desktop-search@google.com</owner>
+  <summary>
+    The AIM Eligibility service makes HTTP requests to determine which AI
+    features the user is eligible for. The requests are triggered by certain
+    infrequent actions that affect the user profile (e.g. startup, switching
+    profiles, signing in, etc), and also periodically: once every N hours.
+
+    The response is expected to be pretty stable over time. Even if the request
+    is made once every N hours, the response might not change for weeks or
+    longer. only once every week.
+
+    This metric logs whether the response contained a &quot;is_eligible&quot;
+    field set to true. If the field is missing or false, this metric will log
+    false. If the response fails (e.g. server is down or response is poorly
+    formatted), this metric will not be logged.
+  </summary>
+</histogram>
+
+<histogram name="Omnibox.AimEligibility.GwsRequest"
+    enum="ServerAimEligibilityRequestStatus" expires_after="2026-08-05">
+  <owner>manukh@chromium.org</owner>
+  <owner>chrome-desktop-search@google.com</owner>
+  <summary>
+    The AIM Eligibility service makes HTTP requests to determine which AI
+    features the user is eligible for. The requests are triggered by certain
+    infrequent actions that affect the user profile (e.g. startup, switching
+    profiles, signing in, etc), and also periodically: once every N hours.
+
+    This metric logs the status of the request.
+  </summary>
+</histogram>
+
+<histogram name="Omnibox.AimEntrypoint.Activated.UserTextPresent"
+    enum="Boolean" expires_after="2025-12-15">
+  <owner>khalidpeer@chromium.org</owner>
+  <owner>jdonnelly@chromium.org</owner>
+  <owner>chrome-desktop-search@google.com</owner>
+  <summary>
+    Recorded when the user activates the AIM entrypoint (page action) in the
+    Omnibox. More specifically, this metric records whether the user had text in
+    the Omnibox at the time they activated the AIM entrypoint.
+
+    Activation can be achieved via keyboard events (e.g. hitting [ENTER] or
+    [SPACE] while the page action is focused) or via mouse/gesture events (e.g.
+    clicking or tapping on the page action).
+  </summary>
+</histogram>
+
+<histogram
+    name="Omnibox.AimEntrypoint.Activated.UserTextPresent.ByPageContext.{OmniboxPageContext}"
+    enum="Boolean" expires_after="2025-12-15">
+  <owner>khalidpeer@chromium.org</owner>
+  <owner>jdonnelly@chromium.org</owner>
+  <owner>chrome-desktop-search@google.com</owner>
+  <summary>
+    Recorded when the user activates the AIM entrypoint (page action) in the
+    Omnibox. More specifically, this metric records whether the user had text in
+    the Omnibox at the time they activated the AIM entrypoint.
+
+    Activation can be achieved via keyboard events (e.g. hitting [ENTER] or
+    [SPACE] while the page action is focused) or via mouse/gesture events (e.g.
+    clicking or tapping on the page action).
+
+    Sliced by {OmniboxPageContext} which represents the page classification at
+    the time of AIM page action activation.
+  </summary>
+  <token key="OmniboxPageContext" variants="OmniboxPageContext"/>
+</histogram>
+
+<histogram name="Omnibox.AimEntrypoint.Activated.ViaKeyboard" enum="Boolean"
+    expires_after="2025-12-15">
+  <owner>khalidpeer@chromium.org</owner>
+  <owner>jdonnelly@chromium.org</owner>
+  <owner>chrome-desktop-search@google.com</owner>
+  <summary>
+    Recorded when the user activates the AIM entrypoint (page action) in the
+    Omnibox.
+
+    This metric records `true` when the user activates the entrypoint via
+    keyboard (e.g. hitting [ENTER] or [SPACE]) and records `false` when the user
+    activates the entrypoint via mouse/gesture events (e.g. clicking or tapping
+    on the page action).
+  </summary>
+</histogram>
+
+<histogram
+    name="Omnibox.AimEntrypoint.Activated.ViaKeyboard.ByPageContext.{OmniboxPageContext}"
+    enum="Boolean" expires_after="2025-12-15">
+  <owner>khalidpeer@chromium.org</owner>
+  <owner>jdonnelly@chromium.org</owner>
+  <owner>chrome-desktop-search@google.com</owner>
+  <summary>
+    Recorded when the user activates the AIM entrypoint (page action) in the
+    Omnibox.
+
+    This metric records `true` when the user activates the entrypoint via
+    keyboard (e.g. hitting [ENTER] or [SPACE]) and records `false` when the user
+    activates the entrypoint via mouse/gesture events (e.g. clicking or tapping
+    on the page action).
+
+    Sliced by {OmniboxPageContext} which represents the page classification at
+    the time of AIM page action activation.
+  </summary>
+  <token key="OmniboxPageContext" variants="OmniboxPageContext"/>
+</histogram>
+
+<histogram name="Omnibox.AimEntrypoint.Shown" enum="Boolean"
+    expires_after="2025-12-15">
+  <owner>khalidpeer@chromium.org</owner>
+  <owner>jdonnelly@chromium.org</owner>
+  <owner>chrome-desktop-search@google.com</owner>
+  <summary>
+    Recorded when the AIM entrypoint (page action) is shown in the Omnibox. This
+    is recorded once per Omnibox navigation. The entrypoint will only be shown
+    if the user is eligible for AIM functionality.
+  </summary>
+</histogram>
+
+<histogram
+    name="Omnibox.AimEntrypoint.Shown.ByPageContext.{OmniboxPageContext}"
+    enum="Boolean" expires_after="2025-12-15">
+  <owner>khalidpeer@chromium.org</owner>
+  <owner>jdonnelly@chromium.org</owner>
+  <owner>chrome-desktop-search@google.com</owner>
+  <summary>
+    Recorded when the AIM entrypoint (page action) is shown in the Omnibox. This
+    is recorded once per Omnibox navigation. The entrypoint will only be shown
+    if the user is eligible for AIM functionality.
+
+    Sliced by {OmniboxPageContext} which represents the page classification when
+    the AIM page action was shown to the user.
+  </summary>
+  <token key="OmniboxPageContext" variants="OmniboxPageContext"/>
 </histogram>
 
 <histogram name="Omnibox.AnswerAction.UsageByType.{AnswerType}"

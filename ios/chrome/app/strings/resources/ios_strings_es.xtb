@@ -170,7 +170,7 @@
 <translation id="1641113438599504367">Navegación segura</translation>
 <translation id="1644574205037202324">Historial</translation>
 <translation id="164673457281113247">{count,plural, =1{Marcador guardado}other{Marcadores guardados}}</translation>
-<translation id="1651260071709244114">Aplicaciones</translation>
+<translation id="1651260071709244114">apps</translation>
 <translation id="1652051421944182562">Activar notificaciones de Comprobación de tu estado…</translation>
 <translation id="1652333207707886577">Personalizar el menú</translation>
 <translation id="1653274177966208838">{TIME,plural, =0{Tiempo restante: {TIME} segundos}=1{Tiempo restante: {TIME} segundo}other{Tiempo restante: {TIME} segundos}}</translation>
@@ -302,7 +302,6 @@
 <translation id="2120553909046681540">Tu organización ha desactivado la navegación privada.</translation>
 <translation id="2122754583996902531">Tu navegador está administrado. <ph name="BEGIN_LINK" />Más información<ph name="END_LINK" /></translation>
 <translation id="21243612977487926">Las conversaciones de tu organización no se usan para mejorar nuestros modelos. Gemini puede mostrar información incorrecta (incluidos datos sobre personas), así que comprueba sus respuestas. <ph name="YOUR_PRIVACY_GEMINI" /></translation>
-<translation id="2126034128616392756">Las siguientes contraseñas no se han importado al Gestor de contraseñas de Google porque no cumplen los requisitos.</translation>
 <translation id="2139867232736819575">Buscar el texto que has copiado</translation>
 <translation id="2147127444698817042">Solo disponible en iPhone</translation>
 <translation id="2148799636999124959">Inicia sesión rápidamente en sitios y aplicaciones con tus contraseñas guardadas.</translation>
@@ -1374,7 +1373,7 @@ Handoff también debe estar habilitado en la sección General de Ajustes del sis
 <translation id="6331836477476466332">Un navegador más seguro y potente para ti</translation>
 <translation id="6335744088476213315">Esta tarjeta muestra los productos que has visto recientemente y que te podría interesar seguir para recibir alertas de bajadas de precio</translation>
 <translation id="6337234675334993532">Cifrado</translation>
-<translation id="6337313937331295309">Aviso de Privacidad de las Aplicaciones de Gemini</translation>
+<translation id="6337313937331295309">Aviso de Privacidad de las apps de Gemini</translation>
 <translation id="633809752005859102">Se ha producido un problema grave. Lo investigaremos para solucionarlo.</translation>
 <translation id="6339793034470834130">Para usar el inspector web, conéctate a Safari en tu ordenador mediante un cable y accede a tu iPhone desde el menú Desarrollo. Puedes habilitar el menú Desarrollo en la sección Avanzado de los ajustes de Safari de tu ordenador.</translation>
 <translation id="6340285871011301182">Traducción parcial no disponible.</translation>
@@ -2113,7 +2112,7 @@ Los sitios pueden usar cookies para ver tu actividad de navegación en otros sit
 <translation id="9032405509996909363">Confirmar eliminación de datos de navegación</translation>
 <translation id="9039373489628511875">Ancho de banda</translation>
 <translation id="9042893549633094279">Privacidad y seguridad</translation>
-<translation id="9055291197094969722">Crea grupos de pestañas para organizar tus pestañas abiertas y mantener la productividad</translation>
+<translation id="9055291197094969722">Crea grupos para organizar tus pestañas abiertas y mantener la productividad</translation>
 <translation id="9055580485132823283">Estás a punto de eliminar {password_count} contraseñas, {passkey_count} llaves de acceso y la lista de sitios y aplicaciones de los que has elegido no guardar nunca información de inicio de sesión. Las cuentas que hayas creado para sitios y aplicaciones no se eliminarán.</translation>
 <translation id="9057030985451135243">Más información sobre los grupos de pestañas compartidos</translation>
 <translation id="9057972802061533987">No se puede seguir. Algo ha fallado.</translation>
@@ -2177,7 +2176,7 @@ Los sitios pueden usar cookies para ver tu actividad de navegación en otros sit
 <translation id="956218893102219091">Usa tu ubicación precisa para obtener los resultados de Gemini más precisos, en lugar de una ubicación estimada basada en tu dirección IP. <ph name="BEGIN_LINK" />Más información<ph name="END_LINK" /></translation>
 <translation id="959066944189734975">Estás siguiendo a <ph name="CHANNEL_NAME" /></translation>
 <translation id="961856697154696964">Borrar datos de navegación</translation>
-<translation id="963102227019621224">Actividad en la Web y en Aplicaciones</translation>
+<translation id="963102227019621224">Actividad en la Web y en Apps</translation>
 <translation id="966593914872420832">Búsqueda por voz</translation>
 <translation id="972084300091883657">{COUNT,plural, =0{Unirte al grupo de pestañas con <ph name="OWNER_NAME" />}=1{Unirte al grupo de pestañas con <ph name="OWNER_NAME" /> y {COUNT} persona más}other{Unirte al grupo de pestañas con <ph name="OWNER_NAME" /> y {COUNT} personas más}}</translation>
 <translation id="973493300226275298">Haz un seguimiento del precio de un producto en las tiendas online. Recibirás alertas cuando baje de precio.</translation>

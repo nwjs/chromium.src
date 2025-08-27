@@ -2389,6 +2389,7 @@ Para obtener más información sobre el manejo de datos de las funciones potenci
       Si la estableces en "UserOnly" (valor 1), los usuarios podrán administrar sus certificados de usuario, pero no certificados para todo el dispositivo.</translation>
 <translation id="2593762551209145088">La Navegación segura nunca está activa.</translation>
 <translation id="2594773358911436070">Configuración de WebRtc</translation>
+<translation id="2600005880585324062">Permitir que <ph name="PRODUCT_NAME" /> decida qué orígenes aislar de otros orígenes del mismo sitio.</translation>
 <translation id="26023406105317310">Configura las cuentas de Kerberos</translation>
 <translation id="2603237557651009842">Bloquear la API de WebPrinting en estos sitios</translation>
 <translation id="2603382859270873566">Habilitar la compatibilidad con la API de PPB_VideoDecoder(Dev)</translation>
@@ -2595,6 +2596,7 @@ Si la inhabilitas o no la estableces, los usuarios podrán transferir archivos a
 <translation id="2753637905605932878">Restringir el intervalo de puertos UDP locales que usa WebRTC</translation>
 <translation id="2755847332939882873">Permite registrar el rendimiento de todo el sistema</translation>
 <translation id="2757054304033424106">Tipos de extensiones o aplicaciones que se pueden instalar</translation>
+<translation id="275769337615229465">La mayoría de los orígenes quedarán aislados de otros orígenes del mismo sitio.</translation>
 <translation id="2759224876420453487">Controlar el comportamiento del usuario en una sesión de varios perfiles</translation>
 <translation id="2760947619380644513">Permitir que los usuarios con acceso remoto abran las URLs del host en el navegador de su cliente local</translation>
 <translation id="2761483219396643566">Demora para la advertencia de inactividad cuando el dispositivo está funcionando a batería</translation>
@@ -3191,7 +3193,7 @@ ofrecerse en la versión 142 de <ph name="PRODUCT_NAME" />.</translation>
 <translation id="3171369832001535378">Plantilla para el nombre de host de la red de dispositivos</translation>
 <translation id="3173844121395372156">Esta política dejó de estar disponible y ya no se admite. En su lugar, usa la política "<ph name="NATIVE_MESSAGING_ALLOWLIST_POLICY_NAME" />".</translation>
 <translation id="3177537290334203187">Utilizar el comportamiento predeterminado al decidir si los sitios web pueden hacer solicitudes a extremos de red</translation>
-<translation id="3177802893484440532">Solicitar comprobaciones OCSP/CRL en línea para los anclajes de confianza locales</translation>
+<translation id="3177802893484440532">Exigir verificaciones de OCSP/CRL en línea para las anclas de confianza locales</translation>
 <translation id="3179533009079100620">Mostrar el selector de perfiles</translation>
 <translation id="3180633260411794645">Si estableces la política, podrás especificar una lista de patrones de URL que indiquen los sitios que no pueden ejecutar JavaScript.
 
@@ -4996,7 +4998,7 @@ Para obtener más información sobre el manejo de datos de las funciones potenci
 <translation id="4443711908766051441">Habilitar el juego del huevo de pascua del dinosaurio</translation>
 <translation id="4444682330960613191">Mostrar insignias empresariales solo en dispositivos administrados</translation>
 <translation id="4445728642576791607">Permitir que los usuarios activen o desactiven la configuración de <ph name="PRIVACY_SANDBOX_NAME" /> de medición de anuncios en sus dispositivos</translation>
-<translation id="4447668084338250480">Comportamiento de la redirección de intranet</translation>
+<translation id="4447668084338250480">Comportamiento de redireccionamiento de intranet</translation>
 <translation id="4449469846627734399">Establecer la configuración diurna para el cambio de carga fuera del horario de mayor consumo</translation>
 <translation id="4449545651113180484">Rotar la pantalla hacia la derecha 270 grados</translation>
 <translation id="4452653762766030431">Controlar la disponibilidad del sistema de archivos compartidos en red para ChromeOS</translation>
@@ -5027,7 +5029,7 @@ Esta política siempre será válida para <ph name="PRODUCT_OS_NAME" />.</transl
 <translation id="4467952432486360968">Bloquear cookies de terceros</translation>
 <translation id="4472740647327683596">Ancho de la página (en micrómetros).</translation>
 <translation id="4474167089968829729">Habilitar el guardado de contraseñas en el administrador de contraseñas</translation>
-<translation id="447692108909279121">Procesamiento de IP de WebRTC</translation>
+<translation id="447692108909279121">Manejo de IP de WebRTC</translation>
 <translation id="4478248026668918517">Bloquear la detección del alcance de la política</translation>
 <translation id="4479671363221255277">Si estableces la política, podrás definir una lista de patrones de URL donde se especifiquen los sitios que pueden pedir a los usuarios acceso de lectura a los archivos o directorios que se encuentren en el sistema de archivos del sistema operativo del host mediante la API de File System.
 
@@ -5159,6 +5161,7 @@ Un dispositivo se considera administrado si se utiliza una versión empresarial 
       Si no se configura esta política, el usuario podrá inhabilitar cualquier complemento instalado en el sistema.</translation>
 <translation id="4549695018986780856">Habilitar Manifest v2</translation>
 <translation id="4549729301485728119">El valor predeterminado se determina en función de otros factores</translation>
+<translation id="4554429681167460828">No se aislará ningún origen de otros orígenes en el mismo sitio, a menos que el origen solicite explícitamente que se lo aísle.</translation>
 <translation id="4554651132977135445">Modo de procesamiento de bucle invertido de la política del usuario</translation>
 <translation id="4554991346503872538">Nunca ofrecer la traducción</translation>
 <translation id="4555850956567117258">Habilita la atestación remota para el usuario.</translation>
@@ -8568,6 +8571,7 @@ Los cambios que se realicen en la política solo se aplicarán cuando ARC no se 
 <translation id="66265932317331474">Envía información de la CPU</translation>
 <translation id="6628120204569232711">Informar el estado de almacenamiento</translation>
 <translation id="662991036483361836">Impedir que los usuarios habiliten Compartir con Nearby</translation>
+<translation id="6630693609822689611">Habilitar el aislamiento de procesos con clave de origen de forma predeterminada.</translation>
 <translation id="663685822663765995">Restringir el modo de impresión a color</translation>
 <translation id="6640355849038068978">Si habilitas esta configuración, los usuarios podrán iniciar la aplicación Eche, por ejemplo, haciendo clic en una notificación de Phone Hub.
 
@@ -8847,7 +8851,7 @@ En <ph name="MS_WIN_NAME" />, esta política solo está disponible en instancias
       Nota: Esta política no se aplica en el modo Incógnito, donde se bloquean las cookies de terceros y solo se pueden permitir a nivel del sitio. Para permitir las cookies a nivel del sitio, usa la política <ph name="COOKIES_ALLOWED_FOR_URLS_POLICY_NAME" />.</translation>
 <translation id="6810445994095397827">Bloquear JavaScript en estos sitios</translation>
 <translation id="6813263547126514821">Encendido y apagado</translation>
-<translation id="681446116407619279">Esquemas de autenticación compatibles</translation>
+<translation id="681446116407619279">Esquemas de autenticación admitidos</translation>
 <translation id="6815628711329903153">Permitir la asignación moderna de búfer para el complemento PPAPI de las APIs de Graphics3D</translation>
 <translation id="6819838337315703072">Si está activada la compatibilidad para apps de <ph name="LINUX_OS_NAME" /> y habilitas la política, se enviará información sobre el uso de las apps de <ph name="LINUX_OS_NAME" /> al servidor.
 
@@ -9150,7 +9154,7 @@ Si no la estableces, se podrán mostrar imágenes, pero los usuarios podrán cam
 <translation id="7007283257527015835">Función experimental booleana que indica si el controlador de protocolos debe establecerse como predeterminado.</translation>
 <translation id="7007403084376547341">Seleccionar el objeto binario del navegador <ph name="LACROS_NAME" /></translation>
 <translation id="7007704186032892878">Exponer las credenciales de Wi-Fi activo por aplicación de kiosco a nivel del dispositivo</translation>
-<translation id="7008308728445338159">Revisiones habilitadas de la intercepción de DNS</translation>
+<translation id="7008308728445338159">Habilitación de las verificaciones de intercepción de DNS</translation>
 <translation id="7009043124653876961">Inhabilitar sugerencias de emojis cuando los usuarios escriben</translation>
 <translation id="7010006999849135962">Habilitar la autenticación sin PIN para el host de acceso remoto</translation>
 <translation id="7013333561002112085">Si estableces esta política como <ph name="PROVISION_MANAGED_CLIENT_CERTIFICATE_FOR_USER_ENABLED" /> (valor 1), el navegador solicitará un certificado de cliente del servidor de administración de dispositivos para un usuario o perfil administrado. Este certificado estará disponible, p. ej., para conexiones mTLS.
@@ -10152,6 +10156,13 @@ Si no estableces esta política, el navegador elegirá el renderizador de PDF.</
 <translation id="775822241671489040">Controlar el parámetro de configuración "Usar el Selector o la tecla de búsqueda para cambiar el comportamiento de las teclas de función"</translation>
 <translation id="7758378441185523981">Permite la autenticación ambiental para tipos de perfiles.</translation>
 <translation id="776110834126722255">Obsoleto</translation>
+<translation id="7761702157788500857">Habilita el aislamiento de procesos con clave de origen para la mayoría de las páginas (es decir, las que se asignan a un clúster de agentes con clave de origen de forma predeterminada). Esta política mejora la seguridad, pero también aumenta la cantidad de procesos creados. Los usuarios pueden anular el valor de la política establecida a través de la función experimental de línea de comandos o chrome://flags (para activar o desactivar esta función).
+
+Si habilitas la política, la mayoría de los orígenes quedarán aislados, incluso de otros orígenes del mismo sitio. Consulta también las políticas <ph name="ISOLATE_ORIGINS_POLICY_NAME" /> y <ph name="SITE_PER_PROCESS_POLICY_NAME" />.
+
+Si inhabilitas la política, los orígenes no quedarán aislados del resto de su sitio, a menos que un origen lo solicite de forma explícita.
+
+Si no estableces la política, el navegador determinará qué orígenes aislar y cuándo hacerlo.</translation>
 <translation id="7763614521440615342">Mostrar sugerencias de contenido en la página Nueva pestaña</translation>
 <translation id="7763650553214838209">Inhabilitar la configuración de un acceso directo para la acción "Insertar"</translation>
 <translation id="7763655314629932385">Especifica la versión deseada de la IWA. Si se proporciona, el sistema intentará instalar esta versión específica y, luego, bloqueará cualquier actualización posterior. Para dejar de fijar la app y volver a habilitar las actualizaciones, quita este campo. **Importante:** Si la versión proporcionada no existe, la IWA se quedará atascada en la versión instalada actualmente. Esto se debe a que, después de intentar (y, en este caso, no poder) actualizar a la versión fijada, la fijación inhabilita las actualizaciones automáticas posteriores.</translation>

@@ -5,10 +5,12 @@
 #import "ios/chrome/browser/intelligence/bwg/model/bwg_service.h"
 
 #import "base/metrics/histogram_functions.h"
+#import "base/task/sequenced_task_runner.h"
 #import "components/prefs/pref_service.h"
 #import "components/signin/public/identity_manager/identity_manager.h"
 #import "google_apis/gaia/google_service_auth_error.h"
 #import "ios/chrome/browser/intelligence/bwg/metrics/bwg_metrics.h"
+#import "ios/chrome/browser/intelligence/features/features.h"
 #import "ios/chrome/browser/shared/model/prefs/pref_names.h"
 #import "ios/chrome/browser/shared/model/profile/profile_ios.h"
 #import "ios/chrome/browser/signin/model/authentication_service.h"
@@ -38,6 +40,13 @@ void BwgService::Shutdown() {
 #pragma mark - Public
 
 bool BwgService::IsProfileEligibleForBwg() {
+  if (!IsGeminiAvailableForManagedAccounts()) {
+    if (auth_service_->HasPrimaryIdentityManaged(
+            signin::ConsentLevel::kSignin)) {
+      return false;
+    }
+  }
+
   AccountInfo account_info = identity_manager_->FindExtendedAccountInfo(
       identity_manager_->GetPrimaryAccountInfo(signin::ConsentLevel::kSignin));
   bool tokens_ok =
@@ -87,6 +96,12 @@ bool BwgService::IsBwgAvailableForWebState(web::WebState* web_state) {
 void BwgService::OnPrimaryAccountChanged(
     const signin::PrimaryAccountChangeEvent& event) {
   CheckGeminiEnterpriseEligibility();
+  if (ShouldDeleteGeminiConsentPref()) {
+    // Clear the profile pref since it's syncable and should be account-scoped.
+    base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+        FROM_HERE, base::BindOnce(&BwgService::ClearConsentPref,
+                                  weak_ptr_factory_.GetWeakPtr()));
+  }
 }
 
 void BwgService::OnIdentityManagerShutdown(
@@ -102,4 +117,8 @@ void BwgService::CheckGeminiEnterpriseEligibility() {
   ios::provider::CheckGeminiEligibility(auth_service_, ^(BOOL eligible) {
     is_disabled_by_gemini_policy_ = !eligible;
   });
+}
+
+void BwgService::ClearConsentPref() {
+  pref_service_->ClearPref(prefs::kIOSBwgConsent);
 }

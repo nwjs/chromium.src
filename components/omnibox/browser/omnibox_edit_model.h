@@ -127,6 +127,8 @@ class OmniboxEditModel {
 
   bool user_input_in_progress() const { return user_input_in_progress_; }
 
+  std::u16string user_text() const { return user_text_; }
+
   // Encapsulates all the varied conditions for whether to override the
   // permanent page icon (associated with the currently displayed page),
   // with a temporary icon (associated with the current match or user text).
@@ -199,19 +201,30 @@ class OmniboxEditModel {
                       AutocompleteMatch* match,
                       GURL* alternate_nav_url) const;
 
+  // Navigates to AI Mode, with the contents of the currently selected match, if
+  // any.
+  // `via_keyboard` is set to `true` if AI Mode was invoked via keyboard event
+  // and is set to `false` if AI Mode was invoked via mouse / gesture event.
+  void OpenAiMode(bool via_keyboard);
+
   // Opens given selection. Most kinds of selection invoke an action or
   // otherwise call `OpenMatch`, but some may `AcceptInput` which is not
   // guaranteed to open a match or commit the omnibox.
+  // `via_keyboard` is set to `true` if the selection was opened due to a
+  // keyboard event and is set to `false` if the selection was opened due
+  // to a mouse / gesture event.
   virtual void OpenSelection(
       OmniboxPopupSelection selection,
       base::TimeTicks timestamp = base::TimeTicks(),
-      WindowOpenDisposition disposition = WindowOpenDisposition::CURRENT_TAB);
+      WindowOpenDisposition disposition = WindowOpenDisposition::CURRENT_TAB,
+      bool via_keyboard = false);
 
   // A simplified version of OpenSelection that opens the model's current
   // selection.
   virtual void OpenSelection(
       base::TimeTicks timestamp = base::TimeTicks(),
-      WindowOpenDisposition disposition = WindowOpenDisposition::CURRENT_TAB);
+      WindowOpenDisposition disposition = WindowOpenDisposition::CURRENT_TAB,
+      bool via_keyboard = false);
 
   OmniboxFocusState focus_state() const { return focus_state_; }
   bool has_focus() const { return focus_state_ != OMNIBOX_FOCUS_NONE; }
@@ -368,8 +381,6 @@ class OmniboxEditModel {
   // Called when the current match has changed in the OmniboxController.
   void OnCurrentMatchChanged();
 
-  std::u16string GetUserTextForTesting() const { return user_text_; }
-
   AutocompleteInput GetInputForTesting() const { return input_; }
 
   // Name of the histogram tracking cut or copy omnibox commands.
@@ -493,16 +504,6 @@ class OmniboxEditModel {
   void OnNavigationLikely(
       size_t line,
       omnibox::mojom::NavigationPredictor navigation_predictor);
-
-  // These sentinel values are used to prevent the omnibox view from doing the
-  // usual bookkeeping when it loses or gains focus. This is necessary because
-  // when focus is transferred to the AIM button, we want to still consider the
-  // omnibox view to have focus for purposes of keeping the popup open and
-  // tracking the `OmniboxPopupSelection`.
-  bool FocusIsGoingToAimButton() const;
-  void SetFocusIsGoingToAimButton(bool value);
-  bool FocusIsReturningFromAimButton() const;
-  void SetFocusIsReturningFromAimButton(bool value);
 
   // This calls `OpenMatch` directly for the few remaining `OmniboxEditModel`
   // test cases that require explicit control over match content. For new
@@ -668,6 +669,15 @@ class OmniboxEditModel {
   // Always use these to set keyword members instead of mutating them directly.
   void SetKeyword(const std::u16string& keyword);
   void SetKeywordPlaceholder(const std::u16string& keyword_placeholder);
+
+  // Record various UMA metrics associated with the AIM page action.
+  // `query_text` represents the text entered by the user at activation time.
+  // `activated` represents whether or not the user activated the page action.
+  // `via_keyboard` represents the page action entry method (i.e. `true` =
+  // keyboard event / `false` = mouse/gesture event).
+  void RecordAiModeMetrics(const std::u16string& query_text,
+                           bool activated,
+                           bool via_keyboard);
 
   // Owns this.
   raw_ptr<OmniboxController> controller_;
@@ -844,9 +854,6 @@ class OmniboxEditModel {
   // suggestion whose tab switch button was focused, so that we may compare
   // if equal.
   GURL old_focused_url_;
-
-  bool focus_is_going_to_aim_button_ = false;
-  bool focus_is_returning_from_aim_button_ = false;
 
   base::WeakPtrFactory<OmniboxEditModel> weak_factory_{this};
 };

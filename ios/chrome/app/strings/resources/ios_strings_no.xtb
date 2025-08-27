@@ -302,7 +302,6 @@
 <translation id="2120553909046681540">Organisasjonen din har slått av privat surfing.</translation>
 <translation id="2122754583996902531">Nettleseren din administreres. <ph name="BEGIN_LINK" />Finn ut mer<ph name="END_LINK" /></translation>
 <translation id="21243612977487926">Chattene til organisasjonen din brukes ikke til å forbedre modellene våre. Gemini kan vise unøyaktig informasjon, blant annet om mennesker, så du bør dobbeltsjekke svarene den gir.<ph name="YOUR_PRIVACY_GEMINI" /></translation>
-<translation id="2126034128616392756">Følgende passord ble ikke importert til Google Passordlagring fordi de ikke oppfyller kravene.</translation>
 <translation id="2139867232736819575">Søk etter teksten du kopierte</translation>
 <translation id="2147127444698817042">Bare tilgjengelig på iPhone</translation>
 <translation id="2148799636999124959">Du kan enkelt logge på nettsteder og apper med de lagrede passordene dine.</translation>
@@ -881,7 +880,7 @@ Se eventuelt instruksjonene fra den aktuelle søkemotoren om hvordan du sletter 
 <translation id="4495516234578759322">Finn neste</translation>
 <translation id="4502423230170890588">Fjern fra denne enheten</translation>
 <translation id="4508750114462689118">Lukk påloggingskampanjen</translation>
-<translation id="4509345063551561634">Plassering:</translation>
+<translation id="4509345063551561634">Sted:</translation>
 <translation id="4517684186578051919">Enhetsinformasjon</translation>
 <translation id="4520798012560649652">Finn ut mer om inkognitomodus</translation>
 <translation id="452503091941773389">{count,plural, =1{{count} bokmerke}other{{count} bokmerker}}</translation>

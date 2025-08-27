@@ -8795,7 +8795,6 @@ crbug.com/40336192 virtual/disable-css-line-clamp/external/wpt/css/css-overflow/
 crbug.com/40336192 virtual/disable-css-line-clamp/external/wpt/css/css-overflow/line-clamp/line-clamp-031.tentative.html [ Failure ]
 crbug.com/40336192 virtual/disable-css-line-clamp/external/wpt/css/css-overflow/line-clamp/line-clamp-032.tentative.html [ Failure ]
 crbug.com/40336192 virtual/disable-css-line-clamp/external/wpt/css/css-overflow/line-clamp/line-clamp-033.tentative.html [ Failure ]
-crbug.com/40336192 virtual/disable-css-line-clamp/external/wpt/css/css-overflow/line-clamp/line-clamp-035.tentative.html [ Failure ]
 crbug.com/40336192 virtual/disable-css-line-clamp/external/wpt/css/css-overflow/line-clamp/line-clamp-auto-001.tentative.html [ Failure ]
 crbug.com/40336192 virtual/disable-css-line-clamp/external/wpt/css/css-overflow/line-clamp/line-clamp-auto-002.tentative.html [ Failure ]
 crbug.com/40336192 virtual/disable-css-line-clamp/external/wpt/css/css-overflow/line-clamp/line-clamp-auto-003.tentative.html [ Failure ]
@@ -9551,9 +9550,11 @@ crbug.com/414257771 [ Mac ] external/wpt/notifications/shownotification.https.wi
 crbug.com/392657736 external/wpt/content-security-policy/unsafe-eval/tentative/eval-hashes-override-unsafe-eval.sub.html [ Failure ]
 crbug.com/392657736 external/wpt/content-security-policy/unsafe-eval/tentative/eval-allowed-by-hash.sub.html [ Failure ]
 crbug.com/392657736 external/wpt/content-security-policy/unsafe-eval/tentative/eval-blocked-report-contains-hash.html [ Failure ]
+crbug.com/392657736 external/wpt/content-security-policy/unsafe-eval/tentative/eval-allowed-by-hash-long-script.sub.html [ Failure ]
 crbug.com/392657736 virtual/script-src-hashes-v1-enabled/external/wpt/content-security-policy/unsafe-eval/tentative/eval-hashes-override-unsafe-eval.sub.html [ Pass ]
 crbug.com/392657736 virtual/script-src-hashes-v1-enabled/external/wpt/content-security-policy/unsafe-eval/tentative/eval-allowed-by-hash.sub.html [ Pass ]
 crbug.com/392657736 virtual/script-src-hashes-v1-enabled/external/wpt/content-security-policy/unsafe-eval/tentative/eval-blocked-report-contains-hash.html [ Pass ]
+crbug.com/392657736 virtual/script-src-hashes-v1-enabled/external/wpt/content-security-policy/unsafe-eval/tentative/eval-allowed-by-hash-long-script.sub.html [ Pass ]
 
 # Gardener 2025-06-16
 crbug.com/424918655 [ Mac ] external/wpt/soft-navigation-heuristics/lcp/tentative/contracted-image.html [ Failure Pass ]
@@ -9651,6 +9652,9 @@ crbug.com/419705502 [ Mac ] http/tests/devtools/elements/styles-2/nested-pseudo-
 
 # Gardener 2025-07-23
 crbug.com/40253082 [ Mac14 ] virtual/controls-refresh-hc/fast/forms/color-scheme/select/select-multiple-appearance-basic.html [ Failure ]
+
+# Gardener 2025-07-30
+crbug.com/434955776 external/wpt/html/infrastructure/urls/resolving-urls/query-encoding/windows-1252.html?include=loading [ Pass Timeout ]
 
 # Gardener 2025-08-04
 crbug.com/436140064 [ Win ] images/png-crbug423310049.html [ Failure ]

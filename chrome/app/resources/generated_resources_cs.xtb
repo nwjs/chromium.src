@@ -1097,7 +1097,6 @@ Na tento účet se mohou vztahovat oprávnění, která jste již udělili aplik
 <translation id="174123615272205933">Vlastní</translation>
 <translation id="1741314857973421784">Pokračovat</translation>
 <translation id="1744108098763830590">stránka na pozadí</translation>
-<translation id="174516937379651657">Když sdílíte stránku s Gemini, celý obsah stránky a její adresa URL se odešlou do Googlu.</translation>
 <translation id="1745732479023874451">Spravovat kontakty</translation>
 <translation id="1748283190377208783">{0,plural, =1{unused plural form}few{Otevřít a upravit # soubory v této webové aplikaci?}many{Otevřít a upravit # souboru v této webové aplikaci?}other{Otevřít a upravit # souborů v této webové aplikaci?}}</translation>
 <translation id="1748329107062243374">K přihlášení na web <ph name="WEBSITE" /> použijte přístupový klíč ze zařízení <ph name="DEVICE_NAME" /></translation>
@@ -4375,7 +4374,7 @@ Zpráva serveru: <ph name="SERVER_MSG" /></translation>
 <translation id="3992008114154328194">Stahování souboru <ph name="FILE_NAME" />, <ph name="STATUS" /></translation>
 <translation id="3993259701827857030">Zálohování dat</translation>
 <translation id="3994075804072562819">Povolit pluginu <ph name="SPECIFIC_NAME" /> ovládat zařízení USB.</translation>
-<translation id="3994318741694670028">Váš počítač je bohužel nakonfigurován pomocí chybného čísla hardwaru. Systému ChromeOS Flex to zabraňuje získat aktualizace s nejnovějšími bezpečnostními opravami, a počítač tak <ph name="BEGIN_BOLD" />může být zranitelnější vůči škodlivým útokům<ph name="END_BOLD" />.</translation>
+<translation id="3994318741694670028">Váš počítač je bohužel nakonfigurován pomocí chybného čísla hardwaru. Systému ChromeOS Flex to zabraňuje získat aktualizace s nejnovějšími bezpečnostními opravami, a počítač tak <ph name="BEGIN_BOLD" />může být zranitelnější v případě útoků<ph name="END_BOLD" />.</translation>
 <translation id="3994374631886003300">Chcete-li zařízení <ph name="DEVICE_TYPE" /> odemknout, odemkněte telefon a umístěte jej blíže.</translation>
 <translation id="3994530503403062649">Najděte tlačítka na tabletu</translation>
 <translation id="3994708120330953242">Při porušení zabezpečení údajů byla vyzrazena některá vaše hesla. Za účelem zabezpečení účtů tato hesla ihned změňte.</translation>
@@ -5858,7 +5857,7 @@ Oddálení provedete stisknutím kláves Ctrl + Alt + Snížit jas.</translation
 <translation id="5075563999073408211">Ovládejte zařízení pomocí jednoho nebo více přepínačů. Jako přepínače můžete používat klávesy na klávesnici, tlačítka gamepadu nebo speciální zařízení.</translation>
 <translation id="5075910247684008552">Nezabezpečený obsah je ve výchozím nastavení na zabezpečených webech blokován</translation>
 <translation id="5078638979202084724">Přidat do záložek všechny karty</translation>
-<translation id="5078796286268621944">Nesprávný kód PIN</translation>
+<translation id="5078796286268621944">Nesprávný PIN</translation>
 <translation id="5079010647467150187">Přidat vestavěnou VPN…</translation>
 <translation id="5079460277417557557">Nyní můžete uložené skupiny karet používat na všech počítačích, na kterých jste přihlášeni</translation>
 <translation id="5079699784114005398">Po zapnutí budou vaše aplikace dostupné na všech zařízeních se systémem ChromeOS, na kterých se přihlásíte pomocí účtu Google. Webové aplikace nainstalované z prohlížeče Chrome budou synchronizovány, i když je synchronizace prohlížeče vypnutá.</translation>
@@ -7631,7 +7630,7 @@ K této akci lze přiřadit několik přepínačů.</translation>
 <translation id="635609604405270300">Ponechat zařízení zapnuté</translation>
 <translation id="6356537493253478650">Poklidná</translation>
 <translation id="63566973648609420">Vaše šifrovaná data mohou číst pouze uživatelé, kteří mají vaši heslovou frázi. Heslová fráze se neodesílá do Googlu a není na Googlu uložena. Pokud heslovou frázi zapomenete nebo toto nastavení budete chtít změnit, budete muset <ph name="BEGIN_LINK" />synchronizaci resetovat<ph name="END_LINK" />.</translation>
-<translation id="6356718524173428713">Při posunutí nahoru posunout stránku dolů</translation>
+<translation id="6356718524173428713">Při scrollování nahoru posouvat stránku dolů</translation>
 <translation id="6356893102071098867">Zkontrolujte, zda jste vybrali správný účet</translation>
 <translation id="6357305427698525450">Některé podporované odkazy se budou nadále otevírat v aplikaci <ph name="APP_NAME" /> nebo <ph name="APP_NAME_2" />.</translation>
 <translation id="6357750620525943720">Další stabilní identifikátory (např. hodnoty hash nebo UUID)</translation>
@@ -8185,7 +8184,6 @@ Máte # dalších prolomených hesel. Správce hesel Google doporučuje ihned ta
 <translation id="6759193508432371551">Tovární nastavení</translation>
 <translation id="6760354150216532978">Upozornění: Tento web může vidět vámi provedené úpravy</translation>
 <translation id="6761209758867628753">Nástroj: Pomozte mi s psaním</translation>
-<translation id="6761459308170527362">Prostřednictvím hlasového nebo textového chatu můžete Gemini položit otázku ohledně obsahu stránky, kterou sdílíte</translation>
 <translation id="676158322851696513"><ph name="EXTENSION_NAME" /></translation>
 <translation id="6761623907967804682">Data webu v zařízení nejsou povolena</translation>
 <translation id="6762833852331690540">Zapnuto</translation>
@@ -8975,7 +8973,6 @@ Máte # dalších prolomených hesel. Správce hesel Google doporučuje ihned ta
 <translation id="7320213904474460808">Nastavit výchozí síť</translation>
 <translation id="7321545336522791733">Server je nedostupný</translation>
 <translation id="7322515217754205362">Oprávnění k webům</translation>
-<translation id="7322919329844967709">Získáte relevantnější odpovědi související s obsahem stránky, kterou sdílíte</translation>
 <translation id="7323315405936922211">Velikost oblasti kurzoru</translation>
 <translation id="7324020307732396723">Otevřít nastavení jazyků</translation>
 <translation id="7324297612904500502">Fórum beta</translation>
@@ -10312,7 +10309,6 @@ Svůj soubor klíče uchovávejte na bezpečném místě. Budete jej potřebovat
 <translation id="8222112516148944758">Skupiny karet se automaticky ukládají a aktualizují na všech vašich zařízeních</translation>
 <translation id="8222674561049363989">Soubor není platný dokument</translation>
 <translation id="822347941086490485">Hledání zařízení HID…</translation>
-<translation id="8224209912580158729">Sdílet obsah stránky s Gemini, aby odpovědi byly relevantnější.</translation>
 <translation id="8224427620313426549">Účet na webu <ph name="DOMAIN_LINK" /> smazán nebude</translation>
 <translation id="8225046344534779393">Zkontrolujte připojení k internetu</translation>
 <translation id="8225265270453771718">Sdílet okno aplikace</translation>
@@ -10962,7 +10958,7 @@ Svůj soubor klíče uchovávejte na bezpečném místě. Budete jej potřebovat
 <translation id="8673026256276578048">Vyhledávání na webu...</translation>
 <translation id="867329473311423817">Má povoleno spravovat okna na všech obrazovkách</translation>
 <translation id="8673383193459449849">Problém se serverem</translation>
-<translation id="8674903726754070732">Váš počítač je bohužel nakonfigurován pomocí chybného čísla hardwaru. Systému ChromeOS to zabraňuje získat aktualizace s nejnovějšími bezpečnostními opravami, a počítač tak <ph name="BEGIN_BOLD" />může být zranitelnější vůči škodlivým útokům<ph name="END_BOLD" />.</translation>
+<translation id="8674903726754070732">Váš počítač je bohužel nakonfigurován pomocí chybného čísla hardwaru. Systému ChromeOS to zabraňuje získat aktualizace s nejnovějšími bezpečnostními opravami, a počítač tak <ph name="BEGIN_BOLD" />může být zranitelnější v případě útoků<ph name="END_BOLD" />.</translation>
 <translation id="8675657007450883866">Weby tuto funkci používají k automatické aktivaci režimu celé obrazovky. Obvykle je k aktivaci režimu celé obrazovky potřeba interakce uživatele.</translation>
 <translation id="8675704450909805533">Instalačnímu programu se nepodařilo najít platný cíl k instalaci systému <ph name="DEVICE_OS" />.</translation>
 <translation id="8676152597179121671">{COUNT,plural, =1{Video}few{# videa}many{# videa}other{# videí}}</translation>

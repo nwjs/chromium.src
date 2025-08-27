@@ -302,7 +302,6 @@
 <translation id="2120553909046681540">Təşkilatınız şəxsi brauzinqi deaktiv edib.</translation>
 <translation id="2122754583996902531">Brauzeriniz idarə edilir. <ph name="BEGIN_LINK" />Ətraflı Məlumat<ph name="END_LINK" /></translation>
 <translation id="21243612977487926">Təşkilatınızın söhbətləri modellərimizi təkmilləşdirmək üçün istifadə olunmur. Gemini insanlar haqqındakı məlumatlar da daxil olmaqla qeyri-dəqiq məlumatlar göstərə bilər, ona görə də məlumatları yenidən yoxlayın. <ph name="YOUR_PRIVACY_GEMINI" /></translation>
-<translation id="2126034128616392756">Aşağıdakı parollar tələblərə uyğun olmadığı üçün Google Parol Menecerinə import edilmədi.</translation>
 <translation id="2139867232736819575">Kopyalanmış Mətni Axtarın</translation>
 <translation id="2147127444698817042">Yalnız iPhone-da əlçatandır</translation>
 <translation id="2148799636999124959">Saxlanılmış parollarınızla saytlara və tətbiqlərə sürətlə daxil olun.</translation>
@@ -513,6 +512,7 @@ Axtarış mexanizmi: <ph name="DSE_NAME" />. Axtarış tarixçəsini silmək ü�
 <translation id="2931440415625410757">Təlimatları göstərin</translation>
 <translation id="2952278131021475699">Linza kamera axtarışı</translation>
 <translation id="2962516096219646456">Bütün Avto doldurma datasına baxın</translation>
+<translation id="2965594942405840553">Bu əməliyyat geri qaytarıla bilməz</translation>
 <translation id="2969979262385602596">Hesaba girmək olmur. Sonra cəhd edin.</translation>
 <translation id="2975761176769946178">Keçid tələb olunur</translation>
 <translation id="297667759942911166">Tab qruplarında əməkdaşlıq edin</translation>
@@ -664,6 +664,7 @@ Axtarış tarixçənizi silmək üçün axtarış mexanizminizin təlimatlarına
 <translation id="3596414637720633074">Anonim rejimdə üçüncü tərəf kukilərini bloklayın</translation>
 <translation id="3602260545951981695">"Təkmil qoruma" seçin</translation>
 <translation id="3610041351087301930">Oxu rejimini gizlədin</translation>
+<translation id="3610866916973186448">Bəli, silin</translation>
 <translation id="3622175633937495219">Axtarış tarixçəsi (<ph name="COUNT" /> nəticə tapılıb)</translation>
 <translation id="3625008969091706597">Kənarı çəkərək geri qayıda bilərsiniz.</translation>
 <translation id="362709345066740529">Kartları, lenti və s. bölmələri burada fərdiləşdirin</translation>
@@ -1973,6 +1974,7 @@ Saytlar müxtəlif saytlarda baxış fəaliyyətinizi görmək üçün kukilərd
 <translation id="8561999115126307258">{count,plural, =1{Parol üçün {count} seçim klaviaturanızın yuxarısında əlçatandır.}other{Parol üçün {count} seçim klaviaturanızın yuxarısında əlçatandır.}}</translation>
 <translation id="8564894539416715395">Yeni tab səhifəsi</translation>
 <translation id="8569721750632860947">Oxu siyahısına hansı URL-i əlavə etmək istərdiniz?</translation>
+<translation id="8571019948162152515">"<ph name="FILENAME" />" silinsin?</translation>
 <translation id="8571213806525832805">Son 4 həftə</translation>
 <translation id="8577056989960190117">Son istifadə ilini (<ph name="YEAR" />) avtomatik doldurun</translation>
 <translation id="8588404856427128947">Deaktiv</translation>

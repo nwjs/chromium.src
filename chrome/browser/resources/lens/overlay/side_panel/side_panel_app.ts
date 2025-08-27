@@ -10,6 +10,7 @@ import '/lens/shared/searchbox_ghost_loader.js';
 import '/lens/shared/searchbox_shared_style.css.js';
 import '//resources/cr_components/searchbox/searchbox.js';
 import '//resources/cr_elements/cr_toast/cr_toast.js';
+import '//resources/cr_components/composebox/composebox.js';
 
 import {ColorChangeUpdater} from '//resources/cr_components/color_change_listener/colors_css_updater.js';
 import {HelpBubbleMixin} from '//resources/cr_components/help_bubble/help_bubble_mixin.js';
@@ -186,6 +187,11 @@ export class LensSidePanelAppElement extends LensSidePanelAppElementBase {
         type: Number,
         value: 0,
       },
+      isOnAimResults: {
+        type: Boolean,
+        value: false,
+        reflectToAttribute: true,
+      },
     };
   }
 
@@ -230,9 +236,8 @@ export class LensSidePanelAppElement extends LensSidePanelAppElementBase {
   private progressBarAnimation: Animation|null = null;
   private progressBarHideAnimation: Animation|null = null;
   // A helper object responsible for handling post messages received by the
-  // window.
-  private postMessageReceiver: PostMessageReceiver =
-      new PostMessageReceiver(SidePanelBrowserProxyImpl.getInstance());
+  // window. Only alive while this component is connected to the DOM.
+  private postMessageReceiver?: PostMessageReceiver;
   // Whether the feedback toast has been explicitly dismissed by the user.
   private feedbackToastDismissed = false;
   // The timeout ID for reshowing the feedback toast.
@@ -247,6 +252,8 @@ export class LensSidePanelAppElement extends LensSidePanelAppElementBase {
   declare private toastMessage: string;
   // The number of suggestions currently being shown to the user.
   declare private searchboxSuggestionCount: number;
+  // Whether the results in the iframe are currently on the AIM UI.
+  declare private isOnAimResults: boolean;
   private eventTracker_: EventTracker = new EventTracker();
 
   private searchboxBoundingClientRectObserver: ResizeObserver =
@@ -292,6 +299,8 @@ export class LensSidePanelAppElement extends LensSidePanelAppElementBase {
           this.pageContentTypeChanged.bind(this)),
       this.browserProxy.callbackRouter.showToast.addListener(
           this.showMessageToast.bind(this)),
+      this.browserProxy.callbackRouter.aimResultsChanged.addListener(
+          this.onAimResultsChanged.bind(this)),
     ];
     this.eventTracker_.add(this.$.searchbox, 'mousedown', () => {
       this.suppressGhostLoader = false;
@@ -304,7 +313,8 @@ export class LensSidePanelAppElement extends LensSidePanelAppElementBase {
         () => this.feedbackToastDismissed = true);
 
     // Start listening to postMessages on the window.
-    this.postMessageReceiver.listen();
+    this.postMessageReceiver = new PostMessageReceiver(
+        SidePanelBrowserProxyImpl.getInstance(), this.$.results);
   }
 
   override disconnectedCallback() {
@@ -314,7 +324,9 @@ export class LensSidePanelAppElement extends LensSidePanelAppElementBase {
         id => assert(this.browserProxy.callbackRouter.removeListener(id)));
     this.listenerIds = [];
     this.eventTracker_.removeAll();
-    this.postMessageReceiver.detach();
+    // Let the postMessageReceiver cleanup before it is destroyed.
+    this.postMessageReceiver!.detach();
+    this.postMessageReceiver = undefined;
   }
 
   private onBackArrowClick() {
@@ -549,6 +561,10 @@ export class LensSidePanelAppElement extends LensSidePanelAppElementBase {
     }
   }
 
+  private onAimResultsChanged(onAim: boolean) {
+    this.isOnAimResults = onAim;
+  }
+
   private async showToast(toast: CrToastElement, message?: string) {
     if (toast.open) {
       // If toast already open, wait after hiding so that animation is
@@ -586,5 +602,17 @@ declare global {
     'lens-side-panel-app': LensSidePanelAppElement;
   }
 }
+
+// Register the custom property for the composebox gradient color.
+// Custom properties are ignored by the browser in shadow DOMs, so need to
+// register them globally here. Additionally, the property can only by
+// registered once per document, so this must be done in the main window, rather
+// than in the class itself.
+window.CSS.registerProperty({
+  name: '--color-new-tab-page-composebox-scrim-background',
+  syntax: '<color>',
+  inherits: true,
+  initialValue: 'white',
+});
 
 customElements.define(LensSidePanelAppElement.is, LensSidePanelAppElement);

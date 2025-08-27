@@ -302,7 +302,6 @@
 <translation id="2120553909046681540">Szervezete kikapcsolta az inkognitó módban való böngészést.</translation>
 <translation id="2122754583996902531">A böngésző felügyelet alatt áll. <ph name="BEGIN_LINK" />További információ<ph name="END_LINK" />.</translation>
 <translation id="21243612977487926">Szervezete csevegéseit nem használjuk fel a modelljeink javítására. Előfordulhat, hogy a Gemini pontatlan információkat jelenít meg, többek között személyekről is, ezért alaposan ellenőrizze a válaszait. <ph name="YOUR_PRIVACY_GEMINI" /></translation>
-<translation id="2126034128616392756">A következő jelszavakat nem importálta a rendszer a Google Jelszókezelőbe, mert nem felelnek meg a követelményeknek.</translation>
 <translation id="2139867232736819575">Vágólapra másolt szöveg keresése</translation>
 <translation id="2147127444698817042">Csak iPhone-on áll rendelkezésre</translation>
 <translation id="2148799636999124959">Gyorsan bejelentkezhet a webhelyekre és az alkalmazásokba a mentett jelszavakkal.</translation>
@@ -513,6 +512,7 @@ Az Ön keresőmotorja a következő: <ph name="DSE_NAME" />. A keresési előzm�
 <translation id="2931440415625410757">Utasítások megjelenítése</translation>
 <translation id="2952278131021475699">Lens Kamerás kereső</translation>
 <translation id="2962516096219646456">Az automatikus kitöltés összes adatának megtekintése</translation>
+<translation id="2965594942405840553">A művelet nem vonható vissza</translation>
 <translation id="2969979262385602596">Nem sikerült bejelentkezni. Kérjük, próbálja újra később.</translation>
 <translation id="2975761176769946178">Egy URL-cím megadása kötelező</translation>
 <translation id="297667759942911166">Együttműködés lapcsoportokban</translation>
@@ -664,6 +664,7 @@ A keresési előzmények törléséről a keresőmotorja útmutatójából táj�
 <translation id="3596414637720633074">Harmadik felektől származó cookie-k letiltása Inkognitó módban</translation>
 <translation id="3602260545951981695">Válassza a „Speciális védelem” lehetőséget.</translation>
 <translation id="3610041351087301930">Olvasó elrejtése</translation>
+<translation id="3610866916973186448">Igen, törlöm</translation>
 <translation id="3622175633937495219">Keresési előzmények (<ph name="COUNT" /> elem található)</translation>
 <translation id="3625008969091706597">Ujját a képernyő szélén gyorsan csúsztatva visszaléphet.</translation>
 <translation id="362709345066740529">Itt személyre szabhatja kártyáit, hírcsatornáját és egyebeket</translation>
@@ -879,7 +880,7 @@ A keresési előzmények törléséről a keresőmotorja útmutatójából táj�
 <translation id="4495516234578759322">Következő keresése</translation>
 <translation id="4502423230170890588">Eltávolítás az eszközről</translation>
 <translation id="4508750114462689118">Bejelentkezési promóció bezárása</translation>
-<translation id="4509345063551561634">Hely:</translation>
+<translation id="4509345063551561634">Letöltési hely:</translation>
 <translation id="4517684186578051919">Eszközadatok</translation>
 <translation id="4520798012560649652">További információ az inkognitó módról</translation>
 <translation id="452503091941773389">{count,plural, =1{{count} könyvjelző}other{{count} könyvjelző}}</translation>
@@ -1973,6 +1974,7 @@ A webhelyek használhatnak cookie-kat arra, hogy megfigyeljék más webhelyekre 
 <translation id="8561999115126307258">{count,plural, =1{{count} lehetséges jelszó áll rendelkezésre a billentyűzet felett.}other{{count} lehetséges jelszó áll rendelkezésre a billentyűzet felett.}}</translation>
 <translation id="8564894539416715395">Új lap oldal</translation>
 <translation id="8569721750632860947">Melyik URL-t szeretné felvenni az olvasólistájára?</translation>
+<translation id="8571019948162152515">Törli a következőt: „<ph name="FILENAME" />”?</translation>
 <translation id="8571213806525832805">Az elmúlt 4 hétből</translation>
 <translation id="8577056989960190117">A következő lejárati év automatikus kitöltése: <ph name="YEAR" /></translation>
 <translation id="8588404856427128947">Kikapcsolva</translation>

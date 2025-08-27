@@ -302,7 +302,6 @@
 <translation id="2120553909046681540">La teva organització ha desactivat la navegació privada.</translation>
 <translation id="2122754583996902531">El navegador està gestionat. <ph name="BEGIN_LINK" />Més informació<ph name="END_LINK" /></translation>
 <translation id="21243612977487926">Els xats de la teva organització no s'utilitzen per millorar els nostres models. És possible que Gemini mostri informació imprecisa, també sobre persones, així que comprova-la. <ph name="YOUR_PRIVACY_GEMINI" /></translation>
-<translation id="2126034128616392756">Les contrasenyes següents no s'han importat al gestor de contrasenyes de Google perquè no compleixen els requisits.</translation>
 <translation id="2139867232736819575">Cerca el text que has copiat</translation>
 <translation id="2147127444698817042">Només disponible a iPhone</translation>
 <translation id="2148799636999124959">Inicia fàcilment la sessió en aplicacions i llocs web amb les contrasenyes desades.</translation>
@@ -513,6 +512,7 @@ El teu motor de cerca és <ph name="DSE_NAME" />. Consulta'n les instruccions pe
 <translation id="2931440415625410757">Mostra les instruccions</translation>
 <translation id="2952278131021475699">Cerca amb la càmera de Lens</translation>
 <translation id="2962516096219646456">Mostra totes les dades d'Emplenament automàtic</translation>
+<translation id="2965594942405840553">Aquesta acció no es pot desfer</translation>
 <translation id="2969979262385602596">No s'ha pogut iniciar la sessió. Torneu-ho a provar més tard.</translation>
 <translation id="2975761176769946178">Has d'introduir un URL</translation>
 <translation id="297667759942911166">Col·labora en grups de pestanyes</translation>
@@ -664,6 +664,7 @@ Consulta les instruccions del teu motor de cerca per suprimir l'historial de cer
 <translation id="3596414637720633074">Bloqueja les galetes de tercers en mode d'incògnit</translation>
 <translation id="3602260545951981695">Tria Protecció millorada</translation>
 <translation id="3610041351087301930">Amaga el lector</translation>
+<translation id="3610866916973186448">Sí, suprimeix</translation>
 <translation id="3622175633937495219">Historial de cerques (n'hem trobat <ph name="COUNT" />)</translation>
 <translation id="3625008969091706597">Pots fer lliscar la vora per anar enrere.</translation>
 <translation id="362709345066740529">Personalitza les targetes, el feed i més aquí</translation>
@@ -1973,6 +1974,7 @@ Els llocs web poden fer servir galetes per veure la teva activitat de navegació
 <translation id="8561999115126307258">{count,plural, =1{Hi ha {count} opció de contrasenya disponible a sobre del teclat.}other{Hi ha {count} opcions de contrasenya disponibles a sobre del teclat.}}</translation>
 <translation id="8564894539416715395">Pàgina Pestanya nova</translation>
 <translation id="8569721750632860947">Quin URL vols afegir a la teva llista de lectura?</translation>
+<translation id="8571019948162152515">Vols suprimir <ph name="FILENAME" />?</translation>
 <translation id="8571213806525832805">4 darreres setmanes</translation>
 <translation id="8577056989960190117">Emplena automàticament l'any de caducitat (<ph name="YEAR" />)</translation>
 <translation id="8588404856427128947">Desactivada</translation>

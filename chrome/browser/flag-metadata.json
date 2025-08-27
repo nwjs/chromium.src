@@ -1379,8 +1379,7 @@
     "name": "calculate-native-win-occlusion",
     "owners": [ "davidbienvenu@chromium.org", "fdoray@chromium.org" ],
     "expiry_milestone": 130
-  },
-  {
+  },  {
     "name": "camera-mic-effects",
     "owners": [
       "bryantchandler@chromium.org",
@@ -2830,6 +2829,11 @@
     "expiry_milestone": 150
   },
   {
+    "name": "enable-annotated-page-contents-for-virtual-structure",
+    "owners": ["ssid@chromium.org", "salg@google.com"],
+    "expiry_milestone": 150
+  },
+  {
     "name": "enable-annotator-mode",
     "owners": [ "sanjaperisic@chromium.org", "cros-edu-eng@google.com" ],
     "expiry_milestone": 140
@@ -3822,6 +3826,11 @@
   {
     "name": "enable-lens-overlay-straight-to-srp",
     "owners": [ "nguyenbryan@google.com", "lens-chrome@google.com" ],
+    "expiry_milestone": 145
+  },
+  {
+    "name": "enable-lens-overlay-text-selection-context-menu-entrypoint",
+    "owners": ["nguyenbryan@google.com", "lens-chrome@google.com"],
     "expiry_milestone": 145
   },
   {
@@ -5639,6 +5648,15 @@
     "expiry_milestone": 152
   },
   {
+    "name": "hide-aim-omnibox-entrypoint-on-user-input",
+    "owners": [
+      "hannahrogers@chromium.org",
+      "jdonnelly@chromium.org",
+      "khalidpeer@chromium.org",
+      "chrome-desktop-search@google.com"],
+    "expiry_milestone": 150
+  },
+  {
     "name": "history-embeddings",
     "owners": [ "mahmadi@chromium.org", "orinj@chromium.org", "manukh@chromium.org", "johntlee@chromium.org" ],
     "expiry_milestone": 145
@@ -6511,7 +6529,7 @@
   {
     "name": "link-preview",
     "owners": [ "//chrome/browser/preloading/preview/OWNERS" ],
-    "expiry_milestone": 140
+    "expiry_milestone": 150
   },
   {
     "name": "linked-services-setting",
@@ -7252,7 +7270,7 @@
   {
     "name": "omit-cors-client-cert",
     "owners": [ "toyoshim@chromium.org", "loading-dev@chromium.org" ],
-    "expiry_milestone": 140
+    "expiry_milestone": 150
   },
   {
     "name": "omnibox-2023-refresh-connection-security-indicators",
@@ -7268,6 +7286,11 @@
     "name": "omnibox-aim-shortcut-typed-state",
     "owners": [ "jianli@chromium.org", "chrome-mobile-search@google.com"],
     "expiry_milestone": 145
+  },
+  {
+    "name": "omnibox-allow-ai-mode-matches",
+    "owners": ["manukh@chromium.org", "chrome-desktop-search@google.com"],
+    "expiry_milestone": 150
   },
   {
     "name": "omnibox-answer-actions",
@@ -8617,7 +8640,7 @@
   {
     "name": "render-document",
     "owners": [ "rakina@chromium.org" ],
-    "expiry_milestone": 140
+    "expiry_milestone": 150
   },
   {
     "name": "renderer-side-content-decoding",
@@ -8671,6 +8694,11 @@
     "name": "right-edge-goes-forward-gesture-nav",
     "owners": [ "eleanorlee@google.com", "lazzzis@google.com", "twellington@chromium.org" ],
     "expiry_milestone": 150
+  },
+  {
+    "name": "robust-window-management",
+    "owners": [ "aishwaryarj@google.com", "rathomas@google.com", "clank-large-form-factors@google.com" ],
+    "expiry_milestone": 143
   },
   {
     "name": "root-scrollbar-follows-browser-theme",

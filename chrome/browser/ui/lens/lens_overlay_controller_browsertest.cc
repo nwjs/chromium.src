@@ -107,6 +107,7 @@
 #include "components/lens/lens_overlay_side_panel_menu_option.h"
 #include "components/lens/lens_overlay_side_panel_result.h"
 #include "components/lens/proto/server/lens_overlay_response.pb.h"
+#include "components/omnibox/common/omnibox_features.h"
 #include "components/optimization_guide/content/browser/page_context_eligibility.h"
 #include "components/optimization_guide/content/browser/page_context_eligibility_api.h"
 #include "components/permissions/test/permission_request_observer.h"
@@ -4546,10 +4547,12 @@ class LensOverlayControllerEntrypointsBrowserTest
                {::features::kPageActionsMigrationLensOverlay.name, "true"},
            }});
     }
+    // TODO(crbug.com/441102004): Update OverlayHidesEntrypoints to support
+    //   kAiModeOmniboxEntryPoint.
     feature_list_.InitWithFeaturesAndParameters(
         enabled_features,
-        /*disabled_features=*/{
-            lens::features::kLensOverlaySimplifiedSelection});
+        /*disabled_features=*/{lens::features::kLensOverlaySimplifiedSelection,
+                               omnibox::kAiModeOmniboxEntryPoint});
   }
 
   void VerifyEntrypoints(bool expected_visible) {
@@ -5759,22 +5762,24 @@ IN_PROC_BROWSER_TEST_P(LensOverlayControllerBrowserPDFContextualizationTest,
       lens::Payload(),
       EqualsProto(fake_query_controller->last_sent_page_content_payload()));
 
-  // Verify the searchbox was hidden.
+  // Verify the searchbox was shown. The CSB should be shown for all PDFs
+  // regardless of size. The server will handle what should be returned for large
+  // PDFs.
   auto* fake_controller = static_cast<LensOverlayControllerFake*>(controller);
   ASSERT_TRUE(fake_controller);
-  EXPECT_FALSE(fake_controller->fake_overlay_page_
+  EXPECT_TRUE(fake_controller->fake_overlay_page_
                    .last_received_should_show_contextual_searchbox_);
   CloseOverlayAndWaitForOff(controller,
                             LensOverlayDismissalSource::kOverlayCloseButton);
 
-  // Verify the histogram recorded the searchbox was not shown.
+  // Verify the histogram recorded the searchbox was shown.
   histogram_tester.ExpectUniqueSample(
       "Lens.Overlay.ContextualSearchBox.ByPageContentType.Pdf.ShownInSession",
-      /*sample*/ false,
+      /*sample*/ true,
       /*expected_bucket_count=*/1);
   histogram_tester.ExpectUniqueSample(
       "Lens.Overlay.ContextualSearchBox.ByDocumentType.Pdf.ShownInSession",
-      /*sample*/ false,
+      /*sample*/ true,
       /*expected_bucket_count=*/1);
 }
 
@@ -6286,8 +6291,11 @@ class LensOverlayControllerBrowserWithPixelsTest
   }
 
   void SetupFeatureList() override {
-    feature_list_.InitAndDisableFeature(
-        lens::features::kLensOverlayVisualSelectionUpdates);
+    feature_list_.InitWithFeatures(
+        /*enabled_features=*/{}, /*disabled_features=*/{
+            lens::features::kLensOverlayVisualSelectionUpdates,
+            lens::features::
+                kLensOverlayVisualSelectionUpdatesForOmniboxSuggestions});
   }
 
   bool IsNotEmptyAndNotTransparentBlack(SkBitmap bitmap) {
@@ -7537,6 +7545,122 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   ASSERT_EQ(fake_query_controller->last_queried_text(), "oranges");
 }
 
+// TODO(crbug.com/413042395): This test is not testing overlay logic, but
+// instead the side panel logic. Therefore, this test should be moved to a side
+// panel browsertest file.
+IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
+                       IssueTextSearchRequest_Contextualizes) {
+  WaitForPaint(kDocumentWithNonAsciiCharacters);
+
+  // State should start in off.
+  auto* controller = GetLensOverlayController();
+  ASSERT_EQ(controller->state(), State::kOff);
+
+  // Open the overlay by issuing a text search request without suppressing
+  // contextualization.
+  GetLensSearchController()->IssueTextSearchRequest(
+      LensOverlayInvocationSource::kContentAreaContextMenuText, "test",
+      /*additional_query_parameters=*/{},
+      AutocompleteMatchType::Type::SEARCH_WHAT_YOU_TYPED,
+      /*is_zero_prefix_suggestion=*/false,
+      /*suppress_contextualization=*/false);
+
+  // Wait for the side panel to load.
+  ASSERT_TRUE(base::test::RunUntil(
+      [&]() { return controller->GetSidePanelWebContentsForTesting(); }));
+  EXPECT_TRUE(content::WaitForLoadStop(
+      controller->GetSidePanelWebContentsForTesting()));
+
+  // Verify we entered the live page state.
+  ASSERT_TRUE(base::test::RunUntil(
+      [&]() { return controller->state() == State::kLivePageAndResults; }));
+
+  // Make another query to build the history stack.
+  content::TestNavigationObserver observer(
+      controller->GetSidePanelWebContentsForTesting());
+  controller->IssueSearchBoxRequestForTesting(
+      kTestTime, "apples", AutocompleteMatchType::SEARCH_SUGGEST,
+      /*is_zero_prefix_suggestion=*/false,
+      /*additional_query_params=*/{});
+
+  // Wait for the side panel to load.
+  observer.WaitForNavigationFinished();
+
+  // Pop last query from history.
+  controller->results_side_panel_coordinator()->PopAndLoadQueryFromHistory();
+  observer.WaitForNavigationFinished();
+
+  // An interaction request should have been sent for each contextualized query.
+  auto* fake_query_controller =
+      static_cast<lens::TestLensOverlayQueryController*>(
+          controller->get_lens_overlay_query_controller_for_testing());
+  ASSERT_TRUE(base::test::RunUntil([&]() {
+    return fake_query_controller->num_interaction_requests_sent() == 3;
+  }));
+}
+
+// TODO(crbug.com/413042395): This test is not testing overlay logic, but
+// instead the side panel logic. Therefore, this test should be moved to a side
+// panel browsertest file.
+// TODO(crbug.com/439622878): Test is flaky on Windows.
+#if BUILDFLAG(IS_WIN)
+#define MAYBE_IssueTextSearchRequest_SuppressesContextualization \
+  DISABLED_IssueTextSearchRequest_SuppressesContextualization
+#else
+#define MAYBE_IssueTextSearchRequest_SuppressesContextualization \
+  IssueTextSearchRequest_SuppressesContextualization
+#endif
+IN_PROC_BROWSER_TEST_F(
+    LensOverlayControllerBrowserTest,
+    MAYBE_IssueTextSearchRequest_SuppressesContextualization) {
+  WaitForPaint(kDocumentWithNonAsciiCharacters);
+
+  // State should start in off.
+  auto* controller = GetLensOverlayController();
+  ASSERT_EQ(controller->state(), State::kOff);
+
+  // Open the overlay by issuing a text search request and suppressing
+  // contextualization.
+  GetLensSearchController()->IssueTextSearchRequest(
+      LensOverlayInvocationSource::kContentAreaContextMenuText, "test",
+      /*additional_query_parameters=*/{},
+      AutocompleteMatchType::Type::SEARCH_WHAT_YOU_TYPED,
+      /*is_zero_prefix_suggestion=*/false,
+      /*suppress_contextualization=*/true);
+
+  // Wait for the side panel to load.
+  ASSERT_TRUE(base::test::RunUntil(
+      [&]() { return controller->GetSidePanelWebContentsForTesting(); }));
+  EXPECT_TRUE(content::WaitForLoadStop(
+      controller->GetSidePanelWebContentsForTesting()));
+
+  // Verify we entered the live page state.
+  ASSERT_TRUE(base::test::RunUntil(
+      [&]() { return controller->state() == State::kLivePageAndResults; }));
+
+  // Make another query to build the history stack.
+  content::TestNavigationObserver observer(
+      controller->GetSidePanelWebContentsForTesting());
+  controller->IssueSearchBoxRequestForTesting(
+      kTestTime, "apples", AutocompleteMatchType::SEARCH_SUGGEST,
+      /*is_zero_prefix_suggestion=*/false,
+      /*additional_query_params=*/{});
+
+  // Wait for the side panel to load.
+  observer.WaitForNavigationFinished();
+
+  // Pop last query from history.
+  controller->results_side_panel_coordinator()->PopAndLoadQueryFromHistory();
+  observer.WaitForNavigationFinished();
+
+  // No interaction requests should have been sent as contextualization was
+  // suppressed.
+  auto* fake_query_controller =
+      static_cast<lens::TestLensOverlayQueryController*>(
+          controller->get_lens_overlay_query_controller_for_testing());
+  ASSERT_EQ(fake_query_controller->num_interaction_requests_sent(), 0);
+}
+
 // This test checks that there is no crash when showing lens overlay when
 // screenshot is not available.
 IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
@@ -7755,25 +7879,27 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerInnerTextEnabledSmallByteLimitTest,
       lens::Payload(),
       EqualsProto(fake_query_controller->last_sent_page_content_payload()));
 
-  // Verify the searchbox was hidden.
+  // Verify the searchbox was shown. The CSB should be shown even if the inner
+  // text is not included in the request. The server will handle what to show in
+  // the searchbox based on the page content that is received.
   auto* fake_controller = static_cast<LensOverlayControllerFake*>(controller);
   ASSERT_TRUE(fake_controller);
-  EXPECT_FALSE(fake_controller->fake_overlay_page_
+  EXPECT_TRUE(fake_controller->fake_overlay_page_
                    .last_received_should_show_contextual_searchbox_);
 
   CloseOverlayAndWaitForOff(controller,
                             LensOverlayDismissalSource::kOverlayCloseButton);
 
-  // Verify the histogram recorded the searchbox was not shown.
+  // Verify the histogram recorded the searchbox was shown.
   histogram_tester.ExpectUniqueSample(
       "Lens.Overlay.ContextualSearchBox.ByPageContentType.PlainText."
       "ShownInSession",
-      /*sample*/ false,
+      /*sample*/ true,
       /*expected_bucket_count=*/1);
   histogram_tester.ExpectUniqueSample(
       "Lens.Overlay.ContextualSearchBox.ByDocumentType.Html."
       "ShownInSession",
-      /*sample*/ false,
+      /*sample*/ true,
       /*expected_bucket_count=*/1);
 }
 
@@ -8206,7 +8332,9 @@ class LensOverlayControllerContextualFeaturesDisabledTest
     feature_list_.InitWithFeatures(
         /*enabled_features=*/{},
         /*disabled_features=*/{
-            lens::features::kLensOverlayContextualSearchbox});
+            lens::features::kLensOverlayContextualSearchbox,
+            lens::features::
+                kLensOverlayContextualSearchboxForOmniboxSuggestions});
   }
 };
 

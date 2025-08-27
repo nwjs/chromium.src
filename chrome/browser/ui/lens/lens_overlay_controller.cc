@@ -891,20 +891,20 @@ void LensOverlayController::ShowUI(
   }
 }
 
-void LensOverlayController::IssueContextualSearchRequest(
+void LensOverlayController::IssueTextSearchRequest(
     std::string query_text,
     std::map<std::string, std::string> additional_query_parameters,
     lens::LensOverlayQueryController* lens_overlay_query_controller,
     AutocompleteMatchType::Type match_type,
     bool is_zero_prefix_suggestion,
     lens::LensOverlayInvocationSource invocation_source) {
-  IssueContextualSearchRequestInner(
+  IssueTextSearchRequestInner(
       /*query_start_time=*/base::Time::Now(), query_text,
       additional_query_parameters, lens_overlay_query_controller, match_type,
       is_zero_prefix_suggestion, invocation_source);
 }
 
-void LensOverlayController::IssueContextualSearchRequestInner(
+void LensOverlayController::IssueTextSearchRequestInner(
     base::Time query_start_time,
     std::string query_text,
     std::map<std::string, std::string> additional_query_parameters,
@@ -924,6 +924,9 @@ void LensOverlayController::IssueContextualSearchRequestInner(
     // not overlay UI, this flow does a lot of unnecessary work. There should be
     // a new flow that can contextualize without the overlay UI being
     // initialized.
+    // TODO(crbug.com/439082713) Decouple the contextualization controller from
+    // the overlay controller so that the overlay controller is less dependent
+    // on it for proper functioning.
     // Set the query controller if it is not already set. This happens in cases
     // when a contextual request is made but the overlay is not shown.
     lens_overlay_query_controller_ = lens_overlay_query_controller;
@@ -941,7 +944,7 @@ void LensOverlayController::IssueContextualSearchRequestInner(
   if (IsOverlayInitializing()) {
     // Hold the request until the overlay has finished initializing.
     pending_contextual_search_request_ = base::BindOnce(
-        &LensOverlayController::IssueContextualSearchRequestInner,
+        &LensOverlayController::IssueTextSearchRequestInner,
         weak_factory_.GetWeakPtr(), query_start_time, query_text,
         additional_query_parameters, lens_overlay_query_controller, match_type,
         is_zero_prefix_suggestion, invocation_source);
@@ -1805,21 +1808,15 @@ void LensOverlayController::InitializeOverlayUI(
 
   auto* lens_session_metrics_logger = GetLensSessionMetricsLogger();
 
-  bool should_show_csb = !init_data.page_contents_.empty() &&
-                         !init_data.page_contents_.front().bytes_.empty();
-  if (should_show_csb) {
-    lens_session_metrics_logger->OnContextualSearchboxShown();
-  }
+  lens_session_metrics_logger->OnContextualSearchboxShown();
   lens_session_metrics_logger->OnInitialPageContentRetrieved(
       /*page_content_type=*/init_data.page_contents_.empty()
           ? lens::MimeType::kUnknown
           : init_data.primary_content_type_);
 
-  page_->ShouldShowContextualSearchBox(should_show_csb);
-
+  page_->ShouldShowContextualSearchBox(/*should_show=*/true);
   // If should show CSB, and the CSB viewport thumbnail is enabled, send it now.
-  if (should_show_csb &&
-      lens::features::GetVisualSelectionUpdatesEnableCsbThumbnail()) {
+  if (lens::features::GetVisualSelectionUpdatesEnableCsbThumbnail()) {
     GetLensSearchboxController()->HandleThumbnailCreatedBitmap(
         init_data.initial_screenshot_);
   }
@@ -2501,6 +2498,10 @@ void LensOverlayController::IssueSearchBoxRequestPart2(
       is_context_eligible);
   results_side_panel_coordinator_->SetShowProtectedErrorPage(
       !is_context_eligible);
+
+  // Update the entry points state here in case InitializeOverlay() was
+  // bypassed by straight to SRP flows.
+  UpdateEntryPointsState();
 
   MaybeLaunchSurvey();
 }

@@ -1092,7 +1092,6 @@
 <translation id="174123615272205933">କଷ୍ଟମ୍</translation>
 <translation id="1741314857973421784">ଜାରି ରଖନ୍ତୁ</translation>
 <translation id="1744108098763830590">ପୃଷ୍ଠପଟ ପୃଷ୍ଠା</translation>
-<translation id="174516937379651657">ଆପଣ Gemini ସହିତ ଏକ ପୃଷ୍ଠା ସେୟାର କଲେ, ପୃଷ୍ଠାର ସମ୍ପୂର୍ଣ୍ଣ ବିଷୟବସ୍ତୁ ଏବଂ URL Googleକୁ ପଠାଯାଏ।</translation>
 <translation id="1745732479023874451">ଯୋଗାଯୋଗଗୁଡ଼ିକୁ ପରିଚାଳନା କରନ୍ତୁ</translation>
 <translation id="1748283190377208783">{0,plural, =1{unused plural form}other{ଏହି ୱେବ ଆପରେ #ଟି ଫାଇଲକୁ ଖୋଲି ଏଡିଟ କରିବେ?}}</translation>
 <translation id="1748329107062243374"><ph name="WEBSITE" />ରେ ସାଇନ ଇନ କରିବାକୁ <ph name="DEVICE_NAME" />ରୁ ଏକ ପାସକୀ ବ୍ୟବହାର କରନ୍ତୁ</translation>
@@ -4242,7 +4241,7 @@
 <translation id="3913689539406883376">ଆପଣଙ୍କ କମ୍ପ୍ୟୁଟର ଅନପ୍ଲଗ ଥିବା ବେଳେ ଚାଲୁ କରନ୍ତୁ</translation>
 <translation id="3914173277599553213">ଆବଶ୍ୟକ</translation>
 <translation id="3914568430265141791"><ph name="FOLDER_TITLE" /> ଫୋଲ୍ଡର ଖୋଲନ୍ତୁ</translation>
-<translation id="3914894336972817683">ଅପଲୋଡ କରାଯାଇପାରିବ ନାହିଁ। ଫାଇଲଟି ଖାଲି ଥିବା ପରି ଜଣାପଡୁଛି।</translation>
+<translation id="3914894336972817683">ଅପଲୋଡ କରାଯାଇପାରିବ ନାହିଁ। ଫାଇଲଟି ଖାଲି ଥିବା ପରି ଜଣାପଡ଼ୁଛି।</translation>
 <translation id="3915280005470252504">ସ୍ୱର ମାଧ୍ୟମରେ ଖୋଜନ୍ତୁ</translation>
 <translation id="3916445069167113093">ଏହି ପ୍ରକାର ଫାଇଲ୍ ଆପଣଙ୍କର କମ୍ପ୍ୟୁଟରକୁ କ୍ଷତି କରିପାରେ। ଯେକୌଣସି ମତେ ଆପଣ <ph name="FILE_NAME" /> ରଖିବାକୁ ଚାହୁଁଛନ୍ତି କି?</translation>
 <translation id="3917184139185490151">ଆପଣଙ୍କ କମ୍ପ୍ୟୁଟରରେ ଏକ ସୁରକ୍ଷିତ ମଡ୍ୟୁଲ ଅନ୍ତର୍ଭୁକ୍ତ ଅଛି, ଯାହା ChromeOSରେ ଅନେକ ଜଟିଳ ସୁରକ୍ଷା ଫିଚର ଲାଗୁ କରିବା ପାଇଁ ବ୍ୟବହୃତ ହୋଇଥାଏ। ଅଧିକ ଜାଣିବା ପାଇଁ Chromebook ସହାୟତା କେନ୍ଦ୍ର ଭିଜିଟ କରନ୍ତୁ: https://support.google.com/chromebook/?p=sm</translation>
@@ -8182,7 +8181,6 @@ Google Chrome ଆପଣଙ୍କ ମୋବାଇଲ୍ ଡାଟା ବ୍ୟବ
 <translation id="6759193508432371551">ଫ୍ୟାକ୍ଟୋରୀ ରିସେଟ୍</translation>
 <translation id="6760354150216532978">ଚେତାବନୀ: ଏହି ସାଇଟ ଆପଣ ତିଆରି କରିଥିବା ଏଡିଟ ଦେଖିପାରିବ</translation>
 <translation id="6761209758867628753">ଟୁଲ: ମୋତେ ଲେଖିବାରେ ସାହାଯ୍ୟ କରନ୍ତୁ</translation>
-<translation id="6761459308170527362">ଆପଣ ସେୟାର କରୁଥିବା ପୃଷ୍ଠା ବିଷୟବସ୍ତୁ ବିଷୟରେ Geminiକୁ ପ୍ରଶ୍ନ ପଚାରିବା ପାଇଁ ଭଏସ କିମ୍ବା ଟେକ୍ସଟ ଚାଟ ବ୍ୟବହାର କରିପାରିବେ</translation>
 <translation id="676158322851696513">"<ph name="EXTENSION_NAME" />"</translation>
 <translation id="6761623907967804682">ଡିଭାଇସରେ ସାଇଟ ଡାଟାକୁ ଅନୁମତି ନାହିଁ</translation>
 <translation id="6762833852331690540">ଚାଲୁ ଅଛି</translation>
@@ -8971,7 +8969,6 @@ Voice Match ଆପଣଙ୍କ Assistantକୁ ଆପଣଙ୍କୁ ଚିହ�
 <translation id="7320213904474460808">ନେଟୱାର୍କ ପାଇଁ ଡିଫଲ୍ଟ</translation>
 <translation id="7321545336522791733">ସର୍ଭର୍ ଅପହଞ୍ଚ ଦୂରତାରେ ଅଛି</translation>
 <translation id="7322515217754205362">ସାଇଟ ପାଇଁ ଅନୁମତିଗୁଡ଼ିକ</translation>
-<translation id="7322919329844967709">ଆପଣ ସେୟାର କରୁଥିବା ପୃଷ୍ଠା ବିଷୟବସ୍ତୁ ସହ ସମ୍ବନ୍ଧିତ ଅଧିକ ପ୍ରାସଙ୍ଗିକ ଉତ୍ତର ପାଇବେ</translation>
 <translation id="7323315405936922211">କର୍ସର ଏରିଆ ଆକାର</translation>
 <translation id="7324020307732396723">ଭାଷା ସେଟିଂସ ଖୋଲନ୍ତୁ</translation>
 <translation id="7324297612904500502">ବିଟା ଫୋରମ୍</translation>
@@ -10307,7 +10304,6 @@ Voice Match ଆପଣଙ୍କ Assistantକୁ ଆପଣଙ୍କୁ ଚିହ�
 <translation id="8222112516148944758">ଆପଣଙ୍କ ଟାବ ଗ୍ରୁପ ଆପଣଙ୍କର ସମସ୍ତ ଡିଭାଇସରେ ସ୍ୱତଃ ସେଭ ଏବଂ ଅପଡେଟ ହୁଏ</translation>
 <translation id="8222674561049363989">ଫାଇଲଟି ଏକ ବୈଧ ଡକ୍ୟୁମେଣ୍ଟ ନୁହେଁ</translation>
 <translation id="822347941086490485">HID ଡିଭାଇସଗୁଡ଼ିକୁ ଖୋଜାଯାଉଛି…</translation>
-<translation id="8224209912580158729">ଅଧିକ ପ୍ରାସଙ୍ଗିକ ଉତ୍ତର ପାଇବା ପାଇଁ Gemini ସହିତ ପୃଷ୍ଠାର ବିଷୟବସ୍ତୁ ସେୟାର କରନ୍ତୁ।</translation>
 <translation id="8224427620313426549">ଆପଣଙ୍କ <ph name="DOMAIN_LINK" /> ଆକାଉଣ୍ଟ ଡିଲିଟ ହେବ ନାହିଁ</translation>
 <translation id="8225046344534779393">ଇଣ୍ଟରନେଟ କନେକ୍ସନ ଯାଞ୍ଚ କରନ୍ତୁ</translation>
 <translation id="8225265270453771718">ଏକ ଆପ୍ଲିକେସନ୍ ୱିଣ୍ଡୋ ସେୟାର୍ କରନ୍ତୁ</translation>

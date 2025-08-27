@@ -149,10 +149,13 @@ class OmniboxView {
   // automatically focused (like for browser startup or NTP load).
   virtual void SetFocus(bool is_user_initiated) = 0;
 
-  // Requests focus for the implementation of the omnibox view only, skipping
-  // all of the bookkeeping done by `SetFocus()`. Used to return focus to the
-  // omnibox from the AI mode button.
-  virtual void RequestViewFocus() = 0;
+  // Applies a focus ring predicate to control when the AIM button's focus ring
+  // is shown. If `force_focus` is true, the focus ring will always be shown.
+  // This is used to indicated focus when the popup selection selects the AIM
+  // button, even though the omnibox is still the focused view.  If
+  // `force_focus` is false, the focus ring will use the standard behavior,
+  // which is to show the focus ring when the button has focus.
+  virtual void ApplyFocusRingToAimButton(bool force_focus) {}
 
   // Shows or hides the caret based on whether the model's is_caret_visible() is
   // true.

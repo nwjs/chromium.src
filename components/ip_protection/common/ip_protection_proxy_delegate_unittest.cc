@@ -452,6 +452,33 @@ TEST_F(IpProtectionProxyDelegateTest, AddsDebugExperimentArm) {
   }
 }
 
+TEST_F(IpProtectionProxyDelegateTest,
+       DoesNotAddDebugExperimentArmToNonIppProxy) {
+  std::map<std::string, std::string> parameters;
+  parameters[net::features::kIpPrivacyDebugExperimentArm.name] = "13";
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndEnableFeatureWithParameters(
+      net::features::kEnableIpProtectionProxy, std::move(parameters));
+
+  auto masked_domain_list_manager = CreateMdlManager(
+      /*first_party_map=*/{});
+  auto ipp_core =
+      std::make_unique<MockIpProtectionCore>(&masked_domain_list_manager);
+  // These will be unused but ensure these not being set isn't the reason for
+  // the header not being added.
+  ipp_core->SetNextAuthToken(MakeAuthToken("Bearer: a-token"));
+  ipp_core->SetProxyList({MakeChain({"proxya", "proxyb"})});
+  auto delegate = CreateDelegate(ipp_core.get());
+
+  net::HttpRequestHeaders headers;
+  auto non_ipp_chain = net::ProxyChain(net::ProxyServer::FromSchemeHostAndPort(
+      net::ProxyServer::SCHEME_HTTPS, "proxy.com", std::nullopt));
+  EXPECT_THAT(delegate->OnBeforeTunnelRequest(non_ipp_chain,
+                                              /*chain_index=*/0, &headers),
+              IsOk());
+  EXPECT_TRUE(headers.IsEmpty());
+}
+
 TEST_F(IpProtectionProxyDelegateTest, OnResolveProxyDeprioritizesBadProxies) {
   std::map<std::string, std::set<std::string>> first_party_map;
   first_party_map["example.com"] = {};
@@ -1559,11 +1586,36 @@ TEST_F(IpProtectionProxyDelegateTest,
   auto headers = base::MakeRefCounted<net::HttpResponseHeaders>(
       net::HttpUtil::AssembleRawHeaders(
           "HTTP/1.1 502 Bad Gateway\nProxy-Status: proxy; "
-          "error=dns_error\n"));
+          "error=dns_error;rcode=\"NXDOMAIN\"\n"));
 
   // For non-IPP chains, the delegate should return `net::OK` to allow the
   // default network stack handling to process the response.
   EXPECT_THAT(delegate->OnTunnelHeadersReceived(non_ipp_chain,
+                                                /*chain_index=*/0, *headers),
+              IsOk());
+}
+
+TEST_F(IpProtectionProxyDelegateTest,
+       OnTunnelHeadersReceivedReturnsOkWhenKillswitchEnabled) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndDisableFeature(
+      net::features::kEnableIpPrivacyProxyAdvancedFallbackLogic);
+
+  auto masked_domain_list_manager = CreateMdlManager({});
+  auto ipp_core =
+      std::make_unique<MockIpProtectionCore>(&masked_domain_list_manager);
+  auto delegate = CreateDelegate(ipp_core.get());
+  auto ip_protection_proxy_chain = MakeChain({"proxy.com"});
+  auto headers = base::MakeRefCounted<net::HttpResponseHeaders>(
+      net::HttpUtil::AssembleRawHeaders(
+          "HTTP/1.1 502 Bad Gateway\nProxy-Status: proxy; "
+          "error=dns_error;rcode=\"NXDOMAIN\"\n"));
+
+  // When the killswitch is enabled, the delegate should return `net::OK` to
+  // allow the default network stack handling to process the response (even
+  // in the presence of a Proxy-Status header that would otherwise result in the
+  // request not falling back).
+  EXPECT_THAT(delegate->OnTunnelHeadersReceived(ip_protection_proxy_chain,
                                                 /*chain_index=*/0, *headers),
               IsOk());
 }
@@ -1582,10 +1634,11 @@ TEST_F(
           "error=dns_error\n"));
 
   // We should treat dns_error without a corresponding rcode field as needing
-  // fallback.
+  // fallback (by returning OK so that the standard proxy fallback logic is
+  // used).
   EXPECT_THAT(delegate->OnTunnelHeadersReceived(ip_protection_proxy_chain,
                                                 /*chain_index=*/0, *headers),
-              IsError(net::ERR_PROXY_TUNNEL_REQUEST_FAILED));
+              IsOk());
 }
 
 TEST_F(
@@ -1602,10 +1655,11 @@ TEST_F(
           "error=dns_error;rcode=\"SERVFAIL\"\n"));
 
   // All rcodes except NXDOMAIN indicate server failure and should trigger
-  // fallback.
+  // fallback (by returning OK so that the standard proxy fallback logic is
+  // used).
   EXPECT_THAT(delegate->OnTunnelHeadersReceived(ip_protection_proxy_chain,
                                                 /*chain_index=*/0, *headers),
-              IsError(net::ERR_PROXY_TUNNEL_REQUEST_FAILED));
+              IsOk());
 }
 
 TEST_F(IpProtectionProxyDelegateTest,
@@ -1623,7 +1677,7 @@ TEST_F(IpProtectionProxyDelegateTest,
   // An NXDOMAIN rcode should not trigger fallback.
   EXPECT_THAT(delegate->OnTunnelHeadersReceived(ip_protection_proxy_chain,
                                                 /*chain_index=*/0, *headers),
-              IsError(net::ERR_TUNNEL_CONNECTION_FAILED));
+              IsError(net::ERR_PROXY_UNABLE_TO_CONNECT_TO_DESTINATION));
 }
 
 // TODO(crbug.com/435524190): Can remove this test once we remove the
@@ -1642,10 +1696,29 @@ TEST_F(
           "error=dns_error;rcode=NXDOMAIN\n"));
 
   // An NXDOMAIN rcode should not trigger fallback even if the value is a token
-  // instead of a string.
+  // instead of a string (by returning OK so that the standard proxy fallback
+  // logic is used).
   EXPECT_THAT(delegate->OnTunnelHeadersReceived(ip_protection_proxy_chain,
                                                 /*chain_index=*/0, *headers),
-              IsError(net::ERR_TUNNEL_CONNECTION_FAILED));
+              IsError(net::ERR_PROXY_UNABLE_TO_CONNECT_TO_DESTINATION));
+}
+
+TEST_F(IpProtectionProxyDelegateTest,
+       OnTunnelHeadersReceivedReturnsTunnelConnectionFailedForDnsNodata) {
+  auto masked_domain_list_manager = CreateMdlManager({});
+  auto ipp_core =
+      std::make_unique<MockIpProtectionCore>(&masked_domain_list_manager);
+  auto delegate = CreateDelegate(ipp_core.get());
+  auto ip_protection_proxy_chain = MakeChain({"proxy.com"});
+  auto headers = base::MakeRefCounted<net::HttpResponseHeaders>(
+      net::HttpUtil::AssembleRawHeaders(
+          "HTTP/1.1 502 Bad Gateway\nProxy-Status: proxy; "
+          "error=dns_error;rcode=\"NODATA\"\n"));
+
+  // An NODATA rcode should not trigger fallback.
+  EXPECT_THAT(delegate->OnTunnelHeadersReceived(ip_protection_proxy_chain,
+                                                /*chain_index=*/0, *headers),
+              IsError(net::ERR_PROXY_UNABLE_TO_CONNECT_TO_DESTINATION));
 }
 
 TEST_F(
@@ -1660,10 +1733,11 @@ TEST_F(
       "HTTP/1.1 500 Internal Server Error");
 
   // An ambiguous error without a Proxy-Status header should be treated as a
-  // proxy failure, warranting fallback.
+  // proxy failure, warranting fallback (by returning OK so that the standard
+  // proxy fallback logic is used).
   EXPECT_THAT(delegate->OnTunnelHeadersReceived(ip_protection_proxy_chain,
                                                 /*chain_index=*/0, *headers),
-              IsError(net::ERR_PROXY_TUNNEL_REQUEST_FAILED));
+              IsOk());
 }
 
 TEST_F(
@@ -1681,7 +1755,7 @@ TEST_F(
   // A malformed header is ambiguous, so we assume a proxy failure and fallback.
   EXPECT_THAT(delegate->OnTunnelHeadersReceived(ip_protection_proxy_chain,
                                                 /*chain_index=*/0, *headers),
-              IsError(net::ERR_PROXY_TUNNEL_REQUEST_FAILED));
+              IsOk());
 }
 
 TEST_F(
@@ -1698,10 +1772,11 @@ TEST_F(
           "Proxy-Status: PxyA; info=\"healthy\"\n"));
 
   // A valid Proxy-Status header that does not contain a recognized destination
-  // error is treated as a proxy failure.
+  // error is treated as a proxy failure (by returning OK so that the standard
+  // proxy fallback logic is used).
   EXPECT_THAT(delegate->OnTunnelHeadersReceived(ip_protection_proxy_chain,
                                                 /*chain_index=*/0, *headers),
-              IsError(net::ERR_PROXY_TUNNEL_REQUEST_FAILED));
+              IsOk());
 }
 
 TEST_F(
@@ -1718,10 +1793,11 @@ TEST_F(
           "Proxy-Status: proxy; error=\"proxy_internal_error\"\n"));
 
   // A non-destination error in the Proxy-Status header indicates a proxy
-  // failure, so we should fall back.
+  // failure, so we should fall back (by returning OK so that the standard proxy
+  // fallback logic is used).
   EXPECT_THAT(delegate->OnTunnelHeadersReceived(ip_protection_proxy_chain,
                                                 /*chain_index=*/0, *headers),
-              IsError(net::ERR_PROXY_TUNNEL_REQUEST_FAILED));
+              IsOk());
 }
 
 class IpProtectionProxyDelegateOnTunnelHeadersReceivedTest
@@ -1746,13 +1822,12 @@ TEST_P(IpProtectionProxyDelegateOnTunnelHeadersReceivedTest,
   // Destination-side errors should prevent fallback.
   EXPECT_THAT(delegate->OnTunnelHeadersReceived(ip_protection_proxy_chain,
                                                 /*chain_index=*/0, *headers),
-              IsError(net::ERR_TUNNEL_CONNECTION_FAILED));
+              IsError(net::ERR_PROXY_UNABLE_TO_CONNECT_TO_DESTINATION));
 }
 
 INSTANTIATE_TEST_SUITE_P(All,
                          IpProtectionProxyDelegateOnTunnelHeadersReceivedTest,
-                         testing::Values("dns_timeout",
-                                         "destination_not_found",
+                         testing::Values("destination_not_found",
                                          "destination_unavailable",
                                          "destination_ip_unroutable",
                                          "connection_refused",
@@ -1777,10 +1852,11 @@ TEST_F(
           "Proxy-Status: PxyA; info=\"ok\", Invalid; error=dns_error\n"));
 
   // For IP Protection there is only ever one proxy in the path for any given
-  // connection, so treat multiple entities in the Proxy-Status line as invalid.
+  // connection, so treat multiple entities in the Proxy-Status line as invalid
+  // (and return OK so that the standard proxy fallback logic is used).
   EXPECT_THAT(delegate->OnTunnelHeadersReceived(ip_protection_proxy_chain,
                                                 /*chain_index=*/0, *headers),
-              IsError(net::ERR_PROXY_TUNNEL_REQUEST_FAILED));
+              IsOk());
 }
 
 }  // namespace ip_protection

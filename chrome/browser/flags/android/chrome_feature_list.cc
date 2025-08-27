@@ -241,6 +241,7 @@ const base::Feature* const kFeaturesExposedToJava[] = {
     &kAndroidWindowPopupResizeAfterSpawn,
     &kAnimatedGifRefactor,
     &kAnimatedImageDragShadow,
+    &kAnnotatedPageContentsVirtualStructure,
     &kAppSpecificHistory,
     &kAppSpecificHistoryViewIntent,
     &kAsyncNotificationManager,
@@ -385,6 +386,7 @@ const base::Feature* const kFeaturesExposedToJava[] = {
     &kReloadTabUiResourcesIfChanged,
     &kRemoveTabFocusOnShowingAndSelect,
     &kRightEdgeGoesForwardGestureNav,
+    &kRobustWindowManagement,
     &kSearchInCCT,
     &kSearchInCCTAlternateTapHandling,
     &kSearchInCCTIfEnabledByEmbedder,
@@ -698,6 +700,10 @@ BASE_FEATURE(kAnimatedGifRefactor,
 
 BASE_FEATURE(kAnimatedImageDragShadow,
              "AnimatedImageDragShadow",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kAnnotatedPageContentsVirtualStructure,
+             "AnnotatedPageContentsVirtualStructure",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kAppSpecificHistory,
@@ -1269,6 +1275,10 @@ BASE_FEATURE(kRemoveTabFocusOnShowingAndSelect,
 
 BASE_FEATURE(kRightEdgeGoesForwardGestureNav,
              "RightEdgeGoesForwardGestureNav",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kRobustWindowManagement,
+             "RobustWindowManagement",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kSettingsSingleActivity,

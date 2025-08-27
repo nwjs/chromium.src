@@ -316,12 +316,12 @@ class LocationBarView
   // of at least one of the views in |content_setting_views_| changed.
   bool RefreshContentSettingViews();
 
-  // Updates the visibility state of the AIM page action button in particular.
-  void RefreshAimPageActionIcon();
-
   // Updates the visibility state of the PageActionIconViews to reflect what
   // actions are available on the current page.
   void RefreshPageActionIconViews();
+
+  // Updates the visibility state of the AIM page action icon view.
+  void RefreshAiModePageActionIconView();
 
   // Updates PageActionContainerView's action controller to the active tab's
   // controller. At the same time, the page actions visibility will be set based

@@ -40,6 +40,7 @@
 <translation id="1064054731605354900">A3x5</translation>
 <translation id="1066528211000788800">JSON</translation>
 <translation id="1067029985695494416">సెర్చ్ ఇంజిన్ వివరాలు</translation>
+<translation id="1068467933609179019">ఆటోఫిల్ సర్వీస్ సెట్టింగ్‌లు</translation>
 <translation id="1068672505746868501"><ph name="SOURCE_LANGUAGE" />లో ఉన్న పేజీలను ఎప్పుడూ అనువదించవద్దు</translation>
 <translation id="1070333806075222467">మెటల్ (గ్లాసీ)</translation>
 <translation id="1070901266639972381">రాత్రి</translation>
@@ -232,6 +233,7 @@
 <translation id="1384725838384960382">సురక్షిత పేమెంట్ ఆధారాల ప్రామాణీకరణ షీట్</translation>
 <translation id="1386623374109090026">అదనపు గమనికలు</translation>
 <translation id="138810468159004008">సైట్‌ను చూసేటప్పుడు అనుమతించండి</translation>
+<translation id="1391145880481608015">ఈ హెచ్చరిక గురించి మరింత తెలుసుకోండి</translation>
 <translation id="139161720020179799">ముదురు బూడిద రంగు 1</translation>
 <translation id="1391625539203220400">ఈ పరికరంలో IBANను సేవ్ చేయాలా?</translation>
 <translation id="1392813880755413602">OpenDocument ప్రజెంటేషన్</translation>
@@ -311,7 +313,6 @@
 <translation id="1521655867290435174">Google Sheets</translation>
 <translation id="1524669537550112617">ఫర్నీచర్ కలిగిన రెంటల్స్</translation>
 <translation id="1527263332363067270">కనెక్షన్ కోసం వేచి ఉన్నాము...</translation>
-<translation id="1527490370616010873">Google మీ ఆటోఫిల్ ప్రొవైడర్ కాదు. ఈ సెట్టింగ్‌లను ఎనేబుల్ చేయడానికి, మీ Google ఖాతా నుండి పేమెంట్ సమాచారాన్ని ఉపయోగించడానికి, <ph name="BEGIN_LINK" />ఆటోఫిల్ సర్వీస్‌ల సెట్టింగ్‌లను సందర్శించండి<ph name="END_LINK" />.</translation>
 <translation id="1528311629279578926">మీ ప్రైవేట్ నెట్‌వర్క్‌లోని పరికరాలు లేదా సర్వర్‌లకు కనెక్ట్ చేయడానికి పబ్లిక్ పేజీ ద్వారా ప్రారంభించబడినందున కనెక్షన్ బ్లాక్ చేయబడింది. కనెక్షన్‌ను అనుమతించడానికి ఈ పేజీని రీలోడ్ చేయండి.</translation>
 <translation id="1529789484829130889">ట్రే 8</translation>
 <translation id="1530707389502320859">ఇప్పుడు మీరు సందర్శించాలని ప్రయత్నించిన సైట్ నకిలీదిగా అనిపిస్తుంది. URLకు చిన్న, అంత తేలికగా కనపడని మార్పులను చేయడం ద్వారా దాడి చేసేవారు కొన్నిసార్లు సైట్‌లను అనుకరిస్తారు.</translation>
@@ -994,7 +995,7 @@
 <translation id="2628224721443278970">Microsoft OneDriveకు సైన్ ఇన్ చేయండి</translation>
 <translation id="2634124572758952069"><ph name="HOST_NAME" /> యొక్క సర్వర్ IP అడ్రస్‌ కనుగొనబడలేదు.</translation>
 <translation id="2638567100095052009">@‌ను టైప్ చేసి, <ph name="FEATURED_SEARCH_LIST" /> అంతటా సెర్చ్ చేయండి</translation>
-<translation id="2639739919103226564">స్థితి: </translation>
+<translation id="2639739919103226564">స్టేటస్:</translation>
 <translation id="2644219706149911059">Google Driveకు అప్‌లోడ్ చేస్తోంది...</translation>
 <translation id="2645435784669275700">ChromeOS</translation>
 <translation id="2647086987482648627">ఫ్యాబ్రిక్ (సెమీ-గ్లాస్)</translation>
@@ -1439,6 +1440,7 @@
 <translation id="340924996148642843">కంపారిజన్ చేయడం ప్రస్తుతం అందుబాటులో లేదు</translation>
 <translation id="3409896703495473338">భద్రతా సెట్టింగ్‌లను మేనేజ్ చేయండి</translation>
 <translation id="3411091017011773343">అప్‌లోడ్ <ph name="HOURS" /> గంటల్లో</translation>
+<translation id="3413466783792948876">మీరు పబ్లిక్ నెట్‌వర్క్‌ను ఉపయోగిస్తున్నట్లయితే, ఈ సైట్‌కు తరువాత ఎప్పుడైనా వెళ్లడం అత్యంత సురక్షితమని సూచిస్తున్నాము. మీ ఇంట్లో లేదా ఆఫీసులో ఉండే Wi-Fi వంటి విశ్వసనీయమైన నెట్‌వర్క్ అయితే తక్కువ రిస్క్ ఉంటుంది.</translation>
 <translation id="3414275587143250384">డిస్ట్రిబ్యూషన్ &amp; క్లౌడ్ కంప్యూటింగ్</translation>
 <translation id="3414952576877147120">సైజ్‌:</translation>
 <translation id="341513675006332771">'Chrome Dino గేమ్‌ను ఆడండి' బటన్, Chromeలో Dino Run గేమ్‌ను ఆడటానికి దీన్ని యాక్టివేట్ చేయండి</translation>
@@ -1683,6 +1685,7 @@
 <translation id="3781428340399460090">ముదురు గులాబి రంగు</translation>
 <translation id="3783418713923659662">Mastercard</translation>
 <translation id="3784372983762739446">బ్లూటూత్ పరికరాలు</translation>
+<translation id="3785246317262748285">మీరు సాధారణంగా సైట్‌లకు సురక్షితంగా కనెక్ట్ అవుతుంటారు, కానీ Chrome ఈసారి సురక్షితమైన కనెక్షన్‌ను ఉపయోగించలేకపోతోంది. అటాకర్ మీ నెట్‌వర్క్ కనెక్షన్‌పై ఓ కన్నేసి ఉంచడానికి లేదా దాన్ని మార్చడానికి ట్రై చేస్తూ ఉండవచ్చు. <ph name="LEARN_MORE" /></translation>
 <translation id="378611282717571199">"<ph name="SEARCH_QUERY" />"కు సంబంధించిన బెస్ట్ మ్యాచ్‌లు</translation>
 <translation id="3789155188480882154">సైజ్‌ 16</translation>
 <translation id="3789841737615482174">ఇన్‌స్టాల్ చేయండి</translation>
@@ -3216,6 +3219,7 @@
 <translation id="6340739886198108203">గోప్యమైన కంటెంట్ కనిపించినప్పుడు, దానిని స్క్రీన్‌షాట్‌లు తీయవద్దని లేదా రికార్డ్ చేయవద్దని అడ్మినిస్ట్రేటర్ పాలసీ సిఫార్సు చేస్తోంది:</translation>
 <translation id="6341434961864773665">{0,plural, =1{ఈ ఫైల్‌ను <ph name="DESTINATION_NAME" />‌కు అప్‌లోడ్ చేయవద్దని అడ్మినిస్ట్రేటర్ పాలసీ సిఫార్సు చేస్తోంది}other{ఈ ఫైల్స్‌ను <ph name="DESTINATION_NAME" />‌కు అప్‌లోడ్ చేయవద్దని అడ్మినిస్ట్రేటర్ పాలసీ సిఫార్సు చేస్తోంది}}</translation>
 <translation id="6342069812937806050">ఇప్పుడే</translation>
+<translation id="6342171901363060580">ఈ సైట్ HTTPSను సపోర్ట్ చేయదు, అంతే కాకుండా మీరు అజ్ఞాత మోడ్‌లో ఉన్నారు, కాబట్టి మీకు ఈ హెచ్చరిక కనిపిస్తోంది. <ph name="LEARN_MORE" /></translation>
 <translation id="634500758737709758">దిశలు</translation>
 <translation id="6348220984832452017">యాక్టివ్‌గా ఉన్న వేరియేషన్‌లు</translation>
 <translation id="6349101878882523185"><ph name="APP_NAME" />‌ను ఇన్‌స్టాల్ చేయండి</translation>
@@ -3481,6 +3485,7 @@
 <translation id="6775759552199460396">JIS B2</translation>
 <translation id="6777088782163649345">మీ తల్లి/తండ్రి ఎంపికలతో YouTubeను ఉపయోగించండి</translation>
 <translation id="6779348349813025131">Google Password Managerకి MacOS కీచెయిన్ యాక్సెస్ అవసరం</translation>
+<translation id="6780449997190414928">మీరు సాధారణంగా ఈ సైట్‌కు సురక్షితంగా కనెక్ట్ అవుతుంటారు, కానీ Chrome ఈసారి సురక్షితమైన కనెక్షన్‌ను ఉపయోగించలేకపోతోంది. అటాకర్ మీ నెట్‌వర్క్ కనెక్షన్‌పై ఓ కన్నేసి ఉంచడానికి లేదా దాన్ని మార్చడానికి ట్రై చేస్తూ ఉండవచ్చు. <ph name="LEARN_MORE" /></translation>
 <translation id="6785990323398321538">మీ సెర్చ్ ఇంజిన్‌ను మీరు Chrome సెట్టింగ్‌లలో ఎప్పుడైనా సరే మార్చవచ్చు.</translation>
 <translation id="6786145470008421571">6 x 9 అంగుళాల ఎన్వలప్</translation>
 <translation id="67862343314499040">నీలి ఊదా రంగు</translation>
@@ -3512,6 +3517,7 @@
 <translation id="6831043979455480757">అనువదించు</translation>
 <translation id="683108308100148227">ఐటెమ్‌ను దాచండి</translation>
 <translation id="6832753933931306326">ఫారమ్ ఫిల్ చేయబడింది</translation>
+<translation id="6834757537110528125">ఈ సైట్ సురక్షిత కనెక్షన్‌ను సపోర్ట్ చేయదు</translation>
 <translation id="6841864657731852591">గ్రావ్యూర్ సిలిండర్</translation>
 <translation id="6842196666980060516">184 x 260 మి.మీ.</translation>
 <translation id="6844998850832008753">ఈ సారి హ్యాండ్ ట్రాకింగ్ అనుమతించబడింది</translation>
@@ -3776,6 +3782,7 @@
 <translation id="7257453341537973799">కెరీర్ రిసోర్సులు &amp; ప్లానింగ్</translation>
 <translation id="725866823122871198">మీ కంప్యూటర్ తేదీ మరియు సమయం (<ph name="DATE_AND_TIME" />) తప్పుగా ఉన్నందున <ph name="BEGIN_BOLD" /><ph name="DOMAIN" /><ph name="END_BOLD" />కు ఒక ప్రైవేట్ కనెక్షన్‌ను ఏర్పాటు చేయడం వీలుకాలేదు.</translation>
 <translation id="7260075294900977274">మీ షాపింగ్ పేజీలన్నింటినీ ఒకే చోట సేవ్ చేయడంలో, అలాగే ధరలను ఆటోమేటిక్‌గా ట్రాక్ చేయడం, ధరల గణాంకాలను పొందడం, అలాగే మరిన్నింటిని పొందడంలో మీకు సహాయపడే కొత్త స్మార్ట్ ఫోల్డర్</translation>
+<translation id="7264942008235065057">మీరు Google అడ్వాన్స్‌డ్ ప్రొటెక్షన్ ప్రోగ్రామ్‌ను ఆన్ చేసుకుని ఉన్నందున ఈ సైట్ బ్లాక్ అయ్యే ఉంటుంది. <ph name="LEARN_MORE" /></translation>
 <translation id="7265608370113700582">అడ్రస్ ఈ పరికరంలో మాత్రమే అందుబాటులో ఉంది</translation>
 <translation id="7269151392155523061">షార్ట్‌కట్ <ph name="SEARCH_AGGREGATOR_SETTINGS_POLICY" /> ద్వారా నిర్వచించబడిన సెర్చ్ అగ్రిగేటర్ కీవర్డ్‌ల మాదిరిగానే ఉండకూడదు: <ph name="SHORTCUT_NAME" /></translation>
 <translation id="7273111226200291353">మీరు డౌన్‌లోడ్ చేసిన ఫైల్స్, విశ్లేషణ కోసం Google Cloudకు లేదా థర్డ్-పార్టీలకు పంపబడతాయి. ఉదాహరణకు, అవి సున్నితమైన వ్యక్తిగత సమాచారం లేదా మాల్‌వేర్ కోసం స్కాన్ చేయబడవచ్చు, కంపెనీ పాలసీల ఆధారంగా స్టోర్ చేయబడవచ్చు, మీ అడ్మినిస్ట్రేటర్‌కు కనిపించవచ్చు.</translation>
@@ -3904,6 +3911,7 @@
 <translation id="7469935732330206581">ఫారమ్ సురక్షితమైనది కాదు</translation>
 <translation id="7470854469646445678">కాపీ చేయడానికి కారణాన్ని పేర్కొనండి (అవసరం)</translation>
 <translation id="7471007961486718967">బదిలీ చేయడానికి కారణాన్ని అందించండి (అవసరం)</translation>
+<translation id="7473033553872550521">మీరు సైట్ ఓనర్‌ను సంప్రదించి, వారిని HTTPSకు అప్‌గ్రేడ్ చేయమని సూచించవచ్చు కూడా. <ph name="LEARN_MORE" /></translation>
 <translation id="7473891865547856676">వద్దు, ధన్యవాదాలు</translation>
 <translation id="7481312909269577407">ఫార్వర్డ్</translation>
 <translation id="7481603210197454575">ఎన్వలప్ ఇటాలియన్</translation>
@@ -4122,7 +4130,7 @@
 <translation id="7802989406998618639"><ph name="SIDE_OF_CARD" /> ఉన్న <ph name="NUMBER_OF_DIGITS" /> అంకెల సెక్యూరిటీ కోడ్‌ను ఎంటర్ చేయండి, తద్వారా ఇది మీరేనని మీ బ్యాంక్ వెరిఫై చేస్తుంది</translation>
 <translation id="780301667611848630">వద్దు</translation>
 <translation id="7805268272389338048">ఎన్‌క్రిప్షన్ మీ వ్యక్తిగత సమాచారాన్ని సంరక్షిస్తుంది</translation>
-<translation id="7805768142964895445">స్థితి</translation>
+<translation id="7805768142964895445">స్టేటస్</translation>
 <translation id="7805906048382884326">చిట్కాను మూసివేయండి</translation>
 <translation id="7810410097247356677">తర్వాతిసారి వేగంగా పేమెంట్ చేయడానికి, మీ పరికరంలో మీ కార్డ్, ఎన్‌క్రిప్ట్ చేసిన సెక్యూరిటీ కోడ్‌ను సేవ్ చేయండి</translation>
 <translation id="7812922009395017822">Mir</translation>
@@ -4355,6 +4363,7 @@
 <translation id="822964464349305906"><ph name="TYPE_1" />, <ph name="TYPE_2" /></translation>
 <translation id="8232343881378637145">ప్లాట్‌ఫామ్ ఉష్ణోగ్రత</translation>
 <translation id="8233773197406738106">ఫైల్‌ను సిద్ధం చేస్తోంది</translation>
+<translation id="823490921909113114">ఈ సెట్టింగ్‌లను ఎనేబుల్ చేయడానికి, మీ Google ఖాతా నుండి పేమెంట్ సమాచారాన్ని ఉపయోగించడానికి, ఆటోఫిల్ సర్వీస్‌ల సెట్టింగ్‌లకు వెళ్లండి.</translation>
 <translation id="8238188918340945316">28 x 40 అంగుళాలు</translation>
 <translation id="8238581221633243064">కొత్త అజ్ఞాత ట్యాబ్‌లో పేజీని తెరవండి</translation>
 <translation id="8241707690549784388">మీరు వెతికే పేజీ మీరు ఎంటర్ చేసిన సమాచారాన్ని ఉపయోగించుకుంది. ఆ పేజీకి తిరిగి వెళ్ల‌డం ద్వారా మీరు చేసిన ఏ చర్య అయినా రిపీట్‌ చేయ‌వలసి వస్తుంది. మీరు కొనసాగాలని అనుకుంటున్నారా?</translation>
@@ -4430,6 +4439,7 @@
 <translation id="8339463238135163999"><ph name="DESCRIPTION" /><ph name="SEPARATOR" /><ph name="TIMESTMAP" /></translation>
 <translation id="8340095855084055290"><ph name="EXPIRATION_MONTH" />/<ph name="EXPIRATION_YEAR" /></translation>
 <translation id="8344776605855290140">వర్చువల్ కార్డ్ ఎన్‌రోల్‌మెంట్ పూర్తి ఎత్తులో తెరవబడింది</translation>
+<translation id="834805203690963649">మీరు సైట్‌కు పంపే లేదా దాని నుండి అందుకునే సమాచారాన్ని అటాకర్లు చూడగలరు, మార్చగలరు.</translation>
 <translation id="8349305172487531364">బుక్‌మార్క్‌ల బార్‌</translation>
 <translation id="8350416046273606058">షార్ట్‌కట్‌లో స్పేస్‌లు ఉండకూడదు: "<ph name="SHORTCUT_NAME" />"</translation>
 <translation id="8351131234907093545">గమనికను క్రియేట్ చేయండి</translation>
@@ -4937,6 +4947,7 @@
 <translation id="9218430445555521422">ఆటోమేటిక్ ఆప్షన్‌గా సెట్ చేయండి</translation>
 <translation id="9219103736887031265">ఇమేజ్‌లు</translation>
 <translation id="922152298093051471">Chromeను అనుకూలంగా మార్చండి</translation>
+<translation id="9221566509053798696">Google మీ ఆటోఫిల్ ప్రొవైడర్ కాదు</translation>
 <translation id="9222403027701923763">ప్రాథమిక &amp; మాధ్యమిక స్కూల్ (K-12)</translation>
 <translation id="9222463428840654067">కార్డ్ నంబర్ చెల్లదు</translation>
 <translation id="922849469395748170">లాయల్టీ కార్డ్‌లు</translation>

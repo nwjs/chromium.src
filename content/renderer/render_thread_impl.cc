@@ -1338,8 +1338,16 @@ void RenderThreadImpl::SetProcessState(
       restrict_thread_pool_.emplace();
     }
   }
-  if (base::FeatureList::IsEnabled(features::kSetIsolatesPriority)) {
-    blink::WebV8Features::SetIsolatePriority(process_priority);
+  if (base::FeatureList::IsEnabled(
+          features::kIsolatesPriorityUseProcessPriority)) {
+    if (visible_state == mojom::RenderProcessVisibleState::kHidden &&
+        base::FeatureList::IsEnabled(
+            features::kIsolatesPriorityBestEffortWhenHidden)) {
+      blink::WebV8Features::SetIsolatePriority(
+          base::Process::Priority::kBestEffort);
+    } else {
+      blink::WebV8Features::SetIsolatePriority(process_priority);
+    }
   }
 
   if (!process_priority_.has_value() || is_backgrounded != was_backgrounded) {
@@ -1711,7 +1719,8 @@ bool RenderThreadImpl::RendererIsHidden() const {
 }
 
 void RenderThreadImpl::OnRendererHidden() {
-  if (!base::FeatureList::IsEnabled(features::kSetIsolatesPriority)) {
+  if (!base::FeatureList::IsEnabled(
+          features::kIsolatesPriorityUseProcessPriority)) {
     blink::WebV8Features::SetIsolatePriority(
         base::Process::Priority::kBestEffort);
   }
@@ -1724,7 +1733,8 @@ void RenderThreadImpl::OnRendererHidden() {
 }
 
 void RenderThreadImpl::OnRendererVisible() {
-  if (!base::FeatureList::IsEnabled(features::kSetIsolatesPriority)) {
+  if (!base::FeatureList::IsEnabled(
+          features::kIsolatesPriorityUseProcessPriority)) {
     blink::WebV8Features::SetIsolatePriority(
         base::Process::Priority::kUserBlocking);
   }

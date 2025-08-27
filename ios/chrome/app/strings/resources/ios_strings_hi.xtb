@@ -302,7 +302,6 @@
 <translation id="2120553909046681540">आपके संगठन ने निजी ब्राउज़िंग की सुविधा बंद कर दी है.</translation>
 <translation id="2122754583996902531">आपका ब्राउज़र मैनेज किया गया है. <ph name="BEGIN_LINK" />ज़्यादा जानें<ph name="END_LINK" /></translation>
 <translation id="21243612977487926">हमारे मॉडल को बेहतर बनाने के लिए, आपके संगठन से जुड़ी चैट का डेटा इस्तेमाल नहीं किया जाता. Gemini गलत जानकारी दिखा सकता है, जिसमें लोगों से जुड़ी जानकारी भी शामिल है. इसलिए, जवाबों की दोबारा जांच कर लें. <ph name="YOUR_PRIVACY_GEMINI" /></translation>
-<translation id="2126034128616392756">इन पासवर्ड को Google Password Manager में इंपोर्ट नहीं किया गया, क्योंकि ये ज़रूरी शर्तों के मुताबिक नहीं हैं.</translation>
 <translation id="2139867232736819575">आपका कॉपी किया गया टेक्स्ट</translation>
 <translation id="2147127444698817042">यह सुविधा सिर्फ़ iPhone पर उपलब्ध है</translation>
 <translation id="2148799636999124959">सेव किए गए पासवर्ड की मदद से, साइटों और ऐप्लिकेशन में तेज़ी से साइन इन करें.</translation>
@@ -513,6 +512,7 @@
 <translation id="2931440415625410757">निर्देश दिखाएं</translation>
 <translation id="2952278131021475699">Lens कैमरे की मदद से खोजने की सुविधा</translation>
 <translation id="2962516096219646456">ऑटोमैटिक भरने की सुविधा से जुड़ा पूरा डेटा देखें</translation>
+<translation id="2965594942405840553">मिटाने के बाद इस ऑटोमेशन को वापस नहीं पाया जा सकता</translation>
 <translation id="2969979262385602596">साइन इन नहीं हो पाया. बाद में फिर से कोशिश करें.</translation>
 <translation id="2975761176769946178">यूआरएल ज़रूरी है</translation>
 <translation id="297667759942911166">टैब ग्रुप में मिलकर काम करें</translation>
@@ -664,6 +664,7 @@
 <translation id="3596414637720633074">गुप्त मोड के दौरान तीसरे पक्ष की कुकी को ब्लॉक करें</translation>
 <translation id="3602260545951981695">"बेहतर सुरक्षा मोड" चुनें</translation>
 <translation id="3610041351087301930">रीडर मोड छिपाएं</translation>
+<translation id="3610866916973186448">हां, मिटाएं</translation>
 <translation id="3622175633937495219">खोज इतिहास (<ph name="COUNT" /> नतीजे मिले)</translation>
 <translation id="3625008969091706597">पिछले टैब पर वापस जाने के लिए, किनारे पर स्वाइप करें.</translation>
 <translation id="362709345066740529">यहां अपने कार्ड, फ़ीड वगैरह को अपनी पसंद के मुताबिक बनाएं</translation>
@@ -1973,6 +1974,7 @@ Handoff को Settings के General अनुभाग में भी स�
 <translation id="8561999115126307258">{count,plural, =1{पासवर्ड के लिए {count} तरीका, आपके कीबोर्ड के ऊपर उपलब्ध है.}one{पासवर्ड के लिए {count} तरीका, आपके कीबोर्ड के ऊपर उपलब्ध है.}other{पासवर्ड के लिए {count} तरीके, आपके कीबोर्ड के ऊपर उपलब्ध हैं.}}</translation>
 <translation id="8564894539416715395">नया टैब पेज</translation>
 <translation id="8569721750632860947">आपको अपनी रीडिंग लिस्ट में कौनसा यूआरएल जोड़ना है?</translation>
+<translation id="8571019948162152515">क्या "<ph name="FILENAME" />" को मिटाना है?</translation>
 <translation id="8571213806525832805">पिछले चार हफ़्ते</translation>
 <translation id="8577056989960190117">समयसीमा खत्म होने का साल <ph name="YEAR" /> ऑटोमैटिक भरने का विकल्प चुनें</translation>
 <translation id="8588404856427128947">बंद है</translation>

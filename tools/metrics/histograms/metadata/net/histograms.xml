@@ -599,6 +599,18 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram name="HttpCache.EntryRejectionStatus"
+    enum="HttpCacheEntryRejectionStatus" expires_after="2026-08-11">
+  <owner>leimy@chromium.org</owner>
+  <owner>chrome-owp-storage@google.com</owner>
+  <summary>
+    Records the outcome of considering whether to reject a cache entry based on
+    in-memory hints. This is used to avoid accessing disk for entries that are
+    likely to be unusable. Recorded every time we try to open a cache entry, but
+    there is no active one.
+  </summary>
+</histogram>
+
 <histogram name="HttpCache.Experimental.Read.EntryContentSize" units="bytes"
     expires_after="2025-11-30">
   <owner>anthonyvd@chromium.org</owner>
@@ -1169,6 +1181,28 @@ chromium-metrics-reviews@google.com.
     <variant name="Read" summary="reading from"/>
     <variant name="Write" summary="writing to"/>
   </token>
+</histogram>
+
+<histogram name="Net.AcceptCHFrameInterceptor.MismatchClientHint"
+    enum="WebClientHintsType" expires_after="2026-02-01">
+  <owner>yyanagisawa@chromium.org</owner>
+  <owner>chrome-loading@google.com</owner>
+  <summary>
+    Records which client hint caused the Accept-CH frame offload to fail because
+    the hint was not in the enabled list. This is recorded when
+    AcceptCHFrameInterceptor::NeedsObserverCheck returns kHintNotEnabled.
+  </summary>
+</histogram>
+
+<histogram name="Net.AcceptCHFrameInterceptor.NeedsObserverCheckReason"
+    enum="NeedsObserverCheckReason" expires_after="2026-02-01">
+  <owner>yyanagisawa@chromium.org</owner>
+  <owner>chrome-loading@google.com</owner>
+  <summary>
+    The reason why AcceptCHFrameInterceptor::NeedsObserverCheck returns true.
+    Recorded every time NeedsObserverCheck is called. It is recorded just before
+    returning from the function.
+  </summary>
 </histogram>
 
 <histogram name="Net.AlternateProtocolBrokenLocation"

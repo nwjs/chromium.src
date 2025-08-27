@@ -1033,8 +1033,9 @@ void OnListFamilyMembersResponse(
     }
     NSString* newGaiaID = base::SysUTF8ToNSString(newGaia);
 
+    ProfileIOS* profile = self.profile->GetOriginalProfile();
     AuthenticationService* authService =
-        AuthenticationServiceFactory::GetForProfile(self.profile);
+        AuthenticationServiceFactory::GetForProfile(profile);
     id<SystemIdentity> identityOnDevice =
         authService->GetPrimaryIdentity(signin::ConsentLevel::kSignin);
     gaiaInApp = identityOnDevice.gaiaID;
@@ -2491,7 +2492,8 @@ using UserFeedbackDataCallback =
     // Currently displaying.
     return;
   }
-  CHECK(ShouldShowSafariImportWorkflow());
+  CHECK(ShouldShowSafariImportWorkflow(
+      self.currentInterface.browser->GetProfile()));
   SafariDataImportMainCoordinator* safariDataImportCoordinator =
       [[SafariDataImportMainCoordinator alloc]
               initFromEntryPoint:entryPoint

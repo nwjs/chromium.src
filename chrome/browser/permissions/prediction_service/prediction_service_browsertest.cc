@@ -20,6 +20,7 @@
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service.h"
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service_factory.h"
 #include "chrome/browser/permissions/prediction_service/language_detection_observer.h"
+#include "chrome/browser/permissions/prediction_service/passage_embedder_delegate.h"
 #include "chrome/browser/permissions/prediction_service/permissions_aiv1_handler.h"
 #include "chrome/browser/permissions/prediction_service/prediction_based_permission_ui_selector.h"
 #include "chrome/browser/permissions/prediction_service/prediction_model_handler_provider.h"
@@ -75,11 +76,13 @@ using ::optimization_guide::proto::OptimizationTarget;
 using ::passage_embeddings::ComputeEmbeddingsStatus;
 using ::permissions::GeneratePredictionsResponse;
 using ::permissions::LanguageDetectionStatus;
+using ::permissions::PassageEmbedderDelegate;
 using ::permissions::PermissionRequestRelevance;
 using ::permissions::PermissionsAiv3Handler;
 using ::permissions::PredictionRequestFeatures;
 using ::permissions::PredictionService;
 using ::test::BuildBitmap;
+using ::test::DelayedPassageEmbedderMock;
 using ::test::PassageEmbedderMock;
 using ::test::PermissionsAiv3HandlerFake;
 using ::test::PermissionsAiv4HandlerFake;
@@ -172,7 +175,18 @@ constexpr char kAIv4NotificationsHoldbackResponseHistogram[] =
     "Permissions.AIv4.Response.Notifications";
 constexpr char kAiv4LanguageDetectionStatusHistogram[] =
     "Permissions.AIv4.LanguageDetectionStatus";
-
+constexpr char kAiv4RenderedTextAcquireSuccessHistogram[] =
+    "Permissions.AIv4.RenderedTextAcquireSuccess";
+constexpr char kAiv4TryCancelPreviousEmbeddingsModelExecutionHistogram[] =
+    "Permissions.AIv4.TryCancelPreviousEmbeddingsModelExecution";
+constexpr char kAiv4FinishedPassageEmbeddingsTaskOutdatedHistogram[] =
+    "Permissions.AIv4.FinishedPassageEmbeddingsTaskOutdated";
+constexpr char kAiv4ComputeEmbeddingsStatusHistogram[] =
+    "Permissions.AIv4.ComputeEmbeddingsStatus";
+constexpr char kAiv4ComputeEmbeddingsDurationHistogram[] =
+    "Permissions.AIv4.ComputeEmbeddingsDuration";
+constexpr char kAiv4PassageEmbeddingsComputationTimeoutHistogram[] =
+    "Permissions.AIv4.PassageEmbeddingsComputationTimeout";
 // A CPSSv1 model that returns a constant value of 0.5;
 // its meaning is defined by the max_likely threshold we use in the
 // signature_model_executor to differentiate between
@@ -1041,6 +1055,8 @@ class Aiv4ModelPredictionServiceBrowserTestBase
     // Required to preprocess the inner_text string as input for AIv4.
     model_handler_provider()->set_passage_embedder_for_testing(
         &passage_embedder_);
+    passage_embedder_.set_status(
+        passage_embeddings::ComputeEmbeddingsStatus::kSuccess);
   }
 
   RequestType request_type() const override {
@@ -1194,10 +1210,6 @@ IN_PROC_BROWSER_TEST_P(Aiv4ModelLanguageDetectionBrowserTest,
 
   set_dummy_screenshot_for_testing();
   set_dummy_inner_text_for_testing();
-  PassageEmbedderMock passage_embedder;
-  passage_embedder.set_status(
-      passage_embeddings::ComputeEmbeddingsStatus::kSuccess);
-  model_handler_provider()->set_passage_embedder_for_testing(&passage_embedder);
 
   TriggerPromptAndVerifyUi(
       /*test_url=*/"test.a", PermissionAction::DISMISSED,
@@ -1343,6 +1355,72 @@ IN_PROC_BROWSER_TEST_P(Aiv4ModelFailureBrowserTest,
   model_handler_provider()->set_passage_embedder_for_testing(nullptr);
 }
 
+class Aiv4ModelTimeoutBrowserTest
+    : public Aiv4ModelPredictionServiceBrowserTestBase {
+ public:
+  Aiv4ModelTimeoutBrowserTest() = default;
+
+  void WaitForModelExecutionIfNecessary() override {
+    // We intentionally run into the timeout (faster).
+    task_runner_->FastForwardBy(base::Seconds(
+        PassageEmbedderDelegate::kPassageEmbedderDelegateTimeout));
+  }
+
+ private:
+  scoped_refptr<base::TestMockTimeTaskRunner> task_runner_ =
+      base::MakeRefCounted<base::TestMockTimeTaskRunner>();
+};
+
+IN_PROC_BROWSER_TEST_F(Aiv4ModelTimeoutBrowserTest,
+                       PassageEmbedderTestTimeout) {
+  ASSERT_TRUE(aiv4_model_handler());
+  ASSERT_TRUE(embedded_test_server()->Start());
+  PushModelFileToModelExecutor(ModelFilePath(kOneReturnAiv4Model));
+
+  set_dummy_inner_text_for_testing();
+  set_dummy_inner_text_for_testing();
+  DelayedPassageEmbedderMock passage_embedder;
+  model_handler_provider()->set_passage_embedder_for_testing(&passage_embedder);
+
+  // We expect a vanilla CPSSv3 call without input from the
+  // on-device model since we won't call AIv4 without text embedding.
+  GeneratePredictionsResponse prediction_service_response =
+      BuildPredictionServiceResponse(kLikelihoodVeryUnlikely);
+  PredictionRequestFeatures expected_features =
+      BuildRequestFeatures(request_type(), ExperimentId::kAiV4ExperimentId,
+                           PermissionRequestRelevance::kUnspecified);
+  EXPECT_CALL(prediction_service(),
+              StartLookup(PredictionRequestFeatureEq(expected_features), _, _))
+      .WillRepeatedly(WithArg<2>(Invoke(
+          [&](PredictionService::LookupResponseCallback response_callback) {
+            std::move(response_callback)
+                .Run(/*lookup_successful=*/true,
+                     /*response_from_cache=*/true, prediction_service_response);
+          })));
+  TriggerPromptAndVerifyUi(
+      /*test_url=*/"test.a", PermissionAction::DISMISSED,
+      /*should_expect_quiet_ui=*/true,
+      /*expected_relevance=*/std::nullopt,
+      /*expected_prediction_likelihood=*/kLikelihoodVeryUnlikely);
+
+  histogram_tester().ExpectBucketCount(
+      kAiv4PassageEmbeddingsComputationTimeoutHistogram,
+      /*sample=*/1,
+      /*expected_count=*/1);
+
+  // This will finish the stalled and already stale passage embeddings task.
+  // We should handle this case gracefully, and log it as outdated task.
+  passage_embedder.ReleaseCallback();
+
+  histogram_tester().ExpectBucketCount(
+      kAiv4FinishedPassageEmbeddingsTaskOutdatedHistogram,
+      /*sample=*/1,
+      /*expected_count=*/1);
+
+  // Avoid dangling raw_ptr warning:
+  model_handler_provider()->set_passage_embedder_for_testing(nullptr);
+}
+
 std::vector<PermissionRequestMetadata> aiv4_request_data_testcase = {
     {/*optimization_target=*/kAiv4OptTargetGeolocation,
      /*request_type=*/RequestType::kGeolocation},
@@ -1388,7 +1466,7 @@ std::vector<ModelMetadata> aiv4_model_data_testcase = {
         /*success_count_model_execution=*/1,
     },
     {
-        /*test_name=*/"FailingAiv3ModelStillResultsInValid"
+        /*test_name=*/"FailingAiv4ModelStillResultsInValid"
                       "ServerSideExecution",
         /*model_name=*/kNotExistingModel,
         /*expected_relevance=*/
@@ -1476,6 +1554,33 @@ IN_PROC_BROWSER_TEST_P(Aiv4ModelPredictionServiceBrowserTest,
   histogram_tester().ExpectTotalCount(kCpssV3InquiryDurationHistogram,
                                       /*expected_count=*/1);
   histogram_tester().ExpectTotalCount(kAIv4InquiryDurationHistogram,
+                                      /*expected_count=*/1);
+
+  histogram_tester().ExpectBucketCount(kAiv4RenderedTextAcquireSuccessHistogram,
+                                       /*sample=*/1,
+                                       /*expected_count=*/1);
+
+  histogram_tester().ExpectBucketCount(
+      kAiv4TryCancelPreviousEmbeddingsModelExecutionHistogram,
+      /*sample=*/0,
+      /*expected_count=*/1);
+
+  histogram_tester().ExpectBucketCount(
+      kAiv4FinishedPassageEmbeddingsTaskOutdatedHistogram,
+      /*sample=*/0,
+      /*expected_count=*/1);
+
+  histogram_tester().ExpectBucketCount(
+      kAiv4PassageEmbeddingsComputationTimeoutHistogram,
+      /*sample=*/0,
+      /*expected_count=*/1);
+
+  histogram_tester().ExpectBucketCount(
+      kAiv4ComputeEmbeddingsStatusHistogram,
+      /*sample=*/ComputeEmbeddingsStatus::kSuccess,
+      /*expected_count=*/1);
+
+  histogram_tester().ExpectTotalCount(kAiv4ComputeEmbeddingsDurationHistogram,
                                       /*expected_count=*/1);
 
   histogram_tester().ExpectBucketCount(

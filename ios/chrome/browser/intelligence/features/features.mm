@@ -121,3 +121,19 @@ BASE_FEATURE(kPageContextAnchorTags,
 bool IsPageContextAnchorTagsEnabled() {
   return base::FeatureList::IsEnabled(kPageContextAnchorTags);
 }
+
+BASE_FEATURE(kGeminiForManagedAccounts,
+             "GeminiForManagedAccounts",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+bool IsGeminiAvailableForManagedAccounts() {
+  return base::FeatureList::IsEnabled(kGeminiForManagedAccounts);
+}
+
+bool ShouldDeleteGeminiConsentPref() {
+  return base::FeatureList::IsEnabled(kDeleteGeminiConsentPref);
+}
+
+BASE_FEATURE(kDeleteGeminiConsentPref,
+             "DeleteGeminiConsentPref",
+             base::FEATURE_ENABLED_BY_DEFAULT);

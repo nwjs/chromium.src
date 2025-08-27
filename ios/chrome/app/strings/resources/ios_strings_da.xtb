@@ -302,7 +302,6 @@
 <translation id="2120553909046681540">Din organisation har deaktiveret privat browsing.</translation>
 <translation id="2122754583996902531">Din browser administreres. <ph name="BEGIN_LINK" />Få flere oplysninger<ph name="END_LINK" /></translation>
 <translation id="21243612977487926">Din organisations chatsamtaler bruges ikke til at forbedre vores modeller. Gemini kan vise unøjagtige oplysninger, herunder om personer, så sørg for at dobbelttjekke svarene. <ph name="YOUR_PRIVACY_GEMINI" /></translation>
-<translation id="2126034128616392756">Følgende adgangskoder blev ikke importeret til Google Adgangskodeadministrator, fordi de ikke opfylder kravene.</translation>
 <translation id="2139867232736819575">Søg efter tekst, du har kopieret</translation>
 <translation id="2147127444698817042">Kun tilgængelig på iPhone</translation>
 <translation id="2148799636999124959">Log hurtigt ind på websites og i apps med dine gemte adgangskoder.</translation>
@@ -513,6 +512,7 @@ Din standardsøgemaskine er <ph name="DSE_NAME" />. I vejledningen til søgemask
 <translation id="2931440415625410757">Vis vejledning</translation>
 <translation id="2952278131021475699">Lens-kamerasøgning</translation>
 <translation id="2962516096219646456">Se alle Autofyld-data</translation>
+<translation id="2965594942405840553">Denne handling kan ikke fortrydes</translation>
 <translation id="2969979262385602596">Login mislykkedes. Prøv igen senere.</translation>
 <translation id="2975761176769946178">En webadresse er påkrævet</translation>
 <translation id="297667759942911166">Samarbejd i fanegrupper</translation>
@@ -664,6 +664,7 @@ Se din søgemaskines vejledning i, hvordan du sletter din søgehistorik, hvis de
 <translation id="3596414637720633074">Bloker tredjepartscookies i inkognito</translation>
 <translation id="3602260545951981695">Vælg "Forbedret beskyttelse"</translation>
 <translation id="3610041351087301930">Skjul Læser</translation>
+<translation id="3610866916973186448">Ja, slet den</translation>
 <translation id="3622175633937495219">Søgehistorik (<ph name="COUNT" /> blev fundet)</translation>
 <translation id="3625008969091706597">Du kan stryge i kanten for at gå tilbage.</translation>
 <translation id="362709345066740529">Tilpas dine kort, dit feed m.m. her</translation>
@@ -879,7 +880,7 @@ Se din søgemaskines vejledning i, hvordan du sletter din søgehistorik, hvis de
 <translation id="4495516234578759322">Find næste</translation>
 <translation id="4502423230170890588">Fjern fra denne enhed</translation>
 <translation id="4508750114462689118">Luk loginkampagne</translation>
-<translation id="4509345063551561634">Mappeplacering:</translation>
+<translation id="4509345063551561634">Lokation:</translation>
 <translation id="4517684186578051919">Enhedsoplysninger</translation>
 <translation id="4520798012560649652">Få flere oplysninger om inkognitotilstand</translation>
 <translation id="452503091941773389">{count,plural, =1{{count} bogmærke}one{{count}bogmærke}other{{count}bogmærker}}</translation>
@@ -1973,6 +1974,7 @@ Websites kan bruge cookies til at se din browseraktivitet på forskellige websit
 <translation id="8561999115126307258">{count,plural, =1{{count} mulig adgangskode er tilgængelig over dit tastatur.}one{{count} mulig adgangskode er tilgængelig over dit tastatur.}other{{count} mulige adgangskoder er tilgængelige over dit tastatur.}}</translation>
 <translation id="8564894539416715395">Siden Ny fane</translation>
 <translation id="8569721750632860947">Hvilken webadresse vil du føje til din læseliste?</translation>
+<translation id="8571019948162152515">Vil du slette "<ph name="FILENAME" />"?</translation>
 <translation id="8571213806525832805">Seneste 4 uger</translation>
 <translation id="8577056989960190117">Udfyld automatisk udløbsåret <ph name="YEAR" /></translation>
 <translation id="8588404856427128947">Fra</translation>

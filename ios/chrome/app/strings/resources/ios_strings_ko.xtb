@@ -302,7 +302,6 @@
 <translation id="2120553909046681540">조직에서 시크릿 브라우징을 사용 중지했습니다</translation>
 <translation id="2122754583996902531">관리 대상 브라우저입니다 <ph name="BEGIN_LINK" />자세히 알아보기<ph name="END_LINK" /></translation>
 <translation id="21243612977487926">내 조직의 채팅은 Gemini 모델을 개선하는 데 사용되지 않습니다. Gemini가 인물 등에 관한 부정확한 정보를 표시할 수 있으니 대답을 다시 한번 확인하세요. <ph name="YOUR_PRIVACY_GEMINI" /></translation>
-<translation id="2126034128616392756">다음 비밀번호는 요건을 충족하지 않아 Google 비밀번호 관리자로 가져오지 않았습니다.</translation>
 <translation id="2139867232736819575">복사한 텍스트 검색</translation>
 <translation id="2147127444698817042">iPhone에서만 사용 가능</translation>
 <translation id="2148799636999124959">저장된 비밀번호로 사이트 및 앱에 빠르게 로그인하세요.</translation>
@@ -513,6 +512,7 @@
 <translation id="2931440415625410757">안내 보기</translation>
 <translation id="2952278131021475699">렌즈 카메라 검색</translation>
 <translation id="2962516096219646456">모든 자동 완성 데이터 보기</translation>
+<translation id="2965594942405840553">이 작업은 되돌릴 수 없습니다.</translation>
 <translation id="2969979262385602596">로그인하지 못했습니다. 나중에 다시 시도하세요.</translation>
 <translation id="2975761176769946178">URL을 입력해야 합니다.</translation>
 <translation id="297667759942911166">탭 그룹에서 공동작업하세요</translation>
@@ -664,6 +664,7 @@ Google이 아닌 다른 검색엔진을 사용 중이라면 해당 검색엔진�
 <translation id="3596414637720633074">시크릿 모드에서 서드 파티 쿠키 차단</translation>
 <translation id="3602260545951981695">'향상된 보호 모드'를 선택합니다</translation>
 <translation id="3610041351087301930">읽기 모드 숨기기</translation>
+<translation id="3610866916973186448">예, 삭제</translation>
 <translation id="3622175633937495219">검색 기록(<ph name="COUNT" />개 찾음)</translation>
 <translation id="3625008969091706597">가장자리를 스와이프하여 뒤로 돌아갈 수 있습니다.</translation>
 <translation id="362709345066740529">여기에서 카드, 피드 등을 맞춤설정하세요</translation>
@@ -1973,6 +1974,7 @@ Handoff는 설정의 일반 섹션에서도 사용 설정할 수 있으며, 이�
 <translation id="8561999115126307258">{count,plural, =1{키보드 위에 비밀번호 옵션 {count}개가 있습니다.}other{키보드 위에 비밀번호 옵션 {count}개가 있습니다.}}</translation>
 <translation id="8564894539416715395">새 탭 페이지</translation>
 <translation id="8569721750632860947">읽기 목록에 어떤 URL을 추가하시겠습니까?</translation>
+<translation id="8571019948162152515">"<ph name="FILENAME" />" 파일을 삭제하시겠습니까?</translation>
 <translation id="8571213806525832805">지난 4주</translation>
 <translation id="8577056989960190117">만료 연도(<ph name="YEAR" />) 자동 완성</translation>
 <translation id="8588404856427128947">사용 안함</translation>

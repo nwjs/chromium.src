@@ -2371,6 +2371,11 @@ const char kHeavyAdPrivacyMitigationsDescription[] =
     "Enables privacy mitigations for the heavy ad intervention. Disabling "
     "this makes the intervention deterministic. Defaults to enabled.";
 
+const char kHideAimOmniboxEntrypointOnUserInputName[] =
+    "AI Entrypoint Disabled on User Input";
+const char kHideAimOmniboxEntrypointOnUserInputDescription[] =
+    "Hide the Omnibox entrypoint for AI Mode while user is typing.";
+
 const char kHistoryEmbeddingsName[] = "History Embeddings";
 const char kHistoryEmbeddingsDescription[] =
     "When enabled, the history embeddings feature may operate.";
@@ -2599,6 +2604,11 @@ const char kLensOverlaySimplifiedSelectionName[] =
 const char kLensOverlaySimplifiedSelectionDescription[] =
     "Enables simplified selection in the Lens overlay.";
 
+const char kLensOverlayTextSelectionContextMenuEntrypointName[] =
+    "Lens overlay text selection context menu entrypoint";
+const char kLensOverlayTextSelectionContextMenuEntrypointDescription[] =
+    "Enables invoking the Lens overlay from the selected text context menu.";
+
 const char kLensOverlayTranslateButtonName[] = "Lens overlay translate button";
 const char kLensOverlayTranslateButtonDescription[] =
     "Enables translate button via the Lens overlay.";
@@ -2798,6 +2808,10 @@ const char kOmniboxAdjustIndentationName[] =
 const char kOmniboxAdjustIndentationDescription[] =
     "Adjusts the indentation of the omnibox and the suggestions to eliminate "
     "the visual shift when the popup opens.";
+
+const char kOmniboxAllowAiModeMatchesName[] = "Omnibox Allow AI Mode Matches";
+const char kOmniboxAllowAiModeMatchesDescription[] =
+    "Allow showing AI mode matches if returned from the search server.";
 
 const char kOmniboxAnswerActionsName[] = "Answer Actions";
 const char kOmniboxAnswerActionsDescription[] =
@@ -3369,6 +3383,13 @@ const char kGlobalCacheListForGatingNotificationProtectionsDescription[] =
     "Enables using the global cache list, rather than using the Safe Browsing "
     "allowlist, to gate notification content warnings and behavior-based "
     "telemetry.";
+
+const char kAnnotatedPageContentsForVirtualStructureName[] =
+    "Use annotated page contents to populate virtual structure";
+const char kAnnotatedPageContentsForVirtualStructureDescription[] =
+    "Use annotated page content proto instead of accessibility snapshot to "
+    "populate virtual structure on tabbed activity.";
+
 #endif  // BUILDFLAG(IS_ANDROID)
 
 const char kPowerBookmarkBackendName[] = "Power bookmark backend";
@@ -3637,6 +3658,13 @@ const char kRetainOmniboxOnFocusDescription[] =
     "screen devices with an attached keyboard and precision pointer will "
     "exhibit a change in behavior.";
 #endif  // BUILDFLAG(IS_ANDROID)
+
+const char kRobustWindowManagementName[] = "Robust window management";
+const char kRobustWindowManagementDescription[] =
+    "Enables robust window management which includes being able to easily find "
+    "switch between, and resume specific Chrome windows. Essentially, "
+    "experiencing predictable and reliable window behavior similar to desktop "
+    "browsers.";
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_LINUX)
 const char kRootScrollbarFollowsTheme[] = "Make scrollbar follow theme";

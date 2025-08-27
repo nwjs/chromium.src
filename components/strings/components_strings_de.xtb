@@ -40,6 +40,7 @@
 <translation id="1064054731605354900">A3x5</translation>
 <translation id="1066528211000788800">JSON</translation>
 <translation id="1067029985695494416">Einzelheiten zur Suchmaschine</translation>
+<translation id="1068467933609179019">Einstellungen für Autofill-Services</translation>
 <translation id="1068672505746868501">Seiten auf <ph name="SOURCE_LANGUAGE" /> nie übersetzen</translation>
 <translation id="1070333806075222467">Metall (glänzend)</translation>
 <translation id="1070901266639972381">Nacht</translation>
@@ -237,6 +238,7 @@ Du wirst sonst gemäß deinen Datenschutzeinstellungen blockiert. Wenn Cookies u
 <translation id="1384725838384960382">Ansicht zum Authentifizieren der sicheren Anmeldedaten für Zahlungen</translation>
 <translation id="1386623374109090026">Anmerkungen</translation>
 <translation id="138810468159004008">Beim Besuch der Website erlauben</translation>
+<translation id="1391145880481608015">Weitere Informationen zu dieser Warnung</translation>
 <translation id="139161720020179799">Dunkelgrau 1</translation>
 <translation id="1391625539203220400">IBAN auf diesem Gerät speichern?</translation>
 <translation id="1392813880755413602">OpenDocument-Präsentation</translation>
@@ -316,7 +318,6 @@ Du wirst sonst gemäß deinen Datenschutzeinstellungen blockiert. Wenn Cookies u
 <translation id="1521655867290435174">Google Sheets</translation>
 <translation id="1524669537550112617">Möblierte Mietobjekte</translation>
 <translation id="1527263332363067270">Warten auf Verbindung…</translation>
-<translation id="1527490370616010873">Google ist nicht dein Autofill-Anbieter. Wenn du diese Einstellungen aktivieren und Zahlungsinformationen aus deinem Google-Konto verwenden möchtest, rufe die <ph name="BEGIN_LINK" />Einstellungen für Autofill-Services<ph name="END_LINK" /> auf.</translation>
 <translation id="1528311629279578926">Die Verbindung wird blockiert, weil sie von einer öffentlichen Seite initiiert wurde, um eine Verbindung zu Geräten oder Servern in deinem privaten Netzwerk herzustellen. Wenn du die Verbindung zulassen möchtest, aktualisiere diese Seite.</translation>
 <translation id="1529789484829130889">Fach 8</translation>
 <translation id="1530707389502320859">Die Website, die du besuchen möchtest, ist möglicherweise eine Fälschung. Angreifer kopieren manchmal Websites und nehmen kleine, unauffällige Änderungen an der URL vor.</translation>
@@ -1444,6 +1445,7 @@ Du wirst sonst gemäß deinen Datenschutzeinstellungen blockiert. Wenn Cookies u
 <translation id="340924996148642843">Compare ist momentan nicht verfügbar</translation>
 <translation id="3409896703495473338">Sicherheitseinstellungen verwalten</translation>
 <translation id="3411091017011773343">In <ph name="HOURS" /> Std. hochladen</translation>
+<translation id="3413466783792948876">Wenn du ein öffentliches Netzwerk verwendest, ist es am sichersten, diese Website erst später aufzurufen. Das Risiko ist bei einem vertrauenswürdigen Netzwerk – wie dem WLAN zu Hause oder am Arbeitsplatz – geringer.</translation>
 <translation id="3414275587143250384">Verteilte Rechnersysteme und Cloud-Computing</translation>
 <translation id="3414952576877147120">Größe:</translation>
 <translation id="341513675006332771">Schaltfläche „Chrome Dino spielen“ – aktivieren, um Chrome Dino zu spielen</translation>
@@ -1480,7 +1482,7 @@ Du wirst sonst gemäß deinen Datenschutzeinstellungen blockiert. Wenn Cookies u
 <translation id="3462288464915106745"><ph name="CONTEXTUAL_SEARCH_OPEN_LENS_FOCUSED_FRIENDLY_MATCH_TEXT" /> – drücke die Eingabetaste, um Google Fragen zu dieser Seite zu stellen</translation>
 <translation id="3465972433695735758">Auf diese PDF-Datei kann nicht zugegriffen werden. Text extrahiert mit Google AI.</translation>
 <translation id="346601286295919445">Chemie</translation>
-<translation id="3467081767799433066">Bei der Erfolgsmessung bei Anzeigen werden nur manche Datentypen zwischen Websites geteilt, um die Leistung ihrer Werbeanzeigen zu messen, wie z. B. ob du nach dem Besuch einer Website etwas gekauft hast</translation>
+<translation id="3467081767799433066">Bei der Erfolgsmessung bei Anzeigen werden nur manche Datentypen zwischen Websites geteilt, um die Leistung ihrer Werbeanzeigen zu messen, etwa ob du nach dem Besuch einer Website etwas gekauft hast</translation>
 <translation id="3468054117417088249"><ph name="TAB_SWITCH_SUFFIX" />, derzeit geöffnet, Tabulatortaste und dann Eingabetaste drücken, um zum offenen Tab zu wechseln</translation>
 <translation id="3470563864795286535"><ph name="CLOSE_INCOGNITO_WINDOWS_FOCUSED_FRIENDLY_MATCH_TEXT" /> – drücke die Tabulatortaste und dann die Eingabetaste, um alle geöffneten Inkognitofenster zu schließen</translation>
 <translation id="3472469028191701821">Wird in neuem Tab geöffnet</translation>
@@ -1686,6 +1688,7 @@ Du wirst sonst gemäß deinen Datenschutzeinstellungen blockiert. Wenn Cookies u
 <translation id="3781428340399460090">Dunkelrosa</translation>
 <translation id="3783418713923659662">Mastercard</translation>
 <translation id="3784372983762739446">Bluetooth-Geräte</translation>
+<translation id="3785246317262748285">Normalerweise nutzt du verschlüsselte Verbindungen zu Websites, aber Chrome konnte in diesem Fall keine solche Verbindung verwenden. Möglicherweise versucht ein Angreifer, deine Onlineaktivitäten zu beobachten oder deine Netzwerkverbindung zu modifizieren. <ph name="LEARN_MORE" /></translation>
 <translation id="378611282717571199">Beste Ergebnisse für „<ph name="SEARCH_QUERY" />“</translation>
 <translation id="3789155188480882154">Größe 16</translation>
 <translation id="3789841737615482174">Installieren</translation>
@@ -3219,6 +3222,7 @@ Du wirst sonst gemäß deinen Datenschutzeinstellungen blockiert. Wenn Cookies u
 <translation id="6340739886198108203">Gemäß der Administratorrichtlinie wird nicht empfohlen, Screenshots oder Aufnahmen zu machen, wenn vertrauliche Inhalte zu sehen sind:</translation>
 <translation id="6341434961864773665">{0,plural, =1{Gemäß der Administratorrichtlinie wird nicht empfohlen, diese Datei auf <ph name="DESTINATION_NAME" /> hochzuladen}other{Gemäß der Administratorrichtlinie wird nicht empfohlen, diese Dateien auf <ph name="DESTINATION_NAME" /> hochzuladen}}</translation>
 <translation id="6342069812937806050">Gerade eben</translation>
+<translation id="6342171901363060580">Du siehst diese Warnung, weil diese Website kein HTTPS unterstützt und du den Inkognitomodus nutzt. <ph name="LEARN_MORE" /></translation>
 <translation id="634500758737709758">Route</translation>
 <translation id="6348220984832452017">Aktive Variationen</translation>
 <translation id="6349101878882523185"><ph name="APP_NAME" /> installieren</translation>
@@ -3484,6 +3488,7 @@ Du wirst sonst gemäß deinen Datenschutzeinstellungen blockiert. Wenn Cookies u
 <translation id="6775759552199460396">JIS B2</translation>
 <translation id="6777088782163649345">YouTube mit den Einstellungen deines Elternteils verwenden</translation>
 <translation id="6779348349813025131">Der Google Passwortmanager benötigt Zugriff auf den macOS-Schlüsselbund</translation>
+<translation id="6780449997190414928">Normalerweise nutzt du eine verschlüsselte Verbindung zu dieser Website, aber Chrome konnte in diesem Fall keine solche Verbindung verwenden. Möglicherweise versucht ein Angreifer, deine Onlineaktivitäten zu beobachten oder deine Netzwerkverbindung zu modifizieren. <ph name="LEARN_MORE" /></translation>
 <translation id="6785990323398321538">Du kannst deine Suchmaschine jederzeit in den Einstellungen von Chrome ändern.</translation>
 <translation id="6786145470008421571">Umschlag 6 × 9 Zoll</translation>
 <translation id="67862343314499040">Violett</translation>
@@ -3515,6 +3520,7 @@ Du wirst sonst gemäß deinen Datenschutzeinstellungen blockiert. Wenn Cookies u
 <translation id="6831043979455480757">Übersetzen</translation>
 <translation id="683108308100148227">Punkt ausblenden</translation>
 <translation id="6832753933931306326">Das Formular wurde ausgefüllt</translation>
+<translation id="6834757537110528125">Diese Website unterstützt keine verschlüsselte Verbindung</translation>
 <translation id="6841864657731852591">Tiefdruckzylinder</translation>
 <translation id="6842196666980060516">184 × 260 mm</translation>
 <translation id="6844998850832008753">Handtracking dieses Mal zugelassen</translation>
@@ -3779,6 +3785,7 @@ Weitere Details:
 <translation id="7257453341537973799">Karriereplanung</translation>
 <translation id="725866823122871198">Es kann keine private Verbindung zu <ph name="BEGIN_BOLD" /><ph name="DOMAIN" /><ph name="END_BOLD" /> hergestellt werden, weil Datum und Uhrzeit deines Computers falsch sind (<ph name="DATE_AND_TIME" />).</translation>
 <translation id="7260075294900977274">Ein neuer intelligenter Ordner, in dem du alle deine Shoppingseiten an einem einzigen Ort speichern und beispielsweise automatisch Preise beobachten und Preisinformationen abrufen kannst</translation>
+<translation id="7264942008235065057">Diese Website bleibt gesperrt, weil du das erweiterte Sicherheitsprogramm von Google nutzt. <ph name="LEARN_MORE" /></translation>
 <translation id="7265608370113700582">Die Adresse ist nur auf diesem Gerät verfügbar</translation>
 <translation id="7269151392155523061">Das Kürzel darf nicht mit dem von <ph name="SEARCH_AGGREGATOR_SETTINGS_POLICY" /> festgelegten Suchaggregator-Suchbegriff übereinstimmen: <ph name="SHORTCUT_NAME" /></translation>
 <translation id="7273111226200291353">Dateien, die du herunterlädst, werden zur Analyse an Google Cloud oder Dritte gesendet. Sie können beispielsweise auf sensible Daten oder Malware geprüft und gemäß Unternehmensrichtlinien gespeichert und für deinen Administrator sichtbar sein.</translation>
@@ -3907,6 +3914,7 @@ Weitere Details:
 <translation id="7469935732330206581">Dieses Formular ist nicht sicher</translation>
 <translation id="7470854469646445678">Gib den Grund für das Kopieren an (erforderlich)</translation>
 <translation id="7471007961486718967">Gib den Grund für die Übertragung an (erforderlich)</translation>
+<translation id="7473033553872550521">Du kannst auch den Websiteinhaber kontaktieren und ihm vorschlagen, auf HTTPS umzustellen. <ph name="LEARN_MORE" /></translation>
 <translation id="7473891865547856676">Nein, danke</translation>
 <translation id="7481312909269577407">Vorwärts</translation>
 <translation id="7481603210197454575">Umschlag Italienisch</translation>
@@ -4358,6 +4366,7 @@ Weitere Details:
 <translation id="822964464349305906"><ph name="TYPE_1" />, <ph name="TYPE_2" /></translation>
 <translation id="8232343881378637145">Plattformtemperatur</translation>
 <translation id="8233773197406738106">Datei wird vorbereitet</translation>
+<translation id="823490921909113114">Wenn du diese Einstellungen aktivieren und Zahlungsinformationen aus deinem Google-Konto verwenden möchtest, rufe die Einstellungen für Autofill-Services auf.</translation>
 <translation id="8238188918340945316">28 x 40 in</translation>
 <translation id="8238581221633243064">Seite in einem neuen Inkognitotab öffnen</translation>
 <translation id="8241707690549784388">Die gesuchte Seite hat die von dir eingegebenen Informationen verwendet bzw. verarbeitet. Wenn du zu dieser Seite zurückgehst, wird eventuell eine schon ausgeführte Aktion wiederholt. Möchtest du fortfahren?</translation>
@@ -4433,6 +4442,7 @@ Weitere Details:
 <translation id="8339463238135163999"><ph name="DESCRIPTION" /><ph name="SEPARATOR" /><ph name="TIMESTMAP" /></translation>
 <translation id="8340095855084055290"><ph name="EXPIRATION_MONTH" />/<ph name="EXPIRATION_YEAR" /></translation>
 <translation id="8344776605855290140">Ansicht zur Registrierung der virtuellen Karte vollständig geöffnet</translation>
+<translation id="834805203690963649">Angreifer können Informationen, die du an die Website sendest oder von der Website erhältst, sehen und ändern.</translation>
 <translation id="8349305172487531364">Lesezeichenleiste</translation>
 <translation id="8350416046273606058">Kürzel darf keine Leerzeichen enthalten: „<ph name="SHORTCUT_NAME" />“</translation>
 <translation id="8351131234907093545">Notiz erstellen</translation>
@@ -4941,6 +4951,7 @@ Weitere Details:
 <translation id="9218430445555521422">Als Standard festlegen</translation>
 <translation id="9219103736887031265">Bilder</translation>
 <translation id="922152298093051471">Chrome anpassen</translation>
+<translation id="9221566509053798696">Google ist nicht dein Autofill-Anbieter</translation>
 <translation id="9222403027701923763">Primäre und sekundäre Schulbildung</translation>
 <translation id="9222463428840654067">Die Kartennummer ist ungültig</translation>
 <translation id="922849469395748170">Kundenkarten</translation>
